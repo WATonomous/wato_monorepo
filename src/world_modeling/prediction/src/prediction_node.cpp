@@ -36,6 +36,8 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("confidence_smoothing_alpha", 0.35);
   this->declare_parameter("confidence_match_distance_m", 6.0);
   this->declare_parameter("confidence_state_timeout_s", 5.0);
+  this->declare_parameter("stop_stationary_speed_threshold_mps", 0.4);
+  this->declare_parameter("stop_confidence_ramp_seconds", 3.0);
 
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
@@ -49,10 +51,14 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   confidence_smoothing_alpha_ = this->get_parameter("confidence_smoothing_alpha").as_double();
   confidence_match_distance_m_ = this->get_parameter("confidence_match_distance_m").as_double();
   confidence_state_timeout_s_ = this->get_parameter("confidence_state_timeout_s").as_double();
+  stop_stationary_speed_threshold_mps_ = this->get_parameter("stop_stationary_speed_threshold_mps").as_double();
+  stop_confidence_ramp_seconds_ = this->get_parameter("stop_confidence_ramp_seconds").as_double();
 
   confidence_smoothing_alpha_ = std::clamp(confidence_smoothing_alpha_, 0.0, 1.0);
   confidence_match_distance_m_ = std::max(0.1, confidence_match_distance_m_);
   confidence_state_timeout_s_ = std::max(0.5, confidence_state_timeout_s_);
+  stop_stationary_speed_threshold_mps_ = std::max(0.05, stop_stationary_speed_threshold_mps_);
+  stop_confidence_ramp_seconds_ = std::max(0.5, stop_confidence_ramp_seconds_);
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
@@ -61,6 +67,11 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
     "Confidence smoothing alpha: %.2f, match distance: %.1fm",
     confidence_smoothing_alpha_,
     confidence_match_distance_m_);
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Stop confidence ramp: %.1fs (stationary threshold %.2f m/s)",
+    stop_confidence_ramp_seconds_,
+    stop_stationary_speed_threshold_mps_);
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
@@ -232,7 +243,7 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
 
     auto features = intent_classifier_->extractFeatures(detection);
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
-    applyConfidenceSmoothing(detection.id, hypotheses);
+    applyConfidenceSmoothing(detection, hypotheses);
 
     // Filter out hypotheses that use lanelets already reserved by other objects
     std::vector<TrajectoryHypothesis> filtered_hypotheses;
@@ -297,13 +308,42 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
 }
 
 void PredictionNode::applyConfidenceSmoothing(
-  const std::string & object_id, std::vector<TrajectoryHypothesis> & hypotheses)
+  const vision_msgs::msg::Detection3D & detection, std::vector<TrajectoryHypothesis> & hypotheses)
 {
+  const std::string & object_id = detection.id;
   if (hypotheses.empty() || object_id.empty()) {
     return;
   }
 
+  const rclcpp::Time now = this->get_clock()->now();
   auto & state = confidence_history_[object_id];
+
+  const double observed_x = detection.bbox.center.position.x;
+  const double observed_y = detection.bbox.center.position.y;
+
+  if (state.has_observation) {
+    const double dt = (now - state.last_update).seconds();
+    if (dt > 0.01 && dt < 2.0) {
+      const double dx = observed_x - state.last_observed_x;
+      const double dy = observed_y - state.last_observed_y;
+      const double speed_mps = std::sqrt(dx * dx + dy * dy) / dt;
+      if (speed_mps <= stop_stationary_speed_threshold_mps_) {
+        state.stationary_duration_s += dt;
+      } else {
+        state.stationary_duration_s = 0.0;
+      }
+    } else if (dt >= 2.0) {
+      // Reset after stale tracks so we require consecutive stationary observations again.
+      state.stationary_duration_s = 0.0;
+    }
+  } else {
+    state.stationary_duration_s = 0.0;
+  }
+
+  state.last_observed_x = observed_x;
+  state.last_observed_y = observed_y;
+  state.has_observation = true;
+
   std::vector<SmoothedHypothesisState> updated_states;
   updated_states.reserve(hypotheses.size());
 
@@ -346,6 +386,12 @@ void PredictionNode::applyConfidenceSmoothing(
         confidence_smoothing_alpha_ * hypothesis.probability + (1.0 - confidence_smoothing_alpha_) * prev_conf;
     }
 
+    // Require sustained stationary motion before trusting stop intent fully.
+    if (hypothesis.intent == Intent::STOP) {
+      const double stop_ramp = std::clamp(state.stationary_duration_s / stop_confidence_ramp_seconds_, 0.0, 1.0);
+      hypothesis.probability *= stop_ramp;
+    }
+
     hypothesis.probability = std::clamp(hypothesis.probability, 0.0, 1.0);
     updated_states.push_back({hypothesis.intent, curr_x, curr_y, hypothesis.probability});
   }
@@ -364,7 +410,7 @@ void PredictionNode::applyConfidenceSmoothing(
   }
 
   state.hypotheses = std::move(updated_states);
-  state.last_update = this->get_clock()->now();
+  state.last_update = now;
 }
 
 void PredictionNode::pruneConfidenceHistory(const rclcpp::Time & now)
