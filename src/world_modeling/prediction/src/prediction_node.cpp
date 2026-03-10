@@ -383,13 +383,22 @@ void PredictionNode::applyConfidenceSmoothing(
     {
       used_previous_indices.insert(best_match_idx);
       const double prev_conf = state.hypotheses[best_match_idx].confidence;
-      hypothesis.probability =
-        confidence_smoothing_alpha_ * hypothesis.probability + (1.0 - confidence_smoothing_alpha_) * prev_conf;
+
+      // Use a faster alpha when the hypothesis generator has made a large
+      // probability swing (e.g. vehicle just stopped or just started moving).
+      // This prevents the EMA from keeping stale probabilities locked in for
+      // seconds after a clear state change.
+      const double delta = std::abs(hypothesis.probability - prev_conf);
+      const double adaptive_alpha = std::min(1.0, confidence_smoothing_alpha_ + delta);
+      hypothesis.probability = adaptive_alpha * hypothesis.probability + (1.0 - adaptive_alpha) * prev_conf;
     }
 
     // Require sustained stationary motion before trusting stop intent fully.
+    // Use a shorter ramp (1s) since the hysteresis-based stop state in the
+    // trajectory predictor already filters out noisy false stops.
     if (hypothesis.intent == Intent::STOP) {
-      const double stop_ramp = std::clamp(state.stationary_duration_s / stop_confidence_ramp_seconds_, 0.0, 1.0);
+      const double effective_ramp_s = std::max(0.5, stop_confidence_ramp_seconds_ * 0.33);
+      const double stop_ramp = std::clamp(state.stationary_duration_s / effective_ramp_s, 0.0, 1.0);
       hypothesis.probability *= stop_ramp;
     }
 

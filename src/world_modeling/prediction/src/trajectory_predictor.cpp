@@ -616,6 +616,18 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
     }
   }
 
+  // Speed-based motion credibility: attenuate all moving hypotheses when
+  // the vehicle is barely moving.  Without this, a perfectly lane-aligned
+  // stopped car scores just as high on CONTINUE_STRAIGHT as a moving one,
+  // because computeGeometricScore only considers heading & lateral offset.
+  // Sigmoid ramp: 0 at speed=0, ~0.5 at speed=1 m/s, ~1.0 above 2 m/s.
+  const double motion_credibility = 1.0 / (1.0 + std::exp(-3.0 * (speed - 1.0)));
+  for (auto & h : hypotheses) {
+    if (h.intent != Intent::STOP) {
+      h.probability *= (0.05 + 0.95 * motion_credibility);
+    }
+  }
+
   // Normalize probabilities
   if (!hypotheses.empty()) {
     double total = 0.0;
@@ -1146,6 +1158,14 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
     hyp.poses = bicycle_model_->generateTrajectory(
       initial_state, lcr_path, prediction_horizon_, time_step_, current_time, frame_id);
     hypotheses.push_back(hyp);
+  }
+
+  // Speed-based motion credibility (mirrors lanelet-aware logic above).
+  const double motion_credibility = 1.0 / (1.0 + std::exp(-3.0 * (speed - 1.0)));
+  for (auto & h : hypotheses) {
+    if (h.intent != Intent::STOP) {
+      h.probability *= (0.05 + 0.95 * motion_credibility);
+    }
   }
 
   RCLCPP_DEBUG(node_->get_logger(), "Generated %zu geometric vehicle hypotheses (no lanelet data)", hypotheses.size());
