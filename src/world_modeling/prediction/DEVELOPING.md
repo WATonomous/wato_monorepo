@@ -9,7 +9,6 @@ prediction_node.cpp       → ROS orchestrator (no algorithm logic)
 trajectory_predictor.cpp  → Strategy pattern (select algorithm by object type)
 motion_models.cpp         → Pure functions (physics-based state propagation)
 intent_classifier.cpp     → Probability assignment (independent of trajectories)
-map_interface.cpp         → Adapter for HD map services (currently placeholders)
 ```
 
 **Why this structure?**
