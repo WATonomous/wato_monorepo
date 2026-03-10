@@ -131,13 +131,12 @@ double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & 
 
   auto it = position_history_.find(detection.id);
 
-  // First observation — no history.  Return 0 and let the sigmoid
-  // give high stop probability.  The very next frame corrects via
-  // displacement/dt, so a moving car only appears "stopped" for one
-  // frame (absorbed by the confidence smoother).
+  // First observation — no displacement history yet.
+  // Return -1 sentinel: generators will skip stop/moving bias entirely,
+  // producing uniform priors so the confidence smoother has no bad data.
   if (it == position_history_.end()) {
-    position_history_[detection.id] = {x, y, 0.0, 0.0, now};
-    return 0.0;
+    position_history_[detection.id] = {x, y, 0.0, -1.0, now};
+    return -1.0;
   }
 
   double dt = (now - it->second.stamp).seconds();
@@ -155,7 +154,15 @@ double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & 
     raw_speed = it->second.smoothed_speed;
   }
 
-  double smoothed = kSpeedEmaAlpha * raw_speed + (1.0 - kSpeedEmaAlpha) * it->second.smoothed_speed;
+  // Second frame (first real measurement): previous smoothed_speed is the -1
+  // sentinel.  Use raw_speed directly — don't EMA-blend against a meaningless
+  // initial value.  After this, normal EMA applies.
+  double smoothed;
+  if (it->second.smoothed_speed < 0.0) {
+    smoothed = raw_speed;
+  } else {
+    smoothed = kSpeedEmaAlpha * raw_speed + (1.0 - kSpeedEmaAlpha) * it->second.smoothed_speed;
+  }
 
   position_history_[detection.id] = {x, y, raw_speed, smoothed, now};
   return smoothed;
@@ -238,7 +245,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   initial_state.x = detection.bbox.center.position.x;
   initial_state.y = detection.bbox.center.position.y;
   initial_state.theta = extractYaw(detection.bbox.center.orientation);
-  initial_state.v = speed;
+  initial_state.v = std::max(0.0, speed);  // clamp sentinel -1 to 0 for kinematics
   initial_state.a = 0.0;
   initial_state.delta = 0.0;
 
@@ -270,9 +277,10 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
                                      : match.lateral_offset * 0.3;  // discount expected curve offset
 
   // =========================================================================
-  // Stop probability — single sigmoid, no binary state
+  // Stop probability — single sigmoid, no binary state.
+  // speed < 0 is the "no data yet" sentinel → skip stop/moving bias entirely.
   // =========================================================================
-  const double stop_prob = computeStopProbability(speed);
+  const double stop_prob = (speed >= 0.0) ? computeStopProbability(speed) : 0.0;
 
   if (stop_prob > 0.01) {
     TrajectoryHypothesis hyp;
@@ -973,12 +981,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
   initial_state.x = detection.bbox.center.position.x;
   initial_state.y = detection.bbox.center.position.y;
   initial_state.theta = extractYaw(detection.bbox.center.orientation);
-  initial_state.v = speed;
+  initial_state.v = std::max(0.0, speed);  // clamp sentinel -1 to 0 for kinematics
   initial_state.a = 0.0;
   initial_state.delta = 0.0;
 
-  // Stop hypothesis — same sigmoid as lanelet-aware path
-  const double stop_prob = computeStopProbability(speed);
+  // Stop hypothesis — same sigmoid as lanelet-aware path.
+  // speed < 0 is the "no data yet" sentinel → skip stop/moving bias.
+  const double stop_prob = (speed >= 0.0) ? computeStopProbability(speed) : 0.0;
 
   if (stop_prob > 0.01) {
     TrajectoryHypothesis hyp;
