@@ -57,9 +57,10 @@ TrajectoryPredictor::TrajectoryPredictor(
 
 double TrajectoryPredictor::computeStopProbability(double speed)
 {
-  // Sigmoid: ~1 at 0 m/s, 0.5 at 0.5 m/s, ~0 above 1.5 m/s
-  constexpr double kMidpoint = 0.5;  // m/s — 50 % stop probability
-  constexpr double kSteepness = 6.0;  // transition sharpness
+  // Tight sigmoid: 50 % at 0.25 m/s, essentially 0 above ~0.7 m/s.
+  // Only truly stationary vehicles should get meaningful stop probability.
+  constexpr double kMidpoint = 0.25;  // m/s — 50 % stop probability
+  constexpr double kSteepness = 12.0;  // sharp transition
   return 1.0 / (1.0 + std::exp(kSteepness * (speed - kMidpoint)));
 }
 
@@ -165,6 +166,16 @@ double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & 
   }
 
   position_history_[detection.id] = {x, y, raw_speed, smoothed, now};
+
+  RCLCPP_DEBUG(
+    node_->get_logger(),
+    "Speed [%s]: raw=%.2f smoothed=%.2f dt=%.3f stop_prob=%.3f",
+    detection.id.c_str(),
+    raw_speed,
+    smoothed,
+    dt,
+    (smoothed >= 0.0) ? computeStopProbability(smoothed) : -1.0);
+
   return smoothed;
 }
 
@@ -287,7 +298,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 1.5 * stop_prob;
+    hyp.probability = stop_prob;
 
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
       geometry_msgs::msg::PoseStamped pose_stamped;
@@ -994,7 +1005,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 1.5 * stop_prob;
+    hyp.probability = stop_prob;
 
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
       geometry_msgs::msg::PoseStamped pose_stamped;
