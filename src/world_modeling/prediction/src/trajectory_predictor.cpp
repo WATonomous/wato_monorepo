@@ -193,11 +193,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
 
   switch (obj_type) {
     case ObjectType::VEHICLE:
-      if (hasLaneletData()) {
-        hypotheses = generateLaneletVehicleHypotheses(detection, estimated_speed);
-      }
-      // If ego cache didn't cover this vehicle, query per-vehicle lanelets
-      if (hypotheses.empty() && lanelet_query_fn_) {
+      if (lanelet_query_fn_) {
         double heading = extractYaw(detection.bbox.center.orientation);
         auto result = queryVehicleLanelets(detection.id, detection.bbox.center.position, heading);
         if (!result.lanelets.empty()) {
