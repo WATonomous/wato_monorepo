@@ -33,6 +33,7 @@
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <opencv2/opencv.hpp>
+#include <std_msgs/msg/header.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
@@ -255,25 +256,25 @@ public:
      * @brief Converts precomputed boxes to visualization marker array
      * @param boxes Precomputed 3D bounding boxes
      * @param cluster_indices Vector of cluster indices
-     * @param msg Point cloud message for header information
+     * @param header Header (frame_id, stamp) for output messages
      * @return Marker array for visualization
      */
   static visualization_msgs::msg::MarkerArray computeBoundingBox(
     const std::vector<Box3D> & boxes,
     const std::vector<pcl::PointIndices> & cluster_indices,
-    const sensor_msgs::msg::PointCloud2 & msg);
+    const std_msgs::msg::Header & header);
 
   /**
      * @brief Converts precomputed boxes to 3D detection array
      * @param boxes Precomputed 3D bounding boxes
      * @param cluster_indices Vector of cluster indices
-     * @param msg Point cloud message for header information
+     * @param header Header (frame_id, stamp) for output messages
      * @return Detection3DArray message
      */
   static vision_msgs::msg::Detection3DArray compute3DDetection(
     const std::vector<Box3D> & boxes,
     const std::vector<pcl::PointIndices> & cluster_indices,
-    const sensor_msgs::msg::PointCloud2 & msg);
+    const std_msgs::msg::Header & header);
 
 private:
   static const int image_width_ = 1600;

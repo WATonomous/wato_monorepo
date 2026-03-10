@@ -246,7 +246,7 @@ The `filterClustersByPhysicsConstraints()` function uses physics-based constrain
 merge_threshold: 0.30                    # Max distance between centroids to merge (m)
 object_detection_confidence: 0.40        # Min camera detection confidence
 voxel_size: 0.1                         # Voxel grid leaf size (m)
-publish_visualization: false            # Enable visualization topics
+publish_visualization: false            # Enable visualization (markers, lidar, cluster centroids + multi_image_compressed for image viz)
 debug_logging: false                     # Enable verbose logging
 ```
 
@@ -254,7 +254,7 @@ debug_logging: false                     # Enable verbose logging
 
 #### Subscribers
 - `multi_camera_info` (remapped to e.g. `/multi_camera_sync/multi_camera_info`): **Single batched** camera calibration from the deep_ros camera_sync node. The node does not subscribe to individual per-camera `camera_info` topics.
-- `multi_image`: Batched images from camera_sync (optional; used to keep the subscription graph consistent).
+- `multi_image` (remapped to `/multi_camera_sync/multi_image_compressed`): Batched **compressed** images from camera_sync, for image-based visualizations. Subscribed only when `publish_visualization: true`. Same pattern as deep_object_detection (compressed, not raw).
 - `non_ground_cloud`: Non-ground filtered point cloud (from patchwork++)
 - `detections`: Per-camera 2D detections from deep_object_detection
 

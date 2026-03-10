@@ -103,13 +103,17 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       kNonGroundCloud, 10, std::bind(&SpatialAssociationNode::nonGroundCloudCallback, this, std::placeholders::_1));
 
-    multi_image_sub_ = this->create_subscription<deep_msgs::msg::MultiImage>(
-      kMultiImage, 10, std::bind(&SpatialAssociationNode::multiImageCallback, this, std::placeholders::_1));
-
     multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
       kMultiCameraInfo,
       rclcpp::SensorDataQoS(),
       std::bind(&SpatialAssociationNode::multiCameraInfoCallback, this, std::placeholders::_1));
+
+    if (publish_visualization_) {
+      multi_image_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
+        kMultiImage,
+        rclcpp::SensorDataQoS(),
+        std::bind(&SpatialAssociationNode::multiImageCallback, this, std::placeholders::_1));
+    }
 
     dets_sub_ = this->create_subscription<vision_msgs::msg::Detection2DArray>(
       kDetections, 10, std::bind(&SpatialAssociationNode::detectionCallback, this, std::placeholders::_1));
@@ -166,6 +170,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   multi_image_sub_.reset();
   multi_camera_info_sub_.reset();
   dets_sub_.reset();
+  latest_multi_image_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -187,7 +192,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
-  camInfoMap_.clear();
+  latest_multi_camera_info_.reset();
+  latest_multi_image_.reset();
+  frame_id_to_index_.clear();
   filtered_point_cloud_.reset();
   cluster_indices.clear();
   working_colored_cluster_.reset();
@@ -214,7 +221,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
-  camInfoMap_.clear();
+  latest_multi_camera_info_.reset();
+  latest_multi_image_.reset();
+  frame_id_to_index_.clear();
   filtered_point_cloud_.reset();
   cluster_indices.clear();
   working_colored_cluster_.reset();
@@ -301,17 +310,17 @@ void SpatialAssociationNode::initializeParams()
 
 void SpatialAssociationNode::multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::SharedPtr msg)
 {
-  // Populate camera info cache from deep_ros batched message. Each entry is keyed by
-  // header.frame_id so it matches Detection2DArray.header.frame_id and TF camera frame names.
-  camInfoMap_.clear();
+  // Keep one SharedPtr to the message; index by frame_id. No copy of CameraInfo or image data.
+  latest_multi_camera_info_ = msg;
+  frame_id_to_index_.clear();
   size_t skipped = 0;
-  for (const auto & info : msg->camera_infos) {
-    const std::string & frame_id = info.header.frame_id;
+  for (size_t i = 0; i < msg->camera_infos.size(); ++i) {
+    const std::string & frame_id = msg->camera_infos[i].header.frame_id;
     if (frame_id.empty()) {
       skipped++;
       continue;
     }
-    camInfoMap_[frame_id] = std::make_shared<sensor_msgs::msg::CameraInfo>(info);
+    frame_id_to_index_[frame_id] = i;
   }
   if (skipped > 0) {
     RCLCPP_WARN_THROTTLE(
@@ -324,15 +333,15 @@ void SpatialAssociationNode::multiCameraInfoCallback(const deep_msgs::msg::Multi
   if (debug_logging_ && !msg->camera_infos.empty()) {
     RCLCPP_INFO(
       this->get_logger(),
-      "Updated CameraInfo cache from MultiCameraInfo: %zu camera(s) (frame_ids: keys for TF and detections)",
-      camInfoMap_.size());
+      "Updated CameraInfo index from MultiCameraInfo: %zu camera(s) (frame_ids: keys for TF and detections)",
+      frame_id_to_index_.size());
   }
 }
 
-void SpatialAssociationNode::multiImageCallback(const deep_msgs::msg::MultiImage::SharedPtr /*msg*/)
+void SpatialAssociationNode::multiImageCallback(const deep_msgs::msg::MultiImageCompressed::SharedPtr msg)
 {
-  // Camera intrinsics are now received via MultiCameraInfo; nothing to do here
-  // beyond keeping the subscription alive so the node stays in the graph.
+  // Store SharedPtr only; used for visualization when publish_visualization is true. No copy.
+  latest_multi_image_ = msg;
 }
 
 void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -341,10 +350,9 @@ void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::Poin
     RCLCPP_INFO(this->get_logger(), "Received non-ground cloud with %d points", msg->width * msg->height);
   }
 
-  latest_lidar_msg_ = *msg;
-
+  latest_lidar_header_ = msg->header;
   pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromROSMsg(latest_lidar_msg_, *input_cloud);
+  pcl::fromROSMsg(*msg, *input_cloud);
 
   if (input_cloud->empty()) {
     RCLCPP_WARN(this->get_logger(), "Received empty non-ground cloud");
@@ -375,12 +383,17 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
   // optical frame name in TF (sensor_interfacing). deep_ros uses the same camera name for both.
   const std::string & frame_id = msg->header.frame_id;
 
-  const auto it = camInfoMap_.find(frame_id);
-  if (it == camInfoMap_.end()) {
+  if (!latest_multi_camera_info_) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No MultiCameraInfo received yet");
+    return;
+  }
+  const auto it = frame_id_to_index_.find(frame_id);
+  if (it == frame_id_to_index_.end()) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000, "No CameraInfo for '%s', skipping detections", frame_id.c_str());
     return;
   }
+  const std::array<double, 12> & projection_matrix = latest_multi_camera_info_->camera_infos[it->second].p;
 
   if (!filtered_point_cloud_ || filtered_point_cloud_->empty()) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No non-ground cloud data, skipping detection processing");
@@ -392,8 +405,6 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
     return;
   }
 
-  const auto & camera_info = it->second;
-
   // Look up lidar -> camera transform from TF (published by sensor_interfacing).
   geometry_msgs::msg::TransformStamped tf_lidar_to_cam;
   try {
@@ -403,11 +414,11 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
     return;
   }
 
-  auto detection_results = processDetections(*msg, tf_lidar_to_cam, camera_info->p);
+  auto detection_results = processDetections(*msg, tf_lidar_to_cam, projection_matrix);
 
   // Publish 3D detections
   if (detection_3d_pub_ && detection_3d_pub_->is_activated()) {
-    detection_results.detections3d.header = latest_lidar_msg_.header;
+    detection_results.detections3d.header = latest_lidar_header_;
     detection_results.detections3d.header.stamp = this->get_clock()->now();
     detection_3d_pub_->publish(detection_results.detections3d);
   }
@@ -423,13 +434,13 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
     if (filtered_lidar_pub_ && filtered_lidar_pub_->is_activated() && detection_results.colored_cluster) {
       sensor_msgs::msg::PointCloud2 pcl2_msg;
       pcl::toROSMsg(*detection_results.colored_cluster, pcl2_msg);
-      pcl2_msg.header = latest_lidar_msg_.header;
+      pcl2_msg.header = latest_lidar_header_;
       filtered_lidar_pub_->publish(pcl2_msg);
     }
     if (cluster_centroid_pub_ && cluster_centroid_pub_->is_activated() && detection_results.centroid_cloud) {
       sensor_msgs::msg::PointCloud2 pcl2_msg;
       pcl::toROSMsg(*detection_results.centroid_cloud, pcl2_msg);
-      pcl2_msg.header = latest_lidar_msg_.header;
+      pcl2_msg.header = latest_lidar_header_;
       cluster_centroid_pub_->publish(pcl2_msg);
     }
   }
@@ -482,11 +493,11 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   auto boxes = core_->computeClusterBoxes(filtered_point_cloud_, working_cluster_indices);
 
   if (publish_visualization_) {
-    detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(boxes, working_cluster_indices, latest_lidar_msg_);
+    detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(boxes, working_cluster_indices, latest_lidar_header_);
   }
 
   detection_outputs.detections3d =
-    ProjectionUtils::compute3DDetection(boxes, working_cluster_indices, latest_lidar_msg_);
+    ProjectionUtils::compute3DDetection(boxes, working_cluster_indices, latest_lidar_header_);
 
   if (publish_visualization_) {
     detection_outputs.colored_cluster = working_colored_cluster_;

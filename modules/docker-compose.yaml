@@ -46,7 +46,7 @@ services:
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
 
   log_viewer:
-    container_name: watod_log_viewer
+    container_name: ${COMPOSE_PROJECT_NAME:-watod}_log_viewer
     build:
       context: ../watod_scripts/tools/log-viewer
       dockerfile: Dockerfile

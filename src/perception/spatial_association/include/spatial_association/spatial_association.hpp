@@ -28,12 +28,12 @@
 #include <vector>
 
 #include <deep_msgs/msg/multi_camera_info.hpp>
-#include <deep_msgs/msg/multi_image.hpp>
+#include <deep_msgs/msg/multi_image_compressed.hpp>
 #include <opencv2/opencv.hpp>
+#include <std_msgs/msg/header.hpp>
 #include <rclcpp/node_options.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
@@ -58,8 +58,8 @@ public:
   explicit SpatialAssociationNode(const rclcpp::NodeOptions & options);
 
   // Topic names (relative, remappable via launch)
-  static constexpr auto kMultiImage = "multi_image";
   static constexpr auto kMultiCameraInfo = "multi_camera_info";
+  static constexpr auto kMultiImage = "multi_image";  // Remap to multi_image_compressed for viz (config-toggleable)
   static constexpr auto kNonGroundCloud = "non_ground_cloud";
   static constexpr auto kDetections = "detections";
   static constexpr auto kFilteredLidar = "filtered_lidar";
@@ -82,10 +82,13 @@ private:
   bool publish_visualization_;
   bool debug_logging_;
 
-  // Camera info cache keyed by frame_id (camera name). Same frame_id is used in
-  // MultiCameraInfo.camera_infos[].header.frame_id, Detection2DArray.header.frame_id,
-  // and TF (camera optical frame from sensor_interfacing).
-  std::unordered_map<std::string, sensor_msgs::msg::CameraInfo::SharedPtr> camInfoMap_;
+  // Reference into latest MultiCameraInfo (no copy). frame_id_to_index_ maps
+  // frame_id (camera name) to index in latest_multi_camera_info_->camera_infos.
+  deep_msgs::msg::MultiCameraInfo::SharedPtr latest_multi_camera_info_;
+  std::unordered_map<std::string, size_t> frame_id_to_index_;
+
+  // Latest batched images (compressed) for visualization; only subscribed when publish_visualization_ is true. No copy.
+  deep_msgs::msg::MultiImageCompressed::SharedPtr latest_multi_image_;
 
   /**
    * @brief Called when a batched MultiCameraInfo arrives from the deep_ros camera_sync node.
@@ -94,7 +97,8 @@ private:
    */
   void multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::SharedPtr msg);
 
-  void multiImageCallback(const deep_msgs::msg::MultiImage::SharedPtr msg);
+  /** Called when batched (compressed) images arrive; only subscribed when publish_visualization is true. */
+  void multiImageCallback(const deep_msgs::msg::MultiImageCompressed::SharedPtr msg);
 
   void nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
@@ -111,7 +115,7 @@ private:
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix);
 
-  sensor_msgs::msg::PointCloud2 latest_lidar_msg_;
+  std_msgs::msg::Header latest_lidar_header_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
   std::vector<pcl::PointIndices> cluster_indices;
 
@@ -119,9 +123,9 @@ private:
 
   geometry_msgs::msg::TransformStamped transform;
 
-  // Subscriptions
-  rclcpp::Subscription<deep_msgs::msg::MultiImage>::SharedPtr multi_image_sub_;
+  // Subscriptions. multi_image (compressed) only when publish_visualization is true
   rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
+  rclcpp::Subscription<deep_msgs::msg::MultiImageCompressed>::SharedPtr multi_image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr non_ground_cloud_sub_;
   rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr dets_sub_;
 

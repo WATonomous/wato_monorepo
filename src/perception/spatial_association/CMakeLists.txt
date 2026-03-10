@@ -32,6 +32,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(deep_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
@@ -70,6 +71,7 @@ target_link_libraries(projection_utils
   PRIVATE
     ${geometry_msgs_TARGETS}
     ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${visualization_msgs_TARGETS}
     ${pcl_conversions_TARGETS}
@@ -121,6 +123,7 @@ target_link_libraries(spatial_association_node
     ${geometry_msgs_TARGETS}
     ${pcl_conversions_TARGETS}
     ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${visualization_msgs_TARGETS}
   PUBLIC
@@ -131,6 +134,10 @@ target_link_libraries(spatial_association_node
     tf2_geometry_msgs::tf2_geometry_msgs
     ${OpenCV_LIBS}
     ${PCL_LIBRARIES}
+)
+
+rclcpp_components_register_nodes(spatial_association_node
+  "SpatialAssociationNode"
 )
 
 # Standalone executable (needs include dirs for headers pulled in by spatial_association.hpp)
@@ -148,6 +155,7 @@ target_link_libraries(spatial_association_exe PRIVATE
   ${geometry_msgs_TARGETS}
   ${pcl_conversions_TARGETS}
   ${sensor_msgs_TARGETS}
+  ${std_msgs_TARGETS}
   ${vision_msgs_TARGETS}
   ${visualization_msgs_TARGETS}
 )

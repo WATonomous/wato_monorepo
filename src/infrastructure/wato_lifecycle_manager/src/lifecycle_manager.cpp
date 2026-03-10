@@ -18,6 +18,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -39,6 +40,7 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
   // Declare parameters
   this->declare_parameter<std::vector<std::string>>("node_names", std::vector<std::string>{});
   this->declare_parameter<bool>("autostart", false);
+  this->declare_parameter<double>("autostart_delay_s", 1.0);
   this->declare_parameter<double>("transition_timeout_s", 10.0);
   this->declare_parameter<double>("bond_timeout_s", 4.0);
   this->declare_parameter<bool>("bond_enabled", true);
@@ -46,6 +48,7 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
   // Get parameters
   node_names_ = this->get_parameter("node_names").as_string_array();
   autostart_ = this->get_parameter("autostart").as_bool();
+  autostart_delay_s_ = this->get_parameter("autostart_delay_s").as_double();
   transition_timeout_s_ = this->get_parameter("transition_timeout_s").as_double();
   bond_timeout_s_ = this->get_parameter("bond_timeout_s").as_double();
   bond_enabled_ = this->get_parameter("bond_enabled").as_bool();
@@ -92,9 +95,13 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
 
   // Autostart if configured
   if (autostart_ && !node_names_.empty()) {
-    RCLCPP_INFO(this->get_logger(), "Autostart enabled, starting managed nodes...");
-    // Use a one-shot timer to allow node to fully initialize first
-    autostart_timer_ = this->create_wall_timer(1s, [this]() {
+    RCLCPP_INFO(
+      this->get_logger(), "Autostart enabled (delay %.1f s), starting managed nodes...",
+      autostart_delay_s_);
+    // Use a one-shot timer to allow composable nodes to load before we transition managed nodes
+    const auto delay = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(autostart_delay_s_));
+    autostart_timer_ = this->create_wall_timer(delay, [this]() {
       // Cancel timer first to make it one-shot
       autostart_timer_->cancel();
       if (startup()) {
@@ -255,11 +262,32 @@ bool LifecycleManager::startup()
   auto timeout = std::chrono::seconds(static_cast<int>(transition_timeout_s_));
 
   // Configure and activate each node in order
+  constexpr int kMaxRetriesForUnknown = 5;
+  constexpr auto kRetryInterval = 2s;
+
   for (auto & node : nodes_) {
     RCLCPP_INFO(this->get_logger(), "Bringing up node: %s", node.name.c_str());
 
-    // Get current state
+    // Get current state; retry when UNKNOWN (node may not be loaded yet, e.g. composable node still loading)
     uint8_t state = getNodeState(node);
+    for (int retry = 0; state == State::PRIMARY_STATE_UNKNOWN && retry < kMaxRetriesForUnknown; ++retry) {
+      RCLCPP_INFO(
+        this->get_logger(), "Node %s not ready yet (GetState unavailable), retrying in %ld s...",
+        node.name.c_str(), std::chrono::duration_cast<std::chrono::seconds>(kRetryInterval).count());
+      std::this_thread::sleep_for(kRetryInterval);
+      if (!rclcpp::ok()) {
+        return false;
+      }
+      state = getNodeState(node);
+    }
+
+    if (state == State::PRIMARY_STATE_UNKNOWN) {
+      RCLCPP_ERROR(
+        this->get_logger(),
+        "Node %s did not become available (GetState never succeeded). Composable nodes may still be loading.",
+        node.name.c_str());
+      return false;
+    }
 
     // If unconfigured, configure first
     if (state == State::PRIMARY_STATE_UNCONFIGURED) {

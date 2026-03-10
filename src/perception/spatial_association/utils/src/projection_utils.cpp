@@ -171,7 +171,7 @@ constexpr float kMarkerAlpha = 0.2f;
 
 // Lifetime of visualization markers in seconds
 // Tune: Increase to keep markers longer, decrease for faster updates
-constexpr double kMarkerLifetimeSeconds = 0.15;
+constexpr double kMarkerLifetimeSeconds = 0.5;
 
 // Default detection confidence score (0.0-1.0)
 // Tune: Adjust based on your confidence scoring system
@@ -1344,7 +1344,7 @@ void ProjectionUtils::computeHighestIOUCluster(
 visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
   const std::vector<Box3D> & boxes,
   const std::vector<pcl::PointIndices> & cluster_indices,
-  const sensor_msgs::msg::PointCloud2 & msg)
+  const std_msgs::msg::Header & header)
 {
   visualization_msgs::msg::MarkerArray marker_array;
   if (boxes.size() != cluster_indices.size()) return marker_array;
@@ -1356,7 +1356,7 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
     const auto & box = boxes[i];
 
     visualization_msgs::msg::Marker bbox_marker;
-    bbox_marker.header = msg.header;
+    bbox_marker.header = header;
     bbox_marker.ns = "bounding_boxes";
     bbox_marker.id = id++;
     bbox_marker.type = visualization_msgs::msg::Marker::CUBE;
@@ -1390,10 +1390,10 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
 vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
   const std::vector<Box3D> & boxes,
   const std::vector<pcl::PointIndices> & cluster_indices,
-  const sensor_msgs::msg::PointCloud2 & msg)
+  const std_msgs::msg::Header & header)
 {
   vision_msgs::msg::Detection3DArray det_arr;
-  det_arr.header = msg.header;
+  det_arr.header = header;
 
   if (boxes.size() != cluster_indices.size()) return det_arr;
 
@@ -1404,7 +1404,7 @@ vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
     const auto & box = boxes[i];
 
     vision_msgs::msg::Detection3D det;
-    det.header = msg.header;
+    det.header = header;
 
     vision_msgs::msg::ObjectHypothesisWithPose hypo;
     hypo.hypothesis.class_id = "cluster";

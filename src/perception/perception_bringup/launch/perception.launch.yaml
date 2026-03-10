@@ -97,29 +97,28 @@ launch:
             - from: $(var config_file)
 
   # Load 3D tracking into the shared container
-  - load_composable_node:
-      target: perception_container
-      composable_node:
-        - pkg: tracking
-          plugin: TrackingNode
-          name: tracking_node
-          namespace: "perception"
-          param:
-            - from: $(var config_file)
-          remap:
-            - from: input_detections
-              to: /perception/detections_3D
-            - from: output_tracks
-              to: /perception/detections_3D_tracked
+  # - load_composable_node:
+  #     target: perception_container
+  #     composable_node:
+  #       - pkg: tracking
+  #         plugin: TrackingNode
+  #         name: tracking_node
+  #         namespace: "perception"
+  #         param:
+  #           - from: $(var config_file)
+  #         remap:
+  #           - from: input_detections
+  #             to: /perception/detections_3D
+  #           - from: output_tracks
+  #             to: /perception/detections_3D_tracked
 
   # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)
-  # Subscribes: multi_camera_sync multi_image_raw/multi_camera_info, perception detections,
-  #             perception non_ground_cloud; publishes: perception/detections_3D (consumed by tracking)
+  # Subscribes: multi_camera_info, detections, non_ground_cloud; optional multi_image (compressed) for viz
   - load_composable_node:
       target: perception_container
       composable_node:
         - pkg: spatial_association
-          plugin: spatial_association::SpatialAssociationNode
+          plugin: SpatialAssociationNode
           name: spatial_association_node
           namespace: ""
           extra_arg:
@@ -128,10 +127,10 @@ launch:
           param:
             - from: $(var config_file)
           remap:
-            - from: multi_image
-              to: /multi_camera_sync/multi_image_raw
             - from: multi_camera_info
               to: /multi_camera_sync/multi_camera_info
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_compressed
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
             - from: detections

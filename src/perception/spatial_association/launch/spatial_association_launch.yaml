@@ -46,10 +46,10 @@ launch:
       param:
         - from: $(var config_file)
       remap:
-        - from: multi_image
-          to: /multi_camera_sync/multi_image_raw
         - from: multi_camera_info
           to: /multi_camera_sync/multi_camera_info
+        - from: multi_image
+          to: /multi_camera_sync/multi_image_compressed
         - from: non_ground_cloud
           to: /perception/non_ground_cloud
         - from: detections
@@ -73,7 +73,7 @@ launch:
       if: $(var use_own_container)
       composable_node:
         - pkg: spatial_association
-          plugin: spatial_association::SpatialAssociationNode
+          plugin: SpatialAssociationNode
           name: spatial_association_node
           namespace: ""
           extra_arg:
@@ -82,10 +82,10 @@ launch:
           param:
             - from: $(var config_file)
           remap:
-            - from: multi_image
-              to: /multi_camera_sync/multi_image_raw
             - from: multi_camera_info
               to: /multi_camera_sync/multi_camera_info
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_compressed
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
             - from: detections
@@ -119,7 +119,7 @@ launch:
       if: $(var load_into_existing_container)
       composable_node:
         - pkg: spatial_association
-          plugin: spatial_association::SpatialAssociationNode
+          plugin: SpatialAssociationNode
           name: spatial_association_node
           namespace: ""
           extra_arg:
@@ -128,10 +128,10 @@ launch:
           param:
             - from: $(var config_file)
           remap:
-            - from: multi_image
-              to: /multi_camera_sync/multi_image_raw
             - from: multi_camera_info
               to: /multi_camera_sync/multi_camera_info
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_compressed
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
             - from: detections
