@@ -33,6 +33,7 @@ struct Wall
   geometry_msgs::msg::PoseStamped pose;
   double length;
   double width;
+  double inflation_radius;
 };
 
 class VirtualWallLayer : public CostmapLayer

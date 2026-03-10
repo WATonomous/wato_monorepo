@@ -66,6 +66,7 @@ void VirtualWallLayer::spawnWallCallback(
   wall.pose = request->pose;
   wall.length = request->length;
   wall.width = request->width;
+  wall.inflation_radius = request->inflation_radius;
 
   // If position_frame is specified, it means the input pose is defined in that frame,
   // but we want to store it relative to wall.pose.header.frame_id (the target frame).
@@ -153,6 +154,51 @@ void VirtualWallLayer::update(
     double wall_yaw = yawFromQuat(pose_out.pose.orientation);
 
     markBox(grid, cx, cy, wall_yaw, wall.length / 2.0, wall.width / 2.0, 100);
+
+    if (wall.inflation_radius > 0.0) {
+      const auto & info = grid.info;
+      const double ox = info.origin.position.x;
+      const double oy = info.origin.position.y;
+      const double res = info.resolution;
+      const int w = static_cast<int>(info.width);
+      const int h = static_cast<int>(info.height);
+      const double half_x = wall.length / 2.0;
+      const double half_y = wall.width / 2.0;
+      const double cos_yaw = std::cos(wall_yaw);
+      const double sin_yaw = std::sin(wall_yaw);
+
+      // Compute bounding box of the wall in grid coordinates (mirrors markBox logic)
+      double corners_local[4][2] = {{-half_x, -half_y}, {half_x, -half_y}, {half_x, half_y}, {-half_x, half_y}};
+      double min_gx = 1e9, max_gx = -1e9, min_gy = 1e9, max_gy = -1e9;
+      for (auto & c : corners_local) {
+        double gx = cx + cos_yaw * c[0] - sin_yaw * c[1];
+        double gy = cy + sin_yaw * c[0] + cos_yaw * c[1];
+        min_gx = std::min(min_gx, gx);
+        max_gx = std::max(max_gx, gx);
+        min_gy = std::min(min_gy, gy);
+        max_gy = std::max(max_gy, gy);
+      }
+
+      int min_col = std::max(0, static_cast<int>((min_gx - ox) / res));
+      int max_col = std::min(w - 1, static_cast<int>((max_gx - ox) / res));
+      int min_row = std::max(0, static_cast<int>((min_gy - oy) / res));
+      int max_row = std::min(h - 1, static_cast<int>((max_gy - oy) / res));
+
+      // Inflate only the wall's own cells, not all cost-100 cells in the grid
+      for (int row = min_row; row <= max_row; ++row) {
+        for (int col = min_col; col <= max_col; ++col) {
+          double wx = ox + (col + 0.5) * res;
+          double wy = oy + (row + 0.5) * res;
+          double dx = wx - cx;
+          double dy = wy - cy;
+          double lx = cos_yaw * dx + sin_yaw * dy;
+          double ly = -sin_yaw * dx + cos_yaw * dy;
+          if (std::abs(lx) <= half_x && std::abs(ly) <= half_y) {
+            inflateCell(grid, row, col, wall.inflation_radius, 0.5);
+          }
+        }
+      }
+    }
   }
 }
 
