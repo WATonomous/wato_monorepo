@@ -35,6 +35,7 @@
 #include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/get_world_objects_enriched_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
+#include "world_model/interfaces/services/get_lanelet_ahead_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
 #include "world_model/interfaces/services/shortest_route_service.hpp"
 
@@ -111,6 +112,8 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(
     std::make_unique<GetAreaOccupancyService>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));
+
+  interfaces_.push_back(std::make_unique<GetLaneletAheadService>(this, lanelet_handler_.get()));
 
   // Single inbound subscriber
   writer_ = std::make_unique<WorldModelWriter>(this, world_state_.get(), lanelet_handler_.get(), tf_buffer_.get());
