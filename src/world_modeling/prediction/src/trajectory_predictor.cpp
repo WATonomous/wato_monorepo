@@ -55,22 +55,12 @@ TrajectoryPredictor::TrajectoryPredictor(
   RCLCPP_INFO(node_->get_logger(), "TrajectoryPredictor initialized");
 }
 
-bool TrajectoryPredictor::isVehicleStopped(const std::string & vehicle_id) const
+double TrajectoryPredictor::computeStopProbability(double speed)
 {
-  auto it = position_history_.find(vehicle_id);
-  if (it == position_history_.end()) {
-    return false;
-  }
-  return it->second.is_stopped;
-}
-
-double TrajectoryPredictor::getSmoothedSpeed(const std::string & vehicle_id) const
-{
-  auto it = position_history_.find(vehicle_id);
-  if (it == position_history_.end()) {
-    return -1.0;
-  }
-  return it->second.smoothed_speed;
+  // Sigmoid: ~1 at 0 m/s, 0.5 at 0.5 m/s, ~0 above 1.5 m/s
+  constexpr double kMidpoint = 0.5;  // m/s — 50 % stop probability
+  constexpr double kSteepness = 6.0;  // transition sharpness
+  return 1.0 / (1.0 + std::exp(kSteepness * (speed - kMidpoint)));
 }
 
 void TrajectoryPredictor::setLaneletAhead(const lanelet_msgs::msg::LaneletAhead::SharedPtr & msg)
@@ -135,66 +125,39 @@ void TrajectoryPredictor::updateVehicleLaneletCache(
 
 double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & detection)
 {
-  double length = detection.bbox.size.x;
-  double default_speed = (length > 3.5) ? 5.0 : 1.4;
-
   rclcpp::Time now = node_->get_clock()->now();
   double x = detection.bbox.center.position.x;
   double y = detection.bbox.center.position.y;
 
   auto it = position_history_.find(detection.id);
-  double speed = default_speed;
 
-  if (it != position_history_.end()) {
-    double dt = (now - it->second.stamp).seconds();
-    if (dt > 0.01 && dt < 2.0) {
-      double dx = x - it->second.x;
-      double dy = y - it->second.y;
-      double raw_speed = std::sqrt(dx * dx + dy * dy) / dt;
-      // Clamp to a sane range: [0.0, 25.0] m/s for vehicles, [0.0, 3.0] for
-      // pedestrians/cyclists (allow zero speed for stopped objects)
-      if (length > 3.5) {
-        speed = std::clamp(raw_speed, 0.0, 25.0);
-      } else {
-        speed = std::clamp(raw_speed, 0.0, 3.0);
-      }
-    } else if (dt >= 2.0) {
-      // Track went stale: keep continuity from the last estimate instead of
-      // snapping to zero, which can create one-frame false STOP intents.
-      // Apply a mild decay so very old measurements lose influence gradually.
-      const double stale_s = dt - 2.0;
-      const double decay = std::exp(-0.15 * stale_s);
-      speed = std::clamp(it->second.speed * decay, 0.0, 25.0);
-    } else {
-      // Extremely small dt: retain previous estimate to avoid spikes.
-      speed = it->second.speed;
-    }
+  // First observation — no history.  Return 0 and let the sigmoid
+  // give high stop probability.  The very next frame corrects via
+  // displacement/dt, so a moving car only appears "stopped" for one
+  // frame (absorbed by the confidence smoother).
+  if (it == position_history_.end()) {
+    position_history_[detection.id] = {x, y, 0.0, 0.0, now};
+    return 0.0;
   }
 
-  // EMA smooth the speed estimate to reduce frame-to-frame noise
-  double smoothed = speed;
-  bool stopped = false;
-  if (it != position_history_.end()) {
-    smoothed = kSpeedEmaAlpha * speed + (1.0 - kSpeedEmaAlpha) * it->second.smoothed_speed;
+  double dt = (now - it->second.stamp).seconds();
+  double raw_speed = 0.0;
 
-    // Hysteresis: separate thresholds for entering/exiting stopped state
-    if (it->second.is_stopped) {
-      stopped = (smoothed < kStopExitThreshold);
-    } else {
-      stopped = (smoothed < kStopEnterThreshold);
-    }
+  if (dt > 0.01) {
+    // Displacement-based speed — works for any dt, including stale tracks.
+    double dx = x - it->second.x;
+    double dy = y - it->second.y;
+    raw_speed = std::sqrt(dx * dx + dy * dy) / dt;
+    double max_speed = (detection.bbox.size.x > 3.5) ? 25.0 : 3.0;
+    raw_speed = std::clamp(raw_speed, 0.0, max_speed);
+  } else {
+    // Sub-centisecond dt: displacement too small to measure, carry forward.
+    raw_speed = it->second.smoothed_speed;
   }
 
-  // Update history
-  PositionStamped history_entry;
-  history_entry.x = x;
-  history_entry.y = y;
-  history_entry.speed = speed;
-  history_entry.smoothed_speed = smoothed;
-  history_entry.is_stopped = stopped;
-  history_entry.stamp = now;
-  position_history_[detection.id] = history_entry;
+  double smoothed = kSpeedEmaAlpha * raw_speed + (1.0 - kSpeedEmaAlpha) * it->second.smoothed_speed;
 
+  position_history_[detection.id] = {x, y, raw_speed, smoothed, now};
   return smoothed;
 }
 
@@ -307,20 +270,17 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
                                      : match.lateral_offset * 0.3;  // discount expected curve offset
 
   // =========================================================================
-  // Heuristic 1: Stop persistence — stopped vehicles stay stopped.
-  // Uses hysteresis-based stop state to avoid flickering on noisy speed.
+  // Stop probability — single sigmoid, no binary state
   // =========================================================================
-  if (isVehicleStopped(detection.id)) {
-    // Scale stop confidence: lower speed → higher confidence in stop
-    double stop_confidence = std::clamp(1.0 - speed / kStopExitThreshold, 0.2, 1.0);
+  const double stop_prob = computeStopProbability(speed);
 
+  if (stop_prob > 0.01) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 2.0 * stop_confidence;
+    hyp.probability = 1.5 * stop_prob;
 
-    // Generate stationary trajectory
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
       geometry_msgs::msg::PoseStamped pose_stamped;
       pose_stamped.header.frame_id = frame_id;
@@ -332,9 +292,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
       hyp.poses.push_back(pose_stamped);
     }
 
-    // Track current lanelet for stop hypothesis
     hyp.lanelet_ids.push_back(current_ll.id);
-
     hypotheses.push_back(hyp);
   }
 
@@ -616,15 +574,11 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
     }
   }
 
-  // Speed-based motion credibility: attenuate all moving hypotheses when
-  // the vehicle is barely moving.  Without this, a perfectly lane-aligned
-  // stopped car scores just as high on CONTINUE_STRAIGHT as a moving one,
-  // because computeGeometricScore only considers heading & lateral offset.
-  // Sigmoid ramp: 0 at speed=0, ~0.5 at speed=1 m/s, ~1.0 above 2 m/s.
-  const double motion_credibility = 1.0 / (1.0 + std::exp(-3.0 * (speed - 1.0)));
+  // Scale moving hypotheses by (1 - stop_prob) so STOP and moving
+  // hypotheses are calibrated by the same sigmoid.
   for (auto & h : hypotheses) {
     if (h.intent != Intent::STOP) {
-      h.probability *= (0.05 + 0.95 * motion_credibility);
+      h.probability *= (1.0 - stop_prob);
     }
   }
 
@@ -1023,17 +977,15 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
   initial_state.a = 0.0;
   initial_state.delta = 0.0;
 
-  // Mirror lanelet-aware behavior for stopped objects.
-  // Don't early-return — always generate moving hypotheses too so a noisy
-  // low-speed frame can't eliminate all motion predictions.
-  if (isVehicleStopped(detection.id)) {
-    double stop_confidence = std::clamp(1.0 - speed / kStopExitThreshold, 0.2, 1.0);
+  // Stop hypothesis — same sigmoid as lanelet-aware path
+  const double stop_prob = computeStopProbability(speed);
 
+  if (stop_prob > 0.01) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 2.0 * stop_confidence;
+    hyp.probability = 1.5 * stop_prob;
 
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
       geometry_msgs::msg::PoseStamped pose_stamped;
@@ -1047,7 +999,6 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
     }
 
     hypotheses.push_back(hyp);
-    // Fall through to also generate moving hypotheses
   }
 
   // Continue Straight
@@ -1160,11 +1111,10 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
     hypotheses.push_back(hyp);
   }
 
-  // Speed-based motion credibility (mirrors lanelet-aware logic above).
-  const double motion_credibility = 1.0 / (1.0 + std::exp(-3.0 * (speed - 1.0)));
+  // Scale moving hypotheses by (1 - stop_prob)
   for (auto & h : hypotheses) {
     if (h.intent != Intent::STOP) {
-      h.probability *= (0.05 + 0.95 * motion_credibility);
+      h.probability *= (1.0 - stop_prob);
     }
   }
 

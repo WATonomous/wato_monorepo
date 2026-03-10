@@ -77,9 +77,6 @@ private:
   struct SmoothedObjectState
   {
     std::vector<SmoothedHypothesisState> hypotheses;
-    double last_observed_x{0.0};
-    double last_observed_y{0.0};
-    double stationary_duration_s{0.0};
     bool has_observation{false};
     rclcpp::Time last_update;
   };
@@ -115,8 +112,6 @@ private:
   double confidence_smoothing_alpha_;
   double confidence_match_distance_m_;
   double confidence_state_timeout_s_;
-  double stop_stationary_speed_threshold_mps_;
-  double stop_confidence_ramp_seconds_;
 };
 
 }  // namespace prediction

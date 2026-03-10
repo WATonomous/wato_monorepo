@@ -36,8 +36,6 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("confidence_smoothing_alpha", 0.35);
   this->declare_parameter("confidence_match_distance_m", 6.0);
   this->declare_parameter("confidence_state_timeout_s", 5.0);
-  this->declare_parameter("stop_stationary_speed_threshold_mps", 0.4);
-  this->declare_parameter("stop_confidence_ramp_seconds", 3.0);
 
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
@@ -51,14 +49,10 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   confidence_smoothing_alpha_ = this->get_parameter("confidence_smoothing_alpha").as_double();
   confidence_match_distance_m_ = this->get_parameter("confidence_match_distance_m").as_double();
   confidence_state_timeout_s_ = this->get_parameter("confidence_state_timeout_s").as_double();
-  stop_stationary_speed_threshold_mps_ = this->get_parameter("stop_stationary_speed_threshold_mps").as_double();
-  stop_confidence_ramp_seconds_ = this->get_parameter("stop_confidence_ramp_seconds").as_double();
 
   confidence_smoothing_alpha_ = std::clamp(confidence_smoothing_alpha_, 0.0, 1.0);
   confidence_match_distance_m_ = std::max(0.1, confidence_match_distance_m_);
   confidence_state_timeout_s_ = std::max(0.5, confidence_state_timeout_s_);
-  stop_stationary_speed_threshold_mps_ = std::max(0.05, stop_stationary_speed_threshold_mps_);
-  stop_confidence_ramp_seconds_ = std::max(0.5, stop_confidence_ramp_seconds_);
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
@@ -67,11 +61,6 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
     "Confidence smoothing alpha: %.2f, match distance: %.1fm",
     confidence_smoothing_alpha_,
     confidence_match_distance_m_);
-  RCLCPP_INFO(
-    this->get_logger(),
-    "Stop confidence ramp: %.1fs (stationary threshold %.2f m/s)",
-    stop_confidence_ramp_seconds_,
-    stop_stationary_speed_threshold_mps_);
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
@@ -318,31 +307,6 @@ void PredictionNode::applyConfidenceSmoothing(
   const rclcpp::Time now = this->get_clock()->now();
   auto & state = confidence_history_[object_id];
 
-  const double observed_x = detection.bbox.center.position.x;
-  const double observed_y = detection.bbox.center.position.y;
-
-  // Use the trajectory predictor's smoothed speed and hysteresis-based stop
-  // state instead of recomputing speed independently.  This ensures the
-  // confidence smoother and the hypothesis generator agree on whether the
-  // vehicle is stopped.
-  if (state.has_observation) {
-    const double dt = (now - state.last_update).seconds();
-    if (dt > 0.01) {
-      const bool stopped = trajectory_predictor_->isVehicleStopped(object_id);
-      if (stopped) {
-        state.stationary_duration_s += dt;
-      } else {
-        // Decay faster when hysteresis says moving — the vehicle has crossed
-        // the exit threshold so we should trust it more aggressively.
-        state.stationary_duration_s = std::max(0.0, state.stationary_duration_s - 2.0 * dt);
-      }
-    }
-  } else {
-    state.stationary_duration_s = 0.0;
-  }
-
-  state.last_observed_x = observed_x;
-  state.last_observed_y = observed_y;
   state.has_observation = true;
 
   std::vector<SmoothedHypothesisState> updated_states;
@@ -383,23 +347,8 @@ void PredictionNode::applyConfidenceSmoothing(
     {
       used_previous_indices.insert(best_match_idx);
       const double prev_conf = state.hypotheses[best_match_idx].confidence;
-
-      // Use a faster alpha when the hypothesis generator has made a large
-      // probability swing (e.g. vehicle just stopped or just started moving).
-      // This prevents the EMA from keeping stale probabilities locked in for
-      // seconds after a clear state change.
-      const double delta = std::abs(hypothesis.probability - prev_conf);
-      const double adaptive_alpha = std::min(1.0, confidence_smoothing_alpha_ + delta);
-      hypothesis.probability = adaptive_alpha * hypothesis.probability + (1.0 - adaptive_alpha) * prev_conf;
-    }
-
-    // Require sustained stationary motion before trusting stop intent fully.
-    // Use a shorter ramp (1s) since the hysteresis-based stop state in the
-    // trajectory predictor already filters out noisy false stops.
-    if (hypothesis.intent == Intent::STOP) {
-      const double effective_ramp_s = std::max(0.5, stop_confidence_ramp_seconds_ * 0.33);
-      const double stop_ramp = std::clamp(state.stationary_duration_s / effective_ramp_s, 0.0, 1.0);
-      hypothesis.probability *= stop_ramp;
+      hypothesis.probability =
+        confidence_smoothing_alpha_ * hypothesis.probability + (1.0 - confidence_smoothing_alpha_) * prev_conf;
     }
 
     hypothesis.probability = std::clamp(hypothesis.probability, 0.0, 1.0);

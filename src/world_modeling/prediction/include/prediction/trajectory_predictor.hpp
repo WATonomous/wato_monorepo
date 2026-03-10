@@ -253,20 +253,21 @@ private:
     double y;
     double speed;  // Raw instantaneous speed
     double smoothed_speed;  // EMA-filtered speed
-    bool is_stopped;  // Hysteresis-based stopped state
     rclcpp::Time stamp;
   };
 
   std::unordered_map<std::string, PositionStamped> position_history_;
 
-  // Speed smoothing and stop hysteresis constants
   static constexpr double kSpeedEmaAlpha = 0.35;  // EMA weight for new speed observations
-  static constexpr double kStopEnterThreshold = 0.3;  // m/s — must drop below to enter stopped
-  static constexpr double kStopExitThreshold = 1.0;  // m/s — must exceed to leave stopped
 
 public:
-  bool isVehicleStopped(const std::string & vehicle_id) const;
-  double getSmoothedSpeed(const std::string & vehicle_id) const;
+  /**
+   * @brief Probability that a vehicle is stopped, given its smoothed speed.
+   *
+   * Pure sigmoid — no internal state.  Returns ~1.0 for speed ≈ 0,
+   * 0.5 at 0.5 m/s, and ~0 above ~1.5 m/s.
+   */
+  static double computeStopProbability(double speed);
 
   /**
    * @brief Query lanelets for a specific vehicle, using per-vehicle cache.
