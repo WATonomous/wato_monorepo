@@ -262,13 +262,14 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
 
   // =========================================================================
   // Heuristic 1: Stop persistence — stopped vehicles stay stopped
+  // Default intent for non-moving vehicles is STOP
   // =========================================================================
   if (speed < 0.5) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 3.0; // high raw score, will be normalized
+    hyp.probability = 1.0; // Only hypothesis for stopped vehicles
 
     // Generate stationary trajectory
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
@@ -282,7 +283,20 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
       pose_stamped.pose.orientation = detection.bbox.center.orientation;
       hyp.poses.push_back(pose_stamped);
     }
+
+    // Track current lanelet for stop hypothesis
+    hyp.lanelet_ids.push_back(current_ll.id);
+
     hypotheses.push_back(hyp);
+    
+    // Record STOP as the dominant intent
+    previous_intent_[detection.id] = Intent::STOP;
+    
+    // Return immediately - stopped vehicles only get STOP intent
+    RCLCPP_DEBUG(node_->get_logger(),
+                 "Vehicle %s is stopped (speed %.2f m/s), only STOP hypothesis generated",
+                 detection.id.c_str(), speed);
+    return hypotheses;
   }
 
   // =========================================================================
@@ -349,6 +363,10 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
         if (prev_intent != Intent::UNKNOWN && prev_intent == hyp.intent) {
           hyp.probability *= 1.3;
         }
+
+        // Track lanelet IDs used in this prediction path
+        hyp.lanelet_ids =
+            extractForwardPathLaneletIds(current_ll, required_distance);
 
         hypotheses.push_back(hyp);
       }
@@ -428,6 +446,18 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
           hyp.probability *= 1.3;
         }
 
+        // Track lanelet IDs for this intersection exit
+        hyp.lanelet_ids.push_back(current_ll.id);
+        hyp.lanelet_ids.push_back(succ_id);
+        // Add second successor if present
+        for (int64_t succ_succ_id : succ_ll->successor_ids) {
+          const auto *ss = findLaneletById(succ_succ_id);
+          if (ss) {
+            hyp.lanelet_ids.push_back(succ_succ_id);
+            break; // Only track first successor's successor
+          }
+        }
+
         hypotheses.push_back(hyp);
       }
     }
@@ -487,6 +517,11 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
           hyp.probability *= 0.1; // Heuristic 10: rarely switch directions
         }
 
+        // Track lanelet IDs for lane change path
+        hyp.lanelet_ids =
+            extractLaneChangePathLaneletIds(current_ll, current_ll.left_lane_id,
+                                            required_distance);
+
         hypotheses.push_back(hyp);
       }
     }
@@ -533,6 +568,11 @@ TrajectoryPredictor::generateLaneletVehicleHypotheses(
         } else if (prev_intent == Intent::LANE_CHANGE_LEFT) {
           hyp.probability *= 0.1;
         }
+
+        // Track lanelet IDs for lane change path
+        hyp.lanelet_ids =
+            extractLaneChangePathLaneletIds(current_ll, current_ll.right_lane_id,
+                                            required_distance);
 
         hypotheses.push_back(hyp);
       }
@@ -745,6 +785,71 @@ TrajectoryPredictor::findLaneletById(int64_t id) const {
     return &lanelet_cache_.lanelets[it->second];
   }
   return nullptr;
+}
+
+std::vector<int64_t> TrajectoryPredictor::extractForwardPathLaneletIds(
+    const lanelet_msgs::msg::Lanelet &lanelet, double required_distance) const {
+  std::vector<int64_t> lanelet_ids;
+  lanelet_ids.push_back(lanelet.id);
+
+  // Extend through successors if needed
+  std::vector<int64_t> to_visit(lanelet.successor_ids.begin(),
+                                lanelet.successor_ids.end());
+  size_t visit_idx = 0;
+  double accumulated = 0.0;
+
+  for (const auto &pt : lanelet.centerline) {
+    if (lanelet_ids.size() > 1 || accumulated > 0) {
+      accumulated += (pt.x * pt.x + pt.y * pt.y); // Simple distance proxy
+    }
+  }
+
+  while (accumulated < required_distance && visit_idx < to_visit.size()) {
+    const auto *succ = findLaneletById(to_visit[visit_idx]);
+    ++visit_idx;
+    if (!succ)
+      continue;
+
+    lanelet_ids.push_back(succ->id);
+    for (const auto &pt : succ->centerline) {
+      accumulated += 0.1; // Simplified distance accumulation
+    }
+
+    // Add this successor's successors
+    if (accumulated < required_distance && !succ->successor_ids.empty()) {
+      to_visit.push_back(succ->successor_ids[0]);
+    }
+  }
+
+  return lanelet_ids;
+}
+
+std::vector<int64_t> TrajectoryPredictor::extractLaneChangePathLaneletIds(
+    const lanelet_msgs::msg::Lanelet &current_lanelet, int64_t target_lane_id,
+    double required_distance) const {
+  std::vector<int64_t> lanelet_ids;
+  lanelet_ids.push_back(current_lanelet.id);
+
+  const auto *target_ll = findLaneletById(target_lane_id);
+  if (!target_ll)
+    return lanelet_ids;
+
+  lanelet_ids.push_back(target_ll->id);
+
+  // Add target's successors if needed
+  double accumulated = 0.0;
+  for (const auto &pt : target_ll->centerline) {
+    accumulated += 0.1; // Simplified accumulation
+  }
+
+  if (accumulated < required_distance && !target_ll->successor_ids.empty()) {
+    const auto *succ = findLaneletById(target_ll->successor_ids[0]);
+    if (succ) {
+      lanelet_ids.push_back(succ->id);
+    }
+  }
+
+  return lanelet_ids;
 }
 
 double TrajectoryPredictor::computePathLength(

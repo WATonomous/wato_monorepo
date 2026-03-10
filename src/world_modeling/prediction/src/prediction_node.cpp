@@ -224,6 +224,9 @@ void PredictionNode::trackedObjectsCallback(
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
 
+  // Track lanelet IDs reserved by predictions to prevent overlaps
+  std::unordered_set<int64_t> reserved_lanelets;
+
   for (const auto &detection : msg->detections) {
     // Skip generating predictions for traffic lights
     bool is_traffic_light = false;
@@ -249,10 +252,54 @@ void PredictionNode::trackedObjectsCallback(
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
     applyConfidenceSmoothing(detection.id, hypotheses);
 
+    // Filter out hypotheses that use lanelets already reserved by other objects
+    std::vector<TrajectoryHypothesis> filtered_hypotheses;
+    for (const auto &hypothesis : hypotheses) {
+      bool has_conflict = false;
+      // Check if any lanelet in this hypothesis is already reserved
+      for (int64_t lanelet_id : hypothesis.lanelet_ids) {
+        if (reserved_lanelets.count(lanelet_id) > 0) {
+          has_conflict = true;
+          RCLCPP_DEBUG(this->get_logger(),
+                       "Filtering hypothesis for object %s: lanelet %ld already "
+                       "used by another prediction",
+                       detection.id.c_str(), lanelet_id);
+          break;
+        }
+      }
+      if (!has_conflict) {
+        filtered_hypotheses.push_back(hypothesis);
+      }
+    }
+
+    // If all hypotheses were filtered out, keep the highest-probability one
+    // to ensure every object has at least one prediction
+    if (filtered_hypotheses.empty() && !hypotheses.empty()) {
+      RCLCPP_DEBUG(this->get_logger(),
+                   "Object %s all hypotheses filtered; keeping highest probability",
+                   detection.id.c_str());
+      size_t best_idx = 0;
+      double best_prob = hypotheses[0].probability;
+      for (size_t i = 1; i < hypotheses.size(); ++i) {
+        if (hypotheses[i].probability > best_prob) {
+          best_prob = hypotheses[i].probability;
+          best_idx = i;
+        }
+      }
+      filtered_hypotheses.push_back(hypotheses[best_idx]);
+    }
+
+    // Reserve the lanelets used by this object's predictions
+    for (const auto &hypothesis : filtered_hypotheses) {
+      for (int64_t lanelet_id : hypothesis.lanelet_ids) {
+        reserved_lanelets.insert(lanelet_id);
+      }
+    }
+
     world_model_msgs::msg::WorldObject world_obj;
     world_obj.detection = detection;
 
-    for (const auto &hypothesis : hypotheses) {
+    for (const auto &hypothesis : filtered_hypotheses) {
       world_model_msgs::msg::Prediction pred;
       pred.header.frame_id = msg->header.frame_id;
       pred.conf = hypothesis.probability;
