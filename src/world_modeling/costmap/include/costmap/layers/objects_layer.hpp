@@ -22,7 +22,8 @@
 #include "rclcpp/subscription.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
 
-namespace costmap {
+namespace costmap
+{
 
 /**
  * @brief Marks cells occupied by tracked world objects and their predictions.
@@ -31,30 +32,27 @@ namespace costmap {
  * predicted trajectory into the costmap frame, and stamps inflated costs with
  * configurable decay.
  */
-class ObjectsLayer : public CostmapLayer {
+class ObjectsLayer : public CostmapLayer
+{
 public:
-  void configure(rclcpp_lifecycle::LifecycleNode *node,
-                 const std::string &layer_name,
-                 tf2_ros::Buffer *tf_buffer) override;
+  void configure(
+    rclcpp_lifecycle::LifecycleNode * node, const std::string & layer_name, tf2_ros::Buffer * tf_buffer) override;
 
   void activate() override;
   void deactivate() override;
   void cleanup() override;
 
-  void
-  update(nav_msgs::msg::OccupancyGrid &grid,
-         const geometry_msgs::msg::TransformStamped &map_to_costmap) override;
+  void update(
+    nav_msgs::msg::OccupancyGrid & grid, const geometry_msgs::msg::TransformStamped & map_to_costmap) override;
 
 private:
-  void
-  objectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
+  void objectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
 
-  rclcpp_lifecycle::LifecycleNode *node_{nullptr};
-  tf2_ros::Buffer *tf_buffer_{nullptr};
+  rclcpp_lifecycle::LifecycleNode * node_{nullptr};
+  tf2_ros::Buffer * tf_buffer_{nullptr};
   std::string layer_name_;
 
-  rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr
-      objects_sub_;
+  rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr objects_sub_;
 
   std::mutex data_mutex_;
   world_model_msgs::msg::WorldObjectArray::SharedPtr latest_objects_;
@@ -65,6 +63,6 @@ private:
   double max_centroid_height_m_{100.0};
 };
 
-} // namespace costmap
+}  // namespace costmap
 
-#endif // COSTMAP__LAYERS__OBJECTS_LAYER_HPP_
+#endif  // COSTMAP__LAYERS__OBJECTS_LAYER_HPP_

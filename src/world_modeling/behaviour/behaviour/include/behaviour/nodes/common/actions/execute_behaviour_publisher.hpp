@@ -22,62 +22,58 @@
 #include <behaviortree_ros2/bt_topic_pub_node.hpp>
 
 #include "behaviour/utils/ports.hpp"
-#include "behaviour_msgs/msg/execute_behaviour.hpp" // Assuming msg equivalent exists
+#include "behaviour_msgs/msg/execute_behaviour.hpp"  // Assuming msg equivalent exists
 
-namespace behaviour {
+namespace behaviour
+{
 /**
  * @class ExecuteBehaviourPublisher
  * @brief RosTopicPubNode to publish ExecuteBehaviour messages.
  */
-class ExecuteBehaviourPublisher
-    : public BT::RosTopicPubNode<behaviour_msgs::msg::ExecuteBehaviour> {
+class ExecuteBehaviourPublisher : public BT::RosTopicPubNode<behaviour_msgs::msg::ExecuteBehaviour>
+{
 public:
-  ExecuteBehaviourPublisher(const std::string &name, const BT::NodeConfig &conf,
-                            const BT::RosNodeParams &params)
-      : BT::RosTopicPubNode<behaviour_msgs::msg::ExecuteBehaviour>(name, conf,
-                                                                   params) {}
+  ExecuteBehaviourPublisher(const std::string & name, const BT::NodeConfig & conf, const BT::RosNodeParams & params)
+  : BT::RosTopicPubNode<behaviour_msgs::msg::ExecuteBehaviour>(name, conf, params)
+  {}
 
-  static BT::PortsList providedPorts() {
+  static BT::PortsList providedPorts()
+  {
     return providedBasicPorts(
-        {BT::InputPort<std::string>("behaviour", "The behaviour to execute"),
-         BT::InputPort<std::vector<int64_t>>("preferred_lanelet_ids")});
+      {BT::InputPort<std::string>("behaviour", "The behaviour to execute"),
+       BT::InputPort<std::vector<int64_t>>("preferred_lanelet_ids")});
   }
 
   /**
    * @brief Callback to fill the message.
    * Returning true sends the message; returning false skips publishing.
    */
-  bool setMessage(behaviour_msgs::msg::ExecuteBehaviour &msg) override {
-    const auto missing_input_callback = [&](const char *port_name) {
-      RCLCPP_WARN(node_->get_logger(), "[%s] Missing input port: %s",
-                  name().c_str(), port_name);
+  bool setMessage(behaviour_msgs::msg::ExecuteBehaviour & msg) override
+  {
+    const auto missing_input_callback = [&](const char * port_name) {
+      RCLCPP_WARN(node_->get_logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
     };
 
     auto behaviour = ports::tryGet<std::string>(*this, "behaviour");
-    auto preferred_lanelet_ids =
-        ports::tryGet<std::vector<int64_t>>(*this, "preferred_lanelet_ids");
+    auto preferred_lanelet_ids = ports::tryGet<std::vector<int64_t>>(*this, "preferred_lanelet_ids");
     if (!ports::require(behaviour, "behaviour", missing_input_callback)) {
       return false;
     }
 
     if (!preferred_lanelet_ids) {
-      RCLCPP_DEBUG(node_->get_logger(),
-                   "[%s] No preferred lanelet IDs provided on port",
-                   name().c_str());
+      RCLCPP_DEBUG(node_->get_logger(), "[%s] No preferred lanelet IDs provided on port", name().c_str());
     }
 
     msg.behaviour = behaviour.value();
-    msg.preferred_lanelet_ids = preferred_lanelet_ids.has_value()
-                                    ? preferred_lanelet_ids.value()
-                                    : std::vector<int64_t>{};
+    msg.preferred_lanelet_ids =
+      preferred_lanelet_ids.has_value() ? preferred_lanelet_ids.value() : std::vector<int64_t>{};
 
-    RCLCPP_DEBUG(node_->get_logger(), "[%s] Publishing behaviour: %s",
-                 name().c_str(), msg.behaviour.c_str());
-    RCLCPP_DEBUG(node_->get_logger(), "[%s] Preferred lanelet IDs count: %zu",
-                 name().c_str(), msg.preferred_lanelet_ids.size());
+    RCLCPP_DEBUG(node_->get_logger(), "[%s] Publishing behaviour: %s", name().c_str(), msg.behaviour.c_str());
+    RCLCPP_DEBUG(
+      node_->get_logger(), "[%s] Preferred lanelet IDs count: %zu", name().c_str(), msg.preferred_lanelet_ids.size());
     return true;
   }
 };
-} // namespace behaviour
+}  // namespace behaviour
 
-#endif // BEHAVIOUR__NODES__COMMON__ACTIONS__EXECUTE_BEHAVIOUR_PUBLISHER_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__ACTIONS__EXECUTE_BEHAVIOUR_PUBLISHER_HPP_

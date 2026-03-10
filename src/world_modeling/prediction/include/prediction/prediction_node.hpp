@@ -16,89 +16,83 @@
 #define PREDICTION__PREDICTION_NODE_HPP_
 
 // Standard library headers for memory management and data structures
-#include <memory>        // For std::unique_ptr and std::shared_ptr
-#include <string>        // For std::string in object IDs and keys
-#include <unordered_map> // For storing per-object and per-vehicle state
-#include <unordered_set> // For tracking pending vehicle requests
-#include <vector>        // For collections of hypotheses and objects
+#include <memory>  // For std::unique_ptr and std::shared_ptr
+#include <string>  // For std::string in object IDs and keys
+#include <unordered_map>  // For storing per-object and per-vehicle state
+#include <unordered_set>  // For tracking pending vehicle requests
+#include <vector>  // For collections of hypotheses and objects
 
 // ROS2 message types
-#include "geometry_msgs/msg/pose_stamped.hpp" // For ego vehicle pose
-#include "lanelet_msgs/msg/lanelet_ahead.hpp" // For reachable lanelets
-#include "lanelet_msgs/srv/get_lanelet_ahead.hpp" // For querying lanelets around vehicles
-#include "vision_msgs/msg/detection3_d_array.hpp" // For tracked object detections
-#include "world_model_msgs/msg/world_object.hpp" // For individual predicted objects
-#include "world_model_msgs/msg/world_object_array.hpp" // For predicted object arrays
+#include "geometry_msgs/msg/pose_stamped.hpp"  // For ego vehicle pose
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"  // For reachable lanelets
+#include "lanelet_msgs/srv/get_lanelet_ahead.hpp"  // For querying lanelets around vehicles
+#include "vision_msgs/msg/detection3_d_array.hpp"  // For tracked object detections
+#include "world_model_msgs/msg/world_object.hpp"  // For individual predicted objects
+#include "world_model_msgs/msg/world_object_array.hpp"  // For predicted object arrays
 
 // ROS2 core and lifecycle
-#include "rclcpp/rclcpp.hpp"                   // ROS2 C++ client library
-#include "rclcpp_lifecycle/lifecycle_node.hpp" // For lifecycle node management
+#include "rclcpp/rclcpp.hpp"  // ROS2 C++ client library
+#include "rclcpp_lifecycle/lifecycle_node.hpp"  // For lifecycle node management
 
 // Project-specific headers
-#include "prediction/intent_classifier.hpp" // For maneuver intent detection
-#include "prediction/trajectory_predictor.hpp" // For trajectory hypothesis generation
+#include "prediction/intent_classifier.hpp"  // For maneuver intent detection
+#include "prediction/trajectory_predictor.hpp"  // For trajectory hypothesis generation
 
-namespace prediction {
+namespace prediction
+{
 
-class PredictionNode : public rclcpp_lifecycle::LifecycleNode {
+class PredictionNode : public rclcpp_lifecycle::LifecycleNode
+{
 public:
-  explicit PredictionNode(
-      const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
+  explicit PredictionNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
   ~PredictionNode() override = default;
 
 protected:
-  using CallbackReturn =
-      rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-  CallbackReturn on_configure(const rclcpp_lifecycle::State &state) override;
-  CallbackReturn on_activate(const rclcpp_lifecycle::State &state) override;
-  CallbackReturn on_deactivate(const rclcpp_lifecycle::State &state) override;
-  CallbackReturn on_cleanup(const rclcpp_lifecycle::State &state) override;
-  CallbackReturn on_shutdown(const rclcpp_lifecycle::State &state) override;
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  void trackedObjectsCallback(
-      const vision_msgs::msg::Detection3DArray::SharedPtr msg);
+  void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-  void
-  laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
+  void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   // Temporal confidence smoothing to reduce frame-to-frame flicker.
-  void applyConfidenceSmoothing(const std::string &object_id,
-                                std::vector<TrajectoryHypothesis> &hypotheses);
-  void pruneConfidenceHistory(const rclcpp::Time &now);
+  void applyConfidenceSmoothing(const std::string & object_id, std::vector<TrajectoryHypothesis> & hypotheses);
+  void pruneConfidenceHistory(const rclcpp::Time & now);
 
-  struct SmoothedHypothesisState {
+  struct SmoothedHypothesisState
+  {
     Intent intent;
     double end_x;
     double end_y;
     double confidence;
   };
 
-  struct SmoothedObjectState {
+  struct SmoothedObjectState
+  {
     std::vector<SmoothedHypothesisState> hypotheses;
     rclcpp::Time last_update;
   };
 
   // Subscribers
-  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr
-      tracked_objects_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr
-      ego_pose_sub_;
-  rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr
-      lanelet_ahead_sub_;
+  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
 
   // Publishers
-  rclcpp_lifecycle::LifecyclePublisher<
-      world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
 
   // Core components
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;
   std::unique_ptr<IntentClassifier> intent_classifier_;
 
   // Service client for per-vehicle lanelet queries
-  rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedPtr
-      lanelet_ahead_client_;
+  rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedPtr lanelet_ahead_client_;
 
   // State
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
@@ -118,6 +112,6 @@ private:
   double confidence_state_timeout_s_;
 };
 
-} // namespace prediction
+}  // namespace prediction
 
-#endif // PREDICTION__PREDICTION_NODE_HPP_
+#endif  // PREDICTION__PREDICTION_NODE_HPP_

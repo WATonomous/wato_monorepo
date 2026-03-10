@@ -23,7 +23,8 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
 
-namespace world_model_markers {
+namespace world_model_markers
+{
 
 /**
  * @brief Converts WorldObjectArray messages to visualization markers.
@@ -31,7 +32,8 @@ namespace world_model_markers {
  * Visualizes all WorldObject fields: bounding boxes, labels, prediction trails,
  * history trails, and lanelet_ahead boundaries/centerlines.
  */
-class WorldObjectsMarkersNode : public rclcpp::Node {
+class WorldObjectsMarkersNode : public rclcpp::Node
+{
 public:
   WorldObjectsMarkersNode();
 
@@ -45,8 +47,7 @@ private:
    * @param msg Array of world objects with detection, history, lanelet_ahead,
    * and prediction data.
    */
-  void worldObjectsCallback(
-      const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
+  void worldObjectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
 
   /**
    * @brief Maps a detection class ID string to a visualization color.
@@ -54,13 +55,10 @@ private:
    * @param class_id Detection class (e.g. "car", "pedestrian", "bicycle").
    * @return RGBA color for the given class; gray for unknown classes.
    */
-  std_msgs::msg::ColorRGBA
-  getColorForClassId(const std::string &class_id) const;
-  std_msgs::msg::ColorRGBA getColorForConfidence(double confidence,
-                                                 float alpha_scale) const;
+  std_msgs::msg::ColorRGBA getColorForClassId(const std::string & class_id) const;
+  std_msgs::msg::ColorRGBA getColorForConfidence(double confidence, float alpha_scale) const;
 
-  rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr
-      subscription_;
+  rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr subscription_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_;
 
   std::string frame_id_;
@@ -82,6 +80,6 @@ private:
   int64_t hypothesis_idx_;
 };
 
-} // namespace world_model_markers
+}  // namespace world_model_markers
 
-#endif // world_model_markers__WORLD_OBJECTS_MARKERS_NODE_HPP_
+#endif  // world_model_markers__WORLD_OBJECTS_MARKERS_NODE_HPP_

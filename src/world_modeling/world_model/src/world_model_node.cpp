@@ -32,10 +32,10 @@
 
 // Services
 #include "world_model/interfaces/services/get_area_occupancy_service.hpp"
+#include "world_model/interfaces/services/get_lanelet_ahead_service.hpp"
 #include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/get_world_objects_enriched_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
-#include "world_model/interfaces/services/get_lanelet_ahead_service.hpp"
 #include "world_model/interfaces/services/set_route_service.hpp"
 #include "world_model/interfaces/services/shortest_route_service.hpp"
 

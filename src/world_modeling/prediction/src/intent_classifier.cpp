@@ -52,8 +52,7 @@ void IntentClassifier::assignProbabilities(
   if (existing_total > 1e-6) {
     // Probabilities already set by trajectory predictor (lanelet-based) — just normalize
     normalizeProbabilities(hypotheses);
-    RCLCPP_DEBUG(node_->get_logger(), "Using lanelet-based probabilities for %zu hypotheses",
-      hypotheses.size());
+    RCLCPP_DEBUG(node_->get_logger(), "Using lanelet-based probabilities for %zu hypotheses", hypotheses.size());
     return;
   }
 
@@ -64,8 +63,7 @@ void IntentClassifier::assignProbabilities(
 
   normalizeProbabilities(hypotheses);
 
-  RCLCPP_DEBUG(node_->get_logger(), "Assigned feature-based probabilities to %zu hypotheses",
-    hypotheses.size());
+  RCLCPP_DEBUG(node_->get_logger(), "Assigned feature-based probabilities to %zu hypotheses", hypotheses.size());
 }
 
 IntentFeatures IntentClassifier::extractFeatures(const vision_msgs::msg::Detection3D & detection)

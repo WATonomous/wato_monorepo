@@ -17,6 +17,7 @@
 ## Core Concepts
 
 ### TrajectoryHypothesis Structure
+
 ```cpp
 struct TrajectoryHypothesis {
   std_msgs::msg::Header header;           // Timestamp and frame
@@ -29,6 +30,7 @@ struct TrajectoryHypothesis {
 Each hypothesis represents one possible future path of constant intent.
 
 ### Intent Enumeration
+
 ```cpp
 enum class Intent {
   CONTINUE_STRAIGHT,    // Maintain current lane
@@ -93,6 +95,7 @@ When lanelet data unavailable:
 ## Implementation Patterns
 
 ### Object Type Routing
+
 ```cpp
 ObjectType object_type = classifyObjectType(detection);
 switch(object_type) {
@@ -114,6 +117,7 @@ For each reachable lanelet:
 4. Return hypothesis with matching intent and probability=0 (classifier sets)
 
 ### Service Query Pattern
+
 ```cpp
 auto callback = [this](rclcpp::Client<GetLaneletAhead>::SharedFuture future) {
   auto response = future.get();
@@ -127,6 +131,7 @@ lanelet_ahead_client_->async_send_request(request, callback);
 
 ### Unit Testing
 Test individual components without ROS:
+
 ```cpp
 // trajectory_predictor with mock lanelet data
 auto predictor = std::make_unique<TrajectoryPredictor>(node, 3.0, 0.2);
@@ -136,6 +141,7 @@ auto hyps = predictor->generateHypotheses(detection);
 ```
 
 ### Integration Testing
+
 ```bash
 # Build with debug symbols
 colcon build --packages-select prediction --cmake-args -DCMAKE_BUILD_TYPE=Debug
