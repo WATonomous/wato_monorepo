@@ -15,22 +15,28 @@
 #ifndef PREDICTION__PREDICTION_NODE_HPP_
 #define PREDICTION__PREDICTION_NODE_HPP_
 
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
+// Standard library headers for memory management and data structures
+#include <memory>        // For std::unique_ptr and std::shared_ptr
+#include <string>        // For std::string in object IDs and keys
+#include <unordered_map> // For storing per-object and per-vehicle state
+#include <unordered_set> // For tracking pending vehicle requests
+#include <vector>        // For collections of hypotheses and objects
 
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "lanelet_msgs/msg/lanelet_ahead.hpp"
-#include "lanelet_msgs/srv/get_lanelet_ahead.hpp"
-#include "prediction/intent_classifier.hpp"
-#include "prediction/trajectory_predictor.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "vision_msgs/msg/detection3_d_array.hpp"
-#include "world_model_msgs/msg/world_object.hpp"
-#include "world_model_msgs/msg/world_object_array.hpp"
+// ROS2 message types
+#include "geometry_msgs/msg/pose_stamped.hpp" // For ego vehicle pose
+#include "lanelet_msgs/msg/lanelet_ahead.hpp" // For reachable lanelets
+#include "lanelet_msgs/srv/get_lanelet_ahead.hpp" // For querying lanelets around vehicles
+#include "vision_msgs/msg/detection3_d_array.hpp" // For tracked object detections
+#include "world_model_msgs/msg/world_object.hpp" // For individual predicted objects
+#include "world_model_msgs/msg/world_object_array.hpp" // For predicted object arrays
+
+// ROS2 core and lifecycle
+#include "rclcpp/rclcpp.hpp"                   // ROS2 C++ client library
+#include "rclcpp_lifecycle/lifecycle_node.hpp" // For lifecycle node management
+
+// Project-specific headers
+#include "prediction/intent_classifier.hpp" // For maneuver intent detection
+#include "prediction/trajectory_predictor.hpp" // For trajectory hypothesis generation
 
 namespace prediction {
 

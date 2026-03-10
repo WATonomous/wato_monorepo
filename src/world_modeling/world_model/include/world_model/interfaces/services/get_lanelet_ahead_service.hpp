@@ -15,12 +15,18 @@
 #ifndef WORLD_MODEL__INTERFACES__SERVICES__GET_LANELET_AHEAD_SERVICE_HPP_
 #define WORLD_MODEL__INTERFACES__SERVICES__GET_LANELET_AHEAD_SERVICE_HPP_
 
-#include <string>
+// Standard library headers
+#include <string> // For error messages and string handling
 
-#include "lanelet_msgs/srv/get_lanelet_ahead.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "world_model/interfaces/interface_base.hpp"
+// ROS2 service definition
+#include "lanelet_msgs/srv/get_lanelet_ahead.hpp" // ROS2 service for querying lanelets
+
+// ROS2 core and lifecycle
+#include "rclcpp/rclcpp.hpp"                   // ROS2 C++ client library
+#include "rclcpp_lifecycle/lifecycle_node.hpp" // For lifecycle-managed node integration
+
+// Project-specific headers
+#include "world_model/interfaces/interface_base.hpp" // Base class for service interfaces
 
 namespace world_model {
 

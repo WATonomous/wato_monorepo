@@ -24,19 +24,23 @@
 #ifndef PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 #define PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 
-#include <functional>
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
+// Standard library headers for functional programming and data structures
+#include <functional>    // For std::function used in callback definitions
+#include <memory>        // For std::unique_ptr and std::shared_ptr
+#include <string>        // For std::string in vehicle IDs and keys
+#include <unordered_map> // For caching lanelet and position data
+#include <vector>        // For collections of trajectories, centerline points
 
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "lanelet_msgs/msg/lanelet.hpp"
-#include "lanelet_msgs/msg/lanelet_ahead.hpp"
-#include "prediction/motion_models.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "vision_msgs/msg/detection3_d.hpp"
+// ROS2 message types
+#include "geometry_msgs/msg/pose_stamped.hpp" // For trajectory poses with timestamps
+#include "lanelet_msgs/msg/lanelet.hpp" // For lanelet geometry and centerline data
+#include "lanelet_msgs/msg/lanelet_ahead.hpp" // For reachable lanelets from a position
+#include "vision_msgs/msg/detection3_d.hpp" // For detected object information
+
+// Project-specific headers
+#include "prediction/motion_models.hpp" // For bicycle and constant velocity models
+#include "rclcpp/rclcpp.hpp"            // ROS2 C++ client library
+#include "rclcpp_lifecycle/lifecycle_node.hpp" // For lifecycle node management
 
 namespace prediction {
 
@@ -66,6 +70,7 @@ struct TrajectoryHypothesis {
   std::vector<geometry_msgs::msg::PoseStamped> poses;
   Intent intent;
   double probability;
+  std::vector<int64_t> lanelet_ids; // Lanelets used in this prediction path
 };
 
 /**
@@ -166,6 +171,16 @@ private:
                         size_t start_idx, int64_t target_lane_id,
                         double required_distance) const;
 
+  /// Extract lanelet IDs used in a forward path through successors
+  std::vector<int64_t>
+  extractForwardPathLaneletIds(const lanelet_msgs::msg::Lanelet &lanelet,
+                               double required_distance) const;
+
+  /// Extract lanelet IDs used in a lane change path
+  std::vector<int64_t> extractLaneChangePathLaneletIds(
+      const lanelet_msgs::msg::Lanelet &current_lanelet, int64_t target_lane_id,
+      double required_distance) const;
+
   const lanelet_msgs::msg::Lanelet *findLaneletById(int64_t id) const;
 
   double computePathLength(const std::vector<Eigen::Vector2d> &path) const;
@@ -232,6 +247,7 @@ private:
   struct PositionStamped {
     double x;
     double y;
+    double speed;
     rclcpp::Time stamp;
   };
   std::unordered_map<std::string, PositionStamped> position_history_;
