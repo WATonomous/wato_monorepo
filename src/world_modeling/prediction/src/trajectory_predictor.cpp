@@ -310,6 +310,11 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   // =========================================================================
   double lateral_vel = estimateLateralVelocity(detection.id, match.lateral_offset);
 
+  // Position-based lane-change evidence from current-lane centerline offset.
+  // Near centerline: unlikely lane change. Between lanelets: more likely.
+  const double abs_adjusted_offset = std::abs(adjusted_lateral_offset);
+  const double lane_change_position_evidence = std::clamp((abs_adjusted_offset - 0.3) / 1.2, 0.0, 1.0);
+
   // --- Hypothesis: Follow current lane (continue straight / follow road) ---
   {
     auto path = extractForwardPath(current_ll, match.closest_centerline_idx, required_distance);
@@ -476,7 +481,19 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         lc_prior *= std::max(0.1, 1.0 - road_curvature * 50.0);
       }
 
-      hyp.probability = computeGeometricScore(adjusted_heading_diff, adjusted_lateral_offset, lc_prior);
+      // Heuristic 11: Position evidence dominates for lane changes.
+      // Strongly suppress near centerline; boost when offset indicates the
+      // vehicle is between lane centers.
+      lc_prior *= (0.2 + 1.8 * lane_change_position_evidence);
+      if (adjusted_lateral_offset > 0.25) {
+        lc_prior *= 1.25;
+      } else if (adjusted_lateral_offset < -0.25) {
+        lc_prior *= 0.6;
+      }
+
+      // Downweight heading for lane-change scoring since large heading
+      // deviations can come from road curvature.
+      hyp.probability = computeGeometricScore(adjusted_heading_diff * 0.4, adjusted_lateral_offset, lc_prior);
 
       hyp.poses = bicycle_model_->generateTrajectory(
         initial_state, path, prediction_horizon_, time_step_, current_time, frame_id);
@@ -526,7 +543,14 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         lc_prior *= std::max(0.1, 1.0 - road_curvature * 50.0);
       }
 
-      hyp.probability = computeGeometricScore(adjusted_heading_diff, adjusted_lateral_offset, lc_prior);
+      lc_prior *= (0.2 + 1.8 * lane_change_position_evidence);
+      if (adjusted_lateral_offset < -0.25) {
+        lc_prior *= 1.25;
+      } else if (adjusted_lateral_offset > 0.25) {
+        lc_prior *= 0.6;
+      }
+
+      hyp.probability = computeGeometricScore(adjusted_heading_diff * 0.4, adjusted_lateral_offset, lc_prior);
 
       hyp.poses = bicycle_model_->generateTrajectory(
         initial_state, path, prediction_horizon_, time_step_, current_time, frame_id);
