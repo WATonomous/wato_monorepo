@@ -204,9 +204,6 @@ private:
   /// Estimate lateral velocity (rate of change of lateral offset)
   double estimateLateralVelocity(const std::string & vehicle_id, double lateral_offset);
 
-  /// Require consecutive low-speed updates before emitting STOP intent.
-  bool hasConfirmedStopEvidence(const std::string & vehicle_id, double speed);
-
   // Per-vehicle lateral offset history for lateral velocity estimation
   struct LateralOffsetStamped
   {
@@ -259,11 +256,6 @@ private:
   };
 
   std::unordered_map<std::string, PositionStamped> position_history_;
-
-  // Per-vehicle low-speed streak for STOP confirmation.
-  std::unordered_map<std::string, int> stop_evidence_count_;
-  static constexpr double kStopSpeedThresholdMps = 0.5;
-  static constexpr int kConsecutiveStopUpdatesRequired = 3;
 
   /**
    * @brief Query lanelets for a specific vehicle, using per-vehicle cache.

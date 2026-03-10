@@ -271,13 +271,11 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   double adjusted_lateral_offset = (std::abs(match.lateral_offset) > curvature_lateral_tolerance)
                                      ? match.lateral_offset
                                      : match.lateral_offset * 0.3;  // discount expected curve offset
-  const bool confirmed_stop = hasConfirmedStopEvidence(detection.id, speed);
 
   // =========================================================================
-  // Heuristic 1: Stop persistence — require multiple consecutive low-speed
-  // updates before emitting STOP to avoid one-frame parked flips.
+  // Heuristic 1: Stop persistence — stopped vehicles stay stopped.
   // =========================================================================
-  if (confirmed_stop) {
+  if (speed < 0.5) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
@@ -955,17 +953,6 @@ double TrajectoryPredictor::estimateLateralVelocity(const std::string & vehicle_
   return lateral_vel;
 }
 
-bool TrajectoryPredictor::hasConfirmedStopEvidence(const std::string & vehicle_id, double speed)
-{
-  auto & low_speed_count = stop_evidence_count_[vehicle_id];
-  if (speed < kStopSpeedThresholdMps) {
-    low_speed_count = std::min(low_speed_count + 1, kConsecutiveStopUpdatesRequired);
-  } else {
-    low_speed_count = 0;
-  }
-  return low_speed_count >= kConsecutiveStopUpdatesRequired;
-}
-
 // =============================================================================
 // Geometric fallback (original behavior, used when no lanelet data)
 // =============================================================================
@@ -986,8 +973,8 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
   initial_state.a = 0.0;
   initial_state.delta = 0.0;
 
-  // Mirror lanelet-aware behavior with the same 3-update stop confirmation.
-  if (hasConfirmedStopEvidence(detection.id, speed)) {
+  // Mirror lanelet-aware behavior for stopped objects.
+  if (speed < 0.5) {
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
