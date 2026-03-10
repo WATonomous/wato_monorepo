@@ -16,42 +16,39 @@
  * @file trajectory_predictor.hpp
  * @brief Trajectory generation for seed WorldObjects.
  *
- * Generates trajectory predictions for tracked objects to populate seed
- * WorldObjects. Uses motion models to propagate object state forward in time.
+ * Generates lanelet-aware trajectory predictions for tracked objects.
+ * Uses lanelet centerlines as reference paths and the bicycle model
+ * for physically-realistic trajectory propagation.
  */
 
 #ifndef PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 #define PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "lanelet_msgs/msg/lanelet.hpp"
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "prediction/motion_models.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
 
-namespace prediction
-{
+namespace prediction {
 
 /**
  * @brief Object types for prediction
  */
-enum class ObjectType
-{
-  VEHICLE,
-  PEDESTRIAN,
-  CYCLIST,
-  UNKNOWN
-};
+enum class ObjectType { VEHICLE, PEDESTRIAN, CYCLIST, UNKNOWN };
 
 /**
  * @brief Intent types for trajectory hypotheses
  */
-enum class Intent
-{
+enum class Intent {
   CONTINUE_STRAIGHT,
   TURN_LEFT,
   TURN_RIGHT,
@@ -64,8 +61,7 @@ enum class Intent
 /**
  * @brief Single trajectory hypothesis (sequence of waypoints)
  */
-struct TrajectoryHypothesis
-{
+struct TrajectoryHypothesis {
   std_msgs::msg::Header header;
   std::vector<geometry_msgs::msg::PoseStamped> poses;
   Intent intent;
@@ -75,59 +71,160 @@ struct TrajectoryHypothesis
 /**
  * @brief Generates trajectory hypotheses for tracked objects
  *
- * Uses physics-based motion models to generate multiple trajectory hypotheses
- * representing different possible intents for each object type.
+ * Uses lanelet centerlines as reference paths and physics-based motion models
+ * to generate trajectory hypotheses that follow the actual road geometry.
  */
-class TrajectoryPredictor
-{
+class TrajectoryPredictor {
 public:
-  /**
-   * @brief Construct a new Trajectory Predictor
-   * @param node ROS node pointer for logging
-   * @param prediction_horizon Time horizon for predictions (seconds)
-   * @param time_step Time step between waypoints (seconds)
-   */
-  TrajectoryPredictor(rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step);
+  TrajectoryPredictor(rclcpp_lifecycle::LifecycleNode *node,
+                      double prediction_horizon, double time_step);
+
+  std::vector<TrajectoryHypothesis>
+  generateHypotheses(const vision_msgs::msg::Detection3D &detection);
+
+  ObjectType classifyObjectType(const vision_msgs::msg::Detection3D &detection);
 
   /**
-   * @brief Generate trajectory hypotheses for a tracked object
-   * @param detection Tracked object detection
-   * @return Vector of trajectory hypotheses
+   * @brief Update cached lanelet data for lanelet-aware prediction
    */
-  std::vector<TrajectoryHypothesis> generateHypotheses(const vision_msgs::msg::Detection3D & detection);
+  void setLaneletAhead(const lanelet_msgs::msg::LaneletAhead::SharedPtr &msg);
 
   /**
-   * @brief Classify object type based on detection information
-   * @param detection Tracked object detection
-   * @return ObjectType classification
+   * @brief Callback type for requesting lanelets around an arbitrary position.
+   *
+   * Fire-and-forget: the callback fires an async service request.
+   * Results are delivered later via updateVehicleLaneletCache().
    */
-  ObjectType classifyObjectType(const vision_msgs::msg::Detection3D & detection);
+  using LaneletQueryFn = std::function<void(
+      const std::string &vehicle_id, const geometry_msgs::msg::Point &position,
+      double heading_rad)>;
+
+  /**
+   * @brief Set the per-vehicle lanelet query function.
+   *
+   * When the ego-vehicle lanelet cache does not cover a detected vehicle,
+   * this function is called to fetch lanelets around that vehicle's position.
+   */
+  void setLaneletQueryFunction(LaneletQueryFn fn);
+
+  /**
+   * @brief Update the per-vehicle lanelet cache with async query results.
+   */
+  void updateVehicleLaneletCache(const std::string &vehicle_id,
+                                 const lanelet_msgs::msg::LaneletAhead &data,
+                                 double x, double y);
+
+  /**
+   * @brief Temporarily set lanelet data for a single prediction, then restore
+   * previous cache
+   */
+  void setTemporaryLaneletData(const lanelet_msgs::msg::LaneletAhead &data);
+  void restoreLaneletData();
+
+  bool hasLaneletData() const { return !lanelet_cache_.lanelets.empty(); }
+
+  /**
+   * @brief Estimate vehicle speed from position history.
+   *
+   * Tracks each detection ID's position over time and computes speed
+   * from displacement between the current and previous observation.
+   * Falls back to the bbox-length heuristic when no history exists.
+   */
+  double estimateSpeed(const vision_msgs::msg::Detection3D &detection);
 
 private:
-  /**
-   * @brief Generate hypotheses for vehicle objects
-   */
-  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(const vision_msgs::msg::Detection3D & detection);
+  // Lanelet-aware hypothesis generation
+  std::vector<TrajectoryHypothesis> generateLaneletVehicleHypotheses(
+      const vision_msgs::msg::Detection3D &detection, double speed);
 
-  /**
-   * @brief Generate hypotheses for pedestrian objects
-   */
-  std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(const vision_msgs::msg::Detection3D & detection);
+  // Geometric fallback (no lanelet data)
+  std::vector<TrajectoryHypothesis> generateGeometricVehicleHypotheses(
+      const vision_msgs::msg::Detection3D &detection, double speed);
 
-  /**
-   * @brief Generate hypotheses for cyclist objects
-   */
-  std::vector<TrajectoryHypothesis> generateCyclistHypotheses(const vision_msgs::msg::Detection3D & detection);
+  std::vector<TrajectoryHypothesis>
+  generatePedestrianHypotheses(const vision_msgs::msg::Detection3D &detection);
 
-  rclcpp_lifecycle::LifecycleNode * node_;
+  std::vector<TrajectoryHypothesis>
+  generateCyclistHypotheses(const vision_msgs::msg::Detection3D &detection);
+
+  // Lanelet helpers
+  struct LaneletMatch {
+    const lanelet_msgs::msg::Lanelet *lanelet;
+    size_t closest_centerline_idx;
+    double lateral_offset;
+    double heading_diff;
+  };
+
+  LaneletMatch findVehicleLanelet(const KinematicState &state) const;
+
+  std::vector<Eigen::Vector2d>
+  extractForwardPath(const lanelet_msgs::msg::Lanelet &lanelet,
+                     size_t start_idx, double required_distance) const;
+
+  std::vector<Eigen::Vector2d>
+  extractLaneChangePath(const lanelet_msgs::msg::Lanelet &current_lanelet,
+                        size_t start_idx, int64_t target_lane_id,
+                        double required_distance) const;
+
+  const lanelet_msgs::msg::Lanelet *findLaneletById(int64_t id) const;
+
+  double computePathLength(const std::vector<Eigen::Vector2d> &path) const;
+
+  double computeHeadingAtIndex(
+      const std::vector<geometry_msgs::msg::Point> &centerline,
+      size_t idx) const;
+
+  double computeGeometricScore(double heading_diff, double lateral_offset,
+                               double maneuver_prior) const;
+
+  rclcpp_lifecycle::LifecycleNode *node_;
   double prediction_horizon_;
   double time_step_;
 
-  // Motion models
   std::unique_ptr<BicycleModel> bicycle_model_;
   std::unique_ptr<ConstantVelocityModel> constant_velocity_model_;
+
+  // Cached lanelet data
+  lanelet_msgs::msg::LaneletAhead lanelet_cache_;
+  std::unordered_map<int64_t, size_t> lanelet_id_to_index_;
+
+  // Backup for temporary lanelet overrides
+  lanelet_msgs::msg::LaneletAhead lanelet_cache_backup_;
+  std::unordered_map<int64_t, size_t> lanelet_id_to_index_backup_;
+
+  // Optional per-vehicle lanelet query callback
+  LaneletQueryFn lanelet_query_fn_;
+
+  // Per-vehicle lanelet cache: keyed by detection ID, stores queried lanelet
+  // data so we don't re-query the service every cycle for the same vehicle
+  struct VehicleLaneletEntry {
+    lanelet_msgs::msg::LaneletAhead lanelet_ahead;
+    double last_x;
+    double last_y;
+  };
+  std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
+  static constexpr double kVehicleCacheInvalidationDist = 5.0;
+
+  // Position history for velocity estimation (keyed by detection ID)
+  struct PositionStamped {
+    double x;
+    double y;
+    rclcpp::Time stamp;
+  };
+  std::unordered_map<std::string, PositionStamped> position_history_;
+
+  /**
+   * @brief Query lanelets for a specific vehicle, using per-vehicle cache.
+   *
+   * Returns cached data if the vehicle hasn't moved far, otherwise queries
+   * the service and updates the cache.
+   */
+  lanelet_msgs::msg::LaneletAhead
+  queryVehicleLanelets(const std::string &vehicle_id,
+                       const geometry_msgs::msg::Point &position,
+                       double heading_rad);
 };
 
-}  // namespace prediction
+} // namespace prediction
 
-#endif  // PREDICTION__TRAJECTORY_PREDICTOR_HPP_
+#endif // PREDICTION__TRAJECTORY_PREDICTOR_HPP_

@@ -12,23 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file prediction_node.hpp
- * @brief Node that generates seed WorldObjects from tracked objects.
- *
- * Subscribes to tracked objects from perception, generates trajectory
- * predictions, and publishes seed WorldObjects for the world model.
- */
-
 #ifndef PREDICTION__PREDICTION_NODE_HPP_
 #define PREDICTION__PREDICTION_NODE_HPP_
 
 #include <memory>
-#include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"
+#include "lanelet_msgs/srv/get_lanelet_ahead.hpp"
 #include "prediction/intent_classifier.hpp"
 #include "prediction/trajectory_predictor.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -37,78 +31,63 @@
 #include "world_model_msgs/msg/world_object.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
 
-namespace prediction
-{
+namespace prediction {
 
-/**
- * @brief Generates seed WorldObjects from tracked objects with trajectory predictions.
- *
- * Subscribes to tracked objects, generates trajectory predictions, and publishes
- * seed WorldObjects for consumption by the world model.
- */
-class PredictionNode : public rclcpp_lifecycle::LifecycleNode
-{
+class PredictionNode : public rclcpp_lifecycle::LifecycleNode {
 public:
-  /**
-   * @brief Construct a new Prediction Node
-   */
-  explicit PredictionNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-
-  /**
-   * @brief Destroy the Prediction Node
-   */
+  explicit PredictionNode(
+      const rclcpp::NodeOptions &options = rclcpp::NodeOptions());
   ~PredictionNode() override = default;
 
 protected:
-  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+  using CallbackReturn =
+      rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
-  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
-  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
-  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
-  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
-  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_configure(const rclcpp_lifecycle::State &state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State &state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State &state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State &state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State &state) override;
 
 private:
-  /**
-   * @brief Callback for tracked objects
-   * @param msg Tracked detections from perception
-   */
-  void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
-
-  /**
-   * @brief Callback for ego pose
-   * @param msg Ego vehicle pose from localization
-   */
+  void trackedObjectsCallback(
+      const vision_msgs::msg::Detection3DArray::SharedPtr msg);
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-
-  /**
-   * @brief Process a single tracked object and generate a seed WorldObject
-   * @param detection The tracked object to predict
-   * @param frame_id Coordinate frame for the predictions
-   * @return WorldObject with predictions, or nullopt if generation failed
-   */
-  std::optional<world_model_msgs::msg::WorldObject> processObject(
-    const vision_msgs::msg::Detection3D & detection, const std::string & frame_id);
+  void
+  laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   // Subscribers
-  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
+  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr
+      tracked_objects_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr
+      ego_pose_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr
+      lanelet_ahead_sub_;
 
   // Publishers
-  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<
+      world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
 
   // Core components
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;
   std::unique_ptr<IntentClassifier> intent_classifier_;
 
+  // Service client for per-vehicle lanelet queries
+  rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedPtr
+      lanelet_ahead_client_;
+
   // State
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
 
+  // Vehicle IDs with in-flight async lanelet requests (prevents duplicates)
+  std::unordered_set<std::string> pending_vehicle_requests_;
+  static constexpr size_t kMaxPendingRequests = 8;
+
   // Parameters
-  double prediction_horizon_;  // seconds
-  double prediction_time_step_;  // seconds
+  double prediction_horizon_;
+  double prediction_time_step_;
 };
 
-}  // namespace prediction
+} // namespace prediction
 
-#endif  // PREDICTION__PREDICTION_NODE_HPP_
+#endif // PREDICTION__PREDICTION_NODE_HPP_
