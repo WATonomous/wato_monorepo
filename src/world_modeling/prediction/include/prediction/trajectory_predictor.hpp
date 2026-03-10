@@ -251,11 +251,22 @@ private:
   {
     double x;
     double y;
-    double speed;
+    double speed;  // Raw instantaneous speed
+    double smoothed_speed;  // EMA-filtered speed
+    bool is_stopped;  // Hysteresis-based stopped state
     rclcpp::Time stamp;
   };
 
   std::unordered_map<std::string, PositionStamped> position_history_;
+
+  // Speed smoothing and stop hysteresis constants
+  static constexpr double kSpeedEmaAlpha = 0.35;  // EMA weight for new speed observations
+  static constexpr double kStopEnterThreshold = 0.3;  // m/s — must drop below to enter stopped
+  static constexpr double kStopExitThreshold = 1.0;  // m/s — must exceed to leave stopped
+
+public:
+  bool isVehicleStopped(const std::string & vehicle_id) const;
+  double getSmoothedSpeed(const std::string & vehicle_id) const;
 
   /**
    * @brief Query lanelets for a specific vehicle, using per-vehicle cache.

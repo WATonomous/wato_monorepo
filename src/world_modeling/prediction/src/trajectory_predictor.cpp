@@ -55,6 +55,24 @@ TrajectoryPredictor::TrajectoryPredictor(
   RCLCPP_INFO(node_->get_logger(), "TrajectoryPredictor initialized");
 }
 
+bool TrajectoryPredictor::isVehicleStopped(const std::string & vehicle_id) const
+{
+  auto it = position_history_.find(vehicle_id);
+  if (it == position_history_.end()) {
+    return false;
+  }
+  return it->second.is_stopped;
+}
+
+double TrajectoryPredictor::getSmoothedSpeed(const std::string & vehicle_id) const
+{
+  auto it = position_history_.find(vehicle_id);
+  if (it == position_history_.end()) {
+    return -1.0;
+  }
+  return it->second.smoothed_speed;
+}
+
 void TrajectoryPredictor::setLaneletAhead(const lanelet_msgs::msg::LaneletAhead::SharedPtr & msg)
 {
   lanelet_cache_ = *msg;
@@ -153,15 +171,31 @@ double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & 
     }
   }
 
+  // EMA smooth the speed estimate to reduce frame-to-frame noise
+  double smoothed = speed;
+  bool stopped = false;
+  if (it != position_history_.end()) {
+    smoothed = kSpeedEmaAlpha * speed + (1.0 - kSpeedEmaAlpha) * it->second.smoothed_speed;
+
+    // Hysteresis: separate thresholds for entering/exiting stopped state
+    if (it->second.is_stopped) {
+      stopped = (smoothed < kStopExitThreshold);
+    } else {
+      stopped = (smoothed < kStopEnterThreshold);
+    }
+  }
+
   // Update history
   PositionStamped history_entry;
   history_entry.x = x;
   history_entry.y = y;
   history_entry.speed = speed;
+  history_entry.smoothed_speed = smoothed;
+  history_entry.is_stopped = stopped;
   history_entry.stamp = now;
   position_history_[detection.id] = history_entry;
 
-  return speed;
+  return smoothed;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
@@ -274,13 +308,17 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
 
   // =========================================================================
   // Heuristic 1: Stop persistence — stopped vehicles stay stopped.
+  // Uses hysteresis-based stop state to avoid flickering on noisy speed.
   // =========================================================================
-  if (speed < 0.5) {
+  if (isVehicleStopped(detection.id)) {
+    // Scale stop confidence: lower speed → higher confidence in stop
+    double stop_confidence = std::clamp(1.0 - speed / kStopExitThreshold, 0.2, 1.0);
+
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 3.0;  // high raw score, will be normalized
+    hyp.probability = 2.0 * stop_confidence;
 
     // Generate stationary trajectory
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
@@ -974,12 +1012,16 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
   initial_state.delta = 0.0;
 
   // Mirror lanelet-aware behavior for stopped objects.
-  if (speed < 0.5) {
+  // Don't early-return — always generate moving hypotheses too so a noisy
+  // low-speed frame can't eliminate all motion predictions.
+  if (isVehicleStopped(detection.id)) {
+    double stop_confidence = std::clamp(1.0 - speed / kStopExitThreshold, 0.2, 1.0);
+
     TrajectoryHypothesis hyp;
     hyp.header.stamp = current_time;
     hyp.header.frame_id = frame_id;
     hyp.intent = Intent::STOP;
-    hyp.probability = 3.0;  // high raw score, will be normalized
+    hyp.probability = 2.0 * stop_confidence;
 
     for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
       geometry_msgs::msg::PoseStamped pose_stamped;
@@ -993,7 +1035,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
     }
 
     hypotheses.push_back(hyp);
-    return hypotheses;
+    // Fall through to also generate moving hypotheses
   }
 
   // Continue Straight

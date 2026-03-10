@@ -321,17 +321,20 @@ void PredictionNode::applyConfidenceSmoothing(
   const double observed_x = detection.bbox.center.position.x;
   const double observed_y = detection.bbox.center.position.y;
 
+  // Use the trajectory predictor's smoothed speed and hysteresis-based stop
+  // state instead of recomputing speed independently.  This ensures the
+  // confidence smoother and the hypothesis generator agree on whether the
+  // vehicle is stopped.
   if (state.has_observation) {
     const double dt = (now - state.last_update).seconds();
     if (dt > 0.01) {
-      const double dx = observed_x - state.last_observed_x;
-      const double dy = observed_y - state.last_observed_y;
-      const double speed_mps = std::sqrt(dx * dx + dy * dy) / dt;
-      if (speed_mps <= stop_stationary_speed_threshold_mps_) {
+      const bool stopped = trajectory_predictor_->isVehicleStopped(object_id);
+      if (stopped) {
         state.stationary_duration_s += dt;
       } else {
-        // Decay instead of hard reset so brief jitter does not spike moving confidence.
-        state.stationary_duration_s = std::max(0.0, state.stationary_duration_s - dt);
+        // Decay faster when hysteresis says moving — the vehicle has crossed
+        // the exit threshold so we should trust it more aggressively.
+        state.stationary_duration_s = std::max(0.0, state.stationary_duration_s - 2.0 * dt);
       }
     }
   } else {
