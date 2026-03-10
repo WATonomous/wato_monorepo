@@ -14,8 +14,14 @@
 
 #include "prediction/prediction_node.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace prediction {
@@ -24,6 +30,9 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions &options)
     : LifecycleNode("prediction_node", options) {
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
+  this->declare_parameter("confidence_smoothing_alpha", 0.35);
+  this->declare_parameter("confidence_match_distance_m", 6.0);
+  this->declare_parameter("confidence_state_timeout_s", 5.0);
 
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
@@ -35,11 +44,25 @@ PredictionNode::on_configure(const rclcpp_lifecycle::State & /*state*/) {
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ =
       this->get_parameter("prediction_time_step").as_double();
+  confidence_smoothing_alpha_ =
+      this->get_parameter("confidence_smoothing_alpha").as_double();
+  confidence_match_distance_m_ =
+      this->get_parameter("confidence_match_distance_m").as_double();
+  confidence_state_timeout_s_ =
+      this->get_parameter("confidence_state_timeout_s").as_double();
+
+  confidence_smoothing_alpha_ =
+      std::clamp(confidence_smoothing_alpha_, 0.0, 1.0);
+  confidence_match_distance_m_ = std::max(0.1, confidence_match_distance_m_);
+  confidence_state_timeout_s_ = std::max(0.5, confidence_state_timeout_s_);
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds",
               prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds",
               prediction_time_step_);
+  RCLCPP_INFO(this->get_logger(),
+              "Confidence smoothing alpha: %.2f, match distance: %.1fm",
+              confidence_smoothing_alpha_, confidence_match_distance_m_);
 
   world_objects_pub_ =
       this->create_publisher<world_model_msgs::msg::WorldObjectArray>(
@@ -159,6 +182,7 @@ PredictionNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/) {
 
   ego_pose_.reset();
   pending_vehicle_requests_.clear();
+  confidence_history_.clear();
 
   RCLCPP_INFO(this->get_logger(), "Cleaned up successfully");
   return CallbackReturn::SUCCESS;
@@ -178,6 +202,7 @@ PredictionNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/) {
 
   ego_pose_.reset();
   pending_vehicle_requests_.clear();
+  confidence_history_.clear();
 
   return CallbackReturn::SUCCESS;
 }
@@ -193,6 +218,8 @@ void PredictionNode::trackedObjectsCallback(
     const vision_msgs::msg::Detection3DArray::SharedPtr msg) {
   RCLCPP_DEBUG(this->get_logger(), "Processing %zu tracked objects",
                msg->detections.size());
+
+  pruneConfidenceHistory(this->get_clock()->now());
 
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
@@ -220,6 +247,7 @@ void PredictionNode::trackedObjectsCallback(
 
     auto features = intent_classifier_->extractFeatures(detection);
     intent_classifier_->assignProbabilities(detection, hypotheses, features);
+    applyConfidenceSmoothing(detection.id, hypotheses);
 
     world_model_msgs::msg::WorldObject world_obj;
     world_obj.detection = detection;
@@ -236,6 +264,90 @@ void PredictionNode::trackedObjectsCallback(
   }
 
   world_objects_pub_->publish(output);
+}
+
+void PredictionNode::applyConfidenceSmoothing(
+    const std::string &object_id,
+    std::vector<TrajectoryHypothesis> &hypotheses) {
+  if (hypotheses.empty() || object_id.empty()) {
+    return;
+  }
+
+  auto &state = confidence_history_[object_id];
+  std::vector<SmoothedHypothesisState> updated_states;
+  updated_states.reserve(hypotheses.size());
+
+  std::unordered_set<size_t> used_previous_indices;
+
+  for (auto &hypothesis : hypotheses) {
+    const auto &last_pose = hypothesis.poses.back().pose.position;
+    const double curr_x = last_pose.x;
+    const double curr_y = last_pose.y;
+
+    size_t best_match_idx = std::numeric_limits<size_t>::max();
+    double best_dist_sq = std::numeric_limits<double>::max();
+
+    for (size_t prev_idx = 0; prev_idx < state.hypotheses.size(); ++prev_idx) {
+      if (used_previous_indices.count(prev_idx) > 0) {
+        continue;
+      }
+
+      const auto &prev = state.hypotheses[prev_idx];
+      if (prev.intent != hypothesis.intent) {
+        continue;
+      }
+
+      const double dx = curr_x - prev.end_x;
+      const double dy = curr_y - prev.end_y;
+      const double dist_sq = dx * dx + dy * dy;
+      if (dist_sq < best_dist_sq) {
+        best_dist_sq = dist_sq;
+        best_match_idx = prev_idx;
+      }
+    }
+
+    if (best_match_idx != std::numeric_limits<size_t>::max() &&
+        best_dist_sq <=
+            confidence_match_distance_m_ * confidence_match_distance_m_) {
+      used_previous_indices.insert(best_match_idx);
+      const double prev_conf = state.hypotheses[best_match_idx].confidence;
+      hypothesis.probability =
+          confidence_smoothing_alpha_ * hypothesis.probability +
+          (1.0 - confidence_smoothing_alpha_) * prev_conf;
+    }
+
+    hypothesis.probability = std::clamp(hypothesis.probability, 0.0, 1.0);
+    updated_states.push_back(
+        {hypothesis.intent, curr_x, curr_y, hypothesis.probability});
+  }
+
+  double sum_prob = 0.0;
+  for (const auto &hypothesis : hypotheses) {
+    sum_prob += hypothesis.probability;
+  }
+  if (sum_prob > 1e-6) {
+    for (auto &hypothesis : hypotheses) {
+      hypothesis.probability /= sum_prob;
+    }
+    for (size_t i = 0; i < updated_states.size(); ++i) {
+      updated_states[i].confidence = hypotheses[i].probability;
+    }
+  }
+
+  state.hypotheses = std::move(updated_states);
+  state.last_update = this->get_clock()->now();
+}
+
+void PredictionNode::pruneConfidenceHistory(const rclcpp::Time &now) {
+  for (auto it = confidence_history_.begin();
+       it != confidence_history_.end();) {
+    const double age_s = (now - it->second.last_update).seconds();
+    if (age_s > confidence_state_timeout_s_) {
+      it = confidence_history_.erase(it);
+    } else {
+      ++it;
+    }
+  }
 }
 
 void PredictionNode::egoPoseCallback(

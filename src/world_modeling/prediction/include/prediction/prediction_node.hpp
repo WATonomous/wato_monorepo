@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -56,6 +57,23 @@ private:
   void
   laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
+  // Temporal confidence smoothing to reduce frame-to-frame flicker.
+  void applyConfidenceSmoothing(const std::string &object_id,
+                                std::vector<TrajectoryHypothesis> &hypotheses);
+  void pruneConfidenceHistory(const rclcpp::Time &now);
+
+  struct SmoothedHypothesisState {
+    Intent intent;
+    double end_x;
+    double end_y;
+    double confidence;
+  };
+
+  struct SmoothedObjectState {
+    std::vector<SmoothedHypothesisState> hypotheses;
+    rclcpp::Time last_update;
+  };
+
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr
       tracked_objects_sub_;
@@ -83,9 +101,15 @@ private:
   std::unordered_set<std::string> pending_vehicle_requests_;
   static constexpr size_t kMaxPendingRequests = 8;
 
+  // Per-object history for confidence smoothing.
+  std::unordered_map<std::string, SmoothedObjectState> confidence_history_;
+
   // Parameters
   double prediction_horizon_;
   double prediction_time_step_;
+  double confidence_smoothing_alpha_;
+  double confidence_match_distance_m_;
+  double confidence_state_timeout_s_;
 };
 
 } // namespace prediction

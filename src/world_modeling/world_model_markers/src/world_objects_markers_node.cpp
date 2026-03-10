@@ -17,7 +17,9 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <iomanip>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -139,8 +141,12 @@ void WorldObjectsMarkersNode::worldObjectsCallback(
   }
 
   // Delete all previous markers
-  std::vector<std::string> namespaces = {"wo_boxes", "wo_labels", "wo_history",
-                                         "wo_predictions", "wo_lanelet_ahead"};
+  std::vector<std::string> namespaces = {"wo_boxes",
+                                         "wo_labels",
+                                         "wo_history",
+                                         "wo_predictions",
+                                         "wo_prediction_labels",
+                                         "wo_lanelet_ahead"};
   for (const auto &ns : namespaces) {
     auto delete_marker = lanelet_markers::createDeleteAllMarker(ns, frame_id);
     delete_marker.header.stamp = stamp;
@@ -232,6 +238,23 @@ void WorldObjectsMarkersNode::worldObjectsCallback(
           prediction_line_width_ + conf * 0.05);
       pred_marker.header.stamp = stamp;
       marker_array.markers.push_back(pred_marker);
+
+      // Label confidence near the predicted endpoint.
+      geometry_msgs::msg::Point conf_label_pos = pred_points.back();
+      conf_label_pos.z += label_text_height_ * 0.75;
+
+      std::ostringstream conf_stream;
+      conf_stream << std::fixed << std::setprecision(2) << conf;
+      std::string conf_text = "P:" + conf_stream.str();
+
+      auto conf_label_color = pred_color;
+      conf_label_color.a = 0.95f;
+      auto conf_label_marker = lanelet_markers::createTextMarker(
+          "wo_prediction_labels", marker_id++, frame_id, conf_label_pos,
+          conf_text, conf_label_color,
+          std::max(0.15, label_text_height_ * 0.8));
+      conf_label_marker.header.stamp = stamp;
+      marker_array.markers.push_back(conf_label_marker);
     }
 
     // Lanelet ahead visualization (boundaries/centerlines of reachable
