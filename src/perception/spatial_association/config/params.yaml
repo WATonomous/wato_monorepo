@@ -22,7 +22,7 @@ spatial_association:
       distance_weight: 0.4 # increase to filter out more far away clusters, moderately important
       score_threshold: 0.6 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
 
-    merge_threshold: 0.30
+    merge_threshold: 1.0
     # the threshold distance between two clusters centroids for them to be merged into one cluster
 
     object_detection_confidence: 0.40
@@ -51,3 +51,16 @@ spatial_association:
 
     # Enable verbose point-cloud debug logs
     debug_logging: false
+
+    # Projection/utils (orientation, ground filter, merge, IoU, visualization)
+    projection_utils_params:
+      marker_lifetime_s: 0.5       # Viz only
+      marker_alpha: 0.2             # Viz only
+      min_iou_threshold: 0.15       # Association: min IoU cluster<->2D; raise = stricter, lower = looser
+      min_camera_z_distance: 1.0    # Association: reject points behind camera (m)
+      ar_front_view_threshold: 1.2  # Orientation: if box aspect ratio < this use line-of-sight yaw (front view)
+      min_points_for_fit: 3         # Min points to run orientation search; leave default
+      default_sample_point_count: 64 # Points sampled for orientation search; more = slower, more stable
+      orientation_search_step_degrees: 2.0  # Fine step for angle search; smaller = more accurate box, slightly slower
+      outlier_rejection_point_count: 30  # Below this many points, apply sigma clipping in box fit; higher = reject outliers in more clusters
+      outlier_sigma_multiplier: 4.5 # Clamp points beyond mean ± this*sigma in fit; lower = more aggressive outlier rejection

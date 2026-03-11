@@ -77,40 +77,28 @@ void SpatialAssociationCore::performClustering(
   // Compute stats once after clustering
   auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
 
-  // Filter ground noise (modifies cluster_indices)
-  ProjectionUtils::filterGroundNoise(cluster_stats, cluster_indices);
+  // Physics-based quality filtering (distance-adaptive points, height, density, etc.)
+  ProjectionUtils::filterClustersByPhysicsConstraints(
+    cluster_stats,
+    cluster_indices,
+    params_.max_distance,
+    params_.min_points,
+    params_.min_height,
+    params_.min_points_default,
+    params_.min_points_far,
+    params_.min_points_medium,
+    params_.min_points_large,
+    params_.distance_threshold_far,
+    params_.distance_threshold_medium,
+    params_.volume_threshold_large,
+    params_.min_density,
+    params_.max_density,
+    params_.max_dimension,
+    params_.max_aspect_ratio);
 
-  // Only continue if clusters remain after ground noise filtering
   if (!cluster_indices.empty()) {
-    // Recompute stats after filterGroundNoise modifies cluster_indices
     cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
-
-    // Step 4: Physics-based quality filtering with distance-adaptive thresholds
-    ProjectionUtils::filterClustersByPhysicsConstraints(
-      cluster_stats,
-      cluster_indices,
-      params_.max_distance,
-      params_.min_points,
-      params_.min_height,
-      params_.min_points_default,
-      params_.min_points_far,
-      params_.min_points_medium,
-      params_.min_points_large,
-      params_.distance_threshold_far,
-      params_.distance_threshold_medium,
-      params_.volume_threshold_large,
-      params_.min_density,
-      params_.max_density,
-      params_.max_dimension,
-      params_.max_aspect_ratio);
-
-    // Only merge if clusters remain after quality filtering
-    if (!cluster_indices.empty()) {
-      // Note: mergeClusters uses stats for centroid distances, but modifies cluster_indices
-      // Stats may be slightly stale after merging, but merge threshold is small enough
-      // that this is acceptable for performance
-      ProjectionUtils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
-    }
+    ProjectionUtils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
   }
 }
 

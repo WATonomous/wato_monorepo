@@ -165,9 +165,9 @@ multi_camera_sync:
   ros__parameters:
     lidar_frame: lidar_cc
     euclid_params:
-      cluster_tolerance: 0.25   # Slightly larger to merge nearby points; helps clusters align with detection bboxes
-      min_cluster_size: 15
-      max_cluster_size: 1300
+      cluster_tolerance: 0.4   # Slightly larger to merge nearby points; helps clusters align with detection bboxes
+      min_cluster_size: 30
+      max_cluster_size: 1200
       use_adaptive_clustering: true
       close_threshold: 10.0
       close_tolerance_mult: 1.5
@@ -175,9 +175,9 @@ multi_camera_sync:
       density_weight: 0.6
       size_weight: 0.8
       distance_weight: 0.4
-      score_threshold: 0.35   # Lower = keep more clusters (less aggressive)
-    merge_threshold: 0.30
-    object_detection_confidence: 0.35   # Accept slightly weaker 2D detections
+      score_threshold: 0.40   # Lower = keep more clusters (less aggressive)
+    merge_threshold: 0.55
+    object_detection_confidence: 0.45   # Accept slightly weaker 2D detections
     voxel_size: 0.1
     quality_filter_params:
       max_distance: 80.0
@@ -192,10 +192,25 @@ multi_camera_sync:
       volume_threshold_large: 8.0
       min_density: 2.0
       max_density: 1000.0
-    max_dimension: 15.0
-    max_aspect_ratio: 15.0
+      max_dimension: 15.0
+      max_aspect_ratio: 15.0
     publish_visualization: true   # Enables marker/lidar viz and subscription to multi_image_compressed for image viz
     debug_logging: false
+
+    # Projection/utils: association, orientation, merge (see projection_utils.cpp). Filtering: quality_filter_params.
+    projection_utils_params:
+      marker_lifetime_s: 0.5
+      marker_alpha: 0.2
+      min_iou_threshold: 0.15
+      min_camera_z_distance: 1.0
+      ar_front_view_threshold: 1.2
+      # Orientation search (coarse/fine derived from step)
+      min_points_for_fit: 3
+      default_sample_point_count: 64
+      orientation_search_step_degrees: 2.0
+      # Outlier rejection for small clusters
+      outlier_rejection_point_count: 30
+      outlier_sigma_multiplier: 4.5
 
 # =============================================================================
 # Lifecycle Managers
@@ -213,6 +228,6 @@ perception_lifecycle_manager:
     node_names: ["/perception/patchworkpp_node", "/spatial_association_node"]
     autostart: true
     autostart_delay_s: 15.0
-    transition_timeout_s: 10.0
+    transition_timeout_s: 15.0
     bond_timeout_s: 4.0
     bond_enabled: false

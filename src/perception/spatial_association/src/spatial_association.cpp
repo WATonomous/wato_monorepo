@@ -277,9 +277,24 @@ void SpatialAssociationNode::initializeParams()
   this->declare_parameter<double>("quality_filter_params.max_dimension", 15.0);
   this->declare_parameter<double>("quality_filter_params.max_aspect_ratio", 15.0);
 
+  // Projection/utils params (orientation, merge, IoU, viz)
+  const std::string pu("projection_utils_params.");
+  this->declare_parameter<double>(pu + "marker_lifetime_s", 0.5);
+  this->declare_parameter<double>(pu + "marker_alpha", 0.2);
+  this->declare_parameter<double>(pu + "min_iou_threshold", 0.15);
+  this->declare_parameter<double>(pu + "ar_front_view_threshold", 1.2);
+  this->declare_parameter<int>(pu + "outlier_rejection_point_count", 30);
+  this->declare_parameter<double>(pu + "outlier_sigma_multiplier", 4.5);
+  this->declare_parameter<int>(pu + "min_points_for_fit", 3);
+  this->declare_parameter<int>(pu + "default_sample_point_count", 64);
+  this->declare_parameter<double>(pu + "orientation_search_step_degrees", 2.0);
+  this->declare_parameter<double>(pu + "min_camera_z_distance", 1.0);
+
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
   voxel_size_ = static_cast<float>(this->get_parameter("voxel_size").as_double());
   lidar_frame_ = this->get_parameter("lidar_frame").as_string();
+
+  const std::string pu_get("projection_utils_params.");
 
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
   euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
@@ -297,6 +312,20 @@ void SpatialAssociationNode::initializeParams()
   object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
 
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
+
+  // Projection/utils: apply to static params used by projection_utils.cpp
+  ProjectionUtils::ProjectionUtilsParams proj_params;
+  proj_params.marker_lifetime_s = this->get_parameter(pu_get + "marker_lifetime_s").as_double();
+  proj_params.marker_alpha = static_cast<float>(this->get_parameter(pu_get + "marker_alpha").as_double());
+  proj_params.min_iou_threshold = this->get_parameter(pu_get + "min_iou_threshold").as_double();
+  proj_params.ar_front_view_threshold = this->get_parameter(pu_get + "ar_front_view_threshold").as_double();
+  proj_params.outlier_rejection_point_count = static_cast<size_t>(this->get_parameter(pu_get + "outlier_rejection_point_count").as_int());
+  proj_params.outlier_sigma_multiplier = this->get_parameter(pu_get + "outlier_sigma_multiplier").as_double();
+  proj_params.min_points_for_fit = static_cast<size_t>(this->get_parameter(pu_get + "min_points_for_fit").as_int());
+  proj_params.default_sample_point_count = static_cast<size_t>(this->get_parameter(pu_get + "default_sample_point_count").as_int());
+  proj_params.orientation_search_step_degrees = this->get_parameter(pu_get + "orientation_search_step_degrees").as_double();
+  proj_params.min_camera_z_distance = this->get_parameter(pu_get + "min_camera_z_distance").as_double();
+  ProjectionUtils::setParams(proj_params);
 
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Debug logging is ENABLED for spatial_association");

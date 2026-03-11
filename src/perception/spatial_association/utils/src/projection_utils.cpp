@@ -20,161 +20,29 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "Eigen/Dense"
 #include "pcl/filters/voxel_grid.h"
 
+// Static params storage; set by node from config, read by all projection/utils logic
+ProjectionUtils::ProjectionUtilsParams ProjectionUtils::s_params_{};
+
+void ProjectionUtils::setParams(const ProjectionUtilsParams & params)
+{
+  s_params_ = params;
+}
+
+const ProjectionUtils::ProjectionUtilsParams & ProjectionUtils::getParams()
+{
+  return s_params_;
+}
+
 namespace
 {
-// ============================================================================
-// Bounding Box Orientation Parameters
-// ============================================================================
-
-// Height threshold to classify objects as "tall" (cars, trucks)
-// Tall objects: cut bottom 40% for orientation fitting (avoids ground points)
-// Short objects: cut bottom 0.2m for orientation fitting
-// Tune: Increase if tall objects get wrong orientation, decrease if short objects are affected
-constexpr float kTallObjectHeightThreshold = 1.5f;
-
-// Fraction of height to cut from bottom for tall objects (0.0-1.0)
-// Tune: Increase to remove more ground points, decrease to keep more points
-constexpr float kTallObjectCutBottomFraction = 0.4f;
-
-// Meters to cut from bottom for short objects
-// Tune: Increase if ground points affect orientation, decrease to use more points
-constexpr float kShortObjectCutBottomMeters = 0.2f;
-
-// Aspect ratio threshold for front-view detection (nearly square objects)
-// If aspect ratio < this, use line-of-sight yaw instead of fitted orientation
-// Tune: Increase to use line-of-sight for more objects, decrease for tighter fitting
-constexpr double kARFrontViewThreshold = 1.2;
-
-// ============================================================================
-// Outlier Rejection Parameters
-// ============================================================================
-
-// Minimum cluster size to apply outlier rejection (smaller clusters use all points)
-// Tune: Increase to apply rejection to larger clusters, decrease for more aggressive filtering
-constexpr size_t kOutlierRejectionPointCount = 30;
-
-// Standard deviation multiplier for outlier clipping (4.5 = clip beyond 4.5σ)
-// Tune: Increase to keep more edge points, decrease to remove more outliers
-constexpr double kOutlierSigmaMultiplier = 4.5;
-
-// ============================================================================
-// Orientation Search Parameters
-// ============================================================================
-
-// Minimum points required for orientation fitting
-// Tune: Increase for more robust fitting, decrease to fit smaller clusters
-constexpr size_t kMinPointsForFit = 3;
-
-// Number of points to sample for orientation search (reduces computation)
-// Tune: Increase for more accurate fitting (slower), decrease for faster processing
-constexpr size_t kDefaultSamplePointCount = 64;
-
-// Coarse search step size in degrees (0° to 90°)
-// Tune: Increase for faster search (less accurate), decrease for finer search
-constexpr double kCoarseSearchStepDegrees = 10.0;
-
-// Fine search range around best coarse angle (±degrees)
-// Tune: Increase to search wider range, decrease for faster refinement
-constexpr double kFineSearchRangeDegrees = 5.0;
-
-// Fine search step size in degrees (refinement step)
-// Tune: Increase for faster search, decrease for more precise orientation
-constexpr double kFineSearchStepDegrees = 2.0;
-
-// ============================================================================
-// Orientation Fallback Parameters
-// ============================================================================
-
-// Minimum points needed for orientation computation
-// Tune: Increase for more robust orientation, decrease to fit smaller clusters
-constexpr size_t kMinOrientationPoints = 3;
-
-// Minimum points for fallback orientation method
-// Tune: Increase to require more points before fallback, decrease to use fallback earlier
-constexpr size_t kMinOrientationPointsForFallback = 5;
-
-// Minimum cluster size to use fallback orientation
-// Tune: Increase to use fallback only for larger clusters, decrease for smaller clusters
-constexpr size_t kMinClusterSizeForFallback = 10;
-
-// Fraction of top points to use for fallback orientation (0.0-1.0)
-// Tune: Increase to use more points, decrease to focus on top of object
-constexpr double kTopFractionForFallback = 0.5;
-
-// Minimum width to compute aspect ratio (prevents division by zero)
-// Tune: Increase to ignore very narrow objects, decrease to handle thin objects
-constexpr double kMinWidthForAspectRatio = 0.1;
-
-// ============================================================================
-// Camera Projection Parameters
-// ============================================================================
-
-// Minimum Z distance from camera to project point (meters)
-// Points closer than this are considered invalid
-// Tune: Increase to filter very close points, decrease to keep more points
-constexpr double kMinCameraZDistance = 1.0;
-
-// ============================================================================
-// Cluster Merging Parameters
-// ============================================================================
-
-// Minimum width to compute aspect ratio (float version, meters)
-// Tune: Same as kMinWidthForAspectRatio but for float operations
-constexpr float kMinWidthForAspectRatioFloat = 0.1f;
-
-// Minimum aspect ratio to merge clusters (length/width)
-// Tune: Decrease to merge more clusters, increase to merge fewer
-constexpr double kMinAspectRatioForMerge = 1.8;
-
-// Maximum aspect ratio to merge clusters (length/width)
-// Tune: Increase to merge more elongated objects, decrease to merge fewer
-constexpr double kMaxAspectRatioForMerge = 7.0;
-
-// ============================================================================
-// IoU Matching Parameters
-// ============================================================================
-
-// Minimum IoU (Intersection over Union) to match cluster with camera detection
-// Tune: Increase to require better matches (fewer false positives), decrease to match more (more false positives)
-constexpr double kMinIOUThreshold = 0.15;
-
-// ============================================================================
-// Ground Noise Filtering Parameters
-// ============================================================================
-
-// Minimum height above ground to be considered valid object (meters)
-// Tune: Increase to filter more ground artifacts, decrease to keep lower objects
-constexpr float kMinHeightAboveGround = 0.3f;
-
-// Maximum Z coordinate for ground plane (negative = below sensor)
-// Clusters below this with low height are filtered as ground
-// Tune: Decrease (more negative) to filter more ground points, increase to keep more
-constexpr float kMaxGroundPlaneZ = -1.5f;
-
-// Minimum points required for valid object
-// Tune: Increase to filter more small clusters, decrease to keep smaller objects
-constexpr int kMinPointsForValidObject = 15;
-
-// ============================================================================
-// Visualization Parameters
-// ============================================================================
-
-// Alpha transparency for bounding box markers (0.0 = transparent, 1.0 = opaque)
-// Tune: Increase for more visible boxes, decrease for less obtrusive visualization
-constexpr float kMarkerAlpha = 0.2f;
-
-// Lifetime of visualization markers in seconds
-// Tune: Increase to keep markers longer, decrease for faster updates
-constexpr double kMarkerLifetimeSeconds = 0.5;
-
-// Default detection confidence score (0.0-1.0)
-// Tune: Adjust based on your confidence scoring system
+// Default detection confidence score (0.0-1.0) - used only in compute3DDetection
 constexpr double kDefaultDetectionScore = 1.0;
 
 // ============================================================================
@@ -233,7 +101,7 @@ inline double angleDiff(double a, double b)
 std::vector<Eigen::Vector2f> samplePointsXY(
   const pcl::PointCloud<pcl::PointXYZ> & cloud,
   const std::vector<int> & indices,
-  size_t desired_count = kDefaultSamplePointCount)
+  size_t desired_count)
 {
   std::vector<Eigen::Vector2f> pts;
   if (indices.empty()) return pts;
@@ -254,14 +122,15 @@ std::vector<Eigen::Vector2f> samplePointsXY(
 
 SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, const std::vector<int> & indices)
 {
+  const auto & p = ProjectionUtils::getParams();
   SearchResult r;
-  if (indices.size() < kMinPointsForFit) {
+  if (indices.size() < p.min_points_for_fit) {
     r.ok = false;
     return r;
   }
 
-  auto search_points = samplePointsXY(pts, indices);
-  if (search_points.size() < kMinPointsForFit) {
+  auto search_points = samplePointsXY(pts, indices, p.default_sample_point_count);
+  if (search_points.size() < p.min_points_for_fit) {
     r.ok = false;
     return r;
   }
@@ -307,7 +176,8 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, c
     return energy / static_cast<double>(search_points.size());
   };
 
-  double coarse_step = kCoarseSearchStepDegrees * M_PI / 180.0;
+  const double step_rad = p.orientation_search_step_degrees * M_PI / 180.0;
+  const double coarse_step = 5.0 * step_rad;
   for (double theta = 0.0; theta < M_PI_2; theta += coarse_step) {
     double energy = calculateEdgeEnergy(theta);
     if (energy < min_energy) {
@@ -316,8 +186,8 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, c
     }
   }
 
-  double fine_range = kFineSearchRangeDegrees * M_PI / 180.0;
-  double fine_step = kFineSearchStepDegrees * M_PI / 180.0;
+  const double fine_range = 2.5 * step_rad;
+  const double fine_step = step_rad;
 
   double start_theta = std::max(0.0, best_theta - fine_range);
   double end_theta = std::min(M_PI_2, best_theta + fine_range);
@@ -411,7 +281,8 @@ void recomputeExtentsInYaw(
     sum_yr += y_rot;
   }
 
-  const bool apply_outlier_rejection = (indices.size() < kOutlierRejectionPointCount);
+  const auto & p_rej = ProjectionUtils::getParams();
+  const bool apply_outlier_rejection = (indices.size() < p_rej.outlier_rejection_point_count);
 
   double min_x_rot, max_x_rot, min_y_rot, max_y_rot;
 
@@ -427,7 +298,7 @@ void recomputeExtentsInYaw(
     double std_xr = std::sqrt(var_xr / indices.size());
     double std_yr = std::sqrt(var_yr / indices.size());
 
-    const double sigma_mul = kOutlierSigmaMultiplier;
+    const double sigma_mul = p_rej.outlier_sigma_multiplier;
 
     min_x_rot = std::numeric_limits<double>::infinity();
     max_x_rot = -std::numeric_limits<double>::infinity();
@@ -474,47 +345,16 @@ ProjectionUtils::Box3D computeClusterBox(
     return box;
   }
 
-  std::vector<std::pair<float, int>> z_sorted_indices;
-  z_sorted_indices.reserve(cluster.indices.size());
-
   float min_z_all = std::numeric_limits<float>::max();
   float max_z_all = std::numeric_limits<float>::lowest();
-
   for (int idx : cluster.indices) {
     const auto & pt = cloud->points[idx];
     if (pt.z < min_z_all) min_z_all = pt.z;
     if (pt.z > max_z_all) max_z_all = pt.z;
-    z_sorted_indices.push_back({pt.z, idx});
   }
 
-  const float height = max_z_all - min_z_all;
-
-  std::vector<int> orientation_indices;
-  float z_threshold;
-
-  if (height > kTallObjectHeightThreshold) {
-    z_threshold = min_z_all + (height * kTallObjectCutBottomFraction);
-  } else {
-    z_threshold = min_z_all + kShortObjectCutBottomMeters;
-  }
-
-  for (const auto & pair : z_sorted_indices) {
-    if (pair.first >= z_threshold) orientation_indices.push_back(pair.second);
-  }
-
-  if (
-    orientation_indices.size() < kMinOrientationPointsForFallback &&
-    cluster.indices.size() > kMinClusterSizeForFallback)
-  {
-    std::sort(z_sorted_indices.begin(), z_sorted_indices.end(), [](const auto & a, const auto & b) {
-      return a.first > b.first;
-    });
-    orientation_indices.clear();
-    size_t count_to_take = static_cast<size_t>(z_sorted_indices.size() * kTopFractionForFallback);
-    if (count_to_take < kMinOrientationPointsForFallback) count_to_take = z_sorted_indices.size();
-    for (size_t i = 0; i < count_to_take; ++i) orientation_indices.push_back(z_sorted_indices[i].second);
-  }
-  if (orientation_indices.size() < kMinOrientationPoints) orientation_indices = cluster.indices;
+  const auto & p_box = ProjectionUtils::getParams();
+  std::vector<int> orientation_indices = cluster.indices;
 
   box.center.z() = 0.5f * (min_z_all + max_z_all);
   box.size.z() = std::max(0.0f, max_z_all - min_z_all);
@@ -523,7 +363,7 @@ ProjectionUtils::Box3D computeClusterBox(
 
   if (fit_result.ok) {
     double ar =
-      static_cast<double>(fit_result.len) / std::max(static_cast<double>(fit_result.wid), kMinWidthForAspectRatio);
+      static_cast<double>(fit_result.len) / std::max(static_cast<double>(fit_result.wid), 0.1);
 
     Eigen::Vector4f centroid_temp;
     pcl::compute3DCentroid(*cloud, orientation_indices, centroid_temp);
@@ -531,7 +371,7 @@ ProjectionUtils::Box3D computeClusterBox(
 
     double final_yaw;
 
-    if (ar < kARFrontViewThreshold) {
+    if (ar < p_box.ar_front_view_threshold) {
       final_yaw = yaw_los;
     } else {
       double yaw0 = normalizeAngle(fit_result.yaw);
@@ -849,7 +689,7 @@ std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
   geometry_msgs::msg::PointStamped camera_point;
   tf2::doTransform(lidar_point, camera_point, transform);
 
-  if (camera_point.point.z < kMinCameraZDistance) {
+  if (camera_point.point.z < ProjectionUtils::getParams().min_camera_z_distance) {
     return std::nullopt;
   }
 
@@ -1027,16 +867,8 @@ void ProjectionUtils::mergeClusters(
         std::vector<int> merged_indices = cluster_indices[i].indices;
         merged_indices.insert(
           merged_indices.end(), cluster_indices[j].indices.begin(), cluster_indices[j].indices.end());
-
-        SearchResult test_fit = computeSearchBasedFit(*cloud, merged_indices);
-        if (test_fit.ok) {
-          double aspect_ratio = test_fit.len / std::max(test_fit.wid, kMinWidthForAspectRatioFloat);
-
-          if (aspect_ratio >= kMinAspectRatioForMerge && aspect_ratio <= kMaxAspectRatioForMerge) {
-            cluster_indices[i].indices = std::move(merged_indices);
-            merged[j] = true;
-          }
-        }
+        cluster_indices[i].indices = std::move(merged_indices);
+        merged[j] = true;
       }
     }
   }
@@ -1176,57 +1008,6 @@ void ProjectionUtils::filterClustersByPhysicsConstraints(
   cluster_indices = std::move(kept_clusters);
 }
 
-void ProjectionUtils::filterGroundNoise(
-  const std::vector<ClusterStats> & stats, std::vector<pcl::PointIndices> & cluster_indices)
-{
-  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
-    return;
-  }
-
-  std::vector<pcl::PointIndices> filtered_clusters;
-  filtered_clusters.reserve(cluster_indices.size());
-
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    const auto & s = stats[i];
-
-    // Filter 1: Skip if num_points < kMinPointsForValidObject
-    if (s.num_points < kMinPointsForValidObject) {
-      continue;
-    }
-
-    float height = s.max_z - s.min_z;
-
-    // Filter 2: Skip if height < kMinHeightAboveGround
-    if (height < kMinHeightAboveGround) {
-      continue;
-    }
-
-    // Filter 3: Skip if cluster center z is < kMaxGroundPlaneZ AND height < 0.5f
-    if (s.centroid.z() < kMaxGroundPlaneZ && height < 0.5f) {
-      continue;
-    }
-
-    float max_horizontal_width = std::max(s.max_x - s.min_x, s.max_y - s.min_y);
-
-    // Filter 4: Skip if height < 0.4f AND max horizontal width > 3.0f
-    if (height < 0.4f && max_horizontal_width > 3.0f) {
-      continue;
-    }
-
-    // Filter 5: Skip if aspect ratio (max_horizontal/height) > 10.0f
-    if (height > 0.0f) {
-      float aspect_ratio = max_horizontal_width / height;
-      if (aspect_ratio > 10.0f) {
-        continue;
-      }
-    }
-
-    filtered_clusters.push_back(cluster_indices[i]);
-  }
-
-  cluster_indices = std::move(filtered_clusters);
-}
-
 bool ProjectionUtils::computeClusterCentroid(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
   const pcl::PointIndices & cluster_indices,
@@ -1244,7 +1025,7 @@ bool ProjectionUtils::computeClusterCentroid(
   return true;
 }
 
-double ProjectionUtils::computeMaxIOU8Corners(
+std::pair<double, int> ProjectionUtils::computeMaxIOU8Corners(
   const ClusterStats & cluster_stats,
   const geometry_msgs::msg::TransformStamped & transform,
   const std::array<double, 12> & projection_matrix,
@@ -1259,7 +1040,7 @@ double ProjectionUtils::computeMaxIOU8Corners(
   float max_z = cluster_stats.max_z;
 
   if (cluster_stats.num_points == 0) {
-    return 0.0;
+    return {0.0, -1};
   }
 
   std::array<pcl::PointXYZ, 8> corners = {
@@ -1284,12 +1065,14 @@ double ProjectionUtils::computeMaxIOU8Corners(
     v1 = std::max(v1, uv->y);
   }
   if (u1 <= u0 || v1 <= v0) {
-    return 0.0;
+    return {0.0, -1};
   }
   cv::Rect cluster_rect(u0, v0, u1 - u0, v1 - v0);
 
   double best_iou = 0.0;
-  for (auto & det : detections.detections) {
+  int best_det_idx = -1;
+  for (size_t d = 0; d < detections.detections.size(); ++d) {
+    const auto & det = detections.detections[d];
     if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
       continue;
     }
@@ -1298,10 +1081,14 @@ double ProjectionUtils::computeMaxIOU8Corners(
     double inter = (cluster_rect & det_rect).area();
     double uni = cluster_rect.area() + det_rect.area() - inter;
     if (uni > 0.0) {
-      best_iou = std::max(best_iou, inter / uni);
+      double iou = inter / uni;
+      if (iou > best_iou) {
+        best_iou = iou;
+        best_det_idx = static_cast<int>(d);
+      }
     }
   }
-  return best_iou;
+  return {best_iou, best_det_idx};
 }
 
 void ProjectionUtils::computeHighestIOUCluster(
@@ -1321,21 +1108,31 @@ void ProjectionUtils::computeHighestIOUCluster(
     return;
   }
 
-  std::vector<std::pair<size_t, double>> cluster_best_ious;
-  cluster_best_ious.reserve(cluster_indices.size());
+  const double min_iou = ProjectionUtils::getParams().min_iou_threshold;
+
+  // For each detection, track the best (highest IoU) cluster index and its IoU.
+  // det_idx -> (best_cluster_idx, best_iou)
+  std::unordered_map<int, std::pair<size_t, double>> best_cluster_per_detection;
 
   for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    double iou = computeMaxIOU8Corners(stats[i], transform, projection_matrix, detections, object_detection_confidence);
+    auto [iou, det_idx] =
+      computeMaxIOU8Corners(stats[i], transform, projection_matrix, detections, object_detection_confidence);
 
-    cluster_best_ious.push_back({i, iou});
+    if (iou < min_iou || det_idx < 0) {
+      continue;
+    }
+
+    auto it = best_cluster_per_detection.find(det_idx);
+    if (it == best_cluster_per_detection.end() || iou > it->second.second) {
+      best_cluster_per_detection[det_idx] = {i, iou};
+    }
   }
 
+  // Collect the winning cluster indices (one per detection).
   std::vector<pcl::PointIndices> kept_clusters;
-
-  for (const auto & pair : cluster_best_ious) {
-    if (pair.second >= kMinIOUThreshold) {
-      kept_clusters.push_back(cluster_indices[pair.first]);
-    }
+  kept_clusters.reserve(best_cluster_per_detection.size());
+  for (const auto & [det_idx, pair] : best_cluster_per_detection) {
+    kept_clusters.push_back(cluster_indices[pair.first]);
   }
 
   cluster_indices = std::move(kept_clusters);
@@ -1374,12 +1171,13 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
     bbox_marker.scale.y = std::max(0.0f, box.size.y());
     bbox_marker.scale.z = std::max(0.0f, box.size.z());
 
+    const auto & p_viz = ProjectionUtils::getParams();
     bbox_marker.color.r = 0.0f;
     bbox_marker.color.g = 0.0f;
     bbox_marker.color.b = 0.0f;
-    bbox_marker.color.a = kMarkerAlpha;
+    bbox_marker.color.a = p_viz.marker_alpha;
 
-    bbox_marker.lifetime = rclcpp::Duration::from_seconds(kMarkerLifetimeSeconds);
+    bbox_marker.lifetime = rclcpp::Duration::from_seconds(p_viz.marker_lifetime_s);
 
     marker_array.markers.push_back(bbox_marker);
   }

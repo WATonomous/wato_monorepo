@@ -48,12 +48,6 @@ The node is structured in three main layers:
          │
          ▼
 ┌─────────────────┐
-│ Ground Noise    │
-│ Filtering       │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
 │ Quality Filter  │
 └────────┬────────┘
          │
@@ -117,7 +111,6 @@ Multi-stage filtering with three stages:
 
 **Stage 2: Geometry-Based Filtering** (`filterByGeometry`)
 - Checks for unrealistic sizes (> 15m length, > 4m width, > 5m height)
-- Validates aspect ratios (prevents wall/fence artifacts)
 - Filters thin vertical poles (false positives)
 - Validates point density (too sparse or too dense = invalid)
 
@@ -179,16 +172,11 @@ Main clustering function that executes the full pipeline:
    - Standard: `euclideanClusterExtraction()`
    - Adaptive: `adaptiveEuclideanClusterExtraction()` (uses larger tolerance for close objects)
 
-2. **Ground Noise Filtering**: `filterGroundNoise()`
-   - Removes clusters that are too low or too flat
-   - Filters ground plane artifacts
+2. **Quality Filtering**: `filterClustersByPhysicsConstraints()`
+   - Physics-based filtering with distance-adaptive thresholds (points, height, density, etc.)
 
-3. **Quality Filtering**: `filterClustersByPhysicsConstraints()`
-   - Physics-based filtering with distance-adaptive thresholds
-
-4. **Cluster Merging**: `mergeClusters()`
+3. **Cluster Merging**: `mergeClusters()`
    - Merges nearby clusters that likely belong to the same object
-   - Validates aspect ratios before merging
 
 #### `ProjectionUtils::computeClusterStats()`
 

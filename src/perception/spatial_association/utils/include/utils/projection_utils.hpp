@@ -63,6 +63,40 @@ public:
   };
 
   /**
+   * @brief Configurable parameters for projection/utils (orientation, filtering, visualization).
+   * Set via setParams(); defaults match previous hardcoded constants in projection_utils.cpp.
+   */
+  struct ProjectionUtilsParams
+  {
+    // Visualization
+    double marker_lifetime_s = 0.5;
+    float marker_alpha = 0.2f;
+
+    // IoU matching (cluster <-> 2D detection)
+    double min_iou_threshold = 0.15;
+
+    // Bounding box orientation
+    double ar_front_view_threshold = 1.2;
+
+    // Outlier rejection
+    size_t outlier_rejection_point_count = 30;
+    double outlier_sigma_multiplier = 4.5;
+
+    // Orientation search (coarse/fine derived: coarse = 5*step, fine_range = 2.5*step)
+    size_t min_points_for_fit = 3;
+    size_t default_sample_point_count = 64;
+    double orientation_search_step_degrees = 2.0;
+
+    // Camera projection
+    double min_camera_z_distance = 1.0;
+  };
+
+  /** Set global params (used by all static methods). Call from node after reading ROS params. */
+  static void setParams(const ProjectionUtilsParams & params);
+  /** Get current params. */
+  static const ProjectionUtilsParams & getParams();
+
+  /**
    * @brief Projects a 3D LiDAR point onto a 2D camera image plane
    * @param transform Transform from LiDAR frame to camera frame
    * @param p Camera projection matrix (3x4, flattened to 12 elements)
@@ -209,9 +243,9 @@ public:
    * @param projection_matrix Camera projection matrix (3x4, flattened to 12 elements)
    * @param detections 2D camera detections
    * @param object_detection_confidence Minimum confidence threshold for detections
-   * @return Maximum IoU score between cluster projection and detections
+   * @return Pair of (maximum IoU score, index of best-matching detection). Index is -1 if no match.
    */
-  static double computeMaxIOU8Corners(
+  static std::pair<double, int> computeMaxIOU8Corners(
     const ClusterStats & cluster_stats,
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix,
@@ -234,14 +268,6 @@ public:
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix,
     const float object_detection_confidence);
-
-  /**
-   * @brief Filters out ground noise clusters
-   * @param stats Precomputed cluster statistics
-   * @param cluster_indices Vector of cluster indices (modified in place)
-   */
-  static void filterGroundNoise(
-    const std::vector<ClusterStats> & stats, std::vector<pcl::PointIndices> & cluster_indices);
 
   /**
    * @brief Computes 3D bounding boxes for all clusters
@@ -279,6 +305,7 @@ public:
 private:
   static const int image_width_ = 1600;
   static const int image_height_ = 900;
+  static ProjectionUtilsParams s_params_;
 };
 
 #endif
