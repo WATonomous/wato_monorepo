@@ -331,7 +331,8 @@ if [[ -f /tmp/li_init_probe.env ]]; then
   source /tmp/li_init_probe.env
   li_init_scan_line="${LI_INIT_SCAN_LINE:-}"
   li_init_time_min="${LI_INIT_TIME_MIN:-}"
-  li_init_time_max="${LI_INIT_TIME_MAX:-}"  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034
+  li_init_time_max="${LI_INIT_TIME_MAX:-}"
 fi
 
 li_init_lidar_topic="$lidar_topic"
