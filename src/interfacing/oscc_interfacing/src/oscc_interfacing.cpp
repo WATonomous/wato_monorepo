@@ -53,7 +53,12 @@ void steering_report_callback(oscc_steering_report_s * report)
     node->latest_override_.store(OsccInterfacingNode::OverrideType::STEERING);
     node->has_override_.store(true);
   }
-  // float steering_torque = float(report->)
+
+  if (node) {
+    float torque = static_cast<float>(report->torque) / 32767.0f;
+    node->latest_steering_torque_.store(torque);
+    node->has_steering_torque_.store(true);
+  }
 }
 
 void obd_callback(struct can_frame * frame)
@@ -188,6 +193,8 @@ void OsccInterfacingNode::configure()
     this->create_publisher<roscco_msg::msg::WheelSpeeds>("oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
   steering_angle_pub_ =
     this->create_publisher<roscco_msg::msg::SteeringAngle>("oscc_interfacing/steering_angle", rclcpp::QoS(1));
+  steering_torque_pub_ =
+    this->create_publisher<roscco_msg::msg::SteeringTorque>("oscc_interfacing/steering_torque", rclcpp::QoS(1));
 
   // Default group: is_armed status timer
   std::chrono::milliseconds interval(1000 / is_armed_publish_rate_hz);
@@ -457,6 +464,14 @@ void OsccInterfacingNode::publish_feedback()
     msg.angle = angle;
     msg.header.stamp = this->now();
     steering_angle_pub_->publish(msg);
+  }
+
+  // Publish steering torque
+  if (has_steering_torque_.exchange(false)) {
+    roscco_msg::msg::SteeringTorque msg;
+    msg.header.stamp = this->now();
+    msg.torque = latest_steering_torque_.load();
+    steering_torque_pub_->publish(msg);
   }
 }
 

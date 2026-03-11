@@ -103,6 +103,24 @@ launch:
             - name: storage.uri
               value: "$(var bag_path)"
 
+  # OSCC Interfacing (steering torque from OSCC CAN bus, controls disabled)
+  - node:
+      pkg: "oscc_interfacing"
+      exec: "oscc_interfacing_node"
+      name: "oscc_interfacing"
+      namespace: "interfacing"
+      output: "screen"
+      param:
+        - from: "$(var can_config_file)"
+        - name: "enable_all"
+          value: false
+        - name: "enable_steering"
+          value: false
+        - name: "enable_throttle"
+          value: false
+        - name: "enable_brakes"
+          value: false
+
   # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
   - node:
       pkg: can_state_estimator

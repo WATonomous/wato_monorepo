@@ -78,6 +78,7 @@ bag_recorder:
         - /interfacing/joystick_node/transition_event
         - /interfacing/oscc_interfacing/is_armed
         - /interfacing/oscc_interfacing/steering_angle
+        - /interfacing/oscc_interfacing/steering_torque
         - /interfacing/oscc_interfacing/wheel_speeds
         - /interfacing/roscco
         # Transforms

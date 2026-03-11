@@ -129,7 +129,7 @@ public:
 
     const double dx = static_cast<double>(pts[i1].x) - static_cast<double>(pts[i0].x);
     const double dy = static_cast<double>(pts[i1].y) - static_cast<double>(pts[i0].y);
-    const double yaw = std::atan2(dy, dx);
+    const double yaw = std::atan2(dy, dx) + M_PI_2;
 
     tf2::Quaternion q;
     q.setRPY(0.0, 0.0, yaw);
