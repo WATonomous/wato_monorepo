@@ -35,6 +35,10 @@ find_package(wato_lifecycle_manager REQUIRED)
 add_library(${PROJECT_NAME}_component SHARED
   src/trajectory_core.cpp
   src/trajectory_planner_node.cpp
+  src/trajectory_visualizer.cpp
+  src/elastic_costmap.cpp
+  src/elastic_forces.cpp
+  src/elastic_core.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_component

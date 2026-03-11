@@ -1,13 +1,16 @@
 trajectory_planner_node:
   ros__parameters:
-    # Safety distances
+    # Planner selection
+    use_elastic: true   # true = elastic lateral deformation; false = legacy longitudinal-only
+
+    # Safety distances (legacy planner only)
     safe_distance: 10.0  # Distance (m) where slowing down begins
-    stop_distance: 2.0   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    stop_distance: 2.0   # Distance (m) where vehicle must be fully stopped
 
     # Speed limits
     max_speed: 20.0  # Default maximum speed (m/s) if lanelet limit unavailable
 
-    # Path interpolation
+    # Path interpolation (legacy planner only)
     interpolation_resolution: 0.1  # Resolution (m) for path interpolation
 
     # Vehicle footprint bounding box in footprint_frame (m)
@@ -17,3 +20,43 @@ trajectory_planner_node:
     footprint_y_min: -1.2    # right side
     footprint_x_max: 3.5     # front bumper
     footprint_y_max: 1.2     # left side
+
+    # ---------------------------------------------------------------------------
+    # Elastic lateral deformation planner (Quinlan & Khatib 1993 — adapted)
+    # ---------------------------------------------------------------------------
+    elastic:
+      # Footprint sampling resolution (m) — ~300 samples over 4x2.4 m footprint
+      footprint_sample_res: 0.15
+
+      # Force gains
+      k_r: 0.030     # repulsion gain: scales cost-asymmetry → lateral displacement
+      k_s: 0.150     # smoothing gain: Laplacian stiffness, prevents kinks
+
+      # Per-iteration step limit (m) — prevents overshoot and oscillation
+      max_step: 0.050
+
+      # Probe half-width (m) — left/right sample distance from path centre
+      probe_width: 0.60
+
+      # Number of force-application iterations per planning cycle
+      num_iterations: 20
+
+      # Lane corridor (hard bounds on lateral offset)
+      lane_width: 4.0       # full lane width (m)
+      vehicle_width: 2.4    # vehicle width (m); d_max = lane/2 - vehicle/2 - margin
+      lane_margin: 0.10     # extra clearance from lane edge (m)
+
+      # Cost gates
+      tau_rep: 10.0   # repulsion activation threshold: below this C_risk → no force
+      tau_gate: 65.0  # lethal zone threshold: reset offset if proposed C_risk >= this
+      epsilon: 5.0    # minimum cost improvement vs. reference to accept displacement
+
+      # Sigmoid speed scaling: v = v_max * (1 - σ((C_avg - μ) / w))
+      sigmoid_mu: 40.0  # inflection point (cost units)
+      sigmoid_w: 20.0   # width (sharpness of response)
+
+      # Risk aggregation (log-sum-exp)
+      alpha: 0.08  # risk sensitivity exponent for log-sum-exp C_risk
+
+      # Kinematic backward pass
+      a_max: 3.0  # max braking deceleration (m/s²) for kinematic backward pass

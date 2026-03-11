@@ -68,7 +68,6 @@ launch:
       param:
         - name: "node_names"
           value:
-            - /action/lattice_planning/local_planner_node
             - /action/trajectory_planning/trajectory_planner_node
             - /action/lattice_planning/lattice_planning_node
         - name: autostart

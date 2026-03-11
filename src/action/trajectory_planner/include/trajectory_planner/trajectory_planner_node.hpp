@@ -23,7 +23,9 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
+#include "trajectory_planner/elastic_core.hpp"
 #include "trajectory_planner/trajectory_core.hpp"
+#include "trajectory_planner/trajectory_visualizer.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
@@ -53,12 +55,18 @@ private:
   // Recomputes and publishes trajectory when new path or costmap arrives
   void update_trajectory();
 
-  // Planning core — stateless, holds trajectory config
+  // Planning cores — only one is active at a time depending on use_elastic_
   std::unique_ptr<TrajectoryCore> core_;
+  std::unique_ptr<ElasticCore> elastic_core_;
+  bool use_elastic_{false};
+
+  // Visualization helper — builds and publishes marker arrays
+  std::unique_ptr<TrajectoryVisualizer> visualizer_;
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr traj_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr speed_label_pub_;
 
   // Subscribers
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
