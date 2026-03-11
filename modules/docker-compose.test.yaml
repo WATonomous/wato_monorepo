@@ -27,14 +27,26 @@ services:
 #################### PERCEPTION SERVICE ####################
   perception_bringup_test:
     profiles: ["perception_test"]
-    extends:
-      file: ${COMPOSE_EXTEND_FILE}
-      service: perception_bringup
     build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${PERCEPTION_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
       target: build
     image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
+    runtime: runc
+    deploy:
+      resources:
+        reservations:
+          devices: []
+    ipc: host
+    network_mode: host
     environment:
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - NVIDIA_VISIBLE_DEVICES=
+      - NVIDIA_DRIVER_CAPABILITIES=
+      - COLCON_TEST_PACKAGES_SKIP_ARGS=--packages-skip deep_ort_gpu_backend_plugin deep_sample
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup_test:

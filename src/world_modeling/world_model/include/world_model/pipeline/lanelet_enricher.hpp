@@ -88,7 +88,7 @@ public:
    * @param map Entity map to enrich in-place.
    */
   template <typename EntityT>
-  void enrich(std::unordered_map<int64_t, EntityT> & map)
+  void enrich(std::unordered_map<std::string, EntityT> & map)
   {
     if (!lanelet_->isMapLoaded() || !tf_valid_) {
       return;
@@ -112,14 +112,15 @@ private:
   {}
 
   /**
-   * @brief TrafficLight: match to nearest traffic light regulatory element.
+   * @brief TrafficLight: match to nearest traffic light way and its parent reg elem.
    */
   void enrich(TrafficLight & entity)
   {
     auto map_pose = toMapFrame(entity);
-    auto reg_id = lanelet_->findNearestTrafficLightRegElemId(map_pose.pose.position);
-    if (reg_id.has_value()) {
-      entity.reg_elem_id = *reg_id;
+    auto match = lanelet_->findNearestTrafficLightMatch(map_pose.pose.position);
+    if (match.has_value()) {
+      entity.way_id = match->way_id;
+      entity.reg_elem_id = match->reg_elem_id;
     }
   }
 

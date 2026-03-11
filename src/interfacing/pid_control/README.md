@@ -13,7 +13,7 @@ The `pid_control_node` subscribes to desired vehicle states (steering angle and 
 | Internal Name | Message Type | Default Remap Topic | Description |
 | :--- | :--- | :--- | :--- |
 | `ackermann` | `ackermann_msgs/msg/AckermannDriveStamped` | `/joystick/ackermann` | Desired steering angle and speed setpoints. |
-| `steering_feedback` | `std_msgs/msg/Float64` | `/steering_feedback` | Current steering angle feedback. |
+| `steering_feedback` | `roscco_msg/msg/SteeringAngle` | `/steering_feedback` | Current steering angle feedback (in degrees). |
 | `velocity_feedback` | `std_msgs/msg/Float64` | `/velocity_feedback` | Current vehicle velocity feedback. |
 
 ### Publishers

@@ -16,6 +16,9 @@ map_viz_markers_node:
     direction_arrow_size: 0.8
     speed_limit_text_height: 1.0
     yield_marker_size: 1.5
+    show_reg_elem_labels: true
+    show_lanelet_ids: true
+    lanelet_id_text_height: 0.5
 
 lane_context_markers_node:
   ros__parameters:

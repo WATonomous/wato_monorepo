@@ -1,0 +1,25 @@
+# local_planning_markers_params.yaml
+#
+# ROS 2 parameter file for the node named "local_planning_markers_node".
+action:
+  lattice_planning_markers:
+    lattice_planning_markers_node:
+      ros__parameters:
+        # Subscription topics
+        path_topic: "path"
+        available_paths_topic: "available_paths"
+
+        # Publisher topics
+        path_markers_topic: "path_markers"
+        available_paths_markers_topic: "available_paths_markers"
+
+        # Marker appearance
+        path_line_width: 0.1
+        available_path_line_width: 0.1
+        available_paths_alpha: 1.0
+
+        # How many candidate paths to publish markers for
+        max_available_paths: 50
+
+        # If true, publish a DELETEALL marker before updates to avoid stale markers in RViz
+        publish_deleteall_each_update: true
