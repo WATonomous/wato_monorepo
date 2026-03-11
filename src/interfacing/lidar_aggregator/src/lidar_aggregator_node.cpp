@@ -368,7 +368,8 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
   pcl::PointCloud<pcl::PointXYZI> corrected;
   corrected.reserve(side_cloud.size());
 
-  const rclcpp::Time side_stamp = rclcpp::Time(side_msg->header.stamp) + rclcpp::Duration::from_seconds(side_time_offset_sec);
+  const rclcpp::Time side_stamp =
+    rclcpp::Time(side_msg->header.stamp) + rclcpp::Duration::from_seconds(side_time_offset_sec);
   Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
   const bool has_delta = get_rotation_delta(side_stamp, center_stamp, r_delta);
 
@@ -416,13 +417,13 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::merge_clouds(
   pcl::PointCloud<pcl::PointXYZI> merged;
 
   auto append = [&merged](const sensor_msgs::msg::PointCloud2::SharedPtr & msg) {
-      if (!msg) {
-        return;
-      }
-      pcl::PointCloud<pcl::PointXYZI> cloud;
-      pcl::fromROSMsg(*msg, cloud);
-      merged += cloud;
-    };
+    if (!msg) {
+      return;
+    }
+    pcl::PointCloud<pcl::PointXYZI> cloud;
+    pcl::fromROSMsg(*msg, cloud);
+    merged += cloud;
+  };
 
   append(cc);
   append(ne);
@@ -516,8 +517,10 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
     return false;
   }
 
-  const double start = std::max(side_time_offset_sec - estimator_cfg_.search_half_window_sec, estimator_cfg_.min_offset_sec);
-  const double end = std::min(side_time_offset_sec + estimator_cfg_.search_half_window_sec, estimator_cfg_.max_offset_sec);
+  const double start = std::max(
+    side_time_offset_sec - estimator_cfg_.search_half_window_sec, estimator_cfg_.min_offset_sec);
+  const double end = std::min(
+    side_time_offset_sec + estimator_cfg_.search_half_window_sec, estimator_cfg_.max_offset_sec);
 
   double best_offset = side_time_offset_sec;
   double best_score = -std::numeric_limits<double>::infinity();
@@ -616,8 +619,10 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
   const rclcpp::Time center_stamp(center_msg->header.stamp);
   publish_offset_diagnostics_locked(center_stamp);
 
-  const rclcpp::Time ne_aligned = rclcpp::Time(latest_ne_->header.stamp) + rclcpp::Duration::from_seconds(ne_time_offset_sec_);
-  const rclcpp::Time nw_aligned = rclcpp::Time(latest_nw_->header.stamp) + rclcpp::Duration::from_seconds(nw_time_offset_sec_);
+  const rclcpp::Time ne_aligned =
+    rclcpp::Time(latest_ne_->header.stamp) + rclcpp::Duration::from_seconds(ne_time_offset_sec_);
+  const rclcpp::Time nw_aligned =
+    rclcpp::Time(latest_nw_->header.stamp) + rclcpp::Duration::from_seconds(nw_time_offset_sec_);
 
   if (abs_time_delta_sec(ne_aligned, center_stamp) > max_pair_dt_sec_ ||
     abs_time_delta_sec(nw_aligned, center_stamp) > max_pair_dt_sec_)
