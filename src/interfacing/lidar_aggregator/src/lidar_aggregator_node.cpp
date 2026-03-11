@@ -14,18 +14,19 @@
 
 #include "lidar_aggregator/lidar_aggregator_node.hpp"
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 #include <algorithm>
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <utility>
 
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <rclcpp_components/register_node_macro.hpp>
 
 namespace lidar_aggregator
