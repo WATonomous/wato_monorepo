@@ -35,8 +35,8 @@ RUN git clone --depth 1 --branch ${LI_INIT_REF} ${LI_INIT_REPO} lidar_imu_init \
 
 # Apply local patches to make LI-Init more robust on real-world bags.
 COPY patches /tmp/li_init_patches
+WORKDIR /catkin_ws/src/lidar_imu_init
 RUN set -e \
-  && cd /catkin_ws/src/lidar_imu_init \
   && if ls -1 /tmp/li_init_patches/*.patch >/dev/null 2>&1; then \
        git apply /tmp/li_init_patches/*.patch; \
      fi

@@ -80,9 +80,7 @@ private:
 
   bool get_orientation_at_time(const rclcpp::Time & stamp, Eigen::Quaterniond & q_out) const;
   bool get_rotation_delta(
-    const rclcpp::Time & from_stamp,
-    const rclcpp::Time & to_stamp,
-    Eigen::Matrix3d & delta_rotation) const;
+    const rclcpp::Time & from_stamp, const rclcpp::Time & to_stamp, Eigen::Matrix3d & delta_rotation) const;
   bool get_abs_gyro_z_at_time(const rclcpp::Time & stamp, double & abs_gyro_z_out) const;
 
   sensor_msgs::msg::PointCloud2::SharedPtr compensate_side_cloud(
@@ -120,13 +118,7 @@ private:
 
   void try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg);
 
-  static RigidTransform rigid_from_xyz_rpy(
-    double x,
-    double y,
-    double z,
-    double roll,
-    double pitch,
-    double yaw);
+  static RigidTransform rigid_from_xyz_rpy(double x, double y, double z, double roll, double pitch, double yaw);
 
   mutable std::mutex mutex_;
 
