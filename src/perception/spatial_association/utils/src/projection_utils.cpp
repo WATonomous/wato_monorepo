@@ -572,6 +572,10 @@ void ProjectionUtils::euclideanClusterExtraction(
   int maxClusterSize,
   std::vector<pcl::PointIndices> & cluster_indices)
 {
+  cluster_indices.clear();
+  if (!cloud || cloud->size() < 2u) {
+    return;
+  }
   pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
   tree->setInputCloud(cloud);
 
@@ -630,7 +634,7 @@ void ProjectionUtils::adaptiveEuclideanClusterExtraction(
 
   cluster_indices.clear();
 
-  if (!close_cloud->empty()) {
+  if (close_cloud->size() >= 2u) {
     double close_tolerance = base_cluster_tolerance * close_tolerance_mult;
     std::vector<pcl::PointIndices> close_clusters;
     euclideanClusterExtraction(close_cloud, close_tolerance, minClusterSize, maxClusterSize, close_clusters);
@@ -645,7 +649,7 @@ void ProjectionUtils::adaptiveEuclideanClusterExtraction(
     }
   }
 
-  if (!far_cloud->empty()) {
+  if (far_cloud->size() >= 2u) {
     std::vector<pcl::PointIndices> far_clusters;
     euclideanClusterExtraction(far_cloud, base_cluster_tolerance, minClusterSize, maxClusterSize, far_clusters);
 

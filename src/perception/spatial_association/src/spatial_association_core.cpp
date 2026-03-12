@@ -78,6 +78,10 @@ void SpatialAssociationCore::performClustering(
   if (!filtered_cloud || filtered_cloud->empty()) {
     return;
   }
+  // FLANN KdTree used by EuclideanClusterExtraction can assert on very small or degenerate clouds.
+  if (filtered_cloud->size() < 2u) {
+    return;
+  }
 
   if (params_.use_adaptive_clustering) {
     ProjectionUtils::adaptiveEuclideanClusterExtraction(
