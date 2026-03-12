@@ -138,13 +138,6 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("geometric_lane_change_distance", 30.0);
   this->declare_parameter("geometric_path_sampling_interval", 1.0);
 
-  // Intent classifier weights
-  this->declare_parameter("intent_classifier.velocity_weight", 0.3);
-  this->declare_parameter("intent_classifier.heading_weight", 0.2);
-  this->declare_parameter("intent_classifier.intersection_weight", 0.25);
-  this->declare_parameter("intent_classifier.lateral_offset_weight", 0.15);
-  this->declare_parameter("intent_classifier.turn_signal_weight", 0.1);
-
   // Intent classifier feature defaults
   this->declare_parameter("default_velocity", 5.0);
   this->declare_parameter("default_distance_to_intersection", 50.0);
@@ -283,11 +276,6 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
 
   // Build intent classifier config
   IntentClassifierConfig ic_config;
-  ic_config.velocity_weight = this->get_parameter("intent_classifier.velocity_weight").as_double();
-  ic_config.heading_weight = this->get_parameter("intent_classifier.heading_weight").as_double();
-  ic_config.intersection_weight = this->get_parameter("intent_classifier.intersection_weight").as_double();
-  ic_config.lateral_offset_weight = this->get_parameter("intent_classifier.lateral_offset_weight").as_double();
-  ic_config.turn_signal_weight = this->get_parameter("intent_classifier.turn_signal_weight").as_double();
   ic_config.default_velocity = this->get_parameter("default_velocity").as_double();
   ic_config.default_distance_to_intersection = this->get_parameter("default_distance_to_intersection").as_double();
   ic_config.default_time_in_lane = this->get_parameter("default_time_in_lane").as_double();
