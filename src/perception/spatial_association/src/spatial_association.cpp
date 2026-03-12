@@ -324,6 +324,11 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, pu + "min_camera_z_distance", 1.0);
   declareIfMissing(this, pu + "detection_score_weight", 0.6);
   declareIfMissing(this, pu + "iou_score_weight", 0.4);
+  declareIfMissing(this, pu + "image_width", 1280);
+  declareIfMissing(this, pu + "image_height", 1024);
+  declareIfMissing(this, pu + "enable_second_pass_fallback", false);
+  declareIfMissing(this, pu + "second_pass_min_iou", 0.05);
+  declareIfMissing(this, pu + "max_unassigned_detections_second_pass", 10);
 
   publish_bounding_box_ = this->get_parameter("publish_bounding_box").as_bool();
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
@@ -363,6 +368,12 @@ void SpatialAssociationNode::initializeParams()
   proj_params.min_camera_z_distance = this->get_parameter(pu_get + "min_camera_z_distance").as_double();
   proj_params.detection_score_weight = this->get_parameter(pu_get + "detection_score_weight").as_double();
   proj_params.iou_score_weight = this->get_parameter(pu_get + "iou_score_weight").as_double();
+  proj_params.image_width = this->get_parameter(pu_get + "image_width").as_int();
+  proj_params.image_height = this->get_parameter(pu_get + "image_height").as_int();
+  proj_params.enable_second_pass_fallback = this->get_parameter(pu_get + "enable_second_pass_fallback").as_bool();
+  proj_params.second_pass_min_iou = this->get_parameter(pu_get + "second_pass_min_iou").as_double();
+  proj_params.max_unassigned_detections_second_pass =
+    this->get_parameter(pu_get + "max_unassigned_detections_second_pass").as_int();
   ProjectionUtils::setParams(proj_params);
 
   if (debug_logging_) {

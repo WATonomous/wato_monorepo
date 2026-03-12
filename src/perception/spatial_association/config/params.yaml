@@ -22,7 +22,7 @@ spatial_association:
     merge_threshold: 1.0
     # the threshold distance between two clusters centroids for them to be merged into one cluster
 
-    object_detection_confidence: 0.60
+    object_detection_confidence: 0.52  # Lowered to recover more matches; tune up if false associations spike
 
     # Voxel downsampling parameter
     voxel_size: 0.2  # Fixed voxel size (meters) for downsampling
@@ -54,8 +54,8 @@ spatial_association:
     projection_utils_params:
       marker_lifetime_s: 0.25       # Viz only
       marker_alpha: 0.2             # Viz only
-      min_iou_threshold: 0.15       # Association: min IoU cluster<->2D; raise = stricter, lower = looser
-      min_camera_z_distance: 1.0    # Association: reject points behind camera (m)
+      min_iou_threshold: 0.11       # Association: min IoU cluster<->2D; raised from 0.15 to recover more matches
+      min_camera_z_distance: 0.8    # Association: reject points behind camera (m); slightly relaxed from 1.0
       detection_score_weight: 0.6  # 3D score = detection_score_weight * det_score + iou_score_weight * iou
       iou_score_weight: 0.4
       ar_front_view_threshold: 1.2  # Orientation: if box aspect ratio < this use line-of-sight yaw (front view)
@@ -69,3 +69,10 @@ spatial_association:
       xy_extent_percentile_high: 95.0
       z_extent_percentile_low: 2.0
       z_extent_percentile_high: 98.0
+      # Image dimensions for projection clipping (from CameraInfo or config). Must match camera resolution.
+      image_width: 1280
+      image_height: 1024
+      # Second-pass fallback for unassigned detections (optional; set true to recover more matches)
+      enable_second_pass_fallback: false
+      second_pass_min_iou: 0.05  # Relaxed IoU or centroid-in-box; only when enable_second_pass_fallback is true
+      max_unassigned_detections_second_pass: 10  # Cap second-pass work to avoid becoming a bottleneck

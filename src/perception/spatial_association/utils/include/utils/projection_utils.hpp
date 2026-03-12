@@ -133,6 +133,15 @@ public:
 
     // Camera projection
     double min_camera_z_distance = 1.0;
+
+    // Image dimensions for projection clipping (from CameraInfo or config). 0 = use default 1280x1024.
+    int image_width = 0;
+    int image_height = 0;
+
+    // Second-pass fallback for unassigned detections (bounded extra work)
+    bool enable_second_pass_fallback = false;
+    double second_pass_min_iou = 0.05;  // Relaxed IoU or centroid-in-box for unassigned detections
+    int max_unassigned_detections_second_pass = 10;  // Cap work for unassigned detections
   };
 
   /** Set global params (used by all static methods). Call from node after reading ROS params. */
@@ -319,13 +328,17 @@ public:
   /**
    * @brief Greedy one-to-one assignment by IoU using 8-corner AABB projection from candidate stats.
    * Fills candidate.match for kept, removes unmatched (in place).
+   * @param image_width Image width for projection clipping (from CameraInfo). 0 = use params or 1280.
+   * @param image_height Image height for projection clipping. 0 = use params or 1024.
    */
   static void assignCandidatesToDetectionsByIOU(
     std::vector<ClusterCandidate> & candidates,
     const vision_msgs::msg::Detection2DArray & detections,
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix,
-    float object_detection_confidence);
+    float object_detection_confidence,
+    int image_width = 0,
+    int image_height = 0);
 
   /**
    * @brief Computes 3D bounding boxes for all clusters
@@ -358,8 +371,8 @@ public:
     const vision_msgs::msg::Detection2DArray & detections);
 
 private:
-  static const int image_width_ = 1280;
-  static const int image_height_ = 1024;
+  static constexpr int kDefaultImageWidth = 1280;
+  static constexpr int kDefaultImageHeight = 1024;
   static ProjectionUtilsParams s_params_;
 };
 

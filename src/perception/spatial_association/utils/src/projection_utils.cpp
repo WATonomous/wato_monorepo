@@ -1123,7 +1123,9 @@ void ProjectionUtils::assignCandidatesToDetectionsByIOU(
   const vision_msgs::msg::Detection2DArray & detections,
   const geometry_msgs::msg::TransformStamped & transform,
   const std::array<double, 12> & projection_matrix,
-  float object_detection_confidence)
+  float object_detection_confidence,
+  int image_width,
+  int image_height)
 {
   if (candidates.empty()) return;
 
@@ -1134,9 +1136,16 @@ void ProjectionUtils::assignCandidatesToDetectionsByIOU(
 
   const Eigen::Matrix<double, 3, 4> lidar_to_image =
     ProjectionUtils::buildLidarToImageMatrix(transform, projection_matrix);
-  const double iw = static_cast<double>(image_width_);
-  const double ih = static_cast<double>(image_height_);
-  const double min_iou = ProjectionUtils::getParams().min_iou_threshold;
+  const auto & params = ProjectionUtils::getParams();
+  const int iw_param = (image_width > 0 && image_height > 0)
+                        ? image_width
+                        : (params.image_width > 0 ? params.image_width : ProjectionUtils::kDefaultImageWidth);
+  const int ih_param = (image_width > 0 && image_height > 0)
+                        ? image_height
+                        : (params.image_height > 0 ? params.image_height : ProjectionUtils::kDefaultImageHeight);
+  const double iw = static_cast<double>(iw_param);
+  const double ih = static_cast<double>(ih_param);
+  const double min_iou = params.min_iou_threshold;
 
   struct Pair
   {
@@ -1148,26 +1157,52 @@ void ProjectionUtils::assignCandidatesToDetectionsByIOU(
 
   for (size_t c = 0; c < candidates.size(); ++c) {
     auto cluster_rect = projectAABBRect(candidates[c].stats, lidar_to_image, iw, ih);
-    if (!cluster_rect) continue;
 
-    for (size_t d = 0; d < detections.detections.size(); ++d) {
-      const auto & det = detections.detections[d];
-      if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
-        continue;
+    if (cluster_rect) {
+      // Primary: IoU from projected AABB
+      for (size_t d = 0; d < detections.detections.size(); ++d) {
+        const auto & det = detections.detections[d];
+        if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
+          continue;
+        }
+        const auto & b = det.bbox;
+        const cv::Rect2d det_rect(
+          b.center.position.x - b.size_x / 2.0,
+          b.center.position.y - b.size_y / 2.0,
+          b.size_x,
+          b.size_y);
+        const cv::Rect2d inter = *cluster_rect & det_rect;
+        const double inter_area = (inter.width > 0 && inter.height > 0) ? inter.area() : 0.0;
+        const double uni = cluster_rect->area() + det_rect.area() - inter_area;
+        if (uni > 0.0) {
+          const double iou = inter_area / uni;
+          if (iou >= min_iou) {
+            pairs.push_back({c, static_cast<int>(d), iou});
+          }
+        }
       }
-      const auto & b = det.bbox;
-      const cv::Rect2d det_rect(
-        b.center.position.x - b.size_x / 2.0,
-        b.center.position.y - b.size_y / 2.0,
-        b.size_x,
-        b.size_y);
-      const cv::Rect2d inter = *cluster_rect & det_rect;
-      const double inter_area = (inter.width > 0 && inter.height > 0) ? inter.area() : 0.0;
-      const double uni = cluster_rect->area() + det_rect.area() - inter_area;
-      if (uni > 0.0) {
-        const double iou = inter_area / uni;
-        if (iou >= min_iou) {
-          pairs.push_back({c, static_cast<int>(d), iou});
+    } else {
+      // Fallback: when AABB projection fails (e.g. all corners behind camera), try centroid
+      pcl::PointXYZ centroid_pt;
+      centroid_pt.x = candidates[c].stats.centroid.x();
+      centroid_pt.y = candidates[c].stats.centroid.y();
+      centroid_pt.z = candidates[c].stats.centroid.z();
+      auto uv = ProjectionUtils::projectLidarToCamera(lidar_to_image, centroid_pt);
+      if (uv && uv->x >= 0 && uv->x < iw && uv->y >= 0 && uv->y < ih) {
+        for (size_t d = 0; d < detections.detections.size(); ++d) {
+          const auto & det = detections.detections[d];
+          if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
+            continue;
+          }
+          const auto & b = det.bbox;
+          const double det_left = b.center.position.x - b.size_x / 2.0;
+          const double det_top = b.center.position.y - b.size_y / 2.0;
+          const double det_right = det_left + b.size_x;
+          const double det_bottom = det_top + b.size_y;
+          if (uv->x >= det_left && uv->x <= det_right && uv->y >= det_top && uv->y <= det_bottom) {
+            pairs.push_back({c, static_cast<int>(d), min_iou});
+            break;  // At most one detection per cluster for centroid fallback
+          }
         }
       }
     }
@@ -1183,6 +1218,61 @@ void ProjectionUtils::assignCandidatesToDetectionsByIOU(
     used_candidates.insert(p.cand_idx);
     used_detections.insert(p.det_idx);
     assignments.push_back(p);
+  }
+
+  // Second pass: for unassigned detections, try relaxed IoU or centroid-in-box
+  if (params.enable_second_pass_fallback && params.second_pass_min_iou > 0.0) {
+    std::vector<int> unassigned_dets;
+    for (size_t d = 0; d < detections.detections.size(); ++d) {
+      if (used_detections.count(static_cast<int>(d))) continue;
+      if (unassigned_dets.size() >= static_cast<size_t>(params.max_unassigned_detections_second_pass)) break;
+      unassigned_dets.push_back(static_cast<int>(d));
+    }
+    for (int det_idx : unassigned_dets) {
+      const auto & det = detections.detections[static_cast<size_t>(det_idx)];
+      if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) continue;
+      const auto & b = det.bbox;
+      const cv::Rect2d det_rect(
+        b.center.position.x - b.size_x / 2.0,
+        b.center.position.y - b.size_y / 2.0,
+        b.size_x,
+        b.size_y);
+      const double det_left = b.center.position.x - b.size_x / 2.0;
+      const double det_top = b.center.position.y - b.size_y / 2.0;
+      const double det_right = det_left + b.size_x;
+      const double det_bottom = det_top + b.size_y;
+
+      Pair best{static_cast<size_t>(-1), -1, 0.0};
+      for (size_t c = 0; c < candidates.size(); ++c) {
+        if (used_candidates.count(c)) continue;
+        auto cluster_rect = projectAABBRect(candidates[c].stats, lidar_to_image, iw, ih);
+        double iou_val = 0.0;
+        if (cluster_rect) {
+          const cv::Rect2d inter = *cluster_rect & det_rect;
+          const double inter_area = (inter.width > 0 && inter.height > 0) ? inter.area() : 0.0;
+          const double uni = cluster_rect->area() + det_rect.area() - inter_area;
+          if (uni > 0.0) iou_val = inter_area / uni;
+        } else {
+          pcl::PointXYZ centroid_pt;
+          centroid_pt.x = candidates[c].stats.centroid.x();
+          centroid_pt.y = candidates[c].stats.centroid.y();
+          centroid_pt.z = candidates[c].stats.centroid.z();
+          auto uv = ProjectionUtils::projectLidarToCamera(lidar_to_image, centroid_pt);
+          if (uv && uv->x >= 0 && uv->x < iw && uv->y >= 0 && uv->y < ih &&
+              uv->x >= det_left && uv->x <= det_right && uv->y >= det_top && uv->y <= det_bottom) {
+            iou_val = params.second_pass_min_iou;
+          }
+        }
+        if (iou_val >= params.second_pass_min_iou && iou_val > best.iou) {
+          best = {c, det_idx, iou_val};
+        }
+      }
+      if (best.cand_idx != static_cast<size_t>(-1)) {
+        used_candidates.insert(best.cand_idx);
+        used_detections.insert(best.det_idx);
+        assignments.push_back(best);
+      }
+    }
   }
 
   std::sort(assignments.begin(), assignments.end(),
