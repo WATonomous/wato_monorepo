@@ -220,6 +220,11 @@ build_profile_arrays() {
       break
     fi
   done
+
+  # Add claude_code profile if CLAUDE_CODE is enabled (defaults to true)
+  if [[ "${CLAUDE_CODE:-true}" == "true" ]]; then
+    ALL_PROFILES+=( "claude_code" )
+  fi
 }
 
 # ─────────────────────────── Argument parsing ────────────────────────────
