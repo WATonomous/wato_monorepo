@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
-#include "rosidl_runtime_cpp/message_initialization.hpp"
 
 namespace prediction
 {
@@ -73,39 +72,23 @@ void TrajectoryPredictor::setLaneletAhead(const lanelet_msgs::msg::LaneletAhead:
   }
 }
 
-void TrajectoryPredictor::setTemporaryLaneletData(const lanelet_msgs::msg::LaneletAhead & data)
-{
-  lanelet_cache_backup_ = lanelet_cache_;
-  lanelet_id_to_index_backup_ = lanelet_id_to_index_;
-
-  lanelet_cache_ = data;
-  lanelet_id_to_index_.clear();
-  for (size_t i = 0; i < lanelet_cache_.lanelets.size(); ++i) {
-    lanelet_id_to_index_[lanelet_cache_.lanelets[i].id] = i;
-  }
-}
-
-void TrajectoryPredictor::restoreLaneletData()
-{
-  lanelet_cache_ = lanelet_cache_backup_;
-  lanelet_id_to_index_ = lanelet_id_to_index_backup_;
-}
-
 void TrajectoryPredictor::setLaneletQueryFunction(LaneletQueryFn fn)
 {
   lanelet_query_fn_ = std::move(fn);
 }
 
-lanelet_msgs::msg::LaneletAhead TrajectoryPredictor::queryVehicleLanelets(
+std::optional<TrajectoryPredictor::VehicleLaneletEntry> TrajectoryPredictor::queryVehicleLanelets(
   const std::string & vehicle_id, const geometry_msgs::msg::Point & position, double heading_rad)
 {
-  // Check per-vehicle cache first
-  auto it = vehicle_lanelet_cache_.find(vehicle_id);
-  if (it != vehicle_lanelet_cache_.end()) {
-    double dx = position.x - it->second.last_x;
-    double dy = position.y - it->second.last_y;
-    if (dx * dx + dy * dy < kVehicleCacheInvalidationDist * kVehicleCacheInvalidationDist) {
-      return it->second.lanelet_ahead;
+  {
+    std::lock_guard<std::mutex> lock(vehicle_cache_mutex_);
+    auto it = vehicle_lanelet_cache_.find(vehicle_id);
+    if (it != vehicle_lanelet_cache_.end()) {
+      double dx = position.x - it->second.last_x;
+      double dy = position.y - it->second.last_y;
+      if (dx * dx + dy * dy < kVehicleCacheInvalidationDist * kVehicleCacheInvalidationDist) {
+        return it->second;  // Return a copy — caller owns it
+      }
     }
   }
 
@@ -115,13 +98,23 @@ lanelet_msgs::msg::LaneletAhead TrajectoryPredictor::queryVehicleLanelets(
   if (lanelet_query_fn_) {
     lanelet_query_fn_(vehicle_id, position, heading_rad);
   }
-  return lanelet_msgs::msg::LaneletAhead(rosidl_runtime_cpp::MessageInitialization::ALL);
+  return std::nullopt;
 }
 
 void TrajectoryPredictor::updateVehicleLaneletCache(
   const std::string & vehicle_id, const lanelet_msgs::msg::LaneletAhead & data, double x, double y)
 {
-  vehicle_lanelet_cache_[vehicle_id] = {data, x, y};
+  VehicleLaneletEntry entry;
+  entry.lanelet_ahead = data;
+  for (size_t i = 0; i < data.lanelets.size(); ++i) {
+    entry.id_to_index[data.lanelets[i].id] = i;
+  }
+  entry.last_x = x;
+  entry.last_y = y;
+  entry.last_update = node_->get_clock()->now();
+
+  std::lock_guard<std::mutex> lock(vehicle_cache_mutex_);
+  vehicle_lanelet_cache_[vehicle_id] = std::move(entry);
 }
 
 double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & detection)
@@ -195,11 +188,10 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
     case ObjectType::VEHICLE:
       if (lanelet_query_fn_) {
         double heading = extractYaw(detection.bbox.center.orientation);
-        auto result = queryVehicleLanelets(detection.id, detection.bbox.center.position, heading);
-        if (!result.lanelets.empty()) {
-          setTemporaryLaneletData(result);
-          hypotheses = generateLaneletVehicleHypotheses(detection, estimated_speed);
-          restoreLaneletData();
+        auto entry = queryVehicleLanelets(detection.id, detection.bbox.center.position, heading);
+        if (entry && !entry->lanelet_ahead.lanelets.empty()) {
+          LaneletContext ctx{entry->lanelet_ahead, entry->id_to_index};
+          hypotheses = generateLaneletVehicleHypotheses(detection, estimated_speed, ctx);
         }
       }
       if (hypotheses.empty()) {
@@ -241,7 +233,7 @@ ObjectType TrajectoryPredictor::classifyObjectType(const vision_msgs::msg::Detec
 // =============================================================================
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHypotheses(
-  const vision_msgs::msg::Detection3D & detection, double speed)
+  const vision_msgs::msg::Detection3D & detection, double speed, const LaneletContext & ctx)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
 
@@ -257,7 +249,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   initial_state.delta = 0.0;
 
   // Find which lanelet this vehicle is on
-  LaneletMatch match = findVehicleLanelet(initial_state);
+  LaneletMatch match = findVehicleLanelet(initial_state, ctx);
   if (!match.lanelet) {
     return hypotheses;  // No match, caller falls back to geometric
   }
@@ -317,7 +309,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   Intent prev_intent = Intent::UNKNOWN;
   auto prev_it = previous_intent_.find(detection.id);
   if (prev_it != previous_intent_.end()) {
-    prev_intent = prev_it->second;
+    prev_intent = prev_it->second.intent;
   }
 
   // =========================================================================
@@ -332,7 +324,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
 
   // --- Hypothesis: Follow current lane (continue straight / follow road) ---
   {
-    auto path = extractForwardPath(current_ll, match.closest_centerline_idx, required_distance);
+    auto path = extractForwardPath(current_ll, match.closest_centerline_idx, required_distance, ctx);
     if (path.size() >= 2) {
       TrajectoryHypothesis hyp;
       hyp.header.stamp = current_time;
@@ -376,7 +368,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         }
 
         // Track lanelet IDs used in this prediction path
-        hyp.lanelet_ids = extractForwardPathLaneletIds(current_ll, required_distance);
+        hyp.lanelet_ids = extractForwardPathLaneletIds(current_ll, required_distance, ctx);
 
         hypotheses.push_back(hyp);
       }
@@ -387,7 +379,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   // multiple exits) ---
   if (current_ll.successor_ids.size() > 1) {
     for (int64_t succ_id : current_ll.successor_ids) {
-      const auto * succ_ll = findLaneletById(succ_id);
+      const auto * succ_ll = findLaneletById(succ_id, ctx);
       if (!succ_ll || succ_ll->centerline.size() < 2) continue;
 
       // Build path: remaining current centerline + successor centerline
@@ -400,7 +392,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
       }
       if (computePathLength(path) < required_distance) {
         for (int64_t succ_succ_id : succ_ll->successor_ids) {
-          const auto * ss = findLaneletById(succ_succ_id);
+          const auto * ss = findLaneletById(succ_succ_id, ctx);
           if (ss) {
             for (const auto & pt : ss->centerline) {
               path.emplace_back(pt.x, pt.y);
@@ -452,7 +444,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         hyp.lanelet_ids.push_back(succ_id);
         // Add second successor if present
         for (int64_t succ_succ_id : succ_ll->successor_ids) {
-          const auto * ss = findLaneletById(succ_succ_id);
+          const auto * ss = findLaneletById(succ_succ_id, ctx);
           if (ss) {
             hyp.lanelet_ids.push_back(succ_succ_id);
             break;  // Only track first successor's successor
@@ -467,7 +459,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   // --- Hypothesis: Lane change left ---
   if (current_ll.can_change_left && current_ll.left_lane_id > 0) {
     auto path =
-      extractLaneChangePath(current_ll, match.closest_centerline_idx, current_ll.left_lane_id, required_distance);
+      extractLaneChangePath(current_ll, match.closest_centerline_idx, current_ll.left_lane_id, required_distance, ctx);
     if (path.size() >= 2) {
       TrajectoryHypothesis hyp;
       hyp.header.stamp = current_time;
@@ -528,7 +520,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         }
 
         // Track lanelet IDs for lane change path
-        hyp.lanelet_ids = extractLaneChangePathLaneletIds(current_ll, current_ll.left_lane_id, required_distance);
+        hyp.lanelet_ids = extractLaneChangePathLaneletIds(current_ll, current_ll.left_lane_id, required_distance, ctx);
 
         hypotheses.push_back(hyp);
       }
@@ -538,7 +530,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
   // --- Hypothesis: Lane change right ---
   if (current_ll.can_change_right && current_ll.right_lane_id > 0) {
     auto path =
-      extractLaneChangePath(current_ll, match.closest_centerline_idx, current_ll.right_lane_id, required_distance);
+      extractLaneChangePath(current_ll, match.closest_centerline_idx, current_ll.right_lane_id, required_distance, ctx);
     if (path.size() >= 2) {
       TrajectoryHypothesis hyp;
       hyp.header.stamp = current_time;
@@ -582,7 +574,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         }
 
         // Track lanelet IDs for lane change path
-        hyp.lanelet_ids = extractLaneChangePathLaneletIds(current_ll, current_ll.right_lane_id, required_distance);
+        hyp.lanelet_ids = extractLaneChangePathLaneletIds(current_ll, current_ll.right_lane_id, required_distance, ctx);
 
         hypotheses.push_back(hyp);
       }
@@ -617,7 +609,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
         best_intent = h.intent;
       }
     }
-    previous_intent_[detection.id] = best_intent;
+    previous_intent_[detection.id] = {best_intent, node_->get_clock()->now()};
   }
 
   RCLCPP_DEBUG(
@@ -633,12 +625,13 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateLaneletVehicleHyp
 // Lanelet helper implementations
 // =============================================================================
 
-TrajectoryPredictor::LaneletMatch TrajectoryPredictor::findVehicleLanelet(const KinematicState & state) const
+TrajectoryPredictor::LaneletMatch TrajectoryPredictor::findVehicleLanelet(
+  const KinematicState & state, const LaneletContext & ctx) const
 {
   LaneletMatch best_match{nullptr, 0, std::numeric_limits<double>::max(), M_PI};
   double best_score = std::numeric_limits<double>::max();
 
-  for (const auto & ll : lanelet_cache_.lanelets) {
+  for (const auto & ll : ctx.data.lanelets) {
     if (ll.centerline.size() < 2) continue;
 
     for (size_t i = 0; i < ll.centerline.size(); ++i) {
@@ -683,7 +676,10 @@ TrajectoryPredictor::LaneletMatch TrajectoryPredictor::findVehicleLanelet(const 
 }
 
 std::vector<Eigen::Vector2d> TrajectoryPredictor::extractForwardPath(
-  const lanelet_msgs::msg::Lanelet & lanelet, size_t start_idx, double required_distance) const
+  const lanelet_msgs::msg::Lanelet & lanelet,
+  size_t start_idx,
+  double required_distance,
+  const LaneletContext & ctx) const
 {
   std::vector<Eigen::Vector2d> path;
 
@@ -698,7 +694,7 @@ std::vector<Eigen::Vector2d> TrajectoryPredictor::extractForwardPath(
   size_t visit_idx = 0;
 
   while (accumulated < required_distance && visit_idx < to_visit.size()) {
-    const auto * succ = findLaneletById(to_visit[visit_idx]);
+    const auto * succ = findLaneletById(to_visit[visit_idx], ctx);
     ++visit_idx;
     if (!succ) continue;
 
@@ -720,9 +716,10 @@ std::vector<Eigen::Vector2d> TrajectoryPredictor::extractLaneChangePath(
   const lanelet_msgs::msg::Lanelet & current_lanelet,
   size_t start_idx,
   int64_t target_lane_id,
-  double required_distance) const
+  double required_distance,
+  const LaneletContext & ctx) const
 {
-  const auto * target_ll = findLaneletById(target_lane_id);
+  const auto * target_ll = findLaneletById(target_lane_id, ctx);
   if (!target_ll || target_ll->centerline.size() < 2) {
     return {};
   }
@@ -778,7 +775,7 @@ std::vector<Eigen::Vector2d> TrajectoryPredictor::extractLaneChangePath(
   // Extend through target's successors if needed
   double accumulated = computePathLength(path);
   if (accumulated < required_distance && !target_ll->successor_ids.empty()) {
-    const auto * succ = findLaneletById(target_ll->successor_ids[0]);
+    const auto * succ = findLaneletById(target_ll->successor_ids[0], ctx);
     if (succ) {
       for (const auto & pt : succ->centerline) {
         path.emplace_back(pt.x, pt.y);
@@ -789,17 +786,17 @@ std::vector<Eigen::Vector2d> TrajectoryPredictor::extractLaneChangePath(
   return path;
 }
 
-const lanelet_msgs::msg::Lanelet * TrajectoryPredictor::findLaneletById(int64_t id) const
+const lanelet_msgs::msg::Lanelet * TrajectoryPredictor::findLaneletById(int64_t id, const LaneletContext & ctx) const
 {
-  auto it = lanelet_id_to_index_.find(id);
-  if (it != lanelet_id_to_index_.end() && it->second < lanelet_cache_.lanelets.size()) {
-    return &lanelet_cache_.lanelets[it->second];
+  auto it = ctx.id_to_index.find(id);
+  if (it != ctx.id_to_index.end() && it->second < ctx.data.lanelets.size()) {
+    return &ctx.data.lanelets[it->second];
   }
   return nullptr;
 }
 
 std::vector<int64_t> TrajectoryPredictor::extractForwardPathLaneletIds(
-  const lanelet_msgs::msg::Lanelet & lanelet, double required_distance) const
+  const lanelet_msgs::msg::Lanelet & lanelet, double required_distance, const LaneletContext & ctx) const
 {
   std::vector<int64_t> lanelet_ids;
   lanelet_ids.push_back(lanelet.id);
@@ -816,7 +813,7 @@ std::vector<int64_t> TrajectoryPredictor::extractForwardPathLaneletIds(
   }
 
   while (accumulated < required_distance && visit_idx < to_visit.size()) {
-    const auto * succ = findLaneletById(to_visit[visit_idx]);
+    const auto * succ = findLaneletById(to_visit[visit_idx], ctx);
     ++visit_idx;
     if (!succ) continue;
 
@@ -837,12 +834,15 @@ std::vector<int64_t> TrajectoryPredictor::extractForwardPathLaneletIds(
 }
 
 std::vector<int64_t> TrajectoryPredictor::extractLaneChangePathLaneletIds(
-  const lanelet_msgs::msg::Lanelet & current_lanelet, int64_t target_lane_id, double required_distance) const
+  const lanelet_msgs::msg::Lanelet & current_lanelet,
+  int64_t target_lane_id,
+  double required_distance,
+  const LaneletContext & ctx) const
 {
   std::vector<int64_t> lanelet_ids;
   lanelet_ids.push_back(current_lanelet.id);
 
-  const auto * target_ll = findLaneletById(target_lane_id);
+  const auto * target_ll = findLaneletById(target_lane_id, ctx);
   if (!target_ll) return lanelet_ids;
 
   lanelet_ids.push_back(target_ll->id);
@@ -856,7 +856,7 @@ std::vector<int64_t> TrajectoryPredictor::extractLaneChangePathLaneletIds(
   }
 
   if (accumulated < required_distance && !target_ll->successor_ids.empty()) {
-    const auto * succ = findLaneletById(target_ll->successor_ids[0]);
+    const auto * succ = findLaneletById(target_ll->successor_ids[0], ctx);
     if (succ) {
       lanelet_ids.push_back(succ->id);
     }
@@ -977,6 +977,44 @@ double TrajectoryPredictor::estimateLateralVelocity(const std::string & vehicle_
 
   lateral_offset_history_[vehicle_id] = {lateral_offset, now};
   return lateral_vel;
+}
+
+void TrajectoryPredictor::pruneStaleCaches(const rclcpp::Time & now, double ttl_s)
+{
+  for (auto it = position_history_.begin(); it != position_history_.end();) {
+    if ((now - it->second.stamp).seconds() > ttl_s) {
+      it = position_history_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  for (auto it = lateral_offset_history_.begin(); it != lateral_offset_history_.end();) {
+    if ((now - it->second.stamp).seconds() > ttl_s) {
+      it = lateral_offset_history_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  for (auto it = previous_intent_.begin(); it != previous_intent_.end();) {
+    if ((now - it->second.stamp).seconds() > ttl_s) {
+      it = previous_intent_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(vehicle_cache_mutex_);
+    for (auto it = vehicle_lanelet_cache_.begin(); it != vehicle_lanelet_cache_.end();) {
+      if ((now - it->second.last_update).seconds() > ttl_s) {
+        it = vehicle_lanelet_cache_.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
 }
 
 // =============================================================================

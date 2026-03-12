@@ -36,6 +36,7 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("confidence_smoothing_alpha", 0.35);
   this->declare_parameter("confidence_match_distance_m", 6.0);
   this->declare_parameter("confidence_state_timeout_s", 5.0);
+  this->declare_parameter("cache_ttl_s", 5.0);
 
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
@@ -50,9 +51,12 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   confidence_match_distance_m_ = this->get_parameter("confidence_match_distance_m").as_double();
   confidence_state_timeout_s_ = this->get_parameter("confidence_state_timeout_s").as_double();
 
+  cache_ttl_s_ = this->get_parameter("cache_ttl_s").as_double();
+
   confidence_smoothing_alpha_ = std::clamp(confidence_smoothing_alpha_, 0.0, 1.0);
   confidence_match_distance_m_ = std::max(0.1, confidence_match_distance_m_);
   confidence_state_timeout_s_ = std::max(0.5, confidence_state_timeout_s_);
+  cache_ttl_s_ = std::max(1.0, cache_ttl_s_);
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
@@ -61,6 +65,13 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
     "Confidence smoothing alpha: %.2f, match distance: %.1fm",
     confidence_smoothing_alpha_,
     confidence_match_distance_m_);
+
+  // All subscription callbacks share a mutually-exclusive callback group so
+  // they never run concurrently with each other. The async service-response
+  // callback is NOT in this group (it uses the default group), so shared
+  // state between them (pending_vehicle_requests_, vehicle_lanelet_cache_)
+  // is protected by mutexes.
+  subscription_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
@@ -84,11 +95,16 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
         return;
       }
       // Avoid duplicate in-flight requests for the same vehicle,
-      // and cap total concurrent requests to avoid queue overflow
-      if (pending_vehicle_requests_.count(vehicle_id) || pending_vehicle_requests_.size() >= kMaxPendingRequests) {
-        return;
+      // and cap total concurrent requests to avoid queue overflow.
+      // Lock: pending_vehicle_requests_ is shared with the async
+      // service-response callback which runs on a different thread.
+      {
+        std::lock_guard<std::mutex> lock(pending_requests_mutex_);
+        if (pending_vehicle_requests_.count(vehicle_id) || pending_vehicle_requests_.size() >= kMaxPendingRequests) {
+          return;
+        }
+        pending_vehicle_requests_.insert(vehicle_id);
       }
-      pending_vehicle_requests_.insert(vehicle_id);
 
       auto request = std::make_shared<lanelet_msgs::srv::GetLaneletAhead::Request>();
       request->position = position;
@@ -98,7 +114,10 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
       double vx = position.x, vy = position.y;
       lanelet_ahead_client_->async_send_request(
         request, [this, vehicle_id, vx, vy](rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedFuture future) {
-          pending_vehicle_requests_.erase(vehicle_id);
+          {
+            std::lock_guard<std::mutex> lock(pending_requests_mutex_);
+            pending_vehicle_requests_.erase(vehicle_id);
+          }
           auto response = future.get();
           if (response->success) {
             trajectory_predictor_->updateVehicleLaneletCache(vehicle_id, response->lanelet_ahead, vx, vy);
@@ -125,14 +144,17 @@ PredictionNode::CallbackReturn PredictionNode::on_activate(const rclcpp_lifecycl
 {
   RCLCPP_INFO(this->get_logger(), "Activating...");
 
+  rclcpp::SubscriptionOptions sub_opts;
+  sub_opts.callback_group = subscription_cb_group_;
+
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    "tracks_3d", 10, std::bind(&PredictionNode::trackedObjectsCallback, this, std::placeholders::_1));
+    "tracks_3d", 10, std::bind(&PredictionNode::trackedObjectsCallback, this, std::placeholders::_1), sub_opts);
 
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "ego_pose", 10, std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1));
+    "ego_pose", 10, std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1), sub_opts);
 
   lanelet_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
-    "lanelet_ahead", 10, std::bind(&PredictionNode::laneletAheadCallback, this, std::placeholders::_1));
+    "lanelet_ahead", 10, std::bind(&PredictionNode::laneletAheadCallback, this, std::placeholders::_1), sub_opts);
 
   world_objects_pub_->on_activate();
 
@@ -166,7 +188,10 @@ PredictionNode::CallbackReturn PredictionNode::on_cleanup(const rclcpp_lifecycle
   intent_classifier_.reset();
 
   ego_pose_.reset();
-  pending_vehicle_requests_.clear();
+  {
+    std::lock_guard<std::mutex> lock(pending_requests_mutex_);
+    pending_vehicle_requests_.clear();
+  }
   confidence_history_.clear();
 
   RCLCPP_INFO(this->get_logger(), "Cleaned up successfully");
@@ -186,7 +211,10 @@ PredictionNode::CallbackReturn PredictionNode::on_shutdown(const rclcpp_lifecycl
   intent_classifier_.reset();
 
   ego_pose_.reset();
-  pending_vehicle_requests_.clear();
+  {
+    std::lock_guard<std::mutex> lock(pending_requests_mutex_);
+    pending_vehicle_requests_.clear();
+  }
   confidence_history_.clear();
 
   return CallbackReturn::SUCCESS;
@@ -202,7 +230,9 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
 {
   RCLCPP_DEBUG(this->get_logger(), "Processing %zu tracked objects", msg->detections.size());
 
-  pruneConfidenceHistory(this->get_clock()->now());
+  const rclcpp::Time now = this->get_clock()->now();
+  pruneConfidenceHistory(now);
+  trajectory_predictor_->pruneStaleCaches(now, cache_ttl_s_);
 
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;

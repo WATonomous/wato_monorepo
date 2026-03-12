@@ -27,6 +27,8 @@
 // Standard library headers for functional programming and data structures
 #include <functional>  // For std::function used in callback definitions
 #include <memory>  // For std::unique_ptr and std::shared_ptr
+#include <mutex>  // For std::mutex protecting cross-thread caches
+#include <optional>  // For std::optional return from queryVehicleLanelets
 #include <string>  // For std::string in vehicle IDs and keys
 #include <unordered_map>  // For caching lanelet and position data
 #include <vector>  // For collections of trajectories, centerline points
@@ -83,6 +85,19 @@ struct TrajectoryHypothesis
 };
 
 /**
+ * @brief Read-only view of lanelet data for a single prediction call.
+ *
+ * Built on the stack from either per-vehicle or ego-vehicle lanelet caches
+ * and passed through the entire hypothesis-generation call chain, replacing
+ * the former mutable global lanelet swap (setTemporaryLaneletData / restore).
+ */
+struct LaneletContext
+{
+  const lanelet_msgs::msg::LaneletAhead & data;
+  const std::unordered_map<int64_t, size_t> & id_to_index;
+};
+
+/**
  * @brief Generates trajectory hypotheses for tracked objects
  *
  * Uses lanelet centerlines as reference paths and physics-based motion models
@@ -121,21 +136,21 @@ public:
 
   /**
    * @brief Update the per-vehicle lanelet cache with async query results.
+   * Thread-safe: protected by vehicle_cache_mutex_.
    */
   void updateVehicleLaneletCache(
     const std::string & vehicle_id, const lanelet_msgs::msg::LaneletAhead & data, double x, double y);
-
-  /**
-   * @brief Temporarily set lanelet data for a single prediction, then restore
-   * previous cache
-   */
-  void setTemporaryLaneletData(const lanelet_msgs::msg::LaneletAhead & data);
-  void restoreLaneletData();
 
   bool hasLaneletData() const
   {
     return !lanelet_cache_.lanelets.empty();
   }
+
+  /**
+   * @brief Prune all ID-keyed caches, removing entries older than ttl_s.
+   * Called once per prediction cycle to bound memory growth.
+   */
+  void pruneStaleCaches(const rclcpp::Time & now, double ttl_s);
 
   /**
    * @brief Estimate vehicle speed from position history.
@@ -149,7 +164,7 @@ public:
 private:
   // Lanelet-aware hypothesis generation
   std::vector<TrajectoryHypothesis> generateLaneletVehicleHypotheses(
-    const vision_msgs::msg::Detection3D & detection, double speed);
+    const vision_msgs::msg::Detection3D & detection, double speed, const LaneletContext & ctx);
 
   // Geometric fallback (no lanelet data)
   std::vector<TrajectoryHypothesis> generateGeometricVehicleHypotheses(
@@ -168,26 +183,33 @@ private:
     double heading_diff;
   };
 
-  LaneletMatch findVehicleLanelet(const KinematicState & state) const;
+  LaneletMatch findVehicleLanelet(const KinematicState & state, const LaneletContext & ctx) const;
 
   std::vector<Eigen::Vector2d> extractForwardPath(
-    const lanelet_msgs::msg::Lanelet & lanelet, size_t start_idx, double required_distance) const;
+    const lanelet_msgs::msg::Lanelet & lanelet,
+    size_t start_idx,
+    double required_distance,
+    const LaneletContext & ctx) const;
 
   std::vector<Eigen::Vector2d> extractLaneChangePath(
     const lanelet_msgs::msg::Lanelet & current_lanelet,
     size_t start_idx,
     int64_t target_lane_id,
-    double required_distance) const;
+    double required_distance,
+    const LaneletContext & ctx) const;
 
   /// Extract lanelet IDs used in a forward path through successors
   std::vector<int64_t> extractForwardPathLaneletIds(
-    const lanelet_msgs::msg::Lanelet & lanelet, double required_distance) const;
+    const lanelet_msgs::msg::Lanelet & lanelet, double required_distance, const LaneletContext & ctx) const;
 
   /// Extract lanelet IDs used in a lane change path
   std::vector<int64_t> extractLaneChangePathLaneletIds(
-    const lanelet_msgs::msg::Lanelet & current_lanelet, int64_t target_lane_id, double required_distance) const;
+    const lanelet_msgs::msg::Lanelet & current_lanelet,
+    int64_t target_lane_id,
+    double required_distance,
+    const LaneletContext & ctx) const;
 
-  const lanelet_msgs::msg::Lanelet * findLaneletById(int64_t id) const;
+  const lanelet_msgs::msg::Lanelet * findLaneletById(int64_t id, const LaneletContext & ctx) const;
 
   double computePathLength(const std::vector<Eigen::Vector2d> & path) const;
 
@@ -214,7 +236,13 @@ private:
   std::unordered_map<std::string, LateralOffsetStamped> lateral_offset_history_;
 
   // Per-vehicle previous intent for maneuver inertia
-  std::unordered_map<std::string, Intent> previous_intent_;
+  struct IntentStamped
+  {
+    Intent intent;
+    rclcpp::Time stamp;
+  };
+
+  std::unordered_map<std::string, IntentStamped> previous_intent_;
 
   rclcpp_lifecycle::LifecycleNode * node_;
   double prediction_horizon_;
@@ -223,26 +251,27 @@ private:
   std::unique_ptr<BicycleModel> bicycle_model_;
   std::unique_ptr<ConstantVelocityModel> constant_velocity_model_;
 
-  // Cached lanelet data
+  // Cached ego-vehicle lanelet data (from lanelet_ahead subscription)
   lanelet_msgs::msg::LaneletAhead lanelet_cache_;
   std::unordered_map<int64_t, size_t> lanelet_id_to_index_;
-
-  // Backup for temporary lanelet overrides
-  lanelet_msgs::msg::LaneletAhead lanelet_cache_backup_;
-  std::unordered_map<int64_t, size_t> lanelet_id_to_index_backup_;
 
   // Optional per-vehicle lanelet query callback
   LaneletQueryFn lanelet_query_fn_;
 
   // Per-vehicle lanelet cache: keyed by detection ID, stores queried lanelet
-  // data so we don't re-query the service every cycle for the same vehicle
+  // data so we don't re-query the service every cycle for the same vehicle.
+  // Protected by vehicle_cache_mutex_ (written from async service response
+  // callback, read from subscription callback thread).
   struct VehicleLaneletEntry
   {
     lanelet_msgs::msg::LaneletAhead lanelet_ahead;
+    std::unordered_map<int64_t, size_t> id_to_index;
     double last_x;
     double last_y;
+    rclcpp::Time last_update;
   };
 
+  mutable std::mutex vehicle_cache_mutex_;
   std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
   static constexpr double kVehicleCacheInvalidationDist = 5.0;
 
@@ -272,10 +301,11 @@ public:
   /**
    * @brief Query lanelets for a specific vehicle, using per-vehicle cache.
    *
-   * Returns cached data if the vehicle hasn't moved far, otherwise queries
-   * the service and updates the cache.
+   * Returns a copy of the cached entry if available and fresh, otherwise
+   * fires an async query and returns std::nullopt.
+   * Thread-safe: protected by vehicle_cache_mutex_.
    */
-  lanelet_msgs::msg::LaneletAhead queryVehicleLanelets(
+  std::optional<VehicleLaneletEntry> queryVehicleLanelets(
     const std::string & vehicle_id, const geometry_msgs::msg::Point & position, double heading_rad);
 };
 

@@ -17,6 +17,7 @@
 
 // Standard library headers for memory management and data structures
 #include <memory>  // For std::unique_ptr and std::shared_ptr
+#include <mutex>  // For std::mutex protecting async-callback shared state
 #include <string>  // For std::string in object IDs and keys
 #include <unordered_map>  // For storing per-object and per-vehicle state
 #include <unordered_set>  // For tracking pending vehicle requests
@@ -96,10 +97,19 @@ private:
   // Service client for per-vehicle lanelet queries
   rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedPtr lanelet_ahead_client_;
 
+  // Callback group: all subscription callbacks run in the same mutually-
+  // exclusive group so they never race against each other. The async
+  // service-response callback runs on a separate executor thread and
+  // shares pending_vehicle_requests_ — protected by pending_requests_mutex_.
+  rclcpp::CallbackGroup::SharedPtr subscription_cb_group_;
+
   // State
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
 
-  // Vehicle IDs with in-flight async lanelet requests (prevents duplicates)
+  // Vehicle IDs with in-flight async lanelet requests (prevents duplicates).
+  // Accessed from subscription callbacks AND async service-response callbacks,
+  // so it is protected by pending_requests_mutex_.
+  std::mutex pending_requests_mutex_;
   std::unordered_set<std::string> pending_vehicle_requests_;
   static constexpr size_t kMaxPendingRequests = 8;
 
@@ -112,6 +122,7 @@ private:
   double confidence_smoothing_alpha_;
   double confidence_match_distance_m_;
   double confidence_state_timeout_s_;
+  double cache_ttl_s_;  // TTL for all ID-keyed caches (TrajectoryPredictor + confidence)
 };
 
 }  // namespace prediction
