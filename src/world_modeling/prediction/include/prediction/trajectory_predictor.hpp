@@ -98,6 +98,104 @@ struct LaneletContext
 };
 
 /**
+ * @brief Configuration for the trajectory predictor
+ */
+struct TrajectoryPredictorConfig
+{
+  // Speed estimation
+  double speed_ema_alpha = 0.35;
+  double min_dt_for_speed = 0.01;
+  double max_vehicle_speed = 25.0;
+  double max_pedestrian_speed = 3.0;
+
+  // Stop detection
+  double stop_sigmoid_midpoint = 0.25;
+  double stop_sigmoid_steepness = 12.0;
+  double stop_probability_threshold = 0.01;
+
+  // Object classification
+  double vehicle_min_length = 3.5;
+  double pedestrian_max_length = 1.0;
+  double cyclist_max_length = 3.5;
+
+  // Default velocities
+  double vehicle_default_velocity = 5.0;
+  double pedestrian_default_velocity = 1.4;
+  double cyclist_default_velocity = 5.0;
+
+  // Lanelet matching
+  double lanelet_match_max_distance = 10.0;
+  double heading_penalty_weight = 3.0;
+  double heading_rejection_threshold = 1.047;  // M_PI / 3.0
+
+  // Curvature-aware scoring
+  double curvature_heading_tolerance_scale = 5.0;
+  double curvature_heading_tolerance_max = 0.3;
+  double curvature_lateral_tolerance_denom = 8.0;
+  double curvature_lateral_tolerance_max = 1.0;
+  double curve_offset_discount = 0.3;
+
+  // Geometric scoring
+  double heading_score_denominator = 0.2;
+  double lateral_score_denominator = 4.0;
+
+  // Lane-follow hypothesis
+  double lane_follow_prior = 2.5;
+  double required_distance_buffer = 10.0;
+
+  // Smoothness and inertia
+  double smoothness_penalty_exponent = 2.0;
+  double smoothness_base_weight = 0.5;
+  double maneuver_inertia_boost = 1.3;
+
+  // Turn detection
+  double heading_change_threshold = 0.3;
+  double turn_maneuver_prior = 0.5;
+  double continue_maneuver_prior = 1.5;
+
+  // Lane change
+  double lane_change_base_prior = 0.15;
+  double lateral_velocity_threshold = 0.3;
+  double lane_change_active_prior = 0.6;
+  double intersection_suppression_factor = 0.1;
+  double curvature_threshold = 0.005;
+  double curvature_suppression_multiplier = 50.0;
+  double curvature_suppression_minimum = 0.1;
+  double position_evidence_base = 0.2;
+  double position_evidence_scale = 1.8;
+  double lane_change_offset_threshold = 0.3;
+  double lane_change_offset_scale = 1.2;
+  double lateral_offset_threshold = 0.25;
+  double lateral_offset_boost = 1.25;
+  double lateral_offset_suppress = 0.6;
+  double heading_weight_for_lane_change = 0.4;
+  double lane_change_completion_boost = 1.5;
+  double lane_change_direction_switch_suppress = 0.1;
+  int lane_change_blend_count = 5;
+
+  // Geometric fallback
+  double geometric_straight_probability = 0.6;
+  double geometric_turn_probability = 0.1;
+  double geometric_lane_change_probability = 0.1;
+  double geometric_turn_radius = 10.0;
+  double geometric_turn_angle_step = 0.1;
+  double geometric_lane_width = 3.5;
+  double geometric_lane_change_distance = 30.0;
+  double geometric_path_sampling_interval = 1.0;
+
+  // Cache
+  double vehicle_cache_invalidation_dist = 5.0;
+
+  // Lateral velocity estimation
+  double lateral_velocity_min_dt = 0.01;
+  double lateral_velocity_max_dt = 2.0;
+
+  // Bicycle model config (forwarded)
+  BicycleModelConfig bicycle_config;
+  ConstantVelocityModelConfig cv_config;
+};
+
+/**
  * @brief Generates trajectory hypotheses for tracked objects
  *
  * Uses lanelet centerlines as reference paths and physics-based motion models
@@ -106,7 +204,11 @@ struct LaneletContext
 class TrajectoryPredictor
 {
 public:
-  TrajectoryPredictor(rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step);
+  TrajectoryPredictor(
+    rclcpp_lifecycle::LifecycleNode * node,
+    double prediction_horizon,
+    double time_step,
+    const TrajectoryPredictorConfig & config = {});
 
   std::vector<TrajectoryHypothesis> generateHypotheses(const vision_msgs::msg::Detection3D & detection);
 
@@ -247,6 +349,7 @@ private:
   rclcpp_lifecycle::LifecycleNode * node_;
   double prediction_horizon_;
   double time_step_;
+  TrajectoryPredictorConfig config_;
 
   std::unique_ptr<BicycleModel> bicycle_model_;
   std::unique_ptr<ConstantVelocityModel> constant_velocity_model_;
@@ -273,7 +376,6 @@ private:
 
   mutable std::mutex vehicle_cache_mutex_;
   std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
-  static constexpr double kVehicleCacheInvalidationDist = 5.0;
 
   // Position history for velocity estimation (keyed by detection ID)
   struct PositionStamped
@@ -287,8 +389,6 @@ private:
 
   std::unordered_map<std::string, PositionStamped> position_history_;
 
-  static constexpr double kSpeedEmaAlpha = 0.35;  // EMA weight for new speed observations
-
 public:
   /**
    * @brief Probability that a vehicle is stopped, given its smoothed speed.
@@ -296,7 +396,7 @@ public:
    * Pure sigmoid — no internal state.  Returns ~1.0 for speed ≈ 0,
    * 0.5 at 0.5 m/s, and ~0 above ~1.5 m/s.
    */
-  static double computeStopProbability(double speed);
+  double computeStopProbability(double speed) const;
 
   /**
    * @brief Query lanelets for a specific vehicle, using per-vehicle cache.

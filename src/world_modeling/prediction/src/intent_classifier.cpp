@@ -22,14 +22,15 @@
 namespace prediction
 {
 
-IntentClassifier::IntentClassifier(rclcpp_lifecycle::LifecycleNode * node)
+IntentClassifier::IntentClassifier(rclcpp_lifecycle::LifecycleNode * node, const IntentClassifierConfig & config)
 : node_(node)
+, config_(config)
 {
-  weights_.velocity_weight = 0.3;
-  weights_.heading_weight = 0.2;
-  weights_.intersection_weight = 0.25;
-  weights_.lateral_offset_weight = 0.15;
-  weights_.turn_signal_weight = 0.1;
+  weights_.velocity_weight = config_.velocity_weight;
+  weights_.heading_weight = config_.heading_weight;
+  weights_.intersection_weight = config_.intersection_weight;
+  weights_.lateral_offset_weight = config_.lateral_offset_weight;
+  weights_.turn_signal_weight = config_.turn_signal_weight;
 
   RCLCPP_INFO(node_->get_logger(), "IntentClassifier initialized");
 }
@@ -70,14 +71,14 @@ IntentFeatures IntentClassifier::extractFeatures(const vision_msgs::msg::Detecti
 {
   IntentFeatures features;
 
-  features.velocity = 5.0;
+  features.velocity = config_.default_velocity;
   features.heading = 0.0;
-  features.distance_to_intersection = 50.0;
+  features.distance_to_intersection = config_.default_distance_to_intersection;
   features.lateral_offset = 0.0;
   features.turn_signal_left = false;
   features.turn_signal_right = false;
   features.num_possible_lanelets = 1;
-  features.time_in_lane = 2.0;
+  features.time_in_lane = config_.default_time_in_lane;
 
   return features;
 }
@@ -88,34 +89,39 @@ double IntentClassifier::computeIntentProbability(Intent intent, const IntentFea
 
   switch (intent) {
     case Intent::CONTINUE_STRAIGHT:
-      probability = 0.6 * (1.0 - std::abs(features.lateral_offset)) *
-                    (!features.turn_signal_left && !features.turn_signal_right ? 1.0 : 0.5);
+      probability = config_.straight_base_probability * (1.0 - std::abs(features.lateral_offset)) *
+                    (!features.turn_signal_left && !features.turn_signal_right ? 1.0 : config_.turn_signal_discount);
       break;
 
     case Intent::TURN_LEFT:
       probability =
-        (features.turn_signal_left ? 0.8 : 0.2) * std::max(0.0, 1.0 - features.distance_to_intersection / 50.0);
+        (features.turn_signal_left ? config_.turn_signal_presence_weight : config_.turn_signal_absence_weight) *
+        std::max(0.0, 1.0 - features.distance_to_intersection / config_.intersection_normalization);
       break;
 
     case Intent::TURN_RIGHT:
       probability =
-        (features.turn_signal_right ? 0.8 : 0.2) * std::max(0.0, 1.0 - features.distance_to_intersection / 50.0);
+        (features.turn_signal_right ? config_.turn_signal_presence_weight : config_.turn_signal_absence_weight) *
+        std::max(0.0, 1.0 - features.distance_to_intersection / config_.intersection_normalization);
       break;
 
     case Intent::LANE_CHANGE_LEFT:
-      probability = std::max(0.0, features.lateral_offset) * (features.turn_signal_left ? 1.0 : 0.5);
+      probability =
+        std::max(0.0, features.lateral_offset) * (features.turn_signal_left ? 1.0 : config_.turn_signal_discount);
       break;
 
     case Intent::LANE_CHANGE_RIGHT:
-      probability = std::max(0.0, -features.lateral_offset) * (features.turn_signal_right ? 1.0 : 0.5);
+      probability =
+        std::max(0.0, -features.lateral_offset) * (features.turn_signal_right ? 1.0 : config_.turn_signal_discount);
       break;
 
     case Intent::STOP:
-      probability = features.velocity < 1.0 ? 0.7 : 0.1;
+      probability = features.velocity < config_.stop_velocity_threshold ? config_.stop_high_probability
+                                                                        : config_.stop_low_probability;
       break;
 
     default:
-      probability = 0.1;
+      probability = config_.default_fallback_probability;
       break;
   }
 

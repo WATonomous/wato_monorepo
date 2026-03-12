@@ -31,12 +31,135 @@ namespace prediction
 PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("prediction_node", options)
 {
+  // Prediction horizon and temporal resolution
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
+
+  // Cache and confidence smoothing
   this->declare_parameter("confidence_smoothing_alpha", 0.35);
   this->declare_parameter("confidence_match_distance_m", 6.0);
   this->declare_parameter("confidence_state_timeout_s", 5.0);
   this->declare_parameter("cache_ttl_s", 5.0);
+  this->declare_parameter("vehicle_cache_invalidation_dist", 5.0);
+  this->declare_parameter("lanelet_query_radius", 50.0);
+
+  // Bicycle motion model
+  this->declare_parameter("vehicle_wheelbase", 2.5);
+  this->declare_parameter("max_steering_angle", 0.785);
+  this->declare_parameter("max_lateral_acceleration", 4.0);
+  this->declare_parameter("speed_limit", 15.0);
+  this->declare_parameter("max_acceleration", 2.0);
+  this->declare_parameter("max_deceleration", 4.0);
+  this->declare_parameter("lookahead_distance", 3.0);
+
+  // Constant-velocity motion model
+  this->declare_parameter("position_noise_std", 0.1);
+  this->declare_parameter("heading_noise_std", 0.05);
+
+  // Speed estimation
+  this->declare_parameter("speed_ema_alpha", 0.35);
+  this->declare_parameter("min_dt_for_speed", 0.01);
+  this->declare_parameter("max_vehicle_speed", 25.0);
+  this->declare_parameter("max_pedestrian_speed", 3.0);
+
+  // Stop detection
+  this->declare_parameter("stop_sigmoid_midpoint", 0.25);
+  this->declare_parameter("stop_sigmoid_steepness", 12.0);
+  this->declare_parameter("stop_probability_threshold", 0.01);
+
+  // Object classification
+  this->declare_parameter("vehicle_min_length", 3.5);
+  this->declare_parameter("pedestrian_max_length", 1.0);
+  this->declare_parameter("cyclist_max_length", 3.5);
+  this->declare_parameter("pedestrian_max_height", 2.0);
+
+  // Default velocities
+  this->declare_parameter("vehicle_default_velocity", 5.0);
+  this->declare_parameter("pedestrian_default_velocity", 1.4);
+  this->declare_parameter("cyclist_default_velocity", 5.0);
+
+  // Lanelet matching
+  this->declare_parameter("lanelet_match_max_distance", 10.0);
+  this->declare_parameter("heading_penalty_weight", 3.0);
+  this->declare_parameter("heading_rejection_threshold", 1.047);
+
+  // Curvature-aware scoring
+  this->declare_parameter("curvature_heading_tolerance_scale", 5.0);
+  this->declare_parameter("curvature_heading_tolerance_max", 0.3);
+  this->declare_parameter("curvature_lateral_tolerance_denom", 8.0);
+  this->declare_parameter("curvature_lateral_tolerance_max", 1.0);
+  this->declare_parameter("curve_offset_discount", 0.3);
+
+  // Geometric scoring
+  this->declare_parameter("heading_score_denominator", 0.2);
+  this->declare_parameter("lateral_score_denominator", 4.0);
+
+  // Lane-follow hypothesis
+  this->declare_parameter("lane_follow_prior", 2.5);
+  this->declare_parameter("required_distance_buffer", 10.0);
+
+  // Smoothness and inertia
+  this->declare_parameter("smoothness_penalty_exponent", 2.0);
+  this->declare_parameter("smoothness_base_weight", 0.5);
+  this->declare_parameter("maneuver_inertia_boost", 1.3);
+
+  // Turn detection
+  this->declare_parameter("heading_change_threshold", 0.3);
+  this->declare_parameter("turn_maneuver_prior", 0.5);
+  this->declare_parameter("continue_maneuver_prior", 1.5);
+
+  // Lane change
+  this->declare_parameter("lane_change_base_prior", 0.15);
+  this->declare_parameter("lateral_velocity_threshold", 0.3);
+  this->declare_parameter("lane_change_active_prior", 0.6);
+  this->declare_parameter("intersection_suppression_factor", 0.1);
+  this->declare_parameter("curvature_threshold", 0.005);
+  this->declare_parameter("curvature_suppression_multiplier", 50.0);
+  this->declare_parameter("curvature_suppression_minimum", 0.1);
+  this->declare_parameter("position_evidence_base", 0.2);
+  this->declare_parameter("position_evidence_scale", 1.8);
+  this->declare_parameter("lane_change_offset_threshold", 0.3);
+  this->declare_parameter("lane_change_offset_scale", 1.2);
+  this->declare_parameter("lateral_offset_threshold", 0.25);
+  this->declare_parameter("lateral_offset_boost", 1.25);
+  this->declare_parameter("lateral_offset_suppress", 0.6);
+  this->declare_parameter("heading_weight_for_lane_change", 0.4);
+  this->declare_parameter("lane_change_completion_boost", 1.5);
+  this->declare_parameter("lane_change_direction_switch_suppress", 0.1);
+  this->declare_parameter("lane_change_blend_count", 5);
+
+  // Geometric fallback
+  this->declare_parameter("geometric_straight_probability", 0.6);
+  this->declare_parameter("geometric_turn_probability", 0.1);
+  this->declare_parameter("geometric_lane_change_probability", 0.1);
+  this->declare_parameter("geometric_turn_radius", 10.0);
+  this->declare_parameter("geometric_turn_angle_step", 0.1);
+  this->declare_parameter("geometric_lane_width", 3.5);
+  this->declare_parameter("geometric_lane_change_distance", 30.0);
+  this->declare_parameter("geometric_path_sampling_interval", 1.0);
+
+  // Intent classifier weights
+  this->declare_parameter("intent_classifier.velocity_weight", 0.3);
+  this->declare_parameter("intent_classifier.heading_weight", 0.2);
+  this->declare_parameter("intent_classifier.intersection_weight", 0.25);
+  this->declare_parameter("intent_classifier.lateral_offset_weight", 0.15);
+  this->declare_parameter("intent_classifier.turn_signal_weight", 0.1);
+
+  // Intent classifier feature defaults
+  this->declare_parameter("default_velocity", 5.0);
+  this->declare_parameter("default_distance_to_intersection", 50.0);
+  this->declare_parameter("default_time_in_lane", 2.0);
+
+  // Intent probability model
+  this->declare_parameter("straight_base_probability", 0.6);
+  this->declare_parameter("turn_signal_discount", 0.5);
+  this->declare_parameter("turn_signal_presence_weight", 0.8);
+  this->declare_parameter("turn_signal_absence_weight", 0.2);
+  this->declare_parameter("intersection_normalization", 50.0);
+  this->declare_parameter("stop_velocity_threshold", 1.0);
+  this->declare_parameter("stop_high_probability", 0.7);
+  this->declare_parameter("stop_low_probability", 0.1);
+  this->declare_parameter("default_fallback_probability", 0.1);
 
   RCLCPP_INFO(this->get_logger(), "PredictionNode created (unconfigured)");
 }
@@ -50,8 +173,8 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   confidence_smoothing_alpha_ = this->get_parameter("confidence_smoothing_alpha").as_double();
   confidence_match_distance_m_ = this->get_parameter("confidence_match_distance_m").as_double();
   confidence_state_timeout_s_ = this->get_parameter("confidence_state_timeout_s").as_double();
-
   cache_ttl_s_ = this->get_parameter("cache_ttl_s").as_double();
+  lanelet_query_radius_ = this->get_parameter("lanelet_query_radius").as_double();
 
   confidence_smoothing_alpha_ = std::clamp(confidence_smoothing_alpha_, 0.0, 1.0);
   confidence_match_distance_m_ = std::max(0.1, confidence_match_distance_m_);
@@ -66,6 +189,118 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
     confidence_smoothing_alpha_,
     confidence_match_distance_m_);
 
+  // Build bicycle model config
+  BicycleModelConfig bicycle_config;
+  bicycle_config.max_steering_angle = this->get_parameter("max_steering_angle").as_double();
+  bicycle_config.wheelbase = this->get_parameter("vehicle_wheelbase").as_double();
+  bicycle_config.max_lateral_acceleration = this->get_parameter("max_lateral_acceleration").as_double();
+  bicycle_config.speed_limit = this->get_parameter("speed_limit").as_double();
+  bicycle_config.max_acceleration = this->get_parameter("max_acceleration").as_double();
+  bicycle_config.max_deceleration = this->get_parameter("max_deceleration").as_double();
+  bicycle_config.lookahead_distance = this->get_parameter("lookahead_distance").as_double();
+
+  // Build constant-velocity model config
+  ConstantVelocityModelConfig cv_config;
+  cv_config.position_noise_std = this->get_parameter("position_noise_std").as_double();
+  cv_config.heading_noise_std = this->get_parameter("heading_noise_std").as_double();
+
+  // Build trajectory predictor config
+  TrajectoryPredictorConfig tp_config;
+  tp_config.bicycle_config = bicycle_config;
+  tp_config.cv_config = cv_config;
+
+  tp_config.speed_ema_alpha = this->get_parameter("speed_ema_alpha").as_double();
+  tp_config.min_dt_for_speed = this->get_parameter("min_dt_for_speed").as_double();
+  tp_config.max_vehicle_speed = this->get_parameter("max_vehicle_speed").as_double();
+  tp_config.max_pedestrian_speed = this->get_parameter("max_pedestrian_speed").as_double();
+
+  tp_config.stop_sigmoid_midpoint = this->get_parameter("stop_sigmoid_midpoint").as_double();
+  tp_config.stop_sigmoid_steepness = this->get_parameter("stop_sigmoid_steepness").as_double();
+  tp_config.stop_probability_threshold = this->get_parameter("stop_probability_threshold").as_double();
+
+  tp_config.vehicle_min_length = this->get_parameter("vehicle_min_length").as_double();
+  tp_config.pedestrian_max_length = this->get_parameter("pedestrian_max_length").as_double();
+  tp_config.cyclist_max_length = this->get_parameter("cyclist_max_length").as_double();
+
+  tp_config.vehicle_default_velocity = this->get_parameter("vehicle_default_velocity").as_double();
+  tp_config.pedestrian_default_velocity = this->get_parameter("pedestrian_default_velocity").as_double();
+  tp_config.cyclist_default_velocity = this->get_parameter("cyclist_default_velocity").as_double();
+
+  tp_config.lanelet_match_max_distance = this->get_parameter("lanelet_match_max_distance").as_double();
+  tp_config.heading_penalty_weight = this->get_parameter("heading_penalty_weight").as_double();
+  tp_config.heading_rejection_threshold = this->get_parameter("heading_rejection_threshold").as_double();
+
+  tp_config.curvature_heading_tolerance_scale = this->get_parameter("curvature_heading_tolerance_scale").as_double();
+  tp_config.curvature_heading_tolerance_max = this->get_parameter("curvature_heading_tolerance_max").as_double();
+  tp_config.curvature_lateral_tolerance_denom = this->get_parameter("curvature_lateral_tolerance_denom").as_double();
+  tp_config.curvature_lateral_tolerance_max = this->get_parameter("curvature_lateral_tolerance_max").as_double();
+  tp_config.curve_offset_discount = this->get_parameter("curve_offset_discount").as_double();
+
+  tp_config.heading_score_denominator = this->get_parameter("heading_score_denominator").as_double();
+  tp_config.lateral_score_denominator = this->get_parameter("lateral_score_denominator").as_double();
+
+  tp_config.lane_follow_prior = this->get_parameter("lane_follow_prior").as_double();
+  tp_config.required_distance_buffer = this->get_parameter("required_distance_buffer").as_double();
+
+  tp_config.smoothness_penalty_exponent = this->get_parameter("smoothness_penalty_exponent").as_double();
+  tp_config.smoothness_base_weight = this->get_parameter("smoothness_base_weight").as_double();
+  tp_config.maneuver_inertia_boost = this->get_parameter("maneuver_inertia_boost").as_double();
+
+  tp_config.heading_change_threshold = this->get_parameter("heading_change_threshold").as_double();
+  tp_config.turn_maneuver_prior = this->get_parameter("turn_maneuver_prior").as_double();
+  tp_config.continue_maneuver_prior = this->get_parameter("continue_maneuver_prior").as_double();
+
+  tp_config.lane_change_base_prior = this->get_parameter("lane_change_base_prior").as_double();
+  tp_config.lateral_velocity_threshold = this->get_parameter("lateral_velocity_threshold").as_double();
+  tp_config.lane_change_active_prior = this->get_parameter("lane_change_active_prior").as_double();
+  tp_config.intersection_suppression_factor = this->get_parameter("intersection_suppression_factor").as_double();
+  tp_config.curvature_threshold = this->get_parameter("curvature_threshold").as_double();
+  tp_config.curvature_suppression_multiplier = this->get_parameter("curvature_suppression_multiplier").as_double();
+  tp_config.curvature_suppression_minimum = this->get_parameter("curvature_suppression_minimum").as_double();
+  tp_config.position_evidence_base = this->get_parameter("position_evidence_base").as_double();
+  tp_config.position_evidence_scale = this->get_parameter("position_evidence_scale").as_double();
+  tp_config.lane_change_offset_threshold = this->get_parameter("lane_change_offset_threshold").as_double();
+  tp_config.lane_change_offset_scale = this->get_parameter("lane_change_offset_scale").as_double();
+  tp_config.lateral_offset_threshold = this->get_parameter("lateral_offset_threshold").as_double();
+  tp_config.lateral_offset_boost = this->get_parameter("lateral_offset_boost").as_double();
+  tp_config.lateral_offset_suppress = this->get_parameter("lateral_offset_suppress").as_double();
+  tp_config.heading_weight_for_lane_change = this->get_parameter("heading_weight_for_lane_change").as_double();
+  tp_config.lane_change_completion_boost = this->get_parameter("lane_change_completion_boost").as_double();
+  tp_config.lane_change_direction_switch_suppress =
+    this->get_parameter("lane_change_direction_switch_suppress").as_double();
+  tp_config.lane_change_blend_count = this->get_parameter("lane_change_blend_count").as_int();
+
+  tp_config.geometric_straight_probability = this->get_parameter("geometric_straight_probability").as_double();
+  tp_config.geometric_turn_probability = this->get_parameter("geometric_turn_probability").as_double();
+  tp_config.geometric_lane_change_probability = this->get_parameter("geometric_lane_change_probability").as_double();
+  tp_config.geometric_turn_radius = this->get_parameter("geometric_turn_radius").as_double();
+  tp_config.geometric_turn_angle_step = this->get_parameter("geometric_turn_angle_step").as_double();
+  tp_config.geometric_lane_width = this->get_parameter("geometric_lane_width").as_double();
+  tp_config.geometric_lane_change_distance = this->get_parameter("geometric_lane_change_distance").as_double();
+  tp_config.geometric_path_sampling_interval = this->get_parameter("geometric_path_sampling_interval").as_double();
+
+  tp_config.vehicle_cache_invalidation_dist = this->get_parameter("vehicle_cache_invalidation_dist").as_double();
+
+  // Build intent classifier config
+  IntentClassifierConfig ic_config;
+  ic_config.velocity_weight = this->get_parameter("intent_classifier.velocity_weight").as_double();
+  ic_config.heading_weight = this->get_parameter("intent_classifier.heading_weight").as_double();
+  ic_config.intersection_weight = this->get_parameter("intent_classifier.intersection_weight").as_double();
+  ic_config.lateral_offset_weight = this->get_parameter("intent_classifier.lateral_offset_weight").as_double();
+  ic_config.turn_signal_weight = this->get_parameter("intent_classifier.turn_signal_weight").as_double();
+  ic_config.default_velocity = this->get_parameter("default_velocity").as_double();
+  ic_config.default_distance_to_intersection = this->get_parameter("default_distance_to_intersection").as_double();
+  ic_config.default_time_in_lane = this->get_parameter("default_time_in_lane").as_double();
+  ic_config.straight_base_probability = this->get_parameter("straight_base_probability").as_double();
+  ic_config.turn_signal_discount = this->get_parameter("turn_signal_discount").as_double();
+  ic_config.turn_signal_presence_weight = this->get_parameter("turn_signal_presence_weight").as_double();
+  ic_config.turn_signal_absence_weight = this->get_parameter("turn_signal_absence_weight").as_double();
+  ic_config.intersection_normalization = this->get_parameter("intersection_normalization").as_double();
+  ic_config.stop_velocity_threshold = this->get_parameter("stop_velocity_threshold").as_double();
+  ic_config.stop_high_probability = this->get_parameter("stop_high_probability").as_double();
+  ic_config.stop_low_probability = this->get_parameter("stop_low_probability").as_double();
+  ic_config.default_fallback_probability = this->get_parameter("default_fallback_probability").as_double();
+
   // All subscription callbacks share a mutually-exclusive callback group so
   // they never run concurrently with each other. The async service-response
   // callback is NOT in this group (it uses the default group), so shared
@@ -75,8 +310,9 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
-  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_);
-  intent_classifier_ = std::make_unique<IntentClassifier>(this);
+  trajectory_predictor_ =
+    std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_, tp_config);
+  intent_classifier_ = std::make_unique<IntentClassifier>(this, ic_config);
   lanelet_ahead_client_ = this->create_client<lanelet_msgs::srv::GetLaneletAhead>("get_lanelet_ahead");
 
   // Wire the per-vehicle lanelet query as async fire-and-forget.
@@ -109,7 +345,7 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
       auto request = std::make_shared<lanelet_msgs::srv::GetLaneletAhead::Request>();
       request->position = position;
       request->heading_rad = heading_rad;
-      request->radius_m = 50.0;
+      request->radius_m = lanelet_query_radius_;
 
       double vx = position.x, vy = position.y;
       lanelet_ahead_client_->async_send_request(

@@ -123,6 +123,7 @@ private:
   double confidence_match_distance_m_;
   double confidence_state_timeout_s_;
   double cache_ttl_s_;  // TTL for all ID-keyed caches (TrajectoryPredictor + confidence)
+  double lanelet_query_radius_;  // radius for per-vehicle lanelet service query
 };
 
 }  // namespace prediction
