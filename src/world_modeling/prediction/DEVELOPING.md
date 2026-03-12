@@ -1,94 +1,190 @@
 # Prediction Module - Developer Guide
 
-## File Structure Rationale
+## File Structure
 
-Component-based architecture enabling parallel development:
+### Headers (include/prediction/)
+- **prediction_node.hpp**: Lifecycle ROS2 node orchestrating the prediction pipeline
+- **trajectory_predictor.hpp**: Core hypothesis generation with lanelet awareness
+- **motion_models.hpp**: Physics-based kinematic models (bicycle, constant velocity)
+- **intent_classifier.hpp**: Probability assignment to trajectory hypotheses
 
-```
-prediction_node.cpp       → ROS orchestrator (no algorithm logic)
-trajectory_predictor.cpp  → Strategy pattern (select algorithm by object type)
-motion_models.cpp         → Pure functions (physics-based state propagation)
-intent_classifier.cpp     → Probability assignment (independent of trajectories)
-map_interface.cpp         → Adapter for HD map services (currently placeholders)
-```
+### Implementation (src/)
+- **prediction_node.cpp**: Lifecycle callbacks, ROS communication, temporal smoothing
+- **trajectory_predictor.cpp**: Object-type-specific hypothesis generators
+- **motion_models.cpp**: Motion model implementations
+- **intent_classifier.cpp**: Scoring and probability computation
 
-**Why this structure?**
+## Core Concepts
 
-- **Separation of concerns**: Each file has one responsibility
-- **Parallel work**: Person 1, 2, 3 modify different functions (no conflicts)
-- **Testability**: Components tested independently
-- **Extensibility**: Add new models/object types without changing existing code
-
-## Implementation Details
-
-### Placeholder Mode
-
-Map services not required during development. Placeholders return:
-
-- Deterministic lanelet IDs based on grid position
-- Synthetic straight centerlines
-- Mock crosswalk locations at grid intersections
-
-**To switch to real map services**: Uncomment service client code in `MapInterface` constructor in `src/map_interface.cpp`.
-
-### Output Format
-
-All trajectory generators must return `std::vector<TrajectoryHypothesis>`:
+### TrajectoryHypothesis Structure
 
 ```cpp
-TrajectoryHypothesis hyp;
-hyp.header = /* std_msgs::msg::Header */
-hyp.poses = /* std::vector<geometry_msgs::msg::PoseStamped> */
-hyp.intent = Intent::CONTINUE_STRAIGHT;  // or other intent enum
-hyp.probability = 0.0;  // Classifier sets this later
+struct TrajectoryHypothesis {
+  std_msgs::msg::Header header;           // Timestamp and frame
+  std::vector<geometry_msgs::msg::PoseStamped> poses;  // Waypoint sequence
+  Intent intent;                           // Maneuver type
+  double probability;                      // Assigned by classifier
+};
 ```
 
-**Critical**: All three team members must use identical output format.
+Each hypothesis represents one possible future path of constant intent.
 
-### Map Interface API
-
-Available to all team members:
+### Intent Enumeration
 
 ```cpp
-// Get current lane
-int64_t lanelet = map_interface_->findNearestLanelet(position);
+enum class Intent {
+  CONTINUE_STRAIGHT,    // Maintain current lane
+  TURN_LEFT,            // Follow left-turning lanelet
+  TURN_RIGHT,           // Follow right-turning lanelet
+  LANE_CHANGE_LEFT,     // Cross into left lanelet
+  LANE_CHANGE_RIGHT,    // Cross into right lanelet
+  STOP,                 // Decelerating to stop
+  UNKNOWN               // Fallback for ambiguous cases
+};
+```
 
-// Get reachable future lanes
-auto futures = map_interface_->getPossibleFutureLanelets(lanelet, depth);
+### Lanelet-Aware Prediction
 
-// Get centerline for path following
-LaneletInfo info = map_interface_->getLaneletById(lanelet);
-std::vector<geometry_msgs::msg::Point> centerline = info.centerline;
+**Process**:
+1. Query `GetLaneletAhead` service for lanelets reachable from object position
+2. For each reachable lanelet, generate trajectory following its centerline
+3. Extract forward path with smoothness checking
+4. Propagate trajectory using motion model with distance normalization
+5. Score based on lanelet match quality and path geometry
 
-// Check for crosswalk
-bool crosswalk = map_interface_->isCrosswalkNearby(position, radius);
+**Caching**:
+- Per-vehicle cache indexed by detection ID
+- Invalidated when vehicle moves >5m from cached position
+- Prevents redundant service queries in same prediction cycle
+
+**Async Requests**:
+- Fire-and-forget async service calls for per-vehicle queries
+- Limits concurrent requests (max 8) via `pending_vehicle_requests_` set
+- Results populated into `vehicle_lanelet_cache_` when available
+
+### Fallback Geometric Prediction
+
+When lanelet data unavailable:
+1. Estimate current heading from velocity or detection orientation
+2. Generate hypotheses in cardinal directions
+3. Propagate using constant velocity model
+4. Score based on heading difference only
+
+### Temporal Smoothing
+
+**Confidence Smoothing**:
+- Exponential α-filter to reduce flickering
+- Matches current hypotheses to previous frame by intent + endpoint location
+- Tolerance: 6m endpoint distance, matching intent
+- Interpolates confidence across frames
+
+**State Pruning**:
+- Objects not seen for 5 seconds removed from confidence history
+- Prevents memory growth with stale detections
+
+### Speed Estimation
+
+**Multi-source**:
+1. **Position History**: Track detection position over frames
+   - Compute velocity from displacement between observations
+   - More reliable than observation noise when history available
+2. **Bounding Box Heuristic**: Use bbox length as speed proxy
+   - Fallback when position history empty (first frame)
+   - Provides minimum speed baseline
+
+## Implementation Patterns
+
+### Object Type Routing
+
+```cpp
+ObjectType object_type = classifyObjectType(detection);
+switch(object_type) {
+  case ObjectType::VEHICLE:
+    return generateLaneletVehicleHypotheses(detection, speed); // lanelet-aware
+  case ObjectType::PEDESTRIAN:
+    return generatePedestrianHypotheses(detection);
+  case ObjectType::CYCLIST:
+    return generateCyclistHypotheses(detection);
+  // ...
+}
+```
+
+### Vehicle Hypothesis Generation
+For each reachable lanelet:
+1. Extract centerline as reference path
+2. Adapt path length based on estimated speed and horizon
+3. Propagate bicycle model with lane-following controller
+4. Return hypothesis with matching intent and probability=0 (classifier sets)
+
+### Service Query Pattern
+
+```cpp
+auto callback = [this](rclcpp::Client<GetLaneletAhead>::SharedFuture future) {
+  auto response = future.get();
+  trajectory_predictor_->updateVehicleLaneletCache(
+      vehicle_id, response->lanelet_ahead, x, y);
+};
+lanelet_ahead_client_->async_send_request(request, callback);
 ```
 
 ## Testing
 
-```bash
-# Build
-colcon build --packages-select prediction
+### Unit Testing
+Test individual components without ROS:
 
-# Run with debug logs
-ros2 launch prediction prediction.launch.py --ros-args --log-level debug
-
-# Publish test detection
-ros2 topic pub /perception/detections_3D_tracked vision_msgs/msg/Detection3DArray "..."
+```cpp
+// trajectory_predictor with mock lanelet data
+auto predictor = std::make_unique<TrajectoryPredictor>(node, 3.0, 0.2);
+predictor->setTemporaryLaneletData(mock_lanelet);
+auto hyps = predictor->generateHypotheses(detection);
+// Verify trajectory shape, intent, waypoint count
 ```
 
-## Adding Dependencies
+### Integration Testing
 
-Follow monorepo guidelines in `/tmp/wato_monorepo/DEVELOPING.md`:
+```bash
+# Build with debug symbols
+colcon build --packages-select prediction --cmake-args -DCMAKE_BUILD_TYPE=Debug
 
-1. Prefer ROSdep dependencies (add to `package.xml`)
-2. System packages only if no ROSdep key exists
-3. Consider contributing to rosdistro for missing packages
+# Run with log output
+ros2 launch prediction prediction.launch.py --ros-args --log-level debug
 
-## Future Enhancements
+# Publish test detection in another terminal
+ros2 topic pub /perception/detections_3D_tracked vision_msgs/msg/Detection3DArray "{
+  detections: [{
+    bbox: {center: {position: {x: 10.0, y: 0.0, z: 0.0}}, ...},
+    results: [{hypothesis: {class_name: 'vehicle'}}]
+  }]
+}"
 
-- Replace physics-based models with learned models
-- Add ML-based intent classifier
-- Support for additional object types (trucks, motorcycles)
-- Integration with tracking history for velocity estimation
-- Turn signal observation from CAN bus
+# Monitor predictions
+ros2 topic echo /world_modeling/world_object_seeds
+```
+
+## Extending the Module
+
+### Adding a New Object Type
+1. Add enum value to `ObjectType` in trajectory_predictor.hpp
+2. Add `classifyObjectType()` condition for detection classification
+3. Implement `generate<Type>Hypotheses()` method returning `std::vector<TrajectoryHypothesis>`
+4. Call from `generateHypotheses()` switch statement
+
+### Improving Intent Classifier
+Modify `IntentClassifier::computeGeometricScore()`:
+- Add heading alignment penalty
+- Weight lanelet match quality by path curvature
+- Incorporate lateral velocity for lane-change detection
+
+### Tuning Motion Models
+Edit `motion_models.cpp`:
+- Bicycle model: Adjust look-ahead distance, speed scaling
+- Constant velocity: Add Gaussian process noise for pedestrians
+- Both: Modify waypoint spacing for fidelity/performance tradeoff
+
+## Known Limitations & TODO
+
+- **No velocity scaling in bicycle model**: All trajectories use same arc radius
+- **Pedestrian model too simple**: Constant velocity ignores obstacles, goals
+- **No loop detection**: Lanelet queries can return cycles (e.g., roundabouts)
+- **No turn signal integration**: All vehicle hypotheses equally likely
+- **Limited object type classification**: Uses only bounding box aspect ratio

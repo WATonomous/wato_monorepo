@@ -37,6 +37,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GetShortestRoute.srv"
   "srv/GetLaneletsByRegElem.srv"
   "srv/SetRoute.srv"
+  "srv/GetLaneletAhead.srv"
   DEPENDENCIES geometry_msgs std_msgs
 )
 
