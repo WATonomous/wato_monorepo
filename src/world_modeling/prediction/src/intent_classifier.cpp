@@ -26,12 +26,6 @@ IntentClassifier::IntentClassifier(rclcpp_lifecycle::LifecycleNode * node, const
 : node_(node)
 , config_(config)
 {
-  weights_.velocity_weight = config_.velocity_weight;
-  weights_.heading_weight = config_.heading_weight;
-  weights_.intersection_weight = config_.intersection_weight;
-  weights_.lateral_offset_weight = config_.lateral_offset_weight;
-  weights_.turn_signal_weight = config_.turn_signal_weight;
-
   RCLCPP_INFO(node_->get_logger(), "IntentClassifier initialized");
 }
 
@@ -51,7 +45,8 @@ void IntentClassifier::assignProbabilities(
   }
 
   if (existing_total > 1e-6) {
-    // Probabilities already set by trajectory predictor (lanelet-based) — just normalize
+    // Probabilities already set by trajectory predictor (lanelet-based) — just
+    // normalize
     normalizeProbabilities(hypotheses);
     RCLCPP_DEBUG(node_->get_logger(), "Using lanelet-based probabilities for %zu hypotheses", hypotheses.size());
     return;

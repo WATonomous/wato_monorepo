@@ -134,10 +134,10 @@ void LifecycleManager::createManagedNodes()
 
     // Create lifecycle service clients
     node.change_state_client = this->create_client<lifecycle_msgs::srv::ChangeState>(
-      prefix + "/change_state", rmw_qos_profile_services_default, callback_group_);
+      prefix + "/change_state", rclcpp::ServicesQoS(), callback_group_);
 
-    node.get_state_client = this->create_client<lifecycle_msgs::srv::GetState>(
-      prefix + "/get_state", rmw_qos_profile_services_default, callback_group_);
+    node.get_state_client =
+      this->create_client<lifecycle_msgs::srv::GetState>(prefix + "/get_state", rclcpp::ServicesQoS(), callback_group_);
 
     nodes_.push_back(std::move(node));
     RCLCPP_DEBUG(this->get_logger(), "Created clients for managed node: %s", name.c_str());
