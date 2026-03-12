@@ -54,6 +54,12 @@ public:
   const gtsam::NonlinearFactorGraph& getAccumulatedGraph() const;
   std::optional<gtsam::Pose3> getMotionModelPose() const;
 
+  /**
+   * @brief Get the ISAM2 marginal covariance of the latest optimized pose.
+   * Returns 6x6 matrix [rot3 | pos3]. Returns nullopt if no state exists yet.
+   */
+  std::optional<Eigen::MatrixXd> getLatestPoseCovariance() const;
+
 protected:
   using CallbackReturn =
       rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
@@ -165,6 +171,12 @@ private:
 
   // Published odometry covariance diagonal [x, y, z, roll, pitch, yaw]
   std::vector<double> odom_pose_cov_ = {1.0, 1.0, 1.0, 0.1, 0.1, 0.1};
+
+  // ISAM2 parameters
+  int isam2_update_iterations_ = 2;        // iterations per normal update
+  int isam2_correction_iterations_ = 5;    // extra iterations on GPS/loop closure
+  double isam2_relinearize_threshold_ = 0.1;
+  int isam2_relinearize_skip_ = 1;
 
   // ---- Loop closure tracking ----
   bool loop_closure_detected_ = false;

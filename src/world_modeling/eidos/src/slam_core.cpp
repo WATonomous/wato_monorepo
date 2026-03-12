@@ -44,6 +44,10 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("topics.odom", std::string("slam/odometry"));
   declare_parameter("odom_pose_cov", odom_pose_cov_);
   declare_parameter("topics.pose", std::string("slam/pose"));
+  declare_parameter("isam2.update_iterations", isam2_update_iterations_);
+  declare_parameter("isam2.correction_iterations", isam2_correction_iterations_);
+  declare_parameter("isam2.relinearize_threshold", isam2_relinearize_threshold_);
+  declare_parameter("isam2.relinearize_skip", isam2_relinearize_skip_);
 
   get_parameter("slam_rate", slam_rate_);
   get_parameter("relocalization_timeout", relocalization_timeout_);
@@ -53,6 +57,10 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("map.save_directory", map_save_directory_);
   get_parameter("prior.pose_cov", prior_pose_cov_);
   get_parameter("odom_pose_cov", odom_pose_cov_);
+  get_parameter("isam2.update_iterations", isam2_update_iterations_);
+  get_parameter("isam2.correction_iterations", isam2_correction_iterations_);
+  get_parameter("isam2.relinearize_threshold", isam2_relinearize_threshold_);
+  get_parameter("isam2.relinearize_skip", isam2_relinearize_skip_);
 
   std::string status_topic, save_map_service, load_map_service;
   get_parameter("topics.status", status_topic);
@@ -64,6 +72,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
 
   // Core components
   pose_graph_ = std::make_unique<PoseGraph>();
+  pose_graph_->reset(isam2_relinearize_threshold_, isam2_relinearize_skip_);
   map_manager_ = std::make_unique<MapManager>();
 
   std::string pose_topic;
@@ -548,13 +557,33 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
       }
     }
 
+    // Let latching plugins attach factors to this state
+    for (auto& plugin : factor_plugins_) {
+      auto latch = plugin->latchFactors(ns.key, ns.timestamp);
+      for (auto& f : latch.factors) {
+        new_factors.add(f);
+      }
+      for (const auto& kv : latch.values) {
+        if (!new_values.exists(kv.key)) {
+          new_values.insert(kv.key, kv.value);
+        }
+      }
+      if (!latch.factors.empty()) {
+        if (!factor_summary.empty()) factor_summary += ", ";
+        factor_summary += plugin->getName() + "(latch):" + std::to_string(latch.factors.size());
+        // GPS (or any latched factor) triggers extra iterations like a loop closure
+        loop_closure_detected_ = true;
+      }
+    }
+
     // First state ever: anchor with PriorFactor + motion model init
     if (!has_last_state_) {
       gtsam::Pose3 anchor_pose = ns.result.values.exists(ns.key)
           ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose_;
+      // Config is [x, y, z, roll, pitch, yaw], GTSAM expects [rot, rot, rot, trans, trans, trans]
       auto prior_noise = gtsam::noiseModel::Diagonal::Variances(
-          (gtsam::Vector(6) << prior_pose_cov_[0], prior_pose_cov_[1], prior_pose_cov_[2],
-           prior_pose_cov_[3], prior_pose_cov_[4], prior_pose_cov_[5]).finished());
+          (gtsam::Vector(6) << prior_pose_cov_[3], prior_pose_cov_[4], prior_pose_cov_[5],
+           prior_pose_cov_[0], prior_pose_cov_[1], prior_pose_cov_[2]).finished());
       new_factors.addPrior(ns.key, anchor_pose, prior_noise);
 
       if (motion_model_) {
@@ -595,15 +624,18 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   }
 
   // 7. Optimize
-  auto optimized = pose_graph_->update(new_factors, new_values);
+  auto optimized = pose_graph_->update(new_factors, new_values, isam2_update_iterations_);
   double t_optimize = elapsed_ms();
 
-  // 8. Handle loop closure
+  // 8. Handle loop closure / GPS correction (extra iterations for convergence)
   if (loop_closure_detected_) {
-    pose_graph_->updateExtra(5);
+    pose_graph_->updateExtra(isam2_correction_iterations_);
     optimized = pose_graph_->getOptimizedValues();
-    map_manager_->updatePoses(optimized);
   }
+
+  // Update all keyframe poses with latest optimized values
+  // (GPS corrections, loop closures, etc. shift existing states)
+  map_manager_->updatePoses(optimized);
 
   // 9. Store keyframes for each new state
   for (auto& ns : new_states) {
@@ -641,10 +673,13 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   }
 
   RCLCPP_INFO(get_logger(),
-      "\033[32m[TRACKING]\033[0m state_idx=%lu states=%zu pos=(%.3f, %.3f, %.3f) factors=%zu [%s]",
+      "\033[32m[TRACKING]\033[0m state_idx=%lu states=%zu pos=(%.3f, %.3f, %.3f) rpy=(%.3f, %.3f, %.3f) factors=%zu [%s]",
       next_state_index_, new_states.size(),
       current_pose_.translation().x(), current_pose_.translation().y(),
-      current_pose_.translation().z(), new_factors.size(), factor_summary.c_str());
+      current_pose_.translation().z(),
+      current_pose_.rotation().roll(), current_pose_.rotation().pitch(),
+      current_pose_.rotation().yaw(),
+      new_factors.size(), factor_summary.c_str());
 
   // 11. Notify factor plugins of optimization result
   for (size_t i = 0; i < factor_plugins_.size(); i++) {
@@ -925,6 +960,15 @@ const gtsam::NonlinearFactorGraph& SlamCore::getAccumulatedGraph() const {
 
 std::optional<gtsam::Pose3> SlamCore::getMotionModelPose() const {
   return motion_model_ ? motion_model_->getCurrentPose() : std::nullopt;
+}
+
+std::optional<Eigen::MatrixXd> SlamCore::getLatestPoseCovariance() const {
+  if (!has_last_state_) return std::nullopt;
+  try {
+    return pose_graph_->getMarginalCovariance(last_state_key_);
+  } catch (...) {
+    return std::nullopt;
+  }
 }
 
 }  // namespace eidos

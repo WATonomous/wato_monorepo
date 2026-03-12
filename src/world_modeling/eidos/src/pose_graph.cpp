@@ -8,21 +8,24 @@ PoseGraph::PoseGraph() {
   reset();
 }
 
-void PoseGraph::reset() {
+void PoseGraph::reset(double relinearize_threshold, int relinearize_skip) {
   std::lock_guard<std::mutex> lock(mtx_);
   gtsam::ISAM2Params params;
-  params.relinearizeThreshold = 0.1;
-  params.relinearizeSkip = 1;
+  params.relinearizeThreshold = relinearize_threshold;
+  params.relinearizeSkip = relinearize_skip;
   isam_ = std::make_unique<gtsam::ISAM2>(params);
   current_estimate_ = gtsam::Values();
 }
 
 gtsam::Values PoseGraph::update(
     const gtsam::NonlinearFactorGraph& factors,
-    const gtsam::Values& initial_values) {
+    const gtsam::Values& initial_values,
+    int num_iterations) {
   std::lock_guard<std::mutex> lock(mtx_);
   isam_->update(factors, initial_values);
-  isam_->update();  // Second iteration for better convergence
+  for (int i = 1; i < num_iterations; i++) {
+    isam_->update();
+  }
   current_estimate_ = isam_->calculateEstimate();
   return current_estimate_;
 }

@@ -119,6 +119,19 @@ public:
   }
 
   /**
+   * @brief Called after each new state is created. Allows non-state-creating
+   * plugins to attach factors to states created by other plugins.
+   * Default returns empty — non-latching plugins do nothing.
+   * @param key GTSAM key of the newly created state.
+   * @param timestamp Timestamp of the new state.
+   * @return StampedFactorResult with factors/values (timestamp should be nullopt).
+   */
+  virtual StampedFactorResult latchFactors(gtsam::Key key, double timestamp) {
+    (void)key; (void)timestamp;
+    return {};
+  }
+
+  /**
    * @brief Called after ISAM2 optimization.
    * @param optimized_values All optimized values from ISAM2.
    * @param loop_closure_detected Whether a loop closure was detected this cycle.

@@ -8,7 +8,7 @@
 #include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
-#include <gtsam_unstable/slam/BiasedGPSFactor.h>
+#include <gtsam/navigation/GPSFactor.h>
 
 #include "eidos/slam_core.hpp"
 
@@ -127,24 +127,75 @@ void FactorGraphVisualization::onOptimizationComplete(
     key_positions[key] = pos;
 
     std::string owner = map_manager.getOwnerPlugin(key);
-    auto color = stateColor(owner);
 
-    // Sphere marker — full opacity
-    visualization_msgs::msg::Marker sphere;
-    sphere.header.frame_id = map_frame_;
-    sphere.header.stamp = stamp;
-    sphere.ns = "fg_states";
-    sphere.id = marker_id++;
-    sphere.type = visualization_msgs::msg::Marker::SPHERE;
-    sphere.action = visualization_msgs::msg::Marker::ADD;
-    sphere.pose.position = pos;
-    sphere.pose.orientation.w = 1.0;
-    sphere.scale.x = state_scale_;
-    sphere.scale.y = state_scale_;
-    sphere.scale.z = state_scale_;
-    sphere.color = color;
-    sphere.color.a = 1.0f;
-    marker_array.markers.push_back(sphere);
+    // Coordinate frame axes (RGB = XYZ)
+    Eigen::Matrix3d rot = pose.rotation().matrix();
+    double axis_len = state_scale_;
+    double axis_width = state_scale_ * 0.1;
+
+    // X axis (red)
+    {
+      visualization_msgs::msg::Marker arrow;
+      arrow.header.frame_id = map_frame_;
+      arrow.header.stamp = stamp;
+      arrow.ns = "fg_states";
+      arrow.id = marker_id++;
+      arrow.type = visualization_msgs::msg::Marker::ARROW;
+      arrow.action = visualization_msgs::msg::Marker::ADD;
+      geometry_msgs::msg::Point end;
+      end.x = pos.x + axis_len * rot(0, 0);
+      end.y = pos.y + axis_len * rot(1, 0);
+      end.z = pos.z + axis_len * rot(2, 0);
+      arrow.points.push_back(pos);
+      arrow.points.push_back(end);
+      arrow.scale.x = axis_width;
+      arrow.scale.y = axis_width * 2.0;
+      arrow.scale.z = 0.0;
+      arrow.color.r = 1.0f; arrow.color.g = 0.0f; arrow.color.b = 0.0f; arrow.color.a = 1.0f;
+      marker_array.markers.push_back(arrow);
+    }
+    // Y axis (green)
+    {
+      visualization_msgs::msg::Marker arrow;
+      arrow.header.frame_id = map_frame_;
+      arrow.header.stamp = stamp;
+      arrow.ns = "fg_states";
+      arrow.id = marker_id++;
+      arrow.type = visualization_msgs::msg::Marker::ARROW;
+      arrow.action = visualization_msgs::msg::Marker::ADD;
+      geometry_msgs::msg::Point end;
+      end.x = pos.x + axis_len * rot(0, 1);
+      end.y = pos.y + axis_len * rot(1, 1);
+      end.z = pos.z + axis_len * rot(2, 1);
+      arrow.points.push_back(pos);
+      arrow.points.push_back(end);
+      arrow.scale.x = axis_width;
+      arrow.scale.y = axis_width * 2.0;
+      arrow.scale.z = 0.0;
+      arrow.color.r = 0.0f; arrow.color.g = 1.0f; arrow.color.b = 0.0f; arrow.color.a = 1.0f;
+      marker_array.markers.push_back(arrow);
+    }
+    // Z axis (blue)
+    {
+      visualization_msgs::msg::Marker arrow;
+      arrow.header.frame_id = map_frame_;
+      arrow.header.stamp = stamp;
+      arrow.ns = "fg_states";
+      arrow.id = marker_id++;
+      arrow.type = visualization_msgs::msg::Marker::ARROW;
+      arrow.action = visualization_msgs::msg::Marker::ADD;
+      geometry_msgs::msg::Point end;
+      end.x = pos.x + axis_len * rot(0, 2);
+      end.y = pos.y + axis_len * rot(1, 2);
+      end.z = pos.z + axis_len * rot(2, 2);
+      arrow.points.push_back(pos);
+      arrow.points.push_back(end);
+      arrow.scale.x = axis_width;
+      arrow.scale.y = axis_width * 2.0;
+      arrow.scale.z = 0.0;
+      arrow.color.r = 0.0f; arrow.color.g = 0.0f; arrow.color.b = 1.0f; arrow.color.a = 1.0f;
+      marker_array.markers.push_back(arrow);
+    }
 
     // Text label
     visualization_msgs::msg::Marker text;
@@ -172,6 +223,7 @@ void FactorGraphVisualization::onOptimizationComplete(
     std::vector<geometry_msgs::msg::Point> pts;  // positioned keys
     std::vector<gtsam::Key> keys;                // corresponding gtsam keys
     bool unary;
+    std::vector<geometry_msgs::msg::Point> gps_measurement;  // GPS measurement position (if GPS factor)
   };
   std::vector<FactorVis> factor_list;
 
@@ -193,7 +245,7 @@ void FactorGraphVisualization::onOptimizationComplete(
     if (boost::dynamic_pointer_cast<gtsam::ImuFactor>(factor)) {
       fc.r = 0.0f; fc.g = 1.0f; fc.b = 1.0f;
       label = "IMU";
-    } else if (boost::dynamic_pointer_cast<gtsam::BiasedGPSFactor>(factor)) {
+    } else if (boost::dynamic_pointer_cast<gtsam::GPSFactor>(factor)) {
       fc.r = 1.0f; fc.g = 1.0f; fc.b = 0.0f;
       label = "GPS";
     } else if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::imuBias::ConstantBias>>(factor)) {
@@ -229,13 +281,76 @@ void FactorGraphVisualization::onOptimizationComplete(
     }
     if (!has_spatial) continue;
 
-    factor_list.push_back({label, fc, pts, spatial_keys, keys.size() == 1});
+    // Extract GPS measurement position if this is a GPSFactor
+    std::vector<geometry_msgs::msg::Point> gps_meas;
+    auto gps_f = boost::dynamic_pointer_cast<gtsam::GPSFactor>(factor);
+    if (gps_f) {
+      auto m = gps_f->measurementIn();
+      geometry_msgs::msg::Point mp;
+      mp.x = m.x(); mp.y = m.y(); mp.z = m.z();
+      gps_meas.push_back(mp);
+    }
+
+    factor_list.push_back({label, fc, pts, spatial_keys, pts.size() == 1, gps_meas});
   }
 
   // Second pass: render factors with curve offsets for overlapping edges
   for (auto& fv : factor_list) {
-    if (fv.unary) {
-      // Unary factor: small sphere + label at state position
+    if (fv.unary && fv.label == "GPS" && !fv.gps_measurement.empty()) {
+      // GPS factor: green sphere at measurement position + yellow line to state
+      auto& state_pos = fv.pts[0];
+      auto& meas_pos = fv.gps_measurement[0];
+
+      // Green sphere at GPS measurement position
+      visualization_msgs::msg::Marker gps_sphere;
+      gps_sphere.header.frame_id = map_frame_;
+      gps_sphere.header.stamp = stamp;
+      gps_sphere.ns = "fg_factors";
+      gps_sphere.id = marker_id++;
+      gps_sphere.type = visualization_msgs::msg::Marker::SPHERE;
+      gps_sphere.action = visualization_msgs::msg::Marker::ADD;
+      gps_sphere.pose.position = meas_pos;
+      gps_sphere.pose.orientation.w = 1.0;
+      gps_sphere.scale.x = line_width_ * 4.0;
+      gps_sphere.scale.y = line_width_ * 4.0;
+      gps_sphere.scale.z = line_width_ * 4.0;
+      gps_sphere.color.r = 0.0f; gps_sphere.color.g = 1.0f;
+      gps_sphere.color.b = 0.0f; gps_sphere.color.a = 0.9f;
+      marker_array.markers.push_back(gps_sphere);
+
+      // Yellow line from state to GPS measurement
+      visualization_msgs::msg::Marker line;
+      line.header.frame_id = map_frame_;
+      line.header.stamp = stamp;
+      line.ns = "fg_factors";
+      line.id = marker_id++;
+      line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+      line.action = visualization_msgs::msg::Marker::ADD;
+      line.pose.orientation.w = 1.0;
+      line.scale.x = line_width_;
+      line.color = fv.color;
+      line.points.push_back(state_pos);
+      line.points.push_back(meas_pos);
+      marker_array.markers.push_back(line);
+
+      // "GPS" label above the measurement sphere
+      visualization_msgs::msg::Marker text;
+      text.header.frame_id = map_frame_;
+      text.header.stamp = stamp;
+      text.ns = "fg_factor_labels";
+      text.id = marker_id++;
+      text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+      text.action = visualization_msgs::msg::Marker::ADD;
+      text.pose.position = meas_pos;
+      text.pose.position.z += state_scale_ * 0.8;
+      text.pose.orientation.w = 1.0;
+      text.scale.z = state_scale_ * 0.4;
+      text.color = fv.color;
+      text.color.a = 1.0f;
+      text.text = fv.label;
+      marker_array.markers.push_back(text);
+    } else if (fv.unary) {
+      // Other unary factor: small sphere + label at state position
       visualization_msgs::msg::Marker point;
       point.header.frame_id = map_frame_;
       point.header.stamp = stamp;

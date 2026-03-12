@@ -74,10 +74,11 @@ private:
   bool has_cached_result_ = false;
   mutable std::mutex result_mtx_;
 
-  // Subscription + publisher
+  // Subscription + publishers
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
-  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;              // map frame (absolute)
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_incremental_pub_;  // odom frame (incremental)
 
   // Last successful match tracking (for initial guess computation)
   gtsam::Pose3 last_matched_pose_;       // GICP result at last successful match
@@ -104,6 +105,11 @@ private:
   Eigen::Quaterniond warmup_quat_reference_;       // first quaternion, for hemisphere consistency
   gtsam::Rot3 initial_gravity_orientation_; // computed during warmup
 
+  // Incremental odometry tracking (odom frame, never corrected)
+  gtsam::Pose3 incremental_pose_;           // running pose in odom frame
+  gtsam::Pose3 prev_incremental_pose_;      // last GICP result (for computing delta)
+  bool has_prev_incremental_ = false;
+
   // Distance gating + relative factor tracking
   gtsam::Point3 last_factor_position_ = gtsam::Point3(0, 0, 0);
   bool has_last_factor_ = false;
@@ -125,6 +131,7 @@ private:
   double min_scan_distance_ = 1.0;
   std::string lidar_frame_ = "velodyne";
   std::string map_frame_ = "map";
+  std::string odom_frame_ = "odom";
   std::string base_link_frame_ = "base_footprint";
   std::string imu_topic_ = "/imu/data";
   std::string imu_frame_ = "imu_link";

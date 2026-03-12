@@ -10,8 +10,15 @@ eidos_node:
     slam_rate: 10.0                    # Hz, main SLAM loop frequency
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
 
+    # ---- ISAM2 optimizer ----
+    isam2:
+      update_iterations: 2            # iterations per normal ISAM2 update
+      correction_iterations: 20        # extra iterations on GPS injection / loop closure
+      relinearize_threshold: 0.1      # re-linearize variables that changed more than this
+      relinearize_skip: 1             # check for relinearization every N updates
+
     prior:
-      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [r, p, y, x, y, z] state 0 prior covariance
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]  # [x, y, z, roll, pitch, yaw] state 0 prior covariance
 
     map:
       load_directory: ""              # if set, load prior map on startup
@@ -30,7 +37,7 @@ eidos_node:
 
     # ---- Plugin lists ----
     factor_plugins:
-      # - "gps_factor"
+      - "gps_factor"
       - "liso_factor"
       # - "euclidean_distance_loop_closure_factor"
 
@@ -87,21 +94,22 @@ eidos_node:
       plugin: "eidos::GpsFactor"
 
       # -- Topics --
-      gps_topic: "/novatel/oem7/fix"      # sensor_msgs/NavSatFix input
+      gps_topic: "/novatel/oem7/fix"              # sensor_msgs/NavSatFix input
+      imu_topic: "/novatel/oem7/imu/data"          # sensor_msgs/Imu input (for heading alignment)
+
+      # -- GPS factor control --
+      add_factors: true             # false = visualization only, no GPSFactor in the graph
 
       # -- GPS quality filtering --
-      cov_threshold: 5.0            # max GPS position covariance to accept a measurement
+      max_cov: 5.0                  # max GPS position covariance to accept a measurement
       use_elevation: false           # use GPS elevation (z), or lock z to current pose
 
       # -- GPS injection control --
-      min_gps_movement: 20.0          # meters, minimum displacement between GPS injections
+      min_radius: 50.0              # meters, minimum displacement between GPS injections
+      pose_cov_threshold: 1.0      # skip GPS when ISAM2 pose covariance x,y < this (m^2)
 
       # -- Covariances --
-      gps_cov: [2.0, 2.0, 100.0]   # [x, y, z] BiasedGPSFactor measurement covariance floor (m^2)
-
-      # -- Initialization (heading alignment) --
-      initialization:
-        imu_topic: "/novatel/oem7/imu/data"          # sensor_msgs/Imu input (orientation for heading alignment)
+      gps_cov: [1.0, 1.0, 400.0]  # [x, y, z] GPSFactor measurement covariance floor (m^2)
 
     # ==========================================================================
     # LISO Factor (LiDAR-Inertial Submap Odometry)
@@ -111,7 +119,8 @@ eidos_node:
 
       # -- Topics --
       lidar_topic: "/lidar_cc/velodyne_points"
-      odom_topic: "liso/odometry"
+      odom_topic: "liso/odometry"                          # map frame (absolute, includes corrections)
+      odometry_incremental_topic: "liso/odometry_incremental"  # odom frame (scan-to-scan deltas, smooth)
       imu_topic: "/novatel/oem7/imu/data"
 
       # -- Frames --
@@ -129,7 +138,7 @@ eidos_node:
       num_neighbors: 10
 
       # -- Submap assembly (graph BFS) --
-      submap_radius: 30.0
+      submap_radius: 20.0
       max_submap_states: 25
 
       # -- Registration (small_gicp GICP) --
@@ -140,10 +149,11 @@ eidos_node:
       # -- Quality filtering --
       min_inliers: 50
       min_noise: 0.01
-      min_scan_distance: 10.0        # meters, minimum displacement between LISO factor injections
+      min_scan_distance: 5.0        # meters, minimum displacement between LISO factor injections
 
-      # -- Published odometry covariance diagonals [x, y, z, roll, pitch, yaw] --
-      odom_pose_cov: [0.01, 0.01, 0.01, 0.005, 0.005, 0.005]
+      # -- Covariance diagonals [x, y, z, roll, pitch, yaw] --
+      # Used for both BetweenFactor noise and published odometry
+      odom_pose_cov: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-6, 1.0e-6, 1.0e-6]
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -237,9 +247,9 @@ ekf_filter_node_local:
     world_frame: odom
     publish_tf: true
 
-    # Eidos IMU preintegrated odometry — full pose + velocity
-    odom0: motion_model/odometry/imu_incremental
-    odom0_config: [true,true,true, true,true,true, true,true,true, true,true,true, false,false,false]
+    # LISO LiDAR incremental odometry (odom frame, smooth, no corrections)
+    odom0: liso/odometry_incremental
+    odom0_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
 
 ekf_filter_node_global:
   ros__parameters:

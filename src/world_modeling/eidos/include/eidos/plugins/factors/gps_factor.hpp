@@ -26,14 +26,19 @@
 namespace eidos {
 
 /**
- * @brief GPS factor plugin.
+ * @brief GPS factor plugin (latching, unary GPSFactor).
  *
- * Subscribes to sensor_msgs/NavSatFix, converts to UTM internally,
- * manages the utm → map transform via a jointly-optimized bias variable,
- * and provides BiasedGPSFactor constraints to the pose graph.
+ * Subscribes to NavSatFix, converts to UTM internally, and provides
+ * unary GPSFactor constraints to the pose graph via latchFactors().
  *
- * The bias (Point3) represents the utm→map offset and is refined by the
- * optimizer as GPS data accumulates.
+ * GPS never creates its own states. When a new state is created by another
+ * plugin (e.g. LISO), SlamCore calls latchFactors() and GPS attaches a
+ * unary GPSFactor if it has a valid fix.
+ *
+ * The UTM→map offset is computed once at initialization using the IMU heading
+ * and the current SLAM pose. It is NOT optimized by ISAM2 (no shared bias
+ * variable), avoiding Bayes tree hub effects. The utm→map TF is broadcast
+ * as a static transform.
  */
 class GpsFactor : public FactorPlugin {
 public:
@@ -45,13 +50,17 @@ public:
   void deactivate() override;
   void reset() override;
 
-  std::optional<gtsam::Pose3> processFrame(double timestamp) override;
-  StampedFactorResult getFactors(gtsam::Key key) override;
-  void onOptimizationComplete(
-      const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+  // GPS never creates states — these are no-ops
+  std::optional<gtsam::Pose3> processFrame(double) override { return std::nullopt; }
+  StampedFactorResult getFactors(gtsam::Key) override { return {}; }
+  bool hasData() const override { return false; }
+
+  // GPS latches onto existing states
+  StampedFactorResult latchFactors(gtsam::Key key, double timestamp) override;
+
+  // Always ready (latching-only plugin, never blocks SLAM startup)
   bool isReady() const override;
   std::string getReadyStatus() const override;
-  bool hasData() const override;
 
 private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
@@ -61,14 +70,17 @@ private:
   /// Rotate a UTM position into the map frame using the initial heading
   Eigen::Vector3d utmToMap(const Eigen::Vector3d& utm_pos) const;
 
+  // Subscriptions + publishers
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 
+  // GPS queue
   std::deque<sensor_msgs::msg::NavSatFix> gps_queue_;
   mutable std::mutex gps_lock_;
 
+  // Distance gating state
   PointType last_gps_point_;
   bool has_last_gps_ = false;
   bool active_ = false;
@@ -78,13 +90,12 @@ private:
   std::mutex imu_orientation_lock_;
   double latest_imu_yaw_ = 0.0;
   std::atomic<bool> has_imu_orientation_{false};
-  double initial_yaw_ = 0.0;                           // yaw captured at bias init (ENU convention)
-  Eigen::Matrix3d R_map_enu_ = Eigen::Matrix3d::Identity();  // rotation from ENU/UTM to map frame
+  double initial_yaw_ = 0.0;
+  Eigen::Matrix3d R_map_enu_ = Eigen::Matrix3d::Identity();
 
-  // Bias variable for joint optimization: bias = rotated_utm_pos - map_pos
-  gtsam::Key bias_key_ = gtsam::Symbol('g', 0);
-  bool bias_initialized_ = false;
-  gtsam::Point3 latest_bias_ = gtsam::Point3(0, 0, 0);
+  // Fixed UTM→map offset (computed once, not optimized by ISAM2)
+  bool offset_initialized_ = false;
+  gtsam::Point3 utm_to_map_offset_{0, 0, 0};  // offset = R_map_enu * utm_pos - map_pos
 
   // UTM state
   int utm_zone_ = 0;
@@ -94,11 +105,13 @@ private:
   std::string map_frame_ = "map";
   std::string utm_frame_ = "utm";
 
-  // Parameters (populated from ROS params in onInitialize)
-  float cov_threshold_;
+  // Parameters
+  float max_cov_;
+  float min_radius_;
   bool use_elevation_;
-  float min_gps_movement_;
-  std::vector<double> gps_cov_;         // [x, y, z] BiasedGPSFactor measurement covariance
+  std::vector<double> gps_cov_;
+  double pose_cov_threshold_;   // skip GPS when ISAM2 pose covariance x,y < this
+  bool add_factors_ = true;     // whether to add GPSFactor to the graph (false = visualization only)
 };
 
 }  // namespace eidos

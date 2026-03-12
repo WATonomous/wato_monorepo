@@ -26,7 +26,8 @@ public:
    */
   gtsam::Values update(
       const gtsam::NonlinearFactorGraph& factors,
-      const gtsam::Values& initial_values);
+      const gtsam::Values& initial_values,
+      int num_iterations = 2);
 
   /**
    * @brief Run extra ISAM2 update iterations (e.g. after loop closure).
@@ -57,7 +58,7 @@ public:
   /**
    * @brief Reset the optimizer.
    */
-  void reset();
+  void reset(double relinearize_threshold = 0.1, int relinearize_skip = 1);
 
 private:
   std::unique_ptr<gtsam::ISAM2> isam_;
