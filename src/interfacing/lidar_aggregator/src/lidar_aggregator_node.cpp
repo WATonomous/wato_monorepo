@@ -28,6 +28,7 @@
 #include <utility>
 
 #include <rclcpp_components/register_node_macro.hpp>
+#include <tf2/exceptions.h>
 
 namespace lidar_aggregator
 {
@@ -79,6 +80,11 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
 {
   declare_and_load_parameters();
 
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+  load_extrinsics_from_tf();
+
   auto qos = rclcpp::QoS(rclcpp::KeepLast(static_cast<size_t>(qos_depth_)));
 
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
@@ -122,6 +128,8 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<std::string>("outputs.offset_scores", "/lidar/sync/offset_scores");
 
   declare_parameter<std::string>("frames.center", "lidar_cc");
+  declare_parameter<std::string>("frames.ne", "lidar_ne");
+  declare_parameter<std::string>("frames.nw", "lidar_nw");
   declare_parameter<int>("runtime.qos_depth", 20);
   declare_parameter<double>("runtime.max_pair_dt_sec", 0.08);
   declare_parameter<double>("runtime.max_imu_buffer_sec", 20.0);
@@ -142,20 +150,6 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("estimation.min_offset_sec", -0.1);
   declare_parameter<double>("estimation.max_offset_sec", 0.1);
 
-  declare_parameter<double>("extrinsic.ne.xyz.x", 0.924884);
-  declare_parameter<double>("extrinsic.ne.xyz.y", -0.972881);
-  declare_parameter<double>("extrinsic.ne.xyz.z", -0.840734);
-  declare_parameter<double>("extrinsic.ne.rpy.roll", 0.017163);
-  declare_parameter<double>("extrinsic.ne.rpy.pitch", 0.108708);
-  declare_parameter<double>("extrinsic.ne.rpy.yaw", -0.580009);
-
-  declare_parameter<double>("extrinsic.nw.xyz.x", 1.102008);
-  declare_parameter<double>("extrinsic.nw.xyz.y", 0.748385);
-  declare_parameter<double>("extrinsic.nw.xyz.z", -0.824361);
-  declare_parameter<double>("extrinsic.nw.rpy.roll", 0.049416);
-  declare_parameter<double>("extrinsic.nw.rpy.pitch", 0.068287);
-  declare_parameter<double>("extrinsic.nw.rpy.yaw", 0.246267);
-
   get_parameter("topics.imu", imu_topic_);
   get_parameter("topics.center", center_topic_);
   get_parameter("topics.ne", ne_topic_);
@@ -168,6 +162,8 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("outputs.offset_scores", offset_scores_output_topic_);
 
   get_parameter("frames.center", center_frame_);
+  get_parameter("frames.ne", ne_frame_);
+  get_parameter("frames.nw", nw_frame_);
   get_parameter("runtime.qos_depth", qos_depth_);
   get_parameter("runtime.max_pair_dt_sec", max_pair_dt_sec_);
   get_parameter("runtime.max_imu_buffer_sec", max_imu_buffer_sec_);
@@ -186,28 +182,29 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("estimation.min_offset_sec", estimator_cfg_.min_offset_sec);
   get_parameter("estimation.max_offset_sec", estimator_cfg_.max_offset_sec);
 
-  double ne_x = 0.0, ne_y = 0.0, ne_z = 0.0, ne_r = 0.0, ne_p = 0.0, ne_yaw = 0.0;
-  double nw_x = 0.0, nw_y = 0.0, nw_z = 0.0, nw_r = 0.0, nw_p = 0.0, nw_yaw = 0.0;
-
-  get_parameter("extrinsic.ne.xyz.x", ne_x);
-  get_parameter("extrinsic.ne.xyz.y", ne_y);
-  get_parameter("extrinsic.ne.xyz.z", ne_z);
-  get_parameter("extrinsic.ne.rpy.roll", ne_r);
-  get_parameter("extrinsic.ne.rpy.pitch", ne_p);
-  get_parameter("extrinsic.ne.rpy.yaw", ne_yaw);
-
-  get_parameter("extrinsic.nw.xyz.x", nw_x);
-  get_parameter("extrinsic.nw.xyz.y", nw_y);
-  get_parameter("extrinsic.nw.xyz.z", nw_z);
-  get_parameter("extrinsic.nw.rpy.roll", nw_r);
-  get_parameter("extrinsic.nw.rpy.pitch", nw_p);
-  get_parameter("extrinsic.nw.rpy.yaw", nw_yaw);
-
-  t_center_ne_ = rigid_from_xyz_rpy(ne_x, ne_y, ne_z, ne_r, ne_p, ne_yaw);
-  t_center_nw_ = rigid_from_xyz_rpy(nw_x, nw_y, nw_z, nw_r, nw_p, nw_yaw);
-
   estimator_cfg_.search_step_sec = std::max(estimator_cfg_.search_step_sec, 1e-4);
   estimator_cfg_.ema_alpha = std::clamp(estimator_cfg_.ema_alpha, 0.0, 1.0);
+}
+
+bool LidarAggregatorNode::load_extrinsics_from_tf()
+{
+  try {
+    auto tf_ne = tf_buffer_->lookupTransform(center_frame_, ne_frame_, tf2::TimePointZero);
+    auto tf_nw = tf_buffer_->lookupTransform(center_frame_, nw_frame_, tf2::TimePointZero);
+    t_center_ne_ = rigid_from_transform(tf_ne.transform);
+    t_center_nw_ = rigid_from_transform(tf_nw.transform);
+    extrinsics_loaded_ = true;
+    RCLCPP_INFO(
+      get_logger(), "Loaded extrinsics from TF: %s->%s and %s->%s",
+      ne_frame_.c_str(), center_frame_.c_str(),
+      nw_frame_.c_str(), center_frame_.c_str());
+    return true;
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 5000,
+      "Could not get lidar extrinsics from TF: %s", ex.what());
+    return false;
+  }
 }
 
 void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -575,6 +572,13 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
     return;
   }
 
+  if (!extrinsics_loaded_) {
+    load_extrinsics_from_tf();
+    if (!extrinsics_loaded_) {
+      return;
+    }
+  }
+
   if (estimator_cfg_.enabled) {
     maybe_update_side_offset_locked(
       center_msg,
@@ -634,16 +638,13 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
   }
 }
 
-RigidTransform LidarAggregatorNode::rigid_from_xyz_rpy(
-  double x, double y, double z, double roll, double pitch, double yaw)
+RigidTransform LidarAggregatorNode::rigid_from_transform(const geometry_msgs::msg::Transform & t)
 {
-  RigidTransform tf;
-  Eigen::AngleAxisd roll_a(roll, Eigen::Vector3d::UnitX());
-  Eigen::AngleAxisd pitch_a(pitch, Eigen::Vector3d::UnitY());
-  Eigen::AngleAxisd yaw_a(yaw, Eigen::Vector3d::UnitZ());
-  tf.rotation = (yaw_a * pitch_a * roll_a).toRotationMatrix();
-  tf.translation = Eigen::Vector3d(x, y, z);
-  return tf;
+  RigidTransform rt;
+  const Eigen::Quaterniond q(t.rotation.w, t.rotation.x, t.rotation.y, t.rotation.z);
+  rt.rotation = q.toRotationMatrix();
+  rt.translation = Eigen::Vector3d(t.translation.x, t.translation.y, t.translation.z);
+  return rt;
 }
 
 }  // namespace lidar_aggregator
