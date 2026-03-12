@@ -204,14 +204,37 @@ struct TrajectoryPredictorConfig
 class TrajectoryPredictor
 {
 public:
+  /**
+   * @brief Construct a trajectory predictor with model and scoring
+   * configuration.
+   * @param node Lifecycle node used for logging and ROS time access.
+   * @param prediction_horizon Prediction horizon in seconds.
+   * @param time_step Time resolution between predicted poses in seconds.
+   * @param config Tuning parameters for classification, scoring, and motion
+   * models.
+   */
   TrajectoryPredictor(
     rclcpp_lifecycle::LifecycleNode * node,
     double prediction_horizon,
     double time_step,
     const TrajectoryPredictorConfig & config = {});
 
+  /**
+   * @brief Generate trajectory hypotheses for a single detection.
+   *
+   * Selects an object model, attempts lanelet-aware prediction when possible,
+   * and falls back to geometric propagation if lane context is unavailable.
+   *
+   * @param detection Incoming tracked object detection.
+   * @return List of trajectory hypotheses with intents and probabilities.
+   */
   std::vector<TrajectoryHypothesis> generateHypotheses(const vision_msgs::msg::Detection3D & detection);
 
+  /**
+   * @brief Classify detection into a predictor object type.
+   * @param detection Incoming tracked object detection.
+   * @return Coarse object type used to choose motion model and priors.
+   */
   ObjectType classifyObjectType(const vision_msgs::msg::Detection3D & detection);
 
   /**
@@ -243,6 +266,10 @@ public:
   void updateVehicleLaneletCache(
     const std::string & vehicle_id, const lanelet_msgs::msg::LaneletAhead & data, double x, double y);
 
+  /**
+   * @brief Check whether ego lanelet cache currently contains lanelets.
+   * @return True when lanelet-aware prediction can potentially run.
+   */
   bool hasLaneletData() const
   {
     return !lanelet_cache_.lanelets.empty();
@@ -264,16 +291,30 @@ public:
   double estimateSpeed(const vision_msgs::msg::Detection3D & detection);
 
 private:
-  // Lanelet-aware hypothesis generation
+  /**
+   * @brief Generate lanelet-aware vehicle hypotheses from a local lanelet
+   * context.
+   */
   std::vector<TrajectoryHypothesis> generateLaneletVehicleHypotheses(
     const vision_msgs::msg::Detection3D & detection, double speed, const LaneletContext & ctx);
 
-  // Geometric fallback (no lanelet data)
+  /**
+   * @brief Generate geometric vehicle hypotheses when lanelet data is
+   * unavailable.
+   */
   std::vector<TrajectoryHypothesis> generateGeometricVehicleHypotheses(
     const vision_msgs::msg::Detection3D & detection, double speed);
 
+  /**
+   * @brief Generate pedestrian hypotheses using pedestrian-oriented motion
+   * assumptions.
+   */
   std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(const vision_msgs::msg::Detection3D & detection);
 
+  /**
+   * @brief Generate cyclist hypotheses using cyclist-oriented motion
+   * assumptions.
+   */
   std::vector<TrajectoryHypothesis> generateCyclistHypotheses(const vision_msgs::msg::Detection3D & detection);
 
   // Lanelet helpers
@@ -285,14 +326,24 @@ private:
     double heading_diff;
   };
 
+  /**
+   * @brief Match a vehicle state to the best lanelet candidate in context.
+   */
   LaneletMatch findVehicleLanelet(const KinematicState & state, const LaneletContext & ctx) const;
 
+  /**
+   * @brief Extract a forward centerline path through lanelet successors.
+   */
   std::vector<Eigen::Vector2d> extractForwardPath(
     const lanelet_msgs::msg::Lanelet & lanelet,
     size_t start_idx,
     double required_distance,
     const LaneletContext & ctx) const;
 
+  /**
+   * @brief Build a lane-change path from current lanelet toward a target
+   * lanelet.
+   */
   std::vector<Eigen::Vector2d> extractLaneChangePath(
     const lanelet_msgs::msg::Lanelet & current_lanelet,
     size_t start_idx,
@@ -311,12 +362,24 @@ private:
     double required_distance,
     const LaneletContext & ctx) const;
 
+  /**
+   * @brief Lookup lanelet pointer by ID using precomputed index map.
+   */
   const lanelet_msgs::msg::Lanelet * findLaneletById(int64_t id, const LaneletContext & ctx) const;
 
+  /**
+   * @brief Compute polyline arc length for a 2D path.
+   */
   double computePathLength(const std::vector<Eigen::Vector2d> & path) const;
 
+  /**
+   * @brief Compute path heading at a centerline index.
+   */
   double computeHeadingAtIndex(const std::vector<geometry_msgs::msg::Point> & centerline, size_t idx) const;
 
+  /**
+   * @brief Compute geometric compatibility score for a maneuver candidate.
+   */
   double computeGeometricScore(double heading_diff, double lateral_offset, double maneuver_prior) const;
 
   /// Compute path curvature at a given centerline index (1/radius)
