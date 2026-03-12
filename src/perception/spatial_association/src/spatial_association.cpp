@@ -14,12 +14,15 @@
 
 #include "spatial_association/spatial_association.hpp"
 
+#include <cmath>
 #include <memory>
 #include <string>
-#include <thread>
 #include <vector>
 
+#include <pcl_conversions/pcl_conversions.h>
+
 #include <lifecycle_msgs/msg/state.hpp>
+#include <rclcpp/time.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
@@ -27,6 +30,11 @@ SpatialAssociationNode::SpatialAssociationNode(const rclcpp::NodeOptions & optio
 : rclcpp_lifecycle::LifecycleNode("spatial_association_node", options)
 {
   RCLCPP_INFO(this->get_logger(), "Spatial Association lifecycle node created");
+}
+
+SpatialAssociationNode::~SpatialAssociationNode()
+{
+  stopWorker();
 }
 
 // ---------------------------------------------------------------------------
@@ -42,9 +50,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     initializeParams();
 
     core_ = std::make_unique<SpatialAssociationCore>();
-
-    working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
-    working_centroid_cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
     SpatialAssociationCore::ClusteringParams core_params;
     core_params.voxel_size = voxel_size_;
@@ -140,6 +145,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
       RCLCPP_INFO(this->get_logger(), "Debug visualization publishers enabled");
     }
 
+    worker_shutdown_ = false;
+    worker_thread_ = std::thread(&SpatialAssociationNode::workerLoop, this);
+
     RCLCPP_INFO(this->get_logger(), "Node activated");
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   } catch (const std::exception & e) {
@@ -152,6 +160,15 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating Spatial Association node");
+
+  // Reset subscriptions first so no new jobs can be enqueued during stopWorker().
+  non_ground_cloud_sub_.reset();
+  multi_image_sub_.reset();
+  multi_camera_info_sub_.reset();
+  dets_sub_.reset();
+  latest_multi_image_.reset();
+
+  stopWorker();
 
   if (detection_3d_pub_) {
     detection_3d_pub_->on_deactivate();
@@ -166,12 +183,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     cluster_centroid_pub_->on_deactivate();
   }
 
-  non_ground_cloud_sub_.reset();
-  multi_image_sub_.reset();
-  multi_camera_info_sub_.reset();
-  dets_sub_.reset();
-  latest_multi_image_.reset();
-
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -185,6 +196,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   multi_image_sub_.reset();
   multi_camera_info_sub_.reset();
   dets_sub_.reset();
+  stopWorker();
   detection_3d_pub_.reset();
   bounding_box_pub_.reset();
   filtered_lidar_pub_.reset();
@@ -192,16 +204,17 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
-  latest_multi_camera_info_.reset();
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    latest_multi_camera_info_.reset();
+    frame_id_to_index_.clear();
+  }
   latest_multi_image_.reset();
-  frame_id_to_index_.clear();
   {
     std::lock_guard<std::mutex> lock(cloud_mutex_);
     filtered_point_cloud_.reset();
     cluster_indices.clear();
   }
-  working_colored_cluster_.reset();
-  working_centroid_cloud_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -217,6 +230,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   multi_image_sub_.reset();
   multi_camera_info_sub_.reset();
   dets_sub_.reset();
+  stopWorker();
   detection_3d_pub_.reset();
   bounding_box_pub_.reset();
   filtered_lidar_pub_.reset();
@@ -224,16 +238,17 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
-  latest_multi_camera_info_.reset();
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    latest_multi_camera_info_.reset();
+    frame_id_to_index_.clear();
+  }
   latest_multi_image_.reset();
-  frame_id_to_index_.clear();
   {
     std::lock_guard<std::mutex> lock(cloud_mutex_);
     filtered_point_cloud_.reset();
     cluster_indices.clear();
   }
-  working_colored_cluster_.reset();
-  working_centroid_cloud_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -243,65 +258,78 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
 // Parameter initialisation
 // ---------------------------------------------------------------------------
 
+namespace
+{
+template <typename T>
+void declareIfMissing(rclcpp_lifecycle::LifecycleNode * node, const std::string & name, const T & default_value)
+{
+  if (!node->has_parameter(name)) {
+    node->declare_parameter<T>(name, default_value);
+  }
+}
+}  // namespace
+
 void SpatialAssociationNode::initializeParams()
 {
-  this->declare_parameter<std::string>("lidar_frame", "lidar_cc");
+  declareIfMissing(this, "lidar_frame", std::string("lidar_cc"));
+  declareIfMissing(this, "max_detection_cloud_stamp_delta", 0.0);
 
-  this->declare_parameter<bool>("publish_bounding_box", true);
-  this->declare_parameter<bool>("publish_visualization", false);
-  this->declare_parameter<bool>("debug_logging", false);
+  declareIfMissing(this, "publish_bounding_box", true);
+  declareIfMissing(this, "publish_visualization", false);
+  declareIfMissing(this, "debug_logging", false);
 
-  this->declare_parameter<float>("voxel_size", 0.2f);
+  declareIfMissing(this, "voxel_size", 0.2f);
 
-  this->declare_parameter<double>("euclid_params.cluster_tolerance", 0.5);
-  this->declare_parameter<int>("euclid_params.min_cluster_size", 50);
-  this->declare_parameter<int>("euclid_params.max_cluster_size", 700);
-  this->declare_parameter<bool>("euclid_params.use_adaptive_clustering", true);
-  this->declare_parameter<double>("euclid_params.close_threshold", 10.0);
-  this->declare_parameter<double>("euclid_params.close_tolerance_mult", 1.5);
+  declareIfMissing(this, "euclid_params.cluster_tolerance", 0.5);
+  declareIfMissing(this, "euclid_params.min_cluster_size", 50);
+  declareIfMissing(this, "euclid_params.max_cluster_size", 700);
+  declareIfMissing(this, "euclid_params.use_adaptive_clustering", true);
+  declareIfMissing(this, "euclid_params.close_threshold", 10.0);
+  declareIfMissing(this, "euclid_params.close_tolerance_mult", 1.5);
 
-  this->declare_parameter<double>("merge_threshold", 0.3);
+  declareIfMissing(this, "merge_threshold", 0.3);
 
-  this->declare_parameter<float>("object_detection_confidence", 0.4);
+  declareIfMissing(this, "object_detection_confidence", 0.4f);
 
-  this->declare_parameter<double>("quality_filter_params.max_distance", 60.0);
-  this->declare_parameter<int>("quality_filter_params.min_points", 5);
-  this->declare_parameter<double>("quality_filter_params.min_height", 0.15);
-  this->declare_parameter<int>("quality_filter_params.min_points_default", 10);
-  this->declare_parameter<int>("quality_filter_params.min_points_far", 8);
-  this->declare_parameter<int>("quality_filter_params.min_points_medium", 12);
-  this->declare_parameter<int>("quality_filter_params.min_points_large", 30);
-  this->declare_parameter<double>("quality_filter_params.distance_threshold_far", 30.0);
-  this->declare_parameter<double>("quality_filter_params.distance_threshold_medium", 20.0);
-  this->declare_parameter<double>("quality_filter_params.volume_threshold_large", 8.0);
-  this->declare_parameter<double>("quality_filter_params.min_density", 5.0);
-  this->declare_parameter<double>("quality_filter_params.max_density", 1000.0);
-  this->declare_parameter<double>("quality_filter_params.max_dimension", 15.0);
-  this->declare_parameter<double>("quality_filter_params.max_aspect_ratio", 15.0);
+  declareIfMissing(this, "quality_filter_params.max_distance", 60.0);
+  declareIfMissing(this, "quality_filter_params.min_points", 5);
+  declareIfMissing(this, "quality_filter_params.min_height", 0.15);
+  declareIfMissing(this, "quality_filter_params.min_points_default", 10);
+  declareIfMissing(this, "quality_filter_params.min_points_far", 8);
+  declareIfMissing(this, "quality_filter_params.min_points_medium", 12);
+  declareIfMissing(this, "quality_filter_params.min_points_large", 30);
+  declareIfMissing(this, "quality_filter_params.distance_threshold_far", 30.0);
+  declareIfMissing(this, "quality_filter_params.distance_threshold_medium", 20.0);
+  declareIfMissing(this, "quality_filter_params.volume_threshold_large", 8.0);
+  declareIfMissing(this, "quality_filter_params.min_density", 5.0);
+  declareIfMissing(this, "quality_filter_params.max_density", 1000.0);
+  declareIfMissing(this, "quality_filter_params.max_dimension", 15.0);
+  declareIfMissing(this, "quality_filter_params.max_aspect_ratio", 15.0);
 
   // Projection/utils params (orientation, merge, IoU, viz)
   const std::string pu("projection_utils_params.");
-  this->declare_parameter<double>(pu + "marker_lifetime_s", 0.5);
-  this->declare_parameter<double>(pu + "marker_alpha", 0.2);
-  this->declare_parameter<double>(pu + "min_iou_threshold", 0.15);
-  this->declare_parameter<double>(pu + "ar_front_view_threshold", 1.2);
-  this->declare_parameter<int>(pu + "outlier_rejection_point_count", 30);
-  this->declare_parameter<double>(pu + "outlier_sigma_multiplier", 4.5);
-  this->declare_parameter<double>(pu + "xy_extent_percentile_low", 5.0);
-  this->declare_parameter<double>(pu + "xy_extent_percentile_high", 95.0);
-  this->declare_parameter<double>(pu + "z_extent_percentile_low", 2.0);
-  this->declare_parameter<double>(pu + "z_extent_percentile_high", 98.0);
-  this->declare_parameter<int>(pu + "min_points_for_fit", 3);
-  this->declare_parameter<int>(pu + "default_sample_point_count", 64);
-  this->declare_parameter<double>(pu + "orientation_search_step_degrees", 2.0);
-  this->declare_parameter<double>(pu + "min_camera_z_distance", 1.0);
-  this->declare_parameter<double>(pu + "detection_score_weight", 0.6);
-  this->declare_parameter<double>(pu + "iou_score_weight", 0.4);
+  declareIfMissing(this, pu + "marker_lifetime_s", 0.5);
+  declareIfMissing(this, pu + "marker_alpha", 0.2);
+  declareIfMissing(this, pu + "min_iou_threshold", 0.15);
+  declareIfMissing(this, pu + "ar_front_view_threshold", 1.2);
+  declareIfMissing(this, pu + "outlier_rejection_point_count", 30);
+  declareIfMissing(this, pu + "outlier_sigma_multiplier", 4.5);
+  declareIfMissing(this, pu + "xy_extent_percentile_low", 5.0);
+  declareIfMissing(this, pu + "xy_extent_percentile_high", 95.0);
+  declareIfMissing(this, pu + "z_extent_percentile_low", 2.0);
+  declareIfMissing(this, pu + "z_extent_percentile_high", 98.0);
+  declareIfMissing(this, pu + "min_points_for_fit", 3);
+  declareIfMissing(this, pu + "default_sample_point_count", 64);
+  declareIfMissing(this, pu + "orientation_search_step_degrees", 2.0);
+  declareIfMissing(this, pu + "min_camera_z_distance", 1.0);
+  declareIfMissing(this, pu + "detection_score_weight", 0.6);
+  declareIfMissing(this, pu + "iou_score_weight", 0.4);
 
   publish_bounding_box_ = this->get_parameter("publish_bounding_box").as_bool();
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
   voxel_size_ = static_cast<float>(this->get_parameter("voxel_size").as_double());
   lidar_frame_ = this->get_parameter("lidar_frame").as_string();
+  max_detection_cloud_stamp_delta_ = this->get_parameter("max_detection_cloud_stamp_delta").as_double();
 
   const std::string pu_get("projection_utils_params.");
 
@@ -350,16 +378,21 @@ void SpatialAssociationNode::initializeParams()
 void SpatialAssociationNode::multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::SharedPtr msg)
 {
   // Keep one SharedPtr to the message; index by frame_id. No copy of CameraInfo or image data.
-  latest_multi_camera_info_ = msg;
-  frame_id_to_index_.clear();
+  size_t num_entries = 0;
   size_t skipped = 0;
-  for (size_t i = 0; i < msg->camera_infos.size(); ++i) {
-    const std::string & frame_id = msg->camera_infos[i].header.frame_id;
-    if (frame_id.empty()) {
-      skipped++;
-      continue;
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    latest_multi_camera_info_ = msg;
+    frame_id_to_index_.clear();
+    for (size_t i = 0; i < msg->camera_infos.size(); ++i) {
+      const std::string & frame_id = msg->camera_infos[i].header.frame_id;
+      if (frame_id.empty()) {
+        skipped++;
+        continue;
+      }
+      frame_id_to_index_[frame_id] = i;
     }
-    frame_id_to_index_[frame_id] = i;
+    num_entries = frame_id_to_index_.size();
   }
   if (skipped > 0) {
     RCLCPP_WARN_THROTTLE(
@@ -369,11 +402,11 @@ void SpatialAssociationNode::multiCameraInfoCallback(const deep_msgs::msg::Multi
       "MultiCameraInfo: skipped %zu entry/entries with empty frame_id",
       skipped);
   }
-  if (debug_logging_ && !msg->camera_infos.empty()) {
+  if (debug_logging_ && num_entries > 0) {
     RCLCPP_INFO(
       this->get_logger(),
       "Updated CameraInfo index from MultiCameraInfo: %zu camera(s) (frame_ids: keys for TF and detections)",
-      frame_id_to_index_.size());
+      num_entries);
   }
 }
 
@@ -381,6 +414,81 @@ void SpatialAssociationNode::multiImageCallback(const deep_msgs::msg::MultiImage
 {
   // Store SharedPtr only; used for visualization when publish_visualization is true. No copy.
   latest_multi_image_ = msg;
+}
+
+void SpatialAssociationNode::stopWorker()
+{
+  worker_shutdown_ = true;
+  {
+    std::lock_guard<std::mutex> lock(job_mutex_);
+    pending_cloud_.reset();
+    pending_header_ = std_msgs::msg::Header{};
+    pending_job_id_ = 0;
+    job_cv_.notify_all();
+  }
+  if (worker_thread_.joinable()) {
+    worker_thread_.join();
+  }
+}
+
+void SpatialAssociationNode::workerLoop()
+{
+  while (true) {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr my_cloud;
+    std_msgs::msg::Header my_header;
+    uint64_t my_job_id = 0;
+    {
+      std::unique_lock<std::mutex> lock(job_mutex_);
+      job_cv_.wait(lock, [this] {
+        return worker_shutdown_ || pending_job_id_ != 0;
+      });
+      if (worker_shutdown_) {
+        break;
+      }
+      my_cloud = std::move(pending_cloud_);
+      my_header = pending_header_;
+      my_job_id = pending_job_id_;
+      pending_job_id_ = 0;
+    }
+    if (!my_cloud || my_cloud->empty()) {
+      continue;
+    }
+    if (!core_) {
+      continue;
+    }
+    if (worker_shutdown_) {
+      break;
+    }
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>);
+    core_->processPointCloud(my_cloud, filtered);
+    if (worker_shutdown_) {
+      break;
+    }
+    std::vector<pcl::PointIndices> indices;
+    core_->performClustering(filtered, indices);
+    const size_t num_points = filtered->size();
+    const size_t num_clusters = indices.size();
+
+    // Only commit if this job is still the newest submitted; discard stale results so
+    // an older cloud (e.g. A) never overwrites a newer one (B) when B finished first.
+    bool applied = false;
+    {
+      std::lock_guard<std::mutex> lock(cloud_mutex_);
+      if (my_job_id == cloud_job_id_.load(std::memory_order_acquire)) {
+        latest_lidar_header_ = my_header;
+        filtered_point_cloud_ = std::move(filtered);
+        cluster_indices = std::move(indices);
+        applied = true;
+      }
+    }
+    if (debug_logging_ && applied) {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Processed non-ground cloud: %zu points, %zu clusters",
+        num_points,
+        num_clusters);
+    }
+  }
 }
 
 void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
@@ -401,29 +509,13 @@ void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::Poin
     return;
   }
 
-  // Run voxel + clustering off the callback thread so detection callbacks can run at full rate.
-  const std_msgs::msg::Header header = msg->header;
-  std::thread([this, input_cloud, header]() {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>);
-    core_->processPointCloud(input_cloud, filtered);
-    std::vector<pcl::PointIndices> indices;
-    core_->performClustering(filtered, indices);
-    const size_t num_points = filtered->size();
-    const size_t num_clusters = indices.size();
-    {
-      std::lock_guard<std::mutex> lock(cloud_mutex_);
-      latest_lidar_header_ = header;
-      filtered_point_cloud_ = std::move(filtered);
-      cluster_indices = std::move(indices);
-    }
-    if (debug_logging_) {
-      RCLCPP_INFO(
-        this->get_logger(),
-        "Processed non-ground cloud: %zu points, %zu clusters",
-        num_points,
-        num_clusters);
-    }
-  }).detach();
+  {
+    std::lock_guard<std::mutex> lock(job_mutex_);
+    pending_cloud_ = std::move(input_cloud);
+    pending_header_ = msg->header;
+    pending_job_id_ = ++cloud_job_id_;  // monotonic sequence: only commit if worker's job_id still matches
+    job_cv_.notify_one();
+  }
 }
 
 void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
@@ -432,17 +524,28 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
   // optical frame name in TF (sensor_interfacing). deep_ros uses the same camera name for both.
   const std::string & frame_id = msg->header.frame_id;
 
-  if (!latest_multi_camera_info_) {
+  deep_msgs::msg::MultiCameraInfo::SharedPtr info;
+  std::optional<size_t> camera_index;
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    info = latest_multi_camera_info_;
+    if (info) {
+      const auto it = frame_id_to_index_.find(frame_id);
+      if (it != frame_id_to_index_.end()) {
+        camera_index = it->second;
+      }
+    }
+  }
+  if (!info) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No MultiCameraInfo received yet");
     return;
   }
-  const auto it = frame_id_to_index_.find(frame_id);
-  if (it == frame_id_to_index_.end()) {
+  if (!camera_index.has_value()) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000, "No CameraInfo for '%s', skipping detections", frame_id.c_str());
     return;
   }
-  const std::array<double, 12> & projection_matrix = latest_multi_camera_info_->camera_infos[it->second].p;
+  const std::array<double, 12> & projection_matrix = info->camera_infos[*camera_index].p;
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
   std::vector<pcl::PointIndices> indices;
@@ -464,13 +567,35 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
     return;
   }
 
-  // Look up lidar -> camera transform from TF (published by sensor_interfacing).
+  // Optional: skip association when detection and cloud timestamps are too far apart (set max_detection_cloud_stamp_delta > 0).
+  const rclcpp::Time cloud_time(lidar_header.stamp, get_clock()->get_clock_type());
+  if (max_detection_cloud_stamp_delta_ > 0.0) {
+    const rclcpp::Time det_time(msg->header.stamp, get_clock()->get_clock_type());
+    const double stamp_delta_s = std::abs((det_time - cloud_time).seconds());
+    if (stamp_delta_s > max_detection_cloud_stamp_delta_) {
+      RCLCPP_DEBUG_THROTTLE(
+        get_logger(),
+        *get_clock(),
+        2000,
+        "Skipping association: detection–cloud stamp delta %.3f s > %.3f s",
+        stamp_delta_s,
+        max_detection_cloud_stamp_delta_);
+      return;
+    }
+  }
+
+  // Look up lidar -> camera transform. Prefer cloud time for temporal consistency; fall back to latest if unavailable.
   geometry_msgs::msg::TransformStamped tf_lidar_to_cam;
   try {
-    tf_lidar_to_cam = tf_buffer_->lookupTransform(frame_id, lidar_frame_, tf2::TimePointZero);
-  } catch (tf2::TransformException & e) {
-    RCLCPP_WARN(get_logger(), "TF %s->%s failed: %s", lidar_frame_.c_str(), frame_id.c_str(), e.what());
-    return;
+    tf_lidar_to_cam = tf_buffer_->lookupTransform(
+      frame_id, lidar_frame_, cloud_time, tf2::durationFromSec(0.05));
+  } catch (tf2::TransformException &) {
+    try {
+      tf_lidar_to_cam = tf_buffer_->lookupTransform(frame_id, lidar_frame_, tf2::TimePointZero);
+    } catch (tf2::TransformException & e) {
+      RCLCPP_WARN(get_logger(), "TF %s->%s failed: %s", lidar_frame_.c_str(), frame_id.c_str(), e.what());
+      return;
+    }
   }
 
   auto detection_results = processDetections(*msg, tf_lidar_to_cam, projection_matrix, cloud, indices, lidar_header);
@@ -478,7 +603,6 @@ void SpatialAssociationNode::detectionCallback(const vision_msgs::msg::Detection
   // Publish 3D detections
   if (detection_3d_pub_ && detection_3d_pub_->is_activated()) {
     detection_results.detections3d.header = lidar_header;
-    detection_results.detections3d.header.stamp = this->get_clock()->now();
     detection_3d_pub_->publish(detection_results.detections3d);
   }
 
@@ -600,10 +724,10 @@ DetectionOutputs SpatialAssociationNode::processDetections(
     ProjectionUtils::compute3DDetection(boxes, candidates, lidar_header, detection);
 
   if (publish_visualization_) {
-    detection_outputs.colored_cluster = working_colored_cluster_;
+    detection_outputs.colored_cluster.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
     core_->assignClusterColors(cloud, out_indices, detection_outputs.colored_cluster);
 
-    detection_outputs.centroid_cloud = working_centroid_cloud_;
+    detection_outputs.centroid_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
     core_->computeClusterCentroids(cloud, out_indices, detection_outputs.centroid_cloud);
   }
   return detection_outputs;

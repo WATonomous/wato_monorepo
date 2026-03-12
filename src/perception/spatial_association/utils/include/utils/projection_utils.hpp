@@ -358,8 +358,8 @@ public:
     const vision_msgs::msg::Detection2DArray & detections);
 
 private:
-  static const int image_width_ = 1600;
-  static const int image_height_ = 900;
+  static const int image_width_ = 1280;
+  static const int image_height_ = 1024;
   static ProjectionUtilsParams s_params_;
 };
 

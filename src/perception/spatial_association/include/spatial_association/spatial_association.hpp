@@ -22,9 +22,14 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -57,6 +62,7 @@ class SpatialAssociationNode : public rclcpp_lifecycle::LifecycleNode
 public:
   SpatialAssociationNode() = delete;
   explicit SpatialAssociationNode(const rclcpp::NodeOptions & options);
+  ~SpatialAssociationNode() override;
 
   // Topic names (relative, remappable via launch)
   static constexpr auto kMultiCameraInfo = "multi_camera_info";
@@ -86,6 +92,8 @@ private:
 
   // Reference into latest MultiCameraInfo (no copy). frame_id_to_index_ maps
   // frame_id (camera name) to index in latest_multi_camera_info_->camera_infos.
+  // Protected by camera_info_mutex_; read/write only under lock or from a snapshot taken under lock.
+  std::mutex camera_info_mutex_;
   deep_msgs::msg::MultiCameraInfo::SharedPtr latest_multi_camera_info_;
   std::unordered_map<std::string, size_t> frame_id_to_index_;
 
@@ -103,6 +111,12 @@ private:
   void multiImageCallback(const deep_msgs::msg::MultiImageCompressed::SharedPtr msg);
 
   void nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+  /** Worker thread entry: processes pending cloud jobs until shutdown. */
+  void workerLoop();
+
+  /** Signals worker to stop and joins the thread; safe to call if thread was not started. */
+  void stopWorker();
 
   /**
    * @brief Called for each per-camera Detection2DArray from deep_object_detection.
@@ -124,6 +138,16 @@ private:
   std_msgs::msg::Header latest_lidar_header_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
   std::vector<pcl::PointIndices> cluster_indices;
+
+  // Single worker thread: one pending job (latest cloud), sequence number to discard stale results
+  std::thread worker_thread_;
+  std::mutex job_mutex_;
+  std::condition_variable job_cv_;
+  std::atomic<bool> worker_shutdown_{false};
+  std::atomic<uint64_t> cloud_job_id_{0};
+  pcl::PointCloud<pcl::PointXYZ>::Ptr pending_cloud_;
+  std_msgs::msg::Header pending_header_;
+  uint64_t pending_job_id_{0};  // 0 means no pending job
 
   std::unique_ptr<SpatialAssociationCore> core_;
 
@@ -147,6 +171,8 @@ private:
   void initializeParams();
 
   std::string lidar_frame_;
+  /** Max allowed |detection.stamp - cloud.stamp| (seconds). Skip if exceeded. 0 = disabled (default) to avoid dropping all associations when camera/lidar are not tightly synced. */
+  double max_detection_cloud_stamp_delta_{0.0};
 
   // Filtering parameters
   double euclid_cluster_tolerance_;
@@ -161,10 +187,6 @@ private:
   float object_detection_confidence_;
 
   float voxel_size_;
-
-  // Working PCL objects for visualization (reused from core)
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
 };
 
 #endif

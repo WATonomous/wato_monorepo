@@ -428,50 +428,56 @@ ProjectionUtils::Box3D computeClusterBox(
   return box;
 }
 
+/** Computes ClusterStats for a single set of indices (used to refresh stats after merging). */
+ProjectionUtils::ClusterStats computeSingleClusterStats(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const pcl::PointIndices & indices)
+{
+  ProjectionUtils::ClusterStats s;
+  s.min_x = s.min_y = s.min_z = std::numeric_limits<float>::max();
+  s.max_x = s.max_y = s.max_z = std::numeric_limits<float>::lowest();
+  s.num_points = static_cast<int>(indices.indices.size());
+
+  if (indices.indices.empty()) {
+    return s;
+  }
+
+  Eigen::Vector4f centroid;
+  pcl::compute3DCentroid(*cloud, indices.indices, centroid);
+  s.centroid = centroid;
+
+  const auto & p_ext = ProjectionUtils::getParams();
+  std::vector<double> x_vals, y_vals, z_vals;
+  x_vals.reserve(indices.indices.size());
+  y_vals.reserve(indices.indices.size());
+  z_vals.reserve(indices.indices.size());
+  for (int idx : indices.indices) {
+    const auto & pt = cloud->points[idx];
+    x_vals.push_back(static_cast<double>(pt.x));
+    y_vals.push_back(static_cast<double>(pt.y));
+    z_vals.push_back(static_cast<double>(pt.z));
+  }
+  double x_lo, x_hi, y_lo, y_hi, z_lo, z_hi;
+  getPercentileBounds(x_vals, p_ext.xy_extent_percentile_low, p_ext.xy_extent_percentile_high, x_lo, x_hi);
+  getPercentileBounds(y_vals, p_ext.xy_extent_percentile_low, p_ext.xy_extent_percentile_high, y_lo, y_hi);
+  getPercentileBounds(z_vals, p_ext.z_extent_percentile_low, p_ext.z_extent_percentile_high, z_lo, z_hi);
+  s.min_x = static_cast<float>(x_lo);
+  s.max_x = static_cast<float>(x_hi);
+  s.min_y = static_cast<float>(y_lo);
+  s.max_y = static_cast<float>(y_hi);
+  s.min_z = static_cast<float>(z_lo);
+  s.max_z = static_cast<float>(z_hi);
+
+  return s;
+}
+
 std::vector<ProjectionUtils::ClusterStats> computeClusterStatsImpl(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices)
 {
   std::vector<ProjectionUtils::ClusterStats> stats;
   stats.reserve(cluster_indices.size());
 
-  const auto & p_ext = ProjectionUtils::getParams();
   for (const auto & c : cluster_indices) {
-    ProjectionUtils::ClusterStats s;
-    s.min_x = s.min_y = s.min_z = std::numeric_limits<float>::max();
-    s.max_x = s.max_y = s.max_z = std::numeric_limits<float>::lowest();
-    s.num_points = static_cast<int>(c.indices.size());
-
-    if (c.indices.empty()) {
-      stats.push_back(s);
-      continue;
-    }
-
-    Eigen::Vector4f centroid;
-    pcl::compute3DCentroid(*cloud, c.indices, centroid);
-    s.centroid = centroid;
-
-    std::vector<double> x_vals, y_vals, z_vals;
-    x_vals.reserve(c.indices.size());
-    y_vals.reserve(c.indices.size());
-    z_vals.reserve(c.indices.size());
-    for (int idx : c.indices) {
-      const auto & pt = cloud->points[idx];
-      x_vals.push_back(static_cast<double>(pt.x));
-      y_vals.push_back(static_cast<double>(pt.y));
-      z_vals.push_back(static_cast<double>(pt.z));
-    }
-    double x_lo, x_hi, y_lo, y_hi, z_lo, z_hi;
-    getPercentileBounds(x_vals, p_ext.xy_extent_percentile_low, p_ext.xy_extent_percentile_high, x_lo, x_hi);
-    getPercentileBounds(y_vals, p_ext.xy_extent_percentile_low, p_ext.xy_extent_percentile_high, y_lo, y_hi);
-    getPercentileBounds(z_vals, p_ext.z_extent_percentile_low, p_ext.z_extent_percentile_high, z_lo, z_hi);
-    s.min_x = static_cast<float>(x_lo);
-    s.max_x = static_cast<float>(x_hi);
-    s.min_y = static_cast<float>(y_lo);
-    s.max_y = static_cast<float>(y_hi);
-    s.min_z = static_cast<float>(z_lo);
-    s.max_z = static_cast<float>(z_hi);
-
-    stats.push_back(s);
+    stats.push_back(computeSingleClusterStats(cloud, c));
   }
 
   return stats;
@@ -576,16 +582,44 @@ void ProjectionUtils::euclideanClusterExtraction(
   if (!cloud || cloud->size() < 2u) {
     return;
   }
+  // PCL KdTree::radiusSearch asserts on NaN/Inf; build a dense cloud and index map.
+  pcl::PointCloud<pcl::PointXYZ>::Ptr dense_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  std::vector<int> original_index;
+  dense_cloud->reserve(cloud->size());
+  original_index.reserve(cloud->size());
+  for (size_t i = 0; i < cloud->points.size(); ++i) {
+    const auto & pt = cloud->points[i];
+    if (std::isfinite(pt.x) && std::isfinite(pt.y) && std::isfinite(pt.z)) {
+      dense_cloud->points.push_back(pt);
+      original_index.push_back(static_cast<int>(i));
+    }
+  }
+  dense_cloud->width = dense_cloud->points.size();
+  dense_cloud->height = 1;
+  dense_cloud->is_dense = true;
+  if (dense_cloud->size() < 2u) {
+    return;
+  }
+  std::vector<pcl::PointIndices> dense_clusters;
   pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-  tree->setInputCloud(cloud);
-
+  tree->setInputCloud(dense_cloud);
   pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
   ec.setClusterTolerance(clusterTolerance);
   ec.setMinClusterSize(minClusterSize);
   ec.setMaxClusterSize(maxClusterSize);
   ec.setSearchMethod(tree);
-  ec.setInputCloud(cloud);
-  ec.extract(cluster_indices);
+  ec.setInputCloud(dense_cloud);
+  ec.extract(dense_clusters);
+  // Map cluster indices back to original cloud
+  cluster_indices.reserve(dense_clusters.size());
+  for (const auto & dc : dense_clusters) {
+    pcl::PointIndices orig;
+    orig.indices.reserve(dc.indices.size());
+    for (int idx : dc.indices) {
+      orig.indices.push_back(original_index[idx]);
+    }
+    cluster_indices.push_back(orig);
+  }
 }
 
 void ProjectionUtils::adaptiveEuclideanClusterExtraction(
@@ -708,17 +742,18 @@ void ProjectionUtils::mergeClusters(
   if (cloud->empty() || cluster_indices.empty() || stats.size() != cluster_indices.size()) return;
 
   std::vector<bool> merged(cluster_indices.size(), false);
+  // Working copy of stats so we can recompute centroid/extents after each merge;
+  // otherwise later merge decisions use stale geometry and transitive merges can be wrong.
+  std::vector<ClusterStats> working_stats = stats;
 
   for (size_t i = 0; i < cluster_indices.size(); ++i) {
     if (merged[i]) continue;
 
-    const Eigen::Vector4f & centroid_i = stats[i].centroid;
-
     for (size_t j = i + 1; j < cluster_indices.size(); ++j) {
       if (merged[j]) continue;
 
-      const Eigen::Vector4f & centroid_j = stats[j].centroid;
-
+      const Eigen::Vector4f & centroid_i = working_stats[i].centroid;
+      const Eigen::Vector4f & centroid_j = working_stats[j].centroid;
       double distance = (centroid_i - centroid_j).norm();
 
       if (distance < mergeTolerance) {
@@ -727,6 +762,9 @@ void ProjectionUtils::mergeClusters(
           merged_indices.end(), cluster_indices[j].indices.begin(), cluster_indices[j].indices.end());
         cluster_indices[i].indices = std::move(merged_indices);
         merged[j] = true;
+        // Recompute centroid and extents for the merged cluster so subsequent
+        // comparisons in this pass use up-to-date geometry.
+        working_stats[i] = computeSingleClusterStats(cloud, cluster_indices[i]);
       }
     }
   }

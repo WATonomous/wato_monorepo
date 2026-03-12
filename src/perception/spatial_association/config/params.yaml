@@ -4,6 +4,10 @@ spatial_association:
     # Camera<->lidar transforms are read from TF (published by sensor_interfacing).
     lidar_frame: lidar_cc
 
+    # Max allowed |detection.stamp - cloud.stamp| in seconds; 0 = disabled. When > 0, associations
+    # are skipped when exceeded to reduce ghost associations (camera/lidar often unsynced, so default 0).
+    max_detection_cloud_stamp_delta: 0.0
+
     # filtering parameters
 
     euclid_params:
