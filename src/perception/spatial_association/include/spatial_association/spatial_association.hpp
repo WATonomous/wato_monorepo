@@ -23,6 +23,7 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -79,6 +80,7 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
 private:
+  bool publish_bounding_box_;
   bool publish_visualization_;
   bool debug_logging_;
 
@@ -113,8 +115,12 @@ private:
   DetectionOutputs processDetections(
     const vision_msgs::msg::Detection2DArray & detections,
     const geometry_msgs::msg::TransformStamped & transform,
-    const std::array<double, 12> & projection_matrix);
+    const std::array<double, 12> & projection_matrix,
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+    const std::vector<pcl::PointIndices> & indices,
+    const std_msgs::msg::Header & lidar_header);
 
+  std::mutex cloud_mutex_;
   std_msgs::msg::Header latest_lidar_header_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
   std::vector<pcl::PointIndices> cluster_indices;
@@ -149,11 +155,6 @@ private:
   bool use_adaptive_clustering_;
   double euclid_close_threshold_;
   double euclid_close_tolerance_mult_;
-
-  double density_weight_;
-  double size_weight_;
-  double distance_weight_;
-  double score_threshold_;
 
   double merge_threshold_;
 

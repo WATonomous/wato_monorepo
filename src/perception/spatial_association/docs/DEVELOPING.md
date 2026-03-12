@@ -138,17 +138,7 @@ Multi-stage filtering with three stages:
 
 ### Usage
 
-The physics-based filter is automatically used in `SpatialAssociationCore::performClustering()`:
-
-```cpp
-// In spatial_association_core.cpp
-ProjectionUtils::filterClustersByPhysicsConstraints(
-    cluster_stats,
-    cluster_indices,
-    60.0,   // max_distance in meters
-    // ... additional physics-based parameters
-);
-```
+The physics-based filter runs in the node on `ClusterCandidate`s (see pipeline below). The core only performs clustering and merging.
 
 To use the multi-stage version with debug output:
 
@@ -164,21 +154,21 @@ ProjectionUtils::filterClusterByQuality(
 
 ### Clustering Pipeline
 
+The pipeline uses a single container type **`ClusterCandidate`** (indices + stats + optional match) so alignment cannot go stale:
+
+1. **Cluster** – `SpatialAssociationCore::performClustering()`: Euclidean clustering, then merge (no physics in core).
+2. **Build candidates** – `ProjectionUtils::buildCandidates(cloud, cluster_indices)`: one struct per cluster with indices and stats.
+3. **Physics filter** – `ProjectionUtils::filterCandidatesByPhysicsConstraints(candidates, ...)`: distance/points/height/density/etc.
+4. **IoU match** – `ProjectionUtils::assignCandidatesToDetectionsByIOU(cloud, candidates, ...)`: fills `candidate.match`, removes unmatched.
+5. **Class-aware filter** – `ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections, ...)`: class-specific size/quality.
+6. **Box fitting** – boxes from `extractIndices(candidates)`, then `compute3DDetection(boxes, candidates, ...)` for class/score from `candidate.match`.
+
 #### `SpatialAssociationCore::performClustering()`
 
-Main clustering function that executes the full pipeline:
+1. **Euclidean Clustering**: Groups nearby points (standard or adaptive).
+2. **Cluster Merging**: `mergeClusters()` – merges nearby clusters. Physics filtering is done in the node on candidates.
 
-1. **Euclidean Clustering**: Groups nearby points
-   - Standard: `euclideanClusterExtraction()`
-   - Adaptive: `adaptiveEuclideanClusterExtraction()` (uses larger tolerance for close objects)
-
-2. **Quality Filtering**: `filterClustersByPhysicsConstraints()`
-   - Physics-based filtering with distance-adaptive thresholds (points, height, density, etc.)
-
-3. **Cluster Merging**: `mergeClusters()`
-   - Merges nearby clusters that likely belong to the same object
-
-#### `ProjectionUtils::computeClusterStats()`
+#### `ProjectionUtils::computeClusterStats()` / `buildCandidates()`
 
 Computes statistics for each cluster:
 - Centroid (3D position)
@@ -189,16 +179,16 @@ Used throughout the filtering pipeline.
 
 ### Detection Matching
 
-#### `ProjectionUtils::computeHighestIOUCluster()`
+#### `ProjectionUtils::assignCandidatesToDetectionsByIOU()`
 
-Matches 3D LiDAR clusters with 2D camera detections:
-1. Projects 3D cluster bounding box to 2D image plane
+Greedy one-to-one assignment on `std::vector<ClusterCandidate>`: fills `candidate.match` for kept clusters, removes unmatched. Matches 3D LiDAR clusters with 2D camera detections:
+1. For each cluster, samples up to `iou_projection_max_points` points, projects them to the image, and builds a 2D bounding rect from the projected points (more robust than 8-corner AABB for partial/rotated/thin clusters)
 2. Computes IoU with each camera detection
-3. Keeps only clusters with IoU ≥ `kMinIOUThreshold` (0.15)
+3. Keeps only clusters with IoU ≥ `min_iou_threshold` (0.15)
 
-#### `ProjectionUtils::computeMaxIOU8Corners()`
+#### `ProjectionUtils::computeMaxIOUClusterRect()`
 
-Projects 8 corners of 3D bounding box to 2D and computes maximum IoU.
+Uses the same point-based projection: samples cluster points, projects to 2D, builds rect, then computes maximum IoU with detections. API takes cloud and cluster indices (not precomputed stats).
 
 ### Bounding Box Computation
 

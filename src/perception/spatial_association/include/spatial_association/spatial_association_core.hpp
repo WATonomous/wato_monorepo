@@ -43,17 +43,8 @@ public:
     double euclid_close_threshold = 10.0;
     double euclid_close_tolerance_mult = 1.5;
 
-    // Density filtering
-    double density_weight = 0.6;
-    double size_weight = 0.8;
-    double distance_weight = 0.7;
-    double score_threshold = 0.6;
-
     // Merging
     double merge_threshold = 0.3;
-
-    // Detection confidence
-    float object_detection_confidence = 0.4f;
 
     // Quality filtering parameters (improved physics-based filtering)
     double max_distance = 60.0;

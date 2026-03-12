@@ -15,20 +15,13 @@ spatial_association:
       close_threshold: 10.0  # Distance (m) threshold for close objects
       close_tolerance_mult: 1.5  # Multiplier for close objects (e.g., 1.5x = 0.30m for close objects)
 
-    density_filter_params:
-    # filter out clusters that are too sparse and too far away, on a scale of 0 to 1
-      density_weight: 0.6 # increase to filter out more sparse clusters, least important
-      size_weight: 0.8 # increase to filter out more large clusters, most important
-      distance_weight: 0.4 # increase to filter out more far away clusters, moderately important
-      score_threshold: 0.6 # threshold score for a cluster to be considered as a valid cluster, increase to keep more clusters
-
     merge_threshold: 1.0
     # the threshold distance between two clusters centroids for them to be merged into one cluster
 
-    object_detection_confidence: 0.40
+    object_detection_confidence: 0.60
 
     # Voxel downsampling parameter
-    voxel_size: 0.1  # Fixed voxel size (meters) for downsampling
+    voxel_size: 0.2  # Fixed voxel size (meters) for downsampling
 
     # Quality filtering parameters (improved physics-based filtering)
     quality_filter_params:
@@ -47,20 +40,28 @@ spatial_association:
       max_dimension: 15.0  # Maximum object dimension in meters
       max_aspect_ratio: 15.0  # Maximum aspect ratio (length/width or length/height)
 
-    publish_visualization: false
+    publish_bounding_box: true  # Publish /bounding_box MarkerArray topic
+    publish_visualization: false  # Publish debug topics (filtered clusters, centroids)
 
     # Enable verbose point-cloud debug logs
     debug_logging: false
 
     # Projection/utils (orientation, ground filter, merge, IoU, visualization)
     projection_utils_params:
-      marker_lifetime_s: 0.5       # Viz only
+      marker_lifetime_s: 0.25       # Viz only
       marker_alpha: 0.2             # Viz only
       min_iou_threshold: 0.15       # Association: min IoU cluster<->2D; raise = stricter, lower = looser
       min_camera_z_distance: 1.0    # Association: reject points behind camera (m)
+      detection_score_weight: 0.6  # 3D score = detection_score_weight * det_score + iou_score_weight * iou
+      iou_score_weight: 0.4
       ar_front_view_threshold: 1.2  # Orientation: if box aspect ratio < this use line-of-sight yaw (front view)
       min_points_for_fit: 3         # Min points to run orientation search; leave default
       default_sample_point_count: 64 # Points sampled for orientation search; more = slower, more stable
       orientation_search_step_degrees: 2.0  # Fine step for angle search; smaller = more accurate box, slightly slower
       outlier_rejection_point_count: 30  # Below this many points, apply sigma clipping in box fit; higher = reject outliers in more clusters
       outlier_sigma_multiplier: 4.5 # Clamp points beyond mean ± this*sigma in fit; lower = more aggressive outlier rejection
+      # Trimmed extents (percentiles 0–100): use 5th/95th for XY and 2nd/98th for Z to stabilize box size/center vs outliers
+      xy_extent_percentile_low: 5.0
+      xy_extent_percentile_high: 95.0
+      z_extent_percentile_low: 2.0
+      z_extent_percentile_high: 98.0

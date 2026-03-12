@@ -25,6 +25,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <Eigen/Dense>
 #include <array>
 #include <optional>
 #include <random>
@@ -62,6 +63,40 @@ public:
     int num_points;
   };
 
+  /** One cluster–detection pair from IoU matching (cluster_idx, det_idx, iou). */
+  struct ClusterDetectionMatch
+  {
+    size_t cluster_idx{0};
+    int det_idx{-1};
+    double iou{0.0};
+  };
+
+  /**
+   * Single container for a cluster through the pipeline: indices, stats, and optional 2D match.
+   * Replaces parallel vectors (cluster_indices, stats, matches) so alignment cannot go stale.
+   */
+  struct ClusterCandidate
+  {
+    pcl::PointIndices indices;
+    ClusterStats stats;
+    std::optional<ClusterDetectionMatch> match;
+  };
+
+  /**
+   * @brief Build candidates from cluster indices (computes stats, match = nullopt).
+   * @param cloud Input point cloud
+   * @param cluster_indices Vector of cluster indices (from clustering + merge)
+   * @return Vector of ClusterCandidate with indices and stats filled
+   */
+  static std::vector<ClusterCandidate> buildCandidates(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+    const std::vector<pcl::PointIndices> & cluster_indices);
+
+  /**
+   * @brief Extract cluster indices from candidates (for APIs that still take indices).
+   */
+  static std::vector<pcl::PointIndices> extractIndices(const std::vector<ClusterCandidate> & candidates);
+
   /**
    * @brief Configurable parameters for projection/utils (orientation, filtering, visualization).
    * Set via setParams(); defaults match previous hardcoded constants in projection_utils.cpp.
@@ -74,6 +109,9 @@ public:
 
     // IoU matching (cluster <-> 2D detection)
     double min_iou_threshold = 0.15;
+    // 3D detection score = detection_score_weight * det_score + iou_score_weight * iou
+    double detection_score_weight = 0.6;
+    double iou_score_weight = 0.4;
 
     // Bounding box orientation
     double ar_front_view_threshold = 1.2;
@@ -81,6 +119,12 @@ public:
     // Outlier rejection
     size_t outlier_rejection_point_count = 30;
     double outlier_sigma_multiplier = 4.5;
+
+    // Trimmed extents (percentiles 0–100) for robust box fitting; reduces impact of stray points and ground leak
+    double xy_extent_percentile_low = 5.0;
+    double xy_extent_percentile_high = 95.0;
+    double z_extent_percentile_low = 2.0;
+    double z_extent_percentile_high = 98.0;
 
     // Orientation search (coarse/fine derived: coarse = 5*step, fine_range = 2.5*step)
     size_t min_points_for_fit = 3;
@@ -97,14 +141,22 @@ public:
   static const ProjectionUtilsParams & getParams();
 
   /**
-   * @brief Projects a 3D LiDAR point onto a 2D camera image plane
-   * @param transform Transform from LiDAR frame to camera frame
-   * @param p Camera projection matrix (3x4, flattened to 12 elements)
+   * @brief Build lidar-to-image matrix once for use in point loops.
+   * Use this + projectLidarToCamera(lidar_to_image, pt) so matrices are not rebuilt per point.
+   */
+  static Eigen::Matrix<double, 3, 4> buildLidarToImageMatrix(
+    const geometry_msgs::msg::TransformStamped & transform,
+    const std::array<double, 12> & projection_matrix);
+
+  /**
+   * @brief Projects a 3D LiDAR point using a precomputed lidar-to-image matrix (P * T).
+   * For point loops: build the matrix once with buildLidarToImageMatrix(), then call this per point.
+   * @param lidar_to_image Combined 3x4 matrix (camera projection * camera extrinsic)
    * @param pt 3D point in LiDAR frame
-   * @return 2D image coordinates if projection is valid and within image bounds, nullopt otherwise
+   * @return 2D image coordinates if projection is valid (z > min_camera_z_distance); no image-bound check (caller clips if needed).
    */
   static std::optional<cv::Point2d> projectLidarToCamera(
-    const geometry_msgs::msg::TransformStamped & transform, const std::array<double, 12> & p, const pcl::PointXYZ & pt);
+    const Eigen::Matrix<double, 3, 4> & lidar_to_image, const pcl::PointXYZ & pt);
 
   /**
    * @brief Performs Euclidean clustering on a point cloud
@@ -175,19 +227,6 @@ public:
     double mergeTolerance);
 
   /**
-   * @brief Multi-stage cluster filtering with physics-based constraints
-   * @param stats Precomputed cluster statistics
-   * @param cluster_indices Vector of cluster indices (modified in place)
-   * @param max_distance Maximum distance from sensor to keep cluster
-   * @param enable_debug Enable debug output of filtering statistics
-   */
-  static void filterClusterByQuality(
-    const std::vector<ClusterStats> & stats,
-    std::vector<pcl::PointIndices> & cluster_indices,
-    double max_distance = 60.0,
-    bool enable_debug = false);
-
-  /**
    * @brief Filters clusters using physics-based constraints with distance-adaptive thresholds
    * @param stats Precomputed cluster statistics
    * @param cluster_indices Vector of cluster indices (modified in place)
@@ -225,6 +264,47 @@ public:
     float max_aspect_ratio);
 
   /**
+   * @brief Physics filter on candidates (uses candidate.stats; removes failed in place).
+   */
+  static void filterCandidatesByPhysicsConstraints(
+    std::vector<ClusterCandidate> & candidates,
+    double max_distance,
+    int min_points,
+    float min_height,
+    int min_points_default,
+    int min_points_far,
+    int min_points_medium,
+    int min_points_large,
+    double distance_threshold_far,
+    double distance_threshold_medium,
+    float volume_threshold_large,
+    float min_density,
+    float max_density,
+    float max_dimension,
+    float max_aspect_ratio);
+
+  /**
+   * @brief Class-aware filter on candidates (uses candidate.stats and candidate.match; removes failed in place).
+   */
+  static void filterCandidatesByClassAwareConstraints(
+    std::vector<ClusterCandidate> & candidates,
+    const vision_msgs::msg::Detection2DArray & detections,
+    double max_distance,
+    int min_points,
+    float min_height,
+    int min_points_default,
+    int min_points_far,
+    int min_points_medium,
+    int min_points_large,
+    double distance_threshold_far,
+    double distance_threshold_medium,
+    float volume_threshold_large,
+    float min_density,
+    float max_density,
+    float default_max_dimension,
+    float default_max_aspect_ratio);
+
+  /**
    * @brief Computes the centroid of a cluster
    * @param cloud Input point cloud
    * @param cluster_indices Indices of points in the cluster
@@ -237,37 +317,15 @@ public:
     pcl::PointXYZ & centroid);
 
   /**
-   * @brief Computes maximum IoU using precomputed cluster statistics
-   * @param cluster_stats Precomputed cluster statistics
-   * @param transform Transform from LiDAR to camera frame
-   * @param projection_matrix Camera projection matrix (3x4, flattened to 12 elements)
-   * @param detections 2D camera detections
-   * @param object_detection_confidence Minimum confidence threshold for detections
-   * @return Pair of (maximum IoU score, index of best-matching detection). Index is -1 if no match.
+   * @brief Greedy one-to-one assignment by IoU using 8-corner AABB projection from candidate stats.
+   * Fills candidate.match for kept, removes unmatched (in place).
    */
-  static std::pair<double, int> computeMaxIOU8Corners(
-    const ClusterStats & cluster_stats,
-    const geometry_msgs::msg::TransformStamped & transform,
-    const std::array<double, 12> & projection_matrix,
-    const vision_msgs::msg::Detection2DArray & detections,
-    const float object_detection_confidence);
-
-  /**
-   * @brief Filters clusters using precomputed statistics to keep only the best IoU match
-   * @param stats Precomputed cluster statistics
-   * @param cluster_indices Vector of cluster indices (modified in place)
-   * @param detections 2D camera detections
-   * @param transform Transform from LiDAR to camera frame
-   * @param projection_matrix Camera projection matrix (3x4, flattened to 12 elements)
-   * @param object_detection_confidence Minimum confidence threshold for detections
-   */
-  static void computeHighestIOUCluster(
-    const std::vector<ClusterStats> & stats,
-    std::vector<pcl::PointIndices> & cluster_indices,
+  static void assignCandidatesToDetectionsByIOU(
+    std::vector<ClusterCandidate> & candidates,
     const vision_msgs::msg::Detection2DArray & detections,
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix,
-    const float object_detection_confidence);
+    float object_detection_confidence);
 
   /**
    * @brief Computes 3D bounding boxes for all clusters
@@ -291,16 +349,13 @@ public:
     const std_msgs::msg::Header & header);
 
   /**
-     * @brief Converts precomputed boxes to 3D detection array
-     * @param boxes Precomputed 3D bounding boxes
-     * @param cluster_indices Vector of cluster indices
-     * @param header Header (frame_id, stamp) for output messages
-     * @return Detection3DArray message
-     */
+   * @brief 3D detection array from boxes and candidates (reads class/score from candidate.match).
+   */
   static vision_msgs::msg::Detection3DArray compute3DDetection(
     const std::vector<Box3D> & boxes,
-    const std::vector<pcl::PointIndices> & cluster_indices,
-    const std_msgs::msg::Header & header);
+    const std::vector<ClusterCandidate> & candidates,
+    const std_msgs::msg::Header & header,
+    const vision_msgs::msg::Detection2DArray & detections);
 
 private:
   static const int image_width_ = 1600;

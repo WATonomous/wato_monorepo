@@ -14,6 +14,8 @@
 
 #include "spatial_association/spatial_association_core.hpp"
 
+#include <algorithm>
+#include <limits>
 #include <vector>
 
 SpatialAssociationCore::SpatialAssociationCore()
@@ -40,7 +42,28 @@ void SpatialAssociationCore::processPointCloud(
     return;
   }
 
-  // Filter directly from input to output, eliminating unnecessary copies
+  // PCL VoxelGrid uses a single int for voxel index; too many voxels overflow.
+  // Clamp leaf size so extent/leaf_size <= kMaxVoxelsPerDimension (~safe for 32-bit index).
+  float min_x = std::numeric_limits<float>::max();
+  float min_y = min_x, min_z = min_x;
+  float max_x = std::numeric_limits<float>::lowest();
+  float max_y = max_x, max_z = max_x;
+  for (const auto & p : input_cloud->points) {
+    min_x = std::min(min_x, p.x);
+    min_y = std::min(min_y, p.y);
+    min_z = std::min(min_z, p.z);
+    max_x = std::max(max_x, p.x);
+    max_y = std::max(max_y, p.y);
+    max_z = std::max(max_z, p.z);
+  }
+  const float extent =
+    std::max({max_x - min_x, max_y - min_y, max_z - min_z});
+  // PCL uses 32-bit voxel index; ~1200 voxels/dim is safe and keeps resolution when clamping.
+  constexpr float kMaxVoxelsPerDimension = 1200.f;
+  const float min_leaf = extent / kMaxVoxelsPerDimension;
+  const float leaf = std::max(params_.voxel_size, min_leaf);
+  voxel_filter_.setLeafSize(leaf, leaf, leaf);
+
   voxel_filter_.setInputCloud(input_cloud);
   voxel_filter_.filter(*output_cloud);
 }
@@ -74,30 +97,9 @@ void SpatialAssociationCore::performClustering(
       cluster_indices);
   }
 
-  // Compute stats once after clustering
-  auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
-
-  // Physics-based quality filtering (distance-adaptive points, height, density, etc.)
-  ProjectionUtils::filterClustersByPhysicsConstraints(
-    cluster_stats,
-    cluster_indices,
-    params_.max_distance,
-    params_.min_points,
-    params_.min_height,
-    params_.min_points_default,
-    params_.min_points_far,
-    params_.min_points_medium,
-    params_.min_points_large,
-    params_.distance_threshold_far,
-    params_.distance_threshold_medium,
-    params_.volume_threshold_large,
-    params_.min_density,
-    params_.max_density,
-    params_.max_dimension,
-    params_.max_aspect_ratio);
-
+  // Compute stats and merge nearby clusters. Physics filtering is done in the node on ClusterCandidates.
   if (!cluster_indices.empty()) {
-    cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
+    auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
     ProjectionUtils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
   }
 }

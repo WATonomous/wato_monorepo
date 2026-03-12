@@ -18,9 +18,9 @@
 #include <array>
 #include <cmath>
 #include <functional>
-#include <iostream>
 #include <limits>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -45,36 +45,53 @@ namespace
 // Default detection confidence score (0.0-1.0) - used only in compute3DDetection
 constexpr double kDefaultDetectionScore = 1.0;
 
-// ============================================================================
-// Physical Object Constraints (based on real-world measurements)
-// ============================================================================
-struct ObjectConstraints
+/** Linear interpolation percentile: pct in [0, 100]. Returns {low_val, high_val} for robust extents.
+ *  Uses nth_element (O(n)) instead of full sort. Modifies data in place; callers must not use data after. */
+void getPercentileBounds(std::vector<double> & data, double low_pct, double high_pct, double & out_low, double & out_high)
 {
-  // Car dimensions (meters)
-  // Tune: Adjust based on your vehicle types (sedans, SUVs, trucks)
-  constexpr static float kCarMinHeight = 1.0f;  // Compact car minimum
-  constexpr static float kCarMaxHeight = 3.5f;  // Large truck maximum
-  constexpr static float kCarMinLength = 2.5f;  // Small car minimum
-  constexpr static float kCarMaxLength = 8.0f;  // Long truck maximum
-  constexpr static float kCarMinWidth = 1.4f;  // Narrow car minimum
-  constexpr static float kCarMaxWidth = 2.8f;  // Wide truck maximum
-  constexpr static float kCarMinVolume = 3.5f;  // Minimum volume (m³)
+  if (data.empty()) {
+    out_low = out_high = 0.0;
+    return;
+  }
+  const size_t n = data.size();
+  if (n == 1u) {
+    out_low = out_high = data[0];
+    return;
+  }
+  const double n_d = static_cast<double>(n);
+  const double idx_low = (low_pct / 100.0) * (n_d - 1.0);
+  const double idx_high = (high_pct / 100.0) * (n_d - 1.0);
+  const size_t i0 = static_cast<size_t>(std::floor(idx_low));
+  const size_t i1 = std::min(i0 + 1u, n - 1u);
+  const size_t j0 = static_cast<size_t>(std::floor(idx_high));
+  const size_t j1 = std::min(j0 + 1u, n - 1u);
 
-  // Pedestrian/Cyclist dimensions (meters)
-  // Tune: Adjust for different pedestrian sizes (children, adults, cyclists)
-  constexpr static float kPedestrianMinHeight = 0.8f;  // Child minimum
-  constexpr static float kPedestrianMaxHeight = 2.2f;  // Tall adult maximum
-  constexpr static float kPedestrianMaxWidth = 1.0f;  // Shoulder width maximum
+  // Collect distinct rank indices in descending order; nth_element from right to left so we don't overwrite.
+  std::array<size_t, 4> indices = {i0, i1, j0, j1};
+  std::sort(indices.begin(), indices.end(), std::greater<size_t>());
+  size_t k = 0u;
+  for (size_t i = 1u; i < 4u; ++i) {
+    if (indices[i] != indices[k]) indices[++k] = indices[i];
+  }
+  const size_t num_ranks = k + 1u;
 
-  // General filtering constraints
-  // Tune: Adjust based on your LiDAR point density and scene characteristics
-  constexpr static float kMinPointDensity = 5.0f;  // Minimum points per m³ (too sparse = invalid)
-  constexpr static float kMaxPointDensity = 1000.0f;  // Maximum points per m³ (too dense = invalid)
-  constexpr static int kMinPointsSmallObject = 10;  // Minimum points for small objects
-  constexpr static int kMinPointsLargeObject = 30;  // Minimum points for large objects
-  constexpr static float kMaxAspectRatioXY = 8.0f;  // Maximum length/width ratio
-  constexpr static float kMaxAspectRatioZ = 15.0f;  // Maximum horizontal/height ratio (for poles)
-};
+  std::unordered_map<size_t, double> rank_val;
+  rank_val.reserve(4u);
+  auto it = data.begin();
+  auto it_end = data.end();
+  for (size_t r = 0u; r < num_ranks; ++r) {
+    const size_t rank = indices[r];
+    std::nth_element(it, it + static_cast<std::ptrdiff_t>(rank), it_end);
+    rank_val[rank] = data[rank];
+    it_end = it + static_cast<std::ptrdiff_t>(rank) + 1;
+  }
+
+  const double t_low = idx_low - std::floor(idx_low);
+  const double t_high = idx_high - std::floor(idx_high);
+  out_low = rank_val[i0] * (1.0 - t_low) + rank_val[i1] * t_low;
+  out_high = rank_val[j0] * (1.0 - t_high) + rank_val[j1] * t_high;
+  if (out_low > out_high) std::swap(out_low, out_high);
+}
 
 struct SearchResult
 {
@@ -141,35 +158,36 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, c
   std::vector<std::pair<double, double>> rotated_cache;
   rotated_cache.resize(search_points.size());
 
+  const double pct_lo = p.xy_extent_percentile_low;
+  const double pct_hi = p.xy_extent_percentile_high;
+
+  // Use min/max for energy ranking (O(n) per angle). Percentile bounds are applied only
+  // when computing the final box extents below, where robustness to outliers matters.
   auto calculateEdgeEnergy = [&](double theta) -> double {
     double cos_t = std::cos(theta);
     double sin_t = std::sin(theta);
 
     double min_x = std::numeric_limits<double>::max();
     double max_x = std::numeric_limits<double>::lowest();
-    double min_y = std::numeric_limits<double>::max();
-    double max_y = std::numeric_limits<double>::lowest();
+    double min_y = min_x;
+    double max_y = max_x;
 
     for (size_t i = 0; i < search_points.size(); ++i) {
-      const auto & p = search_points[i];
-      double x_rot = static_cast<double>(p.x()) * cos_t + static_cast<double>(p.y()) * sin_t;
-      double y_rot = -static_cast<double>(p.x()) * sin_t + static_cast<double>(p.y()) * cos_t;
-
+      const auto & pt = search_points[i];
+      double x_rot = static_cast<double>(pt.x()) * cos_t + static_cast<double>(pt.y()) * sin_t;
+      double y_rot = -static_cast<double>(pt.x()) * sin_t + static_cast<double>(pt.y()) * cos_t;
       rotated_cache[i] = {x_rot, y_rot};
-
-      if (x_rot < min_x) min_x = x_rot;
-      if (x_rot > max_x) max_x = x_rot;
-      if (y_rot < min_y) min_y = y_rot;
-      if (y_rot > max_y) max_y = y_rot;
+      min_x = std::min(min_x, x_rot);
+      max_x = std::max(max_x, x_rot);
+      min_y = std::min(min_y, y_rot);
+      max_y = std::max(max_y, y_rot);
     }
 
     double energy = 0.0;
     for (const auto & pr : rotated_cache) {
       double dx = std::min(std::abs(pr.first - min_x), std::abs(pr.first - max_x));
       double dy = std::min(std::abs(pr.second - min_y), std::abs(pr.second - max_y));
-
       double d = std::min(dx, dy);
-
       energy += d;
     }
 
@@ -203,26 +221,25 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, c
   std::vector<Eigen::Vector2f> all_points_2d;
   all_points_2d.reserve(indices.size());
   for (int idx : indices) {
-    const auto & p = pts.points[idx];
-    all_points_2d.emplace_back(p.x, p.y);
+    const auto & pt = pts.points[idx];
+    all_points_2d.emplace_back(pt.x, pt.y);
   }
 
   double cos_t = std::cos(best_theta);
   double sin_t = std::sin(best_theta);
 
-  double min_x = std::numeric_limits<double>::max();
-  double max_x = std::numeric_limits<double>::lowest();
-  double min_y = std::numeric_limits<double>::max();
-  double max_y = std::numeric_limits<double>::lowest();
-
-  for (const auto & p : all_points_2d) {
-    double x_rot = static_cast<double>(p.x()) * cos_t + static_cast<double>(p.y()) * sin_t;
-    double y_rot = -static_cast<double>(p.x()) * sin_t + static_cast<double>(p.y()) * cos_t;
-    if (x_rot < min_x) min_x = x_rot;
-    if (x_rot > max_x) max_x = x_rot;
-    if (y_rot < min_y) min_y = y_rot;
-    if (y_rot > max_y) max_y = y_rot;
+  std::vector<double> x_rot_final, y_rot_final;
+  x_rot_final.reserve(all_points_2d.size());
+  y_rot_final.reserve(all_points_2d.size());
+  for (const auto & pt : all_points_2d) {
+    double x_rot = static_cast<double>(pt.x()) * cos_t + static_cast<double>(pt.y()) * sin_t;
+    double y_rot = -static_cast<double>(pt.x()) * sin_t + static_cast<double>(pt.y()) * cos_t;
+    x_rot_final.push_back(x_rot);
+    y_rot_final.push_back(y_rot);
   }
+  double min_x, max_x, min_y, max_y;
+  getPercentileBounds(x_rot_final, pct_lo, pct_hi, min_x, max_x);
+  getPercentileBounds(y_rot_final, pct_lo, pct_hi, min_y, max_y);
 
   double cx_rot = 0.5 * (min_x + max_x);
   double cy_rot = 0.5 * (min_y + max_y);
@@ -283,6 +300,8 @@ void recomputeExtentsInYaw(
 
   const auto & p_rej = ProjectionUtils::getParams();
   const bool apply_outlier_rejection = (indices.size() < p_rej.outlier_rejection_point_count);
+  const double pct_lo = p_rej.xy_extent_percentile_low;
+  const double pct_hi = p_rej.xy_extent_percentile_high;
 
   double min_x_rot, max_x_rot, min_y_rot, max_y_rot;
 
@@ -300,30 +319,24 @@ void recomputeExtentsInYaw(
 
     const double sigma_mul = p_rej.outlier_sigma_multiplier;
 
-    min_x_rot = std::numeric_limits<double>::infinity();
-    max_x_rot = -std::numeric_limits<double>::infinity();
-    min_y_rot = std::numeric_limits<double>::infinity();
-    max_y_rot = -std::numeric_limits<double>::infinity();
-
+    std::vector<double> x_clipped, y_clipped;
+    x_clipped.reserve(indices.size());
+    y_clipped.reserve(indices.size());
     for (size_t i = 0; i < indices.size(); ++i) {
       double val_x = xs_rot[i];
       double val_y = ys_rot[i];
-
       if (val_x > mean_xr + sigma_mul * std_xr) val_x = mean_xr + sigma_mul * std_xr;
       if (val_x < mean_xr - sigma_mul * std_xr) val_x = mean_xr - sigma_mul * std_xr;
       if (val_y > mean_yr + sigma_mul * std_yr) val_y = mean_yr + sigma_mul * std_yr;
       if (val_y < mean_yr - sigma_mul * std_yr) val_y = mean_yr - sigma_mul * std_yr;
-
-      min_x_rot = std::min(min_x_rot, val_x);
-      max_x_rot = std::max(max_x_rot, val_x);
-      min_y_rot = std::min(min_y_rot, val_y);
-      max_y_rot = std::max(max_y_rot, val_y);
+      x_clipped.push_back(val_x);
+      y_clipped.push_back(val_y);
     }
+    getPercentileBounds(x_clipped, pct_lo, pct_hi, min_x_rot, max_x_rot);
+    getPercentileBounds(y_clipped, pct_lo, pct_hi, min_y_rot, max_y_rot);
   } else {
-    min_x_rot = *std::min_element(xs_rot.begin(), xs_rot.end());
-    max_x_rot = *std::max_element(xs_rot.begin(), xs_rot.end());
-    min_y_rot = *std::min_element(ys_rot.begin(), ys_rot.end());
-    max_y_rot = *std::max_element(ys_rot.begin(), ys_rot.end());
+    getPercentileBounds(xs_rot, pct_lo, pct_hi, min_x_rot, max_x_rot);
+    getPercentileBounds(ys_rot, pct_lo, pct_hi, min_y_rot, max_y_rot);
   }
 
   double center_x_rot = 0.5 * (min_x_rot + max_x_rot);
@@ -345,19 +358,18 @@ ProjectionUtils::Box3D computeClusterBox(
     return box;
   }
 
-  float min_z_all = std::numeric_limits<float>::max();
-  float max_z_all = std::numeric_limits<float>::lowest();
-  for (int idx : cluster.indices) {
-    const auto & pt = cloud->points[idx];
-    if (pt.z < min_z_all) min_z_all = pt.z;
-    if (pt.z > max_z_all) max_z_all = pt.z;
-  }
-
   const auto & p_box = ProjectionUtils::getParams();
-  std::vector<int> orientation_indices = cluster.indices;
+  std::vector<double> z_vals;
+  z_vals.reserve(cluster.indices.size());
+  for (int idx : cluster.indices) {
+    z_vals.push_back(static_cast<double>(cloud->points[idx].z));
+  }
+  double z_lo, z_hi;
+  getPercentileBounds(z_vals, p_box.z_extent_percentile_low, p_box.z_extent_percentile_high, z_lo, z_hi);
+  box.center.z() = static_cast<float>(0.5 * (z_lo + z_hi));
+  box.size.z() = static_cast<float>(std::max(0.0, z_hi - z_lo));
 
-  box.center.z() = 0.5f * (min_z_all + max_z_all);
-  box.size.z() = std::max(0.0f, max_z_all - min_z_all);
+  std::vector<int> orientation_indices = cluster.indices;
 
   SearchResult fit_result = computeSearchBasedFit(*cloud, orientation_indices);
 
@@ -395,249 +407,36 @@ ProjectionUtils::Box3D computeClusterBox(
     box.yaw = final_yaw;
 
   } else {
-    float min_x = std::numeric_limits<float>::max();
-    float max_x = std::numeric_limits<float>::lowest();
-    float min_y = std::numeric_limits<float>::max();
-    float max_y = std::numeric_limits<float>::lowest();
-
+    std::vector<double> x_vals, y_vals;
+    x_vals.reserve(cluster.indices.size());
+    y_vals.reserve(cluster.indices.size());
     for (int idx : cluster.indices) {
       const auto & pt = cloud->points[idx];
-      if (pt.x < min_x) min_x = pt.x;
-      if (pt.x > max_x) max_x = pt.x;
-      if (pt.y < min_y) min_y = pt.y;
-      if (pt.y > max_y) max_y = pt.y;
+      x_vals.push_back(static_cast<double>(pt.x));
+      y_vals.push_back(static_cast<double>(pt.y));
     }
-
-    box.center.x() = 0.5f * (min_x + max_x);
-    box.center.y() = 0.5f * (min_y + max_y);
-    box.size.x() = std::max(0.0f, max_x - min_x);
-    box.size.y() = std::max(0.0f, max_y - min_y);
+    double x_lo, x_hi, y_lo, y_hi;
+    getPercentileBounds(x_vals, p_box.xy_extent_percentile_low, p_box.xy_extent_percentile_high, x_lo, x_hi);
+    getPercentileBounds(y_vals, p_box.xy_extent_percentile_low, p_box.xy_extent_percentile_high, y_lo, y_hi);
+    box.center.x() = static_cast<float>(0.5 * (x_lo + x_hi));
+    box.center.y() = static_cast<float>(0.5 * (y_lo + y_hi));
+    box.size.x() = static_cast<float>(std::max(0.0, x_hi - x_lo));
+    box.size.y() = static_cast<float>(std::max(0.0, y_hi - y_lo));
     box.yaw = 0.0;
   }
 
   return box;
 }
-}  // namespace
 
-// ============================================================================
-// Multi-Stage Filtering System
-// ============================================================================
-
-namespace
-{
-
-class ClusterFilter
-{
-public:
-  struct FilterStats
-  {
-    int total_input = 0;
-    int removed_noise = 0;
-    int removed_geometry = 0;
-    int removed_density = 0;
-    int removed_distance = 0;
-    int final_output = 0;
-
-    void print() const
-    {
-      std::cout << "Cluster Filtering Results:\n"
-                << "  Input: " << total_input << "\n"
-                << "  Removed (noise): " << removed_noise << "\n"
-                << "  Removed (geometry): " << removed_geometry << "\n"
-                << "  Removed (density): " << removed_density << "\n"
-                << "  Removed (distance): " << removed_distance << "\n"
-                << "  Output: " << final_output << "\n";
-    }
-  };
-
-  // Stage 1: Remove obvious noise
-  static void filterNoise(
-    const std::vector<ProjectionUtils::ClusterStats> & stats,
-    std::vector<pcl::PointIndices> & cluster_indices,
-    FilterStats * filter_stats = nullptr)
-  {
-    std::vector<pcl::PointIndices> kept;
-    kept.reserve(cluster_indices.size());
-
-    for (size_t i = 0; i < cluster_indices.size(); ++i) {
-      const auto & s = stats[i];
-      bool keep = true;
-
-      // Too few points
-      if (s.num_points < 5) {
-        keep = false;
-      }
-
-      // Extremely small objects (likely noise)
-      float max_dim = std::max({s.max_x - s.min_x, s.max_y - s.min_y, s.max_z - s.min_z});
-      if (max_dim < 0.15f) {  // 15cm - smaller than any real object
-        keep = false;
-      }
-
-      if (keep) {
-        kept.push_back(cluster_indices[i]);
-      } else if (filter_stats) {
-        filter_stats->removed_noise++;
-      }
-    }
-
-    cluster_indices = std::move(kept);
-  }
-
-  // Stage 2: Geometry-based filtering (physical plausibility)
-  static void filterByGeometry(
-    const std::vector<ProjectionUtils::ClusterStats> & stats,
-    std::vector<pcl::PointIndices> & cluster_indices,
-    FilterStats * filter_stats = nullptr)
-  {
-    std::vector<pcl::PointIndices> kept;
-    kept.reserve(cluster_indices.size());
-
-    for (size_t i = 0; i < cluster_indices.size(); ++i) {
-      const auto & s = stats[i];
-
-      float width_x = s.max_x - s.min_x;
-      float width_y = s.max_y - s.min_y;
-      float height = s.max_z - s.min_z;
-
-      // Sort dimensions to get length, width, height
-      std::array<float, 3> dims = {width_x, width_y, height};
-      std::sort(dims.begin(), dims.end(), std::greater<float>());
-      float length = dims[0];  // Longest
-      float width = dims[1];  // Middle
-      float h = dims[2];  // Shortest
-
-      bool keep = true;
-
-      // Check 1: Unrealistic sizes
-      if (length > 15.0f || width > 4.0f || height > 5.0f) {
-        keep = false;  // Larger than any vehicle
-      }
-
-      // Check 2: Impossible aspect ratios
-      if (width > 0.05f) {
-        float aspect_ratio = length / width;
-        if (aspect_ratio > ObjectConstraints::kMaxAspectRatioXY) {
-          keep = false;  // Too elongated (likely wall/fence artifact)
-        }
-      }
-
-      // Check 3: Vertical poles/posts (false positives)
-      if (h > 0.1f) {
-        float vertical_aspect = std::max(length, width) / h;
-        if (vertical_aspect > ObjectConstraints::kMaxAspectRatioZ && std::max(length, width) < 0.5f) {
-          keep = false;  // Thin vertical pole
-        }
-      }
-
-      // Check 4: Impossible point counts for size
-      float volume = width_x * width_y * height;
-      if (volume > 0.01f) {
-        float density = s.num_points / volume;
-
-        // Too sparse (missing most of object)
-        if (density < ObjectConstraints::kMinPointDensity) {
-          keep = false;
-        }
-
-        // Too dense (impossible - would need <1cm point spacing)
-        if (density > ObjectConstraints::kMaxPointDensity) {
-          keep = false;
-        }
-      }
-
-      if (keep) {
-        kept.push_back(cluster_indices[i]);
-      } else if (filter_stats) {
-        filter_stats->removed_geometry++;
-      }
-    }
-
-    cluster_indices = std::move(kept);
-  }
-
-  // Stage 3: Density and quality filtering
-  static void filterByQuality(
-    const std::vector<ProjectionUtils::ClusterStats> & stats,
-    std::vector<pcl::PointIndices> & cluster_indices,
-    double max_distance = 60.0,
-    FilterStats * filter_stats = nullptr)
-  {
-    std::vector<pcl::PointIndices> kept;
-    kept.reserve(cluster_indices.size());
-
-    for (size_t i = 0; i < cluster_indices.size(); ++i) {
-      const auto & s = stats[i];
-
-      float width_x = s.max_x - s.min_x;
-      float width_y = s.max_y - s.min_y;
-      float height = s.max_z - s.min_z;
-      float volume = width_x * width_y * height;
-
-      // Distance from sensor
-      double distance =
-        std::sqrt(s.centroid.x() * s.centroid.x() + s.centroid.y() * s.centroid.y() + s.centroid.z() * s.centroid.z());
-
-      bool keep = true;
-
-      // Check 1: Distance-adaptive point threshold
-      int min_points = ObjectConstraints::kMinPointsSmallObject;
-      if (distance > 30.0) {
-        min_points = 8;  // Allow sparser clusters at distance
-      } else if (distance > 20.0) {
-        min_points = 12;
-      } else if (volume > 8.0f) {
-        min_points = ObjectConstraints::kMinPointsLargeObject;
-      }
-
-      if (s.num_points < min_points) {
-        keep = false;
-      }
-
-      // Check 2: Quality score based on completeness
-      if (volume > 0.01f) {
-        float expected_points = volume * 50.0f;  // Rough estimate
-        if (expected_points > 0.0f) {
-          float completeness = std::min(1.0f, s.num_points / expected_points);
-
-          // At close range, require higher completeness
-          float min_completeness = (distance < 15.0) ? 0.15f : 0.08f;
-          if (completeness < min_completeness) {
-            keep = false;
-          }
-        }
-      }
-
-      // Check 3: Maximum distance filtering
-      if (distance > max_distance) {
-        keep = false;
-      }
-
-      if (keep) {
-        kept.push_back(cluster_indices[i]);
-      } else if (filter_stats) {
-        if (distance > max_distance) {
-          filter_stats->removed_distance++;
-        } else {
-          filter_stats->removed_density++;
-        }
-      }
-    }
-
-    cluster_indices = std::move(kept);
-  }
-};
-
-}  // namespace
-
-std::vector<ProjectionUtils::ClusterStats> ProjectionUtils::computeClusterStats(
+std::vector<ProjectionUtils::ClusterStats> computeClusterStatsImpl(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices)
 {
-  std::vector<ClusterStats> stats;
+  std::vector<ProjectionUtils::ClusterStats> stats;
   stats.reserve(cluster_indices.size());
 
+  const auto & p_ext = ProjectionUtils::getParams();
   for (const auto & c : cluster_indices) {
-    ClusterStats s;
+    ProjectionUtils::ClusterStats s;
     s.min_x = s.min_y = s.min_z = std::numeric_limits<float>::max();
     s.max_x = s.max_y = s.max_z = std::numeric_limits<float>::lowest();
     s.num_points = static_cast<int>(c.indices.size());
@@ -651,20 +450,61 @@ std::vector<ProjectionUtils::ClusterStats> ProjectionUtils::computeClusterStats(
     pcl::compute3DCentroid(*cloud, c.indices, centroid);
     s.centroid = centroid;
 
+    std::vector<double> x_vals, y_vals, z_vals;
+    x_vals.reserve(c.indices.size());
+    y_vals.reserve(c.indices.size());
+    z_vals.reserve(c.indices.size());
     for (int idx : c.indices) {
-      const auto & p = cloud->points[idx];
-      if (p.x < s.min_x) s.min_x = p.x;
-      if (p.x > s.max_x) s.max_x = p.x;
-      if (p.y < s.min_y) s.min_y = p.y;
-      if (p.y > s.max_y) s.max_y = p.y;
-      if (p.z < s.min_z) s.min_z = p.z;
-      if (p.z > s.max_z) s.max_z = p.z;
+      const auto & pt = cloud->points[idx];
+      x_vals.push_back(static_cast<double>(pt.x));
+      y_vals.push_back(static_cast<double>(pt.y));
+      z_vals.push_back(static_cast<double>(pt.z));
     }
+    double x_lo, x_hi, y_lo, y_hi, z_lo, z_hi;
+    getPercentileBounds(x_vals, p_ext.xy_extent_percentile_low, p_ext.xy_extent_percentile_high, x_lo, x_hi);
+    getPercentileBounds(y_vals, p_ext.xy_extent_percentile_low, p_ext.xy_extent_percentile_high, y_lo, y_hi);
+    getPercentileBounds(z_vals, p_ext.z_extent_percentile_low, p_ext.z_extent_percentile_high, z_lo, z_hi);
+    s.min_x = static_cast<float>(x_lo);
+    s.max_x = static_cast<float>(x_hi);
+    s.min_y = static_cast<float>(y_lo);
+    s.max_y = static_cast<float>(y_hi);
+    s.min_z = static_cast<float>(z_lo);
+    s.max_z = static_cast<float>(z_hi);
 
     stats.push_back(s);
   }
 
   return stats;
+}
+}  // namespace
+
+std::vector<ProjectionUtils::ClusterStats> ProjectionUtils::computeClusterStats(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices)
+{
+  return computeClusterStatsImpl(cloud, cluster_indices);
+}
+
+std::vector<ProjectionUtils::ClusterCandidate> ProjectionUtils::buildCandidates(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const std::vector<pcl::PointIndices> & cluster_indices)
+{
+  std::vector<ClusterCandidate> candidates;
+  candidates.reserve(cluster_indices.size());
+  std::vector<ClusterStats> stats = computeClusterStatsImpl(cloud, cluster_indices);
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    candidates.push_back(ClusterCandidate{cluster_indices[i], std::move(stats[i]), std::nullopt});
+  }
+  return candidates;
+}
+
+std::vector<pcl::PointIndices> ProjectionUtils::extractIndices(const std::vector<ClusterCandidate> & candidates)
+{
+  std::vector<pcl::PointIndices> indices;
+  indices.reserve(candidates.size());
+  for (const auto & c : candidates) {
+    indices.push_back(c.indices);
+  }
+  return indices;
 }
 
 std::vector<ProjectionUtils::Box3D> ProjectionUtils::computeClusterBoxes(
@@ -678,37 +518,51 @@ std::vector<ProjectionUtils::Box3D> ProjectionUtils::computeClusterBoxes(
   return boxes;
 }
 
-std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
-  const geometry_msgs::msg::TransformStamped & transform, const std::array<double, 12> & p, const pcl::PointXYZ & pt)
+namespace
 {
-  geometry_msgs::msg::PointStamped lidar_point;
-  lidar_point.point.x = pt.x;
-  lidar_point.point.y = pt.y;
-  lidar_point.point.z = pt.z;
+Eigen::Matrix4d transformToMatrix4d(const geometry_msgs::msg::TransformStamped & transform)
+{
+  const auto & t = transform.transform.translation;
+  const auto & r = transform.transform.rotation;
+  Eigen::Quaterniond q(r.w, r.x, r.y, r.z);
+  Eigen::Matrix4d T = Eigen::Matrix4d::Identity();
+  T.block<3, 3>(0, 0) = q.toRotationMatrix();
+  T(0, 3) = t.x;
+  T(1, 3) = t.y;
+  T(2, 3) = t.z;
+  return T;
+}
 
-  geometry_msgs::msg::PointStamped camera_point;
-  tf2::doTransform(lidar_point, camera_point, transform);
+Eigen::Matrix<double, 3, 4> arrayToProjection3x4(const std::array<double, 12> & p)
+{
+  Eigen::Matrix<double, 3, 4> P;
+  P << p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11];
+  return P;
+}
+}  // namespace
 
-  if (camera_point.point.z < ProjectionUtils::getParams().min_camera_z_distance) {
+Eigen::Matrix<double, 3, 4> ProjectionUtils::buildLidarToImageMatrix(
+  const geometry_msgs::msg::TransformStamped & transform,
+  const std::array<double, 12> & projection_matrix)
+{
+  const Eigen::Matrix4d T = transformToMatrix4d(transform);
+  const Eigen::Matrix<double, 3, 4> P = arrayToProjection3x4(projection_matrix);
+  return P * T;
+}
+
+std::optional<cv::Point2d> ProjectionUtils::projectLidarToCamera(
+  const Eigen::Matrix<double, 3, 4> & lidar_to_image, const pcl::PointXYZ & pt)
+{
+  Eigen::Vector4d lidar_pt(pt.x, pt.y, pt.z, 1.0);
+  Eigen::Vector3d projected = lidar_to_image * lidar_pt;
+  if (projected.z() <= 0.0 ||
+      projected.z() < ProjectionUtils::getParams().min_camera_z_distance) {
     return std::nullopt;
   }
-
-  Eigen::Matrix<double, 3, 4> projection_matrix;
-  projection_matrix << p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11];
-
-  Eigen::Vector4d camera_point_eigen(camera_point.point.x, camera_point.point.y, camera_point.point.z, 1.0);
-
-  Eigen::Vector3d projected_point = projection_matrix * camera_point_eigen;
-
   cv::Point2d proj_pt;
-  proj_pt.x = projected_point.x() / projected_point.z();
-  proj_pt.y = projected_point.y() / projected_point.z();
-
-  if (proj_pt.x >= 0 && proj_pt.x < image_width_ && proj_pt.y >= 0 && proj_pt.y < image_height_) {
-    return proj_pt;
-  }
-
-  return std::nullopt;
+  proj_pt.x = projected.x() / projected.z();
+  proj_pt.y = projected.y() / projected.z();
+  return proj_pt;
 }
 
 void ProjectionUtils::euclideanClusterExtraction(
@@ -882,38 +736,6 @@ void ProjectionUtils::mergeClusters(
   cluster_indices = filtered_clusters;
 }
 
-void ProjectionUtils::filterClusterByQuality(
-  const std::vector<ClusterStats> & stats,
-  std::vector<pcl::PointIndices> & cluster_indices,
-  double max_distance,
-  bool enable_debug)
-{
-  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
-    return;
-  }
-
-  ClusterFilter::FilterStats filter_stats;
-  filter_stats.total_input = cluster_indices.size();
-
-  // Stage 1: Remove obvious noise
-  ClusterFilter::filterNoise(stats, cluster_indices, &filter_stats);
-
-  // Recompute stats after stage 1
-  // (In practice, you might pass the cloud and recompute here)
-
-  // Stage 2: Geometry-based filtering
-  ClusterFilter::filterByGeometry(stats, cluster_indices, &filter_stats);
-
-  // Stage 3: Quality and density filtering
-  ClusterFilter::filterByQuality(stats, cluster_indices, max_distance, &filter_stats);
-
-  filter_stats.final_output = cluster_indices.size();
-
-  if (enable_debug) {
-    filter_stats.print();
-  }
-}
-
 void ProjectionUtils::filterClustersByPhysicsConstraints(
   const std::vector<ClusterStats> & stats,
   std::vector<pcl::PointIndices> & cluster_indices,
@@ -1008,6 +830,184 @@ void ProjectionUtils::filterClustersByPhysicsConstraints(
   cluster_indices = std::move(kept_clusters);
 }
 
+void ProjectionUtils::filterCandidatesByPhysicsConstraints(
+  std::vector<ClusterCandidate> & candidates,
+  double max_distance,
+  int min_points,
+  float min_height,
+  int min_points_default,
+  int min_points_far,
+  int min_points_medium,
+  int min_points_large,
+  double distance_threshold_far,
+  double distance_threshold_medium,
+  float volume_threshold_large,
+  float min_density,
+  float max_density,
+  float max_dimension,
+  float max_aspect_ratio)
+{
+  constexpr float kMinDimensionForAspect = 0.05f;
+  constexpr float kVolumeThresholdDensity = 0.01f;
+
+  std::vector<ClusterCandidate> kept;
+  kept.reserve(candidates.size());
+  for (auto & cand : candidates) {
+    const auto & s = cand.stats;
+
+    float width_x = s.max_x - s.min_x;
+    float width_y = s.max_y - s.min_y;
+    float height = s.max_z - s.min_z;
+    float volume = width_x * width_y * height;
+
+    double distance =
+      std::sqrt(s.centroid.x() * s.centroid.x() + s.centroid.y() * s.centroid.y() + s.centroid.z() * s.centroid.z());
+
+    if (s.num_points < min_points || height < min_height) continue;
+
+    int min_points_threshold = min_points_default;
+    if (distance > distance_threshold_far) {
+      min_points_threshold = min_points_far;
+    } else if (distance > distance_threshold_medium) {
+      min_points_threshold = min_points_medium;
+    } else if (volume > volume_threshold_large) {
+      min_points_threshold = min_points_large;
+    }
+    if (s.num_points < min_points_threshold) continue;
+
+    if (volume > kVolumeThresholdDensity) {
+      float density = s.num_points / volume;
+      if (density < min_density || density > max_density) continue;
+    }
+
+    float max_dim = std::max({width_x, width_y, height});
+    if (max_dim > max_dimension) continue;
+
+    float min_dim = std::min({width_x, width_y, height});
+    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > max_aspect_ratio) continue;
+
+    if (distance > max_distance) continue;
+
+    kept.push_back(std::move(cand));
+  }
+  candidates = std::move(kept);
+}
+
+// Class-specific geometry/quality limits for class-aware filtering (after IoU).
+// Unknown classes use the default_max_* arguments passed to the filter.
+struct ClassConstraints
+{
+  float max_dimension;
+  float min_height;
+  float max_aspect_ratio;
+};
+
+static ClassConstraints getClassConstraints(
+  const std::string & class_id,
+  float default_max_dimension,
+  float default_min_height,
+  float default_max_aspect_ratio)
+{
+  if (class_id == "person") {
+    return {0.7f, 0.2f, 8.0f};  // Pedestrian: ~0.5 m typical, allow some margin
+  }
+  if (class_id == "car") {
+    return {5.0f, 0.3f, 10.0f};
+  }
+  if (class_id == "truck" || class_id == "bus") {
+    return {12.0f, 0.5f, 12.0f};
+  }
+  if (class_id == "bicycle" || class_id == "bike") {
+    return {2.2f, 0.2f, 10.0f};
+  }
+  if (class_id == "motorcycle") {
+    return {2.5f, 0.25f, 10.0f};
+  }
+  return {default_max_dimension, default_min_height, default_max_aspect_ratio};
+}
+
+static std::string getClassIdFromMatch(
+  const ProjectionUtils::ClusterDetectionMatch & match,
+  const vision_msgs::msg::Detection2DArray & detections)
+{
+  if (match.det_idx < 0 || static_cast<size_t>(match.det_idx) >= detections.detections.size()) {
+    return "";
+  }
+  const auto & d = detections.detections[static_cast<size_t>(match.det_idx)];
+  if (d.results.empty()) {
+    return "";
+  }
+  return d.results[0].hypothesis.class_id;
+}
+
+void ProjectionUtils::filterCandidatesByClassAwareConstraints(
+  std::vector<ClusterCandidate> & candidates,
+  const vision_msgs::msg::Detection2DArray & detections,
+  double max_distance,
+  int min_points,
+  float min_height,
+  int min_points_default,
+  int min_points_far,
+  int min_points_medium,
+  int min_points_large,
+  double distance_threshold_far,
+  double distance_threshold_medium,
+  float volume_threshold_large,
+  float min_density,
+  float max_density,
+  float default_max_dimension,
+  float default_max_aspect_ratio)
+{
+  constexpr float kMinDimensionForAspect = 0.05f;
+  constexpr float kVolumeThresholdDensity = 0.01f;
+
+  std::vector<ClusterCandidate> kept;
+  kept.reserve(candidates.size());
+  for (auto & cand : candidates) {
+    const auto & s = cand.stats;
+    std::string class_id;
+    if (cand.match.has_value()) {
+      class_id = getClassIdFromMatch(cand.match.value(), detections);
+    }
+    const ClassConstraints cc =
+      getClassConstraints(class_id, default_max_dimension, min_height, default_max_aspect_ratio);
+
+    float width_x = s.max_x - s.min_x;
+    float width_y = s.max_y - s.min_y;
+    float height = s.max_z - s.min_z;
+    float volume = width_x * width_y * height;
+    double distance =
+      std::sqrt(s.centroid.x() * s.centroid.x() + s.centroid.y() * s.centroid.y() + s.centroid.z() * s.centroid.z());
+
+    if (s.num_points < min_points || height < cc.min_height) continue;
+
+    int min_points_threshold = min_points_default;
+    if (distance > distance_threshold_far) {
+      min_points_threshold = min_points_far;
+    } else if (distance > distance_threshold_medium) {
+      min_points_threshold = min_points_medium;
+    } else if (volume > volume_threshold_large) {
+      min_points_threshold = min_points_large;
+    }
+    if (s.num_points < min_points_threshold) continue;
+
+    if (volume > kVolumeThresholdDensity) {
+      float density = s.num_points / volume;
+      if (density < min_density || density > max_density) continue;
+    }
+
+    float max_dim = std::max({width_x, width_y, height});
+    if (max_dim > cc.max_dimension) continue;
+    float min_dim = std::min({width_x, width_y, height});
+    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > cc.max_aspect_ratio) continue;
+
+    if (distance > max_distance) continue;
+
+    kept.push_back(std::move(cand));
+  }
+  candidates = std::move(kept);
+}
+
 bool ProjectionUtils::computeClusterCentroid(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
   const pcl::PointIndices & cluster_indices,
@@ -1025,117 +1025,135 @@ bool ProjectionUtils::computeClusterCentroid(
   return true;
 }
 
-std::pair<double, int> ProjectionUtils::computeMaxIOU8Corners(
-  const ClusterStats & cluster_stats,
-  const geometry_msgs::msg::TransformStamped & transform,
-  const std::array<double, 12> & projection_matrix,
-  const vision_msgs::msg::Detection2DArray & detections,
-  const float object_detection_confidence)
+namespace
 {
-  float min_x = cluster_stats.min_x;
-  float max_x = cluster_stats.max_x;
-  float min_y = cluster_stats.min_y;
-  float max_y = cluster_stats.max_y;
-  float min_z = cluster_stats.min_z;
-  float max_z = cluster_stats.max_z;
-
-  if (cluster_stats.num_points == 0) {
-    return {0.0, -1};
-  }
-
-  std::array<pcl::PointXYZ, 8> corners = {
-    {{min_x, min_y, min_z},
-     {min_x, min_y, max_z},
-     {min_x, max_y, min_z},
-     {min_x, max_y, max_z},
-     {max_x, min_y, min_z},
-     {max_x, min_y, max_z},
-     {max_x, max_y, min_z},
-     {max_x, max_y, max_z}}};
+/**
+ * @brief Project AABB 8 corners from ClusterStats to a 2D bounding rect, clipped to image bounds.
+ * Much faster than sampling N cluster points: only 8 projections, no cloud access needed.
+ */
+std::optional<cv::Rect2d> projectAABBRect(
+  const ProjectionUtils::ClusterStats & stats,
+  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  double image_w, double image_h)
+{
+  const float xs[2] = {stats.min_x, stats.max_x};
+  const float ys[2] = {stats.min_y, stats.max_y};
+  const float zs[2] = {stats.min_z, stats.max_z};
 
   double u0 = std::numeric_limits<double>::infinity(), v0 = std::numeric_limits<double>::infinity();
   double u1 = -std::numeric_limits<double>::infinity(), v1 = -std::numeric_limits<double>::infinity();
+  size_t valid_count = 0;
 
-  for (auto & C : corners) {
-    auto uv = projectLidarToCamera(transform, projection_matrix, C);
-    if (!uv) continue;
-    u0 = std::min(u0, uv->x);
-    v0 = std::min(v0, uv->y);
-    u1 = std::max(u1, uv->x);
-    v1 = std::max(v1, uv->y);
-  }
-  if (u1 <= u0 || v1 <= v0) {
-    return {0.0, -1};
-  }
-  cv::Rect cluster_rect(u0, v0, u1 - u0, v1 - v0);
-
-  double best_iou = 0.0;
-  int best_det_idx = -1;
-  for (size_t d = 0; d < detections.detections.size(); ++d) {
-    const auto & det = detections.detections[d];
-    if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
-      continue;
-    }
-    const auto & b = det.bbox;
-    cv::Rect det_rect(b.center.position.x - b.size_x / 2, b.center.position.y - b.size_y / 2, b.size_x, b.size_y);
-    double inter = (cluster_rect & det_rect).area();
-    double uni = cluster_rect.area() + det_rect.area() - inter;
-    if (uni > 0.0) {
-      double iou = inter / uni;
-      if (iou > best_iou) {
-        best_iou = iou;
-        best_det_idx = static_cast<int>(d);
+  for (int xi = 0; xi < 2; ++xi) {
+    for (int yi = 0; yi < 2; ++yi) {
+      for (int zi = 0; zi < 2; ++zi) {
+        pcl::PointXYZ pt;
+        pt.x = xs[xi];
+        pt.y = ys[yi];
+        pt.z = zs[zi];
+        auto uv = ProjectionUtils::projectLidarToCamera(lidar_to_image, pt);
+        if (!uv) continue;
+        u0 = std::min(u0, uv->x);
+        v0 = std::min(v0, uv->y);
+        u1 = std::max(u1, uv->x);
+        v1 = std::max(v1, uv->y);
+        ++valid_count;
       }
     }
   }
-  return {best_iou, best_det_idx};
-}
 
-void ProjectionUtils::computeHighestIOUCluster(
-  const std::vector<ClusterStats> & stats,
-  std::vector<pcl::PointIndices> & cluster_indices,
+  if (valid_count == 0 || u1 <= u0 || v1 <= v0) {
+    return std::nullopt;
+  }
+  const double u0_clip = std::max(0.0, u0);
+  const double v0_clip = std::max(0.0, v0);
+  const double u1_clip = std::min(image_w, u1);
+  const double v1_clip = std::min(image_h, v1);
+  if (u1_clip <= u0_clip || v1_clip <= v0_clip) {
+    return std::nullopt;
+  }
+  return cv::Rect2d(u0_clip, v0_clip, u1_clip - u0_clip, v1_clip - v0_clip);
+}
+}  // namespace
+
+void ProjectionUtils::assignCandidatesToDetectionsByIOU(
+  std::vector<ClusterCandidate> & candidates,
   const vision_msgs::msg::Detection2DArray & detections,
   const geometry_msgs::msg::TransformStamped & transform,
   const std::array<double, 12> & projection_matrix,
-  const float object_detection_confidence)
+  float object_detection_confidence)
 {
-  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
-    return;
-  }
+  if (candidates.empty()) return;
 
   if (detections.detections.empty()) {
-    cluster_indices.clear();
+    candidates.clear();
     return;
   }
 
+  const Eigen::Matrix<double, 3, 4> lidar_to_image =
+    ProjectionUtils::buildLidarToImageMatrix(transform, projection_matrix);
+  const double iw = static_cast<double>(image_width_);
+  const double ih = static_cast<double>(image_height_);
   const double min_iou = ProjectionUtils::getParams().min_iou_threshold;
 
-  // For each detection, track the best (highest IoU) cluster index and its IoU.
-  // det_idx -> (best_cluster_idx, best_iou)
-  std::unordered_map<int, std::pair<size_t, double>> best_cluster_per_detection;
+  struct Pair
+  {
+    size_t cand_idx;
+    int det_idx;
+    double iou;
+  };
+  std::vector<Pair> pairs;
 
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    auto [iou, det_idx] =
-      computeMaxIOU8Corners(stats[i], transform, projection_matrix, detections, object_detection_confidence);
+  for (size_t c = 0; c < candidates.size(); ++c) {
+    auto cluster_rect = projectAABBRect(candidates[c].stats, lidar_to_image, iw, ih);
+    if (!cluster_rect) continue;
 
-    if (iou < min_iou || det_idx < 0) {
-      continue;
-    }
-
-    auto it = best_cluster_per_detection.find(det_idx);
-    if (it == best_cluster_per_detection.end() || iou > it->second.second) {
-      best_cluster_per_detection[det_idx] = {i, iou};
+    for (size_t d = 0; d < detections.detections.size(); ++d) {
+      const auto & det = detections.detections[d];
+      if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
+        continue;
+      }
+      const auto & b = det.bbox;
+      const cv::Rect2d det_rect(
+        b.center.position.x - b.size_x / 2.0,
+        b.center.position.y - b.size_y / 2.0,
+        b.size_x,
+        b.size_y);
+      const cv::Rect2d inter = *cluster_rect & det_rect;
+      const double inter_area = (inter.width > 0 && inter.height > 0) ? inter.area() : 0.0;
+      const double uni = cluster_rect->area() + det_rect.area() - inter_area;
+      if (uni > 0.0) {
+        const double iou = inter_area / uni;
+        if (iou >= min_iou) {
+          pairs.push_back({c, static_cast<int>(d), iou});
+        }
+      }
     }
   }
 
-  // Collect the winning cluster indices (one per detection).
-  std::vector<pcl::PointIndices> kept_clusters;
-  kept_clusters.reserve(best_cluster_per_detection.size());
-  for (const auto & [det_idx, pair] : best_cluster_per_detection) {
-    kept_clusters.push_back(cluster_indices[pair.first]);
+  std::sort(pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b) { return a.iou > b.iou; });
+
+  std::unordered_set<size_t> used_candidates;
+  std::unordered_set<int> used_detections;
+  std::vector<Pair> assignments;
+  for (const auto & p : pairs) {
+    if (used_candidates.count(p.cand_idx) || used_detections.count(p.det_idx)) continue;
+    used_candidates.insert(p.cand_idx);
+    used_detections.insert(p.det_idx);
+    assignments.push_back(p);
   }
 
-  cluster_indices = std::move(kept_clusters);
+  std::sort(assignments.begin(), assignments.end(),
+            [](const Pair & a, const Pair & b) { return a.cand_idx < b.cand_idx; });
+
+  std::vector<ClusterCandidate> kept;
+  kept.reserve(assignments.size());
+  for (const auto & a : assignments) {
+    ClusterCandidate cand = std::move(candidates[a.cand_idx]);
+    cand.match = ClusterDetectionMatch{a.cand_idx, a.det_idx, a.iou};
+    kept.push_back(std::move(cand));
+  }
+  candidates = std::move(kept);
 }
 
 visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
@@ -1187,17 +1205,19 @@ visualization_msgs::msg::MarkerArray ProjectionUtils::computeBoundingBox(
 
 vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
   const std::vector<Box3D> & boxes,
-  const std::vector<pcl::PointIndices> & cluster_indices,
-  const std_msgs::msg::Header & header)
+  const std::vector<ClusterCandidate> & candidates,
+  const std_msgs::msg::Header & header,
+  const vision_msgs::msg::Detection2DArray & detections)
 {
   vision_msgs::msg::Detection3DArray det_arr;
   det_arr.header = header;
 
-  if (boxes.size() != cluster_indices.size()) return det_arr;
+  if (boxes.size() != candidates.size()) return det_arr;
 
-  int id = 0;
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    if (cluster_indices[i].indices.empty()) continue;
+  const auto & params = ProjectionUtils::getParams();
+
+  for (size_t i = 0; i < candidates.size(); ++i) {
+    if (candidates[i].indices.indices.empty()) continue;
 
     const auto & box = boxes[i];
 
@@ -1205,8 +1225,28 @@ vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
     det.header = header;
 
     vision_msgs::msg::ObjectHypothesisWithPose hypo;
-    hypo.hypothesis.class_id = "cluster";
-    hypo.hypothesis.score = kDefaultDetectionScore;
+    if (candidates[i].match.has_value()) {
+      const auto & m = candidates[i].match.value();
+      if (m.det_idx >= 0 && static_cast<size_t>(m.det_idx) < detections.detections.size()) {
+        const auto & d = detections.detections[static_cast<size_t>(m.det_idx)];
+        if (!d.results.empty()) {
+          hypo.hypothesis.class_id = d.results[0].hypothesis.class_id;
+          const double det_score = static_cast<double>(d.results[0].hypothesis.score);
+          hypo.hypothesis.score =
+            params.detection_score_weight * det_score + params.iou_score_weight * m.iou;
+          hypo.hypothesis.score = std::max(0.0, std::min(1.0, hypo.hypothesis.score));
+        } else {
+          hypo.hypothesis.class_id = "cluster";
+          hypo.hypothesis.score = kDefaultDetectionScore;
+        }
+      } else {
+        hypo.hypothesis.class_id = "cluster";
+        hypo.hypothesis.score = kDefaultDetectionScore;
+      }
+    } else {
+      hypo.hypothesis.class_id = "cluster";
+      hypo.hypothesis.score = kDefaultDetectionScore;
+    }
     det.results.push_back(hypo);
 
     geometry_msgs::msg::Pose & pose = det.bbox.center;
@@ -1223,7 +1263,6 @@ vision_msgs::msg::Detection3DArray ProjectionUtils::compute3DDetection(
     det.bbox.size.z = box.size.z();
 
     det_arr.detections.push_back(det);
-    ++id;
   }
 
   return det_arr;
