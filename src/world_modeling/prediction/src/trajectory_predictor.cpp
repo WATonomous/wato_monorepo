@@ -809,10 +809,10 @@ std::vector<int64_t> TrajectoryPredictor::extractForwardPathLaneletIds(
   size_t visit_idx = 0;
   double accumulated = 0.0;
 
-  for (const auto & pt : lanelet.centerline) {
-    if (lanelet_ids.size() > 1 || accumulated > 0) {
-      accumulated += (pt.x * pt.x + pt.y * pt.y);  // Simple distance proxy
-    }
+  for (size_t i = 1; i < lanelet.centerline.size(); ++i) {
+    double dx = lanelet.centerline[i].x - lanelet.centerline[i - 1].x;
+    double dy = lanelet.centerline[i].y - lanelet.centerline[i - 1].y;
+    accumulated += std::sqrt(dx * dx + dy * dy);
   }
 
   while (accumulated < required_distance && visit_idx < to_visit.size()) {
@@ -821,8 +821,10 @@ std::vector<int64_t> TrajectoryPredictor::extractForwardPathLaneletIds(
     if (!succ) continue;
 
     lanelet_ids.push_back(succ->id);
-    for (const auto & pt : succ->centerline) {
-      accumulated += 0.1;  // Simplified distance accumulation
+    for (size_t i = 1; i < succ->centerline.size(); ++i) {
+      double dx = succ->centerline[i].x - succ->centerline[i - 1].x;
+      double dy = succ->centerline[i].y - succ->centerline[i - 1].y;
+      accumulated += std::sqrt(dx * dx + dy * dy);
     }
 
     // Add this successor's successors
@@ -847,8 +849,10 @@ std::vector<int64_t> TrajectoryPredictor::extractLaneChangePathLaneletIds(
 
   // Add target's successors if needed
   double accumulated = 0.0;
-  for (const auto & pt : target_ll->centerline) {
-    accumulated += 0.1;  // Simplified accumulation
+  for (size_t i = 1; i < target_ll->centerline.size(); ++i) {
+    double dx = target_ll->centerline[i].x - target_ll->centerline[i - 1].x;
+    double dy = target_ll->centerline[i].y - target_ll->centerline[i - 1].y;
+    accumulated += std::sqrt(dx * dx + dy * dy);
   }
 
   if (accumulated < required_distance && !target_ll->successor_ids.empty()) {
@@ -938,21 +942,24 @@ double TrajectoryPredictor::computeTrajectorySmoothness(
   }
   // Mean absolute heading change rate (approximate curvature)
   double total_curvature = 0.0;
+  size_t valid_count = 0;
   for (size_t i = 1; i + 1 < poses.size(); ++i) {
     double dx1 = poses[i].pose.position.x - poses[i - 1].pose.position.x;
     double dy1 = poses[i].pose.position.y - poses[i - 1].pose.position.y;
     double dx2 = poses[i + 1].pose.position.x - poses[i].pose.position.x;
     double dy2 = poses[i + 1].pose.position.y - poses[i].pose.position.y;
 
+    // Skip near-zero-length segments to avoid noisy atan2(~0, ~0)
+    if ((dx1 * dx1 + dy1 * dy1) < 1e-8 || (dx2 * dx2 + dy2 * dy2) < 1e-8) {
+      continue;
+    }
+
     double h1 = std::atan2(dy1, dx1);
     double h2 = std::atan2(dy2, dx2);
-    double dh = h2 - h1;
-    while (dh > M_PI) dh -= 2.0 * M_PI;
-    while (dh < -M_PI) dh += 2.0 * M_PI;
-
-    total_curvature += std::abs(dh);
+    total_curvature += std::abs(normalizeAngle(h2 - h1));
+    ++valid_count;
   }
-  return total_curvature / static_cast<double>(poses.size() - 2);
+  return (valid_count > 0) ? total_curvature / static_cast<double>(valid_count) : 0.0;
 }
 
 double TrajectoryPredictor::estimateLateralVelocity(const std::string & vehicle_id, double lateral_offset)
@@ -1134,6 +1141,18 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
     }
   }
 
+  // Normalize probabilities
+  if (!hypotheses.empty()) {
+    double total = 0.0;
+    for (const auto & h : hypotheses) total += h.probability;
+    if (total > 1e-6) {
+      for (auto & h : hypotheses) h.probability /= total;
+    } else {
+      double uniform = 1.0 / hypotheses.size();
+      for (auto & h : hypotheses) h.probability = uniform;
+    }
+  }
+
   RCLCPP_DEBUG(node_->get_logger(), "Generated %zu geometric vehicle hypotheses (no lanelet data)", hypotheses.size());
 
   return hypotheses;
@@ -1200,8 +1219,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   double current_z = detection.bbox.center.position.z;
   double heading = extractYaw(detection.bbox.center.orientation);
 
-  double length = detection.bbox.size.x;
-  double velocity = (length > 3.5) ? 5.0 : 1.4;
+  double velocity = 5.0;  // ~18 km/h typical cycling speed
 
   for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
     geometry_msgs::msg::PoseStamped pose_stamped;
