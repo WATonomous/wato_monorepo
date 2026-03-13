@@ -187,6 +187,31 @@ std::optional<std::any> MapManager::getGlobalData(const std::string& key) const 
   return it->second;
 }
 
+// ---- Graph adjacency (incremental) ----
+
+void MapManager::addEdges(const gtsam::NonlinearFactorGraph& new_factors) {
+  std::lock_guard<std::mutex> lock(mtx_);
+  for (size_t i = 0; i < new_factors.size(); i++) {
+    auto factor = new_factors[i];
+    if (!factor) continue;
+    auto keys = factor->keys();
+    for (size_t a = 0; a < keys.size(); a++) {
+      for (size_t b = a + 1; b < keys.size(); b++) {
+        adjacency_[keys[a]].push_back(keys[b]);
+        adjacency_[keys[b]].push_back(keys[a]);
+      }
+    }
+  }
+}
+
+const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>>&
+MapManager::getAdjacency() const {
+  // Caller is expected to hold no lock — this is safe because addEdges()
+  // only appends (vectors grow, never shrink) and BFS reads are on the
+  // SLAM thread which serialises with addEdges via slamLoop's mtx_.
+  return adjacency_;
+}
+
 // ---- Persistence ----
 
 bool MapManager::saveMap(

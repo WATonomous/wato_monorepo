@@ -6,6 +6,11 @@ eidos_node:
       odometry: "odom"
       map: "map"
 
+    # ---- TF broadcasting ----
+    transforms:
+      map_to_odom:
+        publish: true
+
     # ---- SLAM core ----
     slam_rate: 10.0                    # Hz, main SLAM loop frequency
     relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
@@ -46,9 +51,6 @@ eidos_node:
 
     visualization_plugins:
       - "keyframe_map_visualization"
-      - "gps_visualization"
-      - "loop_closure_visualization"
-      - "keyframe_pose_visualization"
       - "factor_graph_visualization"
 
     # ==========================================================================
@@ -56,10 +58,11 @@ eidos_node:
     # ==========================================================================
     motion_model:
       plugin: "eidos::ImuMotionModel"
+      publish_tf: false             # set true to broadcast odom -> base_footprint from IMU instead of LISO
 
       # -- Topics --
       imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
-      odom_to W#ETWT   pic: "motion_model/odometry/imu_incremental"                        # nav_msgs/Odometry output (IMU prediction)
+      odom_topic: "motion_model/odometry/imu_incremental"                        # nav_msgs/Odometry output (IMU prediction)
 
       # -- Frames --
       imu_frame: "imu_link"
@@ -92,6 +95,7 @@ eidos_node:
     # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
+      publish_tf: false             # GPS broadcasts utm -> map as a static TF independently
 
       # -- Topics --
       gps_topic: "/novatel/oem7/fix"              # sensor_msgs/NavSatFix input
@@ -116,6 +120,7 @@ eidos_node:
     # ==========================================================================
     liso_factor:
       plugin: "eidos::LisoFactor"
+      publish_tf: true              # broadcast odom -> base_footprint at LiDAR rate
 
       # -- Topics --
       lidar_topic: "/lidar_cc/velodyne_points"
@@ -154,6 +159,7 @@ eidos_node:
       # -- Covariance diagonals [x, y, z, roll, pitch, yaw] --
       # Used for both BetweenFactor noise and published odometry
       odom_pose_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+      odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -200,40 +206,10 @@ eidos_node:
       mode: "accumulate"          # "windowed" or "accumulate"
 
       accumulate:                 # WARNING: grows unboundedly, will degrade performance on long drives
-        skip_factor: 5            # append every Nth keyframe (1 = all, 2 = every other, etc.)
+        skip_factor: 10            # append every Nth keyframe (1 = all, 2 = every other, etc.)
 
       windowed:
         radius: 50.0              # meters, radius around current pose
-
-    # ==========================================================================
-    # GPS Visualization
-    # ==========================================================================
-    gps_visualization:
-      plugin: "eidos::GpsVisualization"
-      topic: "slam/visualization/gps"
-      gps_from: "gps_factor"
-      marker_scale: 1.0
-      publish_rate: 1.0
-
-    # ==========================================================================
-    # Loop Closure Visualization
-    # ==========================================================================
-    loop_closure_visualization:
-      plugin: "eidos::LoopClosureVisualization"
-      topic: "slam/visualization/loop_closures"
-      loop_closure_from: "euclidean_distance_loop_closure_factor"
-      line_width: 0.1
-      publish_rate: 1.0
-
-    # ==========================================================================
-    # Keyframe Pose Visualization
-    # ==========================================================================
-    keyframe_pose_visualization:
-      plugin: "eidos::KeyframePoseVisualization"
-      topic: "slam/visualization/poses"
-      axis_length: 0.5
-      axis_width: 0.05
-      publish_rate: 1.0
 
     # ==========================================================================
     # Factor Graph Visualization
@@ -246,36 +222,3 @@ eidos_node:
       publish_rate: 1.0
       mode: "full"              # "full" or "windowed"
       window_radius: 50.0       # meters, only used in windowed mode
-
-# ==========================================================================
-# robot_localization dual-EKF
-# ==========================================================================
-ekf_filter_node_local:
-  ros__parameters:
-    frequency: 100.0
-    two_d_mode: false
-    odom_frame: odom
-    base_link_frame: base_footprint
-    world_frame: odom
-    publish_tf: true
-
-    # LISO LiDAR incremental odometry (odom frame, smooth, no corrections)
-    odom0: liso/odometry_incremental
-    odom0_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
-
-ekf_filter_node_global:
-  ros__parameters:
-    frequency: 20.0
-    two_d_mode: false
-    odom_frame: odom
-    base_link_frame: base_footprint
-    world_frame: map
-    publish_tf: true
-
-    # Eidos graph-optimized pose (absolute, in map frame) — position + orientation
-    odom0: slam/odometry
-    odom0_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
-
-    # LISO LiDAR odometry (absolute, in map frame) — position + orientation
-    odom1: liso/odometry
-    odom1_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]

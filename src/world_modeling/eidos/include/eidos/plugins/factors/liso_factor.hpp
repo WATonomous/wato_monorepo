@@ -49,6 +49,10 @@ public:
   std::string getReadyStatus() const override;
   bool hasData() const override;
 
+  std::pair<std::string, std::string> getTfFrames() const override {
+    return {odom_frame_, base_link_frame_};
+  }
+
 private:
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
@@ -59,6 +63,9 @@ private:
   std::atomic<bool> first_scan_{true};
   std::atomic<bool> active_{false};
   std::atomic<bool> scan_received_{false};
+
+  // Async submap rebuild guard
+  std::atomic<bool> rebuild_in_progress_{false};
 
   // Cached submap (read by lidarCallback, written by rebuildSubmap)
   small_gicp::PointCloud::Ptr cached_submap_;
@@ -109,6 +116,7 @@ private:
   gtsam::Pose3 incremental_pose_;           // running pose in odom frame
   gtsam::Pose3 prev_incremental_pose_;      // last GICP result (for computing delta)
   bool has_prev_incremental_ = false;
+  double prev_odom_time_ = 0.0;             // timestamp of previous match (for twist dt)
 
   // Distance gating + relative factor tracking
   gtsam::Point3 last_factor_position_ = gtsam::Point3(0, 0, 0);
@@ -138,6 +146,7 @@ private:
   int imu_warmup_samples_ = 200;
   double imu_stationary_gyr_threshold_ = 0.005;  // rad/s
   std::vector<double> odom_pose_cov_ = {0.1, 0.1, 0.1, 0.05, 0.05, 0.05};
+  std::vector<double> odom_twist_cov_ = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
   Eigen::Isometry3d T_base_lidar_ = Eigen::Isometry3d::Identity();
   bool has_tf_ = false;
 };

@@ -9,6 +9,7 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -101,8 +102,14 @@ private:
   void publishOdometry();
 
   // ---- TF ----
+  void broadcastMapToOdom();
+
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  std::string odom_frame_;
+  bool publish_map_to_odom_ = false;
+  gtsam::Pose3 cached_map_to_odom_;  // identity until first optimization with valid odom->base TF
 
   // ---- SLAM state ----
   SlamState state_ = SlamState::INITIALIZING;

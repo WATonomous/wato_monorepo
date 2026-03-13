@@ -1,8 +1,10 @@
 #include "eidos/plugins/factors/liso_factor.hpp"
 
 #include <queue>
+#include <thread>
 #include <unordered_set>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
@@ -37,6 +39,7 @@ void LisoFactor::onInitialize() {
   node_->declare_parameter(prefix + ".min_noise", min_noise_);
   node_->declare_parameter(prefix + ".min_scan_distance", min_scan_distance_);
   node_->declare_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
+  node_->declare_parameter(prefix + ".odom_twist_cov", odom_twist_cov_);
   node_->declare_parameter(prefix + ".lidar_frame", lidar_frame_);
   node_->declare_parameter(prefix + ".imu_topic", imu_topic_);
   node_->declare_parameter(prefix + ".imu_frame", imu_frame_);
@@ -60,6 +63,7 @@ void LisoFactor::onInitialize() {
   node_->get_parameter(prefix + ".min_noise", min_noise_);
   node_->get_parameter(prefix + ".min_scan_distance", min_scan_distance_);
   node_->get_parameter(prefix + ".odom_pose_cov", odom_pose_cov_);
+  node_->get_parameter(prefix + ".odom_twist_cov", odom_twist_cov_);
   node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
   node_->get_parameter(prefix + ".imu_topic", imu_topic_);
   node_->get_parameter(prefix + ".imu_frame", imu_frame_);
@@ -95,7 +99,8 @@ void LisoFactor::activate() {
   active_ = true;
   odom_pub_->on_activate();
   odom_incremental_pub_->on_activate();
-  RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
+  RCLCPP_INFO(node_->get_logger(), "[%s] activated (publish_tf=%s)", name_.c_str(),
+              publishesTf() ? "true" : "false");
 }
 
 void LisoFactor::deactivate() {
@@ -115,6 +120,7 @@ void LisoFactor::reset() {
   incremental_pose_ = gtsam::Pose3();
   prev_incremental_pose_ = gtsam::Pose3();
   has_prev_incremental_ = false;
+  prev_odom_time_ = 0.0;
   gyro_tracking_active_ = false;
   gyro_delta_rpy_ = Eigen::Vector3d::Zero();
   last_gyro_time_ = 0.0;
@@ -324,17 +330,25 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   gyro_delta_rpy_ = Eigen::Vector3d::Zero();
   last_gyro_time_ = scan_time;
 
-  // Compute scan-to-scan delta for incremental odometry
+  // Compute scan-to-scan delta for incremental odometry and twist
   gtsam::Pose3 delta;
+  bool has_delta = false;
+  double dt = (prev_odom_time_ > 0.0) ? (scan_time - prev_odom_time_) : 0.0;
+
   if (has_prev_incremental_) {
     delta = prev_incremental_pose_.between(matched_pose);
     incremental_pose_ = incremental_pose_.compose(delta);
+    has_delta = true;
   } else {
     // First match — seed incremental pose from gravity-aligned initial
     incremental_pose_ = matched_pose;
     has_prev_incremental_ = true;
   }
   prev_incremental_pose_ = matched_pose;
+  prev_odom_time_ = scan_time;
+
+  // Twist: body-frame velocity from scan-to-scan delta
+  bool publish_twist = has_delta && dt > 0.0 && dt < 1.0;
 
   // Publish map-frame odometry (absolute, includes corrections)
   if (odom_pub_->is_activated()) {
@@ -358,6 +372,25 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_msg.pose.covariance[21] = odom_pose_cov_[3];
     odom_msg.pose.covariance[28] = odom_pose_cov_[4];
     odom_msg.pose.covariance[35] = odom_pose_cov_[5];
+
+    if (publish_twist) {
+      // delta is in prev body frame; for small dt at LiDAR rate this ≈ current body frame
+      gtsam::Point3 t = delta.translation();
+      gtsam::Vector3 rpy = delta.rotation().rpy();
+      odom_msg.twist.twist.linear.x = t.x() / dt;
+      odom_msg.twist.twist.linear.y = t.y() / dt;
+      odom_msg.twist.twist.linear.z = t.z() / dt;
+      odom_msg.twist.twist.angular.x = rpy(0) / dt;
+      odom_msg.twist.twist.angular.y = rpy(1) / dt;
+      odom_msg.twist.twist.angular.z = rpy(2) / dt;
+
+      odom_msg.twist.covariance[0]  = odom_twist_cov_[0];
+      odom_msg.twist.covariance[7]  = odom_twist_cov_[1];
+      odom_msg.twist.covariance[14] = odom_twist_cov_[2];
+      odom_msg.twist.covariance[21] = odom_twist_cov_[3];
+      odom_msg.twist.covariance[28] = odom_twist_cov_[4];
+      odom_msg.twist.covariance[35] = odom_twist_cov_[5];
+    }
 
     odom_pub_->publish(odom_msg);
   }
@@ -385,7 +418,42 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_inc_msg.pose.covariance[28] = odom_pose_cov_[4];
     odom_inc_msg.pose.covariance[35] = odom_pose_cov_[5];
 
+    if (publish_twist) {
+      gtsam::Point3 t = delta.translation();
+      gtsam::Vector3 rpy = delta.rotation().rpy();
+      odom_inc_msg.twist.twist.linear.x = t.x() / dt;
+      odom_inc_msg.twist.twist.linear.y = t.y() / dt;
+      odom_inc_msg.twist.twist.linear.z = t.z() / dt;
+      odom_inc_msg.twist.twist.angular.x = rpy(0) / dt;
+      odom_inc_msg.twist.twist.angular.y = rpy(1) / dt;
+      odom_inc_msg.twist.twist.angular.z = rpy(2) / dt;
+
+      odom_inc_msg.twist.covariance[0]  = odom_twist_cov_[0];
+      odom_inc_msg.twist.covariance[7]  = odom_twist_cov_[1];
+      odom_inc_msg.twist.covariance[14] = odom_twist_cov_[2];
+      odom_inc_msg.twist.covariance[21] = odom_twist_cov_[3];
+      odom_inc_msg.twist.covariance[28] = odom_twist_cov_[4];
+      odom_inc_msg.twist.covariance[35] = odom_twist_cov_[5];
+    }
+
     odom_incremental_pub_->publish(odom_inc_msg);
+  }
+
+  // Broadcast odom -> base_link TF at LiDAR rate
+  {
+    geometry_msgs::msg::TransformStamped tf;
+    tf.header.stamp = msg->header.stamp;
+    tf.header.frame_id = odom_frame_;
+    tf.child_frame_id = base_link_frame_;
+    auto q_tf = incremental_pose_.rotation().toQuaternion();
+    tf.transform.translation.x = incremental_pose_.translation().x();
+    tf.transform.translation.y = incremental_pose_.translation().y();
+    tf.transform.translation.z = incremental_pose_.translation().z();
+    tf.transform.rotation.x = q_tf.x();
+    tf.transform.rotation.y = q_tf.y();
+    tf.transform.rotation.z = q_tf.z();
+    tf.transform.rotation.w = q_tf.w();
+    sendTransform(tf);
   }
 }
 
@@ -573,9 +641,19 @@ void LisoFactor::onOptimizationComplete(
     gtsam::Pose3 corrected = optimized_values.at<gtsam::Pose3>(prev_liso_key_);
     prev_liso_pose_ = corrected;
     last_matched_pose_ = corrected;
+    // Also update incremental tracking so the next delta doesn't bake in
+    // the correction shift (which would make odom-frame jump like map-frame)
+    prev_incremental_pose_ = corrected;
   }
 
-  rebuildSubmap();
+  // Dispatch submap rebuild off the SLAM thread.  submap_mtx_ (shared_lock
+  // in lidarCallback, unique_lock in rebuildSubmap) handles concurrency.
+  if (!rebuild_in_progress_.exchange(true)) {
+    std::thread([this]() {
+      rebuildSubmap();
+      rebuild_in_progress_ = false;
+    }).detach();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -662,24 +740,11 @@ void LisoFactor::rebuildSubmap() {
 // ---------------------------------------------------------------------------
 std::vector<gtsam::Key> LisoFactor::bfsCollectStates(
     gtsam::Key start, double radius) {
-  const auto& graph = core_->getAccumulatedGraph();
   const auto& map_manager = core_->getMapManager();
   auto poses_6d = map_manager.getKeyPoses6D();
 
-  // Build adjacency list from the accumulated graph
-  std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> adjacency;
-  for (size_t i = 0; i < graph.size(); i++) {
-    auto factor = graph[i];
-    if (!factor) continue;
-    auto keys = factor->keys();
-    // Only consider factors connecting Pose3-valued keys
-    for (size_t a = 0; a < keys.size(); a++) {
-      for (size_t b = a + 1; b < keys.size(); b++) {
-        adjacency[keys[a]].push_back(keys[b]);
-        adjacency[keys[b]].push_back(keys[a]);
-      }
-    }
-  }
+  // Use incrementally-maintained adjacency from MapManager (O(1) lookup)
+  const auto& adjacency = map_manager.getAdjacency();
 
   // Get start position for distance check
   int start_idx = map_manager.getCloudIndex(start);

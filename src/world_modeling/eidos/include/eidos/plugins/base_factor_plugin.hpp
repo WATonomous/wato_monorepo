@@ -8,6 +8,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Key.h>
@@ -59,6 +61,14 @@ public:
     node_ = node;
     tf_ = tf;
     callback_group_ = callback_group;
+
+    // TF broadcasting: each plugin can opt-in via <name>.publish_tf
+    node_->declare_parameter(name_ + ".publish_tf", false);
+    node_->get_parameter(name_ + ".publish_tf", publish_tf_);
+    if (publish_tf_) {
+      tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node_);
+    }
+
     onInitialize();
   }
 
@@ -143,12 +153,35 @@ public:
     (void)loop_closure_detected;
   }
 
+  bool publishesTf() const { return publish_tf_; }
+
+  /**
+   * @brief Returns the (frame_id, child_frame_id) pair this plugin broadcasts.
+   * Override in plugins that broadcast TF. Used by SlamCore to detect collisions.
+   * Only called when publish_tf is true.
+   */
+  virtual std::pair<std::string, std::string> getTfFrames() const { return {"", ""}; }
+
 protected:
+  /**
+   * @brief Send a TF transform if publish_tf is enabled for this plugin.
+   * Call from your sensor callback at its native rate.
+   */
+  void sendTransform(const geometry_msgs::msg::TransformStamped& transform) {
+    if (publish_tf_ && tf_broadcaster_) {
+      tf_broadcaster_->sendTransform(transform);
+    }
+  }
+
   SlamCore* core_ = nullptr;
   std::string name_;
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
   tf2_ros::Buffer* tf_ = nullptr;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
+
+private:
+  bool publish_tf_ = false;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 };
 
 }  // namespace eidos

@@ -87,6 +87,14 @@ public:
   void setGlobalData(const std::string& key, std::any data);
   std::optional<std::any> getGlobalData(const std::string& key) const;
 
+  // ---- Graph adjacency (incremental) ----
+
+  /// Update adjacency map from newly added factors only.
+  void addEdges(const gtsam::NonlinearFactorGraph& new_factors);
+
+  /// Read-only access to the adjacency map (caller must not mutate).
+  const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>>& getAdjacency() const;
+
   // ---- Persistence ----
 
   bool saveMap(const std::string& directory, float resolution,
@@ -114,6 +122,9 @@ private:
   // Global data type registry and storage
   std::unordered_map<std::string, TypeHandler> global_type_handlers_;
   std::unordered_map<std::string, std::any> global_data_;
+
+  // Graph adjacency (incrementally maintained)
+  std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> adjacency_;
 
   bool prior_map_loaded_ = false;
   mutable std::mutex mtx_;

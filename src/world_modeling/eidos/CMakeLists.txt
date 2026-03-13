@@ -72,9 +72,6 @@ add_library(eidos_plugins SHARED
   src/plugins/motion_models/holonomic_motion_model.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
-  src/plugins/visualization/gps_visualization.cpp
-  src/plugins/visualization/loop_closure_visualization.cpp
-  src/plugins/visualization/keyframe_pose_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
 )
 target_include_directories(eidos_plugins PUBLIC

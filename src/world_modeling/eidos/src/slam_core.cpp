@@ -4,9 +4,11 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <map>
 
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 namespace eidos {
 
 SlamCore::SlamCore(const rclcpp::NodeOptions& options)
@@ -30,7 +32,9 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("slam_rate", slam_rate_);
   declare_parameter("relocalization_timeout", relocalization_timeout_);
   declare_parameter("frames.map", map_frame_);
+  declare_parameter("frames.odometry", odom_frame_);
   declare_parameter("frames.base_link", base_link_frame_);
+  declare_parameter("transforms.map_to_odom.publish", publish_map_to_odom_);
   declare_parameter("map.load_directory", map_load_directory_);
   declare_parameter("map.save_directory", map_save_directory_);
   declare_parameter("prior.pose_cov", prior_pose_cov_);
@@ -52,7 +56,9 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("slam_rate", slam_rate_);
   get_parameter("relocalization_timeout", relocalization_timeout_);
   get_parameter("frames.map", map_frame_);
+  get_parameter("frames.odometry", odom_frame_);
   get_parameter("frames.base_link", base_link_frame_);
+  get_parameter("transforms.map_to_odom.publish", publish_map_to_odom_);
   get_parameter("map.load_directory", map_load_directory_);
   get_parameter("map.save_directory", map_save_directory_);
   get_parameter("prior.pose_cov", prior_pose_cov_);
@@ -69,6 +75,11 @@ SlamCore::CallbackReturn SlamCore::on_configure(
 
   std::string odom_output_topic;
   get_parameter("topics.odom", odom_output_topic);
+
+  // TF broadcaster for map -> odom
+  if (publish_map_to_odom_) {
+    tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+  }
 
   // Core components
   pose_graph_ = std::make_unique<PoseGraph>();
@@ -107,6 +118,41 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   loadMotionModel();
   loadRelocalizationPlugins();
   loadVisualizationPlugins();
+
+  // Check for colliding TF publishers — no two plugins should broadcast the same frame pair
+  {
+    // Collect (frame_id, child_frame_id) -> plugin name
+    std::map<std::pair<std::string, std::string>, std::vector<std::string>> tf_map;
+    for (const auto& plugin : factor_plugins_) {
+      if (plugin->publishesTf()) {
+        auto frames = plugin->getTfFrames();
+        if (!frames.first.empty() && !frames.second.empty()) {
+          tf_map[frames].push_back(plugin->getName());
+        }
+      }
+    }
+    if (motion_model_ && motion_model_->publishesTf()) {
+      auto frames = motion_model_->getTfFrames();
+      if (!frames.first.empty() && !frames.second.empty()) {
+        tf_map[frames].push_back(motion_model_->getName());
+      }
+    }
+
+    for (const auto& [frames, publishers] : tf_map) {
+      if (publishers.size() > 1) {
+        RCLCPP_ERROR(get_logger(),
+            "\033[31m[CONFIG ERROR]\033[0m Multiple plugins broadcast TF %s -> %s:",
+            frames.first.c_str(), frames.second.c_str());
+        for (const auto& name : publishers) {
+          RCLCPP_ERROR(get_logger(), "  - %s", name.c_str());
+        }
+        return CallbackReturn::FAILURE;
+      }
+      RCLCPP_INFO(get_logger(), "\033[36m[TF]\033[0m %s -> %s broadcast by: %s",
+                  frames.first.c_str(), frames.second.c_str(),
+                  publishers[0].c_str());
+    }
+  }
 
   RCLCPP_INFO(get_logger(), "\033[36m[CONFIGURED]\033[0m Eidos SLAM configured");
   return CallbackReturn::SUCCESS;
@@ -166,6 +212,9 @@ SlamCore::CallbackReturn SlamCore::on_activate(
       std::chrono::duration_cast<std::chrono::nanoseconds>(period),
       std::bind(&SlamCore::visLoop, this),
       vis_callback_group_);
+
+  // Broadcast identity map->odom immediately so the TF tree is valid before first optimization
+  broadcastMapToOdom();
 
   RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATED]\033[0m Eidos SLAM active");
   return CallbackReturn::SUCCESS;
@@ -229,6 +278,7 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   pose_graph_.reset();
   map_manager_.reset();
 
+  tf_broadcaster_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
 
@@ -261,6 +311,26 @@ SlamCore::CallbackReturn SlamCore::on_shutdown(
 
   RCLCPP_INFO(get_logger(), "\033[36m[SHUT_DOWN]\033[0m Eidos SLAM shut down");
   return CallbackReturn::SUCCESS;
+}
+
+// ---- TF broadcasting ----
+
+void SlamCore::broadcastMapToOdom() {
+  if (!publish_map_to_odom_ || !tf_broadcaster_) return;
+
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = now();
+  tf.header.frame_id = map_frame_;
+  tf.child_frame_id = odom_frame_;
+  auto q = cached_map_to_odom_.rotation().toQuaternion();
+  tf.transform.translation.x = cached_map_to_odom_.translation().x();
+  tf.transform.translation.y = cached_map_to_odom_.translation().y();
+  tf.transform.translation.z = cached_map_to_odom_.translation().z();
+  tf.transform.rotation.x = q.x();
+  tf.transform.rotation.y = q.y();
+  tf.transform.rotation.z = q.z();
+  tf.transform.rotation.w = q.w();
+  tf_broadcaster_->sendTransform(tf);
 }
 
 // ---- SLAM loop ----
@@ -617,6 +687,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
 
   // 6. Track accumulated graph for serialization
   accumulated_graph_.add(new_factors);
+  map_manager_->addEdges(new_factors);
   for (const auto& ns : new_states) {
     if (!accumulated_values_.exists(ns.key)) {
       accumulated_values_.insert(ns.key, current_pose_);
@@ -669,6 +740,24 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
         }
       }
       has_optimization_anchor_ = true;
+
+      // Update cached map->odom correction from the latest optimization
+      if (publish_map_to_odom_) {
+        try {
+          auto odom_base_tf = tf_buffer_->lookupTransform(
+              odom_frame_, base_link_frame_, tf2::TimePointZero);
+          const auto& tb = odom_base_tf.transform.translation;
+          const auto& rb = odom_base_tf.transform.rotation;
+          gtsam::Pose3 T_odom_base(
+              gtsam::Rot3(Eigen::Quaterniond(rb.w, rb.x, rb.y, rb.z).toRotationMatrix()),
+              gtsam::Point3(tb.x, tb.y, tb.z));
+          // T_map_odom = T_map_base * inv(T_odom_base)
+          cached_map_to_odom_ = latest_pose.compose(T_odom_base.inverse());
+          broadcastMapToOdom();
+        } catch (const tf2::TransformException&) {
+          // odom->base_link not yet available — keep previous cached value (identity until first update)
+        }
+      }
     }
   }
 
