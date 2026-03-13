@@ -2,32 +2,167 @@
 # Multi-modal Trajectory Prediction Parameters
 prediction_node:
   ros__parameters:
+    # ==========================================================================
     # Prediction horizon and temporal resolution
-    prediction_horizon: 3.0      # seconds - how far into the future to predict
-    prediction_time_step: 0.2    # seconds - time between waypoints
+    # ==========================================================================
+    prediction_horizon: 3.0      # seconds — how far into the future to predict
+    prediction_time_step: 0.2    # seconds — time between waypoints
 
+    # ==========================================================================
+    # Cache and confidence smoothing
+    # ==========================================================================
+    confidence_smoothing_alpha: 0.35      # EMA weight for new confidence observations
+    confidence_match_distance_m: 6.0      # max distance to match hypothesis across frames
+    confidence_state_timeout_s: 5.0       # drop smoothing state after this many seconds
+    cache_ttl_s: 5.0                      # TTL for all ID-keyed caches
+    vehicle_cache_invalidation_dist: 5.0  # re-query lanelets after moving this far (m)
+    lanelet_query_radius: 50.0            # radius for per-vehicle lanelet service query (m)
+
+    # ==========================================================================
     # Map constraints
-    use_map_constraints: true    # whether to constrain predictions to HD map
-    max_lanelet_search_depth: 3  # max depth when searching future lanelets
+    # ==========================================================================
+    use_map_constraints: true          # enforce lanelet/map validity on predicted trajectories
+    max_lanelet_search_depth: 3        # max successor lanelets explored during path expansion
 
-    # Motion model parameters
-    vehicle_wheelbase: 2.5       # meters - typical vehicle wheelbase
-    max_steering_angle: 0.785    # radians (~45 degrees)
-    position_noise_std: 0.1      # meters - position noise for pedestrians
-    heading_noise_std: 0.05      # radians - heading noise for pedestrians
+    # ==========================================================================
+    # Bicycle motion model
+    # ==========================================================================
+    vehicle_wheelbase: 2.5          # meters — typical vehicle wheelbase
+    max_steering_angle: 0.785       # radians (~45 degrees)
+    max_lateral_acceleration: 4.0   # m/s² — cornering limit for safe-speed calc
+    speed_limit: 15.0               # m/s — cap on target velocity
+    max_acceleration: 2.0           # m/s² — longitudinal acceleration cap
+    max_deceleration: 4.0           # m/s² — longitudinal braking cap
+    lookahead_distance: 3.0         # meters — pure-pursuit lookahead
 
-    # Intent classifier weights
-    intent_classifier:
-      velocity_weight: 0.3
-      heading_weight: 0.2
-      intersection_weight: 0.25
-      lateral_offset_weight: 0.15
-      turn_signal_weight: 0.1
+    # ==========================================================================
+    # Constant-velocity motion model (pedestrians / cyclists)
+    # ==========================================================================
+    position_noise_std: 0.1         # meters — Gaussian position noise
+    heading_noise_std: 0.05         # radians — Gaussian heading noise
 
+    # ==========================================================================
+    # Speed estimation
+    # ==========================================================================
+    speed_ema_alpha: 0.35           # EMA weight for new speed observations
+    min_dt_for_speed: 0.01          # seconds — ignore sub-centisecond frames
+    max_vehicle_speed: 25.0         # m/s — clamp raw speed for vehicles
+    max_pedestrian_speed: 3.0       # m/s — clamp raw speed for pedestrians/cyclists
+
+    # ==========================================================================
+    # Stop detection (sigmoid model)
+    # ==========================================================================
+    stop_sigmoid_midpoint: 0.25       # m/s — speed at which stop probability = 50%
+    stop_sigmoid_steepness: 12.0      # sharpness of sigmoid transition
+    stop_probability_threshold: 0.01  # minimum stop_prob to emit a STOP hypothesis
+
+    # ==========================================================================
     # Object classification thresholds
-    vehicle_min_length: 3.5      # meters - minimum length to classify as vehicle
-    pedestrian_max_height: 2.0   # meters - maximum height for pedestrian
-    cyclist_speed_range: [2.0, 8.0]  # m/s - typical cyclist speed range
+    # ==========================================================================
+    vehicle_min_length: 3.5         # meters — bbox length to classify as vehicle
+    pedestrian_max_length: 1.0      # meters — bbox length upper bound for pedestrian
+    cyclist_max_length: 3.5         # meters — bbox length upper bound for cyclist
+    pedestrian_max_height: 2.0      # meters — bbox height for pedestrian
 
-    # Visualization
-    enable_visualization: false  # whether to publish visualization markers
+    # ==========================================================================
+    # Default velocities (when no speed history is available)
+    # ==========================================================================
+    vehicle_default_velocity: 5.0     # m/s (~18 km/h)
+    pedestrian_default_velocity: 1.4  # m/s (~5 km/h)
+    cyclist_default_velocity: 5.0     # m/s (~18 km/h)
+
+    # ==========================================================================
+    # Lanelet matching
+    # ==========================================================================
+    lanelet_match_max_distance: 10.0    # meters — skip centerline points farther
+    heading_penalty_weight: 3.0         # weight on heading_diff in matching score
+    heading_rejection_threshold: 1.047  # radians (~60°, π/3) — reject wrong-way
+
+    # ==========================================================================
+    # Curvature-aware scoring adjustments
+    # ==========================================================================
+    curvature_heading_tolerance_scale: 5.0   # multiplier: curvature → heading slack
+    curvature_heading_tolerance_max: 0.3     # radians — cap on heading tolerance
+    curvature_lateral_tolerance_denom: 8.0   # denominator in v²·κ/denom formula
+    curvature_lateral_tolerance_max: 1.0     # meters — cap on lateral tolerance
+    curve_offset_discount: 0.3               # discount factor for expected curve offset
+
+    # ==========================================================================
+    # Geometric scoring (Gaussian model)
+    # ==========================================================================
+    heading_score_denominator: 0.2      # denominator in heading Gaussian
+    lateral_score_denominator: 4.0      # denominator in lateral Gaussian
+
+    # ==========================================================================
+    # Lane-follow hypothesis
+    # ==========================================================================
+    lane_follow_prior: 2.5              # base prior for continuing in lane
+    required_distance_buffer: 10.0      # meters — extra path beyond v·horizon
+
+    # ==========================================================================
+    # Smoothness and inertia (shared across maneuvers)
+    # ==========================================================================
+    smoothness_penalty_exponent: 2.0    # exponent in exp(-smoothness * X)
+    smoothness_base_weight: 0.5         # floor weight: (base + base * factor)
+    maneuver_inertia_boost: 1.3         # multiplier when repeating previous intent
+
+    # ==========================================================================
+    # Turn detection (intersection successor scoring)
+    # ==========================================================================
+    heading_change_threshold: 0.3       # radians — above = turn, below = straight
+    turn_maneuver_prior: 0.5            # base prior for turn hypotheses
+    continue_maneuver_prior: 1.5        # base prior for straight-through at intersection
+
+    # ==========================================================================
+    # Lane-change hypothesis (lanelet-based)
+    # ==========================================================================
+    lane_change_base_prior: 0.15           # base prior (lane changes are rare)
+    lateral_velocity_threshold: 0.3        # m/s — above = active lateral motion
+    lane_change_active_prior: 0.6          # prior when active lateral motion detected
+    intersection_suppression_factor: 0.1   # multiply prior in intersections
+    curvature_threshold: 0.005             # 1/m — ~200 m radius or tighter
+    curvature_suppression_multiplier: 50.0 # scales curvature into suppression
+    curvature_suppression_minimum: 0.1     # floor for curvature suppression
+    position_evidence_base: 0.2            # base weight in position-evidence blend
+    position_evidence_scale: 1.8           # scale for lane_change_position_evidence
+    lane_change_offset_threshold: 0.3      # offset to start position evidence
+    lane_change_offset_scale: 1.2          # scale in (offset - thresh) / scale
+    lateral_offset_threshold: 0.25         # meters — offset for directional boost/suppress
+    lateral_offset_boost: 1.25             # multiplier when offset favors this direction
+    lateral_offset_suppress: 0.6           # multiplier when offset opposes this direction
+    heading_weight_for_lane_change: 0.4    # reduce heading influence for LC scoring
+    lane_change_completion_boost: 1.5      # inertia boost when continuing same LC
+    lane_change_direction_switch_suppress: 0.1  # suppress contradictory LC direction
+    lane_change_blend_count: 5             # interpolation points in LC path transition
+
+    # ==========================================================================
+    # Geometric fallback (no lanelet data)
+    # ==========================================================================
+    geometric_straight_probability: 0.6     # fallback prior for straight intent without map context
+    geometric_turn_probability: 0.1         # fallback prior for turn intent without map context
+    geometric_lane_change_probability: 0.1  # fallback prior for lane-change intent without map context
+    geometric_turn_radius: 10.0             # meters
+    geometric_turn_angle_step: 0.1          # radians — arc sampling resolution
+    geometric_lane_width: 3.5               # meters
+    geometric_lane_change_distance: 30.0    # meters — longitudinal LC distance
+    geometric_path_sampling_interval: 1.0   # meters — straight-path point spacing
+
+    # ==========================================================================
+    # Intent classifier
+    # ==========================================================================
+
+    # Feature defaults
+    default_velocity: 5.0                     # m/s — fallback when unknown
+    default_distance_to_intersection: 50.0    # meters
+    default_time_in_lane: 2.0                 # seconds
+
+    # Intent probability model
+    straight_base_probability: 0.6      # baseline probability assigned to straight intent
+    turn_signal_discount: 0.5           # multiplier reducing straight probability when turn signal is on
+    turn_signal_presence_weight: 0.8    # confidence weight when turn-signal evidence is present
+    turn_signal_absence_weight: 0.2     # confidence weight when turn-signal evidence is absent
+    intersection_normalization: 50.0    # distance scale for how strongly nearby intersections affect intent
+    stop_velocity_threshold: 1.0        # m/s — below = likely stopped
+    stop_high_probability: 0.7          # stop-intent probability when speed is below threshold
+    stop_low_probability: 0.1           # stop-intent probability when speed is above threshold
+    default_fallback_probability: 0.1   # default probability for intents when evidence is insufficient

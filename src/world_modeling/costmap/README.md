@@ -28,8 +28,8 @@ The costmap node builds a `nav_msgs/OccupancyGrid` centred on the vehicle at a c
 |-----------|------|---------|-------------|
 | `bbox_inflation_m` | double | 0.5 | Inflate bounding boxes by this amount |
 | `bbox_cost_decay` | double | 1.0 | Cost multiplier for inflated region |
-| `prediction_inflation_m` | double | 0.3 | Radius around predicted waypoints |
-| `prediction_cost_decay` | double | 0.8 | Per-step cost decay along predictions |
+
+**Note:** Prediction costs use distance-based decay from the ego vehicle. Close predictions have costs nearly equal to the full vehicle (100), and low-probability predictions decay faster with distance.
 
 ### PointCloudLayer (`layers.<name>.`)
 

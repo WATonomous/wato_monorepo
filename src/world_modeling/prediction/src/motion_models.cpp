@@ -29,9 +29,14 @@ namespace prediction
 // BicycleModel Implementation
 // ============================================================================
 
-BicycleModel::BicycleModel()
-: max_steering_angle_(M_PI / 4.0)  // 45 degrees
-, wheelbase_(2.5)  // Default wheelbase
+BicycleModel::BicycleModel(const BicycleModelConfig & config)
+: max_steering_angle_(config.max_steering_angle)
+, wheelbase_(config.wheelbase)
+, max_lateral_acceleration_(config.max_lateral_acceleration)
+, speed_limit_(config.speed_limit)
+, max_acceleration_(config.max_acceleration)
+, max_deceleration_(config.max_deceleration)
+, lookahead_distance_(config.lookahead_distance)
 {}
 
 KinematicState BicycleModel::propagate(const KinematicState & initial_state, double dt)
@@ -49,20 +54,16 @@ KinematicState BicycleModel::propagate(const KinematicState & initial_state, dou
 
   // Ensures deceleration before sharp corner
   double curvature = std::abs(std::tan(initial_state.delta) / wheelbase_);
-  const double max_lateral_a = 4.0;  // default, TBD
-  const double speed_limit = 15.0;
-  const double max_a = 2.0;  // max acceleration
-  const double max_d = 4.0;  // max deceleration
 
-  double max_safe_velocity = std::sqrt(max_lateral_a / std::max(curvature, 1e-6));
-  double target_v = std::min(max_safe_velocity, speed_limit);
+  double max_safe_velocity = std::sqrt(max_lateral_acceleration_ / std::max(curvature, 1e-6));
+  double target_v = std::min(max_safe_velocity, speed_limit_);
 
   if (target_v > initial_state.v) {  // accelerate towards target
-    next_state.a = max_a;
-    next_state.v = initial_state.v + max_a * dt;
+    next_state.a = max_acceleration_;
+    next_state.v = initial_state.v + max_acceleration_ * dt;
   } else if (target_v < initial_state.v) {  // decelerate towards target
-    next_state.a = -max_d;
-    next_state.v = initial_state.v - max_d * dt;
+    next_state.a = -max_deceleration_;
+    next_state.v = initial_state.v - max_deceleration_ * dt;
   } else {  // maintain velocity
     next_state.a = 0.0;
     next_state.v = initial_state.v;
@@ -97,7 +98,6 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
 
   KinematicState current_state = initial_state;
   double t = dt;
-  const double lookahead_distance = 3.0;
 
   while (t <= horizon) {
     // compute heading with pure pursuit logic
@@ -125,7 +125,7 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
       double segment_distance = std::sqrt(dx * dx + dy * dy);
       accumulated_distance += segment_distance;
 
-      if (accumulated_distance >= lookahead_distance) {
+      if (accumulated_distance >= lookahead_distance_) {
         lookahead_idx = i + 1;
         break;
       }
@@ -182,9 +182,9 @@ std::vector<geometry_msgs::msg::PoseStamped> BicycleModel::generateTrajectory(
 // ConstantVelocityModel Implementation
 // ============================================================================
 
-ConstantVelocityModel::ConstantVelocityModel()
-: position_noise_std_(0.1)
-, heading_noise_std_(0.05)
+ConstantVelocityModel::ConstantVelocityModel(const ConstantVelocityModelConfig & config)
+: position_noise_std_(config.position_noise_std)
+, heading_noise_std_(config.heading_noise_std)
 {}
 
 KinematicState ConstantVelocityModel::propagate(const KinematicState & initial_state, double dt)

@@ -153,6 +153,9 @@ LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
 PYGAME_HUD_PORT=${PYGAME_HUD_PORT:-$((BASE_PORT+7))}
 CARLA_PORT=${CARLA_PORT:-$((BASE_PORT+8))}
 
+################################  Claude Code  #######################################
+CLAUDE_CODE=${CLAUDE_CODE:-"true"}
+
 ################################  Simulation  ########################################
 CARLA_RENDER_MODE=${CARLA_RENDER_MODE:-"no_gpu"}
 # Enable pygame HUD when running without GPU (provides web-based visualization fallback)
@@ -196,6 +199,9 @@ append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
 append "LOG_VIEWER__PORT" "$LOG_VIEWER__PORT"
 append "PYGAME_HUD_PORT" "$PYGAME_HUD_PORT"
 append "CARLA_PORT" "$CARLA_PORT"
+
+# Claude Code
+append "CLAUDE_CODE" "$CLAUDE_CODE"
 
 # Simulation
 append "CARLA_RENDER_MODE" "$CARLA_RENDER_MODE"

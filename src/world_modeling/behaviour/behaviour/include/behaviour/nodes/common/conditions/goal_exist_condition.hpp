@@ -44,7 +44,11 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GoalExist]: Missing " << port_name << " input" << std::endl;
+      static bool logged = false;
+      if (!logged) {
+        std::cout << "[GoalExist]: Missing " << port_name << " input" << std::endl;
+        logged = true;
+      }
     };
 
     auto gp = ports::tryGetPtr<geometry_msgs::msg::PointStamped>(*this, "goal_point");

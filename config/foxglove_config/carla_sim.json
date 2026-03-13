@@ -228,7 +228,7 @@
           "visible": false
         },
         "/world_modeling/dynamic_objects_markers": {
-          "visible": true
+          "visible": false
         },
         "/perception/ground_cloud": {
           "visible": true,
@@ -244,10 +244,6 @@
           "colorMap": "turbo",
           "flatColor": "#ed80926e"
         },
-        "/world_modeling/costmap": {
-          "visible": true,
-          "colorMode": "costmap"
-        },
         "/world_modeling/costmap_footprint_markers": {
           "visible": true
         },
@@ -259,6 +255,11 @@
         },
         "/world_modeling/behaviour_markers": {
           "visible": true
+        },
+        "/world_modeling/costmap": {
+          "visible": true,
+          "colorMode": "costmap",
+          "drawBehind": true
         }
       },
       "layers": {

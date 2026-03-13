@@ -129,7 +129,6 @@
     # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.2
     layers.objects.bbox_cost_decay: 0.3
-    layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
     layers.objects.max_centroid_height_m: 5.0
 
@@ -209,12 +208,13 @@
 # World Object Marker Nodes
 # =============================================================================
 
-# Pre-enrichment (subscribes to world_object_seeds from simple_prediction)
+# Pre-enrichment (subscribes to world_object_seeds from prediction)
 /**/world_objects_markers_seed_node:
   ros__parameters:
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.25
@@ -245,6 +245,7 @@
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.25
