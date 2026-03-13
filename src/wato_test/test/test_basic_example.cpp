@@ -109,15 +109,9 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Using TestExecutorFixture fro
     // Create client
     auto client = test_node->create_client<std_srvs::srv::SetBool>("test_service");
 
-    // Wait for service to be available using thread-safe polling (avoids concurrent rcl_wait() with executor)
-    {
-      auto start = std::chrono::steady_clock::now();
-      while (!client->service_is_ready()) {
-        if (std::chrono::steady_clock::now() - start > 500ms) {
-          FAIL("Service not available within timeout");
-        }
-        std::this_thread::sleep_for(1ms);
-      }
+    // Wait for service to be available with shorter timeout
+    if (!client->wait_for_service(500ms)) {
+      FAIL("Service not available within timeout");
     }
 
     // Call the service
