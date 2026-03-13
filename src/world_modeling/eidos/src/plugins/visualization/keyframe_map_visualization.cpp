@@ -72,17 +72,19 @@ void KeyframeMapVisualization::onOptimizationComplete(
   }
 }
 
-void KeyframeMapVisualization::publishAccumulate(bool /*loop_closure_detected*/) {
+void KeyframeMapVisualization::publishAccumulate(bool loop_closure_detected) {
   const auto& map_manager = core_->getMapManager();
   auto key_poses_6d = map_manager.getKeyPoses6D();
   auto key_list = map_manager.getKeyList();
 
-  // Full rebuild every publish — poses may have shifted from GPS or loop closures
-  accumulated_cloud_->clear();
-  appended_keys_.clear();
-  skip_counter_ = 0;
+  // Full rebuild only on pose corrections (loop closure or GPS)
+  if (loop_closure_detected) {
+    accumulated_cloud_->clear();
+    appended_keys_.clear();
+    skip_counter_ = 0;
+  }
 
-  // Append keyframes, respecting skip_factor
+  // Append only new keyframes (incremental in normal mode)
   for (auto gtsam_key : key_list) {
     if (appended_keys_.count(gtsam_key)) continue;
     skip_counter_ = (skip_counter_ + 1) % skip_factor_;

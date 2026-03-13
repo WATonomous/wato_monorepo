@@ -190,6 +190,7 @@ eidos_node:
       topic: "slam/visualization/gps"
       gps_from: "gps_factor"
       marker_scale: 1.0
+      publish_rate: 1.0
 
     # ==========================================================================
     # Loop Closure Visualization
@@ -199,6 +200,7 @@ eidos_node:
       topic: "slam/visualization/loop_closures"
       loop_closure_from: "euclidean_distance_loop_closure_factor"
       line_width: 0.1
+      publish_rate: 1.0
 
     # ==========================================================================
     # Keyframe Pose Visualization
@@ -208,6 +210,7 @@ eidos_node:
       topic: "slam/visualization/poses"
       axis_length: 0.5
       axis_width: 0.05
+      publish_rate: 1.0
 
     # ==========================================================================
     # Factor Graph Visualization
@@ -217,6 +220,9 @@ eidos_node:
       topic: "slam/visualization/factor_graph"
       state_scale: 0.5
       line_width: 0.05
+      publish_rate: 1.0
+      mode: "full"              # "full" or "windowed"
+      window_radius: 50.0       # meters, only used in windowed mode
 
     # ---- State 0 prior noise ----
     prior:

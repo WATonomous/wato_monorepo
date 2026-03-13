@@ -1,7 +1,7 @@
 #include "eidos/plugins/visualization/factor_graph_visualization.hpp"
 
 #include <cmath>
-#include <map>
+#include <unordered_set>
 
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam/inference/Symbol.h>
@@ -20,53 +20,33 @@ void FactorGraphVisualization::onInitialize() {
   node_->declare_parameter(prefix + ".topic", "slam/visualization/factor_graph");
   node_->declare_parameter(prefix + ".state_scale", 0.5);
   node_->declare_parameter(prefix + ".line_width", 0.05);
+  node_->declare_parameter(prefix + ".publish_rate", 1.0);
+  node_->declare_parameter(prefix + ".mode", "full");
+  node_->declare_parameter(prefix + ".window_radius", 50.0);
 
   std::string topic;
   node_->get_parameter(prefix + ".topic", topic);
   node_->get_parameter(prefix + ".state_scale", state_scale_);
   node_->get_parameter(prefix + ".line_width", line_width_);
+  node_->get_parameter(prefix + ".publish_rate", publish_rate_);
+  node_->get_parameter(prefix + ".mode", mode_);
+  node_->get_parameter(prefix + ".window_radius", window_radius_);
   node_->get_parameter("frames.map", map_frame_);
 
   pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(topic, 1);
 
-  RCLCPP_INFO(node_->get_logger(), "[%s] initialized", name_.c_str());
+  RCLCPP_INFO(node_->get_logger(), "[%s] initialized (mode=%s)", name_.c_str(), mode_.c_str());
 }
 
 void FactorGraphVisualization::activate() {
   active_ = true;
   pub_->on_activate();
+  last_publish_time_ = node_->now();
 }
 
 void FactorGraphVisualization::deactivate() {
   active_ = false;
   pub_->on_deactivate();
-}
-
-// Helper to get color for a state based on its owner plugin name
-static std_msgs::msg::ColorRGBA stateColor(const std::string& owner) {
-  std_msgs::msg::ColorRGBA c;
-  c.a = 0.9f;
-  if (owner.empty()) {
-    // Prior/init state — white
-    c.r = 1.0f; c.g = 1.0f; c.b = 1.0f;
-  } else if (owner.find("gps") != std::string::npos) {
-    // GPS — yellow
-    c.r = 1.0f; c.g = 1.0f; c.b = 0.0f;
-  } else if (owner.find("liso") != std::string::npos) {
-    // LISO — cyan
-    c.r = 0.0f; c.g = 1.0f; c.b = 1.0f;
-  } else if (owner.find("loop") != std::string::npos) {
-    // Loop closure — orange
-    c.r = 1.0f; c.g = 0.5f; c.b = 0.0f;
-  } else {
-    // Hash-based color for unknown plugins
-    std::hash<std::string> hasher;
-    size_t h = hasher(owner);
-    c.r = 0.3f + 0.7f * ((h & 0xFF) / 255.0f);
-    c.g = 0.3f + 0.7f * (((h >> 8) & 0xFF) / 255.0f);
-    c.b = 0.3f + 0.7f * (((h >> 16) & 0xFF) / 255.0f);
-  }
-  return c;
 }
 
 // Helper to get a label prefix for a state based on its owner plugin
@@ -91,7 +71,25 @@ void FactorGraphVisualization::onOptimizationComplete(
   if (!active_) return;
   if (pub_->get_subscription_count() == 0) return;
 
+  // Rate limit
+  auto now = node_->now();
+  if (publish_rate_ > 0.0 &&
+      (now - last_publish_time_).seconds() < 1.0 / publish_rate_) {
+    return;
+  }
+  last_publish_time_ = now;
+
   const auto& graph = core_->getAccumulatedGraph();
+
+  // Windowed mode: determine spatial filter
+  bool windowed = (mode_ == "windowed");
+  Eigen::Vector3d window_center;
+  double window_r2 = 0.0;
+  if (windowed) {
+    gtsam::Pose3 current = core_->getCurrentPose();
+    window_center = current.translation();
+    window_r2 = window_radius_ * window_radius_;
+  }
 
   visualization_msgs::msg::MarkerArray marker_array;
 
@@ -103,8 +101,27 @@ void FactorGraphVisualization::onOptimizationComplete(
   int marker_id = 0;
   auto stamp = node_->now();
 
-  // ---- States: collect positions, color by owner plugin ----
+  // ---- Batched state axes: 3 LINE_LIST markers (one per axis color) ----
+  visualization_msgs::msg::Marker x_axes, y_axes, z_axes;
+  for (auto* ax : {&x_axes, &y_axes, &z_axes}) {
+    ax->header.frame_id = map_frame_;
+    ax->header.stamp = stamp;
+    ax->ns = "fg_state_axes";
+    ax->type = visualization_msgs::msg::Marker::LINE_LIST;
+    ax->action = visualization_msgs::msg::Marker::ADD;
+    ax->pose.orientation.w = 1.0;
+    ax->scale.x = state_scale_ * 0.1;
+  }
+  x_axes.id = marker_id++;
+  y_axes.id = marker_id++;
+  z_axes.id = marker_id++;
+  x_axes.color.r = 1.0f; x_axes.color.a = 1.0f;
+  y_axes.color.g = 1.0f; y_axes.color.a = 1.0f;
+  z_axes.color.b = 1.0f; z_axes.color.a = 1.0f;
+
+  // ---- Collect state positions, build batched axes + labels ----
   std::unordered_map<gtsam::Key, geometry_msgs::msg::Point> key_positions;
+  std::unordered_set<gtsam::Key> visible_keys;
   const auto& map_manager = core_->getMapManager();
 
   for (const auto& kv : optimized_values) {
@@ -117,6 +134,12 @@ void FactorGraphVisualization::onOptimizationComplete(
       continue;
     }
 
+    // Windowed mode: skip states outside radius
+    if (windowed) {
+      Eigen::Vector3d diff = pose.translation() - window_center;
+      if (diff.squaredNorm() > window_r2) continue;
+    }
+
     gtsam::Symbol sym(key);
     uint64_t idx = sym.index();
 
@@ -125,79 +148,37 @@ void FactorGraphVisualization::onOptimizationComplete(
     pos.y = pose.translation().y();
     pos.z = pose.translation().z();
     key_positions[key] = pos;
+    visible_keys.insert(key);
 
-    std::string owner = map_manager.getOwnerPlugin(key);
-
-    // Coordinate frame axes (RGB = XYZ)
     Eigen::Matrix3d rot = pose.rotation().matrix();
     double axis_len = state_scale_;
-    double axis_width = state_scale_ * 0.1;
 
-    // X axis (red)
-    {
-      visualization_msgs::msg::Marker arrow;
-      arrow.header.frame_id = map_frame_;
-      arrow.header.stamp = stamp;
-      arrow.ns = "fg_states";
-      arrow.id = marker_id++;
-      arrow.type = visualization_msgs::msg::Marker::ARROW;
-      arrow.action = visualization_msgs::msg::Marker::ADD;
-      geometry_msgs::msg::Point end;
-      end.x = pos.x + axis_len * rot(0, 0);
-      end.y = pos.y + axis_len * rot(1, 0);
-      end.z = pos.z + axis_len * rot(2, 0);
-      arrow.points.push_back(pos);
-      arrow.points.push_back(end);
-      arrow.scale.x = axis_width;
-      arrow.scale.y = axis_width * 2.0;
-      arrow.scale.z = 0.0;
-      arrow.color.r = 1.0f; arrow.color.g = 0.0f; arrow.color.b = 0.0f; arrow.color.a = 1.0f;
-      marker_array.markers.push_back(arrow);
-    }
-    // Y axis (green)
-    {
-      visualization_msgs::msg::Marker arrow;
-      arrow.header.frame_id = map_frame_;
-      arrow.header.stamp = stamp;
-      arrow.ns = "fg_states";
-      arrow.id = marker_id++;
-      arrow.type = visualization_msgs::msg::Marker::ARROW;
-      arrow.action = visualization_msgs::msg::Marker::ADD;
-      geometry_msgs::msg::Point end;
-      end.x = pos.x + axis_len * rot(0, 1);
-      end.y = pos.y + axis_len * rot(1, 1);
-      end.z = pos.z + axis_len * rot(2, 1);
-      arrow.points.push_back(pos);
-      arrow.points.push_back(end);
-      arrow.scale.x = axis_width;
-      arrow.scale.y = axis_width * 2.0;
-      arrow.scale.z = 0.0;
-      arrow.color.r = 0.0f; arrow.color.g = 1.0f; arrow.color.b = 0.0f; arrow.color.a = 1.0f;
-      marker_array.markers.push_back(arrow);
-    }
-    // Z axis (blue)
-    {
-      visualization_msgs::msg::Marker arrow;
-      arrow.header.frame_id = map_frame_;
-      arrow.header.stamp = stamp;
-      arrow.ns = "fg_states";
-      arrow.id = marker_id++;
-      arrow.type = visualization_msgs::msg::Marker::ARROW;
-      arrow.action = visualization_msgs::msg::Marker::ADD;
-      geometry_msgs::msg::Point end;
-      end.x = pos.x + axis_len * rot(0, 2);
-      end.y = pos.y + axis_len * rot(1, 2);
-      end.z = pos.z + axis_len * rot(2, 2);
-      arrow.points.push_back(pos);
-      arrow.points.push_back(end);
-      arrow.scale.x = axis_width;
-      arrow.scale.y = axis_width * 2.0;
-      arrow.scale.z = 0.0;
-      arrow.color.r = 0.0f; arrow.color.g = 0.0f; arrow.color.b = 1.0f; arrow.color.a = 1.0f;
-      marker_array.markers.push_back(arrow);
-    }
+    // Add axis line segments to batched markers
+    geometry_msgs::msg::Point end;
 
-    // Text label
+    // X axis
+    end.x = pos.x + axis_len * rot(0, 0);
+    end.y = pos.y + axis_len * rot(1, 0);
+    end.z = pos.z + axis_len * rot(2, 0);
+    x_axes.points.push_back(pos);
+    x_axes.points.push_back(end);
+
+    // Y axis
+    end.x = pos.x + axis_len * rot(0, 1);
+    end.y = pos.y + axis_len * rot(1, 1);
+    end.z = pos.z + axis_len * rot(2, 1);
+    y_axes.points.push_back(pos);
+    y_axes.points.push_back(end);
+
+    // Z axis
+    end.x = pos.x + axis_len * rot(0, 2);
+    end.y = pos.y + axis_len * rot(1, 2);
+    end.z = pos.z + axis_len * rot(2, 2);
+    z_axes.points.push_back(pos);
+    z_axes.points.push_back(end);
+
+    // Text label (individual per state)
+    std::string owner = map_manager.getOwnerPlugin(key);
     visualization_msgs::msg::Marker text;
     text.header.frame_id = map_frame_;
     text.header.stamp = stamp;
@@ -214,274 +195,137 @@ void FactorGraphVisualization::onOptimizationComplete(
     marker_array.markers.push_back(text);
   }
 
-  // ---- Factors: classified, labeled, curved when overlapping ----
+  if (!x_axes.points.empty()) marker_array.markers.push_back(x_axes);
+  if (!y_axes.points.empty()) marker_array.markers.push_back(y_axes);
+  if (!z_axes.points.empty()) marker_array.markers.push_back(z_axes);
 
-  // First pass: collect visualizable factors with their type info
-  struct FactorVis {
-    std::string label;
-    std_msgs::msg::ColorRGBA color;
-    std::vector<geometry_msgs::msg::Point> pts;  // positioned keys
-    std::vector<gtsam::Key> keys;                // corresponding gtsam keys
-    bool unary;
-    std::vector<geometry_msgs::msg::Point> gps_measurement;  // GPS measurement position (if GPS factor)
+  // ---- Batched factor edges (one LINE_LIST per factor type) ----
+  auto make_line_list = [&](const std::string& ns, float r, float g, float b, float a) {
+    visualization_msgs::msg::Marker m;
+    m.header.frame_id = map_frame_;
+    m.header.stamp = stamp;
+    m.ns = ns;
+    m.id = marker_id++;
+    m.type = visualization_msgs::msg::Marker::LINE_LIST;
+    m.action = visualization_msgs::msg::Marker::ADD;
+    m.pose.orientation.w = 1.0;
+    m.scale.x = line_width_;
+    m.color.r = r; m.color.g = g; m.color.b = b; m.color.a = a;
+    return m;
   };
-  std::vector<FactorVis> factor_list;
 
-  // Track how many factors share a key-pair for curve offset
-  // Key: sorted pair of gtsam keys, Value: count so far
-  std::map<std::pair<gtsam::Key, gtsam::Key>, int> edge_counts;
+  visualization_msgs::msg::Marker imu_lines = make_line_list("fg_imu", 0.0f, 1.0f, 1.0f, 0.5f);
+  visualization_msgs::msg::Marker between_lines = make_line_list("fg_between", 1.0f, 0.0f, 1.0f, 0.5f);
+  visualization_msgs::msg::Marker gps_lines = make_line_list("fg_gps_lines", 1.0f, 1.0f, 0.0f, 0.5f);
+  visualization_msgs::msg::Marker unknown_lines = make_line_list("fg_other", 0.5f, 0.5f, 0.5f, 0.5f);
 
+  // Batched SPHERE_LIST for GPS measurement spheres
+  visualization_msgs::msg::Marker gps_spheres;
+  gps_spheres.header.frame_id = map_frame_;
+  gps_spheres.header.stamp = stamp;
+  gps_spheres.ns = "fg_gps_spheres";
+  gps_spheres.id = marker_id++;
+  gps_spheres.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  gps_spheres.action = visualization_msgs::msg::Marker::ADD;
+  gps_spheres.pose.orientation.w = 1.0;
+  gps_spheres.scale.x = line_width_ * 4.0;
+  gps_spheres.scale.y = line_width_ * 4.0;
+  gps_spheres.scale.z = line_width_ * 4.0;
+  gps_spheres.color.r = 0.0f; gps_spheres.color.g = 1.0f;
+  gps_spheres.color.b = 0.0f; gps_spheres.color.a = 0.9f;
+
+  // Batched SPHERE_LIST for unary factor points (Prior etc)
+  visualization_msgs::msg::Marker unary_spheres;
+  unary_spheres.header.frame_id = map_frame_;
+  unary_spheres.header.stamp = stamp;
+  unary_spheres.ns = "fg_unary_spheres";
+  unary_spheres.id = marker_id++;
+  unary_spheres.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  unary_spheres.action = visualization_msgs::msg::Marker::ADD;
+  unary_spheres.pose.orientation.w = 1.0;
+  unary_spheres.scale.x = line_width_ * 4.0;
+  unary_spheres.scale.y = line_width_ * 4.0;
+  unary_spheres.scale.z = line_width_ * 4.0;
+  unary_spheres.color.r = 1.0f; unary_spheres.color.g = 0.0f;
+  unary_spheres.color.b = 0.0f; unary_spheres.color.a = 0.5f;
+
+  // Iterate all factors and batch into appropriate markers
   for (size_t i = 0; i < graph.size(); i++) {
     auto factor = graph.at(i);
     if (!factor) continue;
 
     auto keys = factor->keys();
 
-    std_msgs::msg::ColorRGBA fc;
-    fc.a = 0.5f;
-    std::string label;
+    std::string type;
     bool skip = false;
 
     if (boost::dynamic_pointer_cast<gtsam::ImuFactor>(factor)) {
-      fc.r = 0.0f; fc.g = 1.0f; fc.b = 1.0f;
-      label = "IMU";
+      type = "imu";
     } else if (boost::dynamic_pointer_cast<gtsam::GPSFactor>(factor)) {
-      fc.r = 1.0f; fc.g = 1.0f; fc.b = 0.0f;
-      label = "GPS";
+      type = "gps";
     } else if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::imuBias::ConstantBias>>(factor)) {
       skip = true;
     } else if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(factor)) {
-      fc.r = 1.0f; fc.g = 0.0f; fc.b = 1.0f;
-      label = "Between";
+      type = "between";
     } else if (boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3>>(factor)) {
-      fc.r = 1.0f; fc.g = 0.0f; fc.b = 0.0f;
-      label = "Prior";
+      type = "prior";
     } else if (boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Vector3>>(factor) ||
                boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::imuBias::ConstantBias>>(factor) ||
                boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Point3>>(factor)) {
       skip = true;
     } else {
-      fc.r = 0.5f; fc.g = 0.5f; fc.b = 0.5f;
-      label = "?";
+      type = "unknown";
     }
 
     if (skip) continue;
 
-    // Collect positioned keys
-    bool has_spatial = false;
+    // Collect positioned keys that are visible
     std::vector<geometry_msgs::msg::Point> pts;
-    std::vector<gtsam::Key> spatial_keys;
+    bool any_visible = false;
     for (auto k : keys) {
       auto it = key_positions.find(k);
       if (it != key_positions.end()) {
         pts.push_back(it->second);
-        spatial_keys.push_back(k);
-        has_spatial = true;
+        if (visible_keys.count(k)) any_visible = true;
       }
     }
-    if (!has_spatial) continue;
+    if (pts.empty()) continue;
 
-    // Extract GPS measurement position if this is a GPSFactor
-    std::vector<geometry_msgs::msg::Point> gps_meas;
-    auto gps_f = boost::dynamic_pointer_cast<gtsam::GPSFactor>(factor);
-    if (gps_f) {
-      auto m = gps_f->measurementIn();
-      geometry_msgs::msg::Point mp;
-      mp.x = m.x(); mp.y = m.y(); mp.z = m.z();
-      gps_meas.push_back(mp);
-    }
+    // In windowed mode, skip factors with no visible keys
+    if (windowed && !any_visible) continue;
 
-    factor_list.push_back({label, fc, pts, spatial_keys, pts.size() == 1, gps_meas});
-  }
-
-  // Second pass: render factors with curve offsets for overlapping edges
-  for (auto& fv : factor_list) {
-    if (fv.unary && fv.label == "GPS" && !fv.gps_measurement.empty()) {
-      // GPS factor: green sphere at measurement position + yellow line to state
-      auto& state_pos = fv.pts[0];
-      auto& meas_pos = fv.gps_measurement[0];
-
-      // Green sphere at GPS measurement position
-      visualization_msgs::msg::Marker gps_sphere;
-      gps_sphere.header.frame_id = map_frame_;
-      gps_sphere.header.stamp = stamp;
-      gps_sphere.ns = "fg_factors";
-      gps_sphere.id = marker_id++;
-      gps_sphere.type = visualization_msgs::msg::Marker::SPHERE;
-      gps_sphere.action = visualization_msgs::msg::Marker::ADD;
-      gps_sphere.pose.position = meas_pos;
-      gps_sphere.pose.orientation.w = 1.0;
-      gps_sphere.scale.x = line_width_ * 4.0;
-      gps_sphere.scale.y = line_width_ * 4.0;
-      gps_sphere.scale.z = line_width_ * 4.0;
-      gps_sphere.color.r = 0.0f; gps_sphere.color.g = 1.0f;
-      gps_sphere.color.b = 0.0f; gps_sphere.color.a = 0.9f;
-      marker_array.markers.push_back(gps_sphere);
-
-      // Yellow line from state to GPS measurement
-      visualization_msgs::msg::Marker line;
-      line.header.frame_id = map_frame_;
-      line.header.stamp = stamp;
-      line.ns = "fg_factors";
-      line.id = marker_id++;
-      line.type = visualization_msgs::msg::Marker::LINE_STRIP;
-      line.action = visualization_msgs::msg::Marker::ADD;
-      line.pose.orientation.w = 1.0;
-      line.scale.x = line_width_;
-      line.color = fv.color;
-      line.points.push_back(state_pos);
-      line.points.push_back(meas_pos);
-      marker_array.markers.push_back(line);
-
-      // "GPS" label above the measurement sphere
-      visualization_msgs::msg::Marker text;
-      text.header.frame_id = map_frame_;
-      text.header.stamp = stamp;
-      text.ns = "fg_factor_labels";
-      text.id = marker_id++;
-      text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
-      text.action = visualization_msgs::msg::Marker::ADD;
-      text.pose.position = meas_pos;
-      text.pose.position.z += state_scale_ * 0.8;
-      text.pose.orientation.w = 1.0;
-      text.scale.z = state_scale_ * 0.4;
-      text.color = fv.color;
-      text.color.a = 1.0f;
-      text.text = fv.label;
-      marker_array.markers.push_back(text);
-    } else if (fv.unary) {
-      // Other unary factor: small sphere + label at state position
-      visualization_msgs::msg::Marker point;
-      point.header.frame_id = map_frame_;
-      point.header.stamp = stamp;
-      point.ns = "fg_factors";
-      point.id = marker_id++;
-      point.type = visualization_msgs::msg::Marker::SPHERE;
-      point.action = visualization_msgs::msg::Marker::ADD;
-      point.pose.position = fv.pts[0];
-      point.pose.orientation.w = 1.0;
-      point.scale.x = line_width_ * 4.0;
-      point.scale.y = line_width_ * 4.0;
-      point.scale.z = line_width_ * 4.0;
-      point.color = fv.color;
-      marker_array.markers.push_back(point);
-
-      // Label
-      visualization_msgs::msg::Marker text;
-      text.header.frame_id = map_frame_;
-      text.header.stamp = stamp;
-      text.ns = "fg_factor_labels";
-      text.id = marker_id++;
-      text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
-      text.action = visualization_msgs::msg::Marker::ADD;
-      text.pose.position = fv.pts[0];
-      text.pose.position.z += state_scale_ * 0.8;
-      text.pose.orientation.w = 1.0;
-      text.scale.z = state_scale_ * 0.4;
-      text.color = fv.color;
-      text.color.a = 1.0f;
-      text.text = fv.label;
-      marker_array.markers.push_back(text);
-    } else if (fv.pts.size() >= 2) {
-      // Binary+ factor: curved line strip + label at midpoint
-      auto& p0 = fv.pts[0];
-      auto& p1 = fv.pts[1];
-
-      // Determine curve offset based on how many factors share this edge
-      gtsam::Key k0 = fv.keys.size() > 0 ? fv.keys[0] : 0;
-      gtsam::Key k1 = fv.keys.size() > 1 ? fv.keys[1] : 0;
-      auto edge_key = std::make_pair(std::min(k0, k1), std::max(k0, k1));
-      int edge_idx = edge_counts[edge_key]++;
-
-      // Direction vector and perpendicular offset for curving
-      double dx = p1.x - p0.x;
-      double dy = p1.y - p0.y;
-      double dz = p1.z - p0.z;
-      double len = std::sqrt(dx * dx + dy * dy + dz * dz);
-
-      // Perpendicular in the horizontal plane (rotate direction 90 deg)
-      double px = 0.0, py = 0.0, pz = 0.0;
-      if (len > 1e-6) {
-        px = -dy / len;
-        py = dx / len;
-        // pz stays 0 — curve in horizontal plane
+    if (type == "gps") {
+      // GPS factor: sphere at measurement position + line to state
+      auto gps_f = boost::dynamic_pointer_cast<gtsam::GPSFactor>(factor);
+      if (gps_f && !pts.empty()) {
+        auto m = gps_f->measurementIn();
+        geometry_msgs::msg::Point mp;
+        mp.x = m.x(); mp.y = m.y(); mp.z = m.z();
+        gps_spheres.points.push_back(mp);
+        gps_lines.points.push_back(pts[0]);
+        gps_lines.points.push_back(mp);
       }
-
-      // Offset magnitude: alternate sides, increasing distance
-      // edge_idx 0 → 0 offset (straight), 1 → +offset, 2 → -offset, etc.
-      double curve_amount = 0.0;
-      if (edge_idx > 0) {
-        double sign = (edge_idx % 2 == 1) ? 1.0 : -1.0;
-        curve_amount = sign * ((edge_idx + 1) / 2) * len * 0.3;
-      }
-
-      // Long-range factors (spanning intermediate states): curve outward
-      // so they don't overlap states in between. Only curve the 2nd+ factor
-      // on an edge — the first factor is always drawn straight.
-      if (edge_idx > 0 && fv.keys.size() >= 2) {
-        gtsam::Symbol s0(fv.keys[0]), s1(fv.keys[1]);
-        // Only apply gap curve when both keys use the same symbol character
-        // (same plugin's states), otherwise it's a cross-plugin factor
-        if (s0.chr() == s1.chr()) {
-          int idx_gap = std::abs(static_cast<int>(s0.index()) -
-                                 static_cast<int>(s1.index()));
-          if (idx_gap > 1) {
-            double gap_curve = std::sqrt(static_cast<double>(idx_gap)) * len * 0.25;
-            double sign = (curve_amount >= 0.0) ? 1.0 : -1.0;
-            curve_amount += sign * gap_curve;
-          }
-        }
-      }
-
-      // Generate a curved line strip with a quadratic bezier (sampled)
-      const int num_segments = 8;
-      visualization_msgs::msg::Marker line;
-      line.header.frame_id = map_frame_;
-      line.header.stamp = stamp;
-      line.ns = "fg_factors";
-      line.id = marker_id++;
-      line.type = visualization_msgs::msg::Marker::LINE_STRIP;
-      line.action = visualization_msgs::msg::Marker::ADD;
-      line.pose.orientation.w = 1.0;
-      line.scale.x = line_width_;
-      line.color = fv.color;
-
-      // Midpoint with perpendicular offset (quadratic bezier control point)
-      double mx = (p0.x + p1.x) * 0.5 + px * curve_amount;
-      double my = (p0.y + p1.y) * 0.5 + py * curve_amount;
-      double mz = (p0.z + p1.z) * 0.5 + pz * curve_amount;
-
-      for (int s = 0; s <= num_segments; s++) {
-        double t = static_cast<double>(s) / num_segments;
-        double u = 1.0 - t;
-        // Quadratic bezier: B(t) = (1-t)^2 * P0 + 2(1-t)t * M + t^2 * P1
-        geometry_msgs::msg::Point pt;
-        pt.x = u * u * p0.x + 2.0 * u * t * mx + t * t * p1.x;
-        pt.y = u * u * p0.y + 2.0 * u * t * my + t * t * p1.y;
-        pt.z = u * u * p0.z + 2.0 * u * t * mz + t * t * p1.z;
-        line.points.push_back(pt);
-      }
-      marker_array.markers.push_back(line);
-
-      // Label at the curve midpoint (bezier at t=0.5)
-      visualization_msgs::msg::Marker text;
-      text.header.frame_id = map_frame_;
-      text.header.stamp = stamp;
-      text.ns = "fg_factor_labels";
-      text.id = marker_id++;
-      text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
-      text.action = visualization_msgs::msg::Marker::ADD;
-      text.pose.position.x = mx;
-      text.pose.position.y = my;
-      text.pose.position.z = mz + state_scale_ * 0.3;
-      text.pose.orientation.w = 1.0;
-      text.scale.z = state_scale_ * 0.35;
-      text.color = fv.color;
-      text.color.a = 1.0f;
-      text.text = fv.label;
-      marker_array.markers.push_back(text);
+    } else if (pts.size() == 1) {
+      // Unary factor (Prior etc): sphere at state position
+      unary_spheres.points.push_back(pts[0]);
+    } else if (pts.size() >= 2) {
+      // Binary factor: straight line (no Bezier curves)
+      visualization_msgs::msg::Marker* target;
+      if (type == "imu") target = &imu_lines;
+      else if (type == "between") target = &between_lines;
+      else target = &unknown_lines;
+      target->points.push_back(pts[0]);
+      target->points.push_back(pts[1]);
     }
   }
+
+  // Add non-empty batched factor markers
+  if (!imu_lines.points.empty()) marker_array.markers.push_back(imu_lines);
+  if (!between_lines.points.empty()) marker_array.markers.push_back(between_lines);
+  if (!gps_lines.points.empty()) marker_array.markers.push_back(gps_lines);
+  if (!unknown_lines.points.empty()) marker_array.markers.push_back(unknown_lines);
+  if (!gps_spheres.points.empty()) marker_array.markers.push_back(gps_spheres);
+  if (!unary_spheres.points.empty()) marker_array.markers.push_back(unary_spheres);
 
   pub_->publish(marker_array);
 }

@@ -15,11 +15,13 @@ void LoopClosureVisualization::onInitialize() {
   node_->declare_parameter(prefix + ".loop_closure_from",
                            "euclidean_distance_loop_closure_factor");
   node_->declare_parameter(prefix + ".line_width", 0.1);
+  node_->declare_parameter(prefix + ".publish_rate", 1.0);
 
   std::string topic;
   node_->get_parameter(prefix + ".topic", topic);
   node_->get_parameter(prefix + ".loop_closure_from", loop_closure_from_);
   node_->get_parameter(prefix + ".line_width", line_width_);
+  node_->get_parameter(prefix + ".publish_rate", publish_rate_);
 
   node_->get_parameter("frames.map", map_frame_);
 
@@ -31,6 +33,7 @@ void LoopClosureVisualization::onInitialize() {
 void LoopClosureVisualization::activate() {
   active_ = true;
   pub_->on_activate();
+  last_publish_time_ = node_->now();
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
@@ -44,6 +47,14 @@ void LoopClosureVisualization::onOptimizationComplete(
     const gtsam::Values& /*optimized_values*/, bool /*loop_closure_detected*/) {
   if (!active_) return;
   if (pub_->get_subscription_count() == 0) return;
+
+  // Rate limit
+  auto now = node_->now();
+  if (publish_rate_ > 0.0 &&
+      (now - last_publish_time_).seconds() < 1.0 / publish_rate_) {
+    return;
+  }
+  last_publish_time_ = now;
 
   const auto& map_manager = core_->getMapManager();
   auto key_poses_6d = map_manager.getKeyPoses6D();

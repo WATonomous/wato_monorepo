@@ -26,6 +26,10 @@ private:
   std::string map_frame_;
   double state_scale_;
   double line_width_;
+  double publish_rate_ = 1.0;
+  std::string mode_ = "full";       // "full" or "windowed"
+  double window_radius_ = 50.0;
+  rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 };
 
 }  // namespace eidos

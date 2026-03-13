@@ -26,6 +26,8 @@ private:
   std::string map_frame_;
   double axis_length_;
   double axis_width_;
+  double publish_rate_ = 1.0;
+  rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 };
 
 }  // namespace eidos

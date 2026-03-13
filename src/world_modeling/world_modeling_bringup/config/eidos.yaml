@@ -59,7 +59,7 @@ eidos_node:
 
       # -- Topics --
       imu_topic: "/novatel/oem7/imu/data"                                        # sensor_msgs/Imu input (9-DOF, gravity-compensated)
-      odom_topic: "motion_model/odometry/imu_incremental"                        # nav_msgs/Odometry output (IMU prediction)
+      odom_to W#ETWT   pic: "motion_model/odometry/imu_incremental"                        # nav_msgs/Odometry output (IMU prediction)
 
       # -- Frames --
       imu_frame: "imu_link"
@@ -207,6 +207,7 @@ eidos_node:
       topic: "slam/visualization/gps"
       gps_from: "gps_factor"
       marker_scale: 1.0
+      publish_rate: 1.0
 
     # ==========================================================================
     # Loop Closure Visualization
@@ -216,6 +217,7 @@ eidos_node:
       topic: "slam/visualization/loop_closures"
       loop_closure_from: "euclidean_distance_loop_closure_factor"
       line_width: 0.1
+      publish_rate: 1.0
 
     # ==========================================================================
     # Keyframe Pose Visualization
@@ -225,6 +227,7 @@ eidos_node:
       topic: "slam/visualization/poses"
       axis_length: 0.5
       axis_width: 0.05
+      publish_rate: 1.0
 
     # ==========================================================================
     # Factor Graph Visualization
@@ -234,6 +237,9 @@ eidos_node:
       topic: "slam/visualization/factor_graph"
       state_scale: 1.0
       line_width: 0.5
+      publish_rate: 1.0
+      mode: "full"              # "full" or "windowed"
+      window_radius: 50.0       # meters, only used in windowed mode
 
 # ==========================================================================
 # robot_localization dual-EKF
@@ -260,17 +266,10 @@ ekf_filter_node_global:
     world_frame: map
     publish_tf: true
 
-    # Eidos IMU preintegrated odometry — position + orientation (differential) + velocity
-    # Differential orientation: only rotation deltas, so SLAM sets the absolute heading
-    # and IMU fills in smooth changes between SLAM updates without double-counting
-    odom0: motion_model/odometry/imu_incremental
-    odom0_config: [true,true,true, true,true,true, true,true,true, false,false,false, false,false,false]
-    odom0_differential: true
-
     # Eidos graph-optimized pose (absolute, in map frame) — position + orientation
-    odom1: slam/odometry
-    odom1_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
+    odom0: slam/odometry
+    odom0_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
 
     # LISO LiDAR odometry (absolute, in map frame) — position + orientation
-    odom2: liso/odometry
-    odom2_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]
+    odom1: liso/odometry
+    odom1_config: [true,true,true, true,true,true, false,false,false, false,false,false, false,false,false]

@@ -17,11 +17,13 @@ void GpsVisualization::onInitialize() {
   node_->declare_parameter(prefix + ".topic", "slam/visualization/gps");
   node_->declare_parameter(prefix + ".gps_from", "gps_factor");
   node_->declare_parameter(prefix + ".marker_scale", 1.0);
+  node_->declare_parameter(prefix + ".publish_rate", 1.0);
 
   std::string topic;
   node_->get_parameter(prefix + ".topic", topic);
   node_->get_parameter(prefix + ".gps_from", gps_from_);
   node_->get_parameter(prefix + ".marker_scale", marker_scale_);
+  node_->get_parameter(prefix + ".publish_rate", publish_rate_);
 
   node_->get_parameter("frames.map", map_frame_);
 
@@ -33,6 +35,7 @@ void GpsVisualization::onInitialize() {
 void GpsVisualization::activate() {
   active_ = true;
   pub_->on_activate();
+  last_publish_time_ = node_->now();
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
@@ -47,6 +50,14 @@ void GpsVisualization::onOptimizationComplete(
   if (!active_) return;
   if (pub_->get_subscription_count() == 0) return;
 
+  // Rate limit
+  auto now = node_->now();
+  if (publish_rate_ > 0.0 &&
+      (now - last_publish_time_).seconds() < 1.0 / publish_rate_) {
+    return;
+  }
+  last_publish_time_ = now;
+
   const auto& map_manager = core_->getMapManager();
 
   auto key_poses_6d = map_manager.getKeyPoses6D();
@@ -59,8 +70,56 @@ void GpsVisualization::onOptimizationComplete(
   delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
   marker_array.markers.push_back(delete_marker);
 
-  int marker_id = 0;
   auto stamp = node_->now();
+
+  // Batched SPHERE_LIST for GPS positions
+  visualization_msgs::msg::Marker gps_spheres;
+  gps_spheres.header.frame_id = map_frame_;
+  gps_spheres.header.stamp = stamp;
+  gps_spheres.ns = "gps_positions";
+  gps_spheres.id = 0;
+  gps_spheres.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  gps_spheres.action = visualization_msgs::msg::Marker::ADD;
+  gps_spheres.pose.orientation.w = 1.0;
+  gps_spheres.scale.x = marker_scale_;
+  gps_spheres.scale.y = marker_scale_;
+  gps_spheres.scale.z = marker_scale_;
+  gps_spheres.color.r = 0.0f;
+  gps_spheres.color.g = 1.0f;
+  gps_spheres.color.b = 0.0f;
+  gps_spheres.color.a = 0.8f;
+
+  // Batched SPHERE_LIST for keyframe positions
+  visualization_msgs::msg::Marker kf_spheres;
+  kf_spheres.header.frame_id = map_frame_;
+  kf_spheres.header.stamp = stamp;
+  kf_spheres.ns = "keyframe_positions";
+  kf_spheres.id = 1;
+  kf_spheres.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  kf_spheres.action = visualization_msgs::msg::Marker::ADD;
+  kf_spheres.pose.orientation.w = 1.0;
+  kf_spheres.scale.x = marker_scale_;
+  kf_spheres.scale.y = marker_scale_;
+  kf_spheres.scale.z = marker_scale_;
+  kf_spheres.color.r = 0.0f;
+  kf_spheres.color.g = 0.0f;
+  kf_spheres.color.b = 1.0f;
+  kf_spheres.color.a = 0.8f;
+
+  // Batched LINE_LIST for connecting lines
+  visualization_msgs::msg::Marker lines;
+  lines.header.frame_id = map_frame_;
+  lines.header.stamp = stamp;
+  lines.ns = "gps_kf_lines";
+  lines.id = 2;
+  lines.type = visualization_msgs::msg::Marker::LINE_LIST;
+  lines.action = visualization_msgs::msg::Marker::ADD;
+  lines.pose.orientation.w = 1.0;
+  lines.scale.x = 0.05 * marker_scale_;
+  lines.color.r = 1.0f;
+  lines.color.g = 1.0f;
+  lines.color.b = 0.0f;
+  lines.color.a = 0.6f;
 
   for (auto gtsam_key : key_list) {
     // Read stored map-frame GPS position
@@ -79,63 +138,6 @@ void GpsVisualization::onOptimizationComplete(
       gps_z = kf_pose.z;
     }
 
-    // Green sphere at GPS position
-    visualization_msgs::msg::Marker gps_marker;
-    gps_marker.header.frame_id = map_frame_;
-    gps_marker.header.stamp = stamp;
-    gps_marker.ns = "gps_positions";
-    gps_marker.id = marker_id++;
-    gps_marker.type = visualization_msgs::msg::Marker::SPHERE;
-    gps_marker.action = visualization_msgs::msg::Marker::ADD;
-    gps_marker.pose.position.x = gps_pos.x();
-    gps_marker.pose.position.y = gps_pos.y();
-    gps_marker.pose.position.z = gps_z;
-    gps_marker.pose.orientation.w = 1.0;
-    gps_marker.scale.x = marker_scale_;
-    gps_marker.scale.y = marker_scale_;
-    gps_marker.scale.z = marker_scale_;
-    gps_marker.color.r = 0.0f;
-    gps_marker.color.g = 1.0f;
-    gps_marker.color.b = 0.0f;
-    gps_marker.color.a = 0.8f;
-    marker_array.markers.push_back(gps_marker);
-
-    // Blue sphere at optimized keyframe position
-    visualization_msgs::msg::Marker kf_marker;
-    kf_marker.header.frame_id = map_frame_;
-    kf_marker.header.stamp = stamp;
-    kf_marker.ns = "keyframe_positions";
-    kf_marker.id = marker_id++;
-    kf_marker.type = visualization_msgs::msg::Marker::SPHERE;
-    kf_marker.action = visualization_msgs::msg::Marker::ADD;
-    kf_marker.pose.position.x = kf_pose.x;
-    kf_marker.pose.position.y = kf_pose.y;
-    kf_marker.pose.position.z = kf_pose.z;
-    kf_marker.pose.orientation.w = 1.0;
-    kf_marker.scale.x = marker_scale_;
-    kf_marker.scale.y = marker_scale_;
-    kf_marker.scale.z = marker_scale_;
-    kf_marker.color.r = 0.0f;
-    kf_marker.color.g = 0.0f;
-    kf_marker.color.b = 1.0f;
-    kf_marker.color.a = 0.8f;
-    marker_array.markers.push_back(kf_marker);
-
-    // Line connecting GPS and keyframe positions
-    visualization_msgs::msg::Marker line_marker;
-    line_marker.header.frame_id = map_frame_;
-    line_marker.header.stamp = stamp;
-    line_marker.ns = "gps_kf_lines";
-    line_marker.id = marker_id++;
-    line_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
-    line_marker.action = visualization_msgs::msg::Marker::ADD;
-    line_marker.pose.orientation.w = 1.0;
-    line_marker.scale.x = 0.05 * marker_scale_;
-    line_marker.color.r = 1.0f;
-    line_marker.color.g = 1.0f;
-    line_marker.color.b = 0.0f;
-    line_marker.color.a = 0.6f;
-
     geometry_msgs::msg::Point p1, p2;
     p1.x = gps_pos.x();
     p1.y = gps_pos.y();
@@ -143,10 +145,16 @@ void GpsVisualization::onOptimizationComplete(
     p2.x = kf_pose.x;
     p2.y = kf_pose.y;
     p2.z = kf_pose.z;
-    line_marker.points.push_back(p1);
-    line_marker.points.push_back(p2);
-    marker_array.markers.push_back(line_marker);
+
+    gps_spheres.points.push_back(p1);
+    kf_spheres.points.push_back(p2);
+    lines.points.push_back(p1);
+    lines.points.push_back(p2);
   }
+
+  if (!gps_spheres.points.empty()) marker_array.markers.push_back(gps_spheres);
+  if (!kf_spheres.points.empty()) marker_array.markers.push_back(kf_spheres);
+  if (!lines.points.empty()) marker_array.markers.push_back(lines);
 
   pub_->publish(marker_array);
 }
