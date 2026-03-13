@@ -213,9 +213,6 @@ SlamCore::CallbackReturn SlamCore::on_activate(
       std::bind(&SlamCore::visLoop, this),
       vis_callback_group_);
 
-  // Broadcast identity map->odom immediately so the TF tree is valid before first optimization
-  broadcastMapToOdom();
-
   RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATED]\033[0m Eidos SLAM active");
   return CallbackReturn::SUCCESS;
 }
@@ -360,6 +357,9 @@ void SlamCore::slamLoop() {
     }
 
     publishStatus();
+    if (state_ == SlamState::TRACKING) {
+      broadcastMapToOdom();
+    }
   }
 
   // Hand off to vis timer — never block the SLAM loop
