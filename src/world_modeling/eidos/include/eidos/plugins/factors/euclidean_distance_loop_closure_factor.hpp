@@ -1,14 +1,16 @@
 #pragma once
 
 #include <atomic>
-#include <map>
-#include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <thread>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
+
+#include <small_gicp/points/point_cloud.hpp>
+#include <small_gicp/ann/kdtree.hpp>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
 #include "eidos/types.hpp"
@@ -19,7 +21,7 @@ namespace eidos {
  * @brief Euclidean distance-based loop closure factor plugin.
  *
  * Runs a background thread that searches for loop closure candidates
- * using KD-tree radius search and validates them using ICP alignment.
+ * using KD-tree radius search and validates them using small_gicp GICP.
  */
 class EuclideanDistanceLoopClosureFactor : public FactorPlugin {
 public:
@@ -36,15 +38,15 @@ public:
   bool hasData() const override;
 
 private:
-  // ---- Background thread ----
   void loopClosureThread();
   void performLoopClosure();
-  bool detectLoopClosureDistance(int* latest_id, int* closest_id);
-  void loopFindNearKeyframes(
-      pcl::PointCloud<PointType>::Ptr& near_keyframes,
-      int key, int search_num);
 
-  // ---- Queued factors ----
+  // Assemble a world-frame submap from keyframes near center_key.
+  // num_neighbors=0 returns just the single keyframe's cloud.
+  std::pair<small_gicp::PointCloud::Ptr,
+            std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>>>
+  assembleSubmap(gtsam::Key center_key, int num_neighbors);
+
   struct LoopConstraint {
     gtsam::Key from_key;
     gtsam::Key to_key;
@@ -55,19 +57,25 @@ private:
   std::vector<LoopConstraint> loop_queue_;
   mutable std::mutex loop_queue_mtx_;
 
-  // ---- Loop closure state ----
-  std::map<int, int> loop_index_container_;
+  // Source keys that have already been used in a loop closure
+  std::set<gtsam::Key> processed_source_keys_;
+
   std::thread loop_thread_;
   std::atomic<bool> running_{false};
   bool active_ = false;
 
-  // ---- Parameters (populated from ROS params in onInitialize) ----
-  float frequency_;
-  float search_radius_;
-  float search_time_diff_;
-  int search_num_;
-  float fitness_score_;
-  float mapping_surf_leaf_size_;
+  // Parameters
+  double frequency_ = 1.0;
+  double search_radius_ = 15.0;         // meters, radius to find loop candidates
+  double search_time_diff_ = 30.0;      // seconds, minimum temporal gap
+  int search_num_ = 25;                 // K-nearest neighbors for submap assembly
+  double min_inlier_ratio_ = 0.3;       // minimum inlier fraction to accept (0-1)
+  double submap_leaf_size_ = 0.4;        // voxel size for submap downsampling
+  double max_correspondence_distance_ = 2.0;
+  int max_iterations_ = 100;
+  int num_threads_ = 4;
+  int num_neighbors_ = 10;              // neighbors for normal/covariance estimation
+  double loop_closure_noise_ = 0.5;     // variance per DOF for the BetweenFactor
   std::string pointcloud_from_;
 };
 

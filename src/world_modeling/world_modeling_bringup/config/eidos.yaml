@@ -153,7 +153,7 @@ eidos_node:
 
       # -- Covariance diagonals [x, y, z, roll, pitch, yaw] --
       # Used for both BetweenFactor noise and published odometry
-      odom_pose_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-6, 1.0e-6, 1.0e-6]
+      odom_pose_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
     # ==========================================================================
     # Euclidean Distance Loop Closure Factor
@@ -164,7 +164,13 @@ eidos_node:
       search_radius: 15.0           # meters, radius to search for loop closure candidates
       search_time_diff: 30.0        # seconds, minimum time gap between current and candidate keyframe
       search_num: 25                # number of nearby keyframes to assemble into candidate submap
-      fitness_score: 0.3            # max ICP fitness score to accept a loop closure
+      min_inlier_ratio: 0.3         # minimum inlier fraction to accept a loop closure (0-1)
+      submap_leaf_size: 0.4         # meters, voxel downsampling for submap
+      max_correspondence_distance: 2.0  # meters, max point correspondence distance for GICP
+      max_iterations: 100           # maximum GICP iterations
+      num_threads: 4                # number of threads for small_gicp GICP
+      num_neighbors: 10             # neighbors for normal/covariance estimation
+      loop_closure_noise: 0.5       # variance per DOF for the BetweenFactor noise model
       pointcloud_from: "liso_factor"  # which factor plugin provides the keyframe point clouds
 
     # ==========================================================================
