@@ -17,6 +17,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <tf2/exceptions.h>
 
 #include <algorithm>
 #include <cmath>
@@ -28,7 +29,6 @@
 #include <utility>
 
 #include <rclcpp_components/register_node_macro.hpp>
-#include <tf2/exceptions.h>
 
 namespace lidar_aggregator
 {
@@ -195,14 +195,15 @@ bool LidarAggregatorNode::load_extrinsics_from_tf()
     t_center_nw_ = rigid_from_transform(tf_nw.transform);
     extrinsics_loaded_ = true;
     RCLCPP_INFO(
-      get_logger(), "Loaded extrinsics from TF: %s->%s and %s->%s",
-      ne_frame_.c_str(), center_frame_.c_str(),
-      nw_frame_.c_str(), center_frame_.c_str());
+      get_logger(),
+      "Loaded extrinsics from TF: %s->%s and %s->%s",
+      ne_frame_.c_str(),
+      center_frame_.c_str(),
+      nw_frame_.c_str(),
+      center_frame_.c_str());
     return true;
   } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 5000,
-      "Could not get lidar extrinsics from TF: %s", ex.what());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "Could not get lidar extrinsics from TF: %s", ex.what());
     return false;
   }
 }
