@@ -54,6 +54,10 @@ services:
       - ${DOCKER_SOCKET_PATH}:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - TOPIC_HEALTHCHECKER_URL=http://host.docker.internal:${TOPIC_HEALTHCHECKER__PORT:-8080}
 
   #################### INTERFACING SERVICE ####################
   interfacing_source:

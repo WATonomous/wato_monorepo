@@ -137,6 +137,16 @@ launch:
       param:
         - from: "$(var config_file)"
 
+  # Topic Healthchecker (monitors topic liveness and message rates)
+  - node:
+      pkg: topic_healthchecker
+      exec: topic_healthchecker_node
+      name: topic_healthchecker
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager

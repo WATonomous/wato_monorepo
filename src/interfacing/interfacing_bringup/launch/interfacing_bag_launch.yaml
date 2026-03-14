@@ -103,6 +103,16 @@ launch:
             - name: storage.uri
               value: "$(var bag_path)"
 
+  # Topic Healthchecker (monitors topic liveness and message rates)
+  - node:
+      pkg: topic_healthchecker
+      exec: topic_healthchecker_node
+      name: topic_healthchecker
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
+
   # OSCC Interfacing (steering torque from OSCC CAN bus, controls disabled)
   - node:
       pkg: "oscc_interfacing"
