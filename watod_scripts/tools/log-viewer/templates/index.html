@@ -467,7 +467,6 @@
         let currentContainer = null;
         let eventSource = null;
         let activeTab = 'logs';
-        let healthInterval = null;
 
         // ---- Tab switching ----
         function switchTab(tab) {
@@ -479,14 +478,6 @@
             });
             if (tab === 'health') {
                 loadTopicHealth();
-                if (!healthInterval) {
-                    healthInterval = setInterval(loadTopicHealth, 3000);
-                }
-            } else {
-                if (healthInterval) {
-                    clearInterval(healthInterval);
-                    healthInterval = null;
-                }
             }
         }
 
@@ -753,7 +744,18 @@
             const text = logContainer.innerText;
 
             try {
-                await navigator.clipboard.writeText(text);
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
                 showToast();
             } catch (error) {
                 console.error('Error copying logs:', error);
@@ -782,9 +784,11 @@
 
         // Initial load
         loadContainers();
+        loadTopicHealth();
 
-        // Auto-refresh container list every 5 seconds
+        // Auto-refresh
         setInterval(loadContainers, 5000);
+        setInterval(loadTopicHealth, 3000);
     </script>
 </body>
 </html>
