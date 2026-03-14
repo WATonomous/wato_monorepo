@@ -154,14 +154,15 @@ eidos_node:
       frequency: 1.0                # Hz, loop closure detection frequency
       search_radius: 15.0           # meters, radius to search for loop closure candidates
       search_time_diff: 30.0        # seconds, minimum time gap between current and candidate keyframe
-      search_num: 25                # number of nearby keyframes to assemble into candidate submap
+      search_num: 15                # max states per submap (BFS depth limit)
       min_inlier_ratio: 0.3         # minimum inlier fraction to accept a loop closure (0-1)
+      submap_radius: 25.0           # meters, BFS radius for submap assembly
       submap_leaf_size: 0.4         # meters, voxel downsampling for submap
       max_correspondence_distance: 2.0  # meters, max point correspondence distance for GICP
       max_iterations: 100           # maximum GICP iterations
       num_threads: 4                # number of threads for small_gicp GICP
       num_neighbors: 10             # neighbors for normal/covariance estimation
-      loop_closure_noise: 0.5       # variance per DOF for the BetweenFactor noise model
+      loop_closure_cov: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]  # [x,y,z,roll,pitch,yaw] BetweenFactor variance
       pointcloud_from: "liso_factor"  # which factor plugin provides the keyframe point clouds
 
     # ==========================================================================

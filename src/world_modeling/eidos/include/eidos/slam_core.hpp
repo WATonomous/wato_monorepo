@@ -53,6 +53,7 @@ public:
   gtsam::Pose3 getCurrentPose() const;
   uint64_t getCurrentStateIndex() const;
   const gtsam::NonlinearFactorGraph& getAccumulatedGraph() const;
+  const std::vector<std::string>& getAccumulatedFactorOwners() const;
   std::optional<gtsam::Pose3> getMotionModelPose() const;
 
   /**
@@ -191,6 +192,7 @@ private:
   // Accumulated factor graph for serialization
   gtsam::NonlinearFactorGraph accumulated_graph_;
   gtsam::Values accumulated_values_;
+  std::vector<std::string> accumulated_factor_owners_;  // parallel to accumulated_graph_
 
   // ---- Relocalization timing ----
   double relocalization_start_time_ = 0.0;

@@ -292,6 +292,7 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   loop_closure_detected_ = false;
   accumulated_graph_ = gtsam::NonlinearFactorGraph();
   accumulated_values_ = gtsam::Values();
+  accumulated_factor_owners_.clear();
 
   RCLCPP_INFO(get_logger(), "\033[36m[CLEANED_UP]\033[0m Eidos SLAM cleaned up");
   return CallbackReturn::SUCCESS;
@@ -559,6 +560,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   std::vector<NewState> new_states;
 
   gtsam::NonlinearFactorGraph new_factors;
+  std::vector<std::string> new_factor_owners;  // parallel to new_factors
   gtsam::Values new_values;
   loop_closure_detected_ = false;
 
@@ -577,6 +579,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
       // No new state — add factors directly (loop closure, bias priors, etc.)
       for (auto& f : result.factors) {
         new_factors.add(f);
+        new_factor_owners.push_back(factor_plugins_[i]->getName());
         // BetweenFactor<Pose3> without a new state = loop closure
         auto between =
             boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f);
@@ -618,6 +621,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     // Add factors from this plugin
     for (auto& f : ns.result.factors) {
       new_factors.add(f);
+      new_factor_owners.push_back(ns.owner);
     }
 
     // Add any additional values (bias keys, etc.)
@@ -632,6 +636,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
       auto latch = plugin->latchFactors(ns.key, ns.timestamp);
       for (auto& f : latch.factors) {
         new_factors.add(f);
+        new_factor_owners.push_back(plugin->getName());
       }
       for (const auto& kv : latch.values) {
         if (!new_values.exists(kv.key)) {
@@ -655,10 +660,13 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
           (gtsam::Vector(6) << prior_pose_cov_[3], prior_pose_cov_[4], prior_pose_cov_[5],
            prior_pose_cov_[0], prior_pose_cov_[1], prior_pose_cov_[2]).finished());
       new_factors.addPrior(ns.key, anchor_pose, prior_noise);
+      new_factor_owners.push_back("prior");
 
       if (motion_model_) {
+        size_t before = new_factors.size();
         motion_model_->onStateZero(ns.key, ns.timestamp, anchor_pose,
                                     new_factors, new_values);
+        new_factor_owners.resize(new_factors.size(), motion_model_->getName());
       }
     }
 
@@ -667,10 +675,12 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
     // own factors (e.g. LISO BetweenFactors). The motion model bridges
     // sensor A → sensor B transitions.
     if (has_last_state_ && motion_model_ && last_state_owner_ != ns.owner) {
+      size_t before = new_factors.size();
       motion_model_->generateMotionModel(
           last_state_key_, last_state_timestamp_,
           ns.key, ns.timestamp,
           new_factors, new_values);
+      new_factor_owners.resize(new_factors.size(), motion_model_->getName());
     }
 
     // Update last state tracking
@@ -687,6 +697,8 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
 
   // 6. Track accumulated graph for serialization
   accumulated_graph_.add(new_factors);
+  accumulated_factor_owners_.insert(accumulated_factor_owners_.end(),
+                                     new_factor_owners.begin(), new_factor_owners.end());
   map_manager_->addEdges(new_factors);
   for (const auto& ns : new_states) {
     if (!accumulated_values_.exists(ns.key)) {
@@ -1045,6 +1057,10 @@ uint64_t SlamCore::getCurrentStateIndex() const {
 
 const gtsam::NonlinearFactorGraph& SlamCore::getAccumulatedGraph() const {
   return accumulated_graph_;
+}
+
+const std::vector<std::string>& SlamCore::getAccumulatedFactorOwners() const {
+  return accumulated_factor_owners_;
 }
 
 std::optional<gtsam::Pose3> SlamCore::getMotionModelPose() const {

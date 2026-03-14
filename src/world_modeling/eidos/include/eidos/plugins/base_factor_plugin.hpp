@@ -69,6 +69,10 @@ public:
       tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(node_);
     }
 
+    // Visualization sphere scale for this plugin's states in the factor graph view
+    node_->declare_parameter(name_ + ".sphere_scale", 0.3);
+    node_->get_parameter(name_ + ".sphere_scale", sphere_scale_);
+
     onInitialize();
   }
 
@@ -154,6 +158,7 @@ public:
   }
 
   bool publishesTf() const { return publish_tf_; }
+  double getSphereScale() const { return sphere_scale_; }
 
   /**
    * @brief Returns the (frame_id, child_frame_id) pair this plugin broadcasts.
@@ -181,6 +186,7 @@ protected:
 
 private:
   bool publish_tf_ = false;
+  double sphere_scale_ = 0.3;
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 };
 

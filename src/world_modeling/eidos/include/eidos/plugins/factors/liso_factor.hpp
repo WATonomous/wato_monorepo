@@ -86,6 +86,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;              // map frame (absolute)
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_incremental_pub_;  // odom frame (incremental)
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr submap_pub_;     // debug: current submap
 
   // Last successful match tracking (for initial guess computation)
   gtsam::Pose3 last_matched_pose_;       // GICP result at last successful match

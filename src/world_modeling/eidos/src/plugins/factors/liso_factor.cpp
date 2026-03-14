@@ -5,6 +5,7 @@
 #include <unordered_set>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
@@ -91,6 +92,8 @@ void LisoFactor::onInitialize() {
   // Create odometry publishers
   odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odom_topic, 10);
   odom_incremental_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odometry_incremental_topic, 10);
+  submap_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>(
+      "liso/submap", rclcpp::QoS(1).transient_local());
 
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (GICP scan-to-submap)", name_.c_str());
 }
@@ -99,6 +102,7 @@ void LisoFactor::activate() {
   active_ = true;
   odom_pub_->on_activate();
   odom_incremental_pub_->on_activate();
+  submap_pub_->on_activate();
   RCLCPP_INFO(node_->get_logger(), "[%s] activated (publish_tf=%s)", name_.c_str(),
               publishesTf() ? "true" : "false");
 }
@@ -272,11 +276,13 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   // Scan-to-submap matching
   small_gicp::RegistrationResult result;
+  size_t submap_size = 0;
   {
     std::shared_lock lock(submap_mtx_);
     if (!cached_submap_ || !cached_submap_tree_ || cached_submap_->empty()) {
       return;  // Submap not yet built
     }
+    submap_size = cached_submap_->size();
 
     small_gicp::RegistrationSetting setting;
     setting.type = small_gicp::RegistrationSetting::GICP;
@@ -290,9 +296,15 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   // Fitness check
   if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) {
-    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-                          "[%s] scan rejected: converged=%d inliers=%zu",
-                          name_.c_str(), result.converged, result.num_inliers);
+    gtsam::Pose3 gicp_pose(gtsam::Rot3(result.T_target_source.rotation()),
+                            gtsam::Point3(result.T_target_source.translation()));
+    RCLCPP_WARN(node_->get_logger(),
+        "[%s] REJECTED: converged=%d inliers=%zu submap=%zu | "
+        "init=(%.2f,%.2f,%.2f) result=(%.2f,%.2f,%.2f) gyro=(%.4f,%.4f,%.4f)",
+        name_.c_str(), result.converged, result.num_inliers, submap_size,
+        init_guess.translation().x(), init_guess.translation().y(), init_guess.translation().z(),
+        gicp_pose.translation().x(), gicp_pose.translation().y(), gicp_pose.translation().z(),
+        gyro_delta_rpy_(0), gyro_delta_rpy_(1), gyro_delta_rpy_(2));
     return;
   }
 
@@ -639,10 +651,22 @@ void LisoFactor::onOptimizationComplete(
   // correction as fake motion, and the GICP initial guess is wrong.
   if (has_prev_liso_ && optimized_values.exists(prev_liso_key_)) {
     gtsam::Pose3 corrected = optimized_values.at<gtsam::Pose3>(prev_liso_key_);
+    double d_pos = (corrected.translation() - prev_liso_pose_.translation()).norm();
+    double d_rot = gtsam::Rot3::Logmap(
+        prev_liso_pose_.rotation().between(corrected.rotation())).norm();
+    if (d_pos > 0.01 || d_rot > 0.001) {
+      gtsam::Symbol sym(prev_liso_key_);
+      RCLCPP_INFO(node_->get_logger(),
+          "\033[35m[%s] correction (%c,%lu): d_pos=%.3fm d_rot=%.2f° | "
+          "new=(%.2f,%.2f,%.2f) rebuild_in_progress=%d\033[0m",
+          name_.c_str(), sym.chr(), sym.index(),
+          d_pos, d_rot * 180.0 / M_PI,
+          corrected.translation().x(), corrected.translation().y(),
+          corrected.translation().z(), rebuild_in_progress_.load());
+    }
+
     prev_liso_pose_ = corrected;
     last_matched_pose_ = corrected;
-    // Also update incremental tracking so the next delta doesn't bake in
-    // the correction shift (which would make odom-frame jump like map-frame)
     prev_incremental_pose_ = corrected;
   }
 
@@ -733,6 +757,20 @@ void LisoFactor::rebuildSubmap() {
       collected_keys.size(), total_raw_points, merged->size(), submap->size(),
       t_bfs, t_assemble - t_bfs, t_preprocess - t_assemble, t_preprocess);
 
+  // Publish submap for visualization
+  if (submap_pub_ && submap_pub_->is_activated()) {
+    pcl::PointCloud<pcl::PointXYZ> pcl_submap;
+    pcl_submap.reserve(submap->size());
+    for (size_t i = 0; i < submap->size(); i++) {
+      const auto& p = submap->point(i);
+      pcl_submap.emplace_back(p.x(), p.y(), p.z());
+    }
+    sensor_msgs::msg::PointCloud2 msg;
+    pcl::toROSMsg(pcl_submap, msg);
+    msg.header.stamp = node_->now();
+    msg.header.frame_id = map_frame_;
+    submap_pub_->publish(msg);
+  }
 }
 
 // ---------------------------------------------------------------------------

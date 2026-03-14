@@ -44,7 +44,7 @@ eidos_node:
     factor_plugins:
       - "gps_factor"
       - "liso_factor"
-      # - "euclidean_distance_loop_closure_factor"
+      - "euclidean_distance_loop_closure_factor"
 
     # relocalization_plugins:
     #   - "gps_icp_relocalization"
@@ -121,6 +121,7 @@ eidos_node:
     liso_factor:
       plugin: "eidos::LisoFactor"
       publish_tf: true              # broadcast odom -> base_footprint at LiDAR rate
+      sphere_scale: 1.0             # meters, state sphere diameter in factor graph viz
 
       # -- Topics --
       lidar_topic: "/lidar_cc/velodyne_points"
@@ -144,7 +145,7 @@ eidos_node:
 
       # -- Submap assembly (graph BFS) --
       submap_radius: 20.0
-      max_submap_states: 25
+      max_submap_states: 5
 
       # -- Registration (small_gicp GICP) --
       max_correspondence_distance: 2.0
@@ -158,7 +159,7 @@ eidos_node:
 
       # -- Covariance diagonals [x, y, z, roll, pitch, yaw] --
       # Used for both BetweenFactor noise and published odometry
-      odom_pose_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+      odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
     # ==========================================================================
@@ -167,16 +168,20 @@ eidos_node:
     euclidean_distance_loop_closure_factor:
       plugin: "eidos::EuclideanDistanceLoopClosureFactor"
       frequency: 1.0                # Hz, loop closure detection frequency
-      search_radius: 15.0           # meters, radius to search for loop closure candidates
-      search_time_diff: 30.0        # seconds, minimum time gap between current and candidate keyframe
-      search_num: 25                # number of nearby keyframes to assemble into candidate submap
+      search_radius: 10.0           # meters, radius to search for loop closure candidates
+      search_time_diff: 300.0       # seconds, minimum time gap between current and candidate keyframe
+      search_num: 15                # max states per submap (BFS depth limit)
       min_inlier_ratio: 0.3         # minimum inlier fraction to accept a loop closure (0-1)
+
+      submap_radius: 25.0           # meters, BFS radius for submap assembly
       submap_leaf_size: 0.4         # meters, voxel downsampling for submap
       max_correspondence_distance: 2.0  # meters, max point correspondence distance for GICP
       max_iterations: 100           # maximum GICP iterations
-      num_threads: 4                # number of threads for small_gicp GICP
+      num_threads: 16               # number of threads for small_gicp GICP
+
       num_neighbors: 10             # neighbors for normal/covariance estimation
-      loop_closure_noise: 0.5       # variance per DOF for the BetweenFactor noise model
+      loop_closure_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]  # [x,y,z,roll,pitch,yaw] BetweenFactor variance
+
       pointcloud_from: "liso_factor"  # which factor plugin provides the keyframe point clouds
 
     # ==========================================================================
@@ -222,3 +227,4 @@ eidos_node:
       publish_rate: 1.0
       mode: "full"              # "full" or "windowed"
       window_radius: 50.0       # meters, only used in windowed mode
+      label_scale: 0.3          # text height for BetweenFactor labels (0 = off)

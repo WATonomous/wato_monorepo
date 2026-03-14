@@ -1,6 +1,7 @@
 #include "eidos/plugins/visualization/factor_graph_visualization.hpp"
 
 #include <cmath>
+#include <functional>
 #include <unordered_set>
 
 #include <pluginlib/class_list_macros.hpp>
@@ -23,6 +24,7 @@ void FactorGraphVisualization::onInitialize() {
   node_->declare_parameter(prefix + ".publish_rate", 1.0);
   node_->declare_parameter(prefix + ".mode", "full");
   node_->declare_parameter(prefix + ".window_radius", 50.0);
+  node_->declare_parameter(prefix + ".label_scale", 0.3);
 
   std::string topic;
   node_->get_parameter(prefix + ".topic", topic);
@@ -31,6 +33,7 @@ void FactorGraphVisualization::onInitialize() {
   node_->get_parameter(prefix + ".publish_rate", publish_rate_);
   node_->get_parameter(prefix + ".mode", mode_);
   node_->get_parameter(prefix + ".window_radius", window_radius_);
+  node_->get_parameter(prefix + ".label_scale", label_scale_);
   node_->get_parameter("frames.map", map_frame_);
 
   pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(topic, 1);
@@ -49,20 +52,35 @@ void FactorGraphVisualization::deactivate() {
   pub_->on_deactivate();
 }
 
-// Helper to get a label prefix for a state based on its owner plugin
-static std::string stateLabel(const std::string& owner, uint64_t idx) {
-  std::string prefix;
-  if (owner.empty()) {
-    prefix = "X";
-  } else if (owner.find("gps") != std::string::npos) {
-    prefix = "G";
-  } else if (owner.find("liso") != std::string::npos) {
-    prefix = "L";
-  } else if (!owner.empty()) {
-    prefix = std::string(1, std::toupper(owner[0]));
-  } else {
-    prefix = "?";
+// Deterministic color from plugin name using a visually distinct palette
+static std_msgs::msg::ColorRGBA pluginColor(const std::string& name, float alpha) {
+  static const float palette[][3] = {
+    {0.0f, 1.0f, 1.0f},   // cyan
+    {1.0f, 0.0f, 1.0f},   // magenta
+    {1.0f, 1.0f, 0.0f},   // yellow
+    {1.0f, 0.5f, 0.0f},   // orange
+    {0.5f, 0.0f, 1.0f},   // purple
+    {0.0f, 1.0f, 0.5f},   // spring green
+    {1.0f, 0.3f, 0.3f},   // salmon
+    {0.3f, 0.7f, 1.0f},   // light blue
+  };
+  static constexpr int n = sizeof(palette) / sizeof(palette[0]);
+  std_msgs::msg::ColorRGBA c;
+  c.a = alpha;
+  if (name.empty()) {
+    c.r = 0.5f; c.g = 0.5f; c.b = 0.5f;
+    return c;
   }
+  size_t h = std::hash<std::string>{}(name);
+  c.r = palette[h % n][0];
+  c.g = palette[h % n][1];
+  c.b = palette[h % n][2];
+  return c;
+}
+
+// Label: first uppercase letter of owner + state index
+static std::string stateLabel(const std::string& owner, uint64_t idx) {
+  std::string prefix = owner.empty() ? "X" : std::string(1, std::toupper(owner[0]));
   return prefix + std::to_string(idx);
 }
 
@@ -80,6 +98,7 @@ void FactorGraphVisualization::onOptimizationComplete(
   last_publish_time_ = now;
 
   const auto& graph = core_->getAccumulatedGraph();
+  const auto& factor_owners = core_->getAccumulatedFactorOwners();
 
   // Windowed mode: determine spatial filter
   bool windowed = (mode_ == "windowed");
@@ -119,7 +138,11 @@ void FactorGraphVisualization::onOptimizationComplete(
   y_axes.color.g = 1.0f; y_axes.color.a = 1.0f;
   z_axes.color.b = 1.0f; z_axes.color.a = 1.0f;
 
-  // ---- Collect state positions, build batched axes + labels ----
+  // ---- State spheres: one SPHERE_LIST per owner (different scales) ----
+  // Built up during state iteration, finalized after the loop.
+  std::unordered_map<std::string, visualization_msgs::msg::Marker> owner_spheres;
+
+  // ---- Collect state positions, build batched axes + labels + spheres ----
   std::unordered_map<gtsam::Key, geometry_msgs::msg::Point> key_positions;
   std::unordered_set<gtsam::Key> visible_keys;
   const auto& map_manager = core_->getMapManager();
@@ -142,6 +165,7 @@ void FactorGraphVisualization::onOptimizationComplete(
 
     gtsam::Symbol sym(key);
     uint64_t idx = sym.index();
+    std::string owner = map_manager.getOwnerPlugin(key);
 
     geometry_msgs::msg::Point pos;
     pos.x = pose.translation().x();
@@ -149,6 +173,27 @@ void FactorGraphVisualization::onOptimizationComplete(
     pos.z = pose.translation().z();
     key_positions[key] = pos;
     visible_keys.insert(key);
+
+    // State sphere colored by owner plugin (grouped by owner for per-plugin scale)
+    auto it_sphere = owner_spheres.find(owner);
+    if (it_sphere == owner_spheres.end()) {
+      visualization_msgs::msg::Marker m;
+      m.header.frame_id = map_frame_;
+      m.header.stamp = stamp;
+      m.ns = "fg_spheres_" + (owner.empty() ? "unknown" : owner);
+      m.id = marker_id++;
+      m.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+      m.action = visualization_msgs::msg::Marker::ADD;
+      m.pose.orientation.w = 1.0;
+      double s = 0.3;
+      if (!owner.empty() && node_->has_parameter(owner + ".sphere_scale")) {
+        s = node_->get_parameter(owner + ".sphere_scale").as_double();
+      }
+      m.scale.x = s; m.scale.y = s; m.scale.z = s;
+      it_sphere = owner_spheres.emplace(owner, std::move(m)).first;
+    }
+    it_sphere->second.points.push_back(pos);
+    it_sphere->second.colors.push_back(pluginColor(owner, 0.8f));
 
     Eigen::Matrix3d rot = pose.rotation().matrix();
     double axis_len = state_scale_;
@@ -178,7 +223,6 @@ void FactorGraphVisualization::onOptimizationComplete(
     z_axes.points.push_back(end);
 
     // Text label (individual per state)
-    std::string owner = map_manager.getOwnerPlugin(key);
     visualization_msgs::msg::Marker text;
     text.header.frame_id = map_frame_;
     text.header.stamp = stamp;
@@ -195,11 +239,15 @@ void FactorGraphVisualization::onOptimizationComplete(
     marker_array.markers.push_back(text);
   }
 
+  for (auto& [_, m] : owner_spheres) {
+    if (!m.points.empty()) marker_array.markers.push_back(std::move(m));
+  }
   if (!x_axes.points.empty()) marker_array.markers.push_back(x_axes);
   if (!y_axes.points.empty()) marker_array.markers.push_back(y_axes);
   if (!z_axes.points.empty()) marker_array.markers.push_back(z_axes);
 
-  // ---- Batched factor edges (one LINE_LIST per factor type) ----
+  // ---- Factor edge markers ----
+  // IMU and unknown factors use flat colors; between/GPS/unary use per-point owner colors
   auto make_line_list = [&](const std::string& ns, float r, float g, float b, float a) {
     visualization_msgs::msg::Marker m;
     m.header.frame_id = map_frame_;
@@ -215,11 +263,31 @@ void FactorGraphVisualization::onOptimizationComplete(
   };
 
   visualization_msgs::msg::Marker imu_lines = make_line_list("fg_imu", 0.0f, 1.0f, 1.0f, 0.5f);
-  visualization_msgs::msg::Marker between_lines = make_line_list("fg_between", 1.0f, 0.0f, 1.0f, 0.5f);
-  visualization_msgs::msg::Marker gps_lines = make_line_list("fg_gps_lines", 1.0f, 1.0f, 0.0f, 0.5f);
   visualization_msgs::msg::Marker unknown_lines = make_line_list("fg_other", 0.5f, 0.5f, 0.5f, 0.5f);
 
-  // Batched SPHERE_LIST for GPS measurement spheres
+  // Between factors: per-point colors from owner plugin
+  visualization_msgs::msg::Marker between_lines;
+  between_lines.header.frame_id = map_frame_;
+  between_lines.header.stamp = stamp;
+  between_lines.ns = "fg_between";
+  between_lines.id = marker_id++;
+  between_lines.type = visualization_msgs::msg::Marker::LINE_LIST;
+  between_lines.action = visualization_msgs::msg::Marker::ADD;
+  between_lines.pose.orientation.w = 1.0;
+  between_lines.scale.x = line_width_;
+
+  // GPS lines: per-point colors from owner plugin
+  visualization_msgs::msg::Marker gps_lines;
+  gps_lines.header.frame_id = map_frame_;
+  gps_lines.header.stamp = stamp;
+  gps_lines.ns = "fg_gps_lines";
+  gps_lines.id = marker_id++;
+  gps_lines.type = visualization_msgs::msg::Marker::LINE_LIST;
+  gps_lines.action = visualization_msgs::msg::Marker::ADD;
+  gps_lines.pose.orientation.w = 1.0;
+  gps_lines.scale.x = line_width_;
+
+  // GPS measurement spheres: per-point colors from owner plugin
   visualization_msgs::msg::Marker gps_spheres;
   gps_spheres.header.frame_id = map_frame_;
   gps_spheres.header.stamp = stamp;
@@ -231,10 +299,8 @@ void FactorGraphVisualization::onOptimizationComplete(
   gps_spheres.scale.x = line_width_ * 4.0;
   gps_spheres.scale.y = line_width_ * 4.0;
   gps_spheres.scale.z = line_width_ * 4.0;
-  gps_spheres.color.r = 0.0f; gps_spheres.color.g = 1.0f;
-  gps_spheres.color.b = 0.0f; gps_spheres.color.a = 0.9f;
 
-  // Batched SPHERE_LIST for unary factor points (Prior etc)
+  // Unary factor spheres (prior etc): per-point colors from owner plugin
   visualization_msgs::msg::Marker unary_spheres;
   unary_spheres.header.frame_id = map_frame_;
   unary_spheres.header.stamp = stamp;
@@ -246,8 +312,6 @@ void FactorGraphVisualization::onOptimizationComplete(
   unary_spheres.scale.x = line_width_ * 4.0;
   unary_spheres.scale.y = line_width_ * 4.0;
   unary_spheres.scale.z = line_width_ * 4.0;
-  unary_spheres.color.r = 1.0f; unary_spheres.color.g = 0.0f;
-  unary_spheres.color.b = 0.0f; unary_spheres.color.a = 0.5f;
 
   // Iterate all factors and batch into appropriate markers
   for (size_t i = 0; i < graph.size(); i++) {
@@ -255,6 +319,7 @@ void FactorGraphVisualization::onOptimizationComplete(
     if (!factor) continue;
 
     auto keys = factor->keys();
+    std::string owner = (i < factor_owners.size()) ? factor_owners[i] : "";
 
     std::string type;
     bool skip = false;
@@ -294,6 +359,8 @@ void FactorGraphVisualization::onOptimizationComplete(
     // In windowed mode, skip factors with no visible keys
     if (windowed && !any_visible) continue;
 
+    auto color = pluginColor(owner, 0.7f);
+
     if (type == "gps") {
       // GPS factor: sphere at measurement position + line to state
       auto gps_f = boost::dynamic_pointer_cast<gtsam::GPSFactor>(factor);
@@ -302,20 +369,81 @@ void FactorGraphVisualization::onOptimizationComplete(
         geometry_msgs::msg::Point mp;
         mp.x = m.x(); mp.y = m.y(); mp.z = m.z();
         gps_spheres.points.push_back(mp);
+        gps_spheres.colors.push_back(color);
         gps_lines.points.push_back(pts[0]);
+        gps_lines.colors.push_back(color);
         gps_lines.points.push_back(mp);
+        gps_lines.colors.push_back(color);
       }
     } else if (pts.size() == 1) {
       // Unary factor (Prior etc): sphere at state position
       unary_spheres.points.push_back(pts[0]);
+      unary_spheres.colors.push_back(color);
     } else if (pts.size() >= 2) {
-      // Binary factor: straight line (no Bezier curves)
-      visualization_msgs::msg::Marker* target;
-      if (type == "imu") target = &imu_lines;
-      else if (type == "between") target = &between_lines;
-      else target = &unknown_lines;
-      target->points.push_back(pts[0]);
-      target->points.push_back(pts[1]);
+      // Binary factor: straight line colored by owner
+      if (type == "imu") {
+        imu_lines.points.push_back(pts[0]);
+        imu_lines.points.push_back(pts[1]);
+      } else if (type == "between") {
+        between_lines.points.push_back(pts[0]);
+        between_lines.colors.push_back(color);
+        between_lines.points.push_back(pts[1]);
+        between_lines.colors.push_back(color);
+
+        // Text label at edge midpoint: relative pose + covariance
+        if (label_scale_ > 0.0) {
+          auto bf = boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
+          if (bf) {
+            auto rel = bf->measured();
+            auto t = rel.translation();
+            auto rpy = rel.rotation().rpy();
+
+            // Extract covariance diagonal
+            std::string cov_str;
+            auto noise = bf->noiseModel();
+            auto diag = boost::dynamic_pointer_cast<gtsam::noiseModel::Diagonal>(noise);
+            if (!diag) {
+              auto robust = boost::dynamic_pointer_cast<gtsam::noiseModel::Robust>(noise);
+              if (robust) diag = boost::dynamic_pointer_cast<gtsam::noiseModel::Diagonal>(robust->noise());
+            }
+            if (diag) {
+              auto sigmas = diag->sigmas();
+              char buf[64];
+              snprintf(buf, sizeof(buf), "\ncov=(%.1e,%.1e,%.1e,%.1e,%.1e,%.1e)",
+                       sigmas(3)*sigmas(3), sigmas(4)*sigmas(4), sigmas(5)*sigmas(5),
+                       sigmas(0)*sigmas(0), sigmas(1)*sigmas(1), sigmas(2)*sigmas(2));
+              cov_str = buf;
+            }
+
+            char label[256];
+            snprintf(label, sizeof(label),
+                "t=(%.2f,%.2f,%.2f)\nrpy=(%.1f,%.1f,%.1f)%s",
+                t.x(), t.y(), t.z(),
+                rpy(0)*180.0/M_PI, rpy(1)*180.0/M_PI, rpy(2)*180.0/M_PI,
+                cov_str.c_str());
+
+            visualization_msgs::msg::Marker text;
+            text.header.frame_id = map_frame_;
+            text.header.stamp = stamp;
+            text.ns = "fg_factor_labels";
+            text.id = marker_id++;
+            text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+            text.action = visualization_msgs::msg::Marker::ADD;
+            text.pose.position.x = (pts[0].x + pts[1].x) * 0.5;
+            text.pose.position.y = (pts[0].y + pts[1].y) * 0.5;
+            text.pose.position.z = (pts[0].z + pts[1].z) * 0.5 + label_scale_ * 0.5;
+            text.pose.orientation.w = 1.0;
+            text.scale.z = label_scale_;
+            text.color = color;
+            text.color.a = 1.0f;
+            text.text = label;
+            marker_array.markers.push_back(text);
+          }
+        }
+      } else {
+        unknown_lines.points.push_back(pts[0]);
+        unknown_lines.points.push_back(pts[1]);
+      }
     }
   }
 

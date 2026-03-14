@@ -21,7 +21,8 @@ namespace eidos {
  * @brief Euclidean distance-based loop closure factor plugin.
  *
  * Runs a background thread that searches for loop closure candidates
- * using KD-tree radius search and validates them using small_gicp GICP.
+ * using KD-tree radius search and validates them using small_gicp GICP
+ * between two submaps (current neighborhood vs historical neighborhood).
  */
 class EuclideanDistanceLoopClosureFactor : public FactorPlugin {
 public:
@@ -41,11 +42,14 @@ private:
   void loopClosureThread();
   void performLoopClosure();
 
-  // Assemble a world-frame submap from keyframes near center_key.
-  // num_neighbors=0 returns just the single keyframe's cloud.
+  // BFS over adjacency graph, bounded by radius and max states
+  std::vector<gtsam::Key> bfsCollectStates(
+      gtsam::Key start, double radius, int max_states);
+
+  // Assemble a world-frame submap from the given keyframe keys
   std::pair<small_gicp::PointCloud::Ptr,
             std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>>>
-  assembleSubmap(gtsam::Key center_key, int num_neighbors);
+  assembleSubmap(const std::vector<gtsam::Key>& keys);
 
   struct LoopConstraint {
     gtsam::Key from_key;
@@ -68,14 +72,15 @@ private:
   double frequency_ = 1.0;
   double search_radius_ = 15.0;         // meters, radius to find loop candidates
   double search_time_diff_ = 30.0;      // seconds, minimum temporal gap
-  int search_num_ = 25;                 // K-nearest neighbors for submap assembly
+  int search_num_ = 25;                 // max states per submap (BFS depth limit)
   double min_inlier_ratio_ = 0.3;       // minimum inlier fraction to accept (0-1)
   double submap_leaf_size_ = 0.4;        // voxel size for submap downsampling
+  double submap_radius_ = 25.0;          // meters, BFS radius for submap assembly
   double max_correspondence_distance_ = 2.0;
   int max_iterations_ = 100;
   int num_threads_ = 4;
   int num_neighbors_ = 10;              // neighbors for normal/covariance estimation
-  double loop_closure_noise_ = 0.5;     // variance per DOF for the BetweenFactor
+  std::vector<double> loop_closure_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};  // [x,y,z,roll,pitch,yaw] variance
   std::string pointcloud_from_;
 };
 
