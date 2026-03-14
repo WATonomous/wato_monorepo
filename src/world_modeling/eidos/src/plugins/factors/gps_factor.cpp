@@ -60,8 +60,10 @@ void GpsFactor::onInitialize() {
       std::bind(&GpsFactor::imuCallback, this, std::placeholders::_1),
       sub_opts);
 
-  // ---- Static TF broadcaster for utm → map ----
-  static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node_);
+  // ---- Static TF broadcaster for utm → map (only when publish_tf is true) ----
+  if (publishesTf()) {
+    static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node_);
+  }
 
   // ---- Publisher for raw GPS in UTM frame ----
   utm_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -376,6 +378,8 @@ StampedFactorResult GpsFactor::latchFactors(gtsam::Key key, double timestamp) {
 // broadcastUtmToMap — publish static TF using the fixed offset + heading
 // ---------------------------------------------------------------------------
 void GpsFactor::broadcastUtmToMap() {
+  if (!publishesTf() || !static_tf_broadcaster_) return;
+
   // offset = R_map_enu * utm_pos - map_pos
   // So: map_pos = R_map_enu * utm_pos - offset
   //

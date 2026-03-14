@@ -783,56 +783,45 @@ void LisoFactor::rebuildSubmap() {
 }
 
 // ---------------------------------------------------------------------------
-// bfsCollectStates — BFS over accumulated graph, radial distance bounded
+// bfsCollectStates — walk consecutive keys from key_list, bounded by radius
+// Uses key_list order (sequential) instead of the adjacency graph to avoid
+// crossing loop closure edges and pulling in historical states.
 // ---------------------------------------------------------------------------
 std::vector<gtsam::Key> LisoFactor::bfsCollectStates(
     gtsam::Key start, double radius) {
   const auto& map_manager = core_->getMapManager();
   auto poses_6d = map_manager.getKeyPoses6D();
+  auto key_list = map_manager.getKeyList();
 
-  // Use incrementally-maintained adjacency from MapManager (O(1) lookup)
-  const auto& adjacency = map_manager.getAdjacency();
-
-  // Get start position for distance check
   int start_idx = map_manager.getCloudIndex(start);
   if (start_idx < 0) return {};
   const auto& start_pose = poses_6d->points[start_idx];
   Eigen::Vector3f start_pos(start_pose.x, start_pose.y, start_pose.z);
 
-  // BFS
+  // Find start key's position in key_list
+  int list_pos = -1;
+  for (int i = static_cast<int>(key_list.size()) - 1; i >= 0; i--) {
+    if (key_list[i] == start) {
+      list_pos = i;
+      break;
+    }
+  }
+  if (list_pos < 0) return {};
+
+  // Walk backwards from start through consecutive keys
   std::vector<gtsam::Key> collected;
-  std::unordered_set<gtsam::Key> visited;
-  std::queue<gtsam::Key> frontier;
-
-  frontier.push(start);
-  visited.insert(start);
-
-  while (!frontier.empty() &&
-         static_cast<int>(collected.size()) < max_submap_states_) {
-    gtsam::Key current = frontier.front();
-    frontier.pop();
-
-    // Check if this key has a pose in MapManager
-    int idx = map_manager.getCloudIndex(current);
+  for (int i = list_pos;
+       i >= 0 && static_cast<int>(collected.size()) < max_submap_states_;
+       i--) {
+    gtsam::Key k = key_list[i];
+    int idx = map_manager.getCloudIndex(k);
     if (idx < 0 || idx >= static_cast<int>(poses_6d->size())) continue;
 
-    // Check radial distance
-    const auto& current_pose = poses_6d->points[idx];
-    Eigen::Vector3f current_pos(current_pose.x, current_pose.y, current_pose.z);
-    float dist = (current_pos - start_pos).norm();
-    if (dist > radius) continue;
+    const auto& pose = poses_6d->points[idx];
+    Eigen::Vector3f pos(pose.x, pose.y, pose.z);
+    if ((pos - start_pos).norm() > radius) break;
 
-    collected.push_back(current);
-
-    // Expand neighbors
-    auto it = adjacency.find(current);
-    if (it == adjacency.end()) continue;
-    for (gtsam::Key neighbor : it->second) {
-      if (visited.count(neighbor) == 0) {
-        visited.insert(neighbor);
-        frontier.push(neighbor);
-      }
-    }
+    collected.push_back(k);
   }
 
   return collected;

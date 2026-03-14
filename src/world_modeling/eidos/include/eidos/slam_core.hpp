@@ -182,12 +182,14 @@ private:
 
   // ISAM2 parameters
   int isam2_update_iterations_ = 2;        // iterations per normal update
-  int isam2_correction_iterations_ = 5;    // extra iterations on GPS/loop closure
+  int isam2_correction_iterations_ = 5;    // extra iterations on GPS latch
+  int isam2_loop_closure_iterations_ = 20; // extra iterations on loop closure
   double isam2_relinearize_threshold_ = 0.1;
   int isam2_relinearize_skip_ = 1;
 
   // ---- Loop closure tracking ----
   bool loop_closure_detected_ = false;
+  bool gps_latch_detected_ = false;
 
   // Accumulated factor graph for serialization
   gtsam::NonlinearFactorGraph accumulated_graph_;

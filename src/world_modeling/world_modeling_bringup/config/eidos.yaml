@@ -18,8 +18,9 @@ eidos_node:
     # ---- ISAM2 optimizer ----
     isam2:
       update_iterations: 2            # iterations per normal ISAM2 update
-      correction_iterations: 5        # extra iterations on GPS injection / loop closure
-      relinearize_threshold: 0.1      # re-linearize variables that changed more than this
+      correction_iterations: 5        # extra iterations on GPS latch
+      loop_closure_iterations: 5     # extra iterations on loop closure (needs more to propagate through chain)
+      relinearize_threshold: 0.01      # re-linearize variables that changed more than this
       relinearize_skip: 1             # check for relinearization every N updates
 
     prior:
@@ -95,7 +96,7 @@ eidos_node:
     # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
-      publish_tf: false             # GPS broadcasts utm -> map as a static TF independently
+      publish_tf: true              # broadcast utm -> map static TF
 
       # -- Topics --
       gps_topic: "/novatel/oem7/fix"              # sensor_msgs/NavSatFix input
@@ -106,14 +107,14 @@ eidos_node:
 
       # -- GPS quality filtering --
       max_cov: 5.0                  # max GPS position covariance to accept a measurement
-      use_elevation: false           # use GPS elevation (z), or lock z to current pose
+      use_elevation: true           # use GPS elevation (z), or lock z to current pose
 
       # -- GPS injection control --
-      min_radius: 50.0              # meters, minimum displacement between GPS injections
+      min_radius: 100.0              # meters, minimum displacement between GPS injections
       pose_cov_threshold: 1.0      # skip GPS when ISAM2 pose covariance x,y < this (m^2)
 
       # -- Covariances --
-      gps_cov: [1.0, 1.0, 400.0]  # [x, y, z] GPSFactor measurement covariance floor (m^2)
+      gps_cov: [0.0, 0.0, 0.0]  # [x, y, z] GPSFactor measurement covariance floor (m^2)
 
     # ==========================================================================
     # LISO Factor (LiDAR-Inertial Submap Odometry)
@@ -145,7 +146,7 @@ eidos_node:
 
       # -- Submap assembly (graph BFS) --
       submap_radius: 20.0
-      max_submap_states: 5
+      max_submap_states: 10
 
       # -- Registration (small_gicp GICP) --
       max_correspondence_distance: 2.0

@@ -221,19 +221,42 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
         std::chrono::steady_clock::now() - t0).count();
   };
 
-  auto source_keys = bfsCollectStates(source_key, submap_radius_, search_num_);
-  auto candidate_keys = bfsCollectStates(candidate_key, submap_radius_, search_num_);
+  // Source: raw body-frame cloud only (independent of ISAM2 — pure sensor data).
+  // Using neighbors would make the submap derived from ISAM2 poses, causing
+  // GICP to just confirm the current estimate instead of finding drift.
+  const auto& map_manager = core_->getMapManager();
+  std::string gicp_key = pointcloud_from_ + "/gicp_cloud";
 
-  if (source_keys.empty() || candidate_keys.empty()) {
+  auto source_cloud_data = map_manager.getKeyframeData(source_key, gicp_key);
+  if (!source_cloud_data.has_value()) {
+    gicp_in_progress_ = false;
+    return;
+  }
+  small_gicp::PointCloud::Ptr source_body;
+  try {
+    source_body = std::any_cast<small_gicp::PointCloud::Ptr>(source_cloud_data.value());
+  } catch (const std::bad_any_cast&) {
+    gicp_in_progress_ = false;
+    return;
+  }
+  if (!source_body || source_body->empty()) {
+    gicp_in_progress_ = false;
+    return;
+  }
+
+  // Preprocess source cloud (normals + covariances + KdTree)
+  auto [source_submap, source_tree] = small_gicp::preprocess_points(
+      *source_body, submap_leaf_size_, num_neighbors_, num_threads_);
+  double t_src = ms_since();
+
+  // Candidate: assembled submap from neighbors (locally accurate, independent
+  // of global drift since neighbor relative poses have negligible error)
+  auto candidate_keys = bfsCollectStates(candidate_key, submap_radius_, search_num_);
+  if (candidate_keys.empty()) {
     gicp_in_progress_ = false;
     return;
   }
   double t_bfs = ms_since();
-
-  // Body-frame submaps — undistorted by drift
-  auto [source_submap, source_tree] =
-      assembleBodyFrameSubmap(source_key, source_keys);
-  double t_src = ms_since();
 
   auto [candidate_submap, candidate_tree] =
       assembleBodyFrameSubmap(candidate_key, candidate_keys);
@@ -246,9 +269,6 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
   }
 
   // Init guess: ISAM2 relative pose estimate (source_body → candidate_body)
-  // Much better than identity — already accounts for known position/orientation.
-  // GICP only needs to refine the residual drift.
-  const auto& map_manager = core_->getMapManager();
   auto key_poses_6d = map_manager.getKeyPoses6D();
 
   gtsam::Pose3 T_source =
@@ -279,13 +299,13 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
   if (!result.converged) {
     RCLCPP_INFO(node_->get_logger(),
         "[%s] GICP did not converge: (%c,%lu)->(%c,%lu) | "
-        "src=%zu states/%zu pts, cand=%zu states/%zu pts | "
-        "bfs=%.0fms src=%.0fms cand=%.0fms gicp=%.0fms total=%.0fms",
+        "scan=%zu pts, cand=%zu states/%zu pts | "
+        "src=%.0fms bfs=%.0fms cand=%.0fms gicp=%.0fms total=%.0fms",
         name_.c_str(), src_sym.chr(), src_sym.index(),
         cand_sym.chr(), cand_sym.index(),
-        source_keys.size(), source_submap->size(),
+        source_submap->size(),
         candidate_keys.size(), candidate_submap->size(),
-        t_bfs, t_src - t_bfs, t_cand - t_src, t_gicp - t_cand, t_gicp);
+        t_src, t_bfs - t_src, t_cand - t_bfs, t_gicp - t_cand, t_gicp);
     gicp_in_progress_ = false;
     return;
   }
@@ -316,21 +336,30 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
        loop_closure_cov_[5], loop_closure_cov_[0], loop_closure_cov_[1],
        loop_closure_cov_[2]).finished());
 
+  // Log init_guess vs result to see if GICP found a real correction
+  gtsam::Pose3 init_pose(gtsam::Rot3(init_guess.rotation()),
+                          gtsam::Point3(init_guess.translation()));
+  gtsam::Pose3 gicp_correction = init_pose.between(T_ts);
+  auto corr_t = gicp_correction.translation();
+  double corr_angle = gtsam::Rot3::Logmap(gicp_correction.rotation()).norm();
+
   auto meas_t = measured.translation();
   auto meas_rpy = measured.rotation().rpy();
   RCLCPP_INFO(node_->get_logger(),
       "\033[31m[%s] LOOP CLOSURE: (%c,%lu)->(%c,%lu) inliers=%zu/%zu (%.1f%%) "
       "measured t=(%.2f,%.2f,%.2f) rpy=(%.1f,%.1f,%.1f) | "
-      "src=%zu/%zu pts, cand=%zu/%zu pts | "
-      "bfs=%.0f src=%.0f cand=%.0f gicp=%.0fms total=%.0fms\033[0m",
+      "gicp_correction: d_pos=%.3fm d_rot=%.2f° | "
+      "scan=%zu pts, cand=%zu states/%zu pts | "
+      "src=%.0f bfs=%.0f cand=%.0f gicp=%.0fms total=%.0fms\033[0m",
       name_.c_str(), src_sym.chr(), src_sym.index(),
       cand_sym.chr(), cand_sym.index(),
       result.num_inliers, source_submap->size(), inlier_ratio * 100.0,
       meas_t.x(), meas_t.y(), meas_t.z(),
       meas_rpy(0)*180.0/M_PI, meas_rpy(1)*180.0/M_PI, meas_rpy(2)*180.0/M_PI,
-      source_keys.size(), source_submap->size(),
+      corr_t.norm(), corr_angle * 180.0 / M_PI,
+      source_submap->size(),
       candidate_keys.size(), candidate_submap->size(),
-      t_bfs, t_src - t_bfs, t_cand - t_src, t_gicp - t_cand, t_gicp);
+      t_src, t_bfs - t_src, t_cand - t_bfs, t_gicp - t_cand, t_gicp);
 
   {
     std::lock_guard<std::mutex> lock(result_mtx_);

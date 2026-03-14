@@ -50,6 +50,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("topics.pose", std::string("slam/pose"));
   declare_parameter("isam2.update_iterations", isam2_update_iterations_);
   declare_parameter("isam2.correction_iterations", isam2_correction_iterations_);
+  declare_parameter("isam2.loop_closure_iterations", isam2_loop_closure_iterations_);
   declare_parameter("isam2.relinearize_threshold", isam2_relinearize_threshold_);
   declare_parameter("isam2.relinearize_skip", isam2_relinearize_skip_);
 
@@ -65,6 +66,7 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   get_parameter("odom_pose_cov", odom_pose_cov_);
   get_parameter("isam2.update_iterations", isam2_update_iterations_);
   get_parameter("isam2.correction_iterations", isam2_correction_iterations_);
+  get_parameter("isam2.loop_closure_iterations", isam2_loop_closure_iterations_);
   get_parameter("isam2.relinearize_threshold", isam2_relinearize_threshold_);
   get_parameter("isam2.relinearize_skip", isam2_relinearize_skip_);
 
@@ -290,6 +292,7 @@ SlamCore::CallbackReturn SlamCore::on_cleanup(
   has_optimization_anchor_ = false;
   std::fill(std::begin(current_transform_), std::end(current_transform_), 0.0f);
   loop_closure_detected_ = false;
+  gps_latch_detected_ = false;
   accumulated_graph_ = gtsam::NonlinearFactorGraph();
   accumulated_values_ = gtsam::Values();
   accumulated_factor_owners_.clear();
@@ -563,6 +566,7 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   std::vector<std::string> new_factor_owners;  // parallel to new_factors
   gtsam::Values new_values;
   loop_closure_detected_ = false;
+  gps_latch_detected_ = false;
 
   for (size_t i = 0; i < factor_plugins_.size(); i++) {
     if (!factor_plugins_[i]->hasData()) continue;
@@ -646,8 +650,15 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
       if (!latch.factors.empty()) {
         if (!factor_summary.empty()) factor_summary += ", ";
         factor_summary += plugin->getName() + "(latch):" + std::to_string(latch.factors.size());
-        // GPS (or any latched factor) triggers extra iterations like a loop closure
-        loop_closure_detected_ = true;
+        // Classify: BetweenFactor<Pose3> between existing keys = loop closure,
+        // anything else (GPS, priors) = correction latch
+        for (auto& f : latch.factors) {
+          if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f)) {
+            loop_closure_detected_ = true;
+          } else {
+            gps_latch_detected_ = true;
+          }
+        }
       }
     }
 
@@ -710,8 +721,11 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   auto optimized = pose_graph_->update(new_factors, new_values, isam2_update_iterations_);
   double t_optimize = elapsed_ms();
 
-  // 8. Handle loop closure / GPS correction (extra iterations for convergence)
+  // 8. Extra iterations for convergence
   if (loop_closure_detected_) {
+    pose_graph_->updateExtra(isam2_loop_closure_iterations_);
+    optimized = pose_graph_->getOptimizedValues();
+  } else if (gps_latch_detected_) {
     pose_graph_->updateExtra(isam2_correction_iterations_);
     optimized = pose_graph_->getOptimizedValues();
   }
