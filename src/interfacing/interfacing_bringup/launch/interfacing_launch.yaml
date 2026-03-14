@@ -146,6 +146,8 @@ launch:
       output: screen
       param:
         - from: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
+        - name: http_port
+          value: $(env TOPIC_HEALTHCHECKER__PORT)
 
   # Lifecycle Manager
   - node:

@@ -4,7 +4,7 @@
 # Topic healthchecker configuration.
 # Add or remove topics from the list below to monitor their liveness and rate.
 
-topic_healthchecker:
+/**/topic_healthchecker:
   ros__parameters:
     http_port: 8080
     stale_timeout: 5.0

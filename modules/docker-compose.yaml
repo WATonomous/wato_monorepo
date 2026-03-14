@@ -57,7 +57,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - TOPIC_HEALTHCHECKER_URL=http://host.docker.internal:${TOPIC_HEALTHCHECKER__PORT:-8080}
+      - TOPIC_HEALTHCHECKER_URL=http://host.docker.internal:${TOPIC_HEALTHCHECKER__PORT}
 
   #################### INTERFACING SERVICE ####################
   interfacing_source:
@@ -102,6 +102,7 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+      - TOPIC_HEALTHCHECKER__PORT=${TOPIC_HEALTHCHECKER__PORT}
     volumes:
       - /dev/input:/dev/input
       - /run/udev:/run/udev:ro
