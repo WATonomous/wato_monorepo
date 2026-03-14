@@ -18,8 +18,6 @@ costmap_node:
     # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.5
     layers.objects.bbox_cost_decay: 1.0
-    layers.objects.prediction_inflation_m: 0.3
-    layers.objects.prediction_cost_decay: 0.8
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 0.0

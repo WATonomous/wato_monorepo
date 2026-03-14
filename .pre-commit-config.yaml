@@ -42,6 +42,7 @@ repos:
       - id: clang-format
         args: ["--style=file:.config/clang-format"]
 
+
   # C++ linting
   - repo: https://github.com/cpplint/cpplint
     rev: 2.0.0

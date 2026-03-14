@@ -64,6 +64,44 @@ launch:
       param:
         - from: "$(var config_file)"
 
+  # --- ALTERNATIVE: Velocity-Driven Feedforward PID ---
+  # Uncomment this and comment out pid_control_node above to use feedforward PID.
+  # Also swap the lifecycle manager entry below.
+  # - node:
+  #     pkg: "pid_control"
+  #     exec: "vel_driven_feedforward_pid_node"
+  #     name: "vel_driven_feedforward_pid_node"
+  #     namespace: "interfacing"
+  #     output: "screen"
+  #     remap:
+  #       - from: "steering_feedback"
+  #         to: "can_state_estimator/steering_angle"
+  #       - from: "velocity_feedback"
+  #         to: "can_state_estimator/body_velocity"
+  #       - from: "odom_feedback"
+  #         to: "/novatel/oem7/odom"
+  #     param:
+  #       - from: "$(var config_file)"
+
+  # --- ALTERNATIVE: Gain-Scheduled PID ---
+  # Uncomment this and comment out pid_control_node above to use gain-scheduled PID.
+  # Also swap the lifecycle manager entry below.
+  # - node:
+  #     pkg: "pid_control"
+  #     exec: "gain_scheduled_pid_node"
+  #     name: "gain_scheduled_pid_node"
+  #     namespace: "interfacing"
+  #     output: "screen"
+  #     remap:
+  #       - from: "steering_feedback"
+  #         to: "can_state_estimator/steering_angle"
+  #       - from: "velocity_feedback"
+  #         to: "can_state_estimator/body_velocity"
+  #       - from: "odom_feedback"
+  #         to: "/novatel/oem7/odom"
+  #     param:
+  #       - from: "$(var config_file)"
+
   # OSCC interfacing Node
   - node:
       pkg: "oscc_interfacing"
@@ -94,6 +132,9 @@ launch:
           value:
             - /interfacing/joystick_node
             - /interfacing/pid_control_node
+            # Use one of the following instead of pid_control_node if using an alternative PID node:
+            # - /interfacing/vel_driven_feedforward_pid_node
+            # - /interfacing/gain_scheduled_pid_node
             - /interfacing/ackermann_square_wave
             - /interfacing/can_state_estimator_node
         - name: autostart

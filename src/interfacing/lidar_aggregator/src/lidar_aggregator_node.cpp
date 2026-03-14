@@ -2,19 +2,32 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "lidar_aggregator/lidar_aggregator_node.hpp"
-
-#include <algorithm>
-#include <cstdint>
-#include <cmath>
-#include <limits>
-#include <unordered_set>
-#include <utility>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <tf2/exceptions.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <string>
+#include <unordered_set>
+#include <utility>
+
 #include <rclcpp_components/register_node_macro.hpp>
 
 namespace lidar_aggregator
@@ -67,33 +80,29 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
 {
   declare_and_load_parameters();
 
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+  load_extrinsics_from_tf();
+
   auto qos = rclcpp::QoS(rclcpp::KeepLast(static_cast<size_t>(qos_depth_)));
 
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
-    imu_topic_,
-    qos,
-    std::bind(&LidarAggregatorNode::imu_callback, this, std::placeholders::_1));
+    imu_topic_, qos, std::bind(&LidarAggregatorNode::imu_callback, this, std::placeholders::_1));
 
   sub_cc_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    center_topic_,
-    qos,
-    std::bind(&LidarAggregatorNode::lidar_cc_callback, this, std::placeholders::_1));
+    center_topic_, qos, std::bind(&LidarAggregatorNode::lidar_cc_callback, this, std::placeholders::_1));
 
   sub_ne_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    ne_topic_,
-    qos,
-    std::bind(&LidarAggregatorNode::lidar_ne_callback, this, std::placeholders::_1));
+    ne_topic_, qos, std::bind(&LidarAggregatorNode::lidar_ne_callback, this, std::placeholders::_1));
 
   sub_nw_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    nw_topic_,
-    qos,
-    std::bind(&LidarAggregatorNode::lidar_nw_callback, this, std::placeholders::_1));
+    nw_topic_, qos, std::bind(&LidarAggregatorNode::lidar_nw_callback, this, std::placeholders::_1));
 
   pub_ne_deskewed_cc_ = create_publisher<sensor_msgs::msg::PointCloud2>(deskewed_ne_output_topic_, qos);
   pub_nw_deskewed_cc_ = create_publisher<sensor_msgs::msg::PointCloud2>(deskewed_nw_output_topic_, qos);
   pub_merged_ = create_publisher<sensor_msgs::msg::PointCloud2>(merged_output_topic_, qos);
-  pub_estimated_offsets_ =
-    create_publisher<geometry_msgs::msg::Vector3Stamped>(estimated_offsets_output_topic_, qos);
+  pub_estimated_offsets_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(estimated_offsets_output_topic_, qos);
   pub_offset_scores_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(offset_scores_output_topic_, qos);
 
   RCLCPP_INFO(
@@ -119,6 +128,8 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<std::string>("outputs.offset_scores", "/lidar/sync/offset_scores");
 
   declare_parameter<std::string>("frames.center", "lidar_cc");
+  declare_parameter<std::string>("frames.ne", "lidar_ne");
+  declare_parameter<std::string>("frames.nw", "lidar_nw");
   declare_parameter<int>("runtime.qos_depth", 20);
   declare_parameter<double>("runtime.max_pair_dt_sec", 0.08);
   declare_parameter<double>("runtime.max_imu_buffer_sec", 20.0);
@@ -139,20 +150,6 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("estimation.min_offset_sec", -0.1);
   declare_parameter<double>("estimation.max_offset_sec", 0.1);
 
-  declare_parameter<double>("extrinsic.ne.xyz.x", 0.924884);
-  declare_parameter<double>("extrinsic.ne.xyz.y", -0.972881);
-  declare_parameter<double>("extrinsic.ne.xyz.z", -0.840734);
-  declare_parameter<double>("extrinsic.ne.rpy.roll", 0.017163);
-  declare_parameter<double>("extrinsic.ne.rpy.pitch", 0.108708);
-  declare_parameter<double>("extrinsic.ne.rpy.yaw", -0.580009);
-
-  declare_parameter<double>("extrinsic.nw.xyz.x", 1.102008);
-  declare_parameter<double>("extrinsic.nw.xyz.y", 0.748385);
-  declare_parameter<double>("extrinsic.nw.xyz.z", -0.824361);
-  declare_parameter<double>("extrinsic.nw.rpy.roll", 0.049416);
-  declare_parameter<double>("extrinsic.nw.rpy.pitch", 0.068287);
-  declare_parameter<double>("extrinsic.nw.rpy.yaw", 0.246267);
-
   get_parameter("topics.imu", imu_topic_);
   get_parameter("topics.center", center_topic_);
   get_parameter("topics.ne", ne_topic_);
@@ -165,6 +162,8 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("outputs.offset_scores", offset_scores_output_topic_);
 
   get_parameter("frames.center", center_frame_);
+  get_parameter("frames.ne", ne_frame_);
+  get_parameter("frames.nw", nw_frame_);
   get_parameter("runtime.qos_depth", qos_depth_);
   get_parameter("runtime.max_pair_dt_sec", max_pair_dt_sec_);
   get_parameter("runtime.max_imu_buffer_sec", max_imu_buffer_sec_);
@@ -183,37 +182,35 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("estimation.min_offset_sec", estimator_cfg_.min_offset_sec);
   get_parameter("estimation.max_offset_sec", estimator_cfg_.max_offset_sec);
 
-  double ne_x = 0.0, ne_y = 0.0, ne_z = 0.0, ne_r = 0.0, ne_p = 0.0, ne_yaw = 0.0;
-  double nw_x = 0.0, nw_y = 0.0, nw_z = 0.0, nw_r = 0.0, nw_p = 0.0, nw_yaw = 0.0;
-
-  get_parameter("extrinsic.ne.xyz.x", ne_x);
-  get_parameter("extrinsic.ne.xyz.y", ne_y);
-  get_parameter("extrinsic.ne.xyz.z", ne_z);
-  get_parameter("extrinsic.ne.rpy.roll", ne_r);
-  get_parameter("extrinsic.ne.rpy.pitch", ne_p);
-  get_parameter("extrinsic.ne.rpy.yaw", ne_yaw);
-
-  get_parameter("extrinsic.nw.xyz.x", nw_x);
-  get_parameter("extrinsic.nw.xyz.y", nw_y);
-  get_parameter("extrinsic.nw.xyz.z", nw_z);
-  get_parameter("extrinsic.nw.rpy.roll", nw_r);
-  get_parameter("extrinsic.nw.rpy.pitch", nw_p);
-  get_parameter("extrinsic.nw.rpy.yaw", nw_yaw);
-
-  t_center_ne_ = rigid_from_xyz_rpy(ne_x, ne_y, ne_z, ne_r, ne_p, ne_yaw);
-  t_center_nw_ = rigid_from_xyz_rpy(nw_x, nw_y, nw_z, nw_r, nw_p, nw_yaw);
-
   estimator_cfg_.search_step_sec = std::max(estimator_cfg_.search_step_sec, 1e-4);
   estimator_cfg_.ema_alpha = std::clamp(estimator_cfg_.ema_alpha, 0.0, 1.0);
 }
 
+bool LidarAggregatorNode::load_extrinsics_from_tf()
+{
+  try {
+    auto tf_ne = tf_buffer_->lookupTransform(center_frame_, ne_frame_, tf2::TimePointZero);
+    auto tf_nw = tf_buffer_->lookupTransform(center_frame_, nw_frame_, tf2::TimePointZero);
+    t_center_ne_ = rigid_from_transform(tf_ne.transform);
+    t_center_nw_ = rigid_from_transform(tf_nw.transform);
+    extrinsics_loaded_ = true;
+    RCLCPP_INFO(
+      get_logger(),
+      "Loaded extrinsics from TF: %s->%s and %s->%s",
+      ne_frame_.c_str(),
+      center_frame_.c_str(),
+      nw_frame_.c_str(),
+      center_frame_.c_str());
+    return true;
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "Could not get lidar extrinsics from TF: %s", ex.what());
+    return false;
+  }
+}
+
 void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
-  Eigen::Quaterniond q(
-    msg->orientation.w,
-    msg->orientation.x,
-    msg->orientation.y,
-    msg->orientation.z);
+  Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
   if (q.norm() < 1e-6) {
     return;
   }
@@ -265,10 +262,9 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
   }
 
   auto upper = std::lower_bound(
-    imu_buffer_.begin(),
-    imu_buffer_.end(),
-    stamp,
-    [](const ImuSample & sample, const rclcpp::Time & t) { return sample.stamp < t; });
+    imu_buffer_.begin(), imu_buffer_.end(), stamp, [](const ImuSample & sample, const rclcpp::Time & t) {
+      return sample.stamp < t;
+    });
 
   if (upper == imu_buffer_.begin()) {
     q_out = upper->orientation;
@@ -294,9 +290,7 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
 }
 
 bool LidarAggregatorNode::get_rotation_delta(
-  const rclcpp::Time & from_stamp,
-  const rclcpp::Time & to_stamp,
-  Eigen::Matrix3d & delta_rotation) const
+  const rclcpp::Time & from_stamp, const rclcpp::Time & to_stamp, Eigen::Matrix3d & delta_rotation) const
 {
   Eigen::Quaterniond q_from;
   Eigen::Quaterniond q_to;
@@ -315,10 +309,9 @@ bool LidarAggregatorNode::get_abs_gyro_z_at_time(const rclcpp::Time & stamp, dou
   }
 
   auto upper = std::lower_bound(
-    imu_buffer_.begin(),
-    imu_buffer_.end(),
-    stamp,
-    [](const ImuSample & sample, const rclcpp::Time & t) { return sample.stamp < t; });
+    imu_buffer_.begin(), imu_buffer_.end(), stamp, [](const ImuSample & sample, const rclcpp::Time & t) {
+      return sample.stamp < t;
+    });
 
   if (upper == imu_buffer_.begin()) {
     abs_gyro_z_out = std::abs(upper->gyro_z);
@@ -356,7 +349,8 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
   pcl::PointCloud<pcl::PointXYZI> corrected;
   corrected.reserve(side_cloud.size());
 
-  const rclcpp::Time side_stamp = rclcpp::Time(side_msg->header.stamp) + rclcpp::Duration::from_seconds(side_time_offset_sec);
+  const rclcpp::Time side_stamp =
+    rclcpp::Time(side_msg->header.stamp) + rclcpp::Duration::from_seconds(side_time_offset_sec);
   Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
   const bool has_delta = get_rotation_delta(side_stamp, center_stamp, r_delta);
 
@@ -404,13 +398,13 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::merge_clouds(
   pcl::PointCloud<pcl::PointXYZI> merged;
 
   auto append = [&merged](const sensor_msgs::msg::PointCloud2::SharedPtr & msg) {
-      if (!msg) {
-        return;
-      }
-      pcl::PointCloud<pcl::PointXYZI> cloud;
-      pcl::fromROSMsg(*msg, cloud);
-      merged += cloud;
-    };
+    if (!msg) {
+      return;
+    }
+    pcl::PointCloud<pcl::PointXYZI> cloud;
+    pcl::fromROSMsg(*msg, cloud);
+    merged += cloud;
+  };
 
   append(cc);
   append(ne);
@@ -504,20 +498,17 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
     return false;
   }
 
-  const double start = std::max(side_time_offset_sec - estimator_cfg_.search_half_window_sec, estimator_cfg_.min_offset_sec);
-  const double end = std::min(side_time_offset_sec + estimator_cfg_.search_half_window_sec, estimator_cfg_.max_offset_sec);
+  const double start =
+    std::max(side_time_offset_sec - estimator_cfg_.search_half_window_sec, estimator_cfg_.min_offset_sec);
+  const double end =
+    std::min(side_time_offset_sec + estimator_cfg_.search_half_window_sec, estimator_cfg_.max_offset_sec);
 
   double best_offset = side_time_offset_sec;
   double best_score = -std::numeric_limits<double>::infinity();
 
   for (double candidate = start; candidate <= end + 1e-9; candidate += estimator_cfg_.search_step_sec) {
-    const double score = score_side_offset_candidate(
-      center_cloud,
-      side_cloud,
-      center_stamp,
-      side_stamp,
-      t_center_side,
-      candidate);
+    const double score =
+      score_side_offset_candidate(center_cloud, side_cloud, center_stamp, side_stamp, t_center_side, candidate);
 
     if (score > best_score) {
       best_score = score;
@@ -582,6 +573,13 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
     return;
   }
 
+  if (!extrinsics_loaded_) {
+    load_extrinsics_from_tf();
+    if (!extrinsics_loaded_) {
+      return;
+    }
+  }
+
   if (estimator_cfg_.enabled) {
     maybe_update_side_offset_locked(
       center_msg,
@@ -604,10 +602,13 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
   const rclcpp::Time center_stamp(center_msg->header.stamp);
   publish_offset_diagnostics_locked(center_stamp);
 
-  const rclcpp::Time ne_aligned = rclcpp::Time(latest_ne_->header.stamp) + rclcpp::Duration::from_seconds(ne_time_offset_sec_);
-  const rclcpp::Time nw_aligned = rclcpp::Time(latest_nw_->header.stamp) + rclcpp::Duration::from_seconds(nw_time_offset_sec_);
+  const rclcpp::Time ne_aligned =
+    rclcpp::Time(latest_ne_->header.stamp) + rclcpp::Duration::from_seconds(ne_time_offset_sec_);
+  const rclcpp::Time nw_aligned =
+    rclcpp::Time(latest_nw_->header.stamp) + rclcpp::Duration::from_seconds(nw_time_offset_sec_);
 
-  if (abs_time_delta_sec(ne_aligned, center_stamp) > max_pair_dt_sec_ ||
+  if (
+    abs_time_delta_sec(ne_aligned, center_stamp) > max_pair_dt_sec_ ||
     abs_time_delta_sec(nw_aligned, center_stamp) > max_pair_dt_sec_)
   {
     RCLCPP_WARN_THROTTLE(
@@ -638,21 +639,13 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
   }
 }
 
-RigidTransform LidarAggregatorNode::rigid_from_xyz_rpy(
-  double x,
-  double y,
-  double z,
-  double roll,
-  double pitch,
-  double yaw)
+RigidTransform LidarAggregatorNode::rigid_from_transform(const geometry_msgs::msg::Transform & t)
 {
-  RigidTransform tf;
-  Eigen::AngleAxisd roll_a(roll, Eigen::Vector3d::UnitX());
-  Eigen::AngleAxisd pitch_a(pitch, Eigen::Vector3d::UnitY());
-  Eigen::AngleAxisd yaw_a(yaw, Eigen::Vector3d::UnitZ());
-  tf.rotation = (yaw_a * pitch_a * roll_a).toRotationMatrix();
-  tf.translation = Eigen::Vector3d(x, y, z);
-  return tf;
+  RigidTransform rt;
+  const Eigen::Quaterniond q(t.rotation.w, t.rotation.x, t.rotation.y, t.rotation.z);
+  rt.rotation = q.toRotationMatrix();
+  rt.translation = Eigen::Vector3d(t.translation.x, t.translation.y, t.translation.z);
+  return rt;
 }
 
 }  // namespace lidar_aggregator

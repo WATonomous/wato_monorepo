@@ -108,10 +108,10 @@ run_tests() {
   local service=$1
   local test_service="${service}_test"
 
-  # Build colcon test command
-  local colcon_cmd="colcon test --event-handlers console_direct+"
+  # Build colcon test command; container may set COLCON_TEST_PACKAGES_SKIP_ARGS (e.g. perception skips GPU/model packages in CI)
+  local colcon_cmd="colcon test --event-handlers console_direct+ \${COLCON_TEST_PACKAGES_SKIP_ARGS:-}"
   if [[ ${#FILTER_PACKAGES[@]} -gt 0 ]]; then
-    colcon_cmd+=" --packages-select ${FILTER_PACKAGES[*]}"
+    colcon_cmd="colcon test --event-handlers console_direct+ --packages-select ${FILTER_PACKAGES[*]}"
   fi
 
   # Capture test output

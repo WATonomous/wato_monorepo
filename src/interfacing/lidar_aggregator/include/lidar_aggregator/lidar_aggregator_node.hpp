@@ -2,40 +2,59 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #pragma once
-
-#include <deque>
-#include <memory>
-#include <mutex>
-#include <string>
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-#include <rclcpp/rclcpp.hpp>
+#include <deque>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <memory>
+#include <mutex>
+#include <string>
+
+#include <geometry_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
 
 namespace lidar_aggregator
 {
 
+/// @brief A rigid 6-DOF transform (rotation + translation in Euclidean space).
 struct RigidTransform
 {
   Eigen::Matrix3d rotation = Eigen::Matrix3d::Identity();
   Eigen::Vector3d translation = Eigen::Vector3d::Zero();
 };
 
+/// @brief ROS 2 node that deskews and merges multiple lidar pointclouds.
+///
+/// Subscribes to a center lidar (CC), two side lidars (NE and NW), and an IMU.
+/// Uses IMU orientation to motion-compensate the side clouds onto the center
+/// lidar's timestamp, then merges all three clouds into a single output cloud.
+/// Side-to-center extrinsics are looked up via tf2 rather than hard-coded.
 class LidarAggregatorNode : public rclcpp::Node
 {
 public:
   explicit LidarAggregatorNode(const rclcpp::NodeOptions & options);
 
 private:
+  /// @brief A single IMU sample stored in the rolling buffer.
   struct ImuSample
   {
     rclcpp::Time stamp;
@@ -43,6 +62,7 @@ private:
     double gyro_z = 0.0;
   };
 
+  /// @brief Configuration for the online timing-offset estimator.
   struct OffsetEstimatorConfig
   {
     bool enabled = false;
@@ -58,25 +78,49 @@ private:
     double max_offset_sec = 0.1;
   };
 
+  /// @brief Mutable runtime state for the offset estimator (scores per side).
   struct OffsetEstimatorRuntime
   {
     double ne_last_score = 0.0;
     double nw_last_score = 0.0;
   };
 
+  /// @brief Declare and load all ROS 2 parameters from the parameter server.
   void declare_and_load_parameters();
+
+  /// @brief Attempt to look up NE and NW extrinsics from tf2.
+  /// @return true if both transforms were found and stored successfully.
+  bool load_extrinsics_from_tf();
+
+  /// @brief Callback for incoming IMU messages. Buffers orientation and gyro data.
   void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  /// @brief Callback for center lidar (CC) messages. Triggers the fusion pipeline.
   void lidar_cc_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+  /// @brief Callback for NE side lidar messages. Stores the latest cloud.
   void lidar_ne_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+  /// @brief Callback for NW side lidar messages. Stores the latest cloud.
   void lidar_nw_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
+  /// @brief Interpolate IMU orientation at the given timestamp via slerp.
+  /// @return false if the timestamp is outside the buffered IMU range.
   bool get_orientation_at_time(const rclcpp::Time & stamp, Eigen::Quaterniond & q_out) const;
+
+  /// @brief Compute the rotation delta from @p from_stamp to @p to_stamp using buffered IMU.
+  /// @return false if either timestamp cannot be interpolated.
   bool get_rotation_delta(
-    const rclcpp::Time & from_stamp,
-    const rclcpp::Time & to_stamp,
-    Eigen::Matrix3d & delta_rotation) const;
+    const rclcpp::Time & from_stamp, const rclcpp::Time & to_stamp, Eigen::Matrix3d & delta_rotation) const;
+
+  /// @brief Retrieve the absolute yaw rate (gyro_z) nearest to @p stamp from the IMU buffer.
+  /// @return false if the IMU buffer is empty.
   bool get_abs_gyro_z_at_time(const rclcpp::Time & stamp, double & abs_gyro_z_out) const;
 
+  /// @brief Motion-compensate a side cloud into the center lidar frame.
+  ///
+  /// Applies the side-to-center extrinsic and an IMU-derived rotation delta to
+  /// align the side cloud's timestamp with @p center_stamp.
   sensor_msgs::msg::PointCloud2::SharedPtr compensate_side_cloud(
     const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
     const rclcpp::Time & center_stamp,
@@ -84,6 +128,7 @@ private:
     double side_time_offset_sec,
     const std::string & output_frame) const;
 
+  /// @brief Concatenate center, NE, and NW clouds into a single merged output cloud.
   sensor_msgs::msg::PointCloud2::SharedPtr merge_clouds(
     const sensor_msgs::msg::PointCloud2::SharedPtr & cc,
     const sensor_msgs::msg::PointCloud2::SharedPtr & ne,
@@ -91,6 +136,19 @@ private:
     const rclcpp::Time & stamp,
     const std::string & frame_id) const;
 
+  /// @brief Score a candidate time offset by measuring voxel-overlap after alignment.
+  double score_side_offset_candidate(
+    const pcl::PointCloud<pcl::PointXYZI> & center_cloud,
+    const pcl::PointCloud<pcl::PointXYZI> & side_cloud,
+    const rclcpp::Time & center_stamp,
+    const rclcpp::Time & side_stamp,
+    const RigidTransform & t_center_side,
+    double candidate_offset_sec) const;
+
+  /// @brief Run one iteration of the online offset estimator for a side lidar.
+  ///
+  /// Updates @p side_time_offset_sec in-place if a better-scoring offset is found.
+  /// Must be called with mutex_ held.
   bool maybe_update_side_offset_locked(
     const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
     const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
@@ -100,27 +158,21 @@ private:
     const char * side_name,
     const char * side_param_name);
 
-  double score_side_offset_candidate(
-    const pcl::PointCloud<pcl::PointXYZI> & center_cloud,
-    const pcl::PointCloud<pcl::PointXYZI> & side_cloud,
-    const rclcpp::Time & center_stamp,
-    const rclcpp::Time & side_stamp,
-    const RigidTransform & t_center_side,
-    double candidate_offset_sec) const;
-
+  /// @brief Publish current time offsets and voxel-overlap scores as diagnostics.
+  /// Must be called with mutex_ held.
   void publish_offset_diagnostics_locked(const rclcpp::Time & stamp);
 
+  /// @brief Main fusion pipeline. Called under mutex_ each time a center cloud arrives.
   void try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg);
 
-  static RigidTransform rigid_from_xyz_rpy(
-    double x,
-    double y,
-    double z,
-    double roll,
-    double pitch,
-    double yaw);
+  /// @brief Convert a geometry_msgs Transform message to a RigidTransform.
+  static RigidTransform rigid_from_transform(const geometry_msgs::msg::Transform & t);
 
   mutable std::mutex mutex_;
+
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  bool extrinsics_loaded_ = false;
 
   std::deque<ImuSample> imu_buffer_;
   sensor_msgs::msg::PointCloud2::SharedPtr latest_ne_;
@@ -148,6 +200,8 @@ private:
   std::string estimated_offsets_output_topic_;
   std::string offset_scores_output_topic_;
   std::string center_frame_;
+  std::string ne_frame_;
+  std::string nw_frame_;
 
   int qos_depth_ = 20;
   double max_pair_dt_sec_ = 0.08;

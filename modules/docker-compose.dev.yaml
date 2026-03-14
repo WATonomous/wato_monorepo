@@ -1,6 +1,6 @@
 ---
 services:
-#################### INFRASTRUCTURE SERVICE ####################
+  #################### INFRASTRUCTURE SERVICE ####################
   infrastructure_bringup_dev:
     profiles: ["infrastructure_dev"]
     extends:
@@ -18,7 +18,7 @@ services:
       - ${MONO_DIR}/src/infrastructure:/ws/src/infrastructure
       - ${MONO_DIR}/bags:/ws/bags
 
-#################### INTERFACING SERVICE ####################
+  #################### INTERFACING SERVICE ####################
   interfacing_bringup_dev:
     profiles: ["interfacing_dev"]
     extends:
@@ -36,7 +36,7 @@ services:
       - ${MONO_DIR}/src/interfacing:/ws/src/interfacing
       - ${MONO_DIR}/bags:/ws/bags
 
-#################### PERCEPTION SERVICE ####################
+  #################### PERCEPTION SERVICE ####################
   perception_bringup_dev:
     profiles: ["perception_dev"]
     extends:
@@ -49,12 +49,23 @@ services:
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
+    runtime: nvidia
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/perception:/ws/src/perception
       - ${MONO_DIR}/bags:/ws/bags
+      - ${MONO_DIR}/models:/ws/models
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
 
-#################### WORLD_MODELING SERVICE ####################
+  #################### WORLD_MODELING SERVICE ####################
   world_modeling_bringup_dev:
     profiles: ["world_modeling_dev"]
     extends:
@@ -72,7 +83,7 @@ services:
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
       - ${MONO_DIR}/bags:/ws/bags
 
-#################### ACTION SERVICE ####################
+  #################### ACTION SERVICE ####################
   action_bringup_dev:
     profiles: ["action_dev"]
     extends:
@@ -90,7 +101,7 @@ services:
       - ${MONO_DIR}/src/action:/ws/src/action
       - ${MONO_DIR}/bags:/ws/bags
 
-#################### SIMULATION SERVICE ####################
+  #################### SIMULATION SERVICE ####################
   carla_sim:
     profiles: ["carla_gpu"]
     extends:

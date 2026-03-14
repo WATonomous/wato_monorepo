@@ -33,13 +33,11 @@ void ObjectsLayer::configure(
 
   node_->declare_parameter("layers." + layer_name_ + ".bbox_inflation_m", 0.5);
   node_->declare_parameter("layers." + layer_name_ + ".bbox_cost_decay", 1.0);
-  node_->declare_parameter("layers." + layer_name_ + ".prediction_inflation_m", 0.3);
-  node_->declare_parameter("layers." + layer_name_ + ".prediction_cost_decay", 0.8);
+  node_->declare_parameter("layers." + layer_name_ + ".prediction_cost_decay", 0.3);
   node_->declare_parameter("layers." + layer_name_ + ".max_centroid_height_m", 100.0);
 
   bbox_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".bbox_inflation_m").as_double();
   bbox_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".bbox_cost_decay").as_double();
-  prediction_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".prediction_inflation_m").as_double();
   prediction_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".prediction_cost_decay").as_double();
   max_centroid_height_m_ = node_->get_parameter("layers." + layer_name_ + ".max_centroid_height_m").as_double();
 }
@@ -123,24 +121,43 @@ void ObjectsLayer::update(
 
     markBox(grid, pose_out.pose.position.x, pose_out.pose.position.y, obj_yaw, base_half_x, base_half_y, 100);
 
-    // Project prediction poses with decaying cost
+    // Project prediction poses with distance-based cost decay
+    // Close predictions have cost nearly equal to the full vehicle
+    // Low probability predictions decay faster with distance
     for (const auto & prediction : obj.predictions) {
-      double cost_factor = 1.0;
       for (const auto & ps : prediction.poses) {
-        cost_factor *= prediction_cost_decay_;
-        int8_t pred_cost = static_cast<int8_t>(std::max(1.0, 100.0 * cost_factor));
-
         geometry_msgs::msg::PoseStamped pred_out;
         tf2::doTransform(ps, pred_out, obj_to_costmap);
 
-        double pred_half = prediction_inflation_m_;
+        // Decay along the object's predicted path, not by global ego distance.
+        // This preserves visible prediction costs even for distant objects.
+        double dx = pred_out.pose.position.x - pose_out.pose.position.x;
+        double dy = pred_out.pose.position.y - pose_out.pose.position.y;
+        double distance = std::sqrt(dx * dx + dy * dy);
+
+        // Distance-based decay: low confidence predictions decay faster.
+        // The configured base decay is scaled inversely by confidence.
+        double conf_clamped = std::max(0.1, prediction.conf);
+        double decay_rate = prediction_cost_decay_ / conf_clamped;
+        double distance_decay = std::exp(-decay_rate * distance);
+
+        // Skip cells whose decayed value is effectively free space.
+        double raw_pred_cost = 100.0 * prediction.conf * distance_decay;
+        if (raw_pred_cost < 1.0) {
+          continue;
+        }
+        int8_t pred_cost = static_cast<int8_t>(std::min(100.0, raw_pred_cost));
+
+        // Prediction footprints already use scaled object dimensions.
+        double pred_half_x = base_half_x;
+        double pred_half_y = base_half_y;
         markBox(
           grid,
           pred_out.pose.position.x,
           pred_out.pose.position.y,
           yawFromQuat(pred_out.pose.orientation),
-          pred_half,
-          pred_half,
+          pred_half_x,
+          pred_half_y,
           pred_cost);
       }
     }
