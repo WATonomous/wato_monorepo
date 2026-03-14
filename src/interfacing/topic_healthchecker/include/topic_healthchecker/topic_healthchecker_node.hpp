@@ -39,7 +39,7 @@ private:
   struct TopicState
   {
     std::string name;
-    std::string status = "not_found";    // healthy, stale, no_publishers, not_found
+    std::string status = "not_found";  // healthy, stale, no_publishers, not_found
     std::string msg_type;
     double rate_hz = 0.0;
     std::deque<std::chrono::steady_clock::time_point> timestamps;
