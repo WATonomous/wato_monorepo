@@ -18,9 +18,8 @@ namespace eidos {
 // Destructor
 // ---------------------------------------------------------------------------
 EuclideanDistanceLoopClosureFactor::~EuclideanDistanceLoopClosureFactor() {
-  running_ = false;
-  if (loop_thread_.joinable()) {
-    loop_thread_.join();
+  if (gicp_thread_.joinable()) {
+    gicp_thread_.join();
   }
 }
 
@@ -28,11 +27,8 @@ EuclideanDistanceLoopClosureFactor::~EuclideanDistanceLoopClosureFactor() {
 // Lifecycle
 // ---------------------------------------------------------------------------
 void EuclideanDistanceLoopClosureFactor::onInitialize() {
-  RCLCPP_INFO(node_->get_logger(), "[%s] onInitialize()", name_.c_str());
-
   std::string prefix = name_;
 
-  node_->declare_parameter(prefix + ".frequency", frequency_);
   node_->declare_parameter(prefix + ".search_radius", search_radius_);
   node_->declare_parameter(prefix + ".search_time_diff", search_time_diff_);
   node_->declare_parameter(prefix + ".search_num", search_num_);
@@ -45,8 +41,9 @@ void EuclideanDistanceLoopClosureFactor::onInitialize() {
   node_->declare_parameter(prefix + ".num_neighbors", num_neighbors_);
   node_->declare_parameter(prefix + ".loop_closure_cov", loop_closure_cov_);
   node_->declare_parameter(prefix + ".pointcloud_from", std::string(""));
+  // Legacy parameter — no longer used but declared to avoid YAML errors
+  node_->declare_parameter(prefix + ".frequency", 1.0);
 
-  node_->get_parameter(prefix + ".frequency", frequency_);
   node_->get_parameter(prefix + ".search_radius", search_radius_);
   node_->get_parameter(prefix + ".search_time_diff", search_time_diff_);
   node_->get_parameter(prefix + ".search_num", search_num_);
@@ -60,44 +57,33 @@ void EuclideanDistanceLoopClosureFactor::onInitialize() {
   node_->get_parameter(prefix + ".loop_closure_cov", loop_closure_cov_);
   node_->get_parameter(prefix + ".pointcloud_from", pointcloud_from_);
 
-  RCLCPP_INFO(node_->get_logger(), "[%s] initialized (pointcloud_from=%s)",
+  RCLCPP_INFO(node_->get_logger(), "[%s] initialized (latching, pointcloud_from=%s)",
               name_.c_str(), pointcloud_from_.c_str());
 }
 
 void EuclideanDistanceLoopClosureFactor::activate() {
   active_ = true;
-  running_ = true;
-  loop_thread_ = std::thread(
-      &EuclideanDistanceLoopClosureFactor::loopClosureThread, this);
-  RCLCPP_INFO(node_->get_logger(),
-              "[%s] activated (background thread started)", name_.c_str());
+  RCLCPP_INFO(node_->get_logger(), "[%s] activated (latching mode)", name_.c_str());
 }
 
 void EuclideanDistanceLoopClosureFactor::deactivate() {
   active_ = false;
-  running_ = false;
-  if (loop_thread_.joinable()) {
-    loop_thread_.join();
+  if (gicp_thread_.joinable()) {
+    gicp_thread_.join();
   }
-  RCLCPP_INFO(node_->get_logger(),
-              "[%s] deactivated (background thread stopped)", name_.c_str());
+  RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
 void EuclideanDistanceLoopClosureFactor::reset() {
   RCLCPP_INFO(node_->get_logger(), "[%s] reset", name_.c_str());
-  std::lock_guard<std::mutex> lock(loop_queue_mtx_);
-  loop_queue_.clear();
+  std::lock_guard<std::mutex> lock(result_mtx_);
+  pending_result_.reset();
   processed_source_keys_.clear();
 }
 
 // ---------------------------------------------------------------------------
-// FactorPlugin interface
+// FactorPlugin interface — not a state-producing plugin
 // ---------------------------------------------------------------------------
-bool EuclideanDistanceLoopClosureFactor::hasData() const {
-  std::lock_guard<std::mutex> lock(loop_queue_mtx_);
-  return !loop_queue_.empty();
-}
-
 std::optional<gtsam::Pose3>
 EuclideanDistanceLoopClosureFactor::processFrame(double /*timestamp*/) {
   return std::nullopt;
@@ -105,90 +91,86 @@ EuclideanDistanceLoopClosureFactor::processFrame(double /*timestamp*/) {
 
 StampedFactorResult
 EuclideanDistanceLoopClosureFactor::getFactors(gtsam::Key /*key*/) {
+  return {};
+}
+
+// ---------------------------------------------------------------------------
+// latchFactors — called for every new keyframe
+//   Phase 1: deliver any completed GICP result
+//   Phase 2: KD-tree candidate search → dispatch async GICP
+// ---------------------------------------------------------------------------
+StampedFactorResult
+EuclideanDistanceLoopClosureFactor::latchFactors(gtsam::Key /*key*/, double /*timestamp*/) {
   StampedFactorResult result;
+  if (!active_) return result;
+  if (core_->getState() != SlamState::TRACKING) return result;
 
-  std::lock_guard<std::mutex> lock(loop_queue_mtx_);
-  for (auto& lc : loop_queue_) {
-    auto factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-        lc.from_key, lc.to_key, lc.relative_pose, lc.noise);
-    result.factors.push_back(factor);
+  // Phase 1: deliver pending GICP result
+  {
+    std::lock_guard<std::mutex> lock(result_mtx_);
+    if (pending_result_.has_value()) {
+      auto& lc = pending_result_.value();
+      auto factor = gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+          lc.from_key, lc.to_key, lc.relative_pose, lc.noise);
+      result.factors.push_back(factor);
 
-    gtsam::Symbol from_sym(lc.from_key), to_sym(lc.to_key);
-    RCLCPP_INFO(node_->get_logger(),
-                "[%s] loop closure factor: (%c,%lu) -> (%c,%lu)",
-                name_.c_str(),
-                from_sym.chr(), from_sym.index(),
-                to_sym.chr(), to_sym.index());
+      gtsam::Symbol from_sym(lc.from_key), to_sym(lc.to_key);
+      auto rel_t = lc.relative_pose.translation();
+      auto rel_rpy = lc.relative_pose.rotation().rpy();
+      RCLCPP_INFO(node_->get_logger(),
+          "\033[31m[%s] DELIVERING loop closure: (%c,%lu)->(%c,%lu) "
+          "t=(%.2f,%.2f,%.2f) rpy=(%.1f,%.1f,%.1f)\033[0m",
+          name_.c_str(), from_sym.chr(), from_sym.index(),
+          to_sym.chr(), to_sym.index(),
+          rel_t.x(), rel_t.y(), rel_t.z(),
+          rel_rpy(0)*180.0/M_PI, rel_rpy(1)*180.0/M_PI, rel_rpy(2)*180.0/M_PI);
+
+      core_->getMapManager().addKeyframeData(
+          lc.from_key, name_ + "/loop_target", lc.to_key);
+
+      pending_result_.reset();
+    }
   }
-  loop_queue_.clear();
 
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Background thread
-// ---------------------------------------------------------------------------
-void EuclideanDistanceLoopClosureFactor::loopClosureThread() {
-  if (frequency_ <= 0.0) return;
-
-  rclcpp::Rate rate(frequency_);
-  while (running_ && rclcpp::ok()) {
-    performLoopClosure();
-    rate.sleep();
-  }
-}
-
-void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
-  if (core_->getState() != SlamState::TRACKING) return;
-
-  auto t0 = std::chrono::steady_clock::now();
-  auto ms_since = [&t0]() {
-    return std::chrono::duration<double, std::milli>(
-        std::chrono::steady_clock::now() - t0).count();
-  };
+  // Phase 2: find new candidates (skip if GICP already running)
+  if (gicp_in_progress_.load()) return result;
 
   const auto& map_manager = core_->getMapManager();
   auto key_list = map_manager.getKeyList();
   auto key_poses_3d = map_manager.getKeyPoses3D();
   auto key_poses_6d = map_manager.getKeyPoses6D();
 
-  if (key_list.size() < 3) return;
+  if (key_list.size() < 3) return result;
 
-  // Latest keyframe
-  gtsam::Key latest_key = key_list.back();
+  // Source = latest key with full data in MapManager
+  gtsam::Key source_key = key_list.back();
+  if (processed_source_keys_.count(source_key)) return result;
 
-  // Skip if already processed
-  {
-    std::lock_guard<std::mutex> lock(loop_queue_mtx_);
-    if (processed_source_keys_.count(latest_key)) return;
-  }
+  int source_idx = map_manager.getCloudIndex(source_key);
+  if (source_idx < 0 || source_idx >= static_cast<int>(key_poses_3d->size()))
+    return result;
 
-  int latest_idx = map_manager.getCloudIndex(latest_key);
-  if (latest_idx < 0 || latest_idx >= static_cast<int>(key_poses_3d->size()))
-    return;
-
-  // KD-tree search for nearby keyframes within search_radius_
+  // KD-tree: spatially close, temporally distant candidates
   auto kdtree = pcl::make_shared<pcl::KdTreeFLANN<PointType>>();
   kdtree->setInputCloud(key_poses_3d);
 
   std::vector<int> search_indices;
   std::vector<float> search_distances;
-  kdtree->radiusSearch(key_poses_3d->points[latest_idx],
+  kdtree->radiusSearch(key_poses_3d->points[source_idx],
                        static_cast<float>(search_radius_),
                        search_indices, search_distances, 0);
 
-  // Find best candidate: spatially close but temporally distant
-  float latest_time = key_poses_6d->points[latest_idx].time;
+  float source_time = key_poses_6d->points[source_idx].time;
   gtsam::Key best_key = 0;
   int best_idx = -1;
   float best_dist = std::numeric_limits<float>::max();
 
   for (size_t i = 0; i < search_indices.size(); i++) {
     int candidate_idx = search_indices[i];
-    if (candidate_idx == latest_idx) continue;
+    if (candidate_idx == source_idx) continue;
 
     float time_diff =
-        std::abs(latest_time - key_poses_6d->points[candidate_idx].time);
+        std::abs(source_time - key_poses_6d->points[candidate_idx].time);
     if (time_diff < static_cast<float>(search_time_diff_)) continue;
 
     gtsam::Key candidate_key = map_manager.getKeyFromCloudIndex(candidate_idx);
@@ -201,34 +183,85 @@ void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
     }
   }
 
-  if (best_key == 0) return;
+  if (best_key == 0) return result;
 
-  double t_search = ms_since();
+  // Mark as processed, dispatch async GICP
+  processed_source_keys_.insert(source_key);
 
-  // Build two submaps using depth-limited BFS on the adjacency graph:
-  //   current_submap: neighborhood around latest_key (where we are now)
-  //   historical_submap: neighborhood around best_key (where we were before)
-  auto current_keys = bfsCollectStates(latest_key, submap_radius_, search_num_);
-  auto historical_keys = bfsCollectStates(best_key, submap_radius_, search_num_);
+  if (gicp_thread_.joinable()) {
+    gicp_thread_.join();
+  }
 
-  if (current_keys.empty() || historical_keys.empty()) return;
+  gicp_in_progress_ = true;
+  gicp_thread_ = std::thread(
+      &EuclideanDistanceLoopClosureFactor::runGICP, this,
+      source_key, source_idx, best_key, best_idx);
 
+  gtsam::Symbol src_sym(source_key), cand_sym(best_key);
+  RCLCPP_INFO(node_->get_logger(),
+      "[%s] candidate: (%c,%lu)->(%c,%lu) dist=%.1fm, dispatching GICP",
+      name_.c_str(), src_sym.chr(), src_sym.index(),
+      cand_sym.chr(), cand_sym.index(), std::sqrt(best_dist));
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// runGICP — background thread
+//   Build body-frame submaps, align with ISAM2 relative pose as init_guess,
+//   queue BetweenFactor for delivery on next latchFactors call.
+// ---------------------------------------------------------------------------
+void EuclideanDistanceLoopClosureFactor::runGICP(
+    gtsam::Key source_key, int source_idx,
+    gtsam::Key candidate_key, int candidate_idx) {
+
+  auto t0 = std::chrono::steady_clock::now();
+  auto ms_since = [&t0]() {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - t0).count();
+  };
+
+  auto source_keys = bfsCollectStates(source_key, submap_radius_, search_num_);
+  auto candidate_keys = bfsCollectStates(candidate_key, submap_radius_, search_num_);
+
+  if (source_keys.empty() || candidate_keys.empty()) {
+    gicp_in_progress_ = false;
+    return;
+  }
   double t_bfs = ms_since();
 
-  auto [current_submap, current_tree] = assembleSubmap(current_keys);
-  double t_assemble_cur = ms_since();
+  // Body-frame submaps — undistorted by drift
+  auto [source_submap, source_tree] =
+      assembleBodyFrameSubmap(source_key, source_keys);
+  double t_src = ms_since();
 
-  auto [historical_submap, historical_tree] = assembleSubmap(historical_keys);
-  double t_assemble_hist = ms_since();
+  auto [candidate_submap, candidate_tree] =
+      assembleBodyFrameSubmap(candidate_key, candidate_keys);
+  double t_cand = ms_since();
 
-  if (!current_submap || current_submap->empty() ||
-      !historical_submap || historical_submap->empty()) return;
+  if (!source_submap || source_submap->empty() ||
+      !candidate_submap || candidate_submap->empty()) {
+    gicp_in_progress_ = false;
+    return;
+  }
 
-  // Initial guess: identity, since both submaps are already in world frame
-  // and the two neighborhoods should overlap spatially at the loop closure point
-  Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
+  // Init guess: ISAM2 relative pose estimate (source_body → candidate_body)
+  // Much better than identity — already accounts for known position/orientation.
+  // GICP only needs to refine the residual drift.
+  const auto& map_manager = core_->getMapManager();
+  auto key_poses_6d = map_manager.getKeyPoses6D();
 
-  // Register: align current submap to historical submap
+  gtsam::Pose3 T_source =
+      poseTypeToGtsamPose3(key_poses_6d->points[source_idx]);
+  gtsam::Pose3 T_candidate =
+      poseTypeToGtsamPose3(key_poses_6d->points[candidate_idx]);
+
+  // T_candidate^{-1} * T_source maps source_body points → candidate_body
+  gtsam::Pose3 relative_estimate = T_candidate.inverse().compose(T_source);
+  Eigen::Isometry3d init_guess;
+  init_guess.matrix() = relative_estimate.matrix();
+
+  // GICP: align source (source body frame) → candidate (candidate body frame)
   small_gicp::RegistrationSetting setting;
   setting.type = small_gicp::RegistrationSetting::GICP;
   setting.max_correspondence_distance = max_correspondence_distance_;
@@ -236,90 +269,138 @@ void EuclideanDistanceLoopClosureFactor::performLoopClosure() {
   setting.num_threads = num_threads_;
 
   auto result = small_gicp::align(
-      *historical_submap, *current_submap, *historical_tree,
+      *candidate_submap, *source_submap, *candidate_tree,
       init_guess, setting);
 
   double t_gicp = ms_since();
 
+  gtsam::Symbol src_sym(source_key), cand_sym(candidate_key);
+
   if (!result.converged) {
     RCLCPP_INFO(node_->get_logger(),
-                "[%s] GICP did not converge | cur=%zu states/%zu pts, hist=%zu states/%zu pts | "
-                "search=%.0fms bfs=%.0fms assemble_cur=%.0fms assemble_hist=%.0fms gicp=%.0fms total=%.0fms",
-                name_.c_str(),
-                current_keys.size(), current_submap->size(),
-                historical_keys.size(), historical_submap->size(),
-                t_search, t_bfs - t_search,
-                t_assemble_cur - t_bfs, t_assemble_hist - t_assemble_cur,
-                t_gicp - t_assemble_hist, t_gicp);
+        "[%s] GICP did not converge: (%c,%lu)->(%c,%lu) | "
+        "src=%zu states/%zu pts, cand=%zu states/%zu pts | "
+        "bfs=%.0fms src=%.0fms cand=%.0fms gicp=%.0fms total=%.0fms",
+        name_.c_str(), src_sym.chr(), src_sym.index(),
+        cand_sym.chr(), cand_sym.index(),
+        source_keys.size(), source_submap->size(),
+        candidate_keys.size(), candidate_submap->size(),
+        t_bfs, t_src - t_bfs, t_cand - t_src, t_gicp - t_cand, t_gicp);
+    gicp_in_progress_ = false;
     return;
   }
 
-  // Quality check: inlier ratio
+  // Quality check
   double inlier_ratio =
-      static_cast<double>(result.num_inliers) / current_submap->size();
+      static_cast<double>(result.num_inliers) / source_submap->size();
   if (inlier_ratio < min_inlier_ratio_) {
     RCLCPP_INFO(node_->get_logger(),
-                "[%s] rejected: inliers=%zu/%zu (%.1f%% < %.1f%%)",
-                name_.c_str(), result.num_inliers, current_submap->size(),
-                inlier_ratio * 100.0, min_inlier_ratio_ * 100.0);
+        "[%s] rejected: (%c,%lu)->(%c,%lu) inliers=%zu/%zu (%.1f%% < %.1f%%)",
+        name_.c_str(), src_sym.chr(), src_sym.index(),
+        cand_sym.chr(), cand_sym.index(),
+        result.num_inliers, source_submap->size(),
+        inlier_ratio * 100.0, min_inlier_ratio_ * 100.0);
+    gicp_in_progress_ = false;
     return;
   }
 
-  // T_target_source is the correction that aligns the current submap onto
-  // the historical submap.  Both submaps are in world frame, so this
-  // correction tells us how the current neighborhood should shift.
-  //
-  // Compute the BetweenFactor relative pose:
-  //   T_latest (optimized world pose of latest_key)
-  //   T_candidate (optimized world pose of best_key)
-  //   T_correction = result.T_target_source  (maps current -> historical frame)
-  //
-  //   corrected_latest = T_correction * T_latest
-  //   relative_pose = corrected_latest^{-1} * T_candidate
-  //     = (T_correction * T_latest).between(T_candidate)
-  gtsam::Pose3 T_latest =
-      poseTypeToGtsamPose3(key_poses_6d->points[latest_idx]);
-  gtsam::Pose3 T_candidate =
-      poseTypeToGtsamPose3(key_poses_6d->points[best_idx]);
+  // BetweenFactor measurement:
+  //   T_target_source maps source_body → candidate_body
+  //   source.between(candidate) = T_source^{-1} * T_candidate = T_target_source^{-1}
+  gtsam::Pose3 T_ts(gtsam::Rot3(result.T_target_source.rotation()),
+                     gtsam::Point3(result.T_target_source.translation()));
+  gtsam::Pose3 measured = T_ts.inverse();
 
-  gtsam::Pose3 T_correction(
-      gtsam::Rot3(result.T_target_source.rotation()),
-      gtsam::Point3(result.T_target_source.translation()));
-
-  gtsam::Pose3 corrected_latest = T_correction.compose(T_latest);
-  gtsam::Pose3 relative_pose = corrected_latest.between(T_candidate);
-
-  // Noise model: config is [x,y,z,roll,pitch,yaw], GTSAM expects [rot,rot,rot,trans,trans,trans]
-  // No robust kernel — the inlier ratio check already filters bad matches,
-  // and the Cauchy kernel attenuates the correction for large residuals,
-  // making loop closures unable to overcome the chain of tight LISO factors.
   auto noise = gtsam::noiseModel::Diagonal::Variances(
-      (gtsam::Vector(6) << loop_closure_cov_[3], loop_closure_cov_[4], loop_closure_cov_[5],
-       loop_closure_cov_[0], loop_closure_cov_[1], loop_closure_cov_[2]).finished());
+      (gtsam::Vector(6) << loop_closure_cov_[3], loop_closure_cov_[4],
+       loop_closure_cov_[5], loop_closure_cov_[0], loop_closure_cov_[1],
+       loop_closure_cov_[2]).finished());
 
+  auto meas_t = measured.translation();
+  auto meas_rpy = measured.rotation().rpy();
   RCLCPP_INFO(node_->get_logger(),
-              "\033[31m[%s] LOOP CLOSURE: inliers=%zu/%zu (%.1f%%) | "
-              "cur=%zu states/%zu pts, hist=%zu states/%zu pts | "
-              "search=%.0fms bfs=%.0fms assemble_cur=%.0fms assemble_hist=%.0fms gicp=%.0fms total=%.0fms\033[0m",
-              name_.c_str(), result.num_inliers, current_submap->size(),
-              inlier_ratio * 100.0,
-              current_keys.size(), current_submap->size(),
-              historical_keys.size(), historical_submap->size(),
-              t_search, t_bfs - t_search,
-              t_assemble_cur - t_bfs, t_assemble_hist - t_assemble_cur,
-              t_gicp - t_assemble_hist, t_gicp);
+      "\033[31m[%s] LOOP CLOSURE: (%c,%lu)->(%c,%lu) inliers=%zu/%zu (%.1f%%) "
+      "measured t=(%.2f,%.2f,%.2f) rpy=(%.1f,%.1f,%.1f) | "
+      "src=%zu/%zu pts, cand=%zu/%zu pts | "
+      "bfs=%.0f src=%.0f cand=%.0f gicp=%.0fms total=%.0fms\033[0m",
+      name_.c_str(), src_sym.chr(), src_sym.index(),
+      cand_sym.chr(), cand_sym.index(),
+      result.num_inliers, source_submap->size(), inlier_ratio * 100.0,
+      meas_t.x(), meas_t.y(), meas_t.z(),
+      meas_rpy(0)*180.0/M_PI, meas_rpy(1)*180.0/M_PI, meas_rpy(2)*180.0/M_PI,
+      source_keys.size(), source_submap->size(),
+      candidate_keys.size(), candidate_submap->size(),
+      t_bfs, t_src - t_bfs, t_cand - t_src, t_gicp - t_cand, t_gicp);
 
-  // Queue constraint
   {
-    std::lock_guard<std::mutex> lock(loop_queue_mtx_);
-    loop_queue_.push_back(
-        {latest_key, best_key, relative_pose, noise});
-    processed_source_keys_.insert(latest_key);
+    std::lock_guard<std::mutex> lock(result_mtx_);
+    pending_result_ = LoopConstraint{source_key, candidate_key, measured, noise};
   }
 
-  // Store loop target for visualization
-  core_->getMapManager().addKeyframeData(
-      latest_key, name_ + "/loop_target", best_key);
+  gicp_in_progress_ = false;
+}
+
+// ---------------------------------------------------------------------------
+// assembleBodyFrameSubmap — build submap in center_key's body frame
+// ---------------------------------------------------------------------------
+std::pair<small_gicp::PointCloud::Ptr,
+          std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>>>
+EuclideanDistanceLoopClosureFactor::assembleBodyFrameSubmap(
+    gtsam::Key center_key,
+    const std::vector<gtsam::Key>& keys) {
+
+  const auto& map_manager = core_->getMapManager();
+  auto key_poses_6d = map_manager.getKeyPoses6D();
+  std::string gicp_key = pointcloud_from_ + "/gicp_cloud";
+
+  int center_idx = map_manager.getCloudIndex(center_key);
+  if (center_idx < 0 || center_idx >= static_cast<int>(key_poses_6d->size()))
+    return {nullptr, nullptr};
+
+  // T_center: world pose of center keyframe
+  Eigen::Affine3f center_world_f =
+      poseTypeToAffine3f(key_poses_6d->points[center_idx]);
+  Eigen::Isometry3d T_center;
+  T_center.matrix() = center_world_f.matrix().cast<double>();
+  Eigen::Isometry3d T_center_inv = T_center.inverse();
+
+  auto merged = std::make_shared<small_gicp::PointCloud>();
+
+  for (gtsam::Key k : keys) {
+    auto cloud_data = map_manager.getKeyframeData(k, gicp_key);
+    if (!cloud_data.has_value()) continue;
+
+    small_gicp::PointCloud::Ptr body_cloud;
+    try {
+      body_cloud =
+          std::any_cast<small_gicp::PointCloud::Ptr>(cloud_data.value());
+    } catch (const std::bad_any_cast&) {
+      continue;
+    }
+    if (!body_cloud || body_cloud->empty()) continue;
+
+    int idx = map_manager.getCloudIndex(k);
+    if (idx < 0 || idx >= static_cast<int>(key_poses_6d->size())) continue;
+
+    // T_center^{-1} * T_k: transforms k's body-frame points into center's body frame
+    Eigen::Affine3f k_world_f =
+        poseTypeToAffine3f(key_poses_6d->points[idx]);
+    Eigen::Isometry3d T_k;
+    T_k.matrix() = k_world_f.matrix().cast<double>();
+    Eigen::Isometry3d center_from_k = T_center_inv * T_k;
+
+    for (size_t i = 0; i < body_cloud->size(); i++) {
+      Eigen::Vector3d p = center_from_k * body_cloud->point(i).head<3>();
+      merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
+    }
+  }
+
+  if (merged->empty()) return {nullptr, nullptr};
+
+  auto [submap, submap_tree] = small_gicp::preprocess_points(
+      *merged, submap_leaf_size_, num_neighbors_, num_threads_);
+
+  return {submap, submap_tree};
 }
 
 // ---------------------------------------------------------------------------
@@ -369,53 +450,6 @@ std::vector<gtsam::Key> EuclideanDistanceLoopClosureFactor::bfsCollectStates(
   }
 
   return collected;
-}
-
-// ---------------------------------------------------------------------------
-// assembleSubmap — transform keyframe clouds to world frame, preprocess
-// ---------------------------------------------------------------------------
-std::pair<small_gicp::PointCloud::Ptr,
-          std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>>>
-EuclideanDistanceLoopClosureFactor::assembleSubmap(
-    const std::vector<gtsam::Key>& keys) {
-  const auto& map_manager = core_->getMapManager();
-  auto key_poses_6d = map_manager.getKeyPoses6D();
-  std::string gicp_key = pointcloud_from_ + "/gicp_cloud";
-
-  auto merged = std::make_shared<small_gicp::PointCloud>();
-
-  for (gtsam::Key k : keys) {
-    auto cloud_data = map_manager.getKeyframeData(k, gicp_key);
-    if (!cloud_data.has_value()) continue;
-
-    small_gicp::PointCloud::Ptr body_cloud;
-    try {
-      body_cloud =
-          std::any_cast<small_gicp::PointCloud::Ptr>(cloud_data.value());
-    } catch (const std::bad_any_cast&) {
-      continue;
-    }
-    if (!body_cloud || body_cloud->empty()) continue;
-
-    int idx = map_manager.getCloudIndex(k);
-    if (idx < 0 || idx >= static_cast<int>(key_poses_6d->size())) continue;
-
-    Eigen::Affine3f world_T = poseTypeToAffine3f(key_poses_6d->points[idx]);
-    Eigen::Isometry3d world_T_d;
-    world_T_d.matrix() = world_T.matrix().cast<double>();
-
-    for (size_t i = 0; i < body_cloud->size(); i++) {
-      Eigen::Vector3d p = world_T_d * body_cloud->point(i).head<3>();
-      merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
-    }
-  }
-
-  if (merged->empty()) return {nullptr, nullptr};
-
-  auto [submap, submap_tree] = small_gicp::preprocess_points(
-      *merged, submap_leaf_size_, num_neighbors_, num_threads_);
-
-  return {submap, submap_tree};
 }
 
 }  // namespace eidos

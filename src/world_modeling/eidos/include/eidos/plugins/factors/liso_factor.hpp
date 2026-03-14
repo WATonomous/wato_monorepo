@@ -66,6 +66,7 @@ private:
 
   // Async submap rebuild guard
   std::atomic<bool> rebuild_in_progress_{false};
+  std::atomic<bool> submap_stale_{false};  // pause GICP until rebuild after large correction
 
   // Cached submap (read by lidarCallback, written by rebuildSubmap)
   small_gicp::PointCloud::Ptr cached_submap_;

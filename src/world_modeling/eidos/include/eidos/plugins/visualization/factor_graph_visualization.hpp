@@ -29,7 +29,6 @@ private:
   double publish_rate_ = 1.0;
   std::string mode_ = "full";       // "full" or "windowed"
   double window_radius_ = 50.0;
-  double label_scale_ = 0.0;       // text height for factor labels (0 = off)
   rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 };
 

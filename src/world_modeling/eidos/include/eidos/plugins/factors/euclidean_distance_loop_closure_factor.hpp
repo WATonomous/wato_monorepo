@@ -18,11 +18,17 @@
 namespace eidos {
 
 /**
- * @brief Euclidean distance-based loop closure factor plugin.
+ * @brief Loop closure via euclidean-distance candidate search + GICP.
  *
- * Runs a background thread that searches for loop closure candidates
- * using KD-tree radius search and validates them using small_gicp GICP
- * between two submaps (current neighborhood vs historical neighborhood).
+ * Latching plugin: triggered when a keyframe-producing plugin creates a
+ * new state.  Heavy GICP runs on a background thread; result is delivered
+ * on the next latchFactors() call so it always lands in a cycle with a
+ * new state (ensuring last_optimized_pose_ / map->odom update).
+ *
+ * Submaps are assembled in body frame of the center keyframe, and the
+ * ISAM2-estimated relative pose is used as GICP init_guess — this avoids
+ * the identity-init-guess problem where large rotational drift prevents
+ * convergence.
  */
 class EuclideanDistanceLoopClosureFactor : public FactorPlugin {
 public:
@@ -34,23 +40,29 @@ public:
   void deactivate() override;
   void reset() override;
 
+  // Not a state-producing plugin
   std::optional<gtsam::Pose3> processFrame(double timestamp) override;
   StampedFactorResult getFactors(gtsam::Key key) override;
-  bool hasData() const override;
+
+  // Latching: delivers pending results + dispatches new GICP searches
+  StampedFactorResult latchFactors(gtsam::Key key, double timestamp) override;
 
 private:
-  void loopClosureThread();
-  void performLoopClosure();
-
   // BFS over adjacency graph, bounded by radius and max states
   std::vector<gtsam::Key> bfsCollectStates(
       gtsam::Key start, double radius, int max_states);
 
-  // Assemble a world-frame submap from the given keyframe keys
+  // Assemble submap in center_key's body frame from neighbor keys' clouds
   std::pair<small_gicp::PointCloud::Ptr,
             std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>>>
-  assembleSubmap(const std::vector<gtsam::Key>& keys);
+  assembleBodyFrameSubmap(gtsam::Key center_key,
+                          const std::vector<gtsam::Key>& keys);
 
+  // Async GICP worker
+  void runGICP(gtsam::Key source_key, int source_idx,
+               gtsam::Key candidate_key, int candidate_idx);
+
+  // Pending result from background GICP
   struct LoopConstraint {
     gtsam::Key from_key;
     gtsam::Key to_key;
@@ -58,29 +70,29 @@ private:
     gtsam::noiseModel::Base::shared_ptr noise;
   };
 
-  std::vector<LoopConstraint> loop_queue_;
-  mutable std::mutex loop_queue_mtx_;
+  std::optional<LoopConstraint> pending_result_;
+  mutable std::mutex result_mtx_;
 
-  // Source keys that have already been used in a loop closure
+  // Keys already used as loop closure source (avoid re-checking)
   std::set<gtsam::Key> processed_source_keys_;
 
-  std::thread loop_thread_;
-  std::atomic<bool> running_{false};
+  // Background GICP thread
+  std::atomic<bool> gicp_in_progress_{false};
+  std::thread gicp_thread_;
   bool active_ = false;
 
   // Parameters
-  double frequency_ = 1.0;
-  double search_radius_ = 15.0;         // meters, radius to find loop candidates
-  double search_time_diff_ = 30.0;      // seconds, minimum temporal gap
-  int search_num_ = 25;                 // max states per submap (BFS depth limit)
-  double min_inlier_ratio_ = 0.3;       // minimum inlier fraction to accept (0-1)
-  double submap_leaf_size_ = 0.4;        // voxel size for submap downsampling
-  double submap_radius_ = 25.0;          // meters, BFS radius for submap assembly
+  double search_radius_ = 15.0;
+  double search_time_diff_ = 30.0;
+  int search_num_ = 25;
+  double min_inlier_ratio_ = 0.3;
+  double submap_leaf_size_ = 0.4;
+  double submap_radius_ = 25.0;
   double max_correspondence_distance_ = 2.0;
   int max_iterations_ = 100;
   int num_threads_ = 4;
-  int num_neighbors_ = 10;              // neighbors for normal/covariance estimation
-  std::vector<double> loop_closure_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};  // [x,y,z,roll,pitch,yaw] variance
+  int num_neighbors_ = 10;
+  std::vector<double> loop_closure_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
   std::string pointcloud_from_;
 };
 

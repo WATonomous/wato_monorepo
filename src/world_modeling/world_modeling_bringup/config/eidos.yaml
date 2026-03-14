@@ -168,7 +168,7 @@ eidos_node:
     euclidean_distance_loop_closure_factor:
       plugin: "eidos::EuclideanDistanceLoopClosureFactor"
       frequency: 1.0                # Hz, loop closure detection frequency
-      search_radius: 10.0           # meters, radius to search for loop closure candidates
+      search_radius: 20.0           # meters, radius to search for loop closure candidates
       search_time_diff: 300.0       # seconds, minimum time gap between current and candidate keyframe
       search_num: 15                # max states per submap (BFS depth limit)
       min_inlier_ratio: 0.3         # minimum inlier fraction to accept a loop closure (0-1)
@@ -227,4 +227,3 @@ eidos_node:
       publish_rate: 1.0
       mode: "full"              # "full" or "windowed"
       window_radius: 50.0       # meters, only used in windowed mode
-      label_scale: 0.3          # text height for BetweenFactor labels (0 = off)

@@ -262,6 +262,10 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     return;
   }
 
+  // After a loop closure, wait for the submap rebuild so the corrected
+  // initial guess is consistent with the submap (~70-100ms, 1-2 scans).
+  if (submap_stale_.load()) return;
+
   // Initial guess: last GICP pose + raw gyro-integrated rotation delta
   // Independent of motion model — avoids feedback loop through graph optimization
   Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
@@ -644,7 +648,7 @@ StampedFactorResult LisoFactor::getFactors(gtsam::Key key) {
 // onOptimizationComplete — rebuild submap with corrected poses
 // ---------------------------------------------------------------------------
 void LisoFactor::onOptimizationComplete(
-    const gtsam::Values& optimized_values, bool /*loop_closure_detected*/) {
+    const gtsam::Values& optimized_values, bool loop_closure_detected) {
   // Update prev_liso_pose_ and last_matched_pose_ to the optimized values.
   // After a GPS correction, ISAM2 shifts all poses. If we keep stale poses,
   // the next BetweenFactor's relative_pose = prev.between(new) bakes in the
@@ -668,6 +672,10 @@ void LisoFactor::onOptimizationComplete(
     prev_liso_pose_ = corrected;
     last_matched_pose_ = corrected;
     prev_incremental_pose_ = corrected;
+
+    if (loop_closure_detected) {
+      submap_stale_ = true;
+    }
   }
 
   // Dispatch submap rebuild off the SLAM thread.  submap_mtx_ (shared_lock
@@ -750,6 +758,7 @@ void LisoFactor::rebuildSubmap() {
     cached_submap_ = submap;
     cached_submap_tree_ = submap_tree;
   }
+  submap_stale_ = false;
 
   RCLCPP_INFO(node_->get_logger(),
       "\033[33m[SUBMAP]\033[0m states=%zu raw_pts=%zu merged=%zu final=%zu | "
