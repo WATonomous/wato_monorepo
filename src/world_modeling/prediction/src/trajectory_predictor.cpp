@@ -246,11 +246,11 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses
   return hypotheses;
 }
 
-std::vector<TrajectoryHypothesis>TrajectoryPredictor::generatePedestrianHypotheses(
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
   const vision_msgs::msg::Detection3D & detection)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
-  hypotheses.reserve(3);  // small optimization
+  hypotheses.reserve(4);  // small optimization
 
   // Guard against invalid configuration
   if (time_step_ <= 0.0) {
@@ -283,21 +283,16 @@ std::vector<TrajectoryHypothesis>TrajectoryPredictor::generatePedestrianHypothes
   confident_walk.header.stamp = current_time;
   confident_walk.header.frame_id = frame_id;
   confident_walk.intent = Intent::CONTINUE_STRAIGHT;
-  confident_walk.probability = 0.55;
+  confident_walk.probability = 0.0;
 
-  for (double time_sec = time_step_;
-       time_sec <= prediction_horizon_;
-       time_sec += time_step_) {
-
+  for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
     geometry_msgs::msg::PoseStamped pose;
     pose.header.frame_id = frame_id;
     pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
 
     // Constant-velocity forward propagation
-    pose.pose.position.x =
-      start_x + nominal_walk_speed * std::cos(heading_yaw) * time_sec;
-    pose.pose.position.y =
-      start_y + nominal_walk_speed * std::sin(heading_yaw) * time_sec;
+    pose.pose.position.x = start_x + nominal_walk_speed * std::cos(heading_yaw) * time_sec;
+    pose.pose.position.y = start_y + nominal_walk_speed * std::sin(heading_yaw) * time_sec;
     pose.pose.position.z = start_z;
 
     // Align orientation with direction of travel
@@ -310,60 +305,83 @@ std::vector<TrajectoryHypothesis>TrajectoryPredictor::generatePedestrianHypothes
 
   // Hypothesis 2: Hesitant / wandering behavior
   // Models uncertainty without lateral acceleration
-  TrajectoryHypothesis hesitant_walk;
-  hesitant_walk.header.stamp = current_time;
-  hesitant_walk.header.frame_id = frame_id;
-  hesitant_walk.intent = Intent::UNKNOWN;
-  hesitant_walk.probability = 0.30;
+  TrajectoryHypothesis hesitant_walk_left;
+  hesitant_walk_left.header.stamp = current_time;
+  hesitant_walk_left.header.frame_id = frame_id;
+  hesitant_walk_left.intent = Intent::UNKNOWN;
+  hesitant_walk_left.probability = 0.0;
 
-  double accumulated_forward_distance = 0.0;
+  {
+    double accumulated_forward_distance = 0.0;
 
-  for (double time_sec = time_step_;
-       time_sec <= prediction_horizon_;
-       time_sec += time_step_) {
+    for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+      // Slower forward progress due to hesitation
+      accumulated_forward_distance += 0.6 * nominal_walk_speed * time_step_;
 
-    // Slower forward progress due to hesitation
-    accumulated_forward_distance +=
-      0.6 * nominal_walk_speed * time_step_;
+      // Lateral uncertainty grows with time — offset to the LEFT (+90 deg)
+      double lateral_offset = 0.15 * std::sqrt(time_sec);
 
-    // Lateral uncertainty grows with time (non-cumulative)
-    double lateral_offset = 0.15 * std::sqrt(time_sec);
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = frame_id;
+      pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
 
-    geometry_msgs::msg::PoseStamped pose;
-    pose.header.frame_id = frame_id;
-    pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+      pose.pose.position.x = start_x + accumulated_forward_distance * std::cos(heading_yaw) +
+                             lateral_offset * std::cos(heading_yaw + M_PI / 2.0);
+      pose.pose.position.y = start_y + accumulated_forward_distance * std::sin(heading_yaw) +
+                             lateral_offset * std::sin(heading_yaw + M_PI / 2.0);
+      pose.pose.position.z = start_z;
+      pose.pose.orientation = aligned_orientation;
 
-    // Base forward motion
-    pose.pose.position.x =
-      start_x + accumulated_forward_distance * std::cos(heading_yaw);
-    pose.pose.position.y =
-      start_y + accumulated_forward_distance * std::sin(heading_yaw);
-
-    // Apply lateral deviation relative to forward path
-    pose.pose.position.x +=
-      lateral_offset * std::cos(heading_yaw + M_PI / 2.0);
-    pose.pose.position.y +=
-      lateral_offset * std::sin(heading_yaw + M_PI / 2.0);
-
-    pose.pose.position.z = start_z;
-    pose.pose.orientation = aligned_orientation;
-
-    hesitant_walk.poses.push_back(pose);
+      hesitant_walk_left.poses.push_back(pose);
+    }
   }
 
-  hypotheses.push_back(hesitant_walk);
+  hypotheses.push_back(hesitant_walk_left);
+
+  // Hypothesis 2b: Hesitant / wandering behavior — drift right
+  // Mirror of 2a: identical forward speed and uncertainty magnitude, but
+  // offset to the RIGHT (-90 deg) so both lateral directions are covered.
+  // Probability assigned by intent_classifier_->assignProbabilities()
+  TrajectoryHypothesis hesitant_walk_right;
+  hesitant_walk_right.header.stamp = current_time;
+  hesitant_walk_right.header.frame_id = frame_id;
+  hesitant_walk_right.intent = Intent::UNKNOWN;
+  hesitant_walk_right.probability = 0.0;
+
+  {
+    double accumulated_forward_distance = 0.0;
+
+    for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+      accumulated_forward_distance += 0.6 * nominal_walk_speed * time_step_;
+
+      // Lateral uncertainty grows with time — offset to the RIGHT (-90 deg)
+      double lateral_offset = 0.15 * std::sqrt(time_sec);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = frame_id;
+      pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+      pose.pose.position.x = start_x + accumulated_forward_distance * std::cos(heading_yaw) +
+                             lateral_offset * std::cos(heading_yaw - M_PI / 2.0);
+      pose.pose.position.y = start_y + accumulated_forward_distance * std::sin(heading_yaw) +
+                             lateral_offset * std::sin(heading_yaw - M_PI / 2.0);
+      pose.pose.position.z = start_z;
+      pose.pose.orientation = aligned_orientation;
+
+      hesitant_walk_right.poses.push_back(pose);
+    }
+  }
+
+  hypotheses.push_back(hesitant_walk_right);
 
   // Hypothesis 3: Stop / yield
   TrajectoryHypothesis stop_behavior;
   stop_behavior.header.stamp = current_time;
   stop_behavior.header.frame_id = frame_id;
   stop_behavior.intent = Intent::STOP;
-  stop_behavior.probability = 0.15;
+  stop_behavior.probability = 0.0;
 
-  for (double time_sec = time_step_;
-       time_sec <= prediction_horizon_;
-       time_sec += time_step_) {
-
+  for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
     geometry_msgs::msg::PoseStamped pose;
     pose.header.frame_id = frame_id;
     pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
@@ -378,15 +396,6 @@ std::vector<TrajectoryHypothesis>TrajectoryPredictor::generatePedestrianHypothes
   }
 
   hypotheses.push_back(stop_behavior);
-
-  // Normalize probabilities
-  double probability_sum = 0.0;
-  for (const auto & hypothesis : hypotheses) {
-    probability_sum += hypothesis.probability;
-  }
-  for (auto & hypothesis : hypotheses) {
-    hypothesis.probability /= probability_sum;
-  }
 
   RCLCPP_DEBUG(
     node_->get_logger(),
