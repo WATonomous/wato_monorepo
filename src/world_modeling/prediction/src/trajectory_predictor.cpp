@@ -72,6 +72,7 @@ TrajectoryHypothesis buildHypothesis(
 
   return hypothesis;
 }
+
 double normalizeAngle(double angle)
 {
   while (angle > M_PI) angle -= 2.0 * M_PI;
@@ -1329,8 +1330,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   }
 
   // Near lanelet — generate multi-hypothesis trajectories
-  auto all_paths =
-    getAllLaneletPaths(*nearest_lanelet, cyclist_params_.max_lanelet_search_depth, routing_graph);
+  auto all_paths = getAllLaneletPaths(*nearest_lanelet, cyclist_params_.max_lanelet_search_depth, routing_graph);
 
   if (all_paths.empty()) {
     return buildCvFallback(state, v, "no paths");
@@ -1432,7 +1432,8 @@ std::optional<double> TrajectoryPredictor::updateHistoryAndComputeVelocity(
 }
 
 std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> TrajectoryPredictor::getAllLaneletPaths(
-  const lanelet::ConstLanelet & start_lanelet, int max_depth,
+  const lanelet::ConstLanelet & start_lanelet,
+  int max_depth,
   const lanelet::routing::RoutingGraphConstPtr & routing_graph) const
 {
   std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> all_paths;
@@ -1492,8 +1493,8 @@ std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> TrajectoryPredictor
       const double next_heading = std::atan2(n_second.y() - n_first.y(), n_second.x() - n_first.x());
 
       // Signed angular difference (positive = left turn)
-      const double angle_diff = std::atan2(
-        std::sin(next_heading - start_heading), std::cos(next_heading - start_heading));
+      const double angle_diff =
+        std::atan2(std::sin(next_heading - start_heading), std::cos(next_heading - start_heading));
 
       if (angle_diff > kTurnAngleThreshold) {
         intent = Intent::TURN_LEFT;

@@ -14,12 +14,12 @@
 
 #include "prediction/prediction_node.hpp"
 
-#include <optional>
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -215,8 +215,7 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   if (speed_range.size() >= 2) {
     cyclist_params.min_speed = speed_range[0];
     cyclist_params.max_speed = speed_range[1];
-  }
-  else {
+  } else {
     RCLCPP_WARN(this->get_logger(), "Invalid cyclist_speed_range parameter, using defaults");
     cyclist_params.min_speed = 0.0;
     cyclist_params.max_speed = 8.0;
@@ -226,8 +225,8 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   RCLCPP_INFO(this->get_logger(), "Prediction time step: %.2f seconds", prediction_time_step_);
 
   RCLCPP_INFO(
-    this->get_logger(),    
-  "Vehicle params: default_speed=%.1f m/s, max_speed=%.1f m/s",
+    this->get_logger(),
+    "Vehicle params: default_speed=%.1f m/s, max_speed=%.1f m/s",
     vehicle_params.default_speed,
     vehicle_params.max_speed);
   RCLCPP_INFO(
@@ -369,8 +368,8 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
 
-  trajectory_predictor_ =
-    std::make_unique<TrajectoryPredictor>(this, prediction_horizon_, prediction_time_step_, vehicle_params, pedestrian_params, cyclist_params, tp_config);
+  trajectory_predictor_ = std::make_unique<TrajectoryPredictor>(
+    this, prediction_horizon_, prediction_time_step_, vehicle_params, pedestrian_params, cyclist_params, tp_config);
   intent_classifier_ = std::make_unique<IntentClassifier>(this, ic_config);
   lanelet_ahead_client_ = this->create_client<lanelet_msgs::srv::GetLaneletAhead>("get_lanelet_ahead");
 
