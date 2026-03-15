@@ -13,6 +13,7 @@
   <exec_depend>velodyne</exec_depend>
   <exec_depend>camera_aravis2</exec_depend>
   <exec_depend>camera_calib</exec_depend>
+  <exec_depend>compressed_image_transport</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

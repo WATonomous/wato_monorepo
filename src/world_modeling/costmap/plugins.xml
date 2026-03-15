@@ -1,0 +1,11 @@
+<library path="costmap_layers">
+  <class type="costmap::ObjectsLayer" base_class_type="costmap::CostmapLayer">
+    <description>Tracked world objects and predictions.</description>
+  </class>
+  <class type="costmap::PointCloudLayer" base_class_type="costmap::CostmapLayer">
+    <description>LiDAR points within a height band.</description>
+  </class>
+  <class type="costmap::VirtualWallLayer" base_class_type="costmap::CostmapLayer">
+    <description>Dynamically spawned virtual walls.</description>
+  </class>
+</library>

@@ -47,6 +47,28 @@ struct IntentFeatures
 };
 
 /**
+ * @brief Configuration for the intent classifier
+ */
+struct IntentClassifierConfig
+{
+  // Feature defaults
+  double default_velocity = 5.0;
+  double default_distance_to_intersection = 50.0;
+  double default_time_in_lane = 2.0;
+
+  // Probability model
+  double straight_base_probability = 0.6;
+  double turn_signal_discount = 0.5;
+  double turn_signal_presence_weight = 0.8;
+  double turn_signal_absence_weight = 0.2;
+  double intersection_normalization = 50.0;
+  double stop_velocity_threshold = 1.0;
+  double stop_high_probability = 0.7;
+  double stop_low_probability = 0.1;
+  double default_fallback_probability = 0.1;
+};
+
+/**
  * @brief Assigns probabilities to trajectory hypotheses based on intent
  * * Uses learned or rule-based classifier to estimate the probability of each
  * trajectory hypothesis based on object state and context.
@@ -57,14 +79,15 @@ public:
   /**
    * @brief Construct a new Intent Classifier
    * @param node ROS node pointer for logging
+   * @param config Configuration parameters
    */
-  explicit IntentClassifier(rclcpp_lifecycle::LifecycleNode * node);
+  explicit IntentClassifier(rclcpp_lifecycle::LifecycleNode * node, const IntentClassifierConfig & config = {});
 
   /**
    * @brief Assign probabilities to trajectory hypotheses
    * @param detection Tracked object detection
    * @param hypotheses Trajectory hypotheses to classify
-   * @param map_context Map context information
+   * @param features Intent features for classification
    */
   void assignProbabilities(
     const vision_msgs::msg::Detection3D & detection,
@@ -94,16 +117,7 @@ private:
   void normalizeProbabilities(std::vector<TrajectoryHypothesis> & hypotheses);
 
   rclcpp_lifecycle::LifecycleNode * node_;
-
-  // Classifier parameters (could be learned weights)
-  struct ClassifierWeights
-  {
-    double velocity_weight;
-    double heading_weight;
-    double intersection_weight;
-    double lateral_offset_weight;
-    double turn_signal_weight;
-  } weights_;
+  IntentClassifierConfig config_;
 };
 
 }  // namespace prediction

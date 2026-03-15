@@ -25,9 +25,12 @@
 #define PREDICTION__MOTION_MODELS_HPP_
 
 #include <Eigen/Dense>
+#include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "rclcpp/rclcpp.hpp"
 
 namespace prediction
 {
@@ -46,6 +49,29 @@ struct KinematicState
 };
 
 /**
+ * @brief Configuration for the bicycle kinematic model
+ */
+struct BicycleModelConfig
+{
+  double max_steering_angle = 0.785;
+  double wheelbase = 2.5;
+  double max_lateral_acceleration = 4.0;
+  double speed_limit = 15.0;
+  double max_acceleration = 2.0;
+  double max_deceleration = 4.0;
+  double lookahead_distance = 3.0;
+};
+
+/**
+ * @brief Configuration for the constant-velocity model
+ */
+struct ConstantVelocityModelConfig
+{
+  double position_noise_std = 0.1;
+  double heading_noise_std = 0.05;
+};
+
+/**
  * @brief Bicycle kinematic model for vehicle motion
  *
  * Models vehicle motion using bicycle kinematics with front wheel steering.
@@ -53,16 +79,15 @@ struct KinematicState
 class BicycleModel
 {
 public:
-  BicycleModel();
+  explicit BicycleModel(const BicycleModelConfig & config = {});
 
   /**
    * @brief Propagate state forward using bicycle model
    * @param initial_state Initial kinematic state
    * @param dt Time step
-   * @param wheelbase Vehicle wheelbase
    * @return New kinematic state after dt
    */
-  KinematicState propagate(const KinematicState & initial_state, double dt, double wheelbase = 2.5);
+  KinematicState propagate(const KinematicState & initial_state, double dt);
 
   /**
    * @brief Generate trajectory following a path
@@ -70,13 +95,26 @@ public:
    * @param path_points Points along desired path
    * @param horizon Time horizon
    * @param dt Time step
-   * @return Vector of poses along trajectory
+   * @param start_time ROS timestamp for first waypoint
+   * @param frame_id Coordinate frame ID
+   * @return Vector of PoseStamped along trajectory
    */
-  std::vector<geometry_msgs::msg::Pose> generateTrajectory(
-    const KinematicState & initial_state, const std::vector<Eigen::Vector2d> & path_points, double horizon, double dt);
+  std::vector<geometry_msgs::msg::PoseStamped> generateTrajectory(
+    const KinematicState & initial_state,
+    const std::vector<Eigen::Vector2d> & path_points,
+    double horizon,
+    double dt,
+    const rclcpp::Time & start_time,
+    const std::string & frame_id);
 
 private:
-  double max_steering_angle_;  // Maximum steering angle (rad)
+  double max_steering_angle_;
+  double wheelbase_;
+  double max_lateral_acceleration_;
+  double speed_limit_;
+  double max_acceleration_;
+  double max_deceleration_;
+  double lookahead_distance_;
 };
 
 /**
@@ -87,7 +125,7 @@ private:
 class ConstantVelocityModel
 {
 public:
-  ConstantVelocityModel();
+  explicit ConstantVelocityModel(const ConstantVelocityModelConfig & config = {});
 
   /**
    * @brief Propagate state forward with constant velocity
@@ -105,8 +143,13 @@ public:
    * @param add_noise Whether to add Gaussian noise
    * @return Vector of poses along trajectory
    */
-  std::vector<geometry_msgs::msg::Pose> generateTrajectory(
-    const KinematicState & initial_state, double horizon, double dt, bool add_noise = false);
+  std::vector<geometry_msgs::msg::PoseStamped> generateTrajectory(
+    const KinematicState & initial_state,
+    double horizon,
+    double dt,
+    bool add_noise = false,
+    const rclcpp::Time & start_time = rclcpp::Time(0),
+    const std::string & frame_id = "map");
 
 private:
   double position_noise_std_;  // Standard deviation for position noise

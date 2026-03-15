@@ -1,0 +1,19 @@
+trajectory_planner_node:
+  ros__parameters:
+    # Safety distances
+    safe_distance: 10.0  # Distance (m) where slowing down begins
+    stop_distance: 2.0   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+
+    # Speed limits
+    max_speed: 20.0  # Default maximum speed (m/s) if lanelet limit unavailable
+
+    # Path interpolation
+    interpolation_resolution: 0.1  # Resolution (m) for path interpolation
+
+    # Vehicle footprint bounding box in footprint_frame (m)
+    # x: forward/backward, y: left/right (ROS convention)
+    footprint_frame: "base_link"
+    footprint_x_min: -0.5    # rear of vehicle
+    footprint_y_min: -1.2    # right side
+    footprint_x_max: 3.5     # front bumper
+    footprint_y_max: 1.2     # left side

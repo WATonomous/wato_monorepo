@@ -14,8 +14,12 @@
 
 #include "world_model_markers/world_objects_markers_node.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
+#include <iomanip>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -29,7 +33,8 @@ WorldObjectsMarkersNode::WorldObjectsMarkersNode()
 {
   this->declare_parameter("frame_id", "map");
   this->declare_parameter("box_alpha", 0.6);
-  this->declare_parameter("label_text_height", 0.5);
+  this->declare_parameter("label_text_height", 0.2);
+  this->declare_parameter("label_z_offset", 0.6);
   this->declare_parameter("history_line_width", 0.1);
   this->declare_parameter("prediction_line_width", 0.08);
   this->declare_parameter("lanelet_boundary_line_width", 0.05);
@@ -47,6 +52,7 @@ WorldObjectsMarkersNode::WorldObjectsMarkersNode()
   frame_id_ = this->get_parameter("frame_id").as_string();
   box_alpha_ = this->get_parameter("box_alpha").as_double();
   label_text_height_ = this->get_parameter("label_text_height").as_double();
+  label_z_offset_ = this->get_parameter("label_z_offset").as_double();
   history_line_width_ = this->get_parameter("history_line_width").as_double();
   prediction_line_width_ = this->get_parameter("prediction_line_width").as_double();
   lanelet_boundary_line_width_ = this->get_parameter("lanelet_boundary_line_width").as_double();
@@ -90,6 +96,14 @@ std_msgs::msg::ColorRGBA WorldObjectsMarkersNode::getColorForClassId(const std::
   return lanelet_markers::makeColor(0.6f, 0.6f, 0.6f, static_cast<float>(box_alpha_));
 }
 
+std_msgs::msg::ColorRGBA WorldObjectsMarkersNode::getColorForConfidence(double confidence, float alpha_scale) const
+{
+  double clamped_conf = std::clamp(confidence, 0.0, 1.0);
+  float alpha = std::max(0.15f, alpha_scale * static_cast<float>(clamped_conf));
+  return lanelet_markers::makeColor(
+    static_cast<float>(1.0 - clamped_conf), static_cast<float>(clamped_conf), 0.0f, alpha);
+}
+
 void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg)
 {
   visualization_msgs::msg::MarkerArray marker_array;
@@ -103,7 +117,8 @@ void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::
   }
 
   // Delete all previous markers
-  std::vector<std::string> namespaces = {"wo_boxes", "wo_labels", "wo_history", "wo_predictions", "wo_lanelet_ahead"};
+  std::vector<std::string> namespaces = {
+    "wo_boxes", "wo_labels", "wo_history", "wo_predictions", "wo_prediction_labels", "wo_lanelet_ahead"};
   for (const auto & ns : namespaces) {
     auto delete_marker = lanelet_markers::createDeleteAllMarker(ns, frame_id);
     delete_marker.header.stamp = stamp;
@@ -130,16 +145,22 @@ void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::
     // ID label (TEXT_VIEW_FACING) above the box
     std::string label_text = class_id;
     if (!det.id.empty()) {
-      label_text = det.id + "\n" + class_id;
+      label_text = "ID:" + det.id + "\nCLS:" + class_id;
     }
     if (world_obj.lanelet_ahead.current_lanelet_id > 0) {
       label_text += "\nL:" + std::to_string(world_obj.lanelet_ahead.current_lanelet_id);
     }
+    if (world_obj.regulatory_element.id > 0) {
+      label_text += "\nRE:" + std::to_string(world_obj.regulatory_element.id);
+    }
+    if (world_obj.matched_way_id > 0) {
+      label_text += " W:" + std::to_string(world_obj.matched_way_id);
+    }
 
     geometry_msgs::msg::Point label_pos = det.bbox.center.position;
-    label_pos.z += det.bbox.size.z / 2.0 + label_text_height_;
+    label_pos.z += det.bbox.size.z / 2.0 + label_text_height_ + label_z_offset_;
 
-    auto label_color = lanelet_markers::makeColor(1.0f, 1.0f, 1.0f, 0.9f);
+    auto label_color = lanelet_markers::makeColor(1.0f, 1.0f, 1.0f, 0.8f);
     auto label_marker = lanelet_markers::createTextMarker(
       "wo_labels", marker_id++, frame_id, label_pos, label_text, label_color, label_text_height_);
     label_marker.header.stamp = stamp;
@@ -163,29 +184,51 @@ void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::
       marker_array.markers.push_back(history_marker);
     }
 
-    // Predictions (LINE_STRIP per path)
+    // Predictions (LINE_STRIP per path), color-coded by confidence:
+    // red (low) -> green (high).
     for (const auto & prediction : world_obj.predictions) {
       if (prediction.poses.empty()) {
         continue;
       }
 
       std::vector<geometry_msgs::msg::Point> pred_points;
-      // Start from the object's current position
       pred_points.push_back(det.bbox.center.position);
+
       for (const auto & pose_stamped : prediction.poses) {
         pred_points.push_back(pose_stamped.pose.position);
       }
 
-      auto pred_color = color;
-      pred_color.a = static_cast<float>(prediction.conf * 0.8);
-
+      double conf = std::clamp(prediction.conf, 0.0, 1.0);
+      auto pred_color = getColorForConfidence(conf, 0.9f);
       auto pred_marker = lanelet_markers::createLineStripMarker(
-        "wo_predictions", marker_id++, frame_id, pred_points, pred_color, prediction_line_width_);
+        "wo_predictions", marker_id++, frame_id, pred_points, pred_color, prediction_line_width_ + conf * 0.05);
       pred_marker.header.stamp = stamp;
       marker_array.markers.push_back(pred_marker);
+
+      // Label confidence near the predicted endpoint.
+      geometry_msgs::msg::Point conf_label_pos = pred_points.back();
+      conf_label_pos.z += label_text_height_ * 0.75;
+
+      std::ostringstream conf_stream;
+      conf_stream << std::fixed << std::setprecision(2) << conf;
+      std::string conf_text = "P:" + conf_stream.str();
+
+      auto conf_label_color = pred_color;
+      conf_label_color.a = 0.95f;
+      auto conf_label_marker = lanelet_markers::createTextMarker(
+        "wo_prediction_labels",
+        marker_id++,
+        frame_id,
+        conf_label_pos,
+        conf_text,
+        conf_label_color,
+        std::max(0.15, label_text_height_ * 0.8));
+      conf_label_marker.header.stamp = stamp;
+      marker_array.markers.push_back(conf_label_marker);
     }
 
-    // Lanelet ahead visualization (boundaries/centerlines of reachable lanelets)
+    // Lanelet ahead visualization (boundaries/centerlines of reachable
+    // lanelets)
     if (!world_obj.lanelet_ahead.lanelets.empty()) {
       auto lanelet_color = lanelet_markers::makeColor(
         static_cast<float>(lanelet_boundary_color_r_),

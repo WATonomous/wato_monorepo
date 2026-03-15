@@ -86,7 +86,15 @@ Publishes ground truth 3D bounding boxes for all vehicles and pedestrians in the
 ros2 run carla_perception bbox_publisher
 ```
 
-**Publications:** `detections_3d` (`vision_msgs/Detection3DArray`), `detections_2d` (`vision_msgs/Detection2DArray`)
+**Publications:** `detections_3d` (`vision_msgs/Detection3DArray`), `tracked_detections_3d` (`vision_msgs/Detection3DArray`)
+
+**ObjectHypothesisWithPose format** — each `Detection3D.results` list is populated as follows:
+
+| Object type | `results[0]` | `results[1+]` |
+|---|---|---|
+| Vehicle | `class_id="vehicle"`, `score=1.0` | One entry per active signal: `"left_blinker"`, `"right_blinker"`, `"brake"`, `"reverse"` |
+| Pedestrian | `class_id="pedestrian"`, `score=1.0` | — |
+| Traffic light | `class_id="traffic_light"`, `score=1.0` | `class_id="red"/"yellow"/"green"/"unknown"`, `score=1.0` |
 
 **Parameters:**
 

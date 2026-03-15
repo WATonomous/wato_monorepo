@@ -12,51 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file prediction_node.hpp
- * @brief Node that generates seed WorldObjects from tracked objects.
- *
- * Subscribes to tracked objects from perception, generates trajectory
- * predictions, and publishes seed WorldObjects for the world model.
- */
-
 #ifndef PREDICTION__PREDICTION_NODE_HPP_
 #define PREDICTION__PREDICTION_NODE_HPP_
 
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
+// Standard library headers for memory management and data structures
+#include <memory>  // For std::unique_ptr and std::shared_ptr
+#include <mutex>  // For std::mutex protecting async-callback shared state
+#include <string>  // For std::string in object IDs and keys
+#include <unordered_map>  // For storing per-object and per-vehicle state
+#include <unordered_set>  // For tracking pending vehicle requests
+#include <vector>  // For collections of hypotheses and objects
 
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "prediction/intent_classifier.hpp"
-#include "prediction/trajectory_predictor.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "vision_msgs/msg/detection3_d_array.hpp"
-#include "world_model_msgs/msg/world_object.hpp"
-#include "world_model_msgs/msg/world_object_array.hpp"
+// ROS2 message types
+#include "geometry_msgs/msg/pose_stamped.hpp"  // For ego vehicle pose
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"  // For reachable lanelets
+#include "lanelet_msgs/srv/get_lanelet_ahead.hpp"  // For querying lanelets around vehicles
+#include "vision_msgs/msg/detection3_d_array.hpp"  // For tracked object detections
+#include "world_model_msgs/msg/world_object.hpp"  // For individual predicted objects
+#include "world_model_msgs/msg/world_object_array.hpp"  // For predicted object arrays
+
+// ROS2 core and lifecycle
+#include "rclcpp/rclcpp.hpp"  // ROS2 C++ client library
+#include "rclcpp_lifecycle/lifecycle_node.hpp"  // For lifecycle node management
+
+// Project-specific headers
+#include "prediction/intent_classifier.hpp"  // For maneuver intent detection
+#include "prediction/trajectory_predictor.hpp"  // For trajectory hypothesis generation
 
 namespace prediction
 {
 
-/**
- * @brief Generates seed WorldObjects from tracked objects with trajectory predictions.
- *
- * Subscribes to tracked objects, generates trajectory predictions, and publishes
- * seed WorldObjects for consumption by the world model.
- */
 class PredictionNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
-  /**
-   * @brief Construct a new Prediction Node
-   */
   explicit PredictionNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
-
-  /**
-   * @brief Destroy the Prediction Node
-   */
   ~PredictionNode() override = default;
 
 protected:
@@ -69,17 +58,9 @@ protected:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  /**
-   * @brief Callback for tracked objects
-   * @param msg Tracked detections from perception
-   */
   void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
-
-  /**
-   * @brief Callback for ego pose
-   * @param msg Ego vehicle pose from localization
-   */
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   /**
    * @brief Process a single tracked object and generate a seed WorldObject
@@ -90,10 +71,30 @@ private:
    */
   std::optional<world_model_msgs::msg::WorldObject> processObject(
     const vision_msgs::msg::Detection3D & detection, const std::string & frame_id, double timestamp);
+  // Temporal confidence smoothing to reduce frame-to-frame flicker.
+  void applyConfidenceSmoothing(
+    const vision_msgs::msg::Detection3D & detection, std::vector<TrajectoryHypothesis> & hypotheses);
+  void pruneConfidenceHistory(const rclcpp::Time & now);
+
+  struct SmoothedHypothesisState
+  {
+    Intent intent;
+    double end_x;
+    double end_y;
+    double confidence;
+  };
+
+  struct SmoothedObjectState
+  {
+    std::vector<SmoothedHypothesisState> hypotheses;
+    bool has_observation{false};
+    rclcpp::Time last_update;
+  };
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
+  rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
@@ -102,12 +103,36 @@ private:
   std::unique_ptr<TrajectoryPredictor> trajectory_predictor_;
   std::unique_ptr<IntentClassifier> intent_classifier_;
 
+  // Service client for per-vehicle lanelet queries
+  rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedPtr lanelet_ahead_client_;
+
+  // Callback group: all subscription callbacks run in the same mutually-
+  // exclusive group so they never race against each other. The async
+  // service-response callback runs on a separate executor thread and
+  // shares pending_vehicle_requests_ — protected by pending_requests_mutex_.
+  rclcpp::CallbackGroup::SharedPtr subscription_cb_group_;
+
   // State
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
 
+  // Vehicle IDs with in-flight async lanelet requests (prevents duplicates).
+  // Accessed from subscription callbacks AND async service-response callbacks,
+  // so it is protected by pending_requests_mutex_.
+  std::mutex pending_requests_mutex_;
+  std::unordered_set<std::string> pending_vehicle_requests_;
+  static constexpr size_t kMaxPendingRequests = 8;
+
+  // Per-object history for confidence smoothing.
+  std::unordered_map<std::string, SmoothedObjectState> confidence_history_;
+
   // Parameters
-  double prediction_horizon_;  // seconds
-  double prediction_time_step_;  // seconds
+  double prediction_horizon_;
+  double prediction_time_step_;
+  double confidence_smoothing_alpha_;
+  double confidence_match_distance_m_;
+  double confidence_state_timeout_s_;
+  double cache_ttl_s_;  // TTL for all ID-keyed caches (TrajectoryPredictor + confidence)
+  double lanelet_query_radius_;  // radius for per-vehicle lanelet service query
 };
 
 }  // namespace prediction

@@ -1,5 +1,5 @@
 launch:
-  # Pre-enrichment: subscribes to world_object_seeds (from simple_prediction)
+  # Pre-enrichment: subscribes to world_object_seeds (from prediction)
   - node:
       pkg: world_model_markers
       exec: world_objects_markers_node

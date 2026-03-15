@@ -55,22 +55,29 @@ if [[ "$BIN_OK" == "true" && "$COMP_OK" == "true" ]]; then
   echo "✓ watod and bash completion are already installed and up-to-date for this monorepo."
 else
   echo "Installing/Updating watod and bash completion..."
+  echo "NOTE: Sudo privileges required for system-wide installation. (Optional)"
 
   # Install/Update binary
   if [[ -e "$INSTALL_BIN_DIR/watod" && ! -L "$INSTALL_BIN_DIR/watod" ]]; then
     echo "Error: $INSTALL_BIN_DIR/watod exists and is not a symlink. Please remove it manually." >&2
-    exit 1
+  else
+    if sudo ln -sf "$WATOD_PATH" "$INSTALL_BIN_DIR/watod"; then
+        echo "✓ watod symlink updated at $INSTALL_BIN_DIR/watod"
+    else
+        echo "⚠ Failed to update watod symlink (sudo required). You can use 'watod' via local path or alias."
+    fi
   fi
-  sudo ln -sf "$WATOD_PATH" "$INSTALL_BIN_DIR/watod"
-  echo "✓ watod symlink updated at $INSTALL_BIN_DIR/watod"
 
   # Install/Update completion
   if [[ -n "$COMPLETION_DIR" ]]; then
     if [[ -e "$COMPLETION_DIR/watod" && ! -L "$COMPLETION_DIR/watod" ]]; then
       echo "Warning: $COMPLETION_DIR/watod exists and is not a symlink. Skipping completion update." >&2
     else
-      sudo ln -sf "$COMPLETION_SRC" "$COMPLETION_DIR/watod"
-      echo "✓ Bash completion symlink updated at $COMPLETION_DIR/watod"
+      if sudo ln -sf "$COMPLETION_SRC" "$COMPLETION_DIR/watod"; then
+        echo "✓ Bash completion symlink updated at $COMPLETION_DIR/watod"
+      else
+         echo "⚠ Failed to update system-wide bash completion (sudo required). User-local completion setup in .bashrc is sufficient."
+      fi
     fi
   fi
 fi
@@ -78,3 +85,4 @@ fi
 echo ""
 echo "Installation check complete!"
 echo "You can now run 'watod' from any directory within a monorepo with autocomplete!"
+echo "NOTE: You may need to restart your terminal or run 'source ~/.bashrc' for changes to take effect."
