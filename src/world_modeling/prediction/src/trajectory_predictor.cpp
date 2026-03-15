@@ -1502,22 +1502,39 @@ std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> TrajectoryPredictor
       }
     }
 
-    // Continue building path following successive lanelets
-    lanelet::ConstLanelet current = next_lanelet;
-    for (int depth = 0; depth < max_depth; ++depth) {
+    // Continue building path following successive lanelets, branching at forks
+    // Use DFS: stack of (lanelet, path-so-far, depth)
+    std::vector<std::tuple<lanelet::ConstLanelet, std::vector<Eigen::Vector2d>, int>> stack;
+    stack.emplace_back(next_lanelet, path, 0);
+
+    while (!stack.empty()) {
+      auto [current, current_path, depth] = std::move(stack.back());
+      stack.pop_back();
+
       const auto & current_centerline = current.centerline();
       for (const auto & pt : current_centerline) {
-        path.emplace_back(pt.x(), pt.y());
+        current_path.emplace_back(pt.x(), pt.y());
       }
+
+      if (depth + 1 >= max_depth) {
+        if (current_path.size() >= 2) {
+          all_paths.emplace_back(std::move(current_path), intent);
+        }
+        continue;
+      }
+
       auto next_following = routing_graph->following(current);
       if (next_following.empty()) {
-        break;
+        if (current_path.size() >= 2) {
+          all_paths.emplace_back(std::move(current_path), intent);
+        }
+        continue;
       }
-      current = next_following.front();
-    }
 
-    if (path.size() >= 2) {
-      all_paths.emplace_back(std::move(path), intent);
+      // Push all branches onto the stack
+      for (const auto & next : next_following) {
+        stack.emplace_back(next, current_path, depth + 1);
+      }
     }
   }
 
