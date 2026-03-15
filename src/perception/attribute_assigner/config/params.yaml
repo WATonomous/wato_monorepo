@@ -10,12 +10,19 @@ attribute_assigner_node:
     # Minimum detection confidence to process (detections below this are passed through unchanged)
     min_detection_confidence: 0.3
 
-    # Traffic light: HSV thresholds for "lit" region (S and V in 0-255)
+    # Traffic light: HSV thresholds for "lit" region (S and V in 0-255, H in 0-180)
     traffic_light_min_saturation: 60.0
     traffic_light_min_value: 80.0
+    traffic_light_red_hue_lo: 10.0      # Red: H <= this OR H >= red_hue_hi
+    traffic_light_red_hue_hi: 170.0     # Red: H >= this OR H <= red_hue_lo
+    traffic_light_yellow_hue_hi: 35.0   # Yellow: red_hue_lo < H <= this
+    traffic_light_green_hue_hi: 85.0    # Green: yellow_hue_hi < H < this
 
     # Car: brake light and amber (turn/hazard) detection thresholds (HSV-based)
     car_brake_min_brightness: 90.0  # Min V channel for brake light detection
+    car_brake_min_saturation: 40.0 # Min S channel — lower than amber since brake lights wash out on light cars
+    car_red_hue_lo: 10.0            # Brake light red: H <= this
+    car_red_hue_hi: 170.0           # Brake light red: H >= this
     car_amber_hue_lo: 12.0
     car_amber_hue_hi: 35.0
     car_amber_min_saturation: 80.0
@@ -32,3 +39,9 @@ attribute_assigner_node:
     qos_publisher_reliability: "reliable"        # Options: "reliable", "best_effort"
     qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
     qos_publisher_depth: 10                      # Queue depth for outgoing messages
+
+    # 3D Traffic Light Detection
+    # These parameters control the 3D localization of traffic lights using camera intrinsics and TF
+    input_multi_camera_info_topic: "input_multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
+    target_frame: "base_link"                                  # Target coordinate frame for 3D detections
+    traffic_light_assumed_depth: 30.0                          # Fallback depth in meters if size-based estimation fails (range 5-100m considered valid)

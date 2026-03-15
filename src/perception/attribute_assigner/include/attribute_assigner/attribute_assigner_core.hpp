@@ -44,8 +44,21 @@ struct Params
   double traffic_light_min_saturation{60.0};
   double traffic_light_min_value{80.0};
 
-  /// Car: min brightness (HSV V channel) for brake light detection
+  /// Traffic light hue boundaries (OpenCV H 0-180)
+  /// Red wraps around: H <= red_hue_lo OR H >= red_hue_hi
+  double traffic_light_red_hue_lo{10.0};
+  double traffic_light_red_hue_hi{170.0};
+  /// Yellow: red_hue_lo < H <= yellow_hue_hi
+  double traffic_light_yellow_hue_hi{35.0};
+  /// Green: yellow_hue_hi < H < green_hue_hi
+  double traffic_light_green_hue_hi{85.0};
+
+  /// Car: min brightness and saturation (HSV) for brake light detection
   double car_brake_min_brightness{90.0};
+  double car_brake_min_saturation{40.0};
+  /// Car: red hue range for brake lights (same wrapping as traffic lights)
+  double car_red_hue_lo{10.0};
+  double car_red_hue_hi{170.0};
   /// Car: amber hue range (OpenCV H 0-180) and min saturation/value for turn/hazard
   double car_amber_hue_lo{12.0};
   double car_amber_hue_hi{35.0};
@@ -135,7 +148,10 @@ public:
    * @brief Get the parameters used by this core instance.
    * @return Reference to the parameters struct
    */
-  const Params & getParams() const { return params_; }
+  const Params & getParams() const
+  {
+    return params_;
+  }
 
   /**
    * @brief Check if a detection's best hypothesis matches a traffic light class.
@@ -147,7 +163,7 @@ public:
   /**
    * @brief Check if a detection's best hypothesis matches a car/vehicle class.
    * @param det The detection to check
-   * @return true if the detection is a car or vehicle  
+   * @return true if the detection is a car or vehicle
    */
   bool isCar(const vision_msgs::msg::Detection2D & det) const;
 
@@ -221,7 +237,6 @@ public:
   static constexpr auto kBehaviorPrefix = "behavior:";
 
 private:
-
   Params params_;
   std::unordered_set<std::string> traffic_light_ids_;  ///< Fast lookup for traffic light class IDs
   std::unordered_set<std::string> car_ids_;  ///< Fast lookup for car class IDs

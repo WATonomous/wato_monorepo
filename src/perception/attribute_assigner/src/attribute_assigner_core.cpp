@@ -18,44 +18,10 @@
 #include <chrono>
 #include <cmath>
 #include <string>
+#include <vector>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
-
-namespace
-{
-
-/**
- * @brief Compute mean of a rectangular region from an integral image in O(1).
- * @param integral Integral image (rows+1)x(cols+1), 3-channel CV_64F (e.g. from cv::integral(hsv)).
- * @param x Left column of region
- * @param y Top row of region
- * @param w Width of region
- * @param h Height of region
- * @return Mean as cv::Scalar (3 values: channel 0, 1, 2)
- */
-cv::Scalar regionMeanFromIntegral(const cv::Mat & integral, int x, int y, int w, int h)
-{
-  const int rows = integral.rows - 1;
-  const int cols = integral.cols - 1;
-  const int x2 = std::min(x + w, cols);
-  const int y2 = std::min(y + h, rows);
-  const int x1 = std::max(0, x);
-  const int y1 = std::max(0, y);
-  const double area = static_cast<double>(x2 - x1) * (y2 - y1);
-  if (area <= 0.0) {
-    return cv::Scalar(0.0, 0.0, 0.0);
-  }
-
-  const cv::Vec3d & a = integral.at<cv::Vec3d>(y1, x1);
-  const cv::Vec3d & b = integral.at<cv::Vec3d>(y1, x2);
-  const cv::Vec3d & c = integral.at<cv::Vec3d>(y2, x1);
-  const cv::Vec3d & d = integral.at<cv::Vec3d>(y2, x2);
-  return cv::Scalar(
-    (d[0] - b[0] - c[0] + a[0]) / area, (d[1] - b[1] - c[1] + a[1]) / area, (d[2] - b[2] - c[2] + a[2]) / area);
-}
-
-}  // namespace
 
 namespace wato::perception::attribute_assigner
 {
@@ -137,14 +103,22 @@ double AttributeAssignerCore::getLastProcessingTimeMs() const
 
 bool AttributeAssignerCore::isTrafficLight(const vision_msgs::msg::Detection2D & det) const
 {
-  const std::string class_id = getBestClassId(det);
-  return traffic_light_ids_.count(class_id) > 0;
+  for (const auto & result : det.results) {
+    if (traffic_light_ids_.count(result.hypothesis.class_id) > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool AttributeAssignerCore::isCar(const vision_msgs::msg::Detection2D & det) const
 {
-  const std::string class_id = getBestClassId(det);
-  return car_ids_.count(class_id) > 0;
+  for (const auto & result : det.results) {
+    if (car_ids_.count(result.hypothesis.class_id) > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::string AttributeAssignerCore::getBestClassId(const vision_msgs::msg::Detection2D & det)
@@ -213,218 +187,230 @@ cv::Mat AttributeAssignerCore::cropToBbox(const cv::Mat & image, const vision_ms
 
 TrafficLightAttributes AttributeAssignerCore::classifyTrafficLightState(const cv::Mat & crop) const
 {
+  // Uniform prior — returned when there's insufficient data to classify
+  constexpr double kUniformPrior = 1.0 / 3.0;
   TrafficLightAttributes attrs;
-  const double min_sat = params_.traffic_light_min_saturation;
-  const double min_val = params_.traffic_light_min_value;
+  attrs.red = kUniformPrior;
+  attrs.green = kUniformPrior;
+  attrs.yellow = kUniformPrior;
 
   if (crop.rows < 3 || crop.cols < 2) {
-    attrs.red = 0.33;
-    attrs.green = 0.33;
-    attrs.yellow = 0.33;
     return attrs;
   }
 
+  // Convert to HSV once
   cv::Mat hsv;
   cv::cvtColor(crop, hsv, cv::COLOR_BGR2HSV);
-  cv::Mat sum_integral;
-  cv::integral(hsv, sum_integral, CV_64F);
 
-  const int crop_w = crop.cols;
-  const int crop_h = crop.rows;
-  const double aspect = static_cast<double>(crop_h) / static_cast<double>(crop_w);
+  // Cache param thresholds as uint8 to avoid repeated casts in the hot loop
+  const uint8_t min_val = static_cast<uint8_t>(params_.traffic_light_min_value);
+  const uint8_t red_lo = static_cast<uint8_t>(params_.traffic_light_red_hue_lo);
+  const uint8_t red_hi = static_cast<uint8_t>(params_.traffic_light_red_hue_hi);
+  const uint8_t yellow_hi = static_cast<uint8_t>(params_.traffic_light_yellow_hue_hi);
+  const uint8_t green_hi = static_cast<uint8_t>(params_.traffic_light_green_hue_hi);
 
-  // Vertical light (standard 3-stack): top = red, middle = yellow, bottom = green (O(1) means via integral)
-  if (aspect > 1.2) {
-    const int h = crop_h;
-    const int third = h / 3;
-    cv::Scalar mean_top = regionMeanFromIntegral(sum_integral, 0, 0, crop_w, third);
-    cv::Scalar mean_mid = regionMeanFromIntegral(sum_integral, 0, third, crop_w, third);
-    cv::Scalar mean_bot = regionMeanFromIntegral(sum_integral, 0, 2 * third, crop_w, h - 2 * third);
+  // Single pass over all pixels: count bright pixels per hue bucket
+  // HSV is interleaved as [H,S,V, H,S,V, ...] — no need to cv::split
+  int red_count = 0;
+  int yellow_count = 0;
+  int green_count = 0;
+  int bright_count = 0;
 
-    auto is_lit = [min_sat, min_val](const cv::Scalar & m) { return m[1] >= min_sat && m[2] >= min_val; };
-    auto hue_red = [](double h) { return h <= 10.0 || h >= 170.0; };
-    auto hue_yellow = [](double h) { return h > 10.0 && h <= 35.0; };
-    auto hue_green = [](double h) { return h > 35.0 && h < 85.0; };
+  for (int r = 0; r < hsv.rows; ++r) {
+    const uint8_t * row = hsv.ptr<uint8_t>(r);
+    for (int c = 0; c < hsv.cols; ++c) {
+      const uint8_t v = row[c * 3 + 2];
+      if (v < min_val) continue;
 
-    const double h_top = mean_top[0], s_top = mean_top[1];
-    const double s_mid = mean_mid[1];
-    const double h_bot = mean_bot[0], s_bot = mean_bot[1];
+      ++bright_count;
+      const uint8_t h = row[c * 3];
 
-    const bool lit_top = is_lit(mean_top);
-    const bool lit_mid = is_lit(mean_mid);
-    const bool lit_bot = is_lit(mean_bot);
-
-    // One region lit -> assign that color
-    if (lit_top && !lit_mid && !lit_bot) {
-      if (hue_red(h_top)) {
-        attrs.red = 0.92;
-        attrs.green = 0.05;
-        attrs.yellow = 0.05;
-      } else if (hue_yellow(h_top)) {
-        attrs.yellow = 0.92;
-        attrs.red = 0.05;
-        attrs.green = 0.05;
-      } else if (hue_green(h_top)) {
-        attrs.green = 0.92;
-        attrs.red = 0.05;
-        attrs.yellow = 0.05;
-      } else {
-        attrs.red = 0.4;
-        attrs.green = 0.3;
-        attrs.yellow = 0.3;
+      if (h <= red_lo || h >= red_hi) {
+        ++red_count;
+      } else if (h <= yellow_hi) {
+        ++yellow_count;
+      } else if (h < green_hi) {
+        ++green_count;
       }
-      return attrs;
-    }
-    if (!lit_top && lit_mid && !lit_bot) {
-      attrs.yellow = 0.92;
-      attrs.red = 0.05;
-      attrs.green = 0.05;
-      return attrs;
-    }
-    if (!lit_top && !lit_mid && lit_bot) {
-      if (hue_green(h_bot)) {
-        attrs.green = 0.92;
-        attrs.red = 0.05;
-        attrs.yellow = 0.05;
-      } else if (hue_yellow(h_bot)) {
-        attrs.yellow = 0.92;
-        attrs.red = 0.05;
-        attrs.green = 0.05;
-      } else {
-        attrs.green = 0.5;
-        attrs.yellow = 0.3;
-        attrs.red = 0.2;
-      }
-      return attrs;
-    }
-
-    // Multiple lit: pick strongest by saturation
-    if (lit_top || lit_mid || lit_bot) {
-      double best_s = 0.0;
-      int best = -1;  // 0=red, 1=yellow, 2=green
-      if (lit_top && s_top > best_s) {
-        best_s = s_top;
-        best = 0;
-      }
-      if (lit_mid && s_mid > best_s) {
-        best_s = s_mid;
-        best = 1;
-      }
-      if (lit_bot && s_bot > best_s) {
-        best_s = s_bot;
-        best = 2;
-      }
-      if (best == 0) {
-        attrs.red = 0.85;
-        attrs.yellow = 0.08;
-        attrs.green = 0.07;
-      } else if (best == 1) {
-        attrs.yellow = 0.85;
-        attrs.red = 0.08;
-        attrs.green = 0.07;
-      } else if (best == 2) {
-        attrs.green = 0.85;
-        attrs.red = 0.05;
-        attrs.yellow = 0.10;
-      }
-      return attrs;
+      // Pixels with hue outside all ranges (blue/purple) are bright but unclassified
     }
   }
 
-  // Horizontal or roughly square: single region
-  if (aspect <= 1.2) {
-    cv::Scalar mean_all = regionMeanFromIntegral(sum_integral, 0, 0, crop_w, crop_h);
-    const double h = mean_all[0], s = mean_all[1], v = mean_all[2];
-    if (s >= min_sat && v >= min_val) {
-      if (h <= 10.0 || h >= 170.0) {
-        attrs.red = 0.88;
-        attrs.green = 0.06;
-        attrs.yellow = 0.06;
-      } else if (h > 10.0 && h <= 35.0) {
-        attrs.yellow = 0.88;
-        attrs.red = 0.06;
-        attrs.green = 0.06;
-      } else if (h > 35.0 && h < 85.0) {
-        attrs.green = 0.88;
-        attrs.red = 0.06;
-        attrs.yellow = 0.06;
-      } else {
-        attrs.red = 0.33;
-        attrs.green = 0.33;
-        attrs.yellow = 0.33;
-      }
-      return attrs;
-    }
+  const int total_pixels = hsv.rows * hsv.cols;
+
+  // Need enough bright pixels to have a meaningful signal
+  if (bright_count < total_pixels * 0.05 || bright_count < 4) {
+    return attrs;
   }
 
-  // No clear lit region
-  attrs.red = 0.33;
-  attrs.green = 0.33;
-  attrs.yellow = 0.33;
+  // Classified = pixels that fell into a known hue bucket
+  const int classified = red_count + yellow_count + green_count;
+  if (classified == 0) {
+    return attrs;
+  }
+
+  // Confidence is the actual pixel ratio — how dominant is each color among classified pixels
+  const double inv = 1.0 / static_cast<double>(classified);
+  attrs.red = red_count * inv;
+  attrs.green = green_count * inv;
+  attrs.yellow = yellow_count * inv;
+
   return attrs;
 }
 
 CarAttributes AttributeAssignerCore::classifyCarBehavior(const cv::Mat & crop) const
 {
-  CarAttributes attrs;
-  if (crop.rows < 4 || crop.cols < 4) {
-    attrs.turning_left = 0.1;
-    attrs.turning_right = 0.1;
-    attrs.braking = 0.1;
-    attrs.hazard_lights = 0.05;
+  CarAttributes attrs;  // all zero by default
+
+  if (crop.rows < 10 || crop.cols < 10) {
     return attrs;
   }
 
-  const int h = crop.rows;
-  const int w = crop.cols;
-  const double min_bright = params_.car_brake_min_brightness;  // V in HSV
-  const double ah_lo = params_.car_amber_hue_lo;
-  const double ah_hi = params_.car_amber_hue_hi;
-  const double am_sat = params_.car_amber_min_saturation;
-  const double am_val = params_.car_amber_min_value;
+  const int rows = crop.rows;
+  const int cols = crop.cols;
+  const double center_x = cols / 2.0;
+  const double bbox_area = static_cast<double>(rows * cols);
 
-  // Single BGR→HSV conversion for whole crop; integral image for O(1) region means
-  cv::Mat crop_hsv;
-  cv::cvtColor(crop, crop_hsv, cv::COLOR_BGR2HSV);
-  cv::Mat sum_integral;
-  cv::integral(crop_hsv, sum_integral, CV_64F);
+  // Cache params
+  const uint8_t red_lo = static_cast<uint8_t>(params_.car_red_hue_lo);
+  const uint8_t red_hi = static_cast<uint8_t>(params_.car_red_hue_hi);
+  const uint8_t amber_lo = static_cast<uint8_t>(params_.car_amber_hue_lo);
+  const uint8_t amber_hi = static_cast<uint8_t>(params_.car_amber_hue_hi);
+  const uint8_t min_brake_v = static_cast<uint8_t>(params_.car_brake_min_brightness);
+  const uint8_t min_brake_s = static_cast<uint8_t>(params_.car_brake_min_saturation);
+  const uint8_t min_amber_s = static_cast<uint8_t>(params_.car_amber_min_saturation);
+  const uint8_t min_amber_v = static_cast<uint8_t>(params_.car_amber_min_value);
 
-  // Bottom 25%: brake lights (red in HSV: H in [0,10] or [170,180], high S and V)
-  const int bottom_h = std::max(1, h / 4);
-  cv::Scalar mean_bottom = regionMeanFromIntegral(sum_integral, 0, h - bottom_h, w, bottom_h);
-  const double bh = mean_bottom[0], bs = mean_bottom[1], bv = mean_bottom[2];
-  const bool is_red = (bh <= 10.0 || bh >= 170.0) && bs >= 80.0 && bv >= min_bright;
-  attrs.braking = is_red ? 0.85 : 0.1;
+  // Convert to HSV once
+  cv::Mat hsv;
+  cv::cvtColor(crop, hsv, cv::COLOR_BGR2HSV);
 
-  // Left 25% and right 25%: amber for turn/hazard
-  const int side_w = std::max(1, w / 4);
-  cv::Scalar mean_left = regionMeanFromIntegral(sum_integral, 0, 0, side_w, h);
-  cv::Scalar mean_right = regionMeanFromIntegral(sum_integral, w - side_w, 0, side_w, h);
+  // ============================================================
+  // Single-pass pixel scan: build red and amber masks in one loop
+  // Avoids cv::split + cv::inRange + cv::threshold + cv::bitwise_and chain
+  // ============================================================
+  cv::Mat red_mask(rows, cols, CV_8UC1, cv::Scalar(0));
+  cv::Mat amber_mask(rows, cols, CV_8UC1, cv::Scalar(0));
 
-  auto has_amber = [ah_lo, ah_hi, am_sat, am_val](const cv::Scalar & m) {
-    const double h = m[0], s = m[1], v = m[2];
-    return (h >= ah_lo && h <= ah_hi) && s >= am_sat && v >= am_val;
+  for (int r = 0; r < rows; ++r) {
+    const uint8_t * hsv_row = hsv.ptr<uint8_t>(r);
+    uint8_t * red_row = red_mask.ptr<uint8_t>(r);
+    uint8_t * amber_row = amber_mask.ptr<uint8_t>(r);
+    for (int c = 0; c < cols; ++c) {
+      const uint8_t h = hsv_row[c * 3];
+      const uint8_t s = hsv_row[c * 3 + 1];
+      const uint8_t v = hsv_row[c * 3 + 2];
+
+      // Red: wrapping hue, with saturation and brightness thresholds
+      if ((h <= red_lo || h >= red_hi) && s >= min_brake_s && v >= min_brake_v) {
+        red_row[c] = 255;
+      }
+      // Amber: hue in range, with saturation and brightness thresholds
+      if (h >= amber_lo && h <= amber_hi && s >= min_amber_s && v >= min_amber_v) {
+        amber_row[c] = 255;
+      }
+    }
+  }
+
+  // ============================================================
+  // Brake light detection via red blobs
+  // ============================================================
+  const double min_blob_area = bbox_area * 0.001;  // 0.1% — brake lights are small at distance
+  const double max_blob_area = bbox_area * 0.35;
+
+  struct Blob
+  {
+    double cx, cy;
+    int area;
   };
 
-  const bool left_amber = has_amber(mean_left);
-  const bool right_amber = has_amber(mean_right);
+  auto extractBlobs = [&](const cv::Mat & mask, double min_cy_ratio) {
+    std::vector<Blob> blobs;
+    cv::Mat labels, stats, centroids;
+    int n = cv::connectedComponentsWithStats(mask, labels, stats, centroids);
+    for (int i = 1; i < n; ++i) {
+      int area = stats.at<int>(i, cv::CC_STAT_AREA);
+      if (area >= min_blob_area && area <= max_blob_area) {
+        double cy = centroids.at<double>(i, 1);
+        if (cy > rows * min_cy_ratio) {
+          blobs.push_back({centroids.at<double>(i, 0), cy, area});
+        }
+      }
+    }
+    return blobs;
+  };
 
-  if (left_amber && right_amber) {
-    attrs.hazard_lights = 0.82;
-    attrs.turning_left = 0.1;
-    attrs.turning_right = 0.1;
-  } else if (left_amber && !right_amber) {
-    attrs.turning_left = 0.82;
-    attrs.turning_right = 0.08;
-    attrs.hazard_lights = 0.05;
-  } else if (!left_amber && right_amber) {
-    attrs.turning_right = 0.82;
-    attrs.turning_left = 0.08;
-    attrs.hazard_lights = 0.05;
-  } else {
-    attrs.turning_left = 0.08;
-    attrs.turning_right = 0.08;
-    attrs.hazard_lights = 0.03;
+  // Red blobs in lower 70% of bbox (brake lights sit low on the rear)
+  auto red_blobs = extractBlobs(red_mask, 0.3);
+
+  if (red_blobs.size() >= 2) {
+    // Find best symmetric pair — geometry is the primary signal
+    double best_pair_score = 0.0;
+    for (size_t i = 0; i < red_blobs.size(); ++i) {
+      for (size_t j = i + 1; j < red_blobs.size(); ++j) {
+        const auto & b1 = red_blobs[i];
+        const auto & b2 = red_blobs[j];
+
+        // Horizontal alignment (similar Y)
+        double y_alignment = 1.0 - std::min(1.0, std::abs(b1.cy - b2.cy) / (rows * 0.2));
+
+        // Symmetry about center
+        double symmetry =
+          std::max(0.0, 1.0 - std::abs(std::abs(b1.cx - center_x) - std::abs(b2.cx - center_x)) / (cols * 0.5));
+
+        // Separation (not the same blob split apart)
+        double sep = std::min(1.0, std::abs(b1.cx - b2.cx) / (cols * 0.2));
+
+        double geometry = y_alignment * 0.4 + symmetry * 0.4 + sep * 0.2;
+        best_pair_score = std::max(best_pair_score, geometry);
+      }
+    }
+    // Two red blobs that passed size/position filters is already strong evidence.
+    // Geometry score (0-1) maps to confidence range [0.4, 0.95].
+    attrs.braking = std::min(0.95, 0.4 + best_pair_score * 0.55);
+  } else if (red_blobs.size() == 1) {
+    // Single red blob — moderate confidence based on relative size
+    double size_ratio = red_blobs[0].area / bbox_area;
+    attrs.braking = std::min(0.6, 0.2 + std::min(1.0, size_ratio / 0.02) * 0.4);
+  }
+
+  // ============================================================
+  // Turn signal / hazard detection via amber blobs
+  // ============================================================
+  auto amber_blobs = extractBlobs(amber_mask, 0.0);
+
+  if (!amber_blobs.empty()) {
+    // Accumulate per-side amber area (not just blob count)
+    double left_area = 0.0, right_area = 0.0;
+
+    for (const auto & blob : amber_blobs) {
+      double normalized_x = (blob.cx - center_x) / (cols * 0.5);
+      if (normalized_x < -0.05) {
+        left_area += blob.area;
+      } else if (normalized_x > 0.05) {
+        right_area += blob.area;
+      } else {
+        // Ambiguous center blob — split evenly
+        left_area += blob.area * 0.5;
+        right_area += blob.area * 0.5;
+      }
+    }
+
+    // Confidence is amber area as fraction of bbox, scaled to [0, ~0.95]
+    // A strong turn signal covers ~1-3% of bbox
+    double left_conf = std::min(0.95, left_area / (bbox_area * 0.015));
+    double right_conf = std::min(0.95, right_area / (bbox_area * 0.015));
+
+    // Hazard: both sides active — confidence is the weaker side (bottleneck)
+    if (left_conf > 0.1 && right_conf > 0.1) {
+      attrs.hazard_lights = std::min(left_conf, right_conf);
+      // Downweight individual turn signals when hazard is likely
+      attrs.turning_left = left_conf * 0.3;
+      attrs.turning_right = right_conf * 0.3;
+    } else {
+      attrs.turning_left = left_conf;
+      attrs.turning_right = right_conf;
+    }
   }
 
   return attrs;

@@ -53,18 +53,18 @@ multi_camera_sync:
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
+      - "/CAM_FRONT_RIGHT/image_rect_compressed"
       - "/CAM_FRONT/image_rect_compressed"
-      - "/CAM_FRONT_LEFT/image_rect_compressed"
 
     # CameraInfo topics (one per camera, same order). Required for batched ~/multi_camera_info.
     camera_info_topics:
+      - "/CAM_FRONT_RIGHT/camera_info"
       - "/CAM_FRONT/camera_info"
-      - "/CAM_FRONT_LEFT/camera_info"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
+      - "CAM_FRONT_RIGHT"
       - "CAM_FRONT"
-      - "CAM_FRONT_LEFT"
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
@@ -133,8 +133,8 @@ multi_camera_sync:
         class_idx: 5
 
     Backend:
-      plugin: "onnxruntime_cpu"
-      execution_provider: "cpu"
+      plugin: "onnxruntime_gpu"
+      execution_provider: "tensorrt"
       device_id: 0
       trt_engine_cache_enable: true
       trt_engine_cache_path: "/tmp/deep_ros_ort_trt_cache"
@@ -157,21 +157,33 @@ multi_camera_sync:
 # =============================================================================
 /**/attribute_assigner_node:
   ros__parameters:
+    # Topic names (message_filters doesn't respect launch remapping)
+    input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"
+    input_detections_topic: "/perception/detections"
+    output_detections_topic: "/perception/detections_enriched"
+
     # Class ID mappings (COCO dataset: traffic_light=9, car=2, truck=7, bus=5)
-    traffic_light_class_ids: ["traffic_light", "9"]
+    traffic_light_class_ids: ["traffic light", "9"]
     car_class_ids: ["car", "2", "truck", "7", "bus", "5"]
     min_detection_confidence: 0.3
 
-    # Traffic light color detection thresholds (HSV-based)
+    # Traffic light color detection thresholds (HSV-based, OpenCV H: 0-180)
     traffic_light_min_saturation: 60.0
-    traffic_light_min_value: 80.0
+    traffic_light_min_value: 130.0
+    traffic_light_red_hue_lo: 23.0      # Red: H <= this OR H >= red_hue_hi
+    traffic_light_red_hue_hi: 160.0     # Red: H >= this OR H <= red_hue_lo
+    traffic_light_yellow_hue_hi: 60.0   # Yellow: red_hue_lo < H <= this
+    traffic_light_green_hue_hi: 85.0    # Green: yellow_hue_hi < H < this
 
     # Car signal detection thresholds (HSV-based)
-    car_brake_min_brightness: 90.0
-    car_amber_hue_lo: 12.0
+    car_brake_min_brightness: 150.0
+    car_brake_min_saturation: 70.0     # Lower than amber — brake lights on white cars appear washed out
+    car_red_hue_lo: 23.0                # Brake light red: H <= this
+    car_red_hue_hi: 160.0               # Brake light red: H >= this
+    car_amber_hue_lo: 24.0
     car_amber_hue_hi: 35.0
     car_amber_min_saturation: 80.0
-    car_amber_min_value: 100.0
+    car_amber_min_value: 110.0
 
     # QoS Configuration for subscribers
     qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
@@ -184,6 +196,14 @@ multi_camera_sync:
 
     # Message synchronization
     sync_queue_size: 10
+    sync_max_time_diff_ms: 200.0  # Max time difference for syncing multi-image and detections (ms)
+                                    # Detections are typically 50-150ms after images due to processing time
+
+    # 3D Traffic Light Detection
+    # These parameters control the 3D localization of traffic lights using camera intrinsics and TF
+    input_multi_camera_info_topic: "/multi_camera_sync/multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
+    target_frame: "base_link"                                               # Target coordinate frame for 3D detections
+    traffic_light_assumed_depth: 30.0                                       # Fallback depth in meters if size-based estimation fails (range 5-100m considered valid)
 
 # =============================================================================
 # Lifecycle Managers

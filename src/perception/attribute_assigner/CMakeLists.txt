@@ -34,9 +34,12 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(message_filters REQUIRED)
-find_package(cv_bridge REQUIRED)
 find_package(deep_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # ---- Core library (image-based attribute logic) ----
@@ -76,12 +79,21 @@ target_link_libraries(${PROJECT_NAME}_node
     ${sensor_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${std_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
     ${deep_msgs_TARGETS}
+    tf2_ros::tf2_ros
+    ${tf2_geometry_msgs_TARGETS}
     ${PROJECT_NAME}_core
   PRIVATE
     rclcpp_components::component
-    cv_bridge::cv_bridge
     ${diagnostic_msgs_TARGETS}
+)
+
+# ---- Register component ----
+rclcpp_components_register_node(${PROJECT_NAME}_node
+  PLUGIN "wato::perception::attribute_assigner::AttributeAssignerNode"
+  EXECUTABLE ${PROJECT_NAME}_node_exe
 )
 
 # ---- Executable ----
@@ -146,9 +158,12 @@ ament_export_dependencies(
   vision_msgs
   std_msgs
   sensor_msgs
+  geometry_msgs
+  visualization_msgs
   message_filters
-  cv_bridge
   deep_msgs
+  tf2_ros
+  tf2_geometry_msgs
   OpenCV
 )
 

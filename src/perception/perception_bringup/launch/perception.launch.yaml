@@ -107,13 +107,6 @@ launch:
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
-          remap:
-            - from: "input_multi_image"
-              to: "/multi_camera_sync/multi_image_compressed"
-            - from: "input_detections"
-              to: "/perception/detections"
-            - from: "output_detections"
-              to: "/perception/detections_enriched"
           param:
             - from: $(var config_file)
 
