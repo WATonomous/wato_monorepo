@@ -1063,6 +1063,18 @@ void TrajectoryPredictor::pruneStaleCaches(const rclcpp::Time & now, double ttl_
       }
     }
   }
+
+  {
+    std::lock_guard<std::mutex> lock(history_mutex_);
+    const double now_sec = now.seconds();
+    for (auto it = detection_history_.begin(); it != detection_history_.end();) {
+      if (it->second.empty() || (now_sec - it->second.back().timestamp) > ttl_s) {
+        it = detection_history_.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
 }
 
 // =============================================================================
