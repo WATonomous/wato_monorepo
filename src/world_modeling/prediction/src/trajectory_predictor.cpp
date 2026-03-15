@@ -250,18 +250,23 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
   std::optional<double> velocity =
     updateHistoryAndComputeVelocity(detection.id, detection.bbox.center.position, timestamp);
 
-  ObjectType obj_type = classifyObjectType(detection);
-
-  switch (obj_type) {
-    case ObjectType::VEHICLE:
+  // Map detected class to object type
+  ObjectType obj_type = ObjectType::UNKNOWN;
+  if (!detection.results.empty()) {
+    const std::string & class_id = detection.results[0].hypothesis.class_id;
+    if (class_id == "car" || class_id == "truck" || class_id == "bus" || class_id == "vehicle") {
       return generateVehicleHypotheses(detection, velocity);
-    case ObjectType::PEDESTRIAN:
+    } else if (class_id == "pedestrian") {
       return generatePedestrianHypotheses(detection, velocity);
-    case ObjectType::CYCLIST:
+    } else if (class_id == "bicycle") {
       return generateCyclistHypotheses(detection, velocity);
-    default:
+    } else {
       RCLCPP_WARN(node_->get_logger(), "Unknown object type, skipping prediction");
       return {};
+    }
+  } else {
+    RCLCPP_WARN(node_->get_logger(), "Detection has no classification results, skipping prediction");
+    return {};
   }
 }
 

@@ -36,7 +36,7 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
   this->declare_parameter("max_lanelet_search_depth", 3);
-  this->declare_parameter("cyclist_speed_range", std::vector<double>{2.0, 8.0});
+  this->declare_parameter("cyclist_speed_range", std::vector<double>{0.0, 8.0});
   this->declare_parameter("lanelet_proximity_threshold", 5.0);
 
   // Vehicle defaults
@@ -215,6 +215,11 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   if (speed_range.size() >= 2) {
     cyclist_params.min_speed = speed_range[0];
     cyclist_params.max_speed = speed_range[1];
+  }
+  else {
+    RCLCPP_WARN(this->get_logger(), "Invalid cyclist_speed_range parameter, using defaults");
+    cyclist_params.min_speed = 0.0;
+    cyclist_params.max_speed = 8.0;
   }
 
   RCLCPP_INFO(this->get_logger(), "Prediction horizon: %.2f seconds", prediction_horizon_);
