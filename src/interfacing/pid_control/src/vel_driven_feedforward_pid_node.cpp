@@ -30,6 +30,7 @@ VelDrivenFeedforwardPidNode::VelDrivenFeedforwardPidNode(const rclcpp::NodeOptio
   this->declare_parameter<double>("output_clamp_max", 1.0);
   this->declare_parameter<double>("output_clamp_min", -1.0);
   this->declare_parameter<std::vector<double>>("feedforward.coefficients", {0.0});
+  this->declare_parameter<double>("feedforward.friction_offset", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "VelDrivenFeedforwardPidNode created (unconfigured)");
 }
@@ -42,6 +43,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   output_clamp_max_ = this->get_parameter("output_clamp_max").as_double();
   output_clamp_min_ = this->get_parameter("output_clamp_min").as_double();
   feedforward_coefficients_ = this->get_parameter("feedforward.coefficients").as_double_array();
+  feedforward_friction_offset_ = this->get_parameter("feedforward.friction_offset").as_double();
 
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
@@ -94,8 +96,8 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   param_callback_handle_ = this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
     for (const auto & param : params) {
       if (
-        param.get_name() == "feedforward.coefficients" || param.get_name() == "output_clamp_max" ||
-        param.get_name() == "output_clamp_min")
+        param.get_name() == "feedforward.coefficients" || param.get_name() == "feedforward.friction_offset" ||
+        param.get_name() == "output_clamp_max" || param.get_name() == "output_clamp_min")
       {
         feedforward_rebuild_pending_ = true;
       }
@@ -245,14 +247,18 @@ void VelDrivenFeedforwardPidNode::odom_feedback_callback(const nav_msgs::msg::Od
 
 double VelDrivenFeedforwardPidNode::compute_feedforward(double velocity, double steering_setpoint) const
 {
-  // T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint
+  // T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint + friction_offset * sign(steering_setpoint)
   double ff = 0.0;
   double v_power = 1.0;
   for (const auto & c : feedforward_coefficients_) {
     ff += c * v_power;
     v_power *= velocity;
   }
-  return ff * steering_setpoint;
+  double result = ff * steering_setpoint;
+  if (feedforward_friction_offset_ != 0.0 && steering_setpoint != 0.0) {
+    result += feedforward_friction_offset_ * (steering_setpoint > 0.0 ? 1.0 : -1.0);
+  }
+  return result;
 }
 
 void VelDrivenFeedforwardPidNode::control_loop()
@@ -273,6 +279,7 @@ void VelDrivenFeedforwardPidNode::control_loop()
   // Handle pending parameter updates
   if (feedforward_rebuild_pending_) {
     feedforward_coefficients_ = this->get_parameter("feedforward.coefficients").as_double_array();
+    feedforward_friction_offset_ = this->get_parameter("feedforward.friction_offset").as_double();
     output_clamp_max_ = this->get_parameter("output_clamp_max").as_double();
     output_clamp_min_ = this->get_parameter("output_clamp_min").as_double();
     feedforward_rebuild_pending_ = false;
