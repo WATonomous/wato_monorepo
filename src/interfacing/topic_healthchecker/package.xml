@@ -1,21 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>interfacing_bringup</name>
+  <name>topic_healthchecker</name>
   <version>0.0.0</version>
-  <description>Bringup package used to launch drivers for Eve.</description>
+  <description>Monitors configured ROS 2 topics for liveness and message rate</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- To enable Shared Memory IPC -->
-  <depend>rmw_zenoh_cpp</depend>
-
-  <exec_depend>sensor_interfacing</exec_depend>
-  <exec_depend>eve_description</exec_depend>
-  <exec_depend>can_state_estimator</exec_depend>
-  <exec_depend>topic_healthchecker</exec_depend>
+  <depend>rclcpp</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
