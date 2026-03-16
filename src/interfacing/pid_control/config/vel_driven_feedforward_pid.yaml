@@ -29,7 +29,13 @@ vel_driven_feedforward_pid_node:
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
-    # T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint
+    # T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint + friction_offset * sign(steering_setpoint)
     # Examples: [0.0] = disabled, [0.0, k2, k1] = (k1*v^2 + k2*v)*δ
+    # Model A (R²=0.860): coefficients only, friction_offset: 0.0
+    # Model B (R²=0.903): with friction term for Coulomb steering friction
     feedforward:
-      coefficients: [0.0]
+      coefficients: [0.008056, -0.069744, -0.004519]
+      friction_offset: 0.0
+      # Model B alternative — uncomment to enable friction compensation:
+      # coefficients: [0.221360, -0.120708, 0.005332]
+      # friction_offset: -0.063768
