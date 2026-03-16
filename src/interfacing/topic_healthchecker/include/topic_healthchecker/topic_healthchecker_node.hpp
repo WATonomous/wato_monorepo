@@ -62,14 +62,14 @@ private:
   /// Per-topic monitoring state.
   struct TopicState
   {
-    std::string name;  ///< Fully-qualified topic name.
-    std::string status = "not_found";  ///< Current health status.
-    std::string msg_type;  ///< Message type string (e.g. "sensor_msgs/msg/Image").
-    double rate_hz = 0.0;  ///< Measured publish rate from rolling window.
-    std::deque<std::chrono::steady_clock::time_point> timestamps;  ///< Rolling message arrival times.
-    std::chrono::steady_clock::time_point last_received;  ///< Time of most recent message.
-    rclcpp::GenericSubscription::SharedPtr subscription;  ///< Generic subscription handle.
-    bool ever_received = false;  ///< True once at least one message has arrived.
+    std::string name;
+    std::string status = "not_found";  // healthy, stale, no_publishers, not_found
+    std::string msg_type;
+    double rate_hz = 0.0;
+    std::deque<std::chrono::steady_clock::time_point> timestamps;
+    std::chrono::steady_clock::time_point last_received;
+    rclcpp::GenericSubscription::SharedPtr subscription;
+    bool ever_received = false;
   };
 
   /**

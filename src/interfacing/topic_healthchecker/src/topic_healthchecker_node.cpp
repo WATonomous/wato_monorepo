@@ -35,11 +35,11 @@ namespace topic_healthchecker
 TopicHealthchecker::TopicHealthchecker(const rclcpp::NodeOptions & options)
 : Node("topic_healthchecker", options)
 {
-  this->declare_parameter<std::vector<std::string>>("topics", std::vector<std::string>{});
-  this->declare_parameter<int>("http_port", 8080);
-  this->declare_parameter<double>("stale_timeout", 5.0);
-  this->declare_parameter<int>("window_size", 50);
-  this->declare_parameter<double>("check_period", 2.0);
+  this->declare_parameter<std::vector<std::string>>("topics");
+  this->declare_parameter<int>("http_port");
+  this->declare_parameter<double>("stale_timeout");
+  this->declare_parameter<int>("window_size");
+  this->declare_parameter<double>("check_period");
 
   expected_topics_ = this->get_parameter("topics").as_string_array();
   http_port_ = this->get_parameter("http_port").as_int();

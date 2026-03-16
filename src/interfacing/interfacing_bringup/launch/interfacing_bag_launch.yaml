@@ -38,6 +38,11 @@ launch:
       default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
       description: "Path to the joystick configuration file"
 
+  - arg:
+      name: "healthchecker_config_file"
+      default: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
+      description: "Path to the topic healthchecker configuration file"
+
   # GPS Configs
   - arg:
       name: "oem7_ip_addr"
@@ -111,7 +116,9 @@ launch:
       namespace: interfacing
       output: screen
       param:
-        - from: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
+        - from: "$(var healthchecker_config_file)"
+        - name: http_port
+          value: $(env TOPIC_HEALTHCHECKER__PORT)
 
   # OSCC Interfacing (steering torque from OSCC CAN bus, controls disabled)
   - node:
