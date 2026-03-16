@@ -546,12 +546,7 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
     if (is_traffic_light) {
       continue;
     }
-    auto world_obj = processObject(detection, msg->header.frame_id, timestamp);
-    if (world_obj.has_value()) {
-      output.objects.push_back(world_obj.value());
-    }
-
-    auto hypotheses = trajectory_predictor_->generateHypotheses(detection);
+    auto hypotheses = trajectory_predictor_->generateHypotheses(detection, timestamp);
 
     if (hypotheses.empty()) {
       RCLCPP_DEBUG(this->get_logger(), "No hypotheses for object %s", detection.id.c_str());
@@ -742,12 +737,7 @@ std::optional<world_model_msgs::msg::WorldObject> PredictionNode::processObject(
       pred.header.frame_id = frame_id;
       pred.conf = hypothesis.probability;
 
-      for (size_t i = 0; i < hypothesis.waypoints.size(); ++i) {
-        geometry_msgs::msg::PoseStamped ps;
-        ps.header.frame_id = frame_id;
-        ps.pose = hypothesis.waypoints[i];
-        pred.poses.push_back(ps);
-      }
+      pred.poses = hypothesis.poses;
 
       world_obj.predictions.push_back(pred);
     }
