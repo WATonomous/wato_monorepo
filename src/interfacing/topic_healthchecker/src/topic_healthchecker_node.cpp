@@ -22,7 +22,12 @@
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <sstream>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace topic_healthchecker
 {
@@ -53,12 +58,13 @@ TopicHealthchecker::TopicHealthchecker(const rclcpp::NodeOptions & options)
   }
 
   RCLCPP_INFO(
-    this->get_logger(), "Topic healthchecker monitoring %zu topics, HTTP on port %d",
-    expected_topics_.size(), http_port_);
+    this->get_logger(),
+    "Topic healthchecker monitoring %zu topics, HTTP on port %d",
+    expected_topics_.size(),
+    http_port_);
 
   timer_ = this->create_wall_timer(
-    std::chrono::duration<double>(check_period),
-    std::bind(&TopicHealthchecker::refresh_subscriptions, this));
+    std::chrono::duration<double>(check_period), std::bind(&TopicHealthchecker::refresh_subscriptions, this));
 
   http_thread_ = std::thread(&TopicHealthchecker::run_http_server, this);
 }
@@ -117,14 +123,10 @@ void TopicHealthchecker::refresh_subscriptions()
           topic_name,
           it->second,
           rclcpp::SensorDataQoS(),
-          [this, topic_name](std::shared_ptr<const rclcpp::SerializedMessage>) {
-            this->on_message(topic_name);
-          });
-        RCLCPP_INFO(this->get_logger(), "Subscribed to %s [%s]",
-          topic_name.c_str(), it->second.c_str());
+          [this, topic_name](std::shared_ptr<const rclcpp::SerializedMessage>) { this->on_message(topic_name); });
+        RCLCPP_INFO(this->get_logger(), "Subscribed to %s [%s]", topic_name.c_str(), it->second.c_str());
       } catch (const std::exception & e) {
-        RCLCPP_WARN(this->get_logger(), "Failed to subscribe to %s: %s",
-          topic_name.c_str(), e.what());
+        RCLCPP_WARN(this->get_logger(), "Failed to subscribe to %s: %s", topic_name.c_str(), e.what());
         state.status = "no_publishers";
         continue;
       }
@@ -165,8 +167,7 @@ void TopicHealthchecker::on_message(const std::string & topic_name)
 
   // Compute rate from rolling window
   if (state.timestamps.size() >= 2) {
-    double dt = std::chrono::duration<double>(
-      state.timestamps.back() - state.timestamps.front()).count();
+    double dt = std::chrono::duration<double>(state.timestamps.back() - state.timestamps.front()).count();
     if (dt > 0.0) {
       state.rate_hz = static_cast<double>(state.timestamps.size() - 1) / dt;
     }
@@ -182,10 +183,17 @@ static std::string escape_json_string(const std::string & s)
   out += '"';
   for (char c : s) {
     switch (c) {
-      case '"': out += "\\\""; break;
-      case '\\': out += "\\\\"; break;
-      case '\n': out += "\\n"; break;
-      default: out += c;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\\':
+        out += "\\\\";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      default:
+        out += c;
     }
   }
   out += '"';
@@ -203,7 +211,9 @@ std::string TopicHealthchecker::build_health_json() const
 
   bool first = true;
   for (const auto & [name, state] : topic_states_) {
-    if (!first) {ss << ",";}
+    if (!first) {
+      ss << ",";
+    }
     first = false;
 
     ss << escape_json_string(name) << ":{";
@@ -247,8 +257,7 @@ void TopicHealthchecker::run_http_server()
   addr.sin_port = htons(static_cast<uint16_t>(http_port_));
 
   if (::bind(server_fd_, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
-    RCLCPP_ERROR(this->get_logger(), "Failed to bind HTTP port %d: %s",
-      http_port_, std::strerror(errno));
+    RCLCPP_ERROR(this->get_logger(), "Failed to bind HTTP port %d: %s", http_port_, std::strerror(errno));
     ::close(server_fd_);
     server_fd_ = -1;
     return;
@@ -267,8 +276,8 @@ void TopicHealthchecker::run_http_server()
     int client_fd = ::accept(server_fd_, nullptr, nullptr);
     if (client_fd < 0) {
       if (running_.load()) {
-        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-          "HTTP accept failed: %s", std::strerror(errno));
+        RCLCPP_WARN_THROTTLE(
+          this->get_logger(), *this->get_clock(), 5000, "HTTP accept failed: %s", std::strerror(errno));
       }
       continue;
     }
@@ -298,11 +307,14 @@ void TopicHealthchecker::run_http_server()
     }
 
     std::string response = status_line +
-      "Content-Type: application/json\r\n"
-      "Access-Control-Allow-Origin: *\r\n"
-      "Connection: close\r\n"
-      "Content-Length: " + std::to_string(body.size()) + "\r\n"
-      "\r\n" + body;
+                           "Content-Type: application/json\r\n"
+                           "Access-Control-Allow-Origin: *\r\n"
+                           "Connection: close\r\n"
+                           "Content-Length: " +
+                           std::to_string(body.size()) +
+                           "\r\n"
+                           "\r\n" +
+                           body;
 
     ::send(client_fd, response.c_str(), response.size(), MSG_NOSIGNAL);
     ::close(client_fd);
