@@ -35,12 +35,6 @@ find_package(vision_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 
-# ---- World Model for LaneletHandler
-find_package(world_model REQUIRED)
-
-# ---- Lanelet2 for routing graph queries
-find_package(lanelet2_core REQUIRED)
-find_package(lanelet2_routing REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
 find_package(Eigen3 REQUIRED)
@@ -68,9 +62,6 @@ target_link_libraries(prediction_lib
   ${world_model_msgs_TARGETS}
   ${lanelet_msgs_TARGETS}
   ${visualization_msgs_TARGETS}
-  world_model::world_model_lib
-  lanelet2_core::lanelet2_core
-  lanelet2_routing::lanelet2_routing
   Eigen3::Eigen
   )
 

@@ -24,14 +24,9 @@
 #ifndef PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 #define PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 
-#include <lanelet2_core/primitives/Lanelet.h>
-#include <lanelet2_routing/RoutingGraph.h>
-
 #include <deque>
-#include <shared_mutex>
 #include <utility>
 
-#include "world_model/lanelet_handler.hpp"
 // Standard library headers for functional programming and data structures
 #include <functional>  // For std::function used in callback definitions
 #include <memory>  // For std::unique_ptr and std::shared_ptr
@@ -276,13 +271,6 @@ public:
     const PedestrianParams & pedestrian_params,
     const CyclistParams & cyclist_params,
     const TrajectoryPredictorConfig & config = {});
-  std::shared_ptr<world_model::LaneletHandler> lanelet_handler = nullptr;
-
-  /**
-   * @brief Set the LaneletHandler for map queries
-   * @param lanelet_handler Shared pointer to LaneletHandler
-   */
-  void setLaneletHandler(std::shared_ptr<world_model::LaneletHandler> lanelet_handler);
 
   /**
    * @brief Generate trajectory hypotheses for a single detection.
@@ -412,9 +400,7 @@ private:
    * @return Vector of (path_points, intent) pairs for each possible route
    */
   std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> getAllLaneletPaths(
-    const lanelet::ConstLanelet & start_lanelet,
-    int max_depth,
-    const lanelet::routing::RoutingGraphConstPtr & routing_graph) const;
+    const lanelet_msgs::msg::Lanelet & start_lanelet, int max_depth, const LaneletContext & ctx) const;
 
   /**
    * @brief Build a single constant-velocity fallback hypothesis
@@ -524,11 +510,6 @@ private:
 
   std::unique_ptr<BicycleModel> bicycle_model_;
   std::unique_ptr<ConstantVelocityModel> constant_velocity_model_;
-
-  // LaneletHandler for map queries (optional, protected by mutex for thread
-  // safety)
-  mutable std::shared_mutex lanelet_handler_mutex_;
-  std::shared_ptr<world_model::LaneletHandler> lanelet_handler_;
 
   // Per-type parameters (const after construction)
   const VehicleParams vehicle_params_;
