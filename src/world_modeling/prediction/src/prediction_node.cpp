@@ -89,7 +89,6 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("vehicle_min_length", 3.5);
   this->declare_parameter("pedestrian_max_length", 1.0);
   this->declare_parameter("cyclist_max_length", 3.5);
-  this->declare_parameter("pedestrian_max_height", 2.0);
 
   // Default velocities
   this->declare_parameter("vehicle_default_velocity", 5.0);

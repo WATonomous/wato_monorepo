@@ -285,23 +285,7 @@ public:
     const vision_msgs::msg::Detection3D & detection, double timestamp);
 
   /**
-   * @brief Classify detection into a predictor object type.
-   * @param detection Incoming tracked object detection.
-   * @return Coarse object type used to choose motion model and priors.
-   */
-  ObjectType classifyObjectType(const vision_msgs::msg::Detection3D & detection) const;
-
-  /**
-   * @brief Generate hypotheses for vehicle objects
-   * @param velocity Computed velocity, or nullopt if insufficient history
-   */
-  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(
-    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
-
-  /**
-   * @brief Generate hypotheses for pedestrian objects
-   * @param velocity Computed velocity, or nullopt if insufficient history
-   * @brief Update cached lanelet data for lanelet-aware prediction
+   * @brief Update cached lanelet data for lanelet-aware prediction.
    */
   void setLaneletAhead(const lanelet_msgs::msg::LaneletAhead::SharedPtr & msg);
 
@@ -344,16 +328,14 @@ public:
    */
   void pruneStaleCaches(const rclcpp::Time & now, double ttl_s);
 
-  /**
-   * @brief Estimate vehicle speed from position history.
-   *
-   * Tracks each detection ID's position over time and computes speed
-   * from displacement between the current and previous observation.
-   * Falls back to the bbox-length heuristic when no history exists.
-   */
-  double estimateSpeed(const vision_msgs::msg::Detection3D & detection);
-
 private:
+  /**
+   * @brief Generate hypotheses for vehicle objects.
+   * @param velocity Computed velocity, or nullopt if insufficient history.
+   */
+  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(
+    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
+
   /**
    * @brief Generate lanelet-aware vehicle hypotheses from a local lanelet
    * context.
@@ -399,7 +381,8 @@ private:
    * @param max_depth Maximum number of successive lanelets to follow
    * @return Vector of (path_points, intent) pairs for each possible route
    */
-  std::vector<std::pair<std::vector<Eigen::Vector2d>, Intent>> getAllLaneletPaths(
+  // Each entry: (centerline_points, intent, lanelet_ids_along_path)
+  std::vector<std::tuple<std::vector<Eigen::Vector2d>, Intent, std::vector<int64_t>>> getAllLaneletPaths(
     const lanelet_msgs::msg::Lanelet & start_lanelet, int max_depth, const LaneletContext & ctx) const;
 
   /**
@@ -546,18 +529,6 @@ private:
 
   mutable std::mutex vehicle_cache_mutex_;
   std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
-
-  // Position history for velocity estimation (keyed by detection ID)
-  struct PositionStamped
-  {
-    double x;
-    double y;
-    double speed;  // Raw instantaneous speed
-    double smoothed_speed;  // EMA-filtered speed
-    rclcpp::Time stamp;
-  };
-
-  std::unordered_map<std::string, PositionStamped> position_history_;
 
 public:
   /**
