@@ -53,21 +53,14 @@ KinematicState stateFromDetection(
 // Build TrajectoryHypothesis from motion model output (move semantics for
 // efficiency)
 TrajectoryHypothesis buildHypothesis(
-  std::vector<geometry_msgs::msg::Pose> && poses, double time_step, Intent intent = Intent::CONTINUE_STRAIGHT)
+  std::vector<geometry_msgs::msg::PoseStamped> && poses,
+  double /*time_step*/,
+  Intent intent = Intent::CONTINUE_STRAIGHT)
 {
   TrajectoryHypothesis hypothesis;
   hypothesis.intent = intent;
   hypothesis.probability = 0.0;
-  hypothesis.waypoints = std::move(poses);
-
-  const size_t num_waypoints = hypothesis.waypoints.size();
-  hypothesis.timestamps.reserve(num_waypoints);
-  double t = time_step;
-  for (size_t i = 0; i < num_waypoints; ++i) {
-    hypothesis.timestamps.push_back(t);
-    t += time_step;
-  }
-
+  hypothesis.poses = std::move(poses);
   return hypothesis;
 }
 
@@ -1307,13 +1300,16 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
           std::vector<TrajectoryHypothesis> hypotheses;
           hypotheses.reserve(all_paths.size() + 1);
 
+          rclcpp::Time current_time = node_->get_clock()->now();
           for (auto & [path_points, intent] : all_paths) {
             if (path_points.size() < 2) continue;
-            auto poses = bicycle_model_->generateTrajectory(state, path_points, prediction_horizon_, time_step_);
-            auto hypothesis = buildHypothesis(std::move(poses), time_step_, intent);
+            TrajectoryHypothesis hyp;
+            hyp.intent = intent;
+            hyp.poses = bicycle_model_->generateTrajectory(
+              state, path_points, prediction_horizon_, time_step_, current_time, "map");
             const double weight = (intent == Intent::CONTINUE_STRAIGHT) ? kStraightBoost : 1.0;
-            hypothesis.probability = kLaneletTotalConf * (weight / total_weight);
-            hypotheses.push_back(std::move(hypothesis));
+            hyp.probability = kLaneletTotalConf * (weight / total_weight);
+            hypotheses.push_back(std::move(hyp));
           }
 
           auto cv_poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
@@ -1325,8 +1321,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
             node_->get_logger(),
             *node_->get_clock(),
             1000,
-            "Cyclist prediction: %zu lanelet-based + 1 CV "
-            "fallback, velocity=%.2f m/s",
+            "Cyclist prediction: %zu lanelet-based + 1 CV fallback, velocity=%.2f m/s",
             all_paths.size(),
             v);
 
