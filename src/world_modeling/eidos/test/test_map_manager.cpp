@@ -41,23 +41,6 @@ pcl::PointCloud<PointType>::Ptr makeCloud(int n, float offset = 0.0f) {
   return cloud;
 }
 
-/// Helper to register a point cloud type with PCD serialize/deserialize.
-void registerCloudType(MapManager& mm, const std::string& key) {
-  MapManager::TypeHandler handler;
-  handler.serialize = [](const std::any& data, const std::string& path) {
-    auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(data);
-    if (cloud && !cloud->empty()) {
-      pcl::io::savePCDFileBinary(path, *cloud);
-    }
-  };
-  handler.deserialize = [](const std::string& path) -> std::any {
-    auto cloud = pcl::make_shared<pcl::PointCloud<PointType>>();
-    pcl::io::loadPCDFile(path, *cloud);
-    return cloud;
-  };
-  mm.registerType(key, std::move(handler));
-}
-
 }  // namespace
 
 TEST_CASE("MapManager starts empty", "[map_manager]") {
@@ -95,41 +78,10 @@ TEST_CASE("MapManager add multiple keyframes", "[map_manager]") {
   REQUIRE(mm.numKeyframes() == 5);
 }
 
-// ---- Type registry tests ----
-
-TEST_CASE("MapManager registerType and hasType", "[map_manager]") {
-  MapManager mm;
-  REQUIRE_FALSE(mm.hasType("test_plugin/data"));
-
-  registerCloudType(mm, "test_plugin/data");
-  REQUIRE(mm.hasType("test_plugin/data"));
-  REQUIRE_FALSE(mm.hasType("other_plugin/data"));
-}
-
-TEST_CASE("MapManager getKeysForPlugin", "[map_manager]") {
-  MapManager mm;
-  registerCloudType(mm, "lidar_kep_factor/corners");
-  registerCloudType(mm, "lidar_kep_factor/surfaces");
-  registerCloudType(mm, "other_plugin/data");
-
-  auto keys = mm.getKeysForPlugin("lidar_kep_factor");
-  REQUIRE(keys.size() == 2);
-  REQUIRE(keys[0] == "lidar_kep_factor/corners");
-  REQUIRE(keys[1] == "lidar_kep_factor/surfaces");
-
-  auto other_keys = mm.getKeysForPlugin("other_plugin");
-  REQUIRE(other_keys.size() == 1);
-
-  auto empty_keys = mm.getKeysForPlugin("nonexistent");
-  REQUIRE(empty_keys.empty());
-}
-
 // ---- Per-keyframe data storage tests ----
 
 TEST_CASE("MapManager addKeyframeData and getKeyframeData", "[map_manager]") {
   MapManager mm;
-  registerCloudType(mm, "test_plugin/corners");
-
   gtsam::Key key0 = Symbol(255, 0);
   PoseType pose = makePose(0, 0, 0, 0.0, 0);
   mm.addKeyframe(key0, pose);
@@ -150,25 +102,15 @@ TEST_CASE("MapManager getKeyframeData returns nullopt for missing data", "[map_m
   PoseType pose = makePose(0, 0, 0, 0.0, 0);
   mm.addKeyframe(key0, pose);
 
-  // No data stored yet
   auto result = mm.getKeyframeData(key0, "test_plugin/corners");
   REQUIRE_FALSE(result.has_value());
 
-  // Non-existent key
   auto result2 = mm.getKeyframeData(Symbol(255, 99), "test_plugin/corners");
   REQUIRE_FALSE(result2.has_value());
-
-  // Another non-existent key
-  auto result3 = mm.getKeyframeData(Symbol(0, 0), "test_plugin/corners");
-  REQUIRE_FALSE(result3.has_value());
 }
 
 TEST_CASE("MapManager getKeyframeDataForPlugin", "[map_manager]") {
   MapManager mm;
-  registerCloudType(mm, "lidar_kep_factor/corners");
-  registerCloudType(mm, "lidar_kep_factor/surfaces");
-  registerCloudType(mm, "other_plugin/data");
-
   gtsam::Key key0 = Symbol(255, 0);
   PoseType pose = makePose(0, 0, 0, 0.0, 0);
   mm.addKeyframe(key0, pose);
@@ -188,90 +130,58 @@ TEST_CASE("MapManager getKeyframeDataForPlugin", "[map_manager]") {
   auto c = std::any_cast<pcl::PointCloud<PointType>::Ptr>(
       plugin_data.at("lidar_kep_factor/corners"));
   REQUIRE(c->size() == 10);
-
-  auto s = std::any_cast<pcl::PointCloud<PointType>::Ptr>(
-      plugin_data.at("lidar_kep_factor/surfaces"));
-  REQUIRE(s->size() == 20);
-}
-
-TEST_CASE("MapManager getKeyframeDataForPlugin empty for non-existent key", "[map_manager]") {
-  MapManager mm;
-  auto result = mm.getKeyframeDataForPlugin(Symbol(255, 0), "lidar_kep_factor");
-  REQUIRE(result.empty());
 }
 
 // ---- Persistence tests ----
 
-TEST_CASE("MapManager save and load map", "[map_manager]") {
+TEST_CASE("MapManager save and load poses + keys", "[map_manager]") {
   std::string test_dir = "/tmp/eidos_test_map_" +
       std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
 
   {
     MapManager mm;
-    registerCloudType(mm, "test_plugin/corners");
-    registerCloudType(mm, "test_plugin/surfaces");
-
     for (int i = 0; i < 3; i++) {
-      gtsam::Key key = Symbol(255, i);
+      gtsam::Key key = Symbol('x', i);
       PoseType pose = makePose(static_cast<float>(i), 0, 0,
                                static_cast<double>(i), i);
-      mm.addKeyframe(key, pose);
-
-      auto corners = makeCloud(10, static_cast<float>(i));
-      auto surfaces = makeCloud(20, static_cast<float>(i));
-      mm.addKeyframeData(key, "test_plugin/corners", corners);
-      mm.addKeyframeData(key, "test_plugin/surfaces", surfaces);
+      mm.addKeyframe(key, pose, "liso_factor");
     }
 
-    gtsam::NonlinearFactorGraph graph;
-    gtsam::Values values;
-    auto noise = gtsam::noiseModel::Isotropic::Sigma(6, 0.1);
-    for (int i = 0; i < 3; i++) {
-      gtsam::Key key = Symbol(255, i);
-      graph.add(gtsam::PriorFactor<gtsam::Pose3>(
-          key, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)), noise));
-      values.insert(key, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)));
-    }
+    std::vector<std::string> plugins = {"liso_factor", "gps_factor"};
+    REQUIRE(mm.saveMap(test_dir, plugins));
 
-    REQUIRE(mm.saveMap(test_dir, 0.0f, graph, values));
-
-    REQUIRE(std::filesystem::exists(test_dir + "/trajectory.pcd"));
-    REQUIRE(std::filesystem::exists(test_dir + "/transformations.pcd"));
+    REQUIRE(std::filesystem::exists(test_dir + "/poses.pcd"));
+    REQUIRE(std::filesystem::exists(test_dir + "/keys.bin"));
     REQUIRE(std::filesystem::exists(test_dir + "/metadata.yaml"));
-    REQUIRE(std::filesystem::exists(
-        test_dir + "/keyframes/000000/test_plugin/corners.bin"));
-    REQUIRE(std::filesystem::exists(
-        test_dir + "/keyframes/000000/test_plugin/surfaces.bin"));
   }
 
-  // Load into a fresh MapManager (must register the same types first)
-  // Note: loadMap creates Symbol(255, i) keys for legacy compatibility
+  // Load into a fresh MapManager
   {
     MapManager mm2;
-    registerCloudType(mm2, "test_plugin/corners");
-    registerCloudType(mm2, "test_plugin/surfaces");
-
-    REQUIRE(mm2.loadMap(test_dir));
+    std::vector<std::string> saved_plugins;
+    REQUIRE(mm2.loadMap(test_dir, saved_plugins));
     REQUIRE(mm2.numKeyframes() == 3);
     REQUIRE(mm2.hasPriorMap());
 
+    // Verify original keys preserved
+    auto key_list = mm2.getKeyList();
+    REQUIRE(key_list[0] == Symbol('x', 0));
+    REQUIRE(key_list[1] == Symbol('x', 1));
+    REQUIRE(key_list[2] == Symbol('x', 2));
+
+    // Verify owner preserved
+    REQUIRE(mm2.getOwnerPlugin(Symbol('x', 0)) == "liso_factor");
+
+    // Verify poses
     auto poses3d = mm2.getKeyPoses3D();
     REQUIRE(poses3d->points[0].x == Catch::Approx(0.0f));
     REQUIRE(poses3d->points[1].x == Catch::Approx(1.0f));
     REQUIRE(poses3d->points[2].x == Catch::Approx(2.0f));
 
-    // Verify per-keyframe data was restored (loadMap uses Symbol(255, i) keys)
-    gtsam::Key loaded_key0 = Symbol(255, 0);
-    gtsam::Key loaded_key1 = Symbol(255, 1);
-    auto result = mm2.getKeyframeData(loaded_key0, "test_plugin/corners");
-    REQUIRE(result.has_value());
-    auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(result.value());
-    REQUIRE(cloud->size() == 10);
-
-    auto result2 = mm2.getKeyframeData(loaded_key1, "test_plugin/surfaces");
-    REQUIRE(result2.has_value());
-    auto cloud2 = std::any_cast<pcl::PointCloud<PointType>::Ptr>(result2.value());
-    REQUIRE(cloud2->size() == 20);
+    // Verify plugin names from metadata
+    REQUIRE(saved_plugins.size() == 2);
+    REQUIRE(saved_plugins[0] == "liso_factor");
+    REQUIRE(saved_plugins[1] == "gps_factor");
   }
 
   std::filesystem::remove_all(test_dir);
@@ -279,45 +189,8 @@ TEST_CASE("MapManager save and load map", "[map_manager]") {
 
 TEST_CASE("MapManager load nonexistent directory", "[map_manager]") {
   MapManager mm;
-  REQUIRE_FALSE(mm.loadMap("/tmp/nonexistent_eidos_test_dir_12345"));
-}
-
-TEST_CASE("MapManager load without registered types skips data", "[map_manager]") {
-  std::string test_dir = "/tmp/eidos_test_map_notype_" +
-      std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-
-  // Save with registered types
-  {
-    MapManager mm;
-    registerCloudType(mm, "test_plugin/data");
-    gtsam::Key key0 = Symbol(255, 0);
-    PoseType pose = makePose(1, 2, 3, 0.0, 0);
-    mm.addKeyframe(key0, pose);
-    mm.addKeyframeData(key0, "test_plugin/data", makeCloud(10));
-
-    gtsam::NonlinearFactorGraph graph;
-    gtsam::Values values;
-    auto noise = gtsam::noiseModel::Isotropic::Sigma(6, 0.1);
-    graph.add(gtsam::PriorFactor<gtsam::Pose3>(
-        key0, gtsam::Pose3(), noise));
-    values.insert(key0, gtsam::Pose3());
-    mm.saveMap(test_dir, 0.0f, graph, values);
-  }
-
-  // Load without registering the type — poses should still load
-  {
-    MapManager mm2;
-    REQUIRE(mm2.loadMap(test_dir));
-    REQUIRE(mm2.numKeyframes() == 1);
-    REQUIRE(mm2.hasPriorMap());
-
-    // Data should not be available since we didn't register the deserializer
-    gtsam::Key loaded_key0 = Symbol(255, 0);
-    auto result = mm2.getKeyframeData(loaded_key0, "test_plugin/data");
-    REQUIRE_FALSE(result.has_value());
-  }
-
-  std::filesystem::remove_all(test_dir);
+  std::vector<std::string> plugins;
+  REQUIRE_FALSE(mm.loadMap("/tmp/nonexistent_eidos_test_dir_12345", plugins));
 }
 
 TEST_CASE("MapManager updatePoses", "[map_manager]") {

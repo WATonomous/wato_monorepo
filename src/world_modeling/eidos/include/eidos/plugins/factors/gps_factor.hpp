@@ -62,6 +62,9 @@ public:
   bool isReady() const override;
   std::string getReadyStatus() const override;
 
+  void saveData(const std::string& plugin_dir) override;
+  void loadData(const std::string& plugin_dir) override;
+
 private:
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);

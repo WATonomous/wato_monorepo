@@ -13,13 +13,13 @@
 # limitations under the License.
 
 # =============================================================================
-# World Model Node
+# World Model Node (Test Track)
 # =============================================================================
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/simulation_map/lanelet/Town10HD.osm"
-    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
+    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_wgs84.osm"
+    projector_type: "utm"  # real-world GPS coordinates
 
     # Frames
     map_frame: "map"

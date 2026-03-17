@@ -146,6 +146,16 @@ public:
   }
 
   /**
+   * @brief Called when SlamCore transitions to TRACKING state.
+   * Plugins can use this to initialize against a prior map at the
+   * relocalized pose (e.g., build initial submap for localization mode).
+   * @param initial_pose The pose at which tracking begins.
+   */
+  virtual void onTrackingBegin(const gtsam::Pose3& initial_pose) {
+    (void)initial_pose;
+  }
+
+  /**
    * @brief Called after ISAM2 optimization.
    * @param optimized_values All optimized values from ISAM2.
    * @param loop_closure_detected Whether a loop closure was detected this cycle.
@@ -156,6 +166,20 @@ public:
     (void)optimized_values;
     (void)loop_closure_detected;
   }
+
+  /**
+   * @brief Save plugin-specific data to the given directory.
+   * Called by SlamCore during map save. The plugin owns this directory
+   * and decides its internal layout (files, subdirectories, etc.).
+   */
+  virtual void saveData(const std::string& /*plugin_dir*/) {}
+
+  /**
+   * @brief Load plugin-specific data from the given directory.
+   * Called by SlamCore during map load. The plugin should call
+   * addKeyframeData() to populate MapManager with loaded data.
+   */
+  virtual void loadData(const std::string& /*plugin_dir*/) {}
 
   bool publishesTf() const { return publish_tf_; }
   double getSphereScale() const { return sphere_scale_; }

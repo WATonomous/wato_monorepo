@@ -4,14 +4,13 @@
 #include <cmath>
 
 #include <pcl/filters/voxel_grid.h>
-#include <pcl/kdtree/kdtree_flann.h>
 
 #include <small_gicp/registration/registration_helper.hpp>
-#include <small_gicp/points/point_cloud.hpp>
 
 #include <pluginlib/class_list_macros.hpp>
 
 #include "eidos/slam_core.hpp"
+#include "eidos/utils/small_gicp_ros.hpp"
 
 namespace eidos {
 
@@ -19,46 +18,59 @@ namespace eidos {
 // Lifecycle
 // ---------------------------------------------------------------------------
 void GpsIcpRelocalization::onInitialize() {
-  RCLCPP_INFO(node_->get_logger(), "[%s] onInitialize()", name_.c_str());
-
   std::string prefix = name_;
 
-  // ---- Declare parameters ----
   node_->declare_parameter(prefix + ".gps_topic", "gps/fix");
-  node_->declare_parameter(prefix + ".gps_candidate_radius", 30.0);
-  node_->declare_parameter(prefix + ".fitness_threshold", 0.3);
-  node_->declare_parameter(prefix + ".max_icp_iterations", 100);
-  node_->declare_parameter(prefix + ".submap_leaf_size", 0.4);
-  node_->declare_parameter(prefix + ".max_correspondence_distance", 2.0);
-  node_->declare_parameter(prefix + ".num_threads", 4);
-  node_->declare_parameter(prefix + ".pointcloud_from", "");
-  node_->declare_parameter(prefix + ".gps_from", "gps_factor");
+  node_->declare_parameter(prefix + ".lidar_topic", "velodyne_points");
+  node_->declare_parameter(prefix + ".imu_topic", "/imu/data");
+  node_->declare_parameter(prefix + ".lidar_frame", "velodyne");
+  node_->declare_parameter(prefix + ".gps_candidate_radius", gps_candidate_radius_);
+  node_->declare_parameter(prefix + ".fitness_threshold", fitness_threshold_);
+  node_->declare_parameter(prefix + ".max_icp_iterations", max_iterations_);
+  node_->declare_parameter(prefix + ".scan_ds_resolution", scan_ds_resolution_);
+  node_->declare_parameter(prefix + ".submap_leaf_size", submap_leaf_size_);
+  node_->declare_parameter(prefix + ".max_correspondence_distance", max_correspondence_distance_);
+  node_->declare_parameter(prefix + ".num_threads", num_threads_);
+  node_->declare_parameter(prefix + ".num_neighbors", num_neighbors_);
+  node_->declare_parameter(prefix + ".pointcloud_from", std::string("liso_factor"));
+  node_->declare_parameter(prefix + ".gps_from", std::string("gps_factor"));
 
-  // ---- Read parameters ----
-  std::string gps_topic;
+  std::string gps_topic, lidar_topic, imu_topic;
   node_->get_parameter(prefix + ".gps_topic", gps_topic);
-  node_->get_parameter(prefix + ".gps_candidate_radius",
-                       gps_candidate_radius_);
+  node_->get_parameter(prefix + ".lidar_topic", lidar_topic);
+  node_->get_parameter(prefix + ".imu_topic", imu_topic);
+  node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
+  node_->get_parameter(prefix + ".gps_candidate_radius", gps_candidate_radius_);
   node_->get_parameter(prefix + ".fitness_threshold", fitness_threshold_);
-  node_->get_parameter(prefix + ".max_icp_iterations", max_icp_iterations_);
+  node_->get_parameter(prefix + ".max_icp_iterations", max_iterations_);
+  node_->get_parameter(prefix + ".scan_ds_resolution", scan_ds_resolution_);
   node_->get_parameter(prefix + ".submap_leaf_size", submap_leaf_size_);
-  node_->get_parameter(prefix + ".max_correspondence_distance",
-                       max_correspondence_distance_);
+  node_->get_parameter(prefix + ".max_correspondence_distance", max_correspondence_distance_);
   node_->get_parameter(prefix + ".num_threads", num_threads_);
+  node_->get_parameter(prefix + ".num_neighbors", num_neighbors_);
   node_->get_parameter(prefix + ".pointcloud_from", pointcloud_from_);
   node_->get_parameter(prefix + ".gps_from", gps_from_);
 
-  // ---- Create GPS subscription ----
   rclcpp::SubscriptionOptions sub_opts;
   sub_opts.callback_group = callback_group_;
 
   gps_sub_ = node_->create_subscription<sensor_msgs::msg::NavSatFix>(
       gps_topic, rclcpp::SensorDataQoS(),
-      std::bind(&GpsIcpRelocalization::gpsCallback, this,
-                std::placeholders::_1),
+      std::bind(&GpsIcpRelocalization::gpsCallback, this, std::placeholders::_1),
       sub_opts);
 
-  RCLCPP_INFO(node_->get_logger(), "[%s] initialized (NavSatFix mode)", name_.c_str());
+  lidar_sub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>(
+      lidar_topic, rclcpp::SensorDataQoS(),
+      std::bind(&GpsIcpRelocalization::lidarCallback, this, std::placeholders::_1),
+      sub_opts);
+
+  imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
+      imu_topic, rclcpp::SensorDataQoS(),
+      std::bind(&GpsIcpRelocalization::imuCallback, this, std::placeholders::_1),
+      sub_opts);
+
+  RCLCPP_INFO(node_->get_logger(), "[%s] initialized (GPS+GICP, lidar=%s)",
+              name_.c_str(), lidar_topic.c_str());
 }
 
 void GpsIcpRelocalization::activate() {
@@ -72,93 +84,120 @@ void GpsIcpRelocalization::deactivate() {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers: convert between PCL and small_gicp point clouds
+// Callbacks — buffer latest sensor data
 // ---------------------------------------------------------------------------
-namespace {
-
-std::shared_ptr<small_gicp::PointCloud> pclToSmallGicp(
-    const pcl::PointCloud<PointType>::Ptr& pcl_cloud) {
-  auto cloud = std::make_shared<small_gicp::PointCloud>();
-  cloud->resize(pcl_cloud->size());
-  for (size_t i = 0; i < pcl_cloud->size(); i++) {
-    cloud->point(i) = Eigen::Vector4d(
-        pcl_cloud->points[i].x, pcl_cloud->points[i].y,
-        pcl_cloud->points[i].z, 1.0);
-  }
-  return cloud;
+void GpsIcpRelocalization::gpsCallback(
+    const sensor_msgs::msg::NavSatFix::SharedPtr msg) {
+  std::lock_guard<std::mutex> lock(gps_lock_);
+  gps_queue_.push_back(*msg);
+  if (gps_queue_.size() > 10) gps_queue_.pop_front();
 }
 
-}  // namespace
+void GpsIcpRelocalization::lidarCallback(
+    const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+  // Convert to small_gicp and downsample
+  auto raw = fromRosMsg(*msg);
+  if (!raw || raw->empty()) return;
+
+  auto [ds, tree] = small_gicp::preprocess_points(
+      *raw, scan_ds_resolution_, num_neighbors_, num_threads_);
+
+  std::lock_guard<std::mutex> lock(scan_lock_);
+  latest_scan_ = ds;
+}
+
+void GpsIcpRelocalization::imuCallback(
+    const sensor_msgs::msg::Imu::SharedPtr msg) {
+  // Extract roll/pitch from IMU orientation (gravity alignment)
+  auto& q = msg->orientation;
+  // Convert quaternion to roll/pitch (ignore yaw — GPS doesn't give heading)
+  double sinr_cosp = 2.0 * (q.w * q.x + q.y * q.z);
+  double cosr_cosp = 1.0 - 2.0 * (q.x * q.x + q.y * q.y);
+  double sinp = 2.0 * (q.w * q.y - q.z * q.x);
+
+  std::lock_guard<std::mutex> lock(imu_lock_);
+  latest_imu_roll_ = std::atan2(sinr_cosp, cosr_cosp);
+  latest_imu_pitch_ = (std::abs(sinp) >= 1.0)
+      ? std::copysign(M_PI / 2.0, sinp)
+      : std::asin(sinp);
+  has_imu_ = true;
+}
 
 // ---------------------------------------------------------------------------
-// tryRelocalize - GPS + ICP relocalization against prior map
+// tryRelocalize — match live scan against prior map submap
 // ---------------------------------------------------------------------------
 std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
     double /*timestamp*/) {
   if (!active_) return std::nullopt;
 
-  // Need a prior map
   const auto& map_manager = core_->getMapManager();
-  if (!map_manager.hasPriorMap()) return std::nullopt;
+  if (!map_manager.hasPriorMap()) {
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+        "[%s] no prior map loaded", name_.c_str());
+    return std::nullopt;
+  }
 
-  // Get latest GPS fix
+  // 1. Get latest GPS fix
   sensor_msgs::msg::NavSatFix latest_fix;
   {
     std::lock_guard<std::mutex> lock(gps_lock_);
-    if (gps_queue_.empty()) return std::nullopt;
+    if (gps_queue_.empty()) {
+      RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+          "[%s] waiting for GPS", name_.c_str());
+      return std::nullopt;
+    }
     latest_fix = gps_queue_.back();
     gps_queue_.clear();
   }
 
-  // Filter by status
   if (latest_fix.status.status < sensor_msgs::msg::NavSatStatus::STATUS_FIX) {
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+        "[%s] no GPS fix (status=%d)", name_.c_str(), latest_fix.status.status);
     return std::nullopt;
   }
 
-  // Check covariance
-  double noise_x = latest_fix.position_covariance[0];
-  double noise_y = latest_fix.position_covariance[4];
-  if (noise_x > 5.0 || noise_y > 5.0) {
-    RCLCPP_DEBUG(node_->get_logger(),
-                 "[%s] GPS too noisy for relocalization (%.1f, %.1f)",
-                 name_.c_str(), noise_x, noise_y);
-    return std::nullopt;
+  // 2. Get latest live LiDAR scan
+  small_gicp::PointCloud::Ptr live_scan;
+  {
+    std::lock_guard<std::mutex> lock(scan_lock_);
+    if (!latest_scan_ || latest_scan_->empty()) {
+      RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+          "[%s] waiting for LiDAR scan", name_.c_str());
+      return std::nullopt;
+    }
+    live_scan = latest_scan_;
   }
 
-  // Convert to UTM
-  UtmCoordinate utm = latLonToUtm(
-      latest_fix.latitude, latest_fix.longitude, latest_fix.altitude);
-
-  // Load saved utm_to_map offset from MapManager global data
-  auto global_offset = map_manager.getGlobalData("gps_factor/utm_to_map");
+  // 3. Convert GPS to map frame using saved utm_to_map offset
+  auto global_offset = map_manager.getGlobalData(gps_from_ + "/utm_to_map");
   if (!global_offset.has_value()) {
-    RCLCPP_DEBUG(node_->get_logger(),
-                 "[%s] No utm_to_map offset available yet", name_.c_str());
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
+        "[%s] no utm_to_map offset in prior map", name_.c_str());
     return std::nullopt;
   }
 
   auto offset_arr = std::any_cast<std::array<double, 5>>(global_offset.value());
   Eigen::Vector3d utm_bias(offset_arr[0], offset_arr[1], offset_arr[2]);
-  // Reconstruct heading rotation: R_map_enu = Rz(-yaw)
-  double yaw = offset_arr[4];
-  double cy = std::cos(-yaw);
-  double sy = std::sin(-yaw);
+  double saved_yaw = offset_arr[4];
+  double cy = std::cos(-saved_yaw);
+  double sy = std::sin(-saved_yaw);
   Eigen::Matrix3d R_map_enu;
   R_map_enu << cy, -sy, 0,
                sy,  cy, 0,
                 0,   0, 1;
 
-  // Compute approximate map-frame position: map_pos = R_map_enu * utm_pos - bias
-  Eigen::Vector3d utm_pos_vec(utm.easting, utm.northing, utm.altitude);
-  Eigen::Vector3d map_guess = R_map_enu * utm_pos_vec - utm_bias;
+  UtmCoordinate utm = latLonToUtm(
+      latest_fix.latitude, latest_fix.longitude, latest_fix.altitude);
+  Eigen::Vector3d utm_pos(utm.easting, utm.northing, utm.altitude);
+  Eigen::Vector3d map_guess = R_map_enu * utm_pos - utm_bias;
 
-  // 1. Find candidate keyframes near GPS position in map frame
+  // 4. Find prior map keyframes near GPS position
   auto key_poses_3d = map_manager.getKeyPoses3D();
   auto key_poses_6d = map_manager.getKeyPoses6D();
   if (key_poses_3d->empty()) return std::nullopt;
 
-  auto kdtree = pcl::make_shared<pcl::KdTreeFLANN<PointType>>();
-  kdtree->setInputCloud(key_poses_3d);
+  auto kdtree = core_->getMapManager().getKdTree();
+  if (!kdtree) return std::nullopt;
 
   PointType search_point;
   search_point.x = static_cast<float>(map_guess.x());
@@ -170,137 +209,130 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
   kdtree->radiusSearch(search_point, gps_candidate_radius_, candidate_indices,
                        candidate_distances, 0);
 
+  RCLCPP_INFO(node_->get_logger(),
+      "[%s] GPS map_guess=(%.1f,%.1f,%.1f) | %zu candidates within %.0fm | scan=%zu pts",
+      name_.c_str(), map_guess.x(), map_guess.y(), map_guess.z(),
+      candidate_indices.size(), gps_candidate_radius_, live_scan->size());
+
   if (candidate_indices.empty()) {
-    RCLCPP_DEBUG(node_->get_logger(),
-                 "[%s] No candidate keyframes near GPS position",
-                 name_.c_str());
+    RCLCPP_INFO(node_->get_logger(),
+        "[%s] no prior keyframes near GPS position", name_.c_str());
     return std::nullopt;
   }
 
-  // 2. Assemble local submap from candidates
-  auto submap_pcl = pcl::make_shared<pcl::PointCloud<PointType>>();
+  // 5. Assemble world-frame submap from candidate clouds
+  auto submap_merged = std::make_shared<small_gicp::PointCloud>();
   int best_candidate = candidate_indices[0];
 
   for (int idx : candidate_indices) {
     gtsam::Key idx_key = map_manager.getKeyFromCloudIndex(idx);
     if (idx_key == 0) continue;
-    auto plugin_data = map_manager.getKeyframeDataForPlugin(idx_key, pointcloud_from_);
-    if (plugin_data.empty()) continue;
 
-    auto& pose = key_poses_6d->points[idx];
-    Eigen::Affine3f t = poseTypeToAffine3f(pose);
-
-    for (const auto& [data_key, data] : plugin_data) {
+    // Try gicp_cloud first, fall back to PCL cloud
+    auto gicp_data = map_manager.getKeyframeData(idx_key, pointcloud_from_ + "/gicp_cloud");
+    if (gicp_data.has_value()) {
       try {
-        auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(data);
+        auto cloud = std::any_cast<small_gicp::PointCloud::Ptr>(gicp_data.value());
         if (cloud && !cloud->empty()) {
-          pcl::PointCloud<PointType> transformed;
-          pcl::transformPointCloud(*cloud, transformed, t);
-          *submap_pcl += transformed;
+          Eigen::Affine3f world_T = poseTypeToAffine3f(key_poses_6d->points[idx]);
+          Eigen::Isometry3d T;
+          T.matrix() = world_T.matrix().cast<double>();
+          for (size_t i = 0; i < cloud->size(); i++) {
+            Eigen::Vector3d p = T * cloud->point(i).head<3>();
+            submap_merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
+          }
         }
-      } catch (const std::bad_any_cast&) {
-        continue;
-      }
+      } catch (const std::bad_any_cast&) {}
     }
   }
 
-  if (submap_pcl->empty()) return std::nullopt;
-
-  // Downsample submap
-  pcl::VoxelGrid<PointType> downsample;
-  downsample.setLeafSize(submap_leaf_size_, submap_leaf_size_, submap_leaf_size_);
-  downsample.setInputCloud(submap_pcl);
-  downsample.filter(*submap_pcl);
-
-  // 3. Build source scan from the best candidate keyframe
-  auto source_pcl = pcl::make_shared<pcl::PointCloud<PointType>>();
-  auto& best_pose = key_poses_6d->points[best_candidate];
-  Eigen::Affine3f best_t = poseTypeToAffine3f(best_pose);
-
-  gtsam::Key best_candidate_key = map_manager.getKeyFromCloudIndex(best_candidate);
-  if (best_candidate_key == 0) return std::nullopt;
-  auto source_data = map_manager.getKeyframeDataForPlugin(best_candidate_key, pointcloud_from_);
-  for (const auto& [data_key, data] : source_data) {
-    try {
-      auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(data);
-      if (cloud && !cloud->empty()) {
-        pcl::PointCloud<PointType> transformed;
-        pcl::transformPointCloud(*cloud, transformed, best_t);
-        *source_pcl += transformed;
-      }
-    } catch (const std::bad_any_cast&) {
-      continue;
-    }
-  }
-
-  if (source_pcl->empty()) return std::nullopt;
-
-  // 4. ICP alignment using small_gicp
-  auto source_gicp = pclToSmallGicp(source_pcl);
-  auto target_gicp = pclToSmallGicp(submap_pcl);
-
-  small_gicp::RegistrationSetting setting;
-  setting.type = small_gicp::RegistrationSetting::ICP;
-  setting.max_correspondence_distance = max_correspondence_distance_;
-  setting.num_threads = num_threads_;
-  setting.downsampling_resolution = submap_leaf_size_;
-  setting.max_iterations = max_icp_iterations_;
-
-  auto result = small_gicp::align(
-      target_gicp->points, source_gicp->points, Eigen::Isometry3d::Identity(), setting);
-
-  if (!result.converged) {
-    RCLCPP_DEBUG(node_->get_logger(), "[%s] ICP did not converge",
-                 name_.c_str());
+  if (submap_merged->empty()) {
+    RCLCPP_INFO(node_->get_logger(),
+        "[%s] assembled submap is empty (no cloud data)", name_.c_str());
     return std::nullopt;
   }
 
-  double fitness = result.error;
-  if (fitness > fitness_threshold_) {
-    RCLCPP_DEBUG(node_->get_logger(),
-                 "[%s] ICP fitness too high: %.3f > %.3f", name_.c_str(),
-                 fitness, fitness_threshold_);
-    return std::nullopt;
-  }
-
-  // 5. Compute relocalized pose
-  Eigen::Affine3f icp_correction;
-  icp_correction.matrix() = result.T_target_source.matrix().cast<float>();
-  Eigen::Affine3f corrected = icp_correction * best_t;
-
-  float rx, ry, rz, tx, ty, tz;
-  pcl::getTranslationAndEulerAngles(corrected, tx, ty, tz, rx, ry, rz);
-  gtsam::Pose3 relocalized_pose(gtsam::Rot3::RzRyRx(rx, ry, rz),
-                                gtsam::Point3(tx, ty, tz));
+  // Preprocess submap
+  auto [submap, submap_tree] = small_gicp::preprocess_points(
+      *submap_merged, submap_leaf_size_, num_neighbors_, num_threads_);
 
   RCLCPP_INFO(node_->get_logger(),
-              "[%s] Relocalization succeeded! Fitness: %.3f, "
-              "Matched keyframe: %d, Pose: (%.1f, %.1f, %.1f)",
-              name_.c_str(), fitness, best_candidate, tx, ty, tz);
+      "[%s] submap: %zu raw -> %zu preprocessed pts",
+      name_.c_str(), submap_merged->size(), submap->size());
 
-  // Refine utm → map offset using the precise ICP result
-  // bias = R_map_enu * utm_pos - map_pos
-  Eigen::Vector3d utm_pos_reloc(utm.easting, utm.northing, utm.altitude);
-  Eigen::Vector3d refined_bias = R_map_enu * utm_pos_reloc - Eigen::Vector3d(tx, ty, tz);
+  // 6. Build init_guess: GPS position + IMU roll/pitch + nearest keyframe yaw
+  double init_roll = 0.0, init_pitch = 0.0;
+  {
+    std::lock_guard<std::mutex> lock(imu_lock_);
+    if (has_imu_) {
+      init_roll = latest_imu_roll_;
+      init_pitch = latest_imu_pitch_;
+    }
+  }
+
+  // Use nearest prior keyframe's yaw as initial heading guess
+  double init_yaw = key_poses_6d->points[best_candidate].yaw;
+
+  gtsam::Pose3 init_pose(
+      gtsam::Rot3::RzRyRx(init_roll, init_pitch, init_yaw),
+      gtsam::Point3(map_guess.x(), map_guess.y(), map_guess.z()));
+  Eigen::Isometry3d init_guess;
+  init_guess.matrix() = init_pose.matrix();
+
+  // 7. GICP: align live scan (body frame) -> submap (world frame)
+  // Result T_target_source IS the robot's world-frame pose
+  small_gicp::RegistrationSetting setting;
+  setting.type = small_gicp::RegistrationSetting::GICP;
+  setting.max_correspondence_distance = max_correspondence_distance_;
+  setting.max_iterations = max_iterations_;
+  setting.num_threads = num_threads_;
+
+  auto result = small_gicp::align(
+      *submap, *live_scan, *submap_tree, init_guess, setting);
+
+  if (!result.converged) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] GICP did not converge", name_.c_str());
+    return std::nullopt;
+  }
+
+  double inlier_ratio = static_cast<double>(result.num_inliers) / live_scan->size();
+
+  RCLCPP_INFO(node_->get_logger(),
+      "[%s] GICP: converged, inliers=%zu/%zu (%.1f%%), error=%.4f (threshold=%.3f)",
+      name_.c_str(), result.num_inliers, live_scan->size(),
+      inlier_ratio * 100.0, result.error, fitness_threshold_);
+
+  if (inlier_ratio < 0.3) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] inlier ratio too low", name_.c_str());
+    return std::nullopt;
+  }
+
+  // 8. Extract relocalized pose
+  gtsam::Pose3 relocalized_pose(
+      gtsam::Rot3(result.T_target_source.rotation()),
+      gtsam::Point3(result.T_target_source.translation()));
+
+  auto t = relocalized_pose.translation();
+  auto rpy = relocalized_pose.rotation().rpy();
+  RCLCPP_INFO(node_->get_logger(),
+      "\033[32m[%s] RELOCALIZED: pos=(%.1f,%.1f,%.1f) rpy=(%.1f,%.1f,%.1f) "
+      "inliers=%zu (%.0f%%)\033[0m",
+      name_.c_str(), t.x(), t.y(), t.z(),
+      rpy(0)*180.0/M_PI, rpy(1)*180.0/M_PI, rpy(2)*180.0/M_PI,
+      result.num_inliers, inlier_ratio * 100.0);
+
+  // 9. Refine utm_to_map offset using the precise relocalized position
+  Eigen::Vector3d refined_bias = R_map_enu * utm_pos - Eigen::Vector3d(t.x(), t.y(), t.z());
   double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
   std::array<double, 5> refined_global = {
-      refined_bias.x(), refined_bias.y(), refined_bias.z(), zone_encoded, yaw};
+      refined_bias.x(), refined_bias.y(), refined_bias.z(), zone_encoded, saved_yaw};
   core_->getMapManager().setGlobalData("gps_factor/utm_to_map", refined_global);
 
   RelocalizationResult reloc_result;
   reloc_result.pose = relocalized_pose;
-  reloc_result.fitness_score = fitness;
+  reloc_result.fitness_score = result.error;
   reloc_result.matched_keyframe_index = best_candidate;
   return reloc_result;
-}
-
-// ---------------------------------------------------------------------------
-// Callback
-// ---------------------------------------------------------------------------
-void GpsIcpRelocalization::gpsCallback(
-    const sensor_msgs::msg::NavSatFix::SharedPtr msg) {
-  std::lock_guard<std::mutex> lock(gps_lock_);
-  gps_queue_.push_back(*msg);
 }
 
 }  // namespace eidos

@@ -1,35 +1,40 @@
+# Eidos SLAM only — for building maps from bag replay.
+# Usage: ros2 launch world_modeling_bringup world_model_mapping.launch.yaml
+
 launch:
   - arg:
       name: eidos_config_file
-      default: $(find-pkg-share world_modeling_bringup)/config/eidos.yaml
-      description: Path to the eidos parameter file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_slam.yaml
+      description: Path to the eidos SLAM configuration file
 
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
 
-  # Just Eidos
+  # Eidos SLAM Node
   - node:
       pkg: eidos
       exec: eidos_node
       name: eidos_node
+      namespace: "world_modeling"
       output: screen
       param:
         - from: $(var eidos_config_file)
         - name: use_sim_time
-          value: true
-
-  # Eve Robot Description
-  - include:
-      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+          value: $(var use_sim_time)
 
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: eidos_lifecycle_manager
+      namespace: "world_modeling"
       output: screen
       param:
         - name: node_names
           value:
-            - /eidos_node
+            - /world_modeling/eidos_node
         - name: autostart
           value: true
         - name: transition_timeout_s

@@ -55,6 +55,7 @@ public:
   const gtsam::NonlinearFactorGraph& getAccumulatedGraph() const;
   const std::vector<std::string>& getAccumulatedFactorOwners() const;
   std::optional<gtsam::Pose3> getMotionModelPose() const;
+  bool isLocalizationMode() const;
 
   /**
    * @brief Get the ISAM2 marginal covariance of the latest optimized pose.
@@ -79,8 +80,9 @@ private:
   void handleInitializing();
   void handleWarmingUp(double timestamp);
   void handleRelocalizing(double timestamp);
-  void handleTracking(double timestamp, bool& run_vis,
-                      gtsam::Values& vis_values, bool& vis_loop_closure);
+  void handleSlamTracking(double timestamp, bool& run_vis,
+                          gtsam::Values& vis_values, bool& vis_loop_closure);
+  void handleLocalizationTracking(double timestamp);
   void beginTracking(const gtsam::Pose3& initial_pose, double timestamp);
 
   // ---- Plugin management ----
@@ -111,6 +113,9 @@ private:
   std::string odom_frame_;
   bool publish_map_to_odom_ = false;
   gtsam::Pose3 cached_map_to_odom_;  // identity until first optimization with valid odom->base TF
+
+  // ---- Mode ----
+  bool localization_mode_ = false;
 
   // ---- SLAM state ----
   SlamState state_ = SlamState::INITIALIZING;

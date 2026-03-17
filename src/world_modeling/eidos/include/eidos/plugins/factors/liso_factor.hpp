@@ -42,8 +42,11 @@ public:
 
   std::optional<gtsam::Pose3> processFrame(double timestamp) override;
   StampedFactorResult getFactors(gtsam::Key key) override;
+  void onTrackingBegin(const gtsam::Pose3& initial_pose) override;
   void onOptimizationComplete(
       const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+  void saveData(const std::string& plugin_dir) override;
+  void loadData(const std::string& plugin_dir) override;
 
   bool isReady() const override;
   std::string getReadyStatus() const override;
@@ -57,7 +60,8 @@ private:
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
   void rebuildSubmap();
-  std::vector<gtsam::Key> bfsCollectStates(gtsam::Key start, double radius);
+  void rebuildSubmapAtPosition(const Eigen::Vector3f& position);
+  std::vector<gtsam::Key> collectRecentStates(gtsam::Key start, double radius);
 
   // State
   std::atomic<bool> first_scan_{true};
@@ -126,6 +130,10 @@ private:
   gtsam::Key prev_liso_key_ = 0;
   gtsam::Pose3 prev_liso_pose_;
   bool has_prev_liso_ = false;
+
+  // Localization mode: submap center tracking for distance-based rebuild
+  Eigen::Vector3f submap_center_{0, 0, 0};
+  bool localization_submap_initialized_ = false;
 
   // Config
   double scan_ds_resolution_ = 0.5;

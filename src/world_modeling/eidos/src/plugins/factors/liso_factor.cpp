@@ -1,5 +1,6 @@
 #include "eidos/plugins/factors/liso_factor.hpp"
 
+#include <filesystem>
 #include <queue>
 #include <thread>
 #include <unordered_set>
@@ -15,6 +16,14 @@
 #include "eidos/utils/small_gicp_ros.hpp"
 
 namespace eidos {
+
+// Named constants
+constexpr double kInitialHessianScale = 100.0;       // H matrix scaling for first-scan pseudo-result
+constexpr size_t kImuBufferMaxSize = 2500;            // ~5s at 500 Hz
+constexpr double kMaxGyroDt = 0.1;                    // max IMU dt for gyro integration (s)
+constexpr double kMaxTwistDt = 1.0;                   // max scan-to-scan dt for twist computation (s)
+constexpr double kQuatSquaredNormMin = 0.5;            // minimum q.squaredNorm() to accept orientation
+constexpr float kSubmapRebuildFraction = 0.5f;         // rebuild when moved this fraction of submap_radius
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -148,6 +157,27 @@ void LisoFactor::reset() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// onTrackingBegin — build initial submap from prior map at relocalized pose
+// ---------------------------------------------------------------------------
+void LisoFactor::onTrackingBegin(const gtsam::Pose3& initial_pose) {
+  if (!core_->isLocalizationMode()) return;
+
+  Eigen::Vector3f pos(
+      static_cast<float>(initial_pose.translation().x()),
+      static_cast<float>(initial_pose.translation().y()),
+      static_cast<float>(initial_pose.translation().z()));
+  submap_center_ = pos;
+  rebuildSubmapAtPosition(pos);
+  localization_submap_initialized_ = true;
+  last_matched_pose_ = initial_pose;
+  has_last_match_ = true;
+
+  RCLCPP_INFO(node_->get_logger(),
+      "[%s] onTrackingBegin: built initial localization submap at (%.2f, %.2f, %.2f)",
+      name_.c_str(), pos.x(), pos.y(), pos.z());
+}
+
 bool LisoFactor::isReady() const {
   return scan_received_ && imu_warmup_complete_;
 }
@@ -244,7 +274,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     cached_result_.converged = true;
     cached_result_.num_inliers = scan->size();
     // Set H to a reasonable default for the first scan
-    cached_result_.H = Eigen::Matrix<double, 6, 6>::Identity() * 100.0;
+    cached_result_.H = Eigen::Matrix<double, 6, 6>::Identity() * kInitialHessianScale;
     has_cached_result_ = true;
     first_scan_ = false;
 
@@ -319,7 +349,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   // Cache result for getFactors only when the distance gate is satisfied.
   // This runs at LiDAR rate, so the factor is locked in at the exact scan
   // where min_scan_distance is crossed — independent of SlamCore's poll rate.
-  {
+  // In localization mode, skip caching — no factors, no graph growth.
+  if (!core_->isLocalizationMode()) {
     std::lock_guard lock(result_mtx_);
     bool should_cache = false;
     if (!has_last_factor_) {
@@ -364,7 +395,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   prev_odom_time_ = scan_time;
 
   // Twist: body-frame velocity from scan-to-scan delta
-  bool publish_twist = has_delta && dt > 0.0 && dt < 1.0;
+  bool publish_twist = has_delta && dt > 0.0 && dt < kMaxTwistDt;
 
   // Publish map-frame odometry (absolute, includes corrections)
   if (odom_pub_->is_activated()) {
@@ -471,6 +502,23 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     tf.transform.rotation.w = q_tf.w();
     sendTransform(tf);
   }
+
+  // Localization mode: distance-based submap rebuild from prior map
+  if (core_->isLocalizationMode() && localization_submap_initialized_) {
+    Eigen::Vector3f pos(
+        static_cast<float>(matched_pose.translation().x()),
+        static_cast<float>(matched_pose.translation().y()),
+        static_cast<float>(matched_pose.translation().z()));
+    if ((pos - submap_center_).norm() > submap_radius_ * kSubmapRebuildFraction) {
+      if (!rebuild_in_progress_.exchange(true)) {
+        submap_center_ = pos;
+        std::thread([this, pos]() {
+          rebuildSubmapAtPosition(pos);
+          rebuild_in_progress_ = false;
+        }).detach();
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -498,7 +546,7 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
   {
     std::lock_guard lock(imu_mtx_);
     imu_buffer_.push_back(*msg);
-    while (imu_buffer_.size() > 2500) {  // ~5s at 500Hz
+    while (imu_buffer_.size() > kImuBufferMaxSize) {
       imu_buffer_.pop_front();
     }
   }
@@ -514,7 +562,7 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
     if (gyr_mag < imu_stationary_gyr_threshold_ && has_valid_orientation) {
       Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x,
                            msg->orientation.y, msg->orientation.z);
-      if (q.squaredNorm() > 0.5) {
+      if (q.squaredNorm() > kQuatSquaredNormMin) {
         q.normalize();
 
         // Ensure hemisphere consistency: flip q if it's in the opposite hemisphere
@@ -567,7 +615,7 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
   // Integrate angular velocity for initial guess rotation tracking
   if (gyro_tracking_active_ && last_gyro_time_ > 0.0) {
     double dt = current_time - last_gyro_time_;
-    if (dt > 0.0 && dt < 0.1) {  // sanity check: skip if dt is negative or too large
+    if (dt > 0.0 && dt < kMaxGyroDt) {
       // Transform angular velocity from IMU frame to base_link frame
       Eigen::Vector3d omega_imu(msg->angular_velocity.x,
                                  msg->angular_velocity.y,
@@ -586,6 +634,11 @@ std::optional<gtsam::Pose3> LisoFactor::processFrame(double /*timestamp*/) {
   std::lock_guard lock(result_mtx_);
   if (has_cached_result_) {
     return cached_pose_;
+  }
+  // In localization mode, return the latest GICP match even without a cached
+  // keyframe result (we never cache keyframes for the SLAM graph)
+  if (core_->isLocalizationMode() && has_last_match_) {
+    return last_matched_pose_;
   }
   return std::nullopt;
 }
@@ -706,7 +759,7 @@ void LisoFactor::rebuildSubmap() {
   // Start BFS from the most recent key
   gtsam::Key start_key = key_list.back();
 
-  auto collected_keys = bfsCollectStates(start_key, submap_radius_);
+  auto collected_keys = collectRecentStates(start_key, submap_radius_);
   if (collected_keys.empty()) return;
   double t_bfs = ms_since();
 
@@ -783,11 +836,125 @@ void LisoFactor::rebuildSubmap() {
 }
 
 // ---------------------------------------------------------------------------
-// bfsCollectStates — walk consecutive keys from key_list, bounded by radius
-// Uses key_list order (sequential) instead of the adjacency graph to avoid
-// crossing loop closure edges and pulling in historical states.
+// rebuildSubmapAtPosition — KD-tree radius search on prior map poses,
+// assemble world-frame submap for localization mode
 // ---------------------------------------------------------------------------
-std::vector<gtsam::Key> LisoFactor::bfsCollectStates(
+void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
+  auto t0 = std::chrono::steady_clock::now();
+  auto ms_since = [&t0]() {
+    return std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - t0).count();
+  };
+
+  const auto& map_manager = core_->getMapManager();
+  auto poses_6d = map_manager.getKeyPoses6D();
+  auto key_list = map_manager.getKeyList();
+  if (key_list.empty()) return;
+
+  // Use KD-tree radius search to find nearby keyframes
+  auto kdtree = const_cast<MapManager&>(map_manager).getKdTree();
+  if (!kdtree) return;
+
+  PointType search_point;
+  search_point.x = position.x();
+  search_point.y = position.y();
+  search_point.z = position.z();
+
+  std::vector<int> indices;
+  std::vector<float> distances;
+  kdtree->radiusSearch(search_point, submap_radius_, indices, distances);
+  double t_search = ms_since();
+
+  // Limit to max_submap_states_ closest
+  if (static_cast<int>(indices.size()) > max_submap_states_) {
+    // Sort by distance, keep closest
+    std::vector<std::pair<float, int>> dist_idx;
+    dist_idx.reserve(indices.size());
+    for (size_t i = 0; i < indices.size(); i++) {
+      dist_idx.emplace_back(distances[i], indices[i]);
+    }
+    std::sort(dist_idx.begin(), dist_idx.end());
+    indices.clear();
+    for (int i = 0; i < max_submap_states_; i++) {
+      indices.push_back(dist_idx[i].second);
+    }
+  }
+
+  // Assemble world-frame submap
+  auto merged = std::make_shared<small_gicp::PointCloud>();
+  size_t total_raw_points = 0;
+
+  for (int idx : indices) {
+    if (idx < 0 || idx >= static_cast<int>(key_list.size())) continue;
+    gtsam::Key k = map_manager.getKeyFromCloudIndex(idx);
+
+    auto cloud_data = map_manager.getKeyframeData(k, "liso_factor/gicp_cloud");
+    if (!cloud_data.has_value()) continue;
+
+    small_gicp::PointCloud::Ptr body_cloud;
+    try {
+      body_cloud = std::any_cast<small_gicp::PointCloud::Ptr>(cloud_data.value());
+    } catch (const std::bad_any_cast&) {
+      continue;
+    }
+    if (!body_cloud || body_cloud->empty()) continue;
+
+    if (idx >= static_cast<int>(poses_6d->size())) continue;
+    const auto& pose = poses_6d->points[idx];
+    Eigen::Affine3f world_T = poseTypeToAffine3f(pose);
+    Eigen::Isometry3d world_T_d;
+    world_T_d.matrix() = world_T.matrix().cast<double>();
+
+    total_raw_points += body_cloud->size();
+    for (size_t i = 0; i < body_cloud->size(); i++) {
+      Eigen::Vector3d p = world_T_d * body_cloud->point(i).head<3>();
+      merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
+    }
+  }
+
+  if (merged->empty()) return;
+  double t_assemble = ms_since();
+
+  auto [submap, submap_tree] = small_gicp::preprocess_points(
+      *merged, submap_ds_resolution_, num_neighbors_, num_threads_);
+  double t_preprocess = ms_since();
+
+  {
+    std::unique_lock lock(submap_mtx_);
+    cached_submap_ = submap;
+    cached_submap_tree_ = submap_tree;
+  }
+  submap_stale_ = false;
+
+  RCLCPP_INFO(node_->get_logger(),
+      "\033[33m[SUBMAP]\033[0m localization rebuild at (%.1f,%.1f,%.1f): "
+      "states=%zu raw_pts=%zu final=%zu | search=%.1fms assemble=%.1fms preprocess=%.1fms total=%.1fms",
+      position.x(), position.y(), position.z(),
+      indices.size(), total_raw_points, submap->size(),
+      t_search, t_assemble - t_search, t_preprocess - t_assemble, t_preprocess);
+
+  // Publish submap for visualization
+  if (submap_pub_ && submap_pub_->is_activated()) {
+    pcl::PointCloud<pcl::PointXYZ> pcl_submap;
+    pcl_submap.reserve(submap->size());
+    for (size_t i = 0; i < submap->size(); i++) {
+      const auto& p = submap->point(i);
+      pcl_submap.emplace_back(p.x(), p.y(), p.z());
+    }
+    sensor_msgs::msg::PointCloud2 msg;
+    pcl::toROSMsg(pcl_submap, msg);
+    msg.header.stamp = node_->now();
+    msg.header.frame_id = map_frame_;
+    submap_pub_->publish(msg);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// collectRecentStates — walk backwards through key_list from start, bounded
+// by radius. Uses chronological order to avoid pulling in historical states
+// from previous passes through the same area (e.g. across loop closures).
+// ---------------------------------------------------------------------------
+std::vector<gtsam::Key> LisoFactor::collectRecentStates(
     gtsam::Key start, double radius) {
   const auto& map_manager = core_->getMapManager();
   auto poses_6d = map_manager.getKeyPoses6D();
@@ -825,6 +992,68 @@ std::vector<gtsam::Key> LisoFactor::bfsCollectStates(
   }
 
   return collected;
+}
+
+// ---------------------------------------------------------------------------
+// saveData / loadData — persist per-keyframe body-frame point clouds
+// ---------------------------------------------------------------------------
+void LisoFactor::saveData(const std::string& plugin_dir) {
+  namespace fs = std::filesystem;
+  auto& map_manager = core_->getMapManager();
+  auto key_list = map_manager.getKeyList();
+
+  auto clouds_dir = fs::path(plugin_dir) / "clouds";
+  fs::create_directories(clouds_dir);
+
+  for (size_t i = 0; i < key_list.size(); i++) {
+    auto cloud_data = map_manager.getKeyframeData(key_list[i], "liso_factor/cloud");
+    if (!cloud_data.has_value()) continue;
+
+    try {
+      auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(cloud_data.value());
+      if (cloud && !cloud->empty()) {
+        char filename[32];
+        snprintf(filename, sizeof(filename), "%06zu.pcd", i);
+        pcl::io::savePCDFileBinary((clouds_dir / filename).string(), *cloud);
+      }
+    } catch (const std::bad_any_cast&) {}
+  }
+}
+
+void LisoFactor::loadData(const std::string& plugin_dir) {
+  namespace fs = std::filesystem;
+  auto& map_manager = core_->getMapManager();
+  auto key_list = map_manager.getKeyList();
+
+  auto clouds_dir = fs::path(plugin_dir) / "clouds";
+  if (!fs::exists(clouds_dir)) return;
+
+  for (size_t i = 0; i < key_list.size(); i++) {
+    char filename[32];
+    snprintf(filename, sizeof(filename), "%06zu.pcd", i);
+    auto path = clouds_dir / filename;
+    if (!fs::exists(path)) continue;
+
+    auto cloud = pcl::make_shared<pcl::PointCloud<PointType>>();
+    if (pcl::io::loadPCDFile(path.string(), *cloud) == 0 && !cloud->empty()) {
+      map_manager.addKeyframeData(key_list[i], "liso_factor/cloud", cloud);
+
+      // Also preprocess for GICP (needed by loop closure)
+      auto gicp_cloud = std::make_shared<small_gicp::PointCloud>();
+      gicp_cloud->resize(cloud->size());
+      for (size_t j = 0; j < cloud->size(); j++) {
+        gicp_cloud->point(j) = Eigen::Vector4d(
+            cloud->points[j].x, cloud->points[j].y,
+            cloud->points[j].z, 1.0);
+      }
+      auto [preprocessed, tree] = small_gicp::preprocess_points(
+          *gicp_cloud, scan_ds_resolution_, num_neighbors_, num_threads_);
+      map_manager.addKeyframeData(key_list[i], "liso_factor/gicp_cloud", preprocessed);
+    }
+  }
+
+  RCLCPP_INFO(node_->get_logger(), "[%s] loaded clouds from %s",
+              name_.c_str(), plugin_dir.c_str());
 }
 
 }  // namespace eidos

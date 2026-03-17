@@ -7,6 +7,9 @@
 
 namespace eidos {
 
+constexpr double kMinMotionDt = 1e-9;                  // minimum dt before fallback
+constexpr double kFallbackDt = 1e-3;                   // fallback dt when interval is near-zero
+
 void HolonomicMotionModel::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] onInitialize()", name_.c_str());
 
@@ -36,7 +39,7 @@ void HolonomicMotionModel::generateMotionModel(
     gtsam::NonlinearFactorGraph& factors,
     gtsam::Values& /*values*/) {
   double dt = std::abs(t_end - t_begin);
-  if (dt < 1e-9) dt = 1e-3;  // avoid zero noise
+  if (dt < kMinMotionDt) dt = kFallbackDt;
 
   // Scale noise by dt
   gtsam::Vector6 noise_vec;

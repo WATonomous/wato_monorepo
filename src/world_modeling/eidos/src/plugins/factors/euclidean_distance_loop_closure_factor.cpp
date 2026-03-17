@@ -3,8 +3,6 @@
 #include <queue>
 #include <unordered_set>
 
-#include <pcl/kdtree/kdtree_flann.h>
-
 #include <pluginlib/class_list_macros.hpp>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
@@ -145,14 +143,15 @@ EuclideanDistanceLoopClosureFactor::latchFactors(gtsam::Key /*key*/, double /*ti
   // Source = latest key with full data in MapManager
   gtsam::Key source_key = key_list.back();
   if (processed_source_keys_.count(source_key)) return result;
+  if (map_manager.isPriorMapKey(source_key)) return result;
 
   int source_idx = map_manager.getCloudIndex(source_key);
   if (source_idx < 0 || source_idx >= static_cast<int>(key_poses_3d->size()))
     return result;
 
   // KD-tree: spatially close, temporally distant candidates
-  auto kdtree = pcl::make_shared<pcl::KdTreeFLANN<PointType>>();
-  kdtree->setInputCloud(key_poses_3d);
+  auto kdtree = core_->getMapManager().getKdTree();
+  if (!kdtree || key_poses_3d->empty()) return result;
 
   std::vector<int> search_indices;
   std::vector<float> search_distances;
@@ -175,6 +174,9 @@ EuclideanDistanceLoopClosureFactor::latchFactors(gtsam::Key /*key*/, double /*ti
 
     gtsam::Key candidate_key = map_manager.getKeyFromCloudIndex(candidate_idx);
     if (candidate_key == 0) continue;
+
+    // Skip prior map keys — not in ISAM2
+    if (map_manager.isPriorMapKey(candidate_key)) continue;
 
     if (search_distances[i] < best_dist) {
       best_dist = search_distances[i];

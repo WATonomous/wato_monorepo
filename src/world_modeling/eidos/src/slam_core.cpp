@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <filesystem>
 #include <functional>
 #include <map>
 
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/inference/Symbol.h>
+
+#include "eidos/graph_serialization.hpp"
 #include <geometry_msgs/msg/transform_stamped.hpp>
 namespace eidos {
 
@@ -29,8 +32,9 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // Parameters
-  declare_parameter("slam_rate", slam_rate_);
-  declare_parameter("relocalization_timeout", relocalization_timeout_);
+  declare_parameter("mode", std::string("slam"));
+  declare_parameter("slam_rate", 10.0);
+  declare_parameter("relocalization_timeout", 30.0);
   declare_parameter("frames.map", map_frame_);
   declare_parameter("frames.odometry", odom_frame_);
   declare_parameter("frames.base_link", base_link_frame_);
@@ -54,6 +58,12 @@ SlamCore::CallbackReturn SlamCore::on_configure(
   declare_parameter("isam2.relinearize_threshold", isam2_relinearize_threshold_);
   declare_parameter("isam2.relinearize_skip", isam2_relinearize_skip_);
 
+  {
+    std::string mode;
+    get_parameter("mode", mode);
+    localization_mode_ = (mode == "localization");
+    RCLCPP_INFO(get_logger(), "Mode: %s", mode.c_str());
+  }
   get_parameter("slam_rate", slam_rate_);
   get_parameter("relocalization_timeout", relocalization_timeout_);
   get_parameter("frames.map", map_frame_);
@@ -166,9 +176,18 @@ SlamCore::CallbackReturn SlamCore::on_activate(
 
   // Load prior map if configured
   if (!map_load_directory_.empty()) {
-    if (map_manager_->loadMap(map_load_directory_)) {
+    std::vector<std::string> saved_plugins;
+    if (map_manager_->loadMap(map_load_directory_, saved_plugins)) {
       RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m Loaded prior map from: %s",
                   map_load_directory_.c_str());
+      // Load each plugin's data
+      namespace fs = std::filesystem;
+      for (auto& plugin : factor_plugins_) {
+        auto plugin_dir = fs::path(map_load_directory_) / "plugins" / plugin->getName();
+        if (fs::exists(plugin_dir)) {
+          plugin->loadData(plugin_dir.string());
+        }
+      }
     } else {
       RCLCPP_WARN(get_logger(), "\033[36m[ACTIVATING]\033[0m Failed to load prior map from: %s",
                   map_load_directory_.c_str());
@@ -356,7 +375,11 @@ void SlamCore::slamLoop() {
         handleRelocalizing(timestamp);
         break;
       case SlamState::TRACKING:
-        handleTracking(timestamp, run_vis, vis_values, vis_loop_closure);
+        if (localization_mode_) {
+          handleLocalizationTracking(timestamp);
+        } else {
+          handleSlamTracking(timestamp, run_vis, vis_values, vis_loop_closure);
+        }
         break;
     }
 
@@ -464,13 +487,18 @@ void SlamCore::beginTracking(const gtsam::Pose3& initial_pose, double /*timestam
 
   // No state created here.  The first plugin to produce data via
   // hasData()/getFactors() creates state 0 through the normal
-  // handleTracking() path.  handleTracking() detects the very first
+  // handleSlamTracking() path.  handleSlamTracking() detects the very first
   // state (!has_last_state_) and adds the PriorFactor + motion model init.
   next_state_index_ = 0;
   has_last_state_ = false;
   last_state_owner_.clear();
 
   state_ = SlamState::TRACKING;
+
+  // Notify factor plugins that tracking has begun (e.g., LISO builds initial submap)
+  for (auto& plugin : factor_plugins_) {
+    plugin->onTrackingBegin(initial_pose);
+  }
 
   publishPose();
 }
@@ -503,9 +531,9 @@ void SlamCore::handleRelocalizing(double timestamp) {
   }
 }
 
-void SlamCore::handleTracking(double timestamp, bool& run_vis,
-                              gtsam::Values& vis_values,
-                              bool& vis_loop_closure) {
+void SlamCore::handleSlamTracking(double timestamp, bool& run_vis,
+                                  gtsam::Values& vis_values,
+                                  bool& vis_loop_closure) {
   auto t0 = std::chrono::steady_clock::now();
   auto elapsed_ms = [&t0]() {
     return std::chrono::duration<double, std::milli>(
@@ -825,6 +853,44 @@ void SlamCore::handleTracking(double timestamp, bool& run_vis,
   publishOdometry();
 }
 
+// ---- Localization tracking ----
+
+void SlamCore::handleLocalizationTracking(double timestamp) {
+  // Poll factor plugins for pose estimates (LISO's processFrame returns GICP result)
+  for (auto& plugin : factor_plugins_) {
+    auto pose = plugin->processFrame(timestamp);
+    if (pose.has_value()) {
+      current_pose_ = pose.value();
+      current_transform_[0] = static_cast<float>(current_pose_.rotation().roll());
+      current_transform_[1] = static_cast<float>(current_pose_.rotation().pitch());
+      current_transform_[2] = static_cast<float>(current_pose_.rotation().yaw());
+      current_transform_[3] = static_cast<float>(current_pose_.translation().x());
+      current_transform_[4] = static_cast<float>(current_pose_.translation().y());
+      current_transform_[5] = static_cast<float>(current_pose_.translation().z());
+      break;
+    }
+  }
+
+  // Update map->odom TF
+  if (publish_map_to_odom_) {
+    try {
+      auto odom_base_tf = tf_buffer_->lookupTransform(
+          odom_frame_, base_link_frame_, tf2::TimePointZero);
+      const auto& tb = odom_base_tf.transform.translation;
+      const auto& rb = odom_base_tf.transform.rotation;
+      gtsam::Pose3 T_odom_base(
+          gtsam::Rot3(Eigen::Quaterniond(rb.w, rb.x, rb.y, rb.z).toRotationMatrix()),
+          gtsam::Point3(tb.x, tb.y, tb.z));
+      cached_map_to_odom_ = current_pose_.compose(T_odom_base.inverse());
+    } catch (const tf2::TransformException&) {
+      // odom->base_link not yet available
+    }
+  }
+
+  publishPose();
+  publishOdometry();
+}
+
 // ---- Plugin loading ----
 
 void SlamCore::loadFactorPlugins() {
@@ -951,27 +1017,111 @@ void SlamCore::saveMapCallback(
     const std::shared_ptr<eidos_msgs::srv::SaveMap::Request> request,
     std::shared_ptr<eidos_msgs::srv::SaveMap::Response> response) {
   std::lock_guard<std::mutex> lock(mtx_);
+  namespace fs = std::filesystem;
   std::string dir = request->directory.empty() ? map_save_directory_ : request->directory;
 
   RCLCPP_INFO(get_logger(), "Saving map to: %s", dir.c_str());
-  bool success = map_manager_->saveMap(
-      dir, request->resolution, accumulated_graph_, accumulated_values_);
 
-  response->success = success;
-  response->message = success ? "Map saved successfully" : "Failed to save map";
+  // 1. Collect plugin names
+  std::vector<std::string> plugin_names;
+  for (auto& p : factor_plugins_) plugin_names.push_back(p->getName());
+
+  // 2. Save poses + keys + metadata
+  if (!map_manager_->saveMap(dir, plugin_names)) {
+    response->success = false;
+    response->message = "Failed to save poses";
+    return;
+  }
+
+  // 3. Save GTSAM graph
+  fs::create_directories(fs::path(dir) / "graph");
+  try {
+    gtsam::serializeToBinaryFile(accumulated_graph_, dir + "/graph/factors.bin");
+    gtsam::serializeToBinaryFile(accumulated_values_, dir + "/graph/values.bin");
+  } catch (const std::exception& e) {
+    RCLCPP_WARN(get_logger(), "Graph serialization failed: %s", e.what());
+  }
+
+  // 4. Each plugin saves its own data
+  for (auto& plugin : factor_plugins_) {
+    auto plugin_dir = fs::path(dir) / "plugins" / plugin->getName();
+    fs::create_directories(plugin_dir);
+    plugin->saveData(plugin_dir.string());
+  }
+
+  // 5. Optional: export combined global map
+  if (request->global_map_leaf_size > 0) {
+    auto exports_dir = fs::path(dir) / "exports";
+    fs::create_directories(exports_dir);
+
+    pcl::PointCloud<PointType>::Ptr global_map(new pcl::PointCloud<PointType>());
+    auto key_list = map_manager_->getKeyList();
+    auto poses_6d = map_manager_->getKeyPoses6D();
+    for (size_t i = 0; i < key_list.size(); i++) {
+      auto cloud_data = map_manager_->getKeyframeData(key_list[i], "liso_factor/cloud");
+      if (!cloud_data.has_value()) continue;
+      try {
+        auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(cloud_data.value());
+        if (cloud && !cloud->empty()) {
+          *global_map += *transformPointCloud(cloud, poses_6d->points[i]);
+        }
+      } catch (const std::bad_any_cast&) {}
+    }
+    if (!global_map->empty()) {
+      pcl::VoxelGrid<PointType> filter;
+      pcl::PointCloud<PointType>::Ptr ds(new pcl::PointCloud<PointType>());
+      filter.setLeafSize(request->global_map_leaf_size, request->global_map_leaf_size, request->global_map_leaf_size);
+      filter.setInputCloud(global_map);
+      filter.filter(*ds);
+      pcl::io::savePCDFileBinary((exports_dir / "global_map.pcd").string(), *ds);
+    }
+  }
+
+  response->success = true;
+  response->message = "Map saved successfully";
+  RCLCPP_INFO(get_logger(), "Map saved: %zu states, %zu plugins",
+              map_manager_->getKeyList().size(), plugin_names.size());
 }
 
 void SlamCore::loadMapCallback(
     const std::shared_ptr<eidos_msgs::srv::LoadMap::Request> request,
     std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response) {
   std::lock_guard<std::mutex> lock(mtx_);
+  namespace fs = std::filesystem;
 
   RCLCPP_INFO(get_logger(), "Loading map from: %s", request->directory.c_str());
-  bool success = map_manager_->loadMap(request->directory);
 
-  response->success = success;
+  // 1. Load poses + keys + metadata
+  std::vector<std::string> saved_plugins;
+  if (!map_manager_->loadMap(request->directory, saved_plugins)) {
+    response->success = false;
+    response->message = "Failed to load map";
+    return;
+  }
+
+  // 2. Validate plugin names match current config
+  for (const auto& saved_name : saved_plugins) {
+    bool found = false;
+    for (auto& p : factor_plugins_) {
+      if (p->getName() == saved_name) { found = true; break; }
+    }
+    if (!found) {
+      RCLCPP_WARN(get_logger(), "Saved plugin '%s' not in current config", saved_name.c_str());
+    }
+  }
+
+  // 3. Each plugin loads its own data
+  for (auto& plugin : factor_plugins_) {
+    auto plugin_dir = fs::path(request->directory) / "plugins" / plugin->getName();
+    if (fs::exists(plugin_dir)) {
+      plugin->loadData(plugin_dir.string());
+    }
+  }
+
+  response->success = true;
   response->num_keyframes = map_manager_->numKeyframes();
-  response->message = success ? "Map loaded successfully" : "Failed to load map";
+  response->message = "Map loaded successfully";
+  RCLCPP_INFO(get_logger(), "Map loaded: %d states", map_manager_->numKeyframes());
 }
 
 // ---- Publishing ----
@@ -1079,6 +1229,10 @@ const std::vector<std::string>& SlamCore::getAccumulatedFactorOwners() const {
 
 std::optional<gtsam::Pose3> SlamCore::getMotionModelPose() const {
   return motion_model_ ? motion_model_->getCurrentPose() : std::nullopt;
+}
+
+bool SlamCore::isLocalizationMode() const {
+  return localization_mode_;
 }
 
 std::optional<Eigen::MatrixXd> SlamCore::getLatestPoseCovariance() const {

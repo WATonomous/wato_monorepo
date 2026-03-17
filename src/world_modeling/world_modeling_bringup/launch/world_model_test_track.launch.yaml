@@ -1,30 +1,16 @@
-# Copyright (c) 2025-present WATonomous. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Launch world_model lifecycle node with lifecycle manager.
+# Full autonomy stack for test track driving (real hardware).
+# Usage: ros2 launch world_modeling_bringup world_model_test_track.launch.yaml
 
 launch:
   - arg:
       name: config_file
-      default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_test_track.yaml
       description: Path to the world_model configuration file
 
   - arg:
       name: eidos_config_file
-      default: $(find-pkg-share eidos)/config/params.yaml
-      description: Path to the eidos SLAM configuration file
-
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+      description: Path to the eidos localization configuration file
 
   - arg:
       name: autostart
@@ -35,6 +21,16 @@ launch:
       name: bond_enabled
       default: "false"
       description: Enable bond-based crash detection
+
+  - arg:
+      name: eidos_map_dir
+      default: "/opt/watonomous/maps/test_track_map"
+      description: Directory containing the prior map to localize against
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: Use simulation time from /clock topic
 
   # Simple Prediction - bridges Detection3DArray to WorldObjectArray
   - node:
@@ -47,7 +43,7 @@ launch:
         - from: $(find-pkg-share simple_prediction)/config/params.yaml
       remap:
         - from: tracks_3d
-          to: /carla/tracked_detections_3d
+          to: /perception/tracked_detections_3d
 
   # World Model
   - node:
@@ -78,7 +74,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "lane_context"
           to: "lanelet/lane_context"
@@ -94,7 +90,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "lane_context"
           to: "lanelet/lane_context"
@@ -108,7 +104,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "route_ahead"
           to: "lanelet/route_ahead"
@@ -122,7 +118,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "area_occupancy"
           to: "area_occupancy"
@@ -136,7 +132,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "lanelet_ahead"
           to: "lanelet/lanelet_ahead"
@@ -152,7 +148,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "world_objects"
           to: "world_object_seeds"
@@ -167,7 +163,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "world_objects"
           to: "world_objects_enriched"
@@ -260,7 +256,7 @@ launch:
         - from: markers
           to: behaviour_markers
 
-  # Eidos SLAM Node (replaces LIO-SAM's 4 nodes with a single plugin-based node)
+  # Eidos Localization Node
   - node:
       pkg: eidos
       exec: eidos_node
@@ -269,6 +265,8 @@ launch:
       output: screen
       param:
         - from: $(var eidos_config_file)
+        - name: map.load_directory
+          value: $(var eidos_map_dir)
 
   # Lifecycle Manager
   - node:

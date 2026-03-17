@@ -13,18 +13,7 @@ COPY src/world_modeling world_modeling
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
 
-# TEMP
-COPY src/interfacing/eve_description eve_description
-
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
-
-# Download maps (ADD fetches GitHub API to bust cache when repo updates)
-ADD https://api.github.com/repos/WATonomous/map_data/git/refs/heads/master /tmp/map_version.json
-ENV MAPS_DIR="${WATONOMOUS_INSTALL}/maps/"
-RUN apt-get update && \
-    git clone https://github.com/WATonomous/map_data.git --depth 1 "${MAPS_DIR}" && \
-    chmod -R 755 "${MAPS_DIR}" && \
-    rm -rf /var/lib/apt/lists/*

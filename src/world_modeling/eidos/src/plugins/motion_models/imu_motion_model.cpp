@@ -17,6 +17,11 @@ using gtsam::symbol_shorthand::B;
 
 namespace eidos {
 
+// Named constants
+constexpr double kTfLookupTimeout = 5.0;               // seconds, timeout for static TF lookup
+constexpr double kQuatSquaredNormMin = 0.01;            // minimum q.squaredNorm() to accept orientation
+constexpr double kMinIntegrationDt = 1e-6;              // minimum dt before falling back to default_imu_dt
+
 // ---------------------------------------------------------------------------
 // Static utilities
 // ---------------------------------------------------------------------------
@@ -141,7 +146,7 @@ void ImuMotionModel::activate() {
   // Look up the static transform: imu_frame_ -> base_link_frame_
   try {
     tf_imu_to_base_msg_ = tf_->lookupTransform(
-        base_link_frame_, imu_frame_, tf2::TimePointZero, tf2::durationFromSec(5.0));
+        base_link_frame_, imu_frame_, tf2::TimePointZero, tf2::durationFromSec(kTfLookupTimeout));
     extrinsics_resolved_ = true;
 
     const auto& q = tf_imu_to_base_msg_.transform.rotation;
@@ -236,7 +241,7 @@ std::optional<gtsam::Rot3> ImuMotionModel::getInitialOrientation() const {
   for (const auto& msg : stationary_buffer_) {
     Eigen::Quaterniond q(msg.orientation.w, msg.orientation.x,
                          msg.orientation.y, msg.orientation.z);
-    if (q.squaredNorm() < 0.01) continue;
+    if (q.squaredNorm() < kQuatSquaredNormMin) continue;
     q.normalize();
 
     Eigen::Vector3d gravity_body = q.inverse() * Eigen::Vector3d(0, 0, -1);
@@ -359,7 +364,7 @@ void ImuMotionModel::generateMotionModel(
   double dt = integrator.deltaTij();
   if (dt <= 0) {
     dt = std::abs(t_end - t_begin);
-    if (dt < 1e-6) dt = default_imu_dt_;
+    if (dt < kMinIntegrationDt) dt = default_imu_dt_;
     integrator.integrateMeasurement(gtsam::Vector3::Zero(), gtsam::Vector3::Zero(), dt);
     dt = integrator.deltaTij();
   }

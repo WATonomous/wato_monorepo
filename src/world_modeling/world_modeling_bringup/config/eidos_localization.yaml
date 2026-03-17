@@ -1,0 +1,182 @@
+/**/eidos_node:
+  ros__parameters:
+    # ---- Frames ----
+    frames:
+      base_link: "base_footprint"
+      odometry: "odom"
+      map: "map"
+
+    # ---- TF broadcasting ----
+    transforms:
+      map_to_odom:
+        publish: true
+
+    # ---- Mode ----
+    mode: "localization"
+
+    # ---- Core ----
+    slam_rate: 10.0
+    relocalization_timeout: 30.0
+
+    # ISAM2 is unused in localization mode, but must be declared
+    isam2:
+      update_iterations: 2
+      correction_iterations: 5
+      loop_closure_iterations: 5
+      relinearize_threshold: 0.01
+      relinearize_skip: 1
+
+    prior:
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    map:
+      load_directory: "/tmp/eidos_maps/"    # required: prior map to localize against
+      save_directory: ""
+
+    # ---- Core topics / services ----
+    topics:
+      pose: "slam/pose"
+      status: "slam/status"
+      odom: "slam/odometry"
+      save_map_service: "slam/save_map"
+      load_map_service: "slam/load_map"
+
+    odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]
+
+    # ---- Plugin lists ----
+    # LISO for scan-to-submap matching, GPS for utm_to_map offset (no factors injected).
+    factor_plugins:
+      - "gps_factor"
+      - "liso_factor"
+
+    # GPS+ICP relocalization finds the initial pose in the prior map
+    relocalization_plugins:
+      - "gps_icp_relocalization"
+
+    visualization_plugins:
+      - "keyframe_map_visualization"
+
+    # ==========================================================================
+    # Motion Model (needed for warmup phase, unused during localization tracking)
+    # ==========================================================================
+    motion_model:
+      plugin: "eidos::ImuMotionModel"
+      publish_tf: false
+
+      imu_topic: "/novatel/oem7/imu/data"
+      odom_topic: "motion_model/odometry/imu_incremental"
+      imu_frame: "imu_link"
+
+      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]
+      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]
+      bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]
+      gravity: 0.0
+      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
+      default_imu_dt: 0.002
+
+      initialization:
+        prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]
+        prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6]
+        stationary_acc_threshold: 0.05
+        stationary_gyr_threshold: 0.005
+        stationary_samples: 200
+        quaternion_norm_threshold: 0.1
+
+      odom_pose_cov: [0.3, 0.3, 0.3, 0.1, 0.1, 0.1]
+      odom_twist_cov: [0.1, 0.1, 0.1, 0.15, 0.15, 0.15]
+
+    # ==========================================================================
+    # GPS Factor (loads utm_to_map offset from prior map, no factors injected)
+    # ==========================================================================
+    gps_factor:
+      plugin: "eidos::GpsFactor"
+      publish_tf: true
+      add_factors: false
+
+      gps_topic: "/novatel/oem7/fix"
+      imu_topic: "/novatel/oem7/imu/data"
+
+      max_cov: 5.0
+      use_elevation: true
+      min_radius: 200.0
+      pose_cov_threshold: 1.0
+      gps_cov: [2.0, 2.0, 4.0]
+
+    # ==========================================================================
+    # LISO Factor (scan-to-submap matching against prior map)
+    # ==========================================================================
+    liso_factor:
+      plugin: "eidos::LisoFactor"
+      publish_tf: true
+      sphere_scale: 1.0
+
+      lidar_topic: "/lidar_cc/velodyne_points"
+      odom_topic: "liso/odometry"
+      odometry_incremental_topic: "liso/odometry_incremental"
+      imu_topic: "/novatel/oem7/imu/data"
+
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
+
+      initialization:
+        warmup_samples: 200
+        stationary_gyr_threshold: 0.005
+
+      scan_ds_resolution: 0.5
+      submap_ds_resolution: 0.5
+      num_neighbors: 10
+      submap_radius: 30.0               # larger radius — prior map is dense, more context helps
+      max_submap_states: 15              # more states — prior map keyframes are already built
+
+      max_correspondence_distance: 2.0
+      max_iterations: 20
+      num_threads: 16
+
+      min_inliers: 50
+      min_noise: 0.01
+      min_scan_distance: 5.0
+
+      odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
+      odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+    # ==========================================================================
+    # GPS + ICP Relocalization (initial pose estimation against prior map)
+    # ==========================================================================
+    gps_icp_relocalization:
+      plugin: "eidos::GpsIcpRelocalization"
+
+      gps_topic: "/novatel/oem7/fix"
+      lidar_topic: "/lidar_cc/velodyne_points"
+      imu_topic: "/novatel/oem7/imu/data"
+
+      lidar_frame: "lidar_cc"
+
+      gps_candidate_radius: 30.0
+      pointcloud_from: "liso_factor"
+      gps_from: "gps_factor"
+
+      scan_ds_resolution: 0.5
+      submap_leaf_size: 0.4
+      max_correspondence_distance: 2.0
+      max_icp_iterations: 100
+      num_threads: 16
+      num_neighbors: 10
+
+      fitness_threshold: 0.3
+
+    # ==========================================================================
+    # Keyframe Map Visualization (shows prior map)
+    # ==========================================================================
+    keyframe_map_visualization:
+      plugin: "eidos::KeyframeMapVisualization"
+      topic: "slam/visualization/map"
+      pointcloud_from: "liso_factor"
+      voxel_leaf_size: 0.4
+      publish_rate: 1.0
+      mode: "windowed"                   # windowed — only show map near current pose
+
+      accumulate:
+        skip_factor: 5
+
+      windowed:
+        radius: 50.0

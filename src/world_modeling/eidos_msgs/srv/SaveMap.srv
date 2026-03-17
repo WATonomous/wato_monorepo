@@ -1,8 +1,8 @@
 # Directory to save the map to
 string directory
 
-# Downsampling resolution for the global map PCD (0 = no downsampling)
-float32 resolution 0.0
+# Voxel leaf size (meters) for optional global map PCD export (0 = skip export)
+float32 global_map_leaf_size 0.0
 ---
 # Whether the save operation succeeded
 bool success

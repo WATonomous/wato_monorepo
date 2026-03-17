@@ -37,6 +37,7 @@ add_library(eidos_core SHARED
   src/slam_core.cpp
   src/pose_graph.cpp
   src/map_manager.cpp
+  src/graph_serialization.cpp
 )
 target_include_directories(eidos_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

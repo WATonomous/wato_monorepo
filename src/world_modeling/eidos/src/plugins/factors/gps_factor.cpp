@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 
 #include <pluginlib/class_list_macros.hpp>
@@ -13,6 +14,11 @@
 #include "eidos/slam_core.hpp"
 
 namespace eidos {
+
+// Named constants
+constexpr double kGpsTimeWindow = 0.2;                 // seconds, ± window for matching GPS to state
+constexpr double kElevationLockedNoise = 0.01;         // variance when elevation disabled (locks z)
+constexpr double kQuatLength2Min = 0.01;               // minimum q.length2() to accept IMU orientation
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -68,56 +74,6 @@ void GpsFactor::onInitialize() {
   // ---- Publisher for raw GPS in UTM frame ----
   utm_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
       name_ + "/utm_pose", 10);
-
-  // ---- Register keyframe data types with MapManager ----
-  auto& map_manager = core_->getMapManager();
-
-  // GPS position per keyframe in map frame: 3 doubles (x, y, z)
-  map_manager.registerType("gps_factor/position", {
-    [](const std::any& data, const std::string& path) {
-      auto pos = std::any_cast<gtsam::Point3>(data);
-      std::ofstream ofs(path, std::ios::binary);
-      double vals[3] = {pos.x(), pos.y(), pos.z()};
-      ofs.write(reinterpret_cast<const char*>(vals), 3 * sizeof(double));
-    },
-    [](const std::string& path) -> std::any {
-      std::ifstream ifs(path, std::ios::binary);
-      double vals[3];
-      ifs.read(reinterpret_cast<char*>(vals), 3 * sizeof(double));
-      return gtsam::Point3(vals[0], vals[1], vals[2]);
-    }
-  });
-
-  // UTM position per keyframe: 4 doubles (easting, northing, altitude, zone+hemisphere)
-  map_manager.registerType("gps_factor/utm_position", {
-    [](const std::any& data, const std::string& path) {
-      auto pos = std::any_cast<Eigen::Vector4d>(data);
-      std::ofstream ofs(path, std::ios::binary);
-      double vals[4] = {pos[0], pos[1], pos[2], pos[3]};
-      ofs.write(reinterpret_cast<const char*>(vals), 4 * sizeof(double));
-    },
-    [](const std::string& path) -> std::any {
-      std::ifstream ifs(path, std::ios::binary);
-      double vals[4];
-      ifs.read(reinterpret_cast<char*>(vals), 4 * sizeof(double));
-      return Eigen::Vector4d(vals[0], vals[1], vals[2], vals[3]);
-    }
-  });
-
-  // Global data: offset (3 doubles) + zone info (1 double) + initial yaw (1 double)
-  map_manager.registerGlobalType("gps_factor/utm_to_map", {
-    [](const std::any& data, const std::string& path) {
-      auto offset = std::any_cast<std::array<double, 5>>(data);
-      std::ofstream ofs(path, std::ios::binary);
-      ofs.write(reinterpret_cast<const char*>(offset.data()), 5 * sizeof(double));
-    },
-    [](const std::string& path) -> std::any {
-      std::ifstream ifs(path, std::ios::binary);
-      std::array<double, 5> vals;
-      ifs.read(reinterpret_cast<char*>(vals.data()), 5 * sizeof(double));
-      return vals;
-    }
-  });
 
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (unary GPSFactor, self-contained UTM)", name_.c_str());
 }
@@ -198,14 +154,14 @@ StampedFactorResult GpsFactor::latchFactors(gtsam::Key key, double timestamp) {
   // Time-match GPS fix to state timestamp (±0.2s window, pick closest)
   // Discard fixes older than the window
   while (!gps_queue_.empty() &&
-         stamp2Sec(gps_queue_.front().header.stamp) < timestamp - 0.2) {
+         stamp2Sec(gps_queue_.front().header.stamp) < timestamp - kGpsTimeWindow) {
     gps_queue_.pop_front();
   }
 
   if (gps_queue_.empty()) return result;
 
   // If the next fix is too new, keep it for a future state
-  if (stamp2Sec(gps_queue_.front().header.stamp) > timestamp + 0.2) {
+  if (stamp2Sec(gps_queue_.front().header.stamp) > timestamp + kGpsTimeWindow) {
     return result;
   }
 
@@ -214,7 +170,7 @@ StampedFactorResult GpsFactor::latchFactors(gtsam::Key key, double timestamp) {
   double best_dt = std::abs(stamp2Sec(gps_queue_[0].header.stamp) - timestamp);
   for (size_t i = 1; i < gps_queue_.size(); ++i) {
     double t = stamp2Sec(gps_queue_[i].header.stamp);
-    if (t > timestamp + 0.2) break;  // past the window
+    if (t > timestamp + kGpsTimeWindow) break;  // past the window
     double dt = std::abs(t - timestamp);
     if (dt < best_dt) {
       best_dt = dt;
@@ -341,7 +297,7 @@ StampedFactorResult GpsFactor::latchFactors(gtsam::Key key, double timestamp) {
   double noise_x = std::max(sensor_cov_x, gps_cov_[0]);
   double noise_y = std::max(sensor_cov_y, gps_cov_[1]);
   // When elevation disabled: z = current SLAM z, lock it tight (LIO-SAM uses 0.01)
-  double noise_z = use_elevation_ ? std::max(sensor_cov_z, gps_cov_[2]) : 0.01;
+  double noise_z = use_elevation_ ? std::max(sensor_cov_z, gps_cov_[2]) : kElevationLockedNoise;
   auto gps_noise = gtsam::noiseModel::Diagonal::Variances(
       (gtsam::Vector(3) << noise_x, noise_y, noise_z).finished());
 
@@ -411,7 +367,7 @@ void GpsFactor::broadcastUtmToMap() {
 void GpsFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
   tf2::Quaternion q(msg->orientation.x, msg->orientation.y,
                     msg->orientation.z, msg->orientation.w);
-  if (q.length2() < 0.01) return;
+  if (q.length2() < kQuatLength2Min) return;
 
   double roll, pitch, yaw;
   tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
@@ -462,6 +418,84 @@ void GpsFactor::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg) {
       pose.pose.orientation.w = q.w();
     }
     utm_pub_->publish(pose);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// saveData / loadData — persist GPS measurements + utm_to_map config
+// ---------------------------------------------------------------------------
+void GpsFactor::saveData(const std::string& plugin_dir) {
+  namespace fs = std::filesystem;
+  auto& map_manager = core_->getMapManager();
+  auto key_list = map_manager.getKeyList();
+
+  // Save utm_to_map config
+  auto global = map_manager.getGlobalData("gps_factor/utm_to_map");
+  if (global.has_value()) {
+    auto offset = std::any_cast<std::array<double, 5>>(global.value());
+    std::ofstream ofs(plugin_dir + "/config.bin", std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(offset.data()), 5 * sizeof(double));
+  }
+
+  // Save sparse GPS measurements (only states that have GPS data)
+  auto meas_dir = fs::path(plugin_dir) / "measurements";
+  fs::create_directories(meas_dir);
+  for (size_t i = 0; i < key_list.size(); i++) {
+    auto pos_data = map_manager.getKeyframeData(key_list[i], "gps_factor/position");
+    auto utm_data = map_manager.getKeyframeData(key_list[i], "gps_factor/utm_position");
+    if (!pos_data.has_value()) continue;
+
+    char filename[32];
+    snprintf(filename, sizeof(filename), "%06zu.bin", i);
+    std::ofstream ofs((meas_dir / filename).string(), std::ios::binary);
+
+    auto pos = std::any_cast<gtsam::Point3>(pos_data.value());
+    double vals[3] = {pos.x(), pos.y(), pos.z()};
+    ofs.write(reinterpret_cast<const char*>(vals), 3 * sizeof(double));
+
+    if (utm_data.has_value()) {
+      auto utm = std::any_cast<Eigen::Vector4d>(utm_data.value());
+      double uvals[4] = {utm[0], utm[1], utm[2], utm[3]};
+      ofs.write(reinterpret_cast<const char*>(uvals), 4 * sizeof(double));
+    }
+  }
+}
+
+void GpsFactor::loadData(const std::string& plugin_dir) {
+  namespace fs = std::filesystem;
+  auto& map_manager = core_->getMapManager();
+  auto key_list = map_manager.getKeyList();
+
+  // Load utm_to_map config
+  auto config_path = fs::path(plugin_dir) / "config.bin";
+  if (fs::exists(config_path)) {
+    std::ifstream ifs(config_path.string(), std::ios::binary);
+    std::array<double, 5> vals;
+    ifs.read(reinterpret_cast<char*>(vals.data()), 5 * sizeof(double));
+    map_manager.setGlobalData("gps_factor/utm_to_map", vals);
+  }
+
+  // Load sparse GPS measurements
+  auto meas_dir = fs::path(plugin_dir) / "measurements";
+  if (!fs::exists(meas_dir)) return;
+
+  for (size_t i = 0; i < key_list.size(); i++) {
+    char filename[32];
+    snprintf(filename, sizeof(filename), "%06zu.bin", i);
+    auto path = meas_dir / filename;
+    if (!fs::exists(path)) continue;
+
+    std::ifstream ifs(path.string(), std::ios::binary);
+    double vals[3];
+    ifs.read(reinterpret_cast<char*>(vals), 3 * sizeof(double));
+    map_manager.addKeyframeData(key_list[i], "gps_factor/position",
+                                gtsam::Point3(vals[0], vals[1], vals[2]));
+
+    double uvals[4];
+    if (ifs.read(reinterpret_cast<char*>(uvals), 4 * sizeof(double))) {
+      map_manager.addKeyframeData(key_list[i], "gps_factor/utm_position",
+                                  Eigen::Vector4d(uvals[0], uvals[1], uvals[2], uvals[3]));
+    }
   }
 }
 
