@@ -24,10 +24,13 @@
 #include <utility>
 #include <vector>
 
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <random>
+
 #include "Eigen/Dense"
 #include "pcl/filters/voxel_grid.h"
 
-// Static params storage; set by node from config, read by all projection/utils logic
 ProjectionUtils::ProjectionUtilsParams ProjectionUtils::s_params_{};
 
 void ProjectionUtils::setParams(const ProjectionUtilsParams & params)
@@ -42,11 +45,8 @@ const ProjectionUtils::ProjectionUtilsParams & ProjectionUtils::getParams()
 
 namespace
 {
-// Default detection confidence score (0.0-1.0) - used only in compute3DDetection
 constexpr double kDefaultDetectionScore = 1.0;
 
-/** Linear interpolation percentile: pct in [0, 100]. Returns {low_val, high_val} for robust extents.
- *  Uses nth_element (O(n)) instead of full sort. Modifies data in place; callers must not use data after. */
 void getPercentileBounds(std::vector<double> & data, double low_pct, double high_pct, double & out_low, double & out_high)
 {
   if (data.empty()) {
@@ -66,7 +66,6 @@ void getPercentileBounds(std::vector<double> & data, double low_pct, double high
   const size_t j0 = static_cast<size_t>(std::floor(idx_high));
   const size_t j1 = std::min(j0 + 1u, n - 1u);
 
-  // Collect distinct rank indices in descending order; nth_element from right to left so we don't overwrite.
   std::array<size_t, 4> indices = {i0, i1, j0, j1};
   std::sort(indices.begin(), indices.end(), std::greater<size_t>());
   size_t k = 0u;
@@ -161,8 +160,6 @@ SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, c
   const double pct_lo = p.xy_extent_percentile_low;
   const double pct_hi = p.xy_extent_percentile_high;
 
-  // Use min/max for energy ranking (O(n) per angle). Percentile bounds are applied only
-  // when computing the final box extents below, where robustness to outliers matters.
   auto calculateEdgeEnergy = [&](double theta) -> double {
     double cos_t = std::cos(theta);
     double sin_t = std::sin(theta);
@@ -428,7 +425,6 @@ ProjectionUtils::Box3D computeClusterBox(
   return box;
 }
 
-/** Computes ClusterStats for a single set of indices (used to refresh stats after merging). */
 ProjectionUtils::ClusterStats computeSingleClusterStats(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const pcl::PointIndices & indices)
 {
@@ -582,7 +578,6 @@ void ProjectionUtils::euclideanClusterExtraction(
   if (!cloud || cloud->size() < 2u) {
     return;
   }
-  // PCL KdTree::radiusSearch asserts on NaN/Inf; build a dense cloud and index map.
   pcl::PointCloud<pcl::PointXYZ>::Ptr dense_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   std::vector<int> original_index;
   dense_cloud->reserve(cloud->size());
@@ -610,7 +605,6 @@ void ProjectionUtils::euclideanClusterExtraction(
   ec.setSearchMethod(tree);
   ec.setInputCloud(dense_cloud);
   ec.extract(dense_clusters);
-  // Map cluster indices back to original cloud
   cluster_indices.reserve(dense_clusters.size());
   for (const auto & dc : dense_clusters) {
     pcl::PointIndices orig;
@@ -742,8 +736,6 @@ void ProjectionUtils::mergeClusters(
   if (cloud->empty() || cluster_indices.empty() || stats.size() != cluster_indices.size()) return;
 
   std::vector<bool> merged(cluster_indices.size(), false);
-  // Working copy of stats so we can recompute centroid/extents after each merge;
-  // otherwise later merge decisions use stale geometry and transitive merges can be wrong.
   std::vector<ClusterStats> working_stats = stats;
 
   for (size_t i = 0; i < cluster_indices.size(); ++i) {
@@ -752,9 +744,13 @@ void ProjectionUtils::mergeClusters(
     for (size_t j = i + 1; j < cluster_indices.size(); ++j) {
       if (merged[j]) continue;
 
-      const Eigen::Vector4f & centroid_i = working_stats[i].centroid;
-      const Eigen::Vector4f & centroid_j = working_stats[j].centroid;
-      double distance = (centroid_i - centroid_j).norm();
+      float gap_x = std::max(0.f, std::max(working_stats[i].min_x, working_stats[j].min_x)
+                    - std::min(working_stats[i].max_x, working_stats[j].max_x));
+      float gap_y = std::max(0.f, std::max(working_stats[i].min_y, working_stats[j].min_y)
+                    - std::min(working_stats[i].max_y, working_stats[j].max_y));
+      float gap_z = std::max(0.f, std::max(working_stats[i].min_z, working_stats[j].min_z)
+                    - std::min(working_stats[i].max_z, working_stats[j].max_z));
+      double distance = std::sqrt(gap_x * gap_x + gap_y * gap_y + gap_z * gap_z);
 
       if (distance < mergeTolerance) {
         std::vector<int> merged_indices = cluster_indices[i].indices;
@@ -762,8 +758,6 @@ void ProjectionUtils::mergeClusters(
           merged_indices.end(), cluster_indices[j].indices.begin(), cluster_indices[j].indices.end());
         cluster_indices[i].indices = std::move(merged_indices);
         merged[j] = true;
-        // Recompute centroid and extents for the merged cluster so subsequent
-        // comparisons in this pass use up-to-date geometry.
         working_stats[i] = computeSingleClusterStats(cloud, cluster_indices[i]);
       }
     }
@@ -776,100 +770,6 @@ void ProjectionUtils::mergeClusters(
     }
   }
   cluster_indices = filtered_clusters;
-}
-
-void ProjectionUtils::filterClustersByPhysicsConstraints(
-  const std::vector<ClusterStats> & stats,
-  std::vector<pcl::PointIndices> & cluster_indices,
-  double max_distance,
-  int min_points,
-  float min_height,
-  int min_points_default,
-  int min_points_far,
-  int min_points_medium,
-  int min_points_large,
-  double distance_threshold_far,
-  double distance_threshold_medium,
-  float volume_threshold_large,
-  float min_density,
-  float max_density,
-  float max_dimension,
-  float max_aspect_ratio)
-{
-  // Hardcoded thresholds (too specific to be configurable)
-  constexpr float kMinDimensionForAspect = 0.05f;  // Minimum dimension to check aspect ratio (m)
-  constexpr float kVolumeThresholdDensity = 0.01f;  // Minimum volume to check density (m³)
-
-  if (stats.size() != cluster_indices.size() || cluster_indices.empty()) {
-    return;
-  }
-
-  std::vector<pcl::PointIndices> kept_clusters;
-  kept_clusters.reserve(cluster_indices.size());
-
-  for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    const auto & s = stats[i];
-
-    // Compute basic dimensions
-    float width_x = s.max_x - s.min_x;
-    float width_y = s.max_y - s.min_y;
-    float height = s.max_z - s.min_z;
-    float volume = width_x * width_y * height;
-
-    // Distance from sensor
-    double distance =
-      std::sqrt(s.centroid.x() * s.centroid.x() + s.centroid.y() * s.centroid.y() + s.centroid.z() * s.centroid.z());
-
-    // === IMPROVED FILTERING LOGIC ===
-
-    // Filter 1: Minimum viable object
-    if (s.num_points < min_points || height < min_height) {
-      continue;
-    }
-
-    // Filter 2: Distance-adaptive point threshold
-    int min_points_threshold = min_points_default;
-    if (distance > distance_threshold_far) {
-      min_points_threshold = min_points_far;
-    } else if (distance > distance_threshold_medium) {
-      min_points_threshold = min_points_medium;
-    } else if (volume > volume_threshold_large) {
-      min_points_threshold = min_points_large;
-    }
-
-    if (s.num_points < min_points_threshold) {
-      continue;
-    }
-
-    // Filter 3: Density check (avoid too sparse or too dense)
-    if (volume > kVolumeThresholdDensity) {
-      float density = s.num_points / volume;
-      if (density < min_density || density > max_density) {
-        continue;
-      }
-    }
-
-    // Filter 4: Geometric plausibility
-    float max_dim = std::max({width_x, width_y, height});
-    if (max_dim > max_dimension) {
-      continue;
-    }
-
-    float min_dim = std::min({width_x, width_y, height});
-    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > max_aspect_ratio) {
-      continue;  // Unrealistic aspect ratio
-    }
-
-    // Filter 5: Distance cutoff
-    if (distance > max_distance) {
-      continue;
-    }
-
-    // Passed all filters
-    kept_clusters.push_back(cluster_indices[i]);
-  }
-
-  cluster_indices = std::move(kept_clusters);
 }
 
 void ProjectionUtils::filterCandidatesByPhysicsConstraints(
@@ -935,8 +835,6 @@ void ProjectionUtils::filterCandidatesByPhysicsConstraints(
   candidates = std::move(kept);
 }
 
-// Class-specific geometry/quality limits for class-aware filtering (after IoU).
-// Unknown classes use the default_max_* arguments passed to the filter.
 struct ClassConstraints
 {
   float max_dimension;
@@ -1069,10 +967,6 @@ bool ProjectionUtils::computeClusterCentroid(
 
 namespace
 {
-/**
- * @brief Project AABB 8 corners from ClusterStats to a 2D bounding rect, clipped to image bounds.
- * Much faster than sampling N cluster points: only 8 projections, no cloud access needed.
- */
 std::optional<cv::Rect2d> projectAABBRect(
   const ProjectionUtils::ClusterStats & stats,
   const Eigen::Matrix<double, 3, 4> & lidar_to_image,

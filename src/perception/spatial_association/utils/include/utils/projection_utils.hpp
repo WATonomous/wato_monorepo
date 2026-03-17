@@ -17,31 +17,23 @@
 
 #include <pcl/common/centroid.h>
 #include <pcl/common/common.h>
-#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/search/kdtree.h>
-#include <pcl/segmentation/extract_clusters.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
 #include <Eigen/Dense>
 #include <array>
 #include <optional>
-#include <random>
 #include <string>
 #include <vector>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <opencv2/opencv.hpp>
 #include <std_msgs/msg/header.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
-#include <vision_msgs/msg/detection3_d.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
-#include <vision_msgs/msg/object_hypothesis_with_pose.hpp>
-#include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 class ProjectionUtils
@@ -103,45 +95,35 @@ public:
    */
   struct ProjectionUtilsParams
   {
-    // Visualization
     double marker_lifetime_s = 0.5;
     float marker_alpha = 0.2f;
 
-    // IoU matching (cluster <-> 2D detection)
     double min_iou_threshold = 0.15;
-    // 3D detection score = detection_score_weight * det_score + iou_score_weight * iou
     double detection_score_weight = 0.6;
     double iou_score_weight = 0.4;
 
-    // Bounding box orientation
     double ar_front_view_threshold = 1.2;
 
-    // Outlier rejection
     size_t outlier_rejection_point_count = 30;
     double outlier_sigma_multiplier = 4.5;
 
-    // Trimmed extents (percentiles 0–100) for robust box fitting; reduces impact of stray points and ground leak
     double xy_extent_percentile_low = 5.0;
     double xy_extent_percentile_high = 95.0;
     double z_extent_percentile_low = 2.0;
     double z_extent_percentile_high = 98.0;
 
-    // Orientation search (coarse/fine derived: coarse = 5*step, fine_range = 2.5*step)
     size_t min_points_for_fit = 3;
     size_t default_sample_point_count = 64;
     double orientation_search_step_degrees = 2.0;
 
-    // Camera projection
     double min_camera_z_distance = 1.0;
 
-    // Image dimensions for projection clipping (from CameraInfo or config). 0 = use default 1280x1024.
     int image_width = 0;
     int image_height = 0;
 
-    // Second-pass fallback for unassigned detections (bounded extra work)
     bool enable_second_pass_fallback = false;
-    double second_pass_min_iou = 0.05;  // Relaxed IoU or centroid-in-box for unassigned detections
-    int max_unassigned_detections_second_pass = 10;  // Cap work for unassigned detections
+    double second_pass_min_iou = 0.05;
+    int max_unassigned_detections_second_pass = 10;
   };
 
   /** Set global params (used by all static methods). Call from node after reading ROS params. */
@@ -227,50 +209,13 @@ public:
    * @param cluster_indices Vector of cluster indices (modified in place)
    * @param cloud Input point cloud
    * @param stats Precomputed cluster statistics
-   * @param mergeTolerance Maximum distance between centroids for merging
+   * @param mergeTolerance Maximum AABB gap distance for merging
    */
   static void mergeClusters(
     std::vector<pcl::PointIndices> & cluster_indices,
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
     const std::vector<ClusterStats> & stats,
     double mergeTolerance);
-
-  /**
-   * @brief Filters clusters using physics-based constraints with distance-adaptive thresholds
-   * @param stats Precomputed cluster statistics
-   * @param cluster_indices Vector of cluster indices (modified in place)
-   * @param max_distance Maximum distance from sensor to keep cluster
-   * @param min_points Minimum points for viable object
-   * @param min_height Minimum height in meters
-   * @param min_points_default Default minimum points
-   * @param min_points_far Minimum points at far distance
-   * @param min_points_medium Minimum points at medium distance
-   * @param min_points_large Minimum points for large objects
-   * @param distance_threshold_far Distance threshold for far objects (m)
-   * @param distance_threshold_medium Distance threshold for medium objects (m)
-   * @param volume_threshold_large Volume threshold for large objects (m³)
-   * @param min_density Minimum point density (points per m³)
-   * @param max_density Maximum point density (points per m³)
-   * @param max_dimension Maximum object dimension in meters
-   * @param max_aspect_ratio Maximum aspect ratio
-   */
-  static void filterClustersByPhysicsConstraints(
-    const std::vector<ClusterStats> & stats,
-    std::vector<pcl::PointIndices> & cluster_indices,
-    double max_distance,
-    int min_points,
-    float min_height,
-    int min_points_default,
-    int min_points_far,
-    int min_points_medium,
-    int min_points_large,
-    double distance_threshold_far,
-    double distance_threshold_medium,
-    float volume_threshold_large,
-    float min_density,
-    float max_density,
-    float max_dimension,
-    float max_aspect_ratio);
 
   /**
    * @brief Physics filter on candidates (uses candidate.stats; removes failed in place).

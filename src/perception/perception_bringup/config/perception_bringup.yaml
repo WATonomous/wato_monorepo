@@ -49,28 +49,39 @@
 # =============================================================================
 multi_camera_sync:
   ros__parameters:
-    # Camera topics to synchronize
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/camera_pano_ww/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
+      - "/camera_pano_ne/image_rect_compressed"
       - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_se/image_rect_compressed"
       - "/camera_pano_ss/image_rect_compressed"
+      - "/camera_pano_sw/image_rect_compressed"
+      - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_nw/image_rect_compressed"
 
     # CameraInfo topics (one per camera, same order). Required for batched ~/multi_camera_info.
     camera_info_topics:
-      - "/camera_pano_ww/camera_info"
       - "/camera_pano_nn/camera_info"
+      - "/camera_pano_ne/camera_info"
       - "/camera_pano_ee/camera_info"
+      - "/camera_pano_se/camera_info"
       - "/camera_pano_ss/camera_info"
+      - "/camera_pano_sw/camera_info"
+      - "/camera_pano_ww/camera_info"
+      - "/camera_pano_nw/camera_info"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
-      - "camera_pano_ww"
       - "camera_pano_nn"
+      - "camera_pano_ne"
       - "camera_pano_ee"
+      - "camera_pano_se"
       - "camera_pano_ss"
+      - "camera_pano_sw"
+      - "camera_pano_ww"
+      - "camera_pano_nw"
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
@@ -156,7 +167,9 @@ multi_camera_sync:
     high_thresh: 0.6
     match_thresh: 1.0
     use_maj_cls: true
-    output_frame: "map"
+    # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
+    # Set to "map" when running with localization so tracks are in the global frame.
+    output_frame: "lidar_cc"
 
 # =============================================================================
 # Spatial Association Node
@@ -194,14 +207,16 @@ multi_camera_sync:
       max_density: 1000.0
       max_dimension: 15.0
       max_aspect_ratio: 15.0
-    publish_visualization: true   # Enables marker/lidar viz and subscription to multi_image_compressed for image viz
+    # Detection inference ~400–600ms; 
+    max_detection_cloud_stamp_delta: 1.2
+    publish_visualization: false  # Disable for production; enable for debugging
     debug_logging: false
 
     # Projection/utils: association, orientation, merge (see projection_utils.cpp). Filtering: quality_filter_params.
     projection_utils_params:
       marker_lifetime_s: 0.5
       marker_alpha: 0.2
-      min_iou_threshold: 0.15
+      min_iou_threshold: 0.08   # Lower = more permissive association (was 0.15)
       min_camera_z_distance: 1.0
       ar_front_view_threshold: 1.2
       # Orientation search (coarse/fine derived from step)

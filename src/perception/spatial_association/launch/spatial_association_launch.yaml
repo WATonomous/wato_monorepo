@@ -56,6 +56,8 @@ launch:
           to: /perception/detections
         - from: detection_3d
           to: /perception/detections_3D
+        - from: bounding_box
+          to: /perception/bounding_box
 
   # -------------------------------------------------------------------------
   # Composed: own MT container + load composable node + lifecycle manager
@@ -92,6 +94,8 @@ launch:
               to: /perception/detections
             - from: detection_3d
               to: /perception/detections_3D
+            - from: bounding_box
+              to: /perception/bounding_box
 
   - node:
       pkg: wato_lifecycle_manager
@@ -138,3 +142,5 @@ launch:
               to: /perception/detections
             - from: detection_3d
               to: /perception/detections_3D
+            - from: bounding_box
+              to: /perception/bounding_box

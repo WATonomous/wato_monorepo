@@ -48,12 +48,17 @@ The node is structured in three main layers:
          │
          ▼
 ┌─────────────────┐
-│ Quality Filter  │
+│ Cluster Merging │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ Cluster Merging │
+│ Build Candidates│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Physics Filter  │
 └────────┬────────┘
          │
          ▼
@@ -61,6 +66,12 @@ The node is structured in three main layers:
 │ Camera          │     │ IoU Matching    │
 │ Detections      │────▶│ & Filtering     │
 └─────────────────┘     └────────┬────────┘
+                                │
+                                ▼
+                        ┌─────────────────┐
+                        │ Class-Aware     │
+                        │ Filter          │
+                        └────────┬────────┘
                                 │
                                 ▼
                         ┌─────────────────┐
@@ -72,83 +83,20 @@ The node is structured in three main layers:
 
 ### Key Components
 
-#### 1. `ObjectConstraints` Struct
+#### 1. Physics-Based Filtering
 
-Defines physical constraints based on real-world measurements:
+**`filterCandidatesByPhysicsConstraints()`** operates on `ClusterCandidate`s in the node (not in core). It applies single-pass filtering with distance-adaptive thresholds:
+- Minimum viable object (min points, min height)
+- Distance-adaptive point thresholds (far/medium/close/large)
+- Density check (points per m³)
+- Geometric plausibility (max dimension, aspect ratio)
+- Distance cutoff
 
-```cpp
-struct ObjectConstraints {
-  // Cars
-  constexpr static float kCarMinHeight = 1.0f;
-  constexpr static float kCarMaxHeight = 3.5f;
-  constexpr static float kCarMinLength = 2.5f;
-  constexpr static float kCarMaxLength = 8.0f;
-  constexpr static float kCarMinWidth = 1.4f;
-  constexpr static float kCarMaxWidth = 2.8f;
+All constraint values are configured via `quality_filter_params` in `params.yaml`.
 
-  // Pedestrians/Cyclists
-  constexpr static float kPedestrianMinHeight = 0.8f;
-  constexpr static float kPedestrianMaxHeight = 2.2f;
-  constexpr static float kPedestrianMaxWidth = 1.0f;
+#### 2. Class-Aware Filtering
 
-  // General constraints
-  constexpr static float kMinPointDensity = 5.0f;     // points per m³
-  constexpr static float kMaxPointDensity = 1000.0f;  // points per m³
-  constexpr static int kMinPointsSmallObject = 10;
-  constexpr static int kMinPointsLargeObject = 30;
-  constexpr static float kMaxAspectRatioXY = 8.0f;    // Length/Width
-  constexpr static float kMaxAspectRatioZ = 15.0f;    // Horizontal/Height (for poles)
-};
-```
-
-#### 2. `ClusterFilter` Class
-
-Multi-stage filtering with three stages:
-
-**Stage 1: Noise Filtering** (`filterNoise`)
-- Removes clusters with < 5 points
-- Filters extremely small objects (< 15cm in any dimension)
-
-**Stage 2: Geometry-Based Filtering** (`filterByGeometry`)
-- Checks for unrealistic sizes (> 15m length, > 4m width, > 5m height)
-- Filters thin vertical poles (false positives)
-- Validates point density (too sparse or too dense = invalid)
-
-**Stage 3: Quality Filtering** (`filterByQuality`)
-- Distance-adaptive point thresholds:
-  - Distance > 30m: min 8 points
-  - Distance > 20m: min 12 points
-  - Close range: min 10 points (small) or 30 points (large objects)
-- Completeness check (expected vs actual points)
-- Maximum distance cutoff (default: 60m)
-
-#### 3. Filtering Functions
-
-**`filterClustersByPhysicsConstraints()`** (Currently Used)
-- Physics-based filtering with distance-adaptive thresholds
-- Single-pass filtering with improved logic
-- Validates geometry, density, aspect ratios, and distance constraints
-- Simpler API, good performance
-
-**`filterClusterByQuality()`** (Alternative)
-- Multi-stage filtering with detailed statistics
-- Optional debug output showing filtering breakdown
-- More granular control over each stage
-- Use when you need detailed filtering metrics
-
-### Usage
-
-The physics-based filter runs in the node on `ClusterCandidate`s (see pipeline below). The core only performs clustering and merging.
-
-To use the multi-stage version with debug output:
-
-```cpp
-ProjectionUtils::filterClusterByQuality(
-    cluster_stats,
-    cluster_indices,
-    60.0,   // max_distance
-    true);  // enable_debug
-```
+**`filterCandidatesByClassAwareConstraints()`** runs after IoU matching and applies class-specific size/quality constraints based on the matched detection class.
 
 ## Key Functions
 
@@ -182,13 +130,10 @@ Used throughout the filtering pipeline.
 #### `ProjectionUtils::assignCandidatesToDetectionsByIOU()`
 
 Greedy one-to-one assignment on `std::vector<ClusterCandidate>`: fills `candidate.match` for kept clusters, removes unmatched. Matches 3D LiDAR clusters with 2D camera detections:
-1. For each cluster, samples up to `iou_projection_max_points` points, projects them to the image, and builds a 2D bounding rect from the projected points (more robust than 8-corner AABB for partial/rotated/thin clusters)
-2. Computes IoU with each camera detection
-3. Keeps only clusters with IoU ≥ `min_iou_threshold` (0.15)
-
-#### `ProjectionUtils::computeMaxIOUClusterRect()`
-
-Uses the same point-based projection: samples cluster points, projects to 2D, builds rect, then computes maximum IoU with detections. API takes cloud and cluster indices (not precomputed stats).
+1. For each cluster, projects the 8 AABB corners (from `ClusterStats`) to the image to build a 2D bounding rect
+2. Falls back to centroid projection when all AABB corners are behind the camera
+3. Computes IoU with each camera detection
+4. Keeps only clusters with IoU ≥ `min_iou_threshold` (0.11)
 
 ### Bounding Box Computation
 
@@ -207,24 +152,27 @@ Computes oriented 3D bounding boxes:
 
 ```yaml
 euclid_params:
-  cluster_tolerance: 0.20        # Max distance between points in same cluster (m)
+  cluster_tolerance: 0.40        # Max distance between points in same cluster (m)
   min_cluster_size: 20          # Minimum points per cluster
-  max_cluster_size: 800         # Maximum points per cluster
+  max_cluster_size: 1200        # Maximum points per cluster
   use_adaptive_clustering: true # Use distance-adaptive tolerance
   close_threshold: 10.0         # Distance threshold for "close" objects (m)
-  close_tolerance_mult: 1.5     # Multiplier for close objects (1.5x = 0.30m)
+  close_tolerance_mult: 1.25    # Multiplier for close objects (1.25x = 0.50m)
 ```
 
 #### Physics-Based Filtering Parameters
-The `filterClustersByPhysicsConstraints()` function uses physics-based constraints defined in the code. These are configured through ROS2 parameters in `params.yaml` (see Other Parameters section).
+The `filterCandidatesByPhysicsConstraints()` function uses physics-based constraints configured through `quality_filter_params` in `params.yaml`.
 
 #### Other Parameters
 
 ```yaml
-merge_threshold: 0.30                    # Max distance between centroids to merge (m)
-object_detection_confidence: 0.40        # Min camera detection confidence
-voxel_size: 0.1                         # Voxel grid leaf size (m)
-publish_visualization: false            # Enable visualization (markers, lidar, cluster centroids + multi_image_compressed for image viz)
+merge_threshold: 0.5                     # Max AABB gap distance between clusters to merge (m)
+object_detection_confidence: 0.52        # Min camera detection confidence
+voxel_size: 0.2                         # Voxel grid leaf size (m)
+# Visualization toggles (independent):
+publish_bounding_box: true    # 3D bounding box marker visualization
+publish_visualization: false # Debug point-cloud topics (filtered lidar, cluster centroids)
+publish_image_visualization: false  # Image visualization (multi_image subscription for overlays; off by default)
 debug_logging: false                     # Enable verbose logging
 ```
 
@@ -232,7 +180,7 @@ debug_logging: false                     # Enable verbose logging
 
 #### Subscribers
 - `multi_camera_info` (remapped to e.g. `/multi_camera_sync/multi_camera_info`): **Single batched** camera calibration from the deep_ros camera_sync node. The node does not subscribe to individual per-camera `camera_info` topics.
-- `multi_image` (remapped to `/multi_camera_sync/multi_image_compressed`): Batched **compressed** images from camera_sync, for image-based visualizations. Subscribed only when `publish_visualization: true`. Same pattern as deep_object_detection (compressed, not raw).
+- `multi_image` (remapped to `/multi_camera_sync/multi_image_compressed`): Batched **compressed** images from camera_sync, for image-based visualizations. Subscribed only when `publish_image_visualization: true`.
 - `non_ground_cloud`: Non-ground filtered point cloud (from patchwork++)
 - `detections`: Per-camera 2D detections from deep_object_detection
 
@@ -249,7 +197,7 @@ debug_logging: false                     # Enable verbose logging
 
 #### Publishers
 - `/detection_3d`: 3D detections (`vision_msgs::msg::Detection3DArray`)
-- `/bounding_box`: Visualization markers (if `publish_visualization: true`)
+- `/bounding_box`: 3D bounding box markers (if `publish_bounding_box: true`)
 - `/filtered_lidar`: Colored cluster cloud (if `publish_visualization: true`)
 - `/cluster_centroid`: Cluster centroids (if `publish_visualization: true`)
 
@@ -320,30 +268,6 @@ This enables:
 - Cluster count before/after filtering
 - IoU matching statistics
 
-### Enable Filtering Statistics
-
-To see detailed filtering breakdown, use `filterClusterByQuality()` with debug enabled:
-
-```cpp
-ProjectionUtils::filterClusterByQuality(
-    cluster_stats,
-    cluster_indices,
-    60.0,
-    true);  // enable_debug
-```
-
-Output example:
-
-```
-Cluster Filtering Results:
-  Input: 45
-  Removed (noise): 12
-  Removed (geometry): 8
-  Removed (density): 5
-  Removed (distance): 3
-  Output: 17
-```
-
 ### Visualization
 
 Enable visualization topics:
@@ -360,13 +284,13 @@ Then visualize in RViz:
 ## Performance Considerations
 
 ### Voxel Downsampling
-- Default: `0.1m` voxel size
+- Default: `0.2m` voxel size
 - Reduces point cloud size significantly
 - Trade-off: Lower resolution vs. faster processing
 
 ### Cluster Size Limits
 - `min_cluster_size: 20`: Prevents tiny noise clusters
-- `max_cluster_size: 800`: Prevents processing huge clusters (likely ground artifacts)
+- `max_cluster_size: 1200`: Prevents processing huge clusters (likely ground artifacts)
 
 ### Adaptive Clustering
 - Reduces fragmentation of close objects
@@ -376,16 +300,16 @@ Then visualize in RViz:
 
 ### Issue: Too Many False Positives
 
-**Solution**: Adjust filtering thresholds in `ObjectConstraints`:
-- Increase `kMinPointDensity` (currently 5.0)
-- Decrease `kMaxAspectRatioXY` (currently 8.0)
-- Adjust distance-adaptive thresholds in `filterByQuality()`
+**Solution**: Adjust filtering thresholds in `quality_filter_params` in `params.yaml`:
+- Increase `min_density` (currently 5.0)
+- Decrease `max_aspect_ratio` (currently 15.0)
+- Adjust distance-adaptive point thresholds
 
 ### Issue: Missing Valid Objects
 
 **Solution**: Relax filtering constraints:
-- Decrease `kMinPointDensity`
-- Increase `kMaxAspectRatioXY`
+- Decrease `min_density` in `quality_filter_params`
+- Increase `max_aspect_ratio`
 - Lower minimum point thresholds in distance-adaptive logic
 
 ### Issue: Clusters Too Fragmented
@@ -394,15 +318,15 @@ Then visualize in RViz:
 
 ```yaml
 euclid_params:
-  cluster_tolerance: 0.25  # Increase from 0.20
+  cluster_tolerance: 0.50  # Increase from 0.40
   use_adaptive_clustering: true
-  close_tolerance_mult: 2.0  # Increase from 1.5
+  close_tolerance_mult: 1.5  # Increase from 1.25
 ```
 
 ### Issue: TF Transform Errors
 
 **Solution**: Ensure TF tree is properly configured:
-- Check that `lidar_top_frame` parameter matches actual frame name
+- Check that `lidar_frame` parameter matches actual frame name
 - Verify camera frames match camera info topics
 - Use `ros2 run tf2_ros tf2_echo` to debug transforms
 
@@ -414,9 +338,8 @@ Test individual components:
 
 ```cpp
 // Test filtering
-std::vector<ClusterStats> stats = ...;
-std::vector<pcl::PointIndices> clusters = ...;
-ProjectionUtils::filterClustersByPhysicsConstraints(stats, clusters, 60.0, /* ... other params ... */);
+std::vector<ProjectionUtils::ClusterCandidate> candidates = ...;
+ProjectionUtils::filterCandidatesByPhysicsConstraints(candidates, 60.0, /* ... other params ... */);
 ```
 
 ### Integration Testing
@@ -430,14 +353,6 @@ ProjectionUtils::filterClustersByPhysicsConstraints(stats, clusters, 60.0, /* ..
 
 1. Verify cluster counts match expectations
 2. Check for false positives/negatives
-
-### Code Improvements
-
-1. **Stats Recomputation**: Currently stats are not recomputed after Stage 1 filtering in `filterClusterByQuality()`. Consider recomputing for more accurate Stage 2/3 filtering.
-
-2. **Parameter Exposure**: Expose `ObjectConstraints` values as ROS2 parameters for easier tuning.
-
-3. **Filter Selection**: Add parameter to choose between `filterClustersByPhysicsConstraints()` and `filterClusterByQuality()`.
 
 ## References
 

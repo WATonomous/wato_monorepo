@@ -55,13 +55,13 @@ launch:
               to: /perception/non_ground_cloud
 
   # Load all 12 camera pipelines into the shared container (temporarily disabled)
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "perception_container"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      arg:
+        - name: "container_name"
+          value: "perception_container"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
 
   # Load multi-camera sync into the shared container
   - load_composable_node:
