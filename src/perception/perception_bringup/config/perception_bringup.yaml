@@ -78,7 +78,7 @@ multi_camera_sync:
 
     # Maximum time difference in milliseconds for message synchronization
     # Larger values allow more tolerance but may reduce temporal accuracy
-    sync_tolerance_ms: 200.0
+    sync_tolerance_ms: 2000.0
 
     # Queue size for message filters
     # Larger values can handle more variable frame rates but use more memory
