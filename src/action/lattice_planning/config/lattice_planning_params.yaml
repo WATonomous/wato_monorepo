@@ -23,6 +23,7 @@ action:
           preferred_lane_cost: 20.0
           unknown_occupancy_cost: 50.0
           max_curvature_change: 0.1
+          centerline_weight: 1.0
 
         # -  Corridor  -
         num_horizons: 3

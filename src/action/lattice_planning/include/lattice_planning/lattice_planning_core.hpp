@@ -42,6 +42,7 @@ struct CostFunctionParams
   double preferred_lane_cost;
   double unknown_occupancy_cost;
   double max_curvature_change;
+  double centerline_weight;
 };
 
 struct PathGenParams
@@ -53,42 +54,37 @@ struct PathGenParams
   double max_step_size;
 };
 
-// Enums for parameter indexing
 enum class SpiralParam
 {
-  K0,  // Initial curvature
-  K1,  // Curvature at 1/3 arc length
-  K2,  // Curvature at 2/3 arc length
-  K3,  // Terminal curvature
-  SF  // Total arc length
+  K0,
+  K1,
+  K2,
+  K3,
+  SF
 };
 
 enum class SpiralCoeff
 {
-  C0,  // Constant coefficient
-  C1,  // Linear coefficient
-  C2,  // Quadratic coefficient
-  C3  // Cubic coefficient
+  C0,
+  C1,
+  C2,
+  C3
 };
 
-// Struct to hold spiral coefficient equation constants
 struct SpiralCoeffConstants
 {
-  // C1 numerator coefficients
   double c1_k0_coeff;
   double c1_k1_coeff;
   double c1_k2_coeff;
   double c1_k3_coeff;
   double c1_divisor;
 
-  // C2 numerator coefficients
   double c2_k0_coeff;
   double c2_k1_coeff;
   double c2_k2_coeff;
   double c2_k3_coeff;
   double c2_divisor;
 
-  // C3 numerator coefficients
   double c3_k0_coeff;
   double c3_k1_coeff;
   double c3_k2_coeff;
@@ -113,9 +109,16 @@ public:
   Path get_lowest_cost_path(
     const std::vector<Path> & paths,
     const std::unordered_map<int64_t, int> & preferred_lanelets,
-    const CostFunctionParams & cf_params);
+    const CostFunctionParams & cf_params,
+    const std::vector<PathPoint> & ego_centerline,
+    bool changing_lanes);
 
-  double path_cost_function(const Path & path, bool preferred_lane, CostFunctionParams params);
+  double path_cost_function(
+    const Path & path,
+    bool preferred_lane,
+    const CostFunctionParams params,
+    const std::vector<PathPoint> & ego_centerline,
+    bool changing_lanes);
 
   void calculate_spiral_coeff(
     const std::unordered_map<SpiralParam, double> & params, std::unordered_map<SpiralCoeff, double> & coeffs);

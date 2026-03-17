@@ -14,12 +14,12 @@
 
 #include "lattice_planning/lattice_planning_node.hpp"
 
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <chrono>
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
@@ -57,6 +57,7 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   cf_params.preferred_lane_cost = this->declare_parameter("cost_function.preferred_lane_cost", 20.0);
   cf_params.unknown_occupancy_cost = this->declare_parameter("cost_function.unknown_occupancy_cost", 50.0);
   cf_params.max_curvature_change = this->declare_parameter("cost_function.max_curvature_change", 0.1);
+  cf_params.centerline_weight = this->declare_parameter("cost_function.centerline_weight", 0.5);
 
   //  - Path Generation -
   PathGenParams pg_params;
@@ -194,6 +195,9 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
 
   const int64_t curr_id = msg->current_lanelet_id;
 
+  // Set if BT wants to change lanes
+  changing_lanes = !preferred_lanelets.empty() && preferred_lanelets.count(curr_id) == 0;
+
   // Build map of all lanelets in msg
   for (const auto & ll : msg->lanelets) {
     lanelets[ll.id] = ll;
@@ -205,6 +209,20 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
   // Get the order of ids for each lane
   id_order = get_id_order(curr_id, lanelets);
 
+  // Stitch centerline of the current (ego) lane at index 1
+  current_lane_centerline_.clear();
+  if (id_order.size() > 1) {
+    const auto & ego_lane = id_order[1];
+    for (size_t ll_idx = 0; ll_idx < ego_lane.size(); ++ll_idx) {
+      const auto & centerline = lanelets.at(ego_lane[ll_idx]).centerline;
+      size_t start_idx = (ll_idx == 0) ? 0 : 1;
+      for (size_t i = start_idx; i < centerline.size(); ++i) {
+        const auto & pt = centerline[i];
+        current_lane_centerline_.push_back({pt.x, pt.y, 0.0, 0.0});
+      }
+    }
+  }
+
   // Search lanes for terminal points at horizons
   for (size_t lane_idx = 0; lane_idx < id_order.size(); lane_idx++) {
     const auto & lane = id_order[lane_idx];
@@ -215,6 +233,8 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
     const geometry_msgs::msg::Point * prev_pt = nullptr;
 
     for (const int64_t ll_id : lane) {
+      if (ll_id < 0) break;
+
       const auto & centerline = lanelets.at(ll_id).centerline;
 
       for (size_t pt_idx = 0; pt_idx < centerline.size(); pt_idx++) {
@@ -274,7 +294,8 @@ void LatticePlanningNode::plan_and_publish_path()
     return;
   }
 
-  Path lowest_cost = core_->get_lowest_cost_path(paths, preferred_lanelets, cf_params);
+  Path lowest_cost =
+    core_->get_lowest_cost_path(paths, preferred_lanelets, cf_params, current_lane_centerline_, changing_lanes);
   publish_final_path(lowest_cost);
   publish_available_paths(paths);
 }
@@ -292,9 +313,7 @@ std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
 
   // Initialize starting lanes
   for (auto id : first_lanelet_id) {
-    if (id >= 0) {
-      id_order.push_back({id});
-    }
+    id_order.push_back({id});
   }
 
   // Use index-based loop to allow safe addition during iteration
@@ -307,6 +326,7 @@ std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
       }
 
       int64_t current_id = id_order[lane_idx].back();
+      if (current_id < 0) break;
 
       auto it = ll_map.find(current_id);
       if (it == ll_map.end()) break;
