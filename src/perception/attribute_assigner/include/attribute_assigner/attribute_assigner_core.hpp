@@ -44,6 +44,10 @@ struct Params
   double traffic_light_min_saturation{60.0};
   double traffic_light_min_value{80.0};
 
+  /// Traffic light: fraction of width/height to ignore on each side (0.0-0.5)
+  /// e.g. 0.20 = ignore 20% on each side, analyze center 60%
+  double traffic_light_strip_margin{0.20};
+
   /// Traffic light hue boundaries (OpenCV H 0-180)
   /// Red wraps around: H <= red_hue_lo OR H >= red_hue_hi
   double traffic_light_red_hue_lo{10.0};

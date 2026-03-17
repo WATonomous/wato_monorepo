@@ -70,12 +70,14 @@ void AttributeAssignerNode::declareParameters(Params & params)
   this->declare_parameter<double>("traffic_light_red_hue_hi", 170.0);
   this->declare_parameter<double>("traffic_light_yellow_hue_hi", 35.0);
   this->declare_parameter<double>("traffic_light_green_hue_hi", 85.0);
+  this->declare_parameter<double>("traffic_light_strip_margin", 0.20);
   params.traffic_light_min_saturation = this->get_parameter("traffic_light_min_saturation").as_double();
   params.traffic_light_min_value = this->get_parameter("traffic_light_min_value").as_double();
   params.traffic_light_red_hue_lo = this->get_parameter("traffic_light_red_hue_lo").as_double();
   params.traffic_light_red_hue_hi = this->get_parameter("traffic_light_red_hue_hi").as_double();
   params.traffic_light_yellow_hue_hi = this->get_parameter("traffic_light_yellow_hue_hi").as_double();
   params.traffic_light_green_hue_hi = this->get_parameter("traffic_light_green_hue_hi").as_double();
+  params.traffic_light_strip_margin = this->get_parameter("traffic_light_strip_margin").as_double();
 
   // Car signal detection thresholds (HSV-based)
   this->declare_parameter<double>("car_brake_min_brightness", 90.0);

@@ -53,18 +53,24 @@ multi_camera_sync:
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/CAM_FRONT_RIGHT/image_rect_compressed"
-      - "/CAM_FRONT/image_rect_compressed"
+      - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_nn/image_rect_compressed"
+      - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_ss/image_rect_compressed"
 
     # CameraInfo topics (one per camera, same order). Required for batched ~/multi_camera_info.
     camera_info_topics:
-      - "/CAM_FRONT_RIGHT/camera_info"
-      - "/CAM_FRONT/camera_info"
+      - "/camera_pano_ww/camera_info"
+      - "/camera_pano_nn/camera_info"
+      - "/camera_pano_ee/camera_info"
+      - "/camera_pano_ss/camera_info"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
-      - "CAM_FRONT_RIGHT"
-      - "CAM_FRONT"
+      - "camera_pano_ww"
+      - "camera_pano_nn"
+      - "camera_pano_ee"
+      - "camera_pano_ss"
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
@@ -168,12 +174,13 @@ multi_camera_sync:
     min_detection_confidence: 0.3
 
     # Traffic light color detection thresholds (HSV-based, OpenCV H: 0-180)
-    traffic_light_min_saturation: 60.0
-    traffic_light_min_value: 130.0
+    traffic_light_min_saturation: 30.0
+    traffic_light_min_value: 100.0
     traffic_light_red_hue_lo: 23.0      # Red: H <= this OR H >= red_hue_hi
     traffic_light_red_hue_hi: 160.0     # Red: H >= this OR H <= red_hue_lo
-    traffic_light_yellow_hue_hi: 60.0   # Yellow: red_hue_lo < H <= this
+    traffic_light_yellow_hue_hi: 55.0   # Yellow: red_hue_lo < H <= this
     traffic_light_green_hue_hi: 85.0    # Green: yellow_hue_hi < H < this
+    traffic_light_strip_margin: 0.25    # Fraction of width/height to ignore on each side (0.0-0.45)
 
     # Car signal detection thresholds (HSV-based)
     car_brake_min_brightness: 150.0
