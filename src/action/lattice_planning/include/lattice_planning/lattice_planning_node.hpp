@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include <geometry_msgs/msg/point.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
@@ -105,6 +106,8 @@ private:
   std::optional<PathPoint> car_frenet_point;
   std::unordered_map<int64_t, int> preferred_lanelets;
 
+  bool changing_lanes = false;
+  std::vector<PathPoint> current_lane_centerline_;
   // subscribers
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
