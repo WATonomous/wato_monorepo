@@ -203,7 +203,7 @@ multi_camera_sync:
 
     # Message synchronization
     sync_queue_size: 10
-    sync_max_time_diff_ms: 200.0  # Max time difference for syncing multi-image and detections (ms)
+    sync_max_time_diff_ms: 2000.0  # Max time difference for syncing multi-image and detections (ms)
                                     # Detections are typically 50-150ms after images due to processing time
 
     # 3D Traffic Light Detection

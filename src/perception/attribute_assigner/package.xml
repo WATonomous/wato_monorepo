@@ -3,7 +3,7 @@
 <package format="3">
   <name>attribute_assigner</name>
   <version>0.1.0</version>
-  <description>Lifecycle composable node that enriches 2D detections with semantic attributes (traffic light state, car behavior)</description>
+  <description>Lifecycle composable node that enriches 2D detections with semantic attributes (traffic light state which are published as 3D boxes, or car behavior like braking or turning)</description>
 
   <maintainer email="b69zheng@uwaterloo.ca">Brian Zheng</maintainer>
   <license>Apache License 2.0</license>
