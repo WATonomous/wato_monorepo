@@ -30,6 +30,8 @@
         active_traffic_control_element="{active_traffic_control_element}" />
 
       <Fallback>
+
+        <!-- Reset the intersection latch if passed -->
         <Sequence>
           <ActiveTrafficControlElementPassed
             lane_ctx="{@current_lane_ctx}"
@@ -49,12 +51,15 @@
             out_active_wall_id="{active_wall_id}" />
 
           <Fallback name="DespawnIfNeeded">
-            <Inverter><WallIdExist wall_id="{active_wall_id}" /></Inverter>
+            <Inverter>
+              <WallIdExist wall_id="{active_wall_id}" />
+            </Inverter>
             <DespawnWall wall_id="{active_wall_id}" out_wall_id="{active_wall_id}"
               error_message="{despawn_wall_error_msg}" service_name="/world_modeling/despawn_wall" />
           </Fallback>
         </Sequence>
 
+        <!-- Handle different types of traffic control elements -->
         <Fallback name="Handle Traffic Control Element">
           <Sequence name="Handle STOP_SIGN Element">
             <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
@@ -89,6 +94,7 @@
             />
           </Sequence>
         </Fallback>
+
       </Fallback>
     </Sequence>
   </BehaviorTree>

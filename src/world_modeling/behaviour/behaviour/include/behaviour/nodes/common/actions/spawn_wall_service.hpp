@@ -62,7 +62,7 @@ public:
   bool setRequest(Request::SharedPtr & request) override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      RCLCPP_DEBUG(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
       setOutput("error_message", std::string("missing_port:") + port_name);
     };
 
@@ -79,7 +79,7 @@ public:
     if (!ports::require(length, "length", missing_input_callback)) return false;
 
     if (input_pose->header.frame_id.empty()) {
-      RCLCPP_ERROR(logger(), "[%s] input_pose->header.frame_id is empty", name().c_str());
+      RCLCPP_DEBUG(logger(), "[%s] input_pose->header.frame_id is empty", name().c_str());
       setOutput("error_message", "invalid_pose");
       return false;
     }
@@ -91,9 +91,8 @@ public:
       // tf2_ros::Buffer::transform takes the message by const reference.
       wall_pose = tf_buffer->transform(*input_pose, *wall_pose_frame);
     } catch (const tf2::TransformException & ex) {
-      const std::string msg = std::string("[SpawnWallService]: TF transform failed: ") + ex.what();
-      RCLCPP_ERROR(logger(), "[%s] %s", name().c_str(), msg.c_str());
-      setOutput("error_message", msg);
+      RCLCPP_DEBUG(logger(), "[%s] %s", name().c_str(), "TF transform failed");
+      setOutput("error_message", "transform_failed");
       return false;
     }
 
@@ -121,7 +120,7 @@ public:
   BT::NodeStatus onFailure(BT::ServiceNodeErrorCode error) override
   {
     setOutput("error_message", std::string(BT::toStr(error)));
-    RCLCPP_ERROR(logger(), "[%s] service failed: %d", name().c_str(), error);
+    RCLCPP_DEBUG(logger(), "[%s] service failed: %d", name().c_str(), error);
     return BT::NodeStatus::FAILURE;
   }
 };

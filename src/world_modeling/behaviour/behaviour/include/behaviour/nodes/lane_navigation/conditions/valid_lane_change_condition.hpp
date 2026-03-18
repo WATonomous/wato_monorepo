@@ -30,11 +30,10 @@ namespace behaviour
    * @brief ConditionNode to validate whether a lane change is permitted.
    *
    * Logic:
-   * - Reject when transition or lane context is missing.
-   * - Reject when ego is currently in an intersection.
-   * - For `LEFT`, return `SUCCESS` only if `can_change_left` is true.
-   * - For `RIGHT`, return `SUCCESS` only if `can_change_right` is true.
-   * - Return `FAILURE` for unsupported transition values.
+   * - Return `FAILURE` if transition or lane context input is missing.
+   * - Return `FAILURE` if current lane is an intersection.
+   * - Return `FAILURE` if lane change is not allowed by lanelet attributes.
+   * - Return `SUCCESS` if none of the above
    *
    * Assumptions:
    * - Lanelet `can_change_left/right` flags represent legal lane-change policy.
