@@ -1,0 +1,52 @@
+# Eidos localization only — for testing localization from bag replay.
+# Usage: ros2 launch world_modeling_bringup world_model_loc.launch.yaml eidos_map_dir:=/path/to/map
+
+launch:
+  - arg:
+      name: eidos_map_dir
+      default: "/opt/watonomous/maps/test_track_map"
+      description: Directory containing the prior map to localize against
+
+  - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_v2_localization.yaml
+      description: Path to the eidos localization configuration file
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
+
+  # Eidos Localization Node
+  - node:
+      pkg: eidos_v2
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: map.load_directory
+          value: $(var eidos_map_dir)
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/eidos_node
+        - name: autostart
+          value: true
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false
