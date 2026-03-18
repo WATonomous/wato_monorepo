@@ -1,3 +1,16 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 ---
 launch:
   - arg:
@@ -12,22 +25,50 @@ launch:
 
   - arg:
       name: "config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/steering_dummy.yaml"
-      description: "Path to the steering dummy configuration file"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing_can.yaml"
+      description: "Path to the CAN/control configuration file"
 
-  # Eve Robot Description
-  - include:
-      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+  - arg:
+      name: "test_steering"
+      default: "false"
+      description: "Launch steering square-wave dummy node for testing"
 
-  # Steering Dummy
+  - arg:
+      name: "test_velocity"
+      default: "false"
+      description: "Launch velocity trapezoid dummy node for testing"
+
+  # --- Test dummy nodes (conditional) ---
+
+  # Steering square-wave dummy (publishes through ackermann mux via dummy/ackermann)
   - node:
+      if: "$(var test_steering)"
       pkg: dummy_ackermann
       exec: ackermann_square_wave_node
       name: ackermann_square_wave
       namespace: interfacing
       output: screen
+      remap:
+        - from: "ackermann"
+          to: "dummy/ackermann"
       param:
         - from: "$(var config_file)"
+
+  # Velocity trapezoid dummy (publishes through ackermann mux via dummy/ackermann)
+  - node:
+      if: "$(var test_velocity)"
+      pkg: dummy_ackermann
+      exec: ackermann_velocity_trapezoid_node
+      name: ackermann_velocity_trapezoid
+      namespace: interfacing
+      output: screen
+      remap:
+        - from: "ackermann"
+          to: "dummy/ackermann"
+      param:
+        - from: "$(var config_file)"
+
+  # --- Common CAN / control nodes ---
 
   # Joystick hardware node (publishes joy messages from physical joystick)
   - node:
@@ -43,6 +84,17 @@ launch:
       pkg: "joystick_interfacing"
       exec: "joystick_interfacing_node"
       name: "joystick_node"
+      namespace: "interfacing"
+      output: "screen"
+      ros_args: "--log-level warn"
+      param:
+        - from: "$(var config_file)"
+
+  # Ackermann Mux Node
+  - node:
+      pkg: "ackermann_mux"
+      exec: "ackermann_mux_node"
+      name: "ackermann_mux"
       namespace: "interfacing"
       output: "screen"
       ros_args: "--log-level warn"
@@ -131,12 +183,9 @@ launch:
         - name: node_names
           value:
             - /interfacing/joystick_node
-            - /interfacing/pid_control_node
-            # Use one of the following instead of pid_control_node if using an alternative PID node:
-            # - /interfacing/vel_driven_feedforward_pid_node
-            # - /interfacing/gain_scheduled_pid_node
-            - /interfacing/ackermann_square_wave
+            - /interfacing/ackermann_mux
             - /interfacing/can_state_estimator_node
+            - /interfacing/pid_control_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

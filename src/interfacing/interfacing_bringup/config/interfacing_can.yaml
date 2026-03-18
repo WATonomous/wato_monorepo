@@ -1,0 +1,241 @@
+# Interfacing CAN Configuration
+# Consolidated config for all CAN/control nodes launched by interfacing_can.launch.yaml.
+
+# Dummy Ackermann nodes (used by test_steering / test_velocity modes)
+/**/ackermann_square_wave:
+  ros__parameters:
+    period: 10.0
+    amplitude: 0.1
+    publish_rate: 50.0
+
+/**/ackermann_velocity_trapezoid:
+  ros__parameters:
+    target_velocity: 2.22
+    rise_time: 1.0
+    hold_time: 4.0
+    ramp_down_time: 1.0
+    down_hold_time: 1.0
+    publish_rate: 50.0
+
+# Joystick hardware node
+/**/joy_node:
+  ros__parameters:
+    deadzone: 0.05
+
+# Joystick interfacing node
+/**/joystick_node:
+  ros__parameters:
+    # left shoulder buttons
+    enable_axis: 2
+
+    # button to toggle between joystick/ackermann and joystick/roscco
+    toggle_button: 1  # B on xbox
+
+    # OSCC board arming button
+    arming_button: 0  # A on xbox
+
+    # left and right joystick axes
+    steering_axis: 0
+    throttle_axis: 4
+
+    # ACKERMANN SCALING ---- max speed and steering angle
+    ackermann_max_speed: 2.0
+    ackermann_max_steering_angle: 0.5
+
+    # ROSCCO SCALING ---- max speed and steering angle
+    roscco_max_speed: 1.0
+    roscco_max_steering_angle: 0.2
+
+    # invert steering and throttle
+    invert_steering: true
+    invert_throttle: false
+
+    # vibration feedback
+    toggle_vibration_intensity: 1.0
+    toggle_vibration_duration_ms: 150
+
+# Ackermann Mux
+/**/ackermann_mux:
+  ros__parameters:
+    safety_threshold: 0.5
+
+    emergency:
+      steering_angle: 0.0
+      speed: -0.5
+
+    publish_rate_hz: 50.0
+
+    #HIGHER NUMBER == higher priority
+    inputs:
+      joystick:
+        topic: joystick/ackermann
+        priority: 100
+        has_mask: true
+        mask_topic: joystick/is_idle
+        safety_gating: true
+
+      action:
+        topic: action/ackermann
+        priority: 10
+        has_mask: true
+        mask_topic: action/is_idle
+        safety_gating: false
+
+      # Used by test_steering / test_velocity dummy nodes (inactive in production)
+      dummy:
+        topic: dummy/ackermann
+        priority: 200
+        has_mask: false
+        safety_gating: false
+
+# PID Control
+/**/pid_control_node:
+  ros__parameters:
+    update_rate: 20.0
+    steering_pid:
+      p: 1.2  # Proportional gain
+      i: 0.0  # Integral gain
+      d: 0.15 # Derivative gain
+      i_clamp_max: 1.0  # Upper bound for the integrator term (prevents windup independently of output)
+      i_clamp_min: -1.0 # Lower bound for the integrator term
+      u_clamp_max: 1.0  # Upper saturation limit for the controller output (actuator limit)
+      u_clamp_min: -1.0 # Lower saturation limit for the controller output
+      saturation: true  # Whether to treat u_clamp limits as enforced saturation
+      antiwindup: true  # Enable anti-windup to correct the integrator during saturation
+      antiwindup_strategy: "conditional_integration"
+
+    velocity_pid:
+      p: 1.0
+      i: 0.0
+      d: 0.0
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+
+# Velocity-Driven Feedforward PID Control
+/**/vel_driven_feedforward_pid_node:
+  ros__parameters:
+    update_rate: 20.0
+    output_clamp_max: 1.0
+    output_clamp_min: -1.0
+    steering_pid:
+      p: 1.2
+      i: 0.0
+      d: 0.15
+      i_clamp_max: 1.0
+      i_clamp_min: -1.0
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+    velocity_pid:
+      p: 1.0
+      i: 0.0
+      d: 0.0
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+    feedforward:
+      coefficients: [0.008056, -0.069744, -0.004519]
+      friction_offset: 0.0
+
+# Gain-Scheduled PID Control
+/**/gain_scheduled_pid_node:
+  ros__parameters:
+    update_rate: 20.0
+    output_clamp_max: 1.0
+    output_clamp_min: -1.0
+    gain_schedule:
+      speed_breakpoints: [0.0, 5.0, 10.0, 15.0, 20.0]
+      steering_gains_matrix: [
+        2.5, 0.0, 0.1,
+        2.5, 0.0, 0.1,
+        3.0, 0.0, 0.15,
+        3.5, 0.0, 0.2,
+        4.0, 0.0, 0.25
+      ]
+      i_clamp_max: 1.0
+      i_clamp_min: -1.0
+      antiwindup: true
+    velocity_pid:
+      p: 1.0
+      i: 0.0
+      d: 0.0
+      i_clamp_max: 0.5
+      i_clamp_min: -0.5
+      u_clamp_max: 1.0
+      u_clamp_min: -1.0
+      saturation: true
+      antiwindup: true
+      antiwindup_strategy: "conditional_integration"
+
+# CAN State Estimator (steering angle + velocity + odometry from CAN bus)
+/**/can_state_estimator_node:
+  ros__parameters:
+    can_interface: "can1"
+    steering_conversion_factor: 15.7
+    rear_axle_frame: "rear_axle"
+    front_axle_frame: "front_axle"
+    odom_frame: "odom"
+    base_frame: "base_footprint"
+
+# OSCC Interfacing
+/**/oscc_interfacing:
+  ros__parameters:
+    is_armed_publish_rate_hz: 100
+    oscc_can_bus: 0 # CAN bus number (int)
+    steering_scaling: 1.0 # value 0-1 to scale the effectiveness of steering commands
+    disable_boards_on_fault: false # If true, will disable OSCC boards on fault instead of just disarming
+    steering_conversion_factor: 15.7 # factor to convert from steering wheel angle
+    steering_torque_deadzone_pos: 0.00 # Deadzone compensation added to positive steering torque commands
+    steering_torque_deadzone_neg: 0.00 # Deadzone compensation added to negative steering torque commands
+    enable_all: true # If true, arm/disarm enables/disables all modules at once
+    enable_steering: true # Enable steering module on arm (only used when enable_all is false)
+    enable_throttle: true # Enable throttle module on arm (only used when enable_all is false)
+    enable_brakes: true # Enable brake module on arm (only used when enable_all is false)
+
+# Topic Healthchecker (monitors topic liveness and message rates)
+/**/topic_healthchecker:
+  ros__parameters:
+    http_port: 8080
+    stale_timeout: 5.0
+    window_size: 50
+    check_period: 2.0
+    topics:
+      # Rectified camera images (12 cameras)
+      - /camera_pano_nn/image_rect
+      - /camera_pano_ne/image_rect
+      - /camera_pano_ee/image_rect
+      - /camera_pano_se/image_rect
+      - /camera_pano_ss/image_rect
+      - /camera_pano_sw/image_rect
+      - /camera_pano_ww/image_rect
+      - /camera_pano_nw/image_rect
+      - /camera_lower_ne/image_rect
+      - /camera_lower_se/image_rect
+      - /camera_lower_sw/image_rect
+      - /camera_lower_nw/image_rect
+      # LiDAR point clouds
+      - /lidar_cc/velodyne_points
+      - /lidar_nw/velodyne_points
+      - /lidar_ne/velodyne_points
+      # Novatel GPS/IMU
+      - /novatel/oem7/inspva
+      - /novatel/oem7/imu/data
+      - /novatel/oem7/bestpos
+      - /novatel/oem7/odom
+      # Vehicle control
+      - /interfacing/ackermann
+      - /interfacing/can_state_estimator/body_velocity
+      - /interfacing/can_state_estimator/steering_angle
+      # Transforms
+      - /tf
