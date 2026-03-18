@@ -25,10 +25,6 @@
                 </Sequence>
             </Fallback>
 
-            <!-- <GetWorldObjects
-                objects="{yield.objects}"
-                error_message="{yield.get_objects_error_msg}"
-                service_name="/world_modeling/get_world_objects_enriched" /> -->
             <GetWorldObjectsSub
                 objects="{yield.objects}"
                 error_message="{yield.get_objects_error_msg}"

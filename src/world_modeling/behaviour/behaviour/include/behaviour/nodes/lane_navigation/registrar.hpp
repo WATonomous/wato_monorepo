@@ -27,9 +27,13 @@
 #include "behaviour/nodes/lane_navigation/actions/get_follow_route_preferred_lanelets_action.hpp"
 #include "behaviour/nodes/lane_navigation/actions/get_lane_change_preferred_lanelets_action.hpp"
 #include "behaviour/nodes/lane_navigation/actions/get_route_context_action.hpp"
+#include "behaviour/nodes/lane_navigation/actions/reset_route_context_action.hpp"
+#include "behaviour/nodes/lane_navigation/actions/set_overtake_context_action.hpp"
+#include "behaviour/nodes/lane_navigation/actions/set_overtake_stage_action.hpp"
 
 // conditions
 #include "behaviour/nodes/lane_navigation/conditions/is_lane_transition_condition.hpp"
+#include "behaviour/nodes/lane_navigation/conditions/is_overtake_state_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/safe_lane_change_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/valid_lane_change_condition.hpp"
 
@@ -40,15 +44,20 @@ public:
   {
     // enums
     factory.registerScriptingEnums<behaviour::types::LaneTransition>();
+    factory.registerScriptingEnums<behaviour::types::OvertakeStage>();
 
     // actions
     factory.registerNodeType<behaviour::GetRouteContextAction>("GetRouteContext");
     factory.registerNodeType<behaviour::GetFollowLanePreferredLaneletsAction>("GetFollowLanePreferredLanelets");
     factory.registerNodeType<behaviour::GetFollowRoutePreferredLaneletsAction>("GetFollowRoutePreferredLanelets");
     factory.registerNodeType<behaviour::GetLaneChangePreferredLaneletsAction>("GetLaneChangePreferredLanelets");
+    factory.registerNodeType<behaviour::ResetRouteContextAction>("ResetRouteContext");
+    factory.registerNodeType<behaviour::SetOvertakeContextAction>("SetOvertakeContext");
+    factory.registerNodeType<behaviour::SetOvertakeStageAction>("SetOvertakeStage");
 
     // conditions
     factory.registerNodeType<behaviour::IsLaneTransitionCondition>("IsLaneTransition");
+    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage");
     factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange");
     factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange");
   }

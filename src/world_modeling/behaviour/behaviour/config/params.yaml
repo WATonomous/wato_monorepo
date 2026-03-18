@@ -53,7 +53,7 @@
       stop_sign_stop_line_proximity_m: 5.0
 
       # Goal reached threshold (meters)
-      goal_reached_threshold_m: 1.0
+      goal_reached_threshold_m: 3.0
 
     # Service timeouts (milliseconds)
     get_shortest_route_timeout_ms: 50000

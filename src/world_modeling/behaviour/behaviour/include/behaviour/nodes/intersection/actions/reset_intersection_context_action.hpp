@@ -64,20 +64,21 @@ public:
 
     int32_t active_wall_id = 0;
 
+    // clear the wall corresponding to the regulatory element subtype, and record the active wall ID for despawning
     if (reg_elem) {
       const auto & subtype = reg_elem->subtype;
       if (subtype == "stop_sign") {
         auto wid = ports::tryGet<int32_t>(*this, "stop_sign_wall_id");
         if (wid) active_wall_id = *wid;
-        setOutput("out_stop_sign_wall_id", static_cast<int32_t>(0));
+        setOutput("out_stop_sign_wall_id", ports::null_id);
       } else if (subtype == "traffic_light") {
         auto wid = ports::tryGet<int32_t>(*this, "traffic_light_wall_id");
         if (wid) active_wall_id = *wid;
-        setOutput("out_traffic_light_wall_id", static_cast<int32_t>(0));
+        setOutput("out_traffic_light_wall_id", ports::null_id);
       } else if (subtype == "yield") {
         auto wid = ports::tryGet<int32_t>(*this, "yield_wall_id");
         if (wid) active_wall_id = *wid;
-        setOutput("out_yield_wall_id", static_cast<int32_t>(0));
+        setOutput("out_yield_wall_id", ports::null_id);
       }
       std::cout << "[ResetIntersectionContext]: Clearing element (subtype=" << subtype << ", wall_id=" << active_wall_id
                 << ")" << std::endl;
@@ -85,12 +86,13 @@ public:
       std::cout << "[ResetIntersectionContext]: No active element to clear" << std::endl;
     }
 
+    // wall id to despawn
     setOutput("out_active_wall_id", active_wall_id);
 
     lanelet_msgs::msg::RegulatoryElement::SharedPtr cleared = nullptr;
     setOutput("out_active_traffic_control_element", cleared);
-    setOutput("out_active_traffic_control_lanelet_id", static_cast<int64_t>(0));
-    setOutput("out_active_traffic_control_element_id", static_cast<int64_t>(0));
+    setOutput("out_active_traffic_control_lanelet_id", ports::null_id);
+    setOutput("out_active_traffic_control_element_id", ports::null_id);
 
     return BT::NodeStatus::SUCCESS;
   }

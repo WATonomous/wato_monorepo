@@ -1,0 +1,115 @@
+<root BTCPP_format="4" main_tree_to_execute="LaneNavigationSubTree">
+  <BehaviorTree ID="LaneNavigationSubTree">
+    <!-- This subtree handles the lane navigation logic -->
+    <!-- Assumes it has a route -->
+    <!-- The parent of this subtree should have a condition to check if it has a route -->
+    <!-- If car off the route then publishes: follow lane -->
+    <!--  -->
+    <Fallback name="Execute Navigation">
+      <Sequence name="Goal reached">
+        <GoalReached ego_odom="{@ego_odom}" goal_lanelet="{goal_lanelet}" />
+        <ResetRouteContext
+          out_goal_point="{goal_point}"
+          out_goal_lanelet="{goal_lanelet}"
+          out_global_route="{global_route}"
+          out_global_route_index_map="{global_route_index_map}"
+          out_global_route_lanelet_ids="{global_route_lanelet_ids}" />
+        <!-- dont really need -->
+        <ExecuteBehaviour
+          behaviour="standby"
+          topic_name="execute_behaviour" />
+      </Sequence>
+      <!-- overtake if we overtake is valid -->
+      <SubTree ID="OvertakeSubTree" _autoremap="true" />
+
+      <!-- else follow nominal route -->
+      <Sequence>
+        <GetRouteContext
+          route="{global_route}"
+          route_index_map="{global_route_index_map}"
+          lane_ctx="{@current_lane_ctx}"
+          out_lane_transition="{_upcoming_lane_transition}"
+          out_next_lanelet="{_target_lanelet}" />
+
+        <Fallback name="Lane Transition Handling">
+          <Sequence name="Handle SUCCESSOR Transition">
+            <IsLaneTransition lane_transition="{_upcoming_lane_transition}" expected="SUCCESSOR" />
+            <GetFollowRoutePreferredLanelets
+              route_ahead="{@route_ahead}"
+              out_preferred_lanelet_ids="{_follow_route_preferred_lanelet_ids}" />
+            <ExecuteBehaviour
+              behaviour="follow route"
+              preferred_lanelet_ids="{_follow_route_preferred_lanelet_ids}"
+              topic_name="execute_behaviour" />
+          </Sequence>
+
+          <Sequence name="Handle RIGHT Transition">
+            <IsLaneTransition lane_transition="{_upcoming_lane_transition}" expected="RIGHT" />
+
+            <ValidLaneChange
+              lane_transition="{_upcoming_lane_transition}"
+              lane_ctx="{@current_lane_ctx}" />
+
+            <GetAreaOccupancySub
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              topic_name="/world_modeling/area_occupancy" />
+
+            <SafeLaneChange
+              lane_transition="{_upcoming_lane_transition}"
+              areas="{lane_nav.area_occupancy_areas}"
+              left_lane_change_areas="{@bt.left_lane_change_areas}"
+              right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+            <GetLaneChangePreferredLanelets
+              lane_ctx="{@current_lane_ctx}"
+              target_lanelet="{_target_lanelet}"
+              out_preferred_lanelet_ids="{_right_lane_change_preferred_lanelet_ids}" />
+            <ExecuteBehaviour
+              behaviour="lane change right"
+              preferred_lanelet_ids="{_right_lane_change_preferred_lanelet_ids}"
+              topic_name="execute_behaviour" />
+          </Sequence>
+
+          <Sequence name="Handle LEFT Transition">
+
+            <IsLaneTransition lane_transition="{_upcoming_lane_transition}" expected="LEFT" />
+            <ValidLaneChange
+              lane_transition="{_upcoming_lane_transition}"
+              lane_ctx="{@current_lane_ctx}" />
+
+            <GetAreaOccupancySub
+              areas="{lane_nav.area_occupancy_areas}"
+              error_message="{lane_nav.get_area_occupancy_error_msg}"
+              topic_name="/world_modeling/area_occupancy" />
+
+            <SafeLaneChange
+              lane_transition="{_upcoming_lane_transition}"
+              areas="{lane_nav.area_occupancy_areas}"
+              left_lane_change_areas="{@bt.left_lane_change_areas}"
+              right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+            <GetLaneChangePreferredLanelets
+              lane_ctx="{@current_lane_ctx}"
+              target_lanelet="{_target_lanelet}"
+              out_preferred_lanelet_ids="{_left_lane_change_preferred_lanelet_ids}" />
+            <ExecuteBehaviour
+              behaviour="lane change left"
+              preferred_lanelet_ids="{_left_lane_change_preferred_lanelet_ids}"
+              topic_name="execute_behaviour" />
+          </Sequence>
+
+        </Fallback>
+      </Sequence>
+      <Sequence>
+        <GetFollowLanePreferredLanelets
+          lane_ctx="{@current_lane_ctx}"
+          out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
+        <ExecuteBehaviour
+          behaviour="follow lane"
+          preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}"
+          topic_name="execute_behaviour" />
+      </Sequence>
+    </Fallback>
+  </BehaviorTree>
+</root>

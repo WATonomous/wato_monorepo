@@ -1,0 +1,231 @@
+<!--  -->
+<root BTCPP_format="4" main_tree_to_execute="OvertakeSubTree">
+  <BehaviorTree ID="OvertakeSubTree">
+    <Sequence name="Overtake Manager">
+
+      <Fallback name="Overtake Gate">
+
+        <!-- continue overtaking if already active -->
+        <Inverter>
+          <IsOvertakeStage
+            stage="{overtake.stage}"
+            expected="IDLE" />
+        </Inverter>
+
+        <!-- else decide whether we should overtake -->
+        <Sequence name="Start Overtake">
+          <!-- if ego stopped -->
+          <EgoStopped
+            ego_odom="{ego_odom}"
+            threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
+          <!-- get area occupancy -->
+          <GetAreaOccupancySub
+            areas="{lane_nav.area_occupancy_areas}"
+            error_message="{lane_nav.get_area_occupancy_error_msg}"
+            topic_name="/world_modeling/area_occupancy" />
+          <!-- if area in front of ego stopped -->
+          <IsAreaOccupied
+            fetched_areas="{lane_nav.area_occupancy_areas}"
+            area_name="front"
+          />
+
+          <!-- find either left or right lane transition valid and safe for diverging stage -->
+          <Fallback name="Find Diverge Lane">
+            <Sequence name="Try Lane Change Right">
+              <ValidLaneChange
+                lane_transition="RIGHT"
+                lane_ctx="{@current_lane_ctx}" />
+
+              <SafeLaneChange
+                lane_transition="RIGHT"
+                areas="{lane_nav.area_occupancy_areas}"
+                left_lane_change_areas="{@bt.left_lane_change_areas}"
+                right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+              <SetOvertakeContext
+                in_diverge_lane_transition="RIGHT"
+                out_diverge_lane_transition="{overtake.diverge_lane_transition}"
+                out_merge_lane_transition="{overtake.merge_lane_transition}"
+                out_behaviour_diverge="{overtake.diverge_behaviour}"
+                out_behaviour_merge="{overtake.merge_behaviour}" />
+            </Sequence>
+
+            <Sequence name="Try Lane Change Left">
+              <ValidLaneChange
+                lane_transition="LEFT"
+                lane_ctx="{@current_lane_ctx}" />
+
+              <SafeLaneChange
+                lane_transition="LEFT"
+                areas="{lane_nav.area_occupancy_areas}"
+                left_lane_change_areas="{@bt.left_lane_change_areas}"
+                right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+              <SetOvertakeContext
+                in_diverge_lane_transition="LEFT"
+                out_diverge_lane_transition="{overtake.diverge_lane_transition}"
+                out_merge_lane_transition="{overtake.merge_lane_transition}"
+                out_behaviour_diverge="{overtake.diverge_behaviour}"
+                out_behaviour_merge="{overtake.merge_behaviour}" />
+            </Sequence>
+          </Fallback>
+
+          <SetOvertakeStage value="DIVERGE" stage="{overtake.stage}" />
+
+        </Sequence>
+
+      </Fallback>
+
+
+      <Fallback name="Overtake Stages">
+
+        <!-- Stage 1: Diverge -->
+        <Sequence name="Stage 1 Diverge">
+          <IsOvertakeStage
+            stage="{overtake.stage}"
+            expected="DIVERGE" />
+          <Fallback>
+            <Sequence>
+              <!-- if ego is in target lanelet (diverge complete) -->
+              <IsEgoOnLanelet
+                lane_ctx="{@current_lane_ctx}"
+                lanelet="{overtake.diverge_target_lanelet}"
+              />
+              <!-- the target lanelet here will just be the  -->
+              <SetOvertakeStage value="OVERTAKE" stage="{overtake.stage}" />
+            </Sequence>
+            <Sequence>
+              <GetAreaOccupancySub
+                areas="{lane_nav.area_occupancy_areas}"
+                error_message="{lane_nav.get_area_occupancy_error_msg}"
+                topic_name="/world_modeling/area_occupancy" />
+
+
+              <SafeLaneChange
+                lane_transition="{overtake.diverge_lane_transition}"
+                areas="{lane_nav.area_occupancy_areas}"
+                left_lane_change_areas="{@bt.left_lane_change_areas}"
+                right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+              <GetLaneletByRelation
+                lane_ctx="{@current_lane_ctx}"
+                lanelets_ahead="{@lanelets_ahead}"
+                lanelets_ahead_index_map="{@lanelets_ahead_index_map}"
+                relation="{overtake.diverge_lane_transition}"
+                out_lanelet="{overtake.diverge_target_lanelet}"
+              />
+
+              <GetLaneChangePreferredLanelets
+                lane_ctx="{@current_lane_ctx}"
+                target_lanelet="{overtake.diverge_target_lanelet}"
+                out_preferred_lanelet_ids="{overtake.diverge_preferred_lanelet_ids}" />
+
+              <ExecuteBehaviour
+                behaviour="{overtake.diverge_behaviour}"
+                preferred_lanelet_ids="{overtake.diverge_preferred_lanelet_ids}"
+                topic_name="execute_behaviour" />
+            </Sequence>
+          </Fallback>
+
+        </Sequence>
+
+        <!-- Stage 2: Overtake -->
+        <Sequence name="Stage 2 Overtake">
+          <IsOvertakeStage stage="{overtake.stage}" expected="OVERTAKE" />
+          <Fallback name="Continue Overtake Or Advance To Merge">
+            <Sequence name="Ready To Merge">
+              <!-- for now and to see even if works -->
+              <!-- if area on the lane diverged from is safe to merge back -->
+              <!-- then we assume that we passed the object -->
+              <!-- todo later: acutally check if we passed the object -->
+
+              <GetAreaOccupancySub
+                areas="{overtake.area_occupancy_areas}"
+                error_message="{lane_nav.get_area_occupancy_error_msg}"
+                topic_name="/world_modeling/area_occupancy" />
+
+              <SafeLaneChange
+                lane_transition="{overtake.merge_lane_transition}"
+                areas="{overtake.area_occupancy_areas}"
+                left_lane_change_areas="{@bt.left_lane_change_areas}"
+                right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+              <SetOvertakeStage value="MERGE" stage="{overtake.stage}" />
+            </Sequence>
+            <Sequence name="Continue Overtake">
+              <GetFollowLanePreferredLanelets
+                lane_ctx="{@current_lane_ctx}"
+                out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
+              <ExecuteBehaviour
+                behaviour="overtake"
+                preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}"
+                topic_name="execute_behaviour" />
+            </Sequence>
+          </Fallback>
+        </Sequence>
+
+        <!-- Stage 3: Merge -->
+        <Sequence name="Stage 3 Merge">
+          <IsOvertakeStage
+            stage="{overtake.stage}"
+            expected="MERGE" />
+
+
+          <!-- if ego is in target lanelet (merge complete) -->
+
+          <Fallback>
+            <Sequence>
+              <IsEgoOnLanelet
+                lane_ctx="{@current_lane_ctx}"
+                lanelet="{overtake.merge_target_lanelet}"
+              />
+              <SetOvertakeStage value="IDLE" stage="{overtake.stage}" />
+            </Sequence>
+            <!-- choose to  -->
+            <Sequence>
+              <GetAreaOccupancySub
+                areas="{overtake.area_occupancy_areas}"
+                error_message="{lane_nav.get_area_occupancy_error_msg}"
+                topic_name="/world_modeling/area_occupancy" />
+
+              <SafeLaneChange
+                lane_transition="{overtake.merge_lane_transition}"
+                areas="{overtake.area_occupancy_areas}"
+                left_lane_change_areas="{@bt.left_lane_change_areas}"
+                right_lane_change_areas="{@bt.right_lane_change_areas}" />
+
+              <GetLaneletByRelation
+                lane_ctx="{@current_lane_ctx}"
+                lanelets_ahead="{@lanelets_ahead}"
+                lanelets_ahead_index_map="{@lanelets_ahead_index_map}"
+                relation="{overtake.merge_lane_transition}"
+                out_lanelet="{overtake.merge_target_lanelet}"
+              />
+
+              <GetLaneChangePreferredLanelets
+                lane_ctx="{@current_lane_ctx}"
+                target_lanelet="{overtake.merge_target_lanelet}"
+                out_preferred_lanelet_ids="{overtake.merge_preferred_lanelet_ids}" />
+
+              <ExecuteBehaviour
+                behaviour="{overtake.merge_behaviour}"
+                preferred_lanelet_ids="{overtake.merge_preferred_lanelet_ids}"
+                topic_name="execute_behaviour" />
+            </Sequence>
+
+            <Sequence name="Continue Overtake">
+              <GetFollowLanePreferredLanelets
+                lane_ctx="{@current_lane_ctx}"
+                out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
+              <ExecuteBehaviour
+                behaviour="overtake"
+                preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}"
+                topic_name="execute_behaviour" />
+            </Sequence>
+          </Fallback>
+        </Sequence>
+
+      </Fallback>
+    </Sequence>
+  </BehaviorTree>
+</root>

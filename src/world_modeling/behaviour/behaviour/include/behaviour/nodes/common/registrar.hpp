@@ -26,6 +26,8 @@
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 #include "behaviour/nodes/common/actions/get_area_occupancy_service.hpp"
 #include "behaviour/nodes/common/actions/get_area_occupancy_subscriber.hpp"
+#include "behaviour/nodes/common/actions/get_lanelet_by_id_action.hpp"
+#include "behaviour/nodes/common/actions/get_lanelet_by_relation_action.hpp"
 #include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_service.hpp"
@@ -34,12 +36,14 @@
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 
 // conditions
+#include "behaviour/nodes/common/conditions/ego_on_lanelet_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_route_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
 #include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_lanelet_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
+#include "behaviour/nodes/common/conditions/is_area_occupied_condition.hpp"
 #include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
 #include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
 
@@ -86,6 +90,8 @@ public:
       "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
+    factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById");
+    factory.registerNodeType<behaviour::GetLaneletByRelationAction>("GetLaneletByRelation");
 
     factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", params);
     factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", params);
@@ -100,7 +106,9 @@ public:
     factory.registerNodeType<behaviour::GoalLaneletExistCondition>("GoalLaneletExist");
     factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
     factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
+    factory.registerNodeType<behaviour::EgoOnLaneletCondition>("IsEgoOnLanelet");
     factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");
+    factory.registerNodeType<behaviour::IsAreaOccupiedCondition>("IsAreaOccupied");
 
     // decorators
     factory.registerNodeType<behaviour::RateController>("RateController");
