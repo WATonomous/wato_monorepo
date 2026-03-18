@@ -1,16 +1,16 @@
 # Prediction Module
 
-Multi-modal trajectory prediction for vehicles, pedestrians, and cyclists using physics-based motion models with map-aware intent inference.
+Multi-modal trajectory prediction for vehicles, pedestrians, and cyclists using physics-based motion models with lanelet-aware intent inference.
 
 ## Overview
 
 Predicts future trajectories for tracked objects by:
-1. Retreiving object type from Preception (vehicle/pedestrian/cyclist)
-2. Querying HD map for current and possible future lanelets
-3. Generating multiple trajectory hypotheses (different intents/paths)
-4. Assigning probabilities to each hypothesis
+1. Retrieving object type from Perception (vehicle/pedestrian/cyclist)
+2. Querying HD map for reachable lanelets around the object
+3. Generating multiple trajectory hypotheses using motion models
+4. Assigning probabilities to each hypothesis with temporal smoothing
 
-**Current Status**: Skeleton with placeholder implementations. Runs standalone without map services.
+**Current Status**: Fully implemented with lanelet-aware prediction, per-vehicle caching, and async service queries.
 
 ## ROS Interface
 
@@ -18,88 +18,100 @@ Predicts future trajectories for tracked objects by:
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked objects |
-| `/localization/pose` | `geometry_msgs/PoseStamped` | Ego vehicle pose |
+| `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked objects from perception |
+| `/localization/pose` | `geometry_msgs/PoseStamped` | Ego vehicle pose for reference frame |
+| `/world_modeling/lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Ego-relative reachable lanelets |
 
 ### Published Topics
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/world_modeling/prediction/predicted_paths` | `wato_msgs/PredictionHypothesesArray` | Multi-modal predictions |
+| `/world_modeling/world_object_seeds` | `world_model_msgs/WorldObjectArray` | Predicted objects with trajectory hypotheses |
 
 ### Services Used
 
-Map queries to `/world_modeling/lanelet/query/*` (placeholders until map services available)
+| Service | Type | Description |
+|---------|------|-------------|
+| `/world_modeling/get_lanelet_ahead` | `lanelet_msgs/srv/GetLaneletAhead` | Query lanelets around a vehicle position (async, per-vehicle cached) |
 
 ## Architecture
 
-**Component-based design for parallel team development**:
+**Modular component design**:
 
-- **prediction_node**: Orchestrates pipeline, handles ROS communication
-- **trajectory_predictor**: Generates hypotheses (person 1: pedestrian, person 2: vehicle, person 3: cyclist)
-- **motion_models**: Physics-based propagation (bicycle model, constant velocity)
-- **intent_classifier**: Assigns probabilities (shared by all)
-- **map_interface**: HD map queries (currently placeholders)
+- **PredictionNode**: Lifecycle management, ROS communication, temporal smoothing
+  - Subscribes to detections, ego pose, ego-relative lanelets
+  - Manages async per-vehicle lanelet service requests
+  - Applies confidence smoothing to reduce frame-to-frame flicker
+  - Publishes world objects with trajectory hypotheses
 
-Each component has single responsibility and can be tested independently.
+- **TrajectoryPredictor**: Hypothesis generation with lanelet awareness
+  - **generateHypotheses()**: Routes to type-specific generators
+  - **generateLaneletVehicleHypotheses()**: Path-following hypotheses (left/right/straight)
+  - **generateGeometricVehicleHypotheses()**: Fallback when no lanelet data
+  - **generatePedestrianHypotheses()**: Constant velocity with intent variation
+  - **generateCyclistHypotheses()**: Hybrid vehicle/pedestrian behavior
+  - Per-vehicle lanelet caching with invalidation distance
+  - Speed estimation from position history
+
+- **MotionModels**: Physics-based trajectory propagation
+  - **BicycleModel**: Kinematic bicycle model for vehicle trajectories
+  - **ConstantVelocityModel**: Simple velocity propagation for pedestrians
+
+- **IntentClassifier**: Probability assignment to hypotheses
+  - Geometric scoring (heading alignment, lanelet match quality)
+  - Maneuver priors and inertia
+  - Trajectory smoothness penalties
+
+Each component has single responsibility and clear interfaces.
 
 ## Quick Start
 
 ```bash
-# Build
-colcon build --packages-select prediction
+# Build prediction module and dependencies
+colcon build --packages-select prediction world_model
 
-# Run
+# Run prediction node with world model
 ros2 launch prediction prediction.launch.py
 ```
 
-## Team Tasks
+## Key Features
 
-**Person 1 - Pedestrian Prediction**:
-- File: `src/trajectory_predictor.cpp` → `generatePedestrianHypotheses()`
-- File: `src/motion_models.cpp` → Add noise to `ConstantVelocityModel`
-- Use constant velocity with Gaussian noise, goal-directed behavior at crosswalks
+### Lanelet-Aware Prediction
+- Queries reachable lanelets around detected vehicles via `get_lanelet_ahead` service
+- Per-vehicle caching prevents redundant service requests within 5m movement threshold
+- Falls back to geometric prediction when lanelet data unavailable
 
-**Person 2 - Vehicle Prediction**:
-- File: `src/trajectory_predictor.cpp` → `generateVehicleHypotheses()`
-- File: `src/motion_models.cpp` → `BicycleModel::generateTrajectory()`
-- Implement bicycle kinematics with path following (pure pursuit or Stanley controller)
+### Temporal Smoothing
+- Confidence smoothing (α-filter) reduces hypothesis flickering between frames
+- Matches hypotheses by intent and endpoint location (6m threshold)
+- Timeout removes stale object state after 5 seconds
 
-**Person 3 - Cyclist Prediction**:
-- File: `src/trajectory_predictor.cpp` → `generateCyclistHypotheses()`
-- Research cyclist behavior, implement hybrid model
-- Use pedestrian model at crosswalks, vehicle model on roads
-- **Critical**: Coordinate output format with Person 1 & 2
+### Async Service Queries
+- Non-blocking per-vehicle lanelet queries using ROS2 async service clients
+- Limits concurrent requests (max 8 pending) to prevent service overload
+- Maintains per-vehicle cache keyed by detection ID
 
-**Output Format** (all must match):
-
-```cpp
-struct TrajectoryHypothesis {
-  std::vector<geometry_msgs::msg::Pose> waypoints;
-  std::vector<double> timestamps;
-  Intent intent;
-  double probability;  // Set by classifier
-};
-```
+### Speed Estimation
+- Tracks position history per object for velocity estimation
+- Falls back to bounding box length heuristic when history unavailable
+- Used to parameterize motion models
 
 ## Configuration
 
 Parameters in `config/params.yaml`:
-- `prediction_horizon`: 5.0 seconds
-- `prediction_time_step`: 0.1 seconds
-- Vehicle/pedestrian/cyclist specific parameters
+- `prediction_horizon`: 3.0 seconds (prediction time window)
+- `prediction_time_step`: 0.2 seconds (discretization step)
+- `confidence_smoothing_alpha`: 0.35 (smoothing factor 0-1)
+- `confidence_match_distance_m`: 6.0 (hypothesis matching threshold)
+- `confidence_state_timeout_s`: 5.0 (object memory timeout)
 
-## Team Assignments
+## Future Enhancements
 
-- **Girish**: Pedestrian prediction system (constant velocity model)
-- **John**: Vehicle prediction system (bicycle kinematics)
-- **Aruhant**: Cyclist prediction system (hybrid model)
-
-See inline code comments marked with names for specific tasks.
-
-## Current Limitations
-
-- Using placeholder map data (synthetic lanelets and centerlines)
-- Simple constant-velocity predictions
-- Message types not yet defined in `wato_msgs`
-- When map services available: uncomment service clients in `map_interface.cpp`
+- Learned motion models replacing physics-based models
+- ML-based intent classifier leveraging trajectory history
+- Support for additional object types (trucks, motorcycles, buses)
+- Vehicle turn signal observation from CAN bus
+- Integration with tracking system for full motion history
+- Cross-frame identity consistency with tracking module
+- Uncertainty quantification and covariance estimation
+- Interaction-aware prediction (multi-agent coordination)

@@ -99,6 +99,7 @@ private:
 
   // Feedforward
   std::vector<double> feedforward_coefficients_;
+  double feedforward_friction_offset_{0.0};
   bool feedforward_rebuild_pending_{false};
 
   // Parameter callback handle

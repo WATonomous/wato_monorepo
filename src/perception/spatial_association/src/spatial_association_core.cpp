@@ -56,8 +56,7 @@ void SpatialAssociationCore::processPointCloud(
     max_y = std::max(max_y, p.y);
     max_z = std::max(max_z, p.z);
   }
-  const float extent =
-    std::max({max_x - min_x, max_y - min_y, max_z - min_z});
+  const float extent = std::max({max_x - min_x, max_y - min_y, max_z - min_z});
   // PCL uses 32-bit voxel index; ~1200 voxels/dim is safe and keeps resolution when clamping.
   constexpr float kMaxVoxelsPerDimension = 1200.f;
   const float min_leaf = extent / kMaxVoxelsPerDimension;

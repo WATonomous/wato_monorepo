@@ -11,43 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.10)
-project(simple_prediction)
-
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+cmake_minimum_required(VERSION 3.8)
+project(topic_healthchecker)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(vision_msgs REQUIRED)
-find_package(world_model_msgs REQUIRED)
 
-add_executable(simple_prediction_node src/simple_prediction_node.cpp)
+add_executable(topic_healthchecker_node src/topic_healthchecker_node.cpp)
 
-target_include_directories(simple_prediction_node PRIVATE include)
-
-target_link_libraries(simple_prediction_node
-  PRIVATE
-    rclcpp::rclcpp
-    rclcpp_lifecycle::rclcpp_lifecycle
-    ${std_msgs_TARGETS}
-    ${geometry_msgs_TARGETS}
-    ${vision_msgs_TARGETS}
-    ${world_model_msgs_TARGETS}
+target_include_directories(topic_healthchecker_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-install(TARGETS simple_prediction_node
-  DESTINATION lib/${PROJECT_NAME})
+target_link_libraries(topic_healthchecker_node
+  rclcpp::rclcpp
+)
 
-install(DIRECTORY config launch
-  DESTINATION share/${PROJECT_NAME})
+install(TARGETS topic_healthchecker_node
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()

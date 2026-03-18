@@ -95,12 +95,10 @@ LifecycleManager::LifecycleManager(const rclcpp::NodeOptions & options)
 
   // Autostart if configured
   if (autostart_ && !node_names_.empty()) {
-    RCLCPP_INFO(
-      this->get_logger(), "Autostart enabled (delay %.1f s), starting managed nodes...",
-      autostart_delay_s_);
+    RCLCPP_INFO(this->get_logger(), "Autostart enabled (delay %.1f s), starting managed nodes...", autostart_delay_s_);
     // Use a one-shot timer to allow composable nodes to load before we transition managed nodes
-    const auto delay = std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::duration<double>(autostart_delay_s_));
+    const auto delay =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(autostart_delay_s_));
     autostart_timer_ = this->create_wall_timer(delay, [this]() {
       // Cancel timer first to make it one-shot
       autostart_timer_->cancel();
@@ -143,8 +141,8 @@ void LifecycleManager::createManagedNodes()
     node.change_state_client = this->create_client<lifecycle_msgs::srv::ChangeState>(
       prefix + "/change_state", rclcpp::ServicesQoS(), callback_group_);
 
-    node.get_state_client = this->create_client<lifecycle_msgs::srv::GetState>(
-      prefix + "/get_state", rclcpp::ServicesQoS(), callback_group_);
+    node.get_state_client =
+      this->create_client<lifecycle_msgs::srv::GetState>(prefix + "/get_state", rclcpp::ServicesQoS(), callback_group_);
 
     nodes_.push_back(std::move(node));
     RCLCPP_DEBUG(this->get_logger(), "Created clients for managed node: %s", name.c_str());
@@ -272,8 +270,10 @@ bool LifecycleManager::startup()
     uint8_t state = getNodeState(node);
     for (int retry = 0; state == State::PRIMARY_STATE_UNKNOWN && retry < kMaxRetriesForUnknown; ++retry) {
       RCLCPP_INFO(
-        this->get_logger(), "Node %s not ready yet (GetState unavailable), retrying in %ld s...",
-        node.name.c_str(), std::chrono::duration_cast<std::chrono::seconds>(kRetryInterval).count());
+        this->get_logger(),
+        "Node %s not ready yet (GetState unavailable), retrying in %ld s...",
+        node.name.c_str(),
+        std::chrono::duration_cast<std::chrono::seconds>(kRetryInterval).count());
       std::this_thread::sleep_for(kRetryInterval);
       if (!rclcpp::ok()) {
         return false;

@@ -16,8 +16,8 @@
 #define CLUSTER_BOX_UTILS_HPP
 
 #include <pcl/point_cloud.h>
-#include <pcl/PointIndices.h>
 #include <pcl/point_types.h>
+#include <pcl/PointIndices.h>
 
 #include <vector>
 
@@ -42,8 +42,7 @@ projection_utils::ClusterStats computeSingleClusterStats(
 
 /** Per-cluster stats for many clusters (same semantics as @c projection_utils::computeClusterStats). */
 std::vector<projection_utils::ClusterStats> computeClusterStatsBatch(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  const std::vector<pcl::PointIndices> & cluster_indices);
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices);
 
 }  // namespace cluster_box
 

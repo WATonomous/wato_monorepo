@@ -22,8 +22,8 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <Eigen/Dense>
 #include <array>
+#include <Eigen/Dense>
 #include <optional>
 #include <string>
 #include <vector>
@@ -47,7 +47,7 @@ namespace projection_utils
 struct Box3D
 {
   Eigen::Vector3f center{0.f, 0.f, 0.f};
-  Eigen::Vector3f size{0.f, 0.f, 0.f};  /**< length (x), width (y), height (z) in box frame */
+  Eigen::Vector3f size{0.f, 0.f, 0.f}; /**< length (x), width (y), height (z) in box frame */
   double yaw{0.0};
 };
 
@@ -173,8 +173,7 @@ const ProjectionUtilsParams & getParams();
  * @return Vector of ClusterCandidate with indices and stats filled
  */
 std::vector<ClusterCandidate> buildCandidates(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  const std::vector<pcl::PointIndices> & cluster_indices);
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices);
 
 /**
  * @brief Extracts cluster indices from candidates (for APIs that take indices).
@@ -188,8 +187,7 @@ std::vector<pcl::PointIndices> extractIndices(const std::vector<ClusterCandidate
  * Use this + projectLidarToCamera(lidar_to_image, pt) so matrices are not rebuilt per point.
  */
 Eigen::Matrix<double, 3, 4> buildLidarToImageMatrix(
-  const geometry_msgs::msg::TransformStamped & transform,
-  const std::array<double, 12> & projection_matrix);
+  const geometry_msgs::msg::TransformStamped & transform, const std::array<double, 12> & projection_matrix);
 
 /**
  * @brief Projects a 3D LiDAR point using a precomputed lidar-to-image matrix (P * T).
@@ -280,8 +278,7 @@ void mergeClusters(
  * @pre @ref setParams called with valid @c quality_* fields before use.
  */
 void filterCandidatesByClassAwareConstraints(
-  std::vector<ClusterCandidate> & candidates,
-  const vision_msgs::msg::Detection2DArray & detections);
+  std::vector<ClusterCandidate> & candidates, const vision_msgs::msg::Detection2DArray & detections);
 
 /**
  * @brief Computes the centroid of a cluster

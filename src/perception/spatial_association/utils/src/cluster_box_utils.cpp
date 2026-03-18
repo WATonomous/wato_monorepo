@@ -96,9 +96,7 @@ static double angleDiff(double a, double b)
 }
 
 static std::vector<Eigen::Vector2f> samplePointsXY(
-  const pcl::PointCloud<pcl::PointXYZ> & cloud,
-  const std::vector<int> & indices,
-  size_t desired_count)
+  const pcl::PointCloud<pcl::PointXYZ> & cloud, const std::vector<int> & indices, size_t desired_count)
 {
   std::vector<Eigen::Vector2f> pts;
   if (indices.empty()) return pts;
@@ -352,8 +350,7 @@ projection_utils::Box3D computeClusterBox(
   SearchResult fit_result = computeSearchBasedFit(*cloud, orientation_indices);
 
   if (fit_result.ok) {
-    double ar =
-      static_cast<double>(fit_result.len) / std::max(static_cast<double>(fit_result.wid), 0.1);
+    double ar = static_cast<double>(fit_result.len) / std::max(static_cast<double>(fit_result.wid), 0.1);
 
     Eigen::Vector4f centroid_temp;
     pcl::compute3DCentroid(*cloud, orientation_indices, centroid_temp);

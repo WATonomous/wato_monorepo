@@ -13,7 +13,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <exec_depend>world_model</exec_depend>
-  <exec_depend>simple_prediction</exec_depend>
+  <exec_depend>prediction</exec_depend>
   <exec_depend>lanelet_markers</exec_depend>
   <exec_depend>world_model_markers</exec_depend>
   <exec_depend>costmap</exec_depend>

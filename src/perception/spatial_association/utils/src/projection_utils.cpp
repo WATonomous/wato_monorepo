@@ -13,24 +13,24 @@
 // limitations under the License.
 
 #include "utils/projection_utils.hpp"
-#include "utils/cluster_box_utils.hpp"
+
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/extract_clusters.h>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include <pcl/search/kdtree.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <random>
-
 #include "Eigen/Dense"
 #include "pcl/filters/voxel_grid.h"
+#include "utils/cluster_box_utils.hpp"
 
 namespace projection_utils
 {
@@ -54,8 +54,7 @@ std::vector<ClusterStats> computeClusterStats(
 }
 
 std::vector<ClusterCandidate> buildCandidates(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  const std::vector<pcl::PointIndices> & cluster_indices)
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices)
 {
   std::vector<ClusterCandidate> candidates;
   candidates.reserve(cluster_indices.size());
@@ -111,8 +110,7 @@ Eigen::Matrix<double, 3, 4> arrayToProjection3x4(const std::array<double, 12> & 
 }  // namespace
 
 Eigen::Matrix<double, 3, 4> buildLidarToImageMatrix(
-  const geometry_msgs::msg::TransformStamped & transform,
-  const std::array<double, 12> & projection_matrix)
+  const geometry_msgs::msg::TransformStamped & transform, const std::array<double, 12> & projection_matrix)
 {
   const Eigen::Matrix4d T = transformToMatrix4d(transform);
   const Eigen::Matrix<double, 3, 4> P = arrayToProjection3x4(projection_matrix);
@@ -124,8 +122,7 @@ std::optional<cv::Point2d> projectLidarToCamera(
 {
   Eigen::Vector4d lidar_pt(pt.x, pt.y, pt.z, 1.0);
   Eigen::Vector3d projected = lidar_to_image * lidar_pt;
-  if (projected.z() <= 0.0 ||
-      projected.z() < getParams().min_camera_z_distance) {
+  if (projected.z() <= 0.0 || projected.z() < getParams().min_camera_z_distance) {
     return std::nullopt;
   }
   cv::Point2d proj_pt;
@@ -311,12 +308,18 @@ void mergeClusters(
     for (size_t j = i + 1; j < cluster_indices.size(); ++j) {
       if (merged[j]) continue;
 
-      float gap_x = std::max(0.f, std::max(working_stats[i].min_x, working_stats[j].min_x)
-                    - std::min(working_stats[i].max_x, working_stats[j].max_x));
-      float gap_y = std::max(0.f, std::max(working_stats[i].min_y, working_stats[j].min_y)
-                    - std::min(working_stats[i].max_y, working_stats[j].max_y));
-      float gap_z = std::max(0.f, std::max(working_stats[i].min_z, working_stats[j].min_z)
-                    - std::min(working_stats[i].max_z, working_stats[j].max_z));
+      float gap_x = std::max(
+        0.f,
+        std::max(working_stats[i].min_x, working_stats[j].min_x) -
+          std::min(working_stats[i].max_x, working_stats[j].max_x));
+      float gap_y = std::max(
+        0.f,
+        std::max(working_stats[i].min_y, working_stats[j].min_y) -
+          std::min(working_stats[i].max_y, working_stats[j].max_y));
+      float gap_z = std::max(
+        0.f,
+        std::max(working_stats[i].min_z, working_stats[j].min_z) -
+          std::min(working_stats[i].max_z, working_stats[j].max_z));
       double distance = std::sqrt(gap_x * gap_x + gap_y * gap_y + gap_z * gap_z);
 
       if (distance < mergeTolerance) {
@@ -340,8 +343,7 @@ void mergeClusters(
 }
 
 void filterCandidatesByClassAwareConstraints(
-  std::vector<ClusterCandidate> & candidates,
-  const vision_msgs::msg::Detection2DArray & detections)
+  std::vector<ClusterCandidate> & candidates, const vision_msgs::msg::Detection2DArray & detections)
 {
   constexpr float kMinDimensionForAspect = 0.05f;
   constexpr float kVolumeThresholdDensity = 0.01f;
@@ -411,9 +413,7 @@ bool computeClusterCentroid(
 namespace
 {
 std::optional<cv::Rect2d> projectAABBRect(
-  const ClusterStats & stats,
-  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
-  double image_w, double image_h)
+  const ClusterStats & stats, const Eigen::Matrix<double, 3, 4> & lidar_to_image, double image_w, double image_h)
 {
   const float xs[2] = {stats.min_x, stats.max_x};
   const float ys[2] = {stats.min_y, stats.max_y};
@@ -471,15 +471,14 @@ void assignCandidatesToDetectionsByIOU(
     return;
   }
 
-  const Eigen::Matrix<double, 3, 4> lidar_to_image =
-    buildLidarToImageMatrix(transform, projection_matrix);
+  const Eigen::Matrix<double, 3, 4> lidar_to_image = buildLidarToImageMatrix(transform, projection_matrix);
   const auto & params = getParams();
   const int iw_param = (image_width > 0 && image_height > 0)
-                        ? image_width
-                        : (params.image_width > 0 ? params.image_width : kDefaultImageWidth);
+                         ? image_width
+                         : (params.image_width > 0 ? params.image_width : kDefaultImageWidth);
   const int ih_param = (image_width > 0 && image_height > 0)
-                        ? image_height
-                        : (params.image_height > 0 ? params.image_height : kDefaultImageHeight);
+                         ? image_height
+                         : (params.image_height > 0 ? params.image_height : kDefaultImageHeight);
   const double iw = static_cast<double>(iw_param);
   const double ih = static_cast<double>(ih_param);
   const double min_iou = params.min_iou_threshold;
@@ -490,6 +489,7 @@ void assignCandidatesToDetectionsByIOU(
     int det_idx;
     double iou;
   };
+
   std::vector<Pair> pairs;
 
   for (size_t c = 0; c < candidates.size(); ++c) {
@@ -504,10 +504,7 @@ void assignCandidatesToDetectionsByIOU(
         }
         const auto & b = det.bbox;
         const cv::Rect2d det_rect(
-          b.center.position.x - b.size_x / 2.0,
-          b.center.position.y - b.size_y / 2.0,
-          b.size_x,
-          b.size_y);
+          b.center.position.x - b.size_x / 2.0, b.center.position.y - b.size_y / 2.0, b.size_x, b.size_y);
         const cv::Rect2d inter = *cluster_rect & det_rect;
         const double inter_area = (inter.width > 0 && inter.height > 0) ? inter.area() : 0.0;
         const double uni = cluster_rect->area() + det_rect.area() - inter_area;
@@ -570,10 +567,7 @@ void assignCandidatesToDetectionsByIOU(
       if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) continue;
       const auto & b = det.bbox;
       const cv::Rect2d det_rect(
-        b.center.position.x - b.size_x / 2.0,
-        b.center.position.y - b.size_y / 2.0,
-        b.size_x,
-        b.size_y);
+        b.center.position.x - b.size_x / 2.0, b.center.position.y - b.size_y / 2.0, b.size_x, b.size_y);
       const double det_left = b.center.position.x - b.size_x / 2.0;
       const double det_top = b.center.position.y - b.size_y / 2.0;
       const double det_right = det_left + b.size_x;
@@ -595,8 +589,10 @@ void assignCandidatesToDetectionsByIOU(
           centroid_pt.y = candidates[c].stats.centroid.y();
           centroid_pt.z = candidates[c].stats.centroid.z();
           auto uv = projectLidarToCamera(lidar_to_image, centroid_pt);
-          if (uv && uv->x >= 0 && uv->x < iw && uv->y >= 0 && uv->y < ih &&
-              uv->x >= det_left && uv->x <= det_right && uv->y >= det_top && uv->y <= det_bottom) {
+          if (
+            uv && uv->x >= 0 && uv->x < iw && uv->y >= 0 && uv->y < ih && uv->x >= det_left && uv->x <= det_right &&
+            uv->y >= det_top && uv->y <= det_bottom)
+          {
             iou_val = params.second_pass_min_iou;
           }
         }
@@ -612,8 +608,8 @@ void assignCandidatesToDetectionsByIOU(
     }
   }
 
-  std::sort(assignments.begin(), assignments.end(),
-            [](const Pair & a, const Pair & b) { return a.cand_idx < b.cand_idx; });
+  std::sort(
+    assignments.begin(), assignments.end(), [](const Pair & a, const Pair & b) { return a.cand_idx < b.cand_idx; });
 
   std::vector<ClusterCandidate> kept;
   kept.reserve(assignments.size());
@@ -706,8 +702,7 @@ vision_msgs::msg::Detection3DArray compute3DDetection(
         if (!d.results.empty()) {
           hypo.hypothesis.class_id = d.results[0].hypothesis.class_id;
           const double det_score = static_cast<double>(d.results[0].hypothesis.score);
-          hypo.hypothesis.score =
-            params.detection_score_weight * det_score + params.iou_score_weight * m.iou;
+          hypo.hypothesis.score = params.detection_score_weight * det_score + params.iou_score_weight * m.iou;
           hypo.hypothesis.score = std::max(0.0, std::min(1.0, hypo.hypothesis.score));
         } else {
           hypo.hypothesis.class_id = "cluster";

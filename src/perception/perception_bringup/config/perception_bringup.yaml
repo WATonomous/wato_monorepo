@@ -178,7 +178,7 @@ multi_camera_sync:
   ros__parameters:
     lidar_frame: lidar_cc
     euclid_params:
-      cluster_tolerance: 0.4   
+      cluster_tolerance: 0.4
       min_cluster_size: 30
       max_cluster_size: 1200
       use_adaptive_clustering: true
@@ -188,7 +188,7 @@ multi_camera_sync:
       density_weight: 0.6
       size_weight: 0.8
       distance_weight: 0.4
-      score_threshold: 0.40   
+      score_threshold: 0.40
     merge_threshold: 0.55
     object_detection_confidence: 0.45   # Accept slightly weaker 2D detections
     voxel_size: 0.1
@@ -207,7 +207,7 @@ multi_camera_sync:
       max_density: 1000.0
       max_dimension: 15.0
       max_aspect_ratio: 15.0
-    # Detection inference ~400–600ms; 
+    # Detection inference ~400–600ms;
     max_detection_cloud_stamp_delta: 1.2
     publish_visualization: false  # Disable for production; enable for debugging
     debug_logging: false

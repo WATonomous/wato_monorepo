@@ -30,18 +30,22 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
-  # Simple Prediction - bridges Detection3DArray to WorldObjectArray
+  # Prediction - generates trajectory hypotheses for tracked objects
   - node:
-      pkg: simple_prediction
-      exec: simple_prediction_node
-      name: simple_prediction_node
+      pkg: prediction
+      exec: prediction_node
+      name: prediction_node
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share simple_prediction)/config/params.yaml
+        - from: $(find-pkg-share prediction)/config/params.yaml
       remap:
         - from: tracks_3d
           to: /carla/tracked_detections_3d
+        - from: ego_pose
+          to: /localization/pose
+        - from: lanelet_ahead
+          to: lanelet/lanelet_ahead
 
   # World Model
   - node:
@@ -138,7 +142,7 @@ launch:
           to: "lanelet/lanelet_ahead_markers"
 
   # World Model Visualization Markers
-  # Pre-enrichment: subscribes to world_object_seeds (from simple_prediction)
+  # Pre-enrichment: subscribes to world_object_seeds (from prediction)
   - node:
       pkg: world_model_markers
       exec: world_objects_markers_node
@@ -264,7 +268,7 @@ launch:
       param:
         - name: node_names
           value:
-            - /world_modeling/simple_prediction_node
+            - /world_modeling/prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
         - name: autostart
