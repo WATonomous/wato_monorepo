@@ -151,6 +151,19 @@ inline std::optional<geometry_msgs::msg::Point> wayCenterPoint(const lanelet_msg
 
   return way.points.back();
 }
+
+inline double polylineLengthXY(const std::vector<geometry_msgs::msg::Point> & polyline)
+{
+  if (polyline.size() < 2) {
+    return 0.0;
+  }
+
+  double length_m = 0.0;
+  for (std::size_t i = 1; i < polyline.size(); ++i) {
+    length_m += distanceXY(polyline[i - 1], polyline[i]);
+  }
+  return length_m;
+}
 }  // namespace behaviour::geometry
 
 #endif  // BEHAVIOUR__UTILS__GEOMETRY_UTILS_HPP_

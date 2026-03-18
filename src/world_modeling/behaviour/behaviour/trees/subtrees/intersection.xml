@@ -4,11 +4,21 @@
   <include path="traffic_light.xml" />
   <BehaviorTree ID="IntersectionSubTree">
     <Sequence>
+      <GetIntersectionSearchLanelets
+        lane_ctx="{@current_lane_ctx}"
+        route_ahead="{@route_ahead}"
+        route_ahead_index_map="{@route_ahead_index_map}"
+        lanelets_ahead="{@lanelets_ahead}"
+        lanelets_ahead_index_map="{@lanelets_ahead_index_map}"
+        lookahead_threshold_m="{@bt.intersection_lookahead_m}"
+        search_lanelets="{intersection.search_lanelets}"
+        search_lanelet_index_map="{intersection.search_lanelet_index_map}"
+      />
+
       <GetIntersectionContext
         lane_ctx="{@current_lane_ctx}"
-        route="{global_route}"
-        route_index_map="{global_route_index_map}"
-        lookahead_threshold_m="{@bt.intersection_lookahead_m}"
+        search_lanelets="{intersection.search_lanelets}"
+        search_lanelet_index_map="{intersection.search_lanelet_index_map}"
         in_active_traffic_control_element="{active_traffic_control_element}"
         in_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
         out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
