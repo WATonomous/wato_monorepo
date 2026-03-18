@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -29,11 +31,12 @@ namespace behaviour
  * @class StopSignPedestriansClearCondition
  * @brief Returns SUCCESS when no pedestrians are on the yield lanelets, FAILURE otherwise.
  */
-class StopSignPedestriansClearCondition : public BT::ConditionNode
+class StopSignPedestriansClearCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  StopSignPedestriansClearCondition(const std::string & name, const BT::NodeConfig & config)
+  StopSignPedestriansClearCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -50,8 +53,8 @@ public:
       return BT::NodeStatus::SUCCESS;
     }
 
-    std::cout << "[StopSignPedestriansClear] Blocked (" << pedestrian_ids->size()
-              << " pedestrian(s) crossing)" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Blocked (" << pedestrian_ids->size()
+              << " pedestrian(s) crossing)" );
     return BT::NodeStatus::FAILURE;
   }
 };

@@ -16,6 +16,8 @@
 #define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_STOP_LINE_POSE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
+
+#include "behaviour/nodes/logged_bt_node.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
@@ -41,11 +43,12 @@ namespace behaviour
    * @class GetStopLinePoseAction
    * @brief SyncActionNode to build a stop-line pose from a regulatory element.
    */
-class GetStopLinePoseAction : public BT::SyncActionNode
+class GetStopLinePoseAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetStopLinePoseAction(const std::string & name, const BT::NodeConfig & conf)
+  GetStopLinePoseAction(const std::string & name, const BT::NodeConfig & conf, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, conf)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -62,7 +65,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetStopLinePose] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
@@ -76,7 +79,7 @@ public:
     }
 
     if (reg_elem->ref_lines.empty()) {
-      std::cout << "[GetStopLinePose] RegulatoryElement has no ref_lines" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "RegulatoryElement has no ref_lines" );
       setOutput("error_message", "invalid_port");
       return BT::NodeStatus::FAILURE;
     }
@@ -102,13 +105,13 @@ public:
     }
 
     if (!stop_line_way) {
-      std::cout << "[GetStopLinePose] No stop line found for lanelet " << current_lanelet_id << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "No stop line found for lanelet " << current_lanelet_id );
       setOutput("error_message", "missing_stop_line_for_lanelet");
       return BT::NodeStatus::FAILURE;
     }
     const auto center_point = geometry::wayCenterPoint(*stop_line_way);
     if (!center_point) {
-      std::cout << "[GetStopLinePose] Stop line has no valid points" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Stop line has no valid points" );
       setOutput("error_message", "invalid_stop_line");
       return BT::NodeStatus::FAILURE;
     }
@@ -117,7 +120,7 @@ public:
     const auto & pts = stop_line_way->points;
 
     if (pts.size() < 2) {
-      std::cout << "[GetStopLinePose] Stop line has fewer than 2 points" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Stop line has fewer than 2 points" );
       setOutput("error_message", "invalid_stop_line");
       return BT::NodeStatus::FAILURE;
     }
@@ -144,8 +147,8 @@ public:
     pose->pose.position.z = center_point->z;
     pose->pose.orientation = tf2::toMsg(q);
 
-    std::cout << "[GetStopLinePose] Extracted stop line pose at (" << pose->pose.position.x << ", "
-              << pose->pose.position.y << ", " << pose->pose.position.z << ") with yaw " << yaw << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Extracted stop line pose at (" << pose->pose.position.x << ", "
+              << pose->pose.position.y << ", " << pose->pose.position.z << ") with yaw " << yaw );
 
     setOutput("pose", pose);
     return BT::NodeStatus::SUCCESS;

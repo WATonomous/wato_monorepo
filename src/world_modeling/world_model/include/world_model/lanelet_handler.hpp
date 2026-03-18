@@ -128,7 +128,7 @@ public:
   std::optional<int64_t> findCurrentLaneletId(
     const geometry_msgs::msg::Point & point,
     double heading_rad,
-    double route_priority_threshold_m = 10.0,
+    double route_priority_threshold_m = 2.0,
     double heading_search_radius_m = 15.0,
     std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 

@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -28,11 +30,12 @@ namespace behaviour
  * @class ActiveTrafficControlElementExistCondition
  * @brief ConditionNode to check whether an active traffic-control element exists.
  */
-class ActiveTrafficControlElementExistCondition : public BT::ConditionNode
+class ActiveTrafficControlElementExistCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  ActiveTrafficControlElementExistCondition(const std::string & name, const BT::NodeConfig & config)
+  ActiveTrafficControlElementExistCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -45,7 +48,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[ActiveTrafficControlElementExist]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto active = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
@@ -53,7 +56,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    std::cout << "[ActiveTrafficControlElementExist]: active_traffic_control_element exists." << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "active_traffic_control_element exists." );
     return BT::NodeStatus::SUCCESS;
   }
 };

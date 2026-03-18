@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -35,11 +37,12 @@ namespace behaviour
  * @class GetLaneletByRelationAction
  * @brief Resolves the adjacent left or right lanelet using the lanelets-ahead cache.
  */
-class GetLaneletByRelationAction : public BT::SyncActionNode
+class GetLaneletByRelationAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetLaneletByRelationAction(const std::string & name, const BT::NodeConfig & config)
+  GetLaneletByRelationAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -56,7 +59,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetLaneletByRelation]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -75,7 +78,7 @@ public:
     }
 
     if (*relation == types::LaneTransition::SUCCESSOR) {
-      std::cout << "[GetLaneletByRelation]: SUCCESSOR is not a lateral lane relation" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "SUCCESSOR is not a lateral lane relation" );
       return BT::NodeStatus::FAILURE;
     }
 
@@ -93,15 +96,15 @@ public:
                                         ? lane_ctx->current_lanelet.left_lane_id
                                         : lane_ctx->current_lanelet.right_lane_id;
     if (target_lanelet_id <= 0) {
-      std::cout << "[GetLaneletByRelation]: No adjacent lanelet for relation "
-                << types::toString(*relation) << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "No adjacent lanelet for relation "
+                << types::toString(*relation) );
       return BT::NodeStatus::FAILURE;
     }
 
     const auto target_it = index_map->find(target_lanelet_id);
     if (target_it == index_map->end() || target_it->second >= lanelets_ahead->lanelets.size()) {
-      std::cout << "[GetLaneletByRelation]: Lanelet " << target_lanelet_id
-                << " not found in lanelets_ahead cache" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Lanelet " << target_lanelet_id
+                << " not found in lanelets_ahead cache" );
       return BT::NodeStatus::FAILURE;
     }
 

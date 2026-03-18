@@ -16,18 +16,24 @@
         <Sequence name="Start Overtake">
           <!-- if ego stopped -->
           <EgoStopped
-            ego_odom="{ego_odom}"
+            ego_odom="{@ego_odom}"
             threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
-          <!-- get area occupancy -->
-          <GetAreaOccupancySub
-            areas="{lane_nav.area_occupancy_areas}"
-            error_message="{lane_nav.get_area_occupancy_error_msg}"
-            topic_name="/world_modeling/area_occupancy" />
-          <!-- if area in front of ego stopped -->
-          <IsAreaOccupied
-            fetched_areas="{lane_nav.area_occupancy_areas}"
-            area_name="front"
-          />
+          <Delay delay_msec="10000">
+            <Sequence name="Delayed Overtake Front Check">
+              <!-- get area occupancy -->
+              <GetAreaOccupancySub
+                areas="{lane_nav.area_occupancy_areas}"
+                error_message="{lane_nav.get_area_occupancy_error_msg}"
+                topic_name="/world_modeling/area_occupancy" />
+              <OvertakeValid
+                lane_ctx="{@current_lane_ctx}"
+                areas="{lane_nav.area_occupancy_areas}"
+                overtake_front_area="overtake_front"
+                left_lane_change_areas="{@bt.left_lane_change_areas}"
+                right_lane_change_areas="{@bt.right_lane_change_areas}"
+                hypothesis_index="{@world_objects_hypothesis_index}" />
+            </Sequence>
+          </Delay>
 
           <!-- find either left or right lane transition valid and safe for diverging stage -->
           <Fallback name="Find Diverge Lane">
@@ -84,7 +90,7 @@
           <IsOvertakeStage
             stage="{overtake.stage}"
             expected="DIVERGE" />
-          <Fallback>
+          <Fallback name="Continue Diverge Or Advance To Overtake">
             <Sequence>
               <!-- if ego is in target lanelet (diverge complete) -->
               <IsEgoOnLanelet
@@ -125,6 +131,15 @@
                 preferred_lanelet_ids="{overtake.diverge_preferred_lanelet_ids}"
                 topic_name="execute_behaviour" />
             </Sequence>
+            <Sequence name="Continue Diverge">
+              <GetFollowLanePreferredLanelets
+                lane_ctx="{@current_lane_ctx}"
+                out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
+              <ExecuteBehaviour
+                behaviour="overtake: follow lane"
+                preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}"
+                topic_name="execute_behaviour" />
+            </Sequence>
           </Fallback>
 
         </Sequence>
@@ -157,7 +172,7 @@
                 lane_ctx="{@current_lane_ctx}"
                 out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
               <ExecuteBehaviour
-                behaviour="overtake"
+                behaviour="overtake: follow lane"
                 preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}"
                 topic_name="execute_behaviour" />
             </Sequence>
@@ -218,7 +233,7 @@
                 lane_ctx="{@current_lane_ctx}"
                 out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
               <ExecuteBehaviour
-                behaviour="overtake"
+                behaviour="overtake: follow lane"
                 preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}"
                 topic_name="execute_behaviour" />
             </Sequence>

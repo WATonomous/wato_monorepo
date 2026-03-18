@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -28,11 +30,12 @@ namespace behaviour
  * @class IsRegulatoryElementTypeCondition
  * @brief ConditionNode to compare regulatory element subtype with expected type.
  */
-class IsRegulatoryElementTypeCondition : public BT::ConditionNode
+class IsRegulatoryElementTypeCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsRegulatoryElementTypeCondition(const std::string & name, const BT::NodeConfig & config)
+  IsRegulatoryElementTypeCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -46,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsRegulatoryElementType] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
@@ -59,8 +62,8 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    std::cout << "[IsRegulatoryElementType]: Comparing msg='" << reg_elem->subtype << "' to expected='"
-              << types::toString(expected.value()) << "'" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Comparing msg='" << reg_elem->subtype << "' to expected='"
+              << types::toString(expected.value()) << "'" );
     return (reg_elem->subtype == types::toString(expected.value())) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

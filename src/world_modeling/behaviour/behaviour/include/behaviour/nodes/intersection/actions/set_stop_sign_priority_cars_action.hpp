@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -29,11 +31,12 @@ namespace behaviour
    * @class SetStopSignPriorityCarsAction
    * @brief SyncActionNode to latch stop-sign priority car IDs.
    */
-class SetStopSignPriorityCarsAction : public BT::SyncActionNode
+class SetStopSignPriorityCarsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  SetStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config)
+  SetStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -51,7 +54,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[SetStopSignPriorityCarsAction] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     // If already latched, keep returning the stored ids.

@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -37,11 +39,12 @@ namespace behaviour
  * Any pedestrian present on a yield lanelet is considered to be crossing
  * the intersection and must be yielded to before proceeding.
  */
-class GetStopSignPedestriansAction : public BT::SyncActionNode
+class GetStopSignPedestriansAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetStopSignPedestriansAction(const std::string & name, const BT::NodeConfig & config)
+  GetStopSignPedestriansAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -56,8 +59,8 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const auto missing = [](const char * port) {
-      std::cout << "[GetStopSignPedestrians] Missing " << port << std::endl;
+    const auto missing = [this](const char * port) {
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port );
     };
 
     auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
@@ -86,8 +89,8 @@ public:
     setOutput("out_stop_sign_pedestrian_ids", out_ids);
 
     if (!out_ids.empty()) {
-      std::cout << "[GetStopSignPedestrians] Found " << out_ids.size()
-                << " pedestrian(s) on yield lanelets" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Found " << out_ids.size()
+                << " pedestrian(s) on yield lanelets" );
     }
 
     return BT::NodeStatus::SUCCESS;

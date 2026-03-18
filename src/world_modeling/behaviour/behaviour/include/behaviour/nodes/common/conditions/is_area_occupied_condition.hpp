@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -31,11 +33,12 @@ namespace behaviour
  * @class IsAreaOccupiedCondition
  * @brief Returns SUCCESS when the requested occupancy area is currently occupied.
  */
-class IsAreaOccupiedCondition : public BT::ConditionNode
+class IsAreaOccupiedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsAreaOccupiedCondition(const std::string & name, const BT::NodeConfig & config)
+  IsAreaOccupiedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -51,7 +54,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsAreaOccupied]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto fetched_areas = ports::tryGet<std::vector<world_model_msgs::msg::AreaOccupancyInfo>>(*this, "fetched_areas");
@@ -67,7 +70,7 @@ public:
     setOutput("objects", std::vector<world_model_msgs::msg::WorldObject>{});
 
     if (area_name->empty()) {
-      std::cout << "[IsAreaOccupied]: Empty area_name input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Empty area_name input" );
       return BT::NodeStatus::FAILURE;
     }
 
@@ -75,11 +78,11 @@ public:
     setOutput("objects", objects);
 
     if (area_occupancy_utils::isAreaOccupied(*fetched_areas, *area_name)) {
-      std::cout << "[IsAreaOccupied]: Occupied area found: " << *area_name << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Occupied area found: " << *area_name );
       return BT::NodeStatus::SUCCESS;
     }
 
-    std::cout << "[IsAreaOccupied]: Area is clear: " << *area_name << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Area is clear: " << *area_name );
     return BT::NodeStatus::FAILURE;
   }
 };

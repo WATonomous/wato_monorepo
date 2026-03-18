@@ -68,6 +68,7 @@
     area_occupancy_frame: "base_footprint"
     occupancy_areas:
       - "front_near"
+      - "overtake_front"
       - "front_far"
       - "left_blind_spot"
       - "right_blind_spot"
@@ -80,6 +81,12 @@
         center_x: 0.0
         center_y: 0.0
         radius: 10.0
+      overtake_front:
+        type: "rectangle"
+        center_x: 5.0
+        center_y: 0.0
+        length: 12.0
+        width: 3.5
       front_far:
         type: "circle"
         center_x: 15.0

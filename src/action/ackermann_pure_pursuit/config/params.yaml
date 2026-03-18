@@ -7,7 +7,7 @@ action:
       base_frame: "base_footprint"
       rear_axle_frame: "rear_axle"
       front_axle_frame: "front_axle"
-      lookahead_distance: 5.0
+      lookahead_distance: 6.0
       min_lookahead_distance: 2.0
       max_speed: 5.0
       min_speed: 0.5

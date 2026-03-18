@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -30,11 +32,12 @@ namespace behaviour
  * @class EgoOnLaneletCondition
  * @brief Returns SUCCESS when the ego vehicle is currently on the provided lanelet.
  */
-class EgoOnLaneletCondition : public BT::ConditionNode
+class EgoOnLaneletCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  EgoOnLaneletCondition(const std::string & name, const BT::NodeConfig & config)
+  EgoOnLaneletCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -48,7 +51,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsEgoOnLanelet]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -62,8 +65,8 @@ public:
     }
 
     const bool ego_on_lanelet = lane_ctx->current_lanelet.id == lanelet->id;
-    std::cout << "[IsEgoOnLanelet]: current=" << lane_ctx->current_lanelet.id << ", target=" << lanelet->id
-              << ", result=" << (ego_on_lanelet ? "true" : "false") << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "current=" << lane_ctx->current_lanelet.id << ", target=" << lanelet->id
+              << ", result=" << (ego_on_lanelet ? "true" : "false") );
     return ego_on_lanelet ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

@@ -52,7 +52,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    RCLCPP_INFO(logger(), "[GetWorldObjectsSub] Received %zu objects", last_msg->objects.size());
+    RCLCPP_INFO(logger(), "[%s] Received %zu objects", name().c_str(), last_msg->objects.size());
     setOutput("objects", last_msg->objects);
     return BT::NodeStatus::SUCCESS;
   }
