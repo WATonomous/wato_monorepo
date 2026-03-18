@@ -134,13 +134,6 @@ if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
       done <<< "$base_images"
     fi
   fi
-
-  # Set CLAUDE_CODE build arg based on active profiles
-  if [[ " ${ALL_PROFILES[*]} " =~ " claude_code " ]]; then
-    EXTRA_COMPOSE_ARGS+=("--build-arg" "CLAUDE_CODE=true")
-  else
-    EXTRA_COMPOSE_ARGS+=("--build-arg" "CLAUDE_CODE=false")
-  fi
 fi
 
 # Convert profile names to --profile flags
