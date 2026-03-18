@@ -474,6 +474,9 @@ void PredictionNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DA
       }
     }
     if (is_traffic_light) {
+      world_model_msgs::msg::WorldObject traffic_light_obj;
+      traffic_light_obj.detection = detection;
+      output.objects.push_back(traffic_light_obj);
       continue;
     }
 
