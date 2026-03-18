@@ -1,28 +1,70 @@
 {
   "configById": {
+    "CallService!36vhq2p": {
+      "requestPayload": "{\n  \"directory\": \"/ws/src/world_modeling/test_track_map\",\n  \"resolution\": 0.4\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/slam/save_map"
+    },
     "Plot!3lzp51a": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.orientation.w",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.w",
           "enabled": true,
           "color": "#4e98e2"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.orientation.x",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.x",
           "enabled": true,
           "color": "#f5774d"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.orientation.y",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.y",
           "enabled": true,
           "color": "#f7df71"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.orientation.z",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.z",
+          "enabled": true,
+          "color": "#5cd6a9"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!3veuhss": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.w",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.x",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.y",
+          "enabled": true,
+          "color": "#f7df71"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.z",
           "enabled": true,
           "color": "#5cd6a9"
         }
@@ -40,25 +82,25 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.orientation.w",
+          "value": "/world_modeling/odom.pose.pose.position.x",
           "enabled": true,
           "color": "#4e98e2"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.orientation.x",
+          "value": "/world_modeling/odom.pose.pose.orientation.y",
           "enabled": true,
           "color": "#f5774d"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.orientation.y",
+          "value": "/world_modeling/odom.pose.pose.orientation.z",
           "enabled": true,
           "color": "#f7df71"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.orientation.z",
+          "value": "/world_modeling/odom.pose.pose.orientation.z",
           "enabled": true,
           "color": "#5cd6a9"
         }
@@ -76,19 +118,19 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.position.x",
+          "value": "/world_modeling/liso/odometry.pose.pose.position.x",
           "enabled": true,
           "color": "#4e98e2"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.position.y",
+          "value": "/world_modeling/liso/odometry.pose.pose.position.y",
           "enabled": true,
           "color": "#f5774d"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/liso/odometry.pose.pose.position.z",
+          "value": "/world_modeling/liso/odometry.pose.pose.position.z",
           "enabled": true,
           "color": "#f7df71"
         }
@@ -102,37 +144,35 @@
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
     },
-    "RawMessages!5zr3km": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/liso/odometry",
-      "fontSize": 12
-    },
-    "RawMessages!3wg8vhw": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/slam/odometry",
-      "fontSize": 12
-    },
-    "RawMessages!4gp97xj": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/liso/odometry_incremental",
-      "fontSize": 12
-    },
-    "RawMessages!4cdlyem": {
-      "diffEnabled": false,
-      "diffMethod": "custom",
-      "diffTopicPath": "",
-      "showFullMessageForDiff": false,
-      "topicPath": "/novatel/oem7/fix",
-      "fontSize": 12
+    "Plot!1o6hnri": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.position.x",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.position.y",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.position.z",
+          "enabled": true,
+          "color": "#f7df71"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
     },
     "Image!3apg1a1": {
       "cameraState": {
@@ -175,53 +215,8 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {
-        "imageTopic": "/camera_lower_ne/image_rect_compressed",
-        "calibrationTopic": "/camera_lower_ne/camera_info"
-      }
-    },
-    "Image!nd40y3": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 45,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "imageMode": {
-        "imageTopic": "/camera_pano_ee/image_rect_compressed",
-        "calibrationTopic": "/camera_pano_ee/camera_info"
+        "imageTopic": "/camera_pano_nn/image_rect_compressed",
+        "calibrationTopic": "/camera_pano_nn/camera_info"
       }
     },
     "Image!x2bmzq": {
@@ -272,13 +267,13 @@
     "3D!3iebfs2": {
       "cameraState": {
         "perspective": true,
-        "distance": 163.81821098980436,
-        "phi": 8.696982627758057,
-        "thetaOffset": -162.7471074055307,
+        "distance": 654.3721929205641,
+        "phi": 36.16197633881282,
+        "thetaOffset": -13.983358678133591,
         "targetOffset": [
-          -18.8312736986116,
-          42.020387135386194,
-          8.978516305776823
+          60.67333489392988,
+          -10.843622397953316,
+          0.00012855214343187547
         ],
         "target": [
           0,
@@ -295,7 +290,7 @@
         "near": 0.5,
         "far": 5000
       },
-      "followMode": "follow-pose",
+      "followMode": "follow-none",
       "scene": {
         "transforms": {
           "labelSize": 0.07
@@ -307,12 +302,36 @@
           "visible": true,
           "colorField": "z",
           "colorMode": "colormap",
-          "colorMap": "turbo"
+          "colorMap": "turbo",
+          "explicitAlpha": 0.528
         },
         "/slam/path": {
           "visible": true
         },
         "/slam/visualization/factor_graph": {
+          "visible": true
+        },
+        "/lidar_cc/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.51
+        },
+        "/liso/submap": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/world_modeling/slam/visualization/map": {
+          "visible": true,
+          "colorMode": "colormap",
+          "colorField": "z",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.206
+        },
+        "/world_modeling/slam/visualization/factor_graph": {
           "visible": true
         }
       },
@@ -350,37 +369,7 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "followTf": "base_footprint"
-    },
-    "Plot!1o6hnri": {
-      "paths": [
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.position.x",
-          "enabled": true,
-          "color": "#4e98e2"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.position.y",
-          "enabled": true,
-          "color": "#f5774d"
-        },
-        {
-          "timestampMethod": "receiveTime",
-          "value": "/liso/odometry_incremental.pose.pose.position.z",
-          "enabled": true,
-          "color": "#f7df71"
-        }
-      ],
-      "showXAxisLabels": true,
-      "showYAxisLabels": true,
-      "showLegend": true,
-      "legendDisplay": "floating",
-      "showPlotValuesInLegend": false,
-      "isSynced": true,
-      "xAxisVal": "timestamp",
-      "sidebarDimension": 240
+      "followTf": "map"
     }
   },
   "globalVariables": {},
@@ -390,51 +379,40 @@
   },
   "layout": {
     "direction": "row",
-    "first": {
-      "first": {
-        "first": "Plot!3lzp51a",
-        "second": "Plot!4ayfaqz",
-        "direction": "row"
-      },
-      "second": {
-        "first": "Plot!9kkrml",
-        "second": "Plot!1o6hnri",
-        "direction": "row"
-      },
-      "direction": "column"
-    },
+    "first": "CallService!36vhq2p",
     "second": {
       "direction": "row",
       "first": {
         "first": {
-          "first": "RawMessages!5zr3km",
-          "second": "RawMessages!3wg8vhw",
-          "direction": "row"
+          "first": "Plot!3lzp51a",
+          "second": {
+            "first": "Plot!3veuhss",
+            "second": "Plot!4ayfaqz",
+            "direction": "row"
+          },
+          "direction": "row",
+          "splitPercentage": 33.496332518337404
         },
         "second": {
-          "first": "RawMessages!4gp97xj",
-          "second": "RawMessages!4cdlyem",
+          "first": "Plot!9kkrml",
+          "second": "Plot!1o6hnri",
           "direction": "row"
         },
-        "direction": "column",
-        "splitPercentage": 50
+        "direction": "column"
       },
       "second": {
         "direction": "row",
         "first": {
-          "first": {
-            "first": "Image!3apg1a1",
-            "second": "Image!nd40y3",
-            "direction": "column"
-          },
+          "first": "Image!3apg1a1",
           "second": "Image!x2bmzq",
           "direction": "column",
-          "splitPercentage": 66.18229854689565
+          "splitPercentage": 50
         },
-        "second": "3D!3iebfs2"
+        "second": "3D!3iebfs2",
+        "splitPercentage": 15.353121801432968
       },
-      "splitPercentage": 46.7910447761194
+      "splitPercentage": 45.74944071588368
     },
-    "splitPercentage": 37.5873311597578
+    "splitPercentage": 11.83046110852352
   }
 }
