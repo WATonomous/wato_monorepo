@@ -23,6 +23,7 @@ services:
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
   infrastructure_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -81,6 +82,7 @@ services:
     image: "${INTERFACING_IMAGE}:deps_${TAG}"
 
   interfacing_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -134,6 +136,7 @@ services:
     image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
 
   perception_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -195,6 +198,7 @@ services:
     image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
 
   world_modeling_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -243,6 +247,7 @@ services:
     image: "${ACTION_IMAGE}:deps_${TAG}"
 
   action_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -313,6 +318,7 @@ services:
     image: "${SIMULATION_IMAGE}:deps_${TAG}"
 
   simulation_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
