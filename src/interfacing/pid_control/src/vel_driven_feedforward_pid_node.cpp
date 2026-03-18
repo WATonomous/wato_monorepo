@@ -31,6 +31,9 @@ VelDrivenFeedforwardPidNode::VelDrivenFeedforwardPidNode(const rclcpp::NodeOptio
   this->declare_parameter<double>("output_clamp_min", -1.0);
   this->declare_parameter<std::vector<double>>("feedforward.coefficients", {0.0});
   this->declare_parameter<double>("feedforward.friction_offset", 0.0);
+  this->declare_parameter<double>("velocity_output.throttle_scale", 1.0);
+  this->declare_parameter<double>("velocity_output.brake_scale", 1.0);
+  this->declare_parameter<double>("velocity_output.deadband", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "VelDrivenFeedforwardPidNode created (unconfigured)");
 }
@@ -44,6 +47,9 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   output_clamp_min_ = this->get_parameter("output_clamp_min").as_double();
   feedforward_coefficients_ = this->get_parameter("feedforward.coefficients").as_double_array();
   feedforward_friction_offset_ = this->get_parameter("feedforward.friction_offset").as_double();
+  throttle_scale_ = this->get_parameter("velocity_output.throttle_scale").as_double();
+  brake_scale_ = this->get_parameter("velocity_output.brake_scale").as_double();
+  velocity_deadband_ = this->get_parameter("velocity_output.deadband").as_double();
 
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
@@ -306,10 +312,19 @@ void VelDrivenFeedforwardPidNode::control_loop()
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
   }
 
-  // Compute velocity PID output
+  // Compute velocity PID output with asymmetric scaling and deadband
   if (velocity_meas_received_) {
     double velocity_error = velocity_setpoint_ - velocity_meas_;
-    velocity_command = velocity_pid_ros_->compute_command(velocity_error, dt);
+    double raw_effort = velocity_pid_ros_->compute_command(velocity_error, dt);
+
+    if (std::abs(raw_effort) < velocity_deadband_) {
+      velocity_command = 0.0;
+    } else if (raw_effort >= 0.0) {
+      velocity_command = raw_effort * throttle_scale_;
+    } else {
+      velocity_command = raw_effort * brake_scale_;
+    }
+    velocity_command = std::clamp(velocity_command, -1.0, 1.0);
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for velocity feedback...");
   }

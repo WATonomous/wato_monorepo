@@ -133,8 +133,6 @@ launch:
   #     remap:
   #       - from: "steering_feedback"
   #         to: "can_state_estimator/steering_angle"
-  #       - from: "velocity_feedback"
-  #         to: "can_state_estimator/body_velocity"
   #       - from: "odom_feedback"
   #         to: "/novatel/oem7/odom"
   #       - from: "roscco"

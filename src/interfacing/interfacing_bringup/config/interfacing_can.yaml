@@ -144,6 +144,10 @@
       saturation: true
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
+    velocity_output:
+      throttle_scale: 1.0  # Scale factor for positive PID effort → throttle
+      brake_scale: 0.5     # Scale factor for negative PID effort → brake (brake is more aggressive)
+      deadband: 0.02       # PID effort below this → coast (no throttle, no brake)
     # T_ff = (c0 + c1*v + c2*v^2) * delta + friction_offset * sign(delta)
     # Model B symmetric fit (R²=0.845, 63182 samples)
     # 90 perturbations at ±2% scaling from baseline (100%)
@@ -360,6 +364,10 @@
       saturation: true
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
+    velocity_output:
+      throttle_scale: 1.0
+      brake_scale: 0.5
+      deadband: 0.02
 
 # OSCC Mux (priority-based mux for roscco commands)
 # Safety gating is handled by ackermann_mux, not here — the joystick

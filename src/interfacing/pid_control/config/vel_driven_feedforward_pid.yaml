@@ -29,6 +29,11 @@ vel_driven_feedforward_pid_node:
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
+    velocity_output:
+      throttle_scale: 1.0
+      brake_scale: 0.5
+      deadband: 0.02
+
     # T_ff = (c0 + c1*v + c2*v^2) * steering_setpoint + friction_offset * sign(steering_setpoint)
     # Symmetric Model B fit (R²=0.845, RMSE=0.046, 63182 samples)
     feedforward:

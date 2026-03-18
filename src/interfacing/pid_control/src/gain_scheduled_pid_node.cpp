@@ -34,6 +34,9 @@ GainScheduledPidNode::GainScheduledPidNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("gain_schedule.i_clamp_max", 1.0);
   this->declare_parameter<double>("gain_schedule.i_clamp_min", -1.0);
   this->declare_parameter<bool>("gain_schedule.antiwindup", true);
+  this->declare_parameter<double>("velocity_output.throttle_scale", 1.0);
+  this->declare_parameter<double>("velocity_output.brake_scale", 1.0);
+  this->declare_parameter<double>("velocity_output.deadband", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "GainScheduledPidNode created (unconfigured)");
 }
@@ -44,6 +47,9 @@ GainScheduledPidNode::CallbackReturn GainScheduledPidNode::on_configure(const rc
 
   output_clamp_max_ = this->get_parameter("output_clamp_max").as_double();
   output_clamp_min_ = this->get_parameter("output_clamp_min").as_double();
+  throttle_scale_ = this->get_parameter("velocity_output.throttle_scale").as_double();
+  brake_scale_ = this->get_parameter("velocity_output.brake_scale").as_double();
+  velocity_deadband_ = this->get_parameter("velocity_output.deadband").as_double();
 
   // Load gain schedule
   rebuild_gain_schedule();
@@ -335,10 +341,19 @@ void GainScheduledPidNode::control_loop()
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
   }
 
-  // Compute velocity PID output
+  // Compute velocity PID output with asymmetric scaling and deadband
   if (velocity_meas_received_) {
     double velocity_error = velocity_setpoint_ - velocity_meas_;
-    velocity_command = velocity_pid_ros_->compute_command(velocity_error, dt);
+    double raw_effort = velocity_pid_ros_->compute_command(velocity_error, dt);
+
+    if (std::abs(raw_effort) < velocity_deadband_) {
+      velocity_command = 0.0;
+    } else if (raw_effort >= 0.0) {
+      velocity_command = raw_effort * throttle_scale_;
+    } else {
+      velocity_command = raw_effort * brake_scale_;
+    }
+    velocity_command = std::clamp(velocity_command, -1.0, 1.0);
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for velocity feedback...");
   }

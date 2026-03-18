@@ -26,6 +26,7 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/steering_angle.hpp>
+#include <roscco_msg/msg/steering_torque.hpp>
 #include <std_msgs/msg/float64.hpp>
 
 namespace pid_control
@@ -101,6 +102,11 @@ private:
   std::vector<double> feedforward_coefficients_;
   double feedforward_friction_offset_{0.0};
   bool feedforward_rebuild_pending_{false};
+
+  // Velocity output scaling
+  double throttle_scale_{1.0};
+  double brake_scale_{1.0};
+  double velocity_deadband_{0.0};
 
   // Parameter callback handle
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;

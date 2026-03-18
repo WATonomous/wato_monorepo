@@ -106,6 +106,11 @@ private:
   bool antiwindup_{true};
   bool schedule_rebuild_pending_{false};
 
+  // Velocity output scaling
+  double throttle_scale_{1.0};
+  double brake_scale_{1.0};
+  double velocity_deadband_{0.0};
+
   // Parameter callback handle
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 };
