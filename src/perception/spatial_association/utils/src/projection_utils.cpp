@@ -772,114 +772,6 @@ void ProjectionUtils::mergeClusters(
   cluster_indices = filtered_clusters;
 }
 
-void ProjectionUtils::filterCandidatesByPhysicsConstraints(
-  std::vector<ClusterCandidate> & candidates,
-  double max_distance,
-  int min_points,
-  float min_height,
-  int min_points_default,
-  int min_points_far,
-  int min_points_medium,
-  int min_points_large,
-  double distance_threshold_far,
-  double distance_threshold_medium,
-  float volume_threshold_large,
-  float min_density,
-  float max_density,
-  float max_dimension,
-  float max_aspect_ratio)
-{
-  constexpr float kMinDimensionForAspect = 0.05f;
-  constexpr float kVolumeThresholdDensity = 0.01f;
-
-  std::vector<ClusterCandidate> kept;
-  kept.reserve(candidates.size());
-  for (auto & cand : candidates) {
-    const auto & s = cand.stats;
-
-    float width_x = s.max_x - s.min_x;
-    float width_y = s.max_y - s.min_y;
-    float height = s.max_z - s.min_z;
-    float volume = width_x * width_y * height;
-
-    double distance =
-      std::sqrt(s.centroid.x() * s.centroid.x() + s.centroid.y() * s.centroid.y() + s.centroid.z() * s.centroid.z());
-
-    if (s.num_points < min_points || height < min_height) continue;
-
-    int min_points_threshold = min_points_default;
-    if (distance > distance_threshold_far) {
-      min_points_threshold = min_points_far;
-    } else if (distance > distance_threshold_medium) {
-      min_points_threshold = min_points_medium;
-    } else if (volume > volume_threshold_large) {
-      min_points_threshold = min_points_large;
-    }
-    if (s.num_points < min_points_threshold) continue;
-
-    if (volume > kVolumeThresholdDensity) {
-      float density = s.num_points / volume;
-      if (density < min_density || density > max_density) continue;
-    }
-
-    float max_dim = std::max({width_x, width_y, height});
-    if (max_dim > max_dimension) continue;
-
-    float min_dim = std::min({width_x, width_y, height});
-    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > max_aspect_ratio) continue;
-
-    if (distance > max_distance) continue;
-
-    kept.push_back(std::move(cand));
-  }
-  candidates = std::move(kept);
-}
-
-struct ClassConstraints
-{
-  float max_dimension;
-  float min_height;
-  float max_aspect_ratio;
-};
-
-static ClassConstraints getClassConstraints(
-  const std::string & class_id,
-  float default_max_dimension,
-  float default_min_height,
-  float default_max_aspect_ratio)
-{
-  if (class_id == "person") {
-    return {0.7f, 0.2f, 8.0f};  // Pedestrian: ~0.5 m typical, allow some margin
-  }
-  if (class_id == "car") {
-    return {5.0f, 0.3f, 10.0f};
-  }
-  if (class_id == "truck" || class_id == "bus") {
-    return {12.0f, 0.5f, 12.0f};
-  }
-  if (class_id == "bicycle" || class_id == "bike") {
-    return {2.2f, 0.2f, 10.0f};
-  }
-  if (class_id == "motorcycle") {
-    return {2.5f, 0.25f, 10.0f};
-  }
-  return {default_max_dimension, default_min_height, default_max_aspect_ratio};
-}
-
-static std::string getClassIdFromMatch(
-  const ProjectionUtils::ClusterDetectionMatch & match,
-  const vision_msgs::msg::Detection2DArray & detections)
-{
-  if (match.det_idx < 0 || static_cast<size_t>(match.det_idx) >= detections.detections.size()) {
-    return "";
-  }
-  const auto & d = detections.detections[static_cast<size_t>(match.det_idx)];
-  if (d.results.empty()) {
-    return "";
-  }
-  return d.results[0].hypothesis.class_id;
-}
-
 void ProjectionUtils::filterCandidatesByClassAwareConstraints(
   std::vector<ClusterCandidate> & candidates,
   const vision_msgs::msg::Detection2DArray & detections,
@@ -901,16 +793,12 @@ void ProjectionUtils::filterCandidatesByClassAwareConstraints(
   constexpr float kMinDimensionForAspect = 0.05f;
   constexpr float kVolumeThresholdDensity = 0.01f;
 
+  (void)detections;  // No longer used; all candidates use default constraints
+
   std::vector<ClusterCandidate> kept;
   kept.reserve(candidates.size());
   for (auto & cand : candidates) {
     const auto & s = cand.stats;
-    std::string class_id;
-    if (cand.match.has_value()) {
-      class_id = getClassIdFromMatch(cand.match.value(), detections);
-    }
-    const ClassConstraints cc =
-      getClassConstraints(class_id, default_max_dimension, min_height, default_max_aspect_ratio);
 
     float width_x = s.max_x - s.min_x;
     float width_y = s.max_y - s.min_y;
@@ -919,7 +807,7 @@ void ProjectionUtils::filterCandidatesByClassAwareConstraints(
     double distance =
       std::sqrt(s.centroid.x() * s.centroid.x() + s.centroid.y() * s.centroid.y() + s.centroid.z() * s.centroid.z());
 
-    if (s.num_points < min_points || height < cc.min_height) continue;
+    if (s.num_points < min_points || height < min_height) continue;
 
     int min_points_threshold = min_points_default;
     if (distance > distance_threshold_far) {
@@ -937,9 +825,9 @@ void ProjectionUtils::filterCandidatesByClassAwareConstraints(
     }
 
     float max_dim = std::max({width_x, width_y, height});
-    if (max_dim > cc.max_dimension) continue;
+    if (max_dim > default_max_dimension) continue;
     float min_dim = std::min({width_x, width_y, height});
-    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > cc.max_aspect_ratio) continue;
+    if (min_dim > kMinDimensionForAspect && max_dim / min_dim > default_max_aspect_ratio) continue;
 
     if (distance > max_distance) continue;
 

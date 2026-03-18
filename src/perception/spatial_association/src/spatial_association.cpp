@@ -591,22 +591,13 @@ void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiD
     const rclcpp::Time cloud_stamp(lidar_header.stamp, get_clock()->get_clock_type());
     if (cloud_stamp != cached_candidates_stamp_ || cached_candidates_.empty()) {
       cached_candidates_ = ProjectionUtils::buildCandidates(cloud, indices);
-      const auto & q = core_->getParams();
-      ProjectionUtils::filterCandidatesByPhysicsConstraints(
-        cached_candidates_,
-        q.max_distance, q.min_points, q.min_height,
-        q.min_points_default, q.min_points_far, q.min_points_medium, q.min_points_large,
-        q.distance_threshold_far, q.distance_threshold_medium, q.volume_threshold_large,
-        q.min_density, q.max_density, q.max_dimension, q.max_aspect_ratio);
       cached_candidates_stamp_ = cloud_stamp;
     }
     cached_candidates = cached_candidates_;
   }
 
   if (cached_candidates.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 5000,
-      "All %zu cluster(s) removed by physics filter — check quality_filter_params", indices.size());
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No cluster candidates available");
     return;
   }
 

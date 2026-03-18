@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `spatial_association` node is a ROS2 perception node that performs 3D object detection by combining LiDAR point cloud data with 2D camera detections. It clusters LiDAR points, filters them using physics-based constraints, and associates them with camera detections using IoU (Intersection over Union) matching.
+The `spatial_association` node is a ROS2 perception node that performs 3D object detection by combining LiDAR point cloud data with 2D camera detections. It clusters LiDAR points, associates them with camera detections using IoU (Intersection over Union) matching, and applies quality filtering before outputting 3D boxes.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ The node is structured in three main layers:
 ### 3. Utility Layer (`ProjectionUtils`)
 - **File**: `utils/src/projection_utils.cpp`, `utils/include/utils/projection_utils.hpp`
 - Point cloud clustering algorithms
-- **Improved cluster filtering system** (physics-based constraints)
+- Cluster quality filtering (configurable via `quality_filter_params`)
 - 3D bounding box computation
 - LiDAR-to-camera projection
 - IoU computation for detection matching
@@ -57,11 +57,6 @@ The node is structured in three main layers:
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐
-│ Physics Filter  │
-└────────┬────────┘
-         │
-         ▼
 ┌─────────────────┐     ┌─────────────────┐
 │ Camera          │     │ IoU Matching    │
 │ Detections      │────▶│ & Filtering     │
@@ -83,20 +78,18 @@ The node is structured in three main layers:
 
 ### Key Components
 
-#### 1. Physics-Based Filtering
+#### 1. Class-Aware Filtering
 
-**`filterCandidatesByPhysicsConstraints()`** operates on `ClusterCandidate`s in the node (not in core). It applies single-pass filtering with distance-adaptive thresholds:
-- Minimum viable object (min points, min height)
-- Distance-adaptive point thresholds (far/medium/close/large)
-- Density check (points per m³)
-- Geometric plausibility (max dimension, aspect ratio)
-- Distance cutoff
+**`filterCandidatesByClassAwareConstraints()`** runs after IoU matching and applies size/quality constraints (same defaults for all candidates). Constraint values are configured via `quality_filter_params` in `params.yaml`.
 
-All constraint values are configured via `quality_filter_params` in `params.yaml`.
+#### 2. Multi-camera behavior
 
-#### 2. Class-Aware Filtering
+The node subscribes to **`deep_msgs::msg::MultiDetection2DArray`** (from deep_ros `deep_object_detection`), which contains one `Detection2DArray` per camera, each with its own `header.frame_id` and `detections[]`.
 
-**`filterCandidatesByClassAwareConstraints()`** runs after IoU matching and applies class-specific size/quality constraints based on the matched detection class.
+- **Per-camera processing**: For each camera in `camera_detections`, the node uses the **same** lidar cloud and a **copy** of the same cached cluster candidates. It runs the full pipeline (IoU assignment, class-aware filter, 3D box computation) independently for that camera.
+- **Concatenation**: All 3D detections from all cameras are appended into a single `Detection3DArray` (`merged_detections3d`) and published on `/detection_3d`. Bounding box markers are namespaced by camera via `marker.ns = frame_id`.
+- **No cross-camera deduplication**: If multiple cameras see the same physical object, the same lidar cluster can be assigned to a 2D detection in each camera. The result is **multiple 3D detections** for the same object (one per camera). There is no 3D NMS or merge step. Downstream (e.g. tracking) may perform its own merge or NMS if a single detection per object is required.
+- **Frame and sync requirements**: Each camera’s `header.frame_id` must match an entry in `MultiCameraInfo`; detection–cloud stamp delta can be checked via `max_detection_cloud_stamp_delta_` (cameras exceeding it are skipped).
 
 ## Key Functions
 
@@ -104,12 +97,11 @@ All constraint values are configured via `quality_filter_params` in `params.yaml
 
 The pipeline uses a single container type **`ClusterCandidate`** (indices + stats + optional match) so alignment cannot go stale:
 
-1. **Cluster** – `SpatialAssociationCore::performClustering()`: Euclidean clustering, then merge (no physics in core).
+1. **Cluster** – `SpatialAssociationCore::performClustering()`: Euclidean clustering, then merge.
 2. **Build candidates** – `ProjectionUtils::buildCandidates(cloud, cluster_indices)`: one struct per cluster with indices and stats.
-3. **Physics filter** – `ProjectionUtils::filterCandidatesByPhysicsConstraints(candidates, ...)`: distance/points/height/density/etc.
-4. **IoU match** – `ProjectionUtils::assignCandidatesToDetectionsByIOU(cloud, candidates, ...)`: fills `candidate.match`, removes unmatched.
-5. **Class-aware filter** – `ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections, ...)`: class-specific size/quality.
-6. **Box fitting** – boxes from `extractIndices(candidates)`, then `compute3DDetection(boxes, candidates, ...)` for class/score from `candidate.match`.
+3. **IoU match** – `ProjectionUtils::assignCandidatesToDetectionsByIOU(cloud, candidates, ...)`: fills `candidate.match`, removes unmatched.
+4. **Class-aware filter** – `ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections, ...)`: size/quality constraints from `quality_filter_params`.
+5. **Box fitting** – boxes from `extractIndices(candidates)`, then `compute3DDetection(boxes, candidates, ...)` for class/score from `candidate.match`.
 
 #### `SpatialAssociationCore::performClustering()`
 
@@ -160,8 +152,8 @@ euclid_params:
   close_tolerance_mult: 1.25    # Multiplier for close objects (1.25x = 0.50m)
 ```
 
-#### Physics-Based Filtering Parameters
-The `filterCandidatesByPhysicsConstraints()` function uses physics-based constraints configured through `quality_filter_params` in `params.yaml`.
+#### Quality Filter Parameters
+The `filterCandidatesByClassAwareConstraints()` function uses constraints configured through `quality_filter_params` in `params.yaml` (distance, points, height, density, max dimension, aspect ratio).
 
 #### Other Parameters
 
@@ -182,7 +174,7 @@ debug_logging: false                     # Enable verbose logging
 - `multi_camera_info` (remapped to e.g. `/multi_camera_sync/multi_camera_info`): **Single batched** camera calibration from the deep_ros camera_sync node. The node does not subscribe to individual per-camera `camera_info` topics.
 - `multi_image` (remapped to `/multi_camera_sync/multi_image_compressed`): Batched **compressed** images from camera_sync, for image-based visualizations. Subscribed only when `publish_image_visualization: true`.
 - `non_ground_cloud`: Non-ground filtered point cloud (from patchwork++)
-- `detections`: Per-camera 2D detections from deep_object_detection
+- `detections` (`deep_msgs::msg::MultiDetection2DArray`): Per-camera 2D detections from deep_object_detection; see **Multi-camera behavior** above.
 
 #### Camera name / frame_id (deep_ros compatibility)
 - The same **camera name** (frame_id) must be used in three places so the node can associate detections with camera info and TF:
@@ -337,9 +329,9 @@ euclid_params:
 Test individual components:
 
 ```cpp
-// Test filtering
+// Test filtering (class-aware filter uses quality_filter_params from node/core)
 std::vector<ProjectionUtils::ClusterCandidate> candidates = ...;
-ProjectionUtils::filterCandidatesByPhysicsConstraints(candidates, 60.0, /* ... other params ... */);
+ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections, /* ... params ... */);
 ```
 
 ### Integration Testing

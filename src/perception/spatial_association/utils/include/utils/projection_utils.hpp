@@ -218,26 +218,6 @@ public:
     double mergeTolerance);
 
   /**
-   * @brief Physics filter on candidates (uses candidate.stats; removes failed in place).
-   */
-  static void filterCandidatesByPhysicsConstraints(
-    std::vector<ClusterCandidate> & candidates,
-    double max_distance,
-    int min_points,
-    float min_height,
-    int min_points_default,
-    int min_points_far,
-    int min_points_medium,
-    int min_points_large,
-    double distance_threshold_far,
-    double distance_threshold_medium,
-    float volume_threshold_large,
-    float min_density,
-    float max_density,
-    float max_dimension,
-    float max_aspect_ratio);
-
-  /**
    * @brief Class-aware filter on candidates (uses candidate.stats and candidate.match; removes failed in place).
    */
   static void filterCandidatesByClassAwareConstraints(
