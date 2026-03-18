@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -28,11 +30,12 @@ namespace behaviour
  * @class IsOvertakeStateCondition
  * @brief ConditionNode to compare the current overtake stage against an expected stage.
  */
-class IsOvertakeStateCondition : public BT::ConditionNode
+class IsOvertakeStateCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsOvertakeStateCondition(const std::string & name, const BT::NodeConfig & config)
+  IsOvertakeStateCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -46,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsOvertakeStage]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto expected = ports::tryGet<types::OvertakeStage>(*this, "expected");
@@ -55,8 +58,8 @@ public:
     }
 
     const auto stage = ports::tryGet<types::OvertakeStage>(*this, "stage").value_or(types::OvertakeStage::IDLE);
-    std::cout << "[IsOvertakeStage]: current=" << types::toString(stage)
-              << ", expected=" << types::toString(*expected) << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "current=" << types::toString(stage)
+              << ", expected=" << types::toString(*expected) );
     return stage == *expected ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

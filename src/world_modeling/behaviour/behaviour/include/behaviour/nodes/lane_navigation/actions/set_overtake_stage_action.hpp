@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -28,11 +30,12 @@ namespace behaviour
  * @class SetOvertakeStageAction
  * @brief SyncActionNode that writes the current overtake stage to the blackboard.
  */
-class SetOvertakeStageAction : public BT::SyncActionNode
+class SetOvertakeStageAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  SetOvertakeStageAction(const std::string & name, const BT::NodeConfig & config)
+  SetOvertakeStageAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -46,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[SetOvertakeStage]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto stage = ports::tryGet<types::OvertakeStage>(*this, "value");
@@ -55,7 +58,7 @@ public:
     }
 
     setOutput("stage", *stage);
-    std::cout << "[SetOvertakeStage]: stage=" << types::toString(*stage) << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "stage=" << types::toString(*stage) );
     return BT::NodeStatus::SUCCESS;
   }
 };

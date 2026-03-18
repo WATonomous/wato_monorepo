@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -52,11 +54,12 @@ namespace behaviour
    * - Regulatory element subtype strings match expected classifier values.
    * - Priority order is fixed to traffic light, then stop sign, then yield.
  */
-class GetIntersectionContextAction : public BT::SyncActionNode
+class GetIntersectionContextAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetIntersectionContextAction(const std::string & name, const BT::NodeConfig & config)
+  GetIntersectionContextAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -76,7 +79,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetIntersectionContext] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -104,8 +107,8 @@ public:
 
       if (active_lanelet_id && is_latch_stale(*active_lanelet_id, *lane_ctx)) {
         // ego has left the intersection zone and the active lanelet is no longer ahead
-        std::cout << "[GetIntersectionContext] Stale latch on lanelet " << *active_lanelet_id
-                  << ", clearing" << std::endl;
+        RCLCPP_DEBUG_STREAM(logger(), "Stale latch on lanelet " << *active_lanelet_id
+                  << ", clearing" );
         clear_active_outputs();
         // fall through to rescan for a new element below
       } else {
@@ -121,8 +124,8 @@ public:
 
     for (const auto & lanelet : *search_lanelets) {
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
-        std::cout << "[GetIntersectionContext] Latched lanelet=" << lanelet.id
-                  << " subtype=" << elem->subtype << std::endl;
+        RCLCPP_DEBUG_STREAM(logger(), "Latched lanelet=" << lanelet.id
+                  << " subtype=" << elem->subtype );
         setOutput("out_active_traffic_control_lanelet_id", lanelet.id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
@@ -130,8 +133,8 @@ public:
       }
     }
 
-    std::cout << "[GetIntersectionContext] No control element found"
-              << " (search_count=" << search_lanelets->size() << ")" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "No control element found"
+              << " (search_count=" << search_lanelets->size() << ")" );
     return BT::NodeStatus::SUCCESS;
   }
 

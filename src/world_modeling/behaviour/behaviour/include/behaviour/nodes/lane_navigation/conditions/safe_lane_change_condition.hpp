@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -41,11 +43,12 @@ namespace behaviour
    * - Occupancy area names match world-model configuration.
    * - Area occupancy response is recent enough for lane-change gating.
    */
-class SafeLaneChangeCondition : public BT::ConditionNode
+class SafeLaneChangeCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  SafeLaneChangeCondition(const std::string & name, const BT::NodeConfig & config)
+  SafeLaneChangeCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -63,7 +66,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[SafeLaneChange]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
@@ -86,7 +89,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
     if (transition == types::LaneTransition::SUCCESSOR) {
-      std::cout << "[SafeLaneChange]: Transition is SUCCESSOR (no lane change)" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Transition is SUCCESSOR (no lane change)" );
       return BT::NodeStatus::FAILURE;
     }
 
@@ -95,20 +98,20 @@ public:
       (transition == types::LaneTransition::LEFT) ? *left_areas : *right_areas;
 
     if (configured_areas.empty()) {
-      std::cout << "[SafeLaneChange]: No configured occupancy areas for transition " << types::toString(*transition)
-                << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "No configured occupancy areas for transition " << types::toString(*transition)
+                );
       return BT::NodeStatus::FAILURE;
     }
 
     for (const auto & area_name : configured_areas) {
       if (area_occupancy_utils::isAreaOccupied(*area_infos, area_name)) {
-        std::cout << "[SafeLaneChange]: Not safe (occupied area=" << area_name
-                  << ", transition=" << types::toString(*transition) << ")" << std::endl;
+        RCLCPP_DEBUG_STREAM(logger(), "Not safe (occupied area=" << area_name
+                  << ", transition=" << types::toString(*transition) << ")" );
         return BT::NodeStatus::FAILURE;
       }
     }
 
-    std::cout << "[SafeLaneChange]: Safe (areas clear, transition=" << types::toString(*transition) << ")" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Safe (areas clear, transition=" << types::toString(*transition) << ")" );
     return BT::NodeStatus::SUCCESS;
   }
 };

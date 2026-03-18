@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -45,11 +47,12 @@ namespace behaviour
    * - If there are no more cars in the yield lanelets, then it's safe to proceed, car might still pose a risk in we do allow the car to go
    * - World object lanelet association is up to date and reliable.
    */
-class YieldSignCanProceedCondition : public BT::ConditionNode
+class YieldSignCanProceedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  YieldSignCanProceedCondition(const std::string & name, const BT::NodeConfig & config)
+  YieldSignCanProceedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -64,7 +67,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[YieldSignCanProceed]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
@@ -83,19 +86,19 @@ public:
     }
 
     if (elem->yield_lanelet_ids.empty()) {
-      std::cout << "[YieldSignCanProceed]: yield_lanelet_ids empty (fail-safe)" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "yield_lanelet_ids empty (fail-safe)" );
       return BT::NodeStatus::FAILURE;
     }
 
     for (const auto lanelet_id : elem->yield_lanelet_ids) {
       const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
       if (!cars.empty()) {
-        std::cout << "[YieldSignCanProceed]: Blocked (car in yield lanelet " << lanelet_id << ")" << std::endl;
+        RCLCPP_DEBUG_STREAM(logger(), "Blocked (car in yield lanelet " << lanelet_id << ")" );
         return BT::NodeStatus::FAILURE;
       }
     }
 
-    std::cout << "[YieldSignCanProceed]: Clear (no cars in yield lanelets)" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Clear (no cars in yield lanelets)" );
     return BT::NodeStatus::SUCCESS;
   }
 };

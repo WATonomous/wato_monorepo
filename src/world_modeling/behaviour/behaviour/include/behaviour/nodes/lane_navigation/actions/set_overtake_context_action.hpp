@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -29,11 +31,12 @@ namespace behaviour
  * @class SetOvertakeContextAction
  * @brief Derives diverge/merge transitions and behaviours from the chosen diverge direction.
  */
-class SetOvertakeContextAction : public BT::SyncActionNode
+class SetOvertakeContextAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  SetOvertakeContextAction(const std::string & name, const BT::NodeConfig & config)
+  SetOvertakeContextAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -50,7 +53,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[SetOvertakeContext]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto diverge_transition = ports::tryGet<types::LaneTransition>(*this, "in_diverge_lane_transition");
@@ -75,8 +78,8 @@ public:
         break;
       case types::LaneTransition::SUCCESSOR:
       default:
-        std::cout << "[SetOvertakeContext]: Invalid diverge transition "
-                  << types::toString(*diverge_transition) << std::endl;
+        RCLCPP_DEBUG_STREAM(logger(), "Invalid diverge transition "
+                  << types::toString(*diverge_transition) );
         return BT::NodeStatus::FAILURE;
     }
 
@@ -85,8 +88,8 @@ public:
     setOutput("out_behaviour_diverge", diverge_behaviour);
     setOutput("out_behaviour_merge", merge_behaviour);
 
-    std::cout << "[SetOvertakeContext]: diverge=" << types::toString(*diverge_transition)
-              << ", merge=" << types::toString(merge_transition) << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "diverge=" << types::toString(*diverge_transition)
+              << ", merge=" << types::toString(merge_transition) );
     return BT::NodeStatus::SUCCESS;
   }
 };

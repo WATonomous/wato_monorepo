@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -35,11 +37,12 @@ namespace behaviour
  * @class ResetRouteContextAction
  * @brief Clears goal and route-related blackboard entries so route/goal guards fail on the next tick.
  */
-class ResetRouteContextAction : public BT::SyncActionNode
+class ResetRouteContextAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  ResetRouteContextAction(const std::string & name, const BT::NodeConfig & config)
+  ResetRouteContextAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -66,7 +69,7 @@ public:
     setOutput("out_global_route_index_map", null_route_index_map);
     setOutput("out_global_route_lanelet_ids", std::vector<int64_t>{});
 
-    std::cout << "[ResetRouteContext]: Cleared goal point, goal lanelet, and global route context" << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Cleared goal point, goal lanelet, and global route context" );
     return BT::NodeStatus::SUCCESS;
   }
 };

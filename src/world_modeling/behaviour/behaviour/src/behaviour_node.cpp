@@ -99,6 +99,8 @@ void BehaviourNode::init()
   // xml specific values configured via parameters
   tree_->updateBlackboard("world_objects_hypothesis_index", world_objects_hypothesis_index);
   tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
+  // initialize overtake stage to be IDLE
+  tree_->updateBlackboard("overtake.stage", types::OvertakeStage::IDLE);
   tree_->updateBlackboard("bt.left_lane_change_areas", left_lane_change_areas);
   tree_->updateBlackboard("bt.right_lane_change_areas", right_lane_change_areas);
   tree_->updateBlackboard("bt.intersection_wall_of_doom_width", stop_line_wall_width);

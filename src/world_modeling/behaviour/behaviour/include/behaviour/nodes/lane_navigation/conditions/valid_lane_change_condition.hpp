@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <iostream>
 #include <string>
 
@@ -40,11 +42,12 @@ namespace behaviour
    * - Valid lane change does not mean its a safe lane change.
    * - Intersection constraint is a hard stop for lane-change validity.
    */
-class ValidLaneChangeCondition : public BT::ConditionNode
+class ValidLaneChangeCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  ValidLaneChangeCondition(const std::string & name, const BT::NodeConfig & config)
+  ValidLaneChangeCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -58,7 +61,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[ValidLaneChange]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto lane_transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
@@ -69,7 +72,7 @@ public:
     // Check if in intersection
     lanelet_msgs::msg::Lanelet current_lanelet = lane_ctx->current_lanelet;
     if (current_lanelet.is_intersection) {
-      std::cout << "[ValidLaneChange]: Not valid, currently in intersection" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Not valid, currently in intersection" );
       return BT::NodeStatus::FAILURE;
     }
 
@@ -80,23 +83,23 @@ public:
       // handles left lane change
       case types::LaneTransition::LEFT:
         if (can_change_left) {
-          std::cout << "[ValidLaneChange]: Valid left lane change" << std::endl;
+          RCLCPP_DEBUG_STREAM(logger(), "Valid left lane change" );
           return BT::NodeStatus::SUCCESS;
         } else {
-          std::cout << "[ValidLaneChange]: Not valid, cannot change left" << std::endl;
+          RCLCPP_DEBUG_STREAM(logger(), "Not valid, cannot change left" );
           return BT::NodeStatus::FAILURE;
         }
       // handles right lane change
       case types::LaneTransition::RIGHT:
         if (can_change_right) {
-          std::cout << "[ValidLaneChange]: Valid right lane change" << std::endl;
+          RCLCPP_DEBUG_STREAM(logger(), "Valid right lane change" );
           return BT::NodeStatus::SUCCESS;
         } else {
-          std::cout << "[ValidLaneChange]: Not valid, cannot change right" << std::endl;
+          RCLCPP_DEBUG_STREAM(logger(), "Not valid, cannot change right" );
           return BT::NodeStatus::FAILURE;
         }
       default:
-        std::cout << "[ValidLaneChange]: Invalid transition type" << std::endl;
+        RCLCPP_DEBUG_STREAM(logger(), "Invalid transition type" );
         return BT::NodeStatus::FAILURE;
     }
   }

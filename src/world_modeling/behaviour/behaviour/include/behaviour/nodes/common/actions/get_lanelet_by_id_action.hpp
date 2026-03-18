@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -34,11 +36,12 @@ namespace behaviour
  * @class GetLaneletByIdAction
  * @brief Resolves a lanelet from the lanelets-ahead cache by ID.
  */
-class GetLaneletByIdAction : public BT::SyncActionNode
+class GetLaneletByIdAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetLaneletByIdAction(const std::string & name, const BT::NodeConfig & config)
+  GetLaneletByIdAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -54,7 +57,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetLaneletById]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto lanelet_id = ports::tryGet<int64_t>(*this, "lanelet_id");
@@ -79,7 +82,7 @@ public:
 
     const auto target_it = index_map->find(*lanelet_id);
     if (target_it == index_map->end() || target_it->second >= lanelets_ahead->lanelets.size()) {
-      std::cout << "[GetLaneletById]: Lanelet " << *lanelet_id << " not found in lanelets_ahead cache" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Lanelet " << *lanelet_id << " not found in lanelets_ahead cache" );
       return BT::NodeStatus::FAILURE;
     }
 

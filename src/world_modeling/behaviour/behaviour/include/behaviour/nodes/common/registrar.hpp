@@ -19,6 +19,8 @@
 
 #include <behaviortree_ros2/ros_node_params.hpp>
 
+#include <stdexcept>
+
 #include "behaviour/nodes/node_registrar_base.hpp"
 
 // actions
@@ -46,6 +48,7 @@
 #include "behaviour/nodes/common/conditions/is_area_occupied_condition.hpp"
 #include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
 #include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
+#include "behaviour/nodes/common/conditions/world_objects_contains_condition.hpp"
 
 // decorators
 #include "behaviour/nodes/common/decorators/rate_controller.hpp"
@@ -67,6 +70,7 @@ public:
     if (!node) {
       throw std::runtime_error("ROS node expired in CommonNodeRegistrar");
     }
+    auto logger = node->get_logger();
     int get_shortest_route_timeout = node->get_parameter("get_shortest_route_timeout_ms").as_int();
     int set_route_timeout = node->get_parameter("set_route_timeout_ms").as_int();
     int get_area_occupancy_timeout = node->get_parameter("get_area_occupancy_timeout_ms").as_int();
@@ -90,8 +94,9 @@ public:
       "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
-    factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById");
-    factory.registerNodeType<behaviour::GetLaneletByRelationAction>("GetLaneletByRelation");
+    factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById", logger.get_child("GetLaneletById"));
+    factory.registerNodeType<behaviour::GetLaneletByRelationAction>(
+      "GetLaneletByRelation", logger.get_child("GetLaneletByRelation"));
 
     factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", params);
     factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", params);
@@ -99,16 +104,20 @@ public:
     factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
 
     // conditions
-    factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage");
-    factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist");
-    factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached");
-    factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist");
-    factory.registerNodeType<behaviour::GoalLaneletExistCondition>("GoalLaneletExist");
-    factory.registerNodeType<behaviour::GlobalRouteExistCondition>("GlobalRouteExist");
-    factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute");
-    factory.registerNodeType<behaviour::EgoOnLaneletCondition>("IsEgoOnLanelet");
-    factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped");
-    factory.registerNodeType<behaviour::IsAreaOccupiedCondition>("IsAreaOccupied");
+    factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage", logger.get_child("IsErrorMessage"));
+    factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist", logger.get_child("WallIdExist"));
+    factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached", logger.get_child("GoalReached"));
+    factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist", logger.get_child("GoalExist"));
+    factory.registerNodeType<behaviour::GoalLaneletExistCondition>(
+      "GoalLaneletExist", logger.get_child("GoalLaneletExist"));
+    factory.registerNodeType<behaviour::GlobalRouteExistCondition>(
+      "GlobalRouteExist", logger.get_child("GlobalRouteExist"));
+    factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute", logger.get_child("EgoOnRoute"));
+    factory.registerNodeType<behaviour::EgoOnLaneletCondition>("IsEgoOnLanelet", logger.get_child("IsEgoOnLanelet"));
+    factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped", logger.get_child("EgoStopped"));
+    factory.registerNodeType<behaviour::IsAreaOccupiedCondition>("IsAreaOccupied", logger.get_child("IsAreaOccupied"));
+    factory.registerNodeType<behaviour::WorldObjectsContainsCondition>(
+      "WorldObjectsContains", logger.get_child("WorldObjectsContains"));
 
     // decorators
     factory.registerNodeType<behaviour::RateController>("RateController");

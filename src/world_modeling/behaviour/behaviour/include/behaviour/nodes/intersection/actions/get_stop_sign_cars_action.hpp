@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -38,11 +40,12 @@ namespace behaviour
    * @class GetStopSignCarsAction
    * @brief SyncActionNode to collect stop-sign queued car IDs.
    */
-class GetStopSignCarsAction : public BT::SyncActionNode
+class GetStopSignCarsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config)
+  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -60,7 +63,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
     };
 
     auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");

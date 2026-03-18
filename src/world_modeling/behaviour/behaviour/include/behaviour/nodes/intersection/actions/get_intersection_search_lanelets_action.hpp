@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -49,11 +51,12 @@ namespace behaviour
  *   1. Route-ahead (if active): lanelets from the planned route, distance-gated.
  *   2. Lanelets-ahead (fallback): BFS forward via successor links, sorted by distance.
  */
-class GetIntersectionSearchLaneletsAction : public BT::SyncActionNode
+class GetIntersectionSearchLaneletsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetIntersectionSearchLaneletsAction(const std::string & name, const BT::NodeConfig & config)
+  GetIntersectionSearchLaneletsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -72,8 +75,8 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const auto missing = [](const char * port) {
-      std::cout << "[GetIntersectionSearchLanelets] Missing " << port << std::endl;
+    const auto missing = [this](const char * port) {
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port );
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -179,9 +182,9 @@ public:
     setOutput("search_lanelets", search_lanelets);
     setOutput("search_lanelet_index_map", index_map);
 
-    std::cout << "[GetIntersectionSearchLanelets] source="
+    RCLCPP_DEBUG_STREAM(logger(), "source="
               << (used_route ? "route" : "lanelets_ahead")
-              << " count=" << search_lanelets.size() << std::endl;
+              << " count=" << search_lanelets.size() );
 
     return BT::NodeStatus::SUCCESS;
   }

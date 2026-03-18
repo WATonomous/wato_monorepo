@@ -19,6 +19,8 @@
 
 #include <behaviortree_ros2/ros_node_params.hpp>
 
+#include <stdexcept>
+
 #include "behaviour/nodes/node_registrar_base.hpp"
 #include "behaviour/utils/types.hpp"
 
@@ -32,6 +34,7 @@
 #include "behaviour/nodes/lane_navigation/actions/set_overtake_stage_action.hpp"
 
 // conditions
+#include "behaviour/nodes/lane_navigation/conditions/overtake_valid_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_lane_transition_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_overtake_state_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/safe_lane_change_condition.hpp"
@@ -42,24 +45,39 @@ class LaneNavigationNodeRegistrar : public NodeRegistrarBase
 public:
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {
+    auto node = params.nh.lock();
+    if (!node) {
+      throw std::runtime_error("ROS node expired in LaneNavigationNodeRegistrar");
+    }
+    auto logger = node->get_logger();
+
     // enums
     factory.registerScriptingEnums<behaviour::types::LaneTransition>();
     factory.registerScriptingEnums<behaviour::types::OvertakeStage>();
 
     // actions
-    factory.registerNodeType<behaviour::GetRouteContextAction>("GetRouteContext");
-    factory.registerNodeType<behaviour::GetFollowLanePreferredLaneletsAction>("GetFollowLanePreferredLanelets");
-    factory.registerNodeType<behaviour::GetFollowRoutePreferredLaneletsAction>("GetFollowRoutePreferredLanelets");
-    factory.registerNodeType<behaviour::GetLaneChangePreferredLaneletsAction>("GetLaneChangePreferredLanelets");
-    factory.registerNodeType<behaviour::ResetRouteContextAction>("ResetRouteContext");
-    factory.registerNodeType<behaviour::SetOvertakeContextAction>("SetOvertakeContext");
-    factory.registerNodeType<behaviour::SetOvertakeStageAction>("SetOvertakeStage");
+    factory.registerNodeType<behaviour::GetRouteContextAction>("GetRouteContext", logger.get_child("GetRouteContext"));
+    factory.registerNodeType<behaviour::GetFollowLanePreferredLaneletsAction>(
+      "GetFollowLanePreferredLanelets", logger.get_child("GetFollowLanePreferredLanelets"));
+    factory.registerNodeType<behaviour::GetFollowRoutePreferredLaneletsAction>(
+      "GetFollowRoutePreferredLanelets", logger.get_child("GetFollowRoutePreferredLanelets"));
+    factory.registerNodeType<behaviour::GetLaneChangePreferredLaneletsAction>(
+      "GetLaneChangePreferredLanelets", logger.get_child("GetLaneChangePreferredLanelets"));
+    factory.registerNodeType<behaviour::ResetRouteContextAction>(
+      "ResetRouteContext", logger.get_child("ResetRouteContext"));
+    factory.registerNodeType<behaviour::SetOvertakeContextAction>(
+      "SetOvertakeContext", logger.get_child("SetOvertakeContext"));
+    factory.registerNodeType<behaviour::SetOvertakeStageAction>(
+      "SetOvertakeStage", logger.get_child("SetOvertakeStage"));
 
     // conditions
-    factory.registerNodeType<behaviour::IsLaneTransitionCondition>("IsLaneTransition");
-    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage");
-    factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange");
-    factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange");
+    factory.registerNodeType<behaviour::IsLaneTransitionCondition>(
+      "IsLaneTransition", logger.get_child("IsLaneTransition"));
+    factory.registerNodeType<behaviour::OvertakeValidCondition>(
+      "OvertakeValid", logger.get_child("OvertakeValid"));
+    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage", logger.get_child("IsOvertakeStage"));
+    factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange", logger.get_child("ValidLaneChange"));
+    factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange", logger.get_child("SafeLaneChange"));
   }
 };
 

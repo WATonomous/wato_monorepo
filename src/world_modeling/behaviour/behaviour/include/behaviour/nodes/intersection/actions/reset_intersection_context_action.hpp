@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include "behaviour/nodes/logged_bt_node.hpp"
+
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -32,11 +34,12 @@ namespace behaviour
  * @brief SyncActionNode that clears the active traffic control element and
  *        resets the wall_id for the matching element type.
  */
-class ResetIntersectionContextAction : public BT::SyncActionNode
+class ResetIntersectionContextAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  ResetIntersectionContextAction(const std::string & name, const BT::NodeConfig & config)
+  ResetIntersectionContextAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -80,10 +83,10 @@ public:
         if (wid) active_wall_id = *wid;
         setOutput("out_yield_wall_id", ports::null_id);
       }
-      std::cout << "[ResetIntersectionContext]: Clearing element (subtype=" << subtype << ", wall_id=" << active_wall_id
-                << ")" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Clearing element (subtype=" << subtype << ", wall_id=" << active_wall_id
+                << ")" );
     } else {
-      std::cout << "[ResetIntersectionContext]: No active element to clear" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "No active element to clear" );
     }
 
     // wall id to despawn

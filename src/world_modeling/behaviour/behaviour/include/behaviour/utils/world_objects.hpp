@@ -25,6 +25,19 @@
 
 namespace behaviour::world_objects
 {
+inline bool containsType(
+  const std::vector<world_model_msgs::msg::WorldObject> & objects, const std::string & object_type)
+{
+  for (const auto & object : objects) {
+    for (const auto & result : object.detection.results) {
+      if (result.hypothesis.class_id == object_type) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 inline bool isVehicle(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
 {
   if (hypothesis_index >= object.detection.results.size()) {
