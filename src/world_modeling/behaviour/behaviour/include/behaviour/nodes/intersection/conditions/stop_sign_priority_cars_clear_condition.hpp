@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__STOP_SIGN_CAN_PROCEED_CONDITION_HPP_
-#define BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__STOP_SIGN_CAN_PROCEED_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__STOP_SIGN_PRIORITY_CARS_CLEAR_CONDITION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__STOP_SIGN_PRIORITY_CARS_CLEAR_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -27,13 +27,13 @@
 namespace behaviour
 {
 /**
- * @class StopSignCanProceedCondition
+ * @class StopSignPriorityCarsClearCondition
  * @brief ConditionNode to check whether stop-sign priority cars have cleared.
  */
-class StopSignCanProceedCondition : public BT::ConditionNode
+class StopSignPriorityCarsClearCondition : public BT::ConditionNode
 {
 public:
-  StopSignCanProceedCondition(const std::string & name, const BT::NodeConfig & config)
+  StopSignPriorityCarsClearCondition(const std::string & name, const BT::NodeConfig & config)
   : BT::ConditionNode(name, config)
   {}
 
@@ -48,7 +48,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[StopSignCanProceed] Missing " << port_name << " input" << std::endl;
+      std::cout << "[StopSignPriorityCarsClear] Missing " << port_name << " input" << std::endl;
     };
 
     auto priority = ports::tryGet<std::vector<std::string>>(*this, "priority_ids");
@@ -69,16 +69,16 @@ public:
 
     for (const auto & id : *priority) {
       if (current_set.find(id) != current_set.end()) {
-        std::cout << "[StopSignCanProceed] Blocked (priority car still present: " << id << ")" << std::endl;
+        std::cout << "[StopSignPriorityCarsClear] Blocked (priority car still present: " << id << ")" << std::endl;
         return BT::NodeStatus::FAILURE;
       }
     }
 
-    std::cout << "[StopSignCanProceed] Clear (no priority cars present)" << std::endl;
+    std::cout << "[StopSignPriorityCarsClear] Clear (no priority cars present)" << std::endl;
     return BT::NodeStatus::SUCCESS;
   }
 };
 
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__STOP_SIGN_CAN_PROCEED_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__STOP_SIGN_PRIORITY_CARS_CLEAR_CONDITION_HPP_

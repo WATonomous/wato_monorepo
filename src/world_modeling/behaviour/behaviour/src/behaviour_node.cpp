@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace behaviour
@@ -95,7 +96,7 @@ void BehaviourNode::init()
   tree_->updateBlackboard("map_frame", map_frame_);
   tree_->updateBlackboard("base_frame", base_frame_);
 
-  // xml specific values
+  // xml specific values configured via parameters
   tree_->updateBlackboard("world_objects_hypothesis_index", world_objects_hypothesis_index);
   tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index);
   tree_->updateBlackboard("bt.left_lane_change_areas", left_lane_change_areas);
@@ -125,7 +126,26 @@ void BehaviourNode::init()
 
   route_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::RouteAhead>(
     "route_ahead", 10, [this](const lanelet_msgs::msg::RouteAhead::SharedPtr msg) {
+      auto route_ahead_index_map = std::make_shared<std::unordered_map<int64_t, std::size_t>>();
+      route_ahead_index_map->reserve(msg->lanelets.size());
+      for (std::size_t i = 0; i < msg->lanelets.size(); ++i) {
+        (*route_ahead_index_map)[msg->lanelets[i].id] = i;
+      }
+
       tree_->updateBlackboard("route_ahead", msg);
+      tree_->updateBlackboard("route_ahead_index_map", route_ahead_index_map);
+    });
+
+  lanelets_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
+    "lanelet_ahead", 10, [this](const lanelet_msgs::msg::LaneletAhead::SharedPtr msg) {
+      auto lanelets_ahead_index_map = std::make_shared<std::unordered_map<int64_t, std::size_t>>();
+      lanelets_ahead_index_map->reserve(msg->lanelets.size());
+      for (std::size_t i = 0; i < msg->lanelets.size(); ++i) {
+        (*lanelets_ahead_index_map)[msg->lanelets[i].id] = i;
+      }
+
+      tree_->updateBlackboard("lanelets_ahead", msg);
+      tree_->updateBlackboard("lanelets_ahead_index_map", lanelets_ahead_index_map);
     });
 
   ego_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
