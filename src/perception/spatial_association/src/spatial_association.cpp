@@ -57,26 +57,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     core_params.euclid_close_tolerance_mult = euclid_close_tolerance_mult_;
     core_params.merge_threshold = merge_threshold_;
 
-    core_params.max_distance = this->get_parameter("quality_filter_params.max_distance").as_double();
-    core_params.min_points = this->get_parameter("quality_filter_params.min_points").as_int();
-    core_params.min_height = static_cast<float>(this->get_parameter("quality_filter_params.min_height").as_double());
-    core_params.min_points_default = this->get_parameter("quality_filter_params.min_points_default").as_int();
-    core_params.min_points_far = this->get_parameter("quality_filter_params.min_points_far").as_int();
-    core_params.min_points_medium = this->get_parameter("quality_filter_params.min_points_medium").as_int();
-    core_params.min_points_large = this->get_parameter("quality_filter_params.min_points_large").as_int();
-    core_params.distance_threshold_far =
-      this->get_parameter("quality_filter_params.distance_threshold_far").as_double();
-    core_params.distance_threshold_medium =
-      this->get_parameter("quality_filter_params.distance_threshold_medium").as_double();
-    core_params.volume_threshold_large =
-      static_cast<float>(this->get_parameter("quality_filter_params.volume_threshold_large").as_double());
-    core_params.min_density = static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
-    core_params.max_density = static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
-    core_params.max_dimension =
-      static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
-    core_params.max_aspect_ratio =
-      static_cast<float>(this->get_parameter("quality_filter_params.max_aspect_ratio").as_double());
-
     core_->setParams(core_params);
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -362,7 +342,7 @@ void SpatialAssociationNode::initializeParams()
 
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
 
-  ProjectionUtils::ProjectionUtilsParams proj_params;
+  projection_utils::ProjectionUtilsParams proj_params;
   proj_params.marker_lifetime_s = this->get_parameter(pu + "marker_lifetime_s").as_double();
   proj_params.marker_alpha = static_cast<float>(this->get_parameter(pu + "marker_alpha").as_double());
   proj_params.min_iou_threshold = this->get_parameter(pu + "min_iou_threshold").as_double();
@@ -385,7 +365,30 @@ void SpatialAssociationNode::initializeParams()
   proj_params.second_pass_min_iou = this->get_parameter(pu + "second_pass_min_iou").as_double();
   proj_params.max_unassigned_detections_second_pass =
     this->get_parameter(pu + "max_unassigned_detections_second_pass").as_int();
-  ProjectionUtils::setParams(proj_params);
+
+  proj_params.quality_max_distance = this->get_parameter("quality_filter_params.max_distance").as_double();
+  proj_params.quality_min_points = this->get_parameter("quality_filter_params.min_points").as_int();
+  proj_params.quality_min_height = static_cast<float>(this->get_parameter("quality_filter_params.min_height").as_double());
+  proj_params.quality_min_points_default = this->get_parameter("quality_filter_params.min_points_default").as_int();
+  proj_params.quality_min_points_far = this->get_parameter("quality_filter_params.min_points_far").as_int();
+  proj_params.quality_min_points_medium = this->get_parameter("quality_filter_params.min_points_medium").as_int();
+  proj_params.quality_min_points_large = this->get_parameter("quality_filter_params.min_points_large").as_int();
+  proj_params.quality_distance_threshold_far =
+    this->get_parameter("quality_filter_params.distance_threshold_far").as_double();
+  proj_params.quality_distance_threshold_medium =
+    this->get_parameter("quality_filter_params.distance_threshold_medium").as_double();
+  proj_params.quality_volume_threshold_large =
+    static_cast<float>(this->get_parameter("quality_filter_params.volume_threshold_large").as_double());
+  proj_params.quality_min_density =
+    static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
+  proj_params.quality_max_density =
+    static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
+  proj_params.quality_max_dimension =
+    static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
+  proj_params.quality_max_aspect_ratio =
+    static_cast<float>(this->get_parameter("quality_filter_params.max_aspect_ratio").as_double());
+
+  projection_utils::setParams(proj_params);
 
   if (debug_logging_) {
     RCLCPP_INFO(this->get_logger(), "Debug logging is ENABLED for spatial_association");
@@ -585,12 +588,12 @@ void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiD
     return;
   }
 
-  std::vector<ProjectionUtils::ClusterCandidate> cached_candidates;
+  std::vector<projection_utils::ClusterCandidate> cached_candidates;
   {
     std::lock_guard<std::mutex> lock(candidates_cache_mutex_);
     const rclcpp::Time cloud_stamp(lidar_header.stamp, get_clock()->get_clock_type());
     if (cloud_stamp != cached_candidates_stamp_ || cached_candidates_.empty()) {
-      cached_candidates_ = ProjectionUtils::buildCandidates(cloud, indices);
+      cached_candidates_ = projection_utils::buildCandidates(cloud, indices);
       cached_candidates_stamp_ = cloud_stamp;
     }
     cached_candidates = cached_candidates_;
@@ -685,7 +688,7 @@ void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiD
       lidar_to_cam_transform_cache_[frame_id] = tf_lidar_to_cam;
     }
 
-    std::vector<ProjectionUtils::ClusterCandidate> candidates = cached_candidates;
+    std::vector<projection_utils::ClusterCandidate> candidates = cached_candidates;
     auto detection_results = processDetections(
       camera_detections, tf_lidar_to_cam, projection_matrix, cloud, candidates, lidar_header,
       cam_width, cam_height);
@@ -743,7 +746,7 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   const geometry_msgs::msg::TransformStamped & transform,
   const std::array<double, 12> & projection_matrix,
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  std::vector<ProjectionUtils::ClusterCandidate> candidates,
+  std::vector<projection_utils::ClusterCandidate> candidates,
   const std_msgs::msg::Header & lidar_header,
   int image_width,
   int image_height)
@@ -768,7 +771,7 @@ DetectionOutputs SpatialAssociationNode::processDetections(
       detection.detections.size());
   }
 
-  ProjectionUtils::assignCandidatesToDetectionsByIOU(
+  projection_utils::assignCandidatesToDetectionsByIOU(
     candidates, detection, transform, projection_matrix, object_detection_confidence_,
     image_width, image_height);
 
@@ -780,34 +783,17 @@ DetectionOutputs SpatialAssociationNode::processDetections(
       candidates.size());
   }
 
-  const auto & q = core_->getParams();
-  ProjectionUtils::filterCandidatesByClassAwareConstraints(
-    candidates,
-    detection,
-    q.max_distance,
-    q.min_points,
-    q.min_height,
-    q.min_points_default,
-    q.min_points_far,
-    q.min_points_medium,
-    q.min_points_large,
-    q.distance_threshold_far,
-    q.distance_threshold_medium,
-    q.volume_threshold_large,
-    q.min_density,
-    q.max_density,
-    q.max_dimension,
-    q.max_aspect_ratio);
+  projection_utils::filterCandidatesByClassAwareConstraints(candidates, detection);
 
-  std::vector<pcl::PointIndices> out_indices = ProjectionUtils::extractIndices(candidates);
+  std::vector<pcl::PointIndices> out_indices = projection_utils::extractIndices(candidates);
   auto boxes = core_->computeClusterBoxes(cloud, out_indices);
 
   if (publish_bounding_box_) {
-    detection_outputs.bboxes = ProjectionUtils::computeBoundingBox(boxes, out_indices, lidar_header);
+    detection_outputs.bboxes = projection_utils::computeBoundingBox(boxes, out_indices, lidar_header);
   }
 
   detection_outputs.detections3d =
-    ProjectionUtils::compute3DDetection(boxes, candidates, lidar_header, detection);
+    projection_utils::compute3DDetection(boxes, candidates, lidar_header, detection);
 
   if (publish_visualization_) {
     detection_outputs.colored_cluster.reset(new pcl::PointCloud<pcl::PointXYZRGB>);

@@ -25,17 +25,18 @@
 
 #include "utils/projection_utils.hpp"
 
-// Core clustering logic without ROS dependencies
+/**
+ * @brief Core LiDAR clustering, pre-processing, and 3D box computation logic.
+ * Used by SpatialAssociationNode for voxel filtering, Euclidean clustering, cluster merging, and 3D box/centroid/color computation.
+ */
 class SpatialAssociationCore
 {
 public:
-  // Configuration structure for clustering parameters
+  /** Configuration for voxel grid, Euclidean clustering, and merge (quality filter lives in ProjectionUtilsParams). */
   struct ClusteringParams
   {
-    // Voxel downsampling
     float voxel_size = 0.2f;
 
-    // Euclidean clustering
     double euclid_cluster_tolerance = 0.5;
     int euclid_min_cluster_size = 50;
     int euclid_max_cluster_size = 700;
@@ -43,24 +44,7 @@ public:
     double euclid_close_threshold = 10.0;
     double euclid_close_tolerance_mult = 1.5;
 
-    // Merging
     double merge_threshold = 0.3;
-
-    // Quality filtering parameters (improved physics-based filtering)
-    double max_distance = 60.0;
-    int min_points = 5;
-    float min_height = 0.15f;
-    int min_points_default = 10;
-    int min_points_far = 8;
-    int min_points_medium = 12;
-    int min_points_large = 30;
-    double distance_threshold_far = 30.0;
-    double distance_threshold_medium = 20.0;
-    float volume_threshold_large = 8.0f;
-    float min_density = 5.0f;
-    float max_density = 1000.0f;
-    float max_dimension = 15.0f;
-    float max_aspect_ratio = 15.0f;
   };
 
   /**
@@ -89,18 +73,21 @@ public:
   }
 
   /**
-   * @brief Processes point cloud by applying voxel downsampling
+   * @brief Applies voxel downsampling to the point cloud.
    * @param input_cloud Input point cloud
    * @param output_cloud Output downsampled point cloud
+   * @note Leaf size may be increased automatically for very large clouds to avoid PCL voxel index overflow.
    */
   void processPointCloud(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & input_cloud, pcl::PointCloud<pcl::PointXYZ>::Ptr & output_cloud);
 
   /**
-   * @brief Performs clustering on the filtered point cloud
-   * @param filtered_cloud Input filtered point cloud (modified in place)
+   * @brief Performs clustering on the filtered point cloud.
+   * @param filtered_cloud Input filtered point cloud
    * @param cluster_indices Output vector of cluster indices
-   * @details Performs Euclidean clustering, density filtering, and cluster merging
+   * @details Uses Euclidean (or adaptive Euclidean) clustering, then mergeClusters with precomputed stats.
+   *          Post-IoU quality filtering runs in the node via
+   *          @c projection_utils::filterCandidatesByClassAwareConstraints (uses @c projection_utils::getParams()).
    */
   void performClustering(
     pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud, std::vector<pcl::PointIndices> & cluster_indices);
@@ -111,7 +98,7 @@ public:
    * @param cluster_indices Vector of cluster indices
    * @return Vector of 3D bounding boxes
    */
-  std::vector<ProjectionUtils::Box3D> computeClusterBoxes(
+  std::vector<projection_utils::Box3D> computeClusterBoxes(
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud,
     const std::vector<pcl::PointIndices> & cluster_indices) const;
 
@@ -139,8 +126,6 @@ public:
 
 private:
   ClusteringParams params_;
-
-  // Working PCL objects for performance optimization
   pcl::VoxelGrid<pcl::PointXYZ> voxel_filter_;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;

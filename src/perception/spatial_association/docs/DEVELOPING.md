@@ -100,7 +100,7 @@ The pipeline uses a single container type **`ClusterCandidate`** (indices + stat
 1. **Cluster** – `SpatialAssociationCore::performClustering()`: Euclidean clustering, then merge.
 2. **Build candidates** – `ProjectionUtils::buildCandidates(cloud, cluster_indices)`: one struct per cluster with indices and stats.
 3. **IoU match** – `ProjectionUtils::assignCandidatesToDetectionsByIOU(cloud, candidates, ...)`: fills `candidate.match`, removes unmatched.
-4. **Class-aware filter** – `ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections, ...)`: size/quality constraints from `quality_filter_params`.
+4. **Class-aware filter** – `ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections)`: reads quality thresholds from `ProjectionUtils::getParams()` (filled from `quality_filter_params` in `initializeParams()` / `setParams`).
 5. **Box fitting** – boxes from `extractIndices(candidates)`, then `compute3DDetection(boxes, candidates, ...)` for class/score from `candidate.match`.
 
 #### `SpatialAssociationCore::performClustering()`
@@ -131,6 +131,8 @@ Greedy one-to-one assignment on `std::vector<ClusterCandidate>`: fills `candidat
 
 #### `ProjectionUtils::computeClusterBoxes()`
 
+Implementation is in `utils/cluster_box_utils.cpp` (`cluster_box` namespace): search-based xy orientation, percentile bounds, optional sigma clipping. `ProjectionUtils::computeClusterStats()` and merge logic call the same module for consistent bounds.
+
 Computes oriented 3D bounding boxes:
 - Uses search-based fitting for orientation
 - Handles tall objects (cuts bottom portion for orientation)
@@ -153,7 +155,7 @@ euclid_params:
 ```
 
 #### Quality Filter Parameters
-The `filterCandidatesByClassAwareConstraints()` function uses constraints configured through `quality_filter_params` in `params.yaml` (distance, points, height, density, max dimension, aspect ratio).
+The `filterCandidatesByClassAwareConstraints()` function uses the `quality_*` fields in `ProjectionUtilsParams`, loaded from `quality_filter_params` in `params.yaml` alongside other `projection_utils_params` in `initializeParams()`.
 
 #### Other Parameters
 
@@ -331,7 +333,7 @@ Test individual components:
 ```cpp
 // Test filtering (class-aware filter uses quality_filter_params from node/core)
 std::vector<ProjectionUtils::ClusterCandidate> candidates = ...;
-ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections, /* ... params ... */);
+ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections);
 ```
 
 ### Integration Testing

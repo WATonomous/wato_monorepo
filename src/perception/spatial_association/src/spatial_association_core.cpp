@@ -84,7 +84,7 @@ void SpatialAssociationCore::performClustering(
   }
 
   if (params_.use_adaptive_clustering) {
-    ProjectionUtils::adaptiveEuclideanClusterExtraction(
+    projection_utils::adaptiveEuclideanClusterExtraction(
       filtered_cloud,
       params_.euclid_cluster_tolerance,
       params_.euclid_min_cluster_size,
@@ -93,7 +93,7 @@ void SpatialAssociationCore::performClustering(
       params_.euclid_close_threshold,
       params_.euclid_close_tolerance_mult);
   } else {
-    ProjectionUtils::euclideanClusterExtraction(
+    projection_utils::euclideanClusterExtraction(
       filtered_cloud,
       params_.euclid_cluster_tolerance,
       params_.euclid_min_cluster_size,
@@ -103,16 +103,16 @@ void SpatialAssociationCore::performClustering(
 
   // Compute stats and merge nearby clusters. Physics filtering is done in the node on ClusterCandidates.
   if (!cluster_indices.empty()) {
-    auto cluster_stats = ProjectionUtils::computeClusterStats(filtered_cloud, cluster_indices);
-    ProjectionUtils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
+    auto cluster_stats = projection_utils::computeClusterStats(filtered_cloud, cluster_indices);
+    projection_utils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
   }
 }
 
-std::vector<ProjectionUtils::Box3D> SpatialAssociationCore::computeClusterBoxes(
+std::vector<projection_utils::Box3D> SpatialAssociationCore::computeClusterBoxes(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud,
   const std::vector<pcl::PointIndices> & cluster_indices) const
 {
-  return ProjectionUtils::computeClusterBoxes(filtered_cloud, cluster_indices);
+  return projection_utils::computeClusterBoxes(filtered_cloud, cluster_indices);
 }
 
 void SpatialAssociationCore::assignClusterColors(
@@ -120,7 +120,7 @@ void SpatialAssociationCore::assignClusterColors(
   const std::vector<pcl::PointIndices> & cluster_indices,
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr & colored_cluster) const
 {
-  ProjectionUtils::assignClusterColors(filtered_cloud, cluster_indices, colored_cluster);
+  projection_utils::assignClusterColors(filtered_cloud, cluster_indices, colored_cluster);
 }
 
 void SpatialAssociationCore::computeClusterCentroids(
@@ -131,7 +131,7 @@ void SpatialAssociationCore::computeClusterCentroids(
   centroid_cloud->clear();
   for (const auto & ci : cluster_indices) {
     pcl::PointXYZ c;
-    ProjectionUtils::computeClusterCentroid(filtered_cloud, ci, c);
+    projection_utils::computeClusterCentroid(filtered_cloud, ci, c);
     centroid_cloud->points.push_back(c);
   }
   centroid_cloud->width = centroid_cloud->points.size();

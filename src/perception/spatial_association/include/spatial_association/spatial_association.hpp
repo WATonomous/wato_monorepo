@@ -106,7 +106,7 @@ private:
     const geometry_msgs::msg::TransformStamped & transform,
     const std::array<double, 12> & projection_matrix,
     const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-    std::vector<ProjectionUtils::ClusterCandidate> candidates,
+    std::vector<projection_utils::ClusterCandidate> candidates,
     const std_msgs::msg::Header & lidar_header,
     int image_width = 0,
     int image_height = 0);
@@ -118,7 +118,7 @@ private:
 
   std::mutex candidates_cache_mutex_;
   rclcpp::Time cached_candidates_stamp_{0, 0, RCL_ROS_TIME};
-  std::vector<ProjectionUtils::ClusterCandidate> cached_candidates_;
+  std::vector<projection_utils::ClusterCandidate> cached_candidates_;
 
   std::thread worker_thread_;
   std::mutex job_mutex_;
