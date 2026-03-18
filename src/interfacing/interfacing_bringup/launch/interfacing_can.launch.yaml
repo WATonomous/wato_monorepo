@@ -79,7 +79,7 @@ launch:
       param:
         - from: "$(var config_file)"
 
-  # Joystick interfacing node (converts joy to joystick/ackermann)
+  # Joystick interfacing node (converts joy to joystick/ackermann + joystick/roscco)
   - node:
       pkg: "joystick_interfacing"
       exec: "joystick_interfacing_node"
@@ -87,6 +87,9 @@ launch:
       namespace: "interfacing"
       output: "screen"
       ros_args: "--log-level warn"
+      remap:
+        - from: "roscco"
+          to: "joystick/roscco"
       param:
         - from: "$(var config_file)"
 
@@ -113,6 +116,8 @@ launch:
           to: "can_state_estimator/steering_angle"
         - from: "velocity_feedback"
           to: "can_state_estimator/body_velocity"
+        - from: "roscco"
+          to: "pid/roscco"
       param:
         - from: "$(var config_file)"
 
@@ -132,6 +137,8 @@ launch:
   #         to: "can_state_estimator/body_velocity"
   #       - from: "odom_feedback"
   #         to: "/novatel/oem7/odom"
+  #       - from: "roscco"
+  #         to: "pid/roscco"
   #     param:
   #       - from: "$(var config_file)"
 
@@ -151,8 +158,20 @@ launch:
   #         to: "can_state_estimator/body_velocity"
   #       - from: "odom_feedback"
   #         to: "/novatel/oem7/odom"
+  #       - from: "roscco"
+  #         to: "pid/roscco"
   #     param:
   #       - from: "$(var config_file)"
+
+  # OSCC Mux (joystick roscco takes priority over PID roscco)
+  - node:
+      pkg: "oscc_mux"
+      exec: "oscc_mux_node"
+      name: "oscc_mux"
+      namespace: "interfacing"
+      output: "screen"
+      param:
+        - from: "$(var config_file)"
 
   # OSCC interfacing Node
   - node:
@@ -184,6 +203,7 @@ launch:
           value:
             - /interfacing/joystick_node
             - /interfacing/ackermann_mux
+            - /interfacing/oscc_mux
             - /interfacing/can_state_estimator_node
             - /interfacing/pid_control_node
         - name: autostart

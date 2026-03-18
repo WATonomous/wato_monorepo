@@ -361,6 +361,33 @@
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
+# OSCC Mux (priority-based mux for roscco commands)
+# Safety gating is handled by ackermann_mux, not here — the joystick
+# may not publish roscco when in ackermann mode, so gating here would
+# cause false emergency stops.
+/**/oscc_mux:
+  ros__parameters:
+    safety_threshold: 0.5
+    publish_rate_hz: 50.0
+
+    emergency:
+      steering: 0.0
+      forward: 0.0
+
+    inputs:
+      joystick:
+        topic: joystick/roscco
+        priority: 100
+        has_mask: true
+        mask_topic: joystick/is_idle
+        safety_gating: false
+
+      pid:
+        topic: pid/roscco
+        priority: 10
+        has_mask: false
+        safety_gating: false
+
 # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
 /**/can_state_estimator_node:
   ros__parameters:
