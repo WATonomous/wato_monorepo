@@ -90,14 +90,14 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
     imu_topic_, qos, std::bind(&LidarAggregatorNode::imu_callback, this, std::placeholders::_1));
 
-  sub_cc_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    center_topic_, qos, std::bind(&LidarAggregatorNode::lidar_cc_callback, this, std::placeholders::_1));
+  // message_filters synchronized subscriptions for the three lidars
+  sub_cc_.subscribe(this, center_topic_, qos.get_rmw_qos_profile());
+  sub_ne_.subscribe(this, ne_topic_, qos.get_rmw_qos_profile());
+  sub_nw_.subscribe(this, nw_topic_, qos.get_rmw_qos_profile());
 
-  sub_ne_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    ne_topic_, qos, std::bind(&LidarAggregatorNode::lidar_ne_callback, this, std::placeholders::_1));
-
-  sub_nw_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    nw_topic_, qos, std::bind(&LidarAggregatorNode::lidar_nw_callback, this, std::placeholders::_1));
+  lidar_sync_ = std::make_shared<message_filters::Synchronizer<LidarSyncPolicy>>(
+    LidarSyncPolicy(static_cast<uint32_t>(qos_depth_)), sub_cc_, sub_ne_, sub_nw_);
+  lidar_sync_->registerCallback(&LidarAggregatorNode::synced_lidar_callback, this);
 
   pub_ne_deskewed_cc_ = create_publisher<sensor_msgs::msg::PointCloud2>(deskewed_ne_output_topic_, qos);
   pub_nw_deskewed_cc_ = create_publisher<sensor_msgs::msg::PointCloud2>(deskewed_nw_output_topic_, qos);
@@ -107,7 +107,7 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(
     get_logger(),
-    "LidarAggregatorNode running. Inputs: cc=%s ne=%s nw=%s imu=%s",
+    "LidarAggregatorNode running with message_filters sync. Inputs: cc=%s ne=%s nw=%s imu=%s",
     center_topic_.c_str(),
     ne_topic_.c_str(),
     nw_topic_.c_str(),
@@ -216,7 +216,7 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
   }
   q.normalize();
 
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(imu_mutex_);
 
   imu_buffer_.push_back(ImuSample{rclcpp::Time(msg->header.stamp), q, msg->angular_velocity.z});
 
@@ -233,22 +233,12 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
   }
 }
 
-void LidarAggregatorNode::lidar_ne_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void LidarAggregatorNode::synced_lidar_callback(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cc_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & ne_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & nw_msg)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  latest_ne_ = msg;
-}
-
-void LidarAggregatorNode::lidar_nw_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  latest_nw_ = msg;
-}
-
-void LidarAggregatorNode::lidar_cc_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  try_publish_fusion_locked(msg);
+  try_publish_fusion(cc_msg, ne_msg, nw_msg);
 }
 
 bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Eigen::Quaterniond & q_out) const
@@ -333,7 +323,7 @@ bool LidarAggregatorNode::get_abs_gyro_z_at_time(const rclcpp::Time & stamp, dou
 }
 
 sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cloud(
-  const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
   const rclcpp::Time & center_stamp,
   const RigidTransform & t_center_side,
   double side_time_offset_sec,
@@ -352,7 +342,11 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
   const rclcpp::Time side_stamp =
     rclcpp::Time(side_msg->header.stamp) + rclcpp::Duration::from_seconds(side_time_offset_sec);
   Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
-  const bool has_delta = get_rotation_delta(side_stamp, center_stamp, r_delta);
+  bool has_delta;
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    has_delta = get_rotation_delta(side_stamp, center_stamp, r_delta);
+  }
 
   if (!has_delta) {
     RCLCPP_WARN_THROTTLE(
@@ -389,7 +383,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
 }
 
 sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::merge_clouds(
-  const sensor_msgs::msg::PointCloud2::SharedPtr & cc,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cc,
   const sensor_msgs::msg::PointCloud2::SharedPtr & ne,
   const sensor_msgs::msg::PointCloud2::SharedPtr & nw,
   const rclcpp::Time & stamp,
@@ -397,7 +391,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::merge_clouds(
 {
   pcl::PointCloud<pcl::PointXYZI> merged;
 
-  auto append = [&merged](const sensor_msgs::msg::PointCloud2::SharedPtr & msg) {
+  auto append = [&merged](const auto & msg) {
     if (!msg) {
       return;
     }
@@ -465,9 +459,9 @@ double LidarAggregatorNode::score_side_offset_candidate(
   return static_cast<double>(hits) / static_cast<double>(total);
 }
 
-bool LidarAggregatorNode::maybe_update_side_offset_locked(
-  const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
-  const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
+bool LidarAggregatorNode::update_side_offset(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
   const RigidTransform & t_center_side,
   double & side_time_offset_sec,
   double & last_score_out,
@@ -494,8 +488,11 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
   const rclcpp::Time side_stamp(side_msg->header.stamp);
 
   double abs_gyro_z = 0.0;
-  if (!get_abs_gyro_z_at_time(center_stamp, abs_gyro_z) || abs_gyro_z < estimator_cfg_.min_yaw_rate_rad_s) {
-    return false;
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    if (!get_abs_gyro_z_at_time(center_stamp, abs_gyro_z) || abs_gyro_z < estimator_cfg_.min_yaw_rate_rad_s) {
+      return false;
+    }
   }
 
   const double start =
@@ -506,13 +503,16 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
   double best_offset = side_time_offset_sec;
   double best_score = -std::numeric_limits<double>::infinity();
 
-  for (double candidate = start; candidate <= end + 1e-9; candidate += estimator_cfg_.search_step_sec) {
-    const double score =
-      score_side_offset_candidate(center_cloud, side_cloud, center_stamp, side_stamp, t_center_side, candidate);
+  {
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    for (double candidate = start; candidate <= end + 1e-9; candidate += estimator_cfg_.search_step_sec) {
+      const double score =
+        score_side_offset_candidate(center_cloud, side_cloud, center_stamp, side_stamp, t_center_side, candidate);
 
-    if (score > best_score) {
-      best_score = score;
-      best_offset = candidate;
+      if (score > best_score) {
+        best_score = score;
+        best_offset = candidate;
+      }
     }
   }
 
@@ -549,7 +549,7 @@ bool LidarAggregatorNode::maybe_update_side_offset_locked(
   return true;
 }
 
-void LidarAggregatorNode::publish_offset_diagnostics_locked(const rclcpp::Time & stamp)
+void LidarAggregatorNode::publish_offset_diagnostics(const rclcpp::Time & stamp)
 {
   geometry_msgs::msg::Vector3Stamped offsets_msg;
   offsets_msg.header.stamp = stamp;
@@ -567,12 +567,11 @@ void LidarAggregatorNode::publish_offset_diagnostics_locked(const rclcpp::Time &
   pub_offset_scores_->publish(score_msg);
 }
 
-void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg)
+void LidarAggregatorNode::try_publish_fusion(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & ne_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & nw_msg)
 {
-  if (!center_msg || !latest_ne_ || !latest_nw_) {
-    return;
-  }
-
   if (!extrinsics_loaded_) {
     load_extrinsics_from_tf();
     if (!extrinsics_loaded_) {
@@ -581,17 +580,17 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
   }
 
   if (estimator_cfg_.enabled) {
-    maybe_update_side_offset_locked(
+    update_side_offset(
       center_msg,
-      latest_ne_,
+      ne_msg,
       t_center_ne_,
       ne_time_offset_sec_,
       estimator_runtime_.ne_last_score,
       "ne",
       "timing.ne_time_offset_sec");
-    maybe_update_side_offset_locked(
+    update_side_offset(
       center_msg,
-      latest_nw_,
+      nw_msg,
       t_center_nw_,
       nw_time_offset_sec_,
       estimator_runtime_.nw_last_score,
@@ -600,27 +599,10 @@ void LidarAggregatorNode::try_publish_fusion_locked(const sensor_msgs::msg::Poin
   }
 
   const rclcpp::Time center_stamp(center_msg->header.stamp);
-  publish_offset_diagnostics_locked(center_stamp);
+  publish_offset_diagnostics(center_stamp);
 
-  const rclcpp::Time ne_aligned =
-    rclcpp::Time(latest_ne_->header.stamp) + rclcpp::Duration::from_seconds(ne_time_offset_sec_);
-  const rclcpp::Time nw_aligned =
-    rclcpp::Time(latest_nw_->header.stamp) + rclcpp::Duration::from_seconds(nw_time_offset_sec_);
-
-  if (
-    abs_time_delta_sec(ne_aligned, center_stamp) > max_pair_dt_sec_ ||
-    abs_time_delta_sec(nw_aligned, center_stamp) > max_pair_dt_sec_)
-  {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(),
-      *get_clock(),
-      2000,
-      "Skipping fusion due to pair time mismatch. Adjust timing offsets or max_pair_dt_sec.");
-    return;
-  }
-
-  auto ne_corrected = compensate_side_cloud(latest_ne_, center_stamp, t_center_ne_, ne_time_offset_sec_, center_frame_);
-  auto nw_corrected = compensate_side_cloud(latest_nw_, center_stamp, t_center_nw_, nw_time_offset_sec_, center_frame_);
+  auto ne_corrected = compensate_side_cloud(ne_msg, center_stamp, t_center_ne_, ne_time_offset_sec_, center_frame_);
+  auto nw_corrected = compensate_side_cloud(nw_msg, center_stamp, t_center_nw_, nw_time_offset_sec_, center_frame_);
 
   if (!ne_corrected || !nw_corrected) {
     return;

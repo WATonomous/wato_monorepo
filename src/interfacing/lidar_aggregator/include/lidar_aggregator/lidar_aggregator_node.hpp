@@ -26,6 +26,9 @@
 
 #include <geometry_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/synchronizer.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -45,8 +48,8 @@ struct RigidTransform
 /// @brief ROS 2 node that deskews and merges multiple lidar pointclouds.
 ///
 /// Subscribes to a center lidar (CC), two side lidars (NE and NW), and an IMU.
-/// Uses IMU orientation to motion-compensate the side clouds onto the center
-/// lidar's timestamp, then merges all three clouds into a single output cloud.
+/// Uses message_filters to synchronize the three lidar streams, then applies
+/// IMU-based motion compensation and merges them into a single output cloud.
 /// Side-to-center extrinsics are looked up via tf2 rather than hard-coded.
 class LidarAggregatorNode : public rclcpp::Node
 {
@@ -95,14 +98,11 @@ private:
   /// @brief Callback for incoming IMU messages. Buffers orientation and gyro data.
   void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
-  /// @brief Callback for center lidar (CC) messages. Triggers the fusion pipeline.
-  void lidar_cc_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
-  /// @brief Callback for NE side lidar messages. Stores the latest cloud.
-  void lidar_ne_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
-  /// @brief Callback for NW side lidar messages. Stores the latest cloud.
-  void lidar_nw_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+  /// @brief Synchronized callback for all three lidar streams.
+  void synced_lidar_callback(
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cc_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & ne_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & nw_msg);
 
   /// @brief Interpolate IMU orientation at the given timestamp via slerp.
   /// @return false if the timestamp is outside the buffered IMU range.
@@ -122,7 +122,7 @@ private:
   /// Applies the side-to-center extrinsic and an IMU-derived rotation delta to
   /// align the side cloud's timestamp with @p center_stamp.
   sensor_msgs::msg::PointCloud2::SharedPtr compensate_side_cloud(
-    const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
     const rclcpp::Time & center_stamp,
     const RigidTransform & t_center_side,
     double side_time_offset_sec,
@@ -130,7 +130,7 @@ private:
 
   /// @brief Concatenate center, NE, and NW clouds into a single merged output cloud.
   sensor_msgs::msg::PointCloud2::SharedPtr merge_clouds(
-    const sensor_msgs::msg::PointCloud2::SharedPtr & cc,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cc,
     const sensor_msgs::msg::PointCloud2::SharedPtr & ne,
     const sensor_msgs::msg::PointCloud2::SharedPtr & nw,
     const rclcpp::Time & stamp,
@@ -148,10 +148,9 @@ private:
   /// @brief Run one iteration of the online offset estimator for a side lidar.
   ///
   /// Updates @p side_time_offset_sec in-place if a better-scoring offset is found.
-  /// Must be called with mutex_ held.
-  bool maybe_update_side_offset_locked(
-    const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
-    const sensor_msgs::msg::PointCloud2::SharedPtr & side_msg,
+  bool maybe_update_side_offset(
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
     const RigidTransform & t_center_side,
     double & side_time_offset_sec,
     double & last_score_out,
@@ -159,29 +158,36 @@ private:
     const char * side_param_name);
 
   /// @brief Publish current time offsets and voxel-overlap scores as diagnostics.
-  /// Must be called with mutex_ held.
-  void publish_offset_diagnostics_locked(const rclcpp::Time & stamp);
+  void publish_offset_diagnostics(const rclcpp::Time & stamp);
 
-  /// @brief Main fusion pipeline. Called under mutex_ each time a center cloud arrives.
-  void try_publish_fusion_locked(const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg);
+  /// @brief Main fusion pipeline. Called when all three lidar clouds are synchronized.
+  void try_publish_fusion(
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & ne_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & nw_msg);
 
   /// @brief Convert a geometry_msgs Transform message to a RigidTransform.
   static RigidTransform rigid_from_transform(const geometry_msgs::msg::Transform & t);
 
-  mutable std::mutex mutex_;
+  mutable std::mutex imu_mutex_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   bool extrinsics_loaded_ = false;
 
   std::deque<ImuSample> imu_buffer_;
-  sensor_msgs::msg::PointCloud2::SharedPtr latest_ne_;
-  sensor_msgs::msg::PointCloud2::SharedPtr latest_nw_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_cc_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_ne_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_nw_;
+
+  message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_cc_;
+  message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_ne_;
+  message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_nw_;
+
+  using LidarSyncPolicy = message_filters::sync_policies::ApproximateTime<
+    sensor_msgs::msg::PointCloud2,
+    sensor_msgs::msg::PointCloud2,
+    sensor_msgs::msg::PointCloud2>;
+  std::shared_ptr<message_filters::Synchronizer<LidarSyncPolicy>> lidar_sync_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_ne_deskewed_cc_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_nw_deskewed_cc_;
