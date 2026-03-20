@@ -261,8 +261,8 @@ void AttributeAssignerNode::syncedCallback(
     }
   }
 
-  // Create and publish 3D detections for traffic lights
-  if (traffic_lights_3d_pub_ && traffic_lights_3d_pub_->is_activated()) {
+  // Create and publish 3D detections (traffic lights + cars)
+  if (detections_3d_pub_ && detections_3d_pub_->is_activated()) {
     MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
     {
       std::lock_guard<std::mutex> lock(sync_mutex_);
@@ -277,12 +277,12 @@ void AttributeAssignerNode::syncedCallback(
         camera_infos[frame_id] = cached_camera_info->camera_infos[i];
       }
 
-      auto detections_3d = createTrafficLight3DDetections(enriched, camera_infos, detections_msg->header.stamp);
-      traffic_lights_3d_pub_->publish(detections_3d);
+      auto detections_3d = create3DDetections(enriched, camera_infos, detections_msg->header.stamp);
+      detections_3d_pub_->publish(detections_3d);
 
-      if (traffic_lights_3d_markers_pub_ && traffic_lights_3d_markers_pub_->is_activated()) {
-        auto markers = createTrafficLight3DMarkers(detections_3d);
-        traffic_lights_3d_markers_pub_->publish(markers);
+      if (detections_3d_markers_pub_ && detections_3d_markers_pub_->is_activated()) {
+        auto markers = create3DMarkers(detections_3d);
+        detections_3d_markers_pub_->publish(markers);
       }
     }
   }
@@ -508,7 +508,7 @@ std::vector<visualization_msgs::msg::ImageMarker> AttributeAssignerNode::createD
   return markers;
 }
 
-vision_msgs::msg::Detection3DArray AttributeAssignerNode::createTrafficLight3DDetections(
+vision_msgs::msg::Detection3DArray AttributeAssignerNode::create3DDetections(
   const deep_msgs::msg::MultiDetection2DArray & detections,
   const std::unordered_map<std::string, sensor_msgs::msg::CameraInfo> & camera_infos,
   const builtin_interfaces::msg::Time & stamp) const
@@ -528,9 +528,21 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::createTrafficLight3DDe
       continue;
     }
 
+    const sensor_msgs::msg::CameraInfo & cam_info = camera_info_it->second;
+    if (cam_info.k.size() != 9) {
+      continue;
+    }
+
+    const double fx = cam_info.k[0];
+    const double fy = cam_info.k[4];
+    const double cx = cam_info.k[2];
+    const double cy = cam_info.k[5];
+
     for (const auto & det : camera_det.detections) {
-      // Only process traffic lights
-      if (!core_->isTrafficLight(det)) {
+      const bool is_traffic_light = core_->isTrafficLight(det);
+      const bool is_car = core_->isCar(det);
+
+      if (!is_traffic_light && !is_car) {
         continue;
       }
 
@@ -539,44 +551,53 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::createTrafficLight3DDe
         continue;
       }
 
-      const sensor_msgs::msg::CameraInfo & cam_info = camera_info_it->second;
-
-      // Get camera intrinsics (K matrix)
-      if (cam_info.k.size() != 9) {
-        continue;
-      }
-
-      const double fx = cam_info.k[0];  // K[0,0]
-      const double fy = cam_info.k[4];  // K[1,1]
-      const double cx = cam_info.k[2];  // K[0,2]
-      const double cy = cam_info.k[5];  // K[1,2]
-
-      // Get 2D bounding box center and size
       const double u = det.bbox.center.position.x;
       const double v = det.bbox.center.position.y;
-      const double bbox_height_pixels = det.bbox.size_y;
+      const double bbox_w_pixels = det.bbox.size_x;
+      const double bbox_h_pixels = det.bbox.size_y;
 
-      // Estimate depth using known traffic light physical height (1.0m for typical 3-light signal)
-      // Formula: depth = (real_height * fy) / pixel_height
-      const double traffic_light_real_height = 1.0;  // meters
-      const double estimated_depth = (traffic_light_real_height * fy) / bbox_height_pixels;
+      // Estimate depth from known physical size and pixel size
+      double estimated_depth;
+      double size_x, size_y, size_z;  // 3D bbox dimensions
+      double assumed_depth;
 
-      // Use estimated depth if reasonable, otherwise fall back to configured assumed depth
+      if (is_traffic_light) {
+        const double traffic_light_real_height = 1.0;  // meters
+        estimated_depth = (traffic_light_real_height * fy) / bbox_h_pixels;
+        assumed_depth = traffic_light_assumed_depth_;
+        size_x = 0.3;
+        size_y = 0.3;
+        size_z = traffic_light_real_height;
+      } else {
+        // For cars, use width for depth estimation (more stable than height due to ground occlusion)
+        estimated_depth = (car_real_width_ * fx) / bbox_w_pixels;
+        assumed_depth = car_assumed_depth_;
+        size_x = car_real_width_;
+        size_y = car_real_length_;
+        size_z = car_real_height_;
+      }
+
       const double depth =
-        (estimated_depth > 5.0 && estimated_depth < 100.0) ? estimated_depth : traffic_light_assumed_depth_;
+        (estimated_depth > 3.0 && estimated_depth < 150.0) ? estimated_depth : assumed_depth;
 
-      // Unproject to 3D ray in camera frame (assuming depth = 1)
+      // Clamp 3D dimensions so their projection doesn't exceed the 2D bbox
+      // Projected size in pixels = (real_size * focal_length) / depth
+      const double max_real_width = (bbox_w_pixels * depth) / fx;
+      const double max_real_height = (bbox_h_pixels * depth) / fy;
+      size_x = std::min(size_x, max_real_width);
+      size_y = std::min(size_y, max_real_width);   // length projects along width axis from camera's view
+      size_z = std::min(size_z, max_real_height);
+
+      // Unproject to 3D ray in camera frame
       const double x_cam = (u - cx) / fx;
       const double y_cam = (v - cy) / fy;
       const double z_cam = 1.0;
 
-      // Normalize and scale to estimated depth
       const double ray_length = std::sqrt(x_cam * x_cam + y_cam * y_cam + z_cam * z_cam);
       const double x_cam_scaled = (x_cam / ray_length) * depth;
       const double y_cam_scaled = (y_cam / ray_length) * depth;
       const double z_cam_scaled = (z_cam / ray_length) * depth;
 
-      // Create point in camera frame
       geometry_msgs::msg::PointStamped point_camera;
       point_camera.header.frame_id = frame_id;
       point_camera.header.stamp = stamp;
@@ -584,57 +605,51 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::createTrafficLight3DDe
       point_camera.point.y = y_cam_scaled;
       point_camera.point.z = z_cam_scaled;
 
-      // Transform to target frame
       geometry_msgs::msg::PointStamped point_target;
       try {
-        // TF2 requires std::chrono duration (nanoseconds)
         auto timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(100));
         point_target = tf_buffer_->transform(point_camera, target_frame_, timeout);
       } catch (const tf2::TransformException &) {
         continue;
       }
 
-      // Create 3D detection
       vision_msgs::msg::Detection3D det_3d;
       det_3d.header.frame_id = target_frame_;
       det_3d.header.stamp = stamp;
-
-      // Copy results from 2D detection
       det_3d.results = det.results;
 
-      // Set 3D position
       det_3d.bbox.center.position.x = point_target.point.x;
       det_3d.bbox.center.position.y = point_target.point.y;
       det_3d.bbox.center.position.z = point_target.point.z;
 
-      // Set orientation (identity quaternion - no rotation info from 2D)
-      det_3d.bbox.center.orientation.w = 1.0;
+      // Orient bbox to face the ego vehicle (yaw from origin to detection position)
+      const double yaw = std::atan2(point_target.point.y, point_target.point.x);
+      det_3d.bbox.center.orientation.w = std::cos(yaw / 2.0);
       det_3d.bbox.center.orientation.x = 0.0;
       det_3d.bbox.center.orientation.y = 0.0;
-      det_3d.bbox.center.orientation.z = 0.0;
+      det_3d.bbox.center.orientation.z = std::sin(yaw / 2.0);
 
-      // Estimated size for traffic light (approximate)
-      det_3d.bbox.size.x = 0.3;  // width
-      det_3d.bbox.size.y = 0.3;  // height
-      det_3d.bbox.size.z = 1.0;  // depth
+      det_3d.bbox.size.x = size_x;
+      det_3d.bbox.size.y = size_y;
+      det_3d.bbox.size.z = size_z;
 
       detections_3d.detections.push_back(det_3d);
-    }  // end per-detection loop
-  }  // end per-camera loop
+    }
+  }
 
   return detections_3d;
 }
 
-visualization_msgs::msg::MarkerArray AttributeAssignerNode::createTrafficLight3DMarkers(
+visualization_msgs::msg::MarkerArray AttributeAssignerNode::create3DMarkers(
   const vision_msgs::msg::Detection3DArray & detections_3d) const
 {
   visualization_msgs::msg::MarkerArray marker_array;
 
-  // First, add a DELETE_ALL marker to clear previous markers
+  // Clear previous markers
   visualization_msgs::msg::Marker delete_marker;
   delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
   delete_marker.header = detections_3d.header;
-  delete_marker.ns = "traffic_lights_3d";
+  delete_marker.ns = "detections_3d";
   marker_array.markers.push_back(delete_marker);
 
   for (size_t i = 0; i < detections_3d.detections.size(); ++i) {
@@ -642,7 +657,7 @@ visualization_msgs::msg::MarkerArray AttributeAssignerNode::createTrafficLight3D
 
     visualization_msgs::msg::Marker marker;
     marker.header = detections_3d.header;
-    marker.ns = "traffic_lights_3d";
+    marker.ns = "detections_3d";
     marker.id = static_cast<int>(i);
     marker.type = visualization_msgs::msg::Marker::CUBE;
     marker.action = visualization_msgs::msg::Marker::ADD;
@@ -654,42 +669,69 @@ visualization_msgs::msg::MarkerArray AttributeAssignerNode::createTrafficLight3D
     marker.scale.y = det.bbox.size.y;
     marker.scale.z = det.bbox.size.z;
 
-    // Default color: white with some transparency
+    // Default color: white with transparency
     marker.color.r = 1.0f;
     marker.color.g = 1.0f;
     marker.color.b = 1.0f;
-    marker.color.a = 0.8f;
+    marker.color.a = 0.5f;
 
-    // Color based on highest-scoring traffic light state attribute
-    {
-      double best_score = -1.0;
-      std::string best_state;
-      for (const auto & result : det.results) {
-        const std::string & class_id = result.hypothesis.class_id;
-        if (
-          (class_id == "state:red" || class_id == "state:yellow" || class_id == "state:green") &&
-          result.hypothesis.score > best_score)
-        {
-          best_score = result.hypothesis.score;
-          best_state = class_id;
-        }
+    // Determine type from results and color accordingly
+    bool is_traffic_light = false;
+    bool is_car = false;
+    double best_state_score = -1.0;
+    std::string best_state;
+    double best_behavior_score = 0.0;
+    std::string best_behavior;
+
+    for (const auto & result : det.results) {
+      const std::string & cid = result.hypothesis.class_id;
+
+      if (core_->isTrafficLightClassId(cid)) {
+        is_traffic_light = true;
+      } else if (core_->isCarClassId(cid)) {
+        is_car = true;
       }
-      if (best_state == "state:red") {
-        marker.color.r = 1.0f;
-        marker.color.g = 0.0f;
-        marker.color.b = 0.0f;
-      } else if (best_state == "state:yellow") {
-        marker.color.r = 1.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
-      } else if (best_state == "state:green") {
-        marker.color.r = 0.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
+
+      // Traffic light state
+      if ((cid == "state:red" || cid == "state:yellow" || cid == "state:green") &&
+          result.hypothesis.score > best_state_score) {
+        best_state_score = result.hypothesis.score;
+        best_state = cid;
+      }
+
+      // Car behavior
+      if ((cid == "behavior:braking" || cid == "behavior:turning_left" ||
+           cid == "behavior:turning_right" || cid == "behavior:hazard_lights") &&
+          result.hypothesis.score > best_behavior_score) {
+        best_behavior_score = result.hypothesis.score;
+        best_behavior = cid;
       }
     }
 
-    marker.lifetime = rclcpp::Duration::from_seconds(1);
+    if (is_traffic_light) {
+      if (best_state == "state:red") {
+        marker.color.r = 1.0f; marker.color.g = 0.0f; marker.color.b = 0.0f; marker.color.a = 0.8f;
+      } else if (best_state == "state:yellow") {
+        marker.color.r = 1.0f; marker.color.g = 1.0f; marker.color.b = 0.0f; marker.color.a = 0.8f;
+      } else if (best_state == "state:green") {
+        marker.color.r = 0.0f; marker.color.g = 1.0f; marker.color.b = 0.0f; marker.color.a = 0.8f;
+      }
+    } else if (is_car) {
+      // Default car color: cyan
+      marker.color.r = 0.0f; marker.color.g = 0.8f; marker.color.b = 1.0f; marker.color.a = 0.4f;
+      if (best_behavior_score > 0.15) {
+        if (best_behavior == "behavior:braking") {
+          marker.color.r = 1.0f; marker.color.g = 0.0f; marker.color.b = 0.0f; marker.color.a = 0.6f;
+        } else if (best_behavior == "behavior:turning_left" ||
+                   best_behavior == "behavior:turning_right") {
+          marker.color.r = 1.0f; marker.color.g = 1.0f; marker.color.b = 0.0f; marker.color.a = 0.6f;
+        } else if (best_behavior == "behavior:hazard_lights") {
+          marker.color.r = 1.0f; marker.color.g = 0.65f; marker.color.b = 0.0f; marker.color.a = 0.6f;
+        }
+      }
+    }
+
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
 
     marker_array.markers.push_back(marker);
   }
@@ -856,13 +898,24 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     // Declare 3D detection parameters
     this->declare_parameter<std::string>("target_frame", "base_link");
     this->declare_parameter<double>("traffic_light_assumed_depth", 30.0);
+    this->declare_parameter<double>("car_assumed_depth", 20.0);
+    this->declare_parameter<double>("car_real_width", 1.8);
+    this->declare_parameter<double>("car_real_height", 1.5);
+    this->declare_parameter<double>("car_real_length", 4.5);
 
     target_frame_ = this->get_parameter("target_frame").as_string();
     traffic_light_assumed_depth_ = this->get_parameter("traffic_light_assumed_depth").as_double();
+    car_assumed_depth_ = this->get_parameter("car_assumed_depth").as_double();
+    car_real_width_ = this->get_parameter("car_real_width").as_double();
+    car_real_height_ = this->get_parameter("car_real_height").as_double();
+    car_real_length_ = this->get_parameter("car_real_length").as_double();
 
     RCLCPP_INFO(this->get_logger(), "3D detection settings:");
     RCLCPP_INFO(this->get_logger(), "  - Target frame: '%s'", target_frame_.c_str());
     RCLCPP_INFO(this->get_logger(), "  - Traffic light assumed depth: %.1f m", traffic_light_assumed_depth_);
+    RCLCPP_INFO(this->get_logger(), "  - Car assumed depth: %.1f m", car_assumed_depth_);
+    RCLCPP_INFO(this->get_logger(), "  - Car dimensions (WxHxL): %.1f x %.1f x %.1f m",
+      car_real_width_, car_real_height_, car_real_length_);
 
     // Initialize TF2 buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -952,13 +1005,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     image_markers_pub_ =
       this->create_publisher<visualization_msgs::msg::ImageMarker>(kImageMarkersTopic, publisher_qos_);
 
-    RCLCPP_INFO(this->get_logger(), "  - Traffic lights 3D topic: '%s'", kTrafficLight3DTopic);
-    traffic_lights_3d_pub_ =
-      this->create_publisher<vision_msgs::msg::Detection3DArray>(kTrafficLight3DTopic, publisher_qos_);
+    RCLCPP_INFO(this->get_logger(), "  - Traffic lights 3D topic: '%s'", kDetections3DTopic);
+    detections_3d_pub_ =
+      this->create_publisher<vision_msgs::msg::Detection3DArray>(kDetections3DTopic, publisher_qos_);
 
-    RCLCPP_INFO(this->get_logger(), "  - Traffic lights 3D markers topic: '%s'", kTrafficLight3DMarkersTopic);
-    traffic_lights_3d_markers_pub_ =
-      this->create_publisher<visualization_msgs::msg::MarkerArray>(kTrafficLight3DMarkersTopic, publisher_qos_);
+    RCLCPP_INFO(this->get_logger(), "  - Traffic lights 3D markers topic: '%s'", kDetections3DMarkersTopic);
+    detections_3d_markers_pub_ =
+      this->create_publisher<visualization_msgs::msg::MarkerArray>(kDetections3DMarkersTopic, publisher_qos_);
 
     if (detections_pub_) {
       detections_pub_->on_activate();
@@ -968,12 +1021,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
       image_markers_pub_->on_activate();
     }
 
-    if (traffic_lights_3d_pub_) {
-      traffic_lights_3d_pub_->on_activate();
+    if (detections_3d_pub_) {
+      detections_3d_pub_->on_activate();
     }
 
-    if (traffic_lights_3d_markers_pub_) {
-      traffic_lights_3d_markers_pub_->on_activate();
+    if (detections_3d_markers_pub_) {
+      detections_3d_markers_pub_->on_activate();
     }
 
     if (diagnostic_updater_ && detections_pub_) {
@@ -1015,12 +1068,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     image_markers_pub_->on_deactivate();
   }
 
-  if (traffic_lights_3d_pub_) {
-    traffic_lights_3d_pub_->on_deactivate();
+  if (detections_3d_pub_) {
+    detections_3d_pub_->on_deactivate();
   }
 
-  if (traffic_lights_3d_markers_pub_) {
-    traffic_lights_3d_markers_pub_->on_deactivate();
+  if (detections_3d_markers_pub_) {
+    detections_3d_markers_pub_->on_deactivate();
   }
 
   multi_image_sub_.reset();
@@ -1054,8 +1107,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
   detections_pub_.reset();
   image_markers_pub_.reset();
-  traffic_lights_3d_pub_.reset();
-  traffic_lights_3d_markers_pub_.reset();
+  detections_3d_pub_.reset();
+  detections_3d_markers_pub_.reset();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
   tf_listener_.reset();
@@ -1094,8 +1147,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   multi_camera_info_sub_.reset();
   detections_pub_.reset();
   image_markers_pub_.reset();
-  traffic_lights_3d_pub_.reset();
-  traffic_lights_3d_markers_pub_.reset();
+  detections_3d_pub_.reset();
+  detections_3d_markers_pub_.reset();
   cached_multi_camera_info_.reset();
   core_.reset();
   pub_diagnostic_.reset();

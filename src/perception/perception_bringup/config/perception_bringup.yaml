@@ -206,11 +206,15 @@ multi_camera_sync:
     sync_max_time_diff_ms: 2000.0  # Max time difference for syncing multi-image and detections (ms)
                                     # Detections are typically 50-150ms after images due to processing time
 
-    # 3D Traffic Light Detection
-    # These parameters control the 3D localization of traffic lights using camera intrinsics and TF
+    # 3D Detection settings
+    # These parameters control the 3D localization of detections using camera intrinsics and TF
     input_multi_camera_info_topic: "/multi_camera_sync/multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
     target_frame: "base_link"                                               # Target coordinate frame for 3D detections
-    traffic_light_assumed_depth: 30.0                                       # Fallback depth in meters if size-based estimation fails (range 5-100m considered valid)
+    traffic_light_assumed_depth: 30.0                                       # Fallback depth for traffic lights (meters)
+    car_assumed_depth: 20.0                                                 # Fallback depth for cars (meters)
+    car_real_width: 1.8                                                     # Assumed car width (meters) - used for depth estimation
+    car_real_height: 1.5                                                    # Assumed car height (meters) - 3D bbox z dimension
+    car_real_length: 4.5                                                    # Assumed car length (meters) - 3D bbox y dimension
 
 # =============================================================================
 # Lifecycle Managers

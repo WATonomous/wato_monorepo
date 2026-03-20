@@ -121,6 +121,16 @@ bool AttributeAssignerCore::isCar(const vision_msgs::msg::Detection2D & det) con
   return false;
 }
 
+bool AttributeAssignerCore::isTrafficLightClassId(const std::string & class_id) const
+{
+  return traffic_light_ids_.count(class_id) > 0;
+}
+
+bool AttributeAssignerCore::isCarClassId(const std::string & class_id) const
+{
+  return car_ids_.count(class_id) > 0;
+}
+
 std::string AttributeAssignerCore::getBestClassId(const vision_msgs::msg::Detection2D & det)
 {
   if (det.results.empty()) {

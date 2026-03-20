@@ -171,6 +171,12 @@ public:
    */
   bool isCar(const vision_msgs::msg::Detection2D & det) const;
 
+  /// Check if a class_id string matches a traffic light class.
+  bool isTrafficLightClassId(const std::string & class_id) const;
+
+  /// Check if a class_id string matches a car/vehicle class.
+  bool isCarClassId(const std::string & class_id) const;
+
   /**
    * @brief Get the class_id of the highest-scoring hypothesis.
    * @param det The detection to inspect

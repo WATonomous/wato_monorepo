@@ -80,9 +80,9 @@ public:
   static constexpr auto kInputTopic = "input_detections";  ///< Input detections topic name
   static constexpr auto kOutputTopic = "output_detections";  ///< Output enriched detections topic name
   static constexpr auto kImageMarkersTopic = "/perception/enriched_detection_markers";  ///< Image markers topic
-  static constexpr auto kTrafficLight3DTopic = "/perception/traffic_lights_3d";  ///< 3D traffic light detections topic
-  static constexpr auto kTrafficLight3DMarkersTopic =
-    "/perception/traffic_lights_3d_markers";  ///< 3D traffic light markers topic
+  static constexpr auto kDetections3DTopic = "/perception/detections_3d";  ///< 3D detections topic
+  static constexpr auto kDetections3DMarkersTopic =
+    "/perception/detections_3d_markers";  ///< 3D detection markers topic
 
   /**
    * @brief Lifecycle: configure parameters, core, QoS, and diagnostics.
@@ -178,23 +178,23 @@ private:
     const builtin_interfaces::msg::Time & stamp) const;
 
   /**
-   * @brief Create 3D detections for traffic lights using camera intrinsics and TF.
+   * @brief Create 3D detections for traffic lights and cars using camera intrinsics and TF.
    * @param detections 2D detection array
    * @param camera_infos Map of frame_id to CameraInfo
    * @param stamp Timestamp for the 3D detections
-   * @return Detection3DArray with 3D traffic light positions
+   * @return Detection3DArray with 3D positions for traffic lights and cars
    */
-  vision_msgs::msg::Detection3DArray createTrafficLight3DDetections(
+  vision_msgs::msg::Detection3DArray create3DDetections(
     const deep_msgs::msg::MultiDetection2DArray & detections,
     const std::unordered_map<std::string, sensor_msgs::msg::CameraInfo> & camera_infos,
     const builtin_interfaces::msg::Time & stamp) const;
 
   /**
-   * @brief Convert 3D traffic light detections to a MarkerArray for Foxglove visualization.
+   * @brief Convert 3D detections to a MarkerArray for Foxglove visualization.
    * @param detections_3d 3D detection array to convert
-   * @return MarkerArray with cube markers colored by traffic light state
+   * @return MarkerArray with cube markers colored by type/state
    */
-  visualization_msgs::msg::MarkerArray createTrafficLight3DMarkers(
+  visualization_msgs::msg::MarkerArray create3DMarkers(
     const vision_msgs::msg::Detection3DArray & detections_3d) const;
 
   /**
@@ -256,8 +256,8 @@ private:
 
   rclcpp_lifecycle::LifecyclePublisher<deep_msgs::msg::MultiDetection2DArray>::SharedPtr detections_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::ImageMarker>::SharedPtr image_markers_pub_;
-  rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr traffic_lights_3d_pub_;
-  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr traffic_lights_3d_markers_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detections_3d_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr detections_3d_markers_pub_;
 
   std::unique_ptr<AttributeAssignerCore> core_;
 
@@ -271,6 +271,10 @@ private:
   double sync_max_time_diff_sec_;  ///< Maximum time difference for synchronization (seconds)
   std::string target_frame_;  ///< Target frame for 3D detections (e.g., "base_link")
   double traffic_light_assumed_depth_;  ///< Assumed depth for traffic lights in meters
+  double car_assumed_depth_;  ///< Assumed depth for cars in meters
+  double car_real_width_;  ///< Assumed car width in meters for depth estimation
+  double car_real_height_;  ///< Assumed car height in meters for depth estimation
+  double car_real_length_;  ///< Assumed car length in meters for 3D bbox
 
   std::atomic<uint64_t> multi_image_msg_count_{0};  ///< Count of multi-image messages received
   std::atomic<uint64_t> detections_msg_count_{0};  ///< Count of detection messages received
