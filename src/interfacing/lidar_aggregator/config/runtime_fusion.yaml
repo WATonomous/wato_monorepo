@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     topics:
-      imu: "/novatel/oem7/imu/data"
+      imu: "/novatel/oem7/imu/data_raw"
       center: "/lidar_cc/velodyne_points"
       ne: "/lidar_ne/velodyne_points"
       nw: "/lidar_nw/velodyne_points"
@@ -20,9 +20,9 @@
 
     runtime:
       qos_depth: 20
-      max_pair_dt_sec: 0.08
+      max_pair_dt_sec: 0.05
       max_imu_buffer_sec: 20.0
-      max_imu_interp_gap_sec: 0.05
+      max_imu_interp_gap_sec: 0.5
 
     timing:
       ne_time_offset_sec: 0.0

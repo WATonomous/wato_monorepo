@@ -211,12 +211,29 @@ bool LidarAggregatorNode::load_extrinsics_from_tf()
 void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
-  if (q.norm() < 1e-6) {
-    return;
-  }
-  q.normalize();
 
   std::lock_guard<std::mutex> lock(imu_mutex_);
+
+  if (q.norm() < 1e-6) {
+    // No orientation from INS (e.g. imu/data_raw) — integrate angular velocity from last sample
+    if (imu_buffer_.empty()) {
+      q = Eigen::Quaterniond::Identity();
+    } else {
+      const double dt = (rclcpp::Time(msg->header.stamp) - imu_buffer_.back().stamp).seconds();
+      const Eigen::Vector3d omega(
+        msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
+      const double angle = omega.norm() * dt;
+      if (dt > 0.0 && dt < 1.0 && angle > 1e-10) {
+        q = imu_buffer_.back().orientation *
+          Eigen::Quaterniond(Eigen::AngleAxisd(angle, omega.normalized()));
+        q.normalize();
+      } else {
+        q = imu_buffer_.back().orientation;
+      }
+    }
+  } else {
+    q.normalize();
+  }
 
   imu_buffer_.push_back(ImuSample{rclcpp::Time(msg->header.stamp), q, msg->angular_velocity.z});
 
@@ -244,13 +261,14 @@ void LidarAggregatorNode::synced_lidar_callback(
 bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Eigen::Quaterniond & q_out) const
 {
   if (imu_buffer_.size() < 2) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "IMU buffer too small: size=%zu", imu_buffer_.size());
     return false;
   }
 
   if (stamp < imu_buffer_.front().stamp || stamp > imu_buffer_.back().stamp) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 2000,
-      "IMU bounds fail: stamp=%.3f front=%.3f back=%.3f",
+      "IMU bounds fail: query=%.3f front=%.3f back=%.3f",
       stamp.seconds(), imu_buffer_.front().stamp.seconds(), imu_buffer_.back().stamp.seconds());
     return false;
   }
@@ -276,8 +294,7 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
   if (dt <= 1e-6 || dt > max_imu_interp_gap_sec_) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 2000,
-      "IMU gap fail: gap=%.3fs max=%.3fs stamp=%.3f",
-      dt, max_imu_interp_gap_sec_, stamp.seconds());
+      "IMU gap fail: gap=%.3fs max=%.3fs", dt, max_imu_interp_gap_sec_);
     return false;
   }
 
