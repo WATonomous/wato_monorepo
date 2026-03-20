@@ -194,8 +194,7 @@ private:
    * @param detections_3d 3D detection array to convert
    * @return MarkerArray with cube markers colored by type/state
    */
-  visualization_msgs::msg::MarkerArray create3DMarkers(
-    const vision_msgs::msg::Detection3DArray & detections_3d) const;
+  visualization_msgs::msg::MarkerArray create3DMarkers(const vision_msgs::msg::Detection3DArray & detections_3d) const;
 
   /**
    * @brief Log total processed messages and average processing time.

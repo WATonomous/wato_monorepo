@@ -577,15 +577,14 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::create3DDetections(
         size_z = car_real_height_;
       }
 
-      const double depth =
-        (estimated_depth > 3.0 && estimated_depth < 150.0) ? estimated_depth : assumed_depth;
+      const double depth = (estimated_depth > 3.0 && estimated_depth < 150.0) ? estimated_depth : assumed_depth;
 
       // Clamp 3D dimensions so their projection doesn't exceed the 2D bbox
       // Projected size in pixels = (real_size * focal_length) / depth
       const double max_real_width = (bbox_w_pixels * depth) / fx;
       const double max_real_height = (bbox_h_pixels * depth) / fy;
       size_x = std::min(size_x, max_real_width);
-      size_y = std::min(size_y, max_real_width);   // length projects along width axis from camera's view
+      size_y = std::min(size_y, max_real_width);  // length projects along width axis from camera's view
       size_z = std::min(size_z, max_real_height);
 
       // Unproject to 3D ray in camera frame
@@ -693,16 +692,20 @@ visualization_msgs::msg::MarkerArray AttributeAssignerNode::create3DMarkers(
       }
 
       // Traffic light state
-      if ((cid == "state:red" || cid == "state:yellow" || cid == "state:green") &&
-          result.hypothesis.score > best_state_score) {
+      if (
+        (cid == "state:red" || cid == "state:yellow" || cid == "state:green") &&
+        result.hypothesis.score > best_state_score)
+      {
         best_state_score = result.hypothesis.score;
         best_state = cid;
       }
 
       // Car behavior
-      if ((cid == "behavior:braking" || cid == "behavior:turning_left" ||
-           cid == "behavior:turning_right" || cid == "behavior:hazard_lights") &&
-          result.hypothesis.score > best_behavior_score) {
+      if (
+        (cid == "behavior:braking" || cid == "behavior:turning_left" || cid == "behavior:turning_right" ||
+         cid == "behavior:hazard_lights") &&
+        result.hypothesis.score > best_behavior_score)
+      {
         best_behavior_score = result.hypothesis.score;
         best_behavior = cid;
       }
@@ -710,23 +713,43 @@ visualization_msgs::msg::MarkerArray AttributeAssignerNode::create3DMarkers(
 
     if (is_traffic_light) {
       if (best_state == "state:red") {
-        marker.color.r = 1.0f; marker.color.g = 0.0f; marker.color.b = 0.0f; marker.color.a = 0.8f;
+        marker.color.r = 1.0f;
+        marker.color.g = 0.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 0.8f;
       } else if (best_state == "state:yellow") {
-        marker.color.r = 1.0f; marker.color.g = 1.0f; marker.color.b = 0.0f; marker.color.a = 0.8f;
+        marker.color.r = 1.0f;
+        marker.color.g = 1.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 0.8f;
       } else if (best_state == "state:green") {
-        marker.color.r = 0.0f; marker.color.g = 1.0f; marker.color.b = 0.0f; marker.color.a = 0.8f;
+        marker.color.r = 0.0f;
+        marker.color.g = 1.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 0.8f;
       }
     } else if (is_car) {
       // Default car color: cyan
-      marker.color.r = 0.0f; marker.color.g = 0.8f; marker.color.b = 1.0f; marker.color.a = 0.4f;
+      marker.color.r = 0.0f;
+      marker.color.g = 0.8f;
+      marker.color.b = 1.0f;
+      marker.color.a = 0.4f;
       if (best_behavior_score > 0.15) {
         if (best_behavior == "behavior:braking") {
-          marker.color.r = 1.0f; marker.color.g = 0.0f; marker.color.b = 0.0f; marker.color.a = 0.6f;
-        } else if (best_behavior == "behavior:turning_left" ||
-                   best_behavior == "behavior:turning_right") {
-          marker.color.r = 1.0f; marker.color.g = 1.0f; marker.color.b = 0.0f; marker.color.a = 0.6f;
+          marker.color.r = 1.0f;
+          marker.color.g = 0.0f;
+          marker.color.b = 0.0f;
+          marker.color.a = 0.6f;
+        } else if (best_behavior == "behavior:turning_left" || best_behavior == "behavior:turning_right") {
+          marker.color.r = 1.0f;
+          marker.color.g = 1.0f;
+          marker.color.b = 0.0f;
+          marker.color.a = 0.6f;
         } else if (best_behavior == "behavior:hazard_lights") {
-          marker.color.r = 1.0f; marker.color.g = 0.65f; marker.color.b = 0.0f; marker.color.a = 0.6f;
+          marker.color.r = 1.0f;
+          marker.color.g = 0.65f;
+          marker.color.b = 0.0f;
+          marker.color.a = 0.6f;
         }
       }
     }
@@ -914,8 +937,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     RCLCPP_INFO(this->get_logger(), "  - Target frame: '%s'", target_frame_.c_str());
     RCLCPP_INFO(this->get_logger(), "  - Traffic light assumed depth: %.1f m", traffic_light_assumed_depth_);
     RCLCPP_INFO(this->get_logger(), "  - Car assumed depth: %.1f m", car_assumed_depth_);
-    RCLCPP_INFO(this->get_logger(), "  - Car dimensions (WxHxL): %.1f x %.1f x %.1f m",
-      car_real_width_, car_real_height_, car_real_length_);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "  - Car dimensions (WxHxL): %.1f x %.1f x %.1f m",
+      car_real_width_,
+      car_real_height_,
+      car_real_length_);
 
     // Initialize TF2 buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -1006,8 +1033,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
       this->create_publisher<visualization_msgs::msg::ImageMarker>(kImageMarkersTopic, publisher_qos_);
 
     RCLCPP_INFO(this->get_logger(), "  - Traffic lights 3D topic: '%s'", kDetections3DTopic);
-    detections_3d_pub_ =
-      this->create_publisher<vision_msgs::msg::Detection3DArray>(kDetections3DTopic, publisher_qos_);
+    detections_3d_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kDetections3DTopic, publisher_qos_);
 
     RCLCPP_INFO(this->get_logger(), "  - Traffic lights 3D markers topic: '%s'", kDetections3DMarkersTopic);
     detections_3d_markers_pub_ =
