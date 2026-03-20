@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__LOGGED_BT_NODE_HPP_
-#define BEHAVIOUR__NODES__LOGGED_BT_NODE_HPP_
+#ifndef BEHAVIOUR__NODES__BT_LOGGER_BASE_HPP_
+#define BEHAVIOUR__NODES__BT_LOGGER_BASE_HPP_
 
 #include <behaviortree_ros2/ros_node_params.hpp>
 
@@ -54,4 +54,4 @@ inline rclcpp::Logger makeBTChildLogger(const BT::RosNodeParams & params, const 
 
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__LOGGED_BT_NODE_HPP_
+#endif  // BEHAVIOUR__NODES__BT_LOGGER_BASE_HPP_

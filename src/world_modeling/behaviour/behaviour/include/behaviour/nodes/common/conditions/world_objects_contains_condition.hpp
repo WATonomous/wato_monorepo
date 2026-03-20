@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "behaviour/nodes/logged_bt_node.hpp"
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
