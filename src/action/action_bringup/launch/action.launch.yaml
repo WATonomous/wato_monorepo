@@ -44,6 +44,8 @@ launch:
           to: "/action/trajectory_planning/trajectory"
         - from: "lane_context"
           to: "/world_modeling/lanelet/lane_context"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
 
   - node:
       pkg: "lattice_planning_markers"
