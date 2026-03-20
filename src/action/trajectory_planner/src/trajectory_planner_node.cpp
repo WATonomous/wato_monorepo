@@ -157,7 +157,7 @@ void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehavi
 void TrajectoryPlannerNode::update_trajectory()
 {
   // Wait until all inputs are ready before computing
-  if (!latest_path_ || !latest_costmap_ || !core_) {
+  if (!latest_path_ || !latest_costmap_ || !core_ || bt_requested_behaviour.empty()) {
     return;
   }
 
@@ -200,7 +200,6 @@ void TrajectoryPlannerNode::update_trajectory()
   // Use lane speed limit if available, otherwise fall back to config max_speed
   double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
-
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed);
 
   // Publish trajectory
