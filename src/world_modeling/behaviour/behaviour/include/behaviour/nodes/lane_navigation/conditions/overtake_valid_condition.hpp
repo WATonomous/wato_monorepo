@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "behaviour/nodes/logged_bt_node.hpp"
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/area_occupancy.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "behaviour/utils/world_objects.hpp"

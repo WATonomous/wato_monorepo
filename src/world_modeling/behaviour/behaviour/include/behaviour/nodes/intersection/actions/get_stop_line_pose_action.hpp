@@ -17,7 +17,7 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/logged_bt_node.hpp"
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
