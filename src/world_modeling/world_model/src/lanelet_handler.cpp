@@ -162,21 +162,25 @@ std::optional<int64_t> LaneletHandler::findCurrentLaneletId(
   };
 
   // 1. If route exists, find the closest route lanelet to ego
+  std::vector<lanelet::ConstLanelet> active_route_snapshot;
   {
     std::lock_guard<std::mutex> lock(route_mutex_);
-    if (!active_route_.empty()) {
-      int64_t best_id = -1;
-      double best_dist = std::numeric_limits<double>::max();
-      for (const auto & ll : active_route_) {
-        double dist = lanelet::geometry::distance2d(ll, search_point);
-        if (dist < best_dist) {
-          best_dist = dist;
-          best_id = ll.id();
-        }
+    active_route_snapshot = active_route_;
+  }
+
+  if (!active_route_snapshot.empty()) {
+    int64_t best_id = -1;
+    double best_dist = std::numeric_limits<double>::max();
+    for (const auto & ll : active_route_snapshot) {
+      double dist = lanelet::geometry::distanceToCenterline2d(ll, search_point);
+      if (dist < best_dist) {
+        best_dist = dist;
+        best_id = ll.id();
       }
-      if (best_id >= 0 && best_dist <= route_priority_threshold_m) {
-        return best_id;
-      }
+    }
+
+    if (best_id >= 0 && best_dist <= route_priority_threshold_m) {
+      return best_id;
     }
   }
 
@@ -358,11 +362,14 @@ lanelet_msgs::srv::GetShortestRoute::Response LaneletHandler::getShortestRoute(
     return response;
   }
 
-  std::lock_guard<std::mutex> lock(route_mutex_);
-
-  if (active_route_.empty()) {
-    response.error_message = "no_active_route";
-    return response;
+  std::vector<lanelet::ConstLanelet> active_route_snapshot;
+  {
+    std::lock_guard<std::mutex> lock(route_mutex_);
+    if (active_route_.empty()) {
+      response.error_message = "no_active_route";
+      return response;
+    }
+    active_route_snapshot = active_route_;
   }
 
   // Find the nearest lanelet to current position on the route
@@ -370,8 +377,8 @@ lanelet_msgs::srv::GetShortestRoute::Response LaneletHandler::getShortestRoute(
   double min_dist = std::numeric_limits<double>::max();
   size_t current_idx = 0;
 
-  for (size_t i = 0; i < active_route_.size(); ++i) {
-    double dist = lanelet::geometry::distance2d(active_route_[i], search_point);
+  for (size_t i = 0; i < active_route_snapshot.size(); ++i) {
+    double dist = lanelet::geometry::distance2d(active_route_snapshot[i], search_point);
     if (dist < min_dist) {
       min_dist = dist;
       current_idx = i;
@@ -386,19 +393,21 @@ lanelet_msgs::srv::GetShortestRoute::Response LaneletHandler::getShortestRoute(
 
   // Calculate total distance to goal and collect ALL lanelets from current position
   double total_dist = 0.0;
-  for (size_t i = current_idx; i < active_route_.size(); ++i) {
-    response.lanelets.push_back(toLaneletMsg(active_route_[i]));
-    total_dist += lanelet::geometry::length2d(active_route_[i]);
+  response.lanelets.reserve(active_route_snapshot.size() - current_idx);
+  response.transitions.reserve(active_route_snapshot.size() - current_idx - 1);
+  for (size_t i = current_idx; i < active_route_snapshot.size(); ++i) {
+    response.lanelets.push_back(toLaneletMsg(active_route_snapshot[i]));
+    total_dist += lanelet::geometry::length2d(active_route_snapshot[i]);
 
     // Calculate transition type to next lanelet
-    if (i + 1 < active_route_.size()) {
+    if (i + 1 < active_route_snapshot.size()) {
       // Check if next lanelet is left, right, or successor
-      auto left = routing_graph_->left(active_route_[i]);
-      auto right = routing_graph_->right(active_route_[i]);
+      auto left = routing_graph_->left(active_route_snapshot[i]);
+      auto right = routing_graph_->right(active_route_snapshot[i]);
 
-      if (left && left->id() == active_route_[i + 1].id()) {
+      if (left && left->id() == active_route_snapshot[i + 1].id()) {
         response.transitions.push_back(lanelet_msgs::srv::GetShortestRoute::Response::TRANSITION_LEFT);
-      } else if (right && right->id() == active_route_[i + 1].id()) {
+      } else if (right && right->id() == active_route_snapshot[i + 1].id()) {
         response.transitions.push_back(lanelet_msgs::srv::GetShortestRoute::Response::TRANSITION_RIGHT);
       } else {
         response.transitions.push_back(lanelet_msgs::srv::GetShortestRoute::Response::TRANSITION_SUCCESSOR);
@@ -423,10 +432,13 @@ lanelet_msgs::msg::RouteAhead LaneletHandler::getRouteAhead(
     return msg;
   }
 
-  std::lock_guard<std::mutex> lock(route_mutex_);
-
-  if (active_route_.empty()) {
-    return msg;
+  std::vector<lanelet::ConstLanelet> active_route_snapshot;
+  {
+    std::lock_guard<std::mutex> lock(route_mutex_);
+    if (active_route_.empty()) {
+      return msg;
+    }
+    active_route_snapshot = active_route_;
   }
 
   msg.has_active_route = true;
@@ -436,8 +448,8 @@ lanelet_msgs::msg::RouteAhead LaneletHandler::getRouteAhead(
   double min_dist = std::numeric_limits<double>::max();
   size_t current_idx = 0;
 
-  for (size_t i = 0; i < active_route_.size(); ++i) {
-    double dist = lanelet::geometry::distance2d(active_route_[i], search_point);
+  for (size_t i = 0; i < active_route_snapshot.size(); ++i) {
+    double dist = lanelet::geometry::distance2d(active_route_snapshot[i], search_point);
     if (dist < min_dist) {
       min_dist = dist;
       current_idx = i;
@@ -455,10 +467,12 @@ lanelet_msgs::msg::RouteAhead LaneletHandler::getRouteAhead(
 
   // Collect lanelets within the lookahead distance
   double accumulated_dist = 0.0;
-  for (size_t i = current_idx; i < active_route_.size() && accumulated_dist < lookahead_distance_m; ++i) {
-    msg.ids.push_back(active_route_[i].id());
-    msg.lanelets.push_back(toLaneletMsg(active_route_[i]));
-    accumulated_dist += lanelet::geometry::length2d(active_route_[i]);
+  msg.ids.reserve(active_route_snapshot.size() - current_idx);
+  msg.lanelets.reserve(active_route_snapshot.size() - current_idx);
+  for (size_t i = current_idx; i < active_route_snapshot.size() && accumulated_dist < lookahead_distance_m; ++i) {
+    msg.ids.push_back(active_route_snapshot[i].id());
+    msg.lanelets.push_back(toLaneletMsg(active_route_snapshot[i]));
+    accumulated_dist += lanelet::geometry::length2d(active_route_snapshot[i]);
   }
 
   msg.total_distance_m = accumulated_dist;
