@@ -281,8 +281,8 @@
       # friction_offset: 0.062817                      # 126%
       # coefficients: [-0.176590, 0.125083, -0.002900]  # 128%
       # friction_offset: 0.063814                      # 128%
-      coefficients: [-0.179349, 0.127037, -0.002946]  # 130%
-      friction_offset: 0.064811                      # 130%
+      # coefficients: [-0.179349, 0.127037, -0.002946]  # 130%
+      # friction_offset: 0.064811                      # 130%
       # coefficients: [-0.182109, 0.128992, -0.002991]  # 132%
       # friction_offset: 0.065809                      # 132%
       # coefficients: [-0.184868, 0.130946, -0.003036]  # 134%
@@ -311,8 +311,8 @@
       # friction_offset: 0.077774                      # 156%
       # coefficients: [-0.217978, 0.154399, -0.003580]  # 158%
       # friction_offset: 0.078771                      # 158%
-      # coefficients: [-0.220738, 0.156354, -0.003626]  # 160%
-      # friction_offset: 0.079768                      # 160%
+      coefficients: [-0.220738, 0.156354, -0.003626]  # 160%
+      friction_offset: 0.079768                      # 160%
       # coefficients: [-0.223497, 0.158308, -0.003671]  # 162%
       # friction_offset: 0.080765                      # 162%
       # coefficients: [-0.226256, 0.160262, -0.003716]  # 164%
