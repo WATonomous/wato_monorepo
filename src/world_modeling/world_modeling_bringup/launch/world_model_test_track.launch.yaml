@@ -1,0 +1,292 @@
+# Full autonomy stack for test track driving (real hardware).
+# Usage: ros2 launch world_modeling_bringup world_model_test_track.launch.yaml
+
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_test_track.yaml
+      description: Path to the world_model configuration file
+
+  - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+      description: Path to the eidos localization configuration file
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection
+
+  - arg:
+      name: eidos_map_dir
+      default: "/opt/watonomous/maps/test_track_map"
+      description: Directory containing the prior map to localize against
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: Use simulation time from /clock topic
+
+  # Simple Prediction - bridges Detection3DArray to WorldObjectArray
+  - node:
+      pkg: simple_prediction
+      exec: simple_prediction_node
+      name: simple_prediction_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share simple_prediction)/config/params.yaml
+      remap:
+        - from: tracks_3d
+          to: /perception/tracked_detections_3d
+
+  # World Model
+  - node:
+      pkg: world_model
+      exec: world_model_node
+      name: world_model
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "world_objects"
+          to: "world_objects_enriched"
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "map_visualization"
+          to: "lanelet/map_visualization"
+        - from: "route_ahead"
+          to: "lanelet/route_ahead"
+        - from: "lanelet_ahead"
+          to: "lanelet/lanelet_ahead"
+
+  # Lanelet Visualization Markers
+  - node:
+      pkg: lanelet_markers
+      exec: map_viz_markers_node
+      name: map_viz_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "map_visualization"
+          to: "lanelet/map_visualization"
+        - from: "markers"
+          to: "lanelet/map_viz_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: lane_context_markers_node
+      name: lane_context_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "lane_context"
+          to: "lanelet/lane_context"
+        - from: "markers"
+          to: "lanelet/lane_context_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: route_ahead_markers_node
+      name: route_ahead_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "route_ahead"
+          to: "lanelet/route_ahead"
+        - from: "markers"
+          to: "lanelet/route_ahead_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: area_occupancy_markers_node
+      name: area_occupancy_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "area_occupancy"
+          to: "area_occupancy"
+        - from: "markers"
+          to: "area_occupancy_markers"
+
+  - node:
+      pkg: lanelet_markers
+      exec: lanelet_ahead_markers_node
+      name: lanelet_ahead_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "lanelet_ahead"
+          to: "lanelet/lanelet_ahead"
+        - from: "markers"
+          to: "lanelet/lanelet_ahead_markers"
+
+  # World Model Visualization Markers
+  # Pre-enrichment: subscribes to world_object_seeds (from simple_prediction)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_seed_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "world_objects"
+          to: "world_object_seeds"
+        - from: "markers"
+          to: "world_object_seeds_markers"
+
+  # Post-enrichment: subscribes to world_objects (from world model)
+  - node:
+      pkg: world_model_markers
+      exec: world_objects_markers_node
+      name: world_objects_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: "world_objects"
+          to: "world_objects_enriched"
+        - from: "markers"
+          to: "world_objects_enriched_markers"
+
+  # Costmap Node
+  - node:
+      pkg: costmap
+      exec: costmap_node
+      name: costmap_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: world_objects
+          to: world_objects_enriched
+        - from: costmap
+          to: costmap
+        - from: pointcloud
+          to: /perception/non_ground_cloud
+        - from: footprint
+          to: costmap_footprint
+        - from: spawn_wall
+          to: spawn_wall
+        - from: despawn_wall
+          to: despawn_wall
+
+  # Costmap Footprint Markers
+  - node:
+      pkg: costmap_markers
+      exec: costmap_markers_node
+      name: costmap_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: footprint
+          to: costmap_footprint
+        - from: markers
+          to: costmap_footprint_markers
+
+  # Behaviour Node
+  - node:
+      pkg: behaviour
+      exec: behaviour_node
+      name: behaviour_node
+      namespace: "world_modeling"
+      output: screen
+      # delay bt for wm to load all services
+      launch-prefix: "bash -c 'sleep 15; $0 $@'"
+      param:
+        - from: $(find-pkg-share behaviour)/config/params.yaml
+      remap:
+        - from: execute_behaviour
+          to: /behaviour/execute_behaviour
+        - from: route_ahead
+          to: lanelet/route_ahead
+        - from: lane_context
+          to: lanelet/lane_context
+        - from: world_objects
+          to: world_objects
+        - from: area_occupancy
+          to: area_occupancy
+        - from: goal_point
+          to: /goal_point
+        - from: ego/odom
+          to: /ego/odom
+
+  # Behaviour Tree visualization markers
+  - node:
+      pkg: behaviour_markers
+      exec: behaviour_markers_node
+      name: behaviour_markers_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share behaviour_markers)/config/behaviour_markers.yaml
+      remap:
+        - from: execute_behaviour
+          to: /behaviour/execute_behaviour
+        - from: route_ahead
+          to: lanelet/route_ahead
+        - from: lanelet_ahead
+          to: lanelet/lanelet_ahead
+        - from: lane_context
+          to: lanelet/lane_context
+        - from: markers
+          to: behaviour_markers
+
+  # Eidos Localization Node
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: map.load_directory
+          value: $(var eidos_map_dir)
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: world_modeling_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/simple_prediction_node
+            - /world_modeling/world_model
+            - /world_modeling/costmap_node
+            - /world_modeling/eidos_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)

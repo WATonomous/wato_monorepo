@@ -12,13 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Launch world_model lifecycle node with lifecycle manager.
+# Full autonomy stack for CARLA simulation.
+# Usage: ros2 launch world_modeling_bringup world_model_sim.launch.yaml
 
 launch:
   - arg:
       name: config_file
       default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
       description: Path to the world_model configuration file
+
+  - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_slam.yaml
+      description: Path to the eidos SLAM configuration file
 
   - arg:
       name: autostart
@@ -31,6 +37,12 @@ launch:
       description: Enable bond-based crash detection
 
   # Prediction - generates trajectory hypotheses for tracked objects
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
+
+  # Simple Prediction - bridges Detection3DArray to WorldObjectArray
   - node:
       pkg: prediction
       exec: prediction_node
@@ -76,7 +88,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "lane_context"
           to: "lanelet/lane_context"
@@ -92,7 +104,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "lane_context"
           to: "lanelet/lane_context"
@@ -106,7 +118,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "route_ahead"
           to: "lanelet/route_ahead"
@@ -120,7 +132,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "area_occupancy"
           to: "area_occupancy"
@@ -134,7 +146,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "lanelet_ahead"
           to: "lanelet/lanelet_ahead"
@@ -150,7 +162,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "world_objects"
           to: "world_object_seeds"
@@ -165,7 +177,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+        - from: $(var config_file)
       remap:
         - from: "world_objects"
           to: "world_objects_enriched"
@@ -258,6 +270,16 @@ launch:
         - from: markers
           to: behaviour_markers
 
+  # Eidos SLAM Node
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -271,6 +293,7 @@ launch:
             - /world_modeling/prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
+            - /world_modeling/eidos_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

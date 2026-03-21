@@ -1,0 +1,12 @@
+<library path="eidos_plugins">
+  <class name="eidos::KeyframeMapVisualization"
+         type="eidos::KeyframeMapVisualization"
+         base_class_type="eidos::VisualizationPlugin">
+    <description>Publishes the accumulated keyframe point cloud map as a PointCloud2 message.</description>
+  </class>
+  <class name="eidos::FactorGraphVisualization"
+         type="eidos::FactorGraphVisualization"
+         base_class_type="eidos::VisualizationPlugin">
+    <description>Visualizes factor graph structure: state nodes as colored spheres and factors as colored lines.</description>
+  </class>
+</library>

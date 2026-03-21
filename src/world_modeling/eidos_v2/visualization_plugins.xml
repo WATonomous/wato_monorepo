@@ -1,0 +1,8 @@
+<library path="eidos_v2_plugins">
+  <class name="eidos::KeyframeMapVisualization" type="eidos::KeyframeMapVisualization" base_class_type="eidos::VisualizationPlugin">
+    <description>Keyframe point cloud map visualization</description>
+  </class>
+  <class name="eidos::FactorGraphVisualization" type="eidos::FactorGraphVisualization" base_class_type="eidos::VisualizationPlugin">
+    <description>Factor graph state/edge visualization</description>
+  </class>
+</library>

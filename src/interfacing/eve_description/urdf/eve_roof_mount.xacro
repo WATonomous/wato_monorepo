@@ -23,10 +23,24 @@
       </collision>
     </link>
 
+    <!-- To level the lidar with the ground plane, take the roll and pitch from
+         the calibrated imu_rpy (IMU rotation relative to lidar) and apply them
+         here. Since the IMU is gravity-calibrated, its roll/pitch relative to
+         the lidar reveals the lidar's physical tilt. Absorbing those angles
+         into this joint levels the lidar frame, then zero out the roll/pitch
+         in imu_rpy (in eve_kia_soul_ev.xacro) so the net transform is unchanged. -->
     <joint name="lidar_cc_mount_yaw" type="fixed">
       <parent link="${parent}"/>
       <child link="lidar_cc"/>
-      <origin xyz="0 0 0.35" rpy="0 0 0.10472"/>
+      <origin xyz="0 0 0.35" rpy="-0.006167 0.042198 0.10472"/>
+    </joint>
+
+    <!-- Alias frame to match bag/driver frame_id (lidar_top) -->
+    <link name="lidar_top"/>
+    <joint name="lidar_top_alias" type="fixed">
+      <parent link="lidar_cc"/>
+      <child link="lidar_top"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 
     <!-- GPS/IMU Antenna -->

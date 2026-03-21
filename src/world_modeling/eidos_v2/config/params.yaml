@@ -1,0 +1,50 @@
+# Eidos v2 default configuration
+# Copy and modify for your deployment (SLAM, localization, etc.)
+
+/**/eidos_node:
+  ros__parameters:
+    slam_rate: 10.0
+    relocalization_timeout: 30.0
+
+    frames:
+      map: "map"
+      odometry: "odom"
+      base_link: "base_footprint"
+
+    transforms:
+      odom_source: "liso_factor"   # factor plugin for odom-frame anchor (or "" for motion-model-only)
+      map_source: "slam_core"      # "slam_core" for ISAM2, or factor plugin name
+      rate: 500.0                  # TransformManager timer rate (Hz)
+
+    map:
+      load_directory: ""
+      save_directory: "/tmp/eidos_maps/"
+
+    isam2:
+      relinearize_threshold: 0.01
+      relinearize_skip: 1
+      update_iterations: 2
+      correction_iterations: 5
+      loop_closure_iterations: 5
+
+    prior:
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]
+
+    factor_plugins:
+      - "liso_factor"
+
+    motion_model:
+      plugin: "eidos::ImuMotionModel"
+
+    relocalization_plugins: []
+    visualization_plugins:
+      - "keyframe_map_visualization"
+
+    topics:
+      status: "slam/status"
+      odom: "slam/odometry"
+      pose: "slam/pose"
+      save_map_service: "slam/save_map"
+      load_map_service: "slam/load_map"

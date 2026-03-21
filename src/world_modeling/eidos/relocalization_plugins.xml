@@ -1,0 +1,7 @@
+<library path="eidos_plugins">
+  <class name="eidos::GpsIcpRelocalization"
+         type="eidos::GpsIcpRelocalization"
+         base_class_type="eidos::RelocalizationPlugin">
+    <description>GPS + ICP relocalization. Uses GPS to find candidate keyframes in the prior map and ICP for precise alignment.</description>
+  </class>
+</library>
