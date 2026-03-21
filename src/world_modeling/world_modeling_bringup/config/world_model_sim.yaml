@@ -21,7 +21,8 @@
     osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
     projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
 
-    # the origin of the osm map in lat/lon for utm projector only (maybe in the future have a dictionary of origins for different maps)
+    # the origin of the osm map in lat/lon for utm projector only
+    # TODO (wato): have a dictionary of origins for different maps
     origin_lat: 43.43663210811
     origin_lon: -80.5788350291
 
@@ -47,7 +48,7 @@
     # Map visualization
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 50.0
-    map_viz_mode: "all" # "nearby" uses ego-centered radius, falling back to all if ego TF is unavailable; "all" always publishes every lanelet
+    map_viz_mode: "all" # "all" to viz all markers or "nearby" to viz markers within a radius of the ego
 
     # World objects enriched
     world_objects_enriched_publish_rate_hz: 20.0
