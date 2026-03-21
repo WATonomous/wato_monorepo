@@ -23,6 +23,7 @@ COPY src/world_modeling/eidos_msgs eidos_msgs
 
 COPY src/interfacing/eve_description eve_description
 COPY src/interfacing/roscco_msg roscco_msg
+COPY src/interfacing/pid_msgs pid_msgs
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible

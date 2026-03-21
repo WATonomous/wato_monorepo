@@ -37,5 +37,5 @@ vel_driven_feedforward_pid_node:
     # T_ff = (c0 + c1*v + c2*v^2) * steering_setpoint + friction_offset * sign(steering_setpoint)
     # Symmetric Model B fit (R²=0.845, RMSE=0.046, 63182 samples)
     feedforward:
-      coefficients: [0.137961, -0.097721, 0.002266]
-      friction_offset: -0.049855
+      coefficients: [-0.137961, 0.097721, -0.002266]
+      friction_offset: 0.049855

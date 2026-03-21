@@ -307,7 +307,14 @@ void VelDrivenFeedforwardPidNode::control_loop()
     ff_msg.feedforward = ff_output;
     feedforward_pub_->publish(ff_msg);
 
-    steering_command = std::clamp(pid_output + ff_output, output_clamp_min_, output_clamp_max_);
+    double combined = pid_output + ff_output;
+    steering_command = std::clamp(combined, output_clamp_min_, output_clamp_max_);
+
+    RCLCPP_INFO(
+      this->get_logger(),
+      "STEER | err=%.4f pid=%.4f ff=%.4f combined=%.4f clamped=%.4f setpt=%.4f meas=%.4f vel=%.4f",
+      steering_error, pid_output, ff_output, combined, steering_command,
+      steering_setpoint_, steering_meas_, current_velocity_);
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
   }
@@ -325,6 +332,8 @@ void VelDrivenFeedforwardPidNode::control_loop()
       velocity_command = raw_effort * brake_scale_;
     }
     velocity_command = std::clamp(velocity_command, -1.0, 1.0);
+
+
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for velocity feedback...");
   }
