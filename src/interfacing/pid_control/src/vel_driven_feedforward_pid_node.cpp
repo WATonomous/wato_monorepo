@@ -34,6 +34,7 @@ VelDrivenFeedforwardPidNode::VelDrivenFeedforwardPidNode(const rclcpp::NodeOptio
   this->declare_parameter<double>("velocity_output.throttle_scale", 1.0);
   this->declare_parameter<double>("velocity_output.brake_scale", 1.0);
   this->declare_parameter<double>("velocity_output.deadband", 0.0);
+  this->declare_parameter<double>("steering_d_on_measurement", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "VelDrivenFeedforwardPidNode created (unconfigured)");
 }
@@ -50,6 +51,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   throttle_scale_ = this->get_parameter("velocity_output.throttle_scale").as_double();
   brake_scale_ = this->get_parameter("velocity_output.brake_scale").as_double();
   velocity_deadband_ = this->get_parameter("velocity_output.deadband").as_double();
+  d_on_meas_gain_ = this->get_parameter("steering_d_on_measurement").as_double();
 
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
@@ -103,7 +105,8 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
     for (const auto & param : params) {
       if (
         param.get_name() == "feedforward.coefficients" || param.get_name() == "feedforward.friction_offset" ||
-        param.get_name() == "output_clamp_max" || param.get_name() == "output_clamp_min")
+        param.get_name() == "output_clamp_max" || param.get_name() == "output_clamp_min" ||
+        param.get_name() == "steering_d_on_measurement")
       {
         feedforward_rebuild_pending_ = true;
       }
@@ -174,6 +177,8 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_clea
   velocity_meas_received_ = false;
   velocity_source_ = VelocitySource::NONE;
   feedforward_rebuild_pending_ = false;
+  steering_meas_prev_ = 0.0;
+  steering_meas_prev_valid_ = false;
 
   return CallbackReturn::SUCCESS;
 }
@@ -288,6 +293,7 @@ void VelDrivenFeedforwardPidNode::control_loop()
     feedforward_friction_offset_ = this->get_parameter("feedforward.friction_offset").as_double();
     output_clamp_max_ = this->get_parameter("output_clamp_max").as_double();
     output_clamp_min_ = this->get_parameter("output_clamp_min").as_double();
+    d_on_meas_gain_ = this->get_parameter("steering_d_on_measurement").as_double();
     feedforward_rebuild_pending_ = false;
     RCLCPP_INFO(this->get_logger(), "Feedforward parameters updated");
   }
@@ -307,13 +313,24 @@ void VelDrivenFeedforwardPidNode::control_loop()
     ff_msg.feedforward = ff_output;
     feedforward_pub_->publish(ff_msg);
 
-    double combined = pid_output + ff_output;
+    // D-on-measurement: -D * d(measurement)/dt (negative because rising measurement should oppose)
+    double d_on_meas = 0.0;
+    if (steering_meas_prev_valid_ && d_on_meas_gain_ != 0.0) {
+      double dt_sec = dt.seconds();
+      if (dt_sec > 0.0) {
+        d_on_meas = -d_on_meas_gain_ * (steering_meas_ - steering_meas_prev_) / dt_sec;
+      }
+    }
+    steering_meas_prev_ = steering_meas_;
+    steering_meas_prev_valid_ = true;
+
+    double combined = pid_output + ff_output + d_on_meas;
     steering_command = std::clamp(combined, output_clamp_min_, output_clamp_max_);
 
     RCLCPP_INFO(
       this->get_logger(),
-      "STEER | err=%.4f pid=%.4f ff=%.4f combined=%.4f clamped=%.4f setpt=%.4f meas=%.4f vel=%.4f",
-      steering_error, pid_output, ff_output, combined, steering_command,
+      "STEER | err=%.4f pid=%.4f ff=%.4f d_meas=%.4f combined=%.4f clamped=%.4f setpt=%.4f meas=%.4f vel=%.4f",
+      steering_error, pid_output, ff_output, d_on_meas, combined, steering_command,
       steering_setpoint_, steering_meas_, current_velocity_);
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");

@@ -29,6 +29,8 @@ vel_driven_feedforward_pid_node:
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
+    steering_d_on_measurement: 0.1  # D-on-measurement gain (set control_toolbox d to 0)
+
     velocity_output:
       throttle_scale: 1.0
       brake_scale: 0.5

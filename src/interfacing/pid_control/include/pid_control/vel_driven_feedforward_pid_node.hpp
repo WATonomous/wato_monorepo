@@ -98,6 +98,11 @@ private:
   double output_clamp_max_{1.0};
   double output_clamp_min_{-1.0};
 
+  // D-on-measurement (bypasses control_toolbox D-on-error)
+  double d_on_meas_gain_{0.0};
+  double steering_meas_prev_{0.0};
+  bool steering_meas_prev_valid_{false};
+
   // Feedforward
   std::vector<double> feedforward_coefficients_;
   double feedforward_friction_offset_{0.0};
