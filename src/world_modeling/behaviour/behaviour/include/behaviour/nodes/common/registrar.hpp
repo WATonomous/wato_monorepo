@@ -17,9 +17,9 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
-#include <behaviortree_ros2/ros_node_params.hpp>
-
 #include <stdexcept>
+
+#include <behaviortree_ros2/ros_node_params.hpp>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 

@@ -17,9 +17,9 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
-#include <behaviortree_ros2/ros_node_params.hpp>
-
 #include <stdexcept>
+
+#include <behaviortree_ros2/ros_node_params.hpp>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 #include "behaviour/utils/types.hpp"
@@ -35,9 +35,9 @@
 
 // conditions
 #include "behaviour/nodes/lane_navigation/conditions/ego_stopped_for_duration_condition.hpp"
-#include "behaviour/nodes/lane_navigation/conditions/overtake_valid_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_lane_transition_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_overtake_state_condition.hpp"
+#include "behaviour/nodes/lane_navigation/conditions/overtake_valid_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/safe_lane_change_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/valid_lane_change_condition.hpp"
 
@@ -76,10 +76,11 @@ public:
       "EgoStoppedForDuration", logger.get_child("EgoStoppedForDuration"));
     factory.registerNodeType<behaviour::IsLaneTransitionCondition>(
       "IsLaneTransition", logger.get_child("IsLaneTransition"));
-    factory.registerNodeType<behaviour::OvertakeValidCondition>(
-      "OvertakeValid", logger.get_child("OvertakeValid"));
-    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage", logger.get_child("IsOvertakeStage"));
-    factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange", logger.get_child("ValidLaneChange"));
+    factory.registerNodeType<behaviour::OvertakeValidCondition>("OvertakeValid", logger.get_child("OvertakeValid"));
+    factory.registerNodeType<behaviour::IsOvertakeStateCondition>(
+      "IsOvertakeStage", logger.get_child("IsOvertakeStage"));
+    factory.registerNodeType<behaviour::ValidLaneChangeCondition>(
+      "ValidLaneChange", logger.get_child("ValidLaneChange"));
     factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange", logger.get_child("SafeLaneChange"));
   }
 };

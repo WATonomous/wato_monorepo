@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "world_model_msgs/msg/area_occupancy_info.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
@@ -54,7 +53,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto fetched_areas = ports::tryGet<std::vector<world_model_msgs::msg::AreaOccupancyInfo>>(*this, "fetched_areas");
@@ -70,7 +69,7 @@ public:
     setOutput("objects", std::vector<world_model_msgs::msg::WorldObject>{});
 
     if (area_name->empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "Empty area_name input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Empty area_name input");
       return BT::NodeStatus::FAILURE;
     }
 
@@ -78,11 +77,11 @@ public:
     setOutput("objects", objects);
 
     if (utils::area_occupancy::isAreaOccupied(*fetched_areas, *area_name)) {
-      RCLCPP_DEBUG_STREAM(logger(), "Occupied area found: " << *area_name );
+      RCLCPP_DEBUG_STREAM(logger(), "Occupied area found: " << *area_name);
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Area is clear: " << *area_name );
+    RCLCPP_DEBUG_STREAM(logger(), "Area is clear: " << *area_name);
     return BT::NodeStatus::FAILURE;
   }
 };

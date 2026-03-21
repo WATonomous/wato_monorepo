@@ -17,14 +17,13 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -54,7 +53,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
@@ -67,7 +66,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
     if (goal_lanelet->centerline.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "goal_lanelet centerline is empty" );
+      RCLCPP_DEBUG_STREAM(logger(), "goal_lanelet centerline is empty");
       return BT::NodeStatus::FAILURE;
     }
 
@@ -88,13 +87,17 @@ public:
 
     // Check if within threshold
     if (distance <= threshold) {
-      RCLCPP_DEBUG_STREAM(logger(), "Distance " << distance << " is within threshold " << threshold
-                << " (goal_lanelet_id=" << goal_lanelet->id << ")" );
+      RCLCPP_DEBUG_STREAM(
+        logger(),
+        "Distance " << distance << " is within threshold " << threshold << " (goal_lanelet_id=" << goal_lanelet->id
+                    << ")");
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Distance " << distance << " is outside threshold " << threshold
-              << " (goal_lanelet_id=" << goal_lanelet->id << ")" );
+    RCLCPP_DEBUG_STREAM(
+      logger(),
+      "Distance " << distance << " is outside threshold " << threshold << " (goal_lanelet_id=" << goal_lanelet->id
+                  << ")");
     return BT::NodeStatus::FAILURE;
   }
 };

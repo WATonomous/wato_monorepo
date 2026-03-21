@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 
@@ -61,7 +60,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lane_transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
@@ -72,7 +71,7 @@ public:
     // Check if in intersection
     lanelet_msgs::msg::Lanelet current_lanelet = lane_ctx->current_lanelet;
     if (current_lanelet.is_intersection) {
-      RCLCPP_DEBUG_STREAM(logger(), "Not valid, currently in intersection" );
+      RCLCPP_DEBUG_STREAM(logger(), "Not valid, currently in intersection");
       return BT::NodeStatus::FAILURE;
     }
 
@@ -83,23 +82,23 @@ public:
       // handles left lane change
       case types::LaneTransition::LEFT:
         if (can_change_left) {
-          RCLCPP_DEBUG_STREAM(logger(), "Valid left lane change" );
+          RCLCPP_DEBUG_STREAM(logger(), "Valid left lane change");
           return BT::NodeStatus::SUCCESS;
         } else {
-          RCLCPP_DEBUG_STREAM(logger(), "Not valid, cannot change left" );
+          RCLCPP_DEBUG_STREAM(logger(), "Not valid, cannot change left");
           return BT::NodeStatus::FAILURE;
         }
       // handles right lane change
       case types::LaneTransition::RIGHT:
         if (can_change_right) {
-          RCLCPP_DEBUG_STREAM(logger(), "Valid right lane change" );
+          RCLCPP_DEBUG_STREAM(logger(), "Valid right lane change");
           return BT::NodeStatus::SUCCESS;
         } else {
-          RCLCPP_DEBUG_STREAM(logger(), "Not valid, cannot change right" );
+          RCLCPP_DEBUG_STREAM(logger(), "Not valid, cannot change right");
           return BT::NodeStatus::FAILURE;
         }
       default:
-        RCLCPP_DEBUG_STREAM(logger(), "Invalid transition type" );
+        RCLCPP_DEBUG_STREAM(logger(), "Invalid transition type");
         return BT::NodeStatus::FAILURE;
     }
   }

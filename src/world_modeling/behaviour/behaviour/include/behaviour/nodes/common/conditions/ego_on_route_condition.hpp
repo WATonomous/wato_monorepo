@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -51,7 +50,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
       setOutput("error_message", std::string("missing_port:") + port_name);
     };
 

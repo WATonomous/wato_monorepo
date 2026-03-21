@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "behaviour/behaviour_node.hpp"
-#include "behaviour/utils/types.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -21,6 +20,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "behaviour/utils/types.hpp"
 
 namespace behaviour
 {

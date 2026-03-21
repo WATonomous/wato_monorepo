@@ -111,14 +111,16 @@ public:
 
     if (utils::area_occupancy::isAreaOccupied(*area_infos, *overtake_front_area)) {
       const auto objects = utils::area_occupancy::getAreaObjects(*area_infos, *overtake_front_area);
-      const bool contains_vehicle = std::any_of(
-        objects.begin(), objects.end(),
-        [&](const auto & object) { return utils::world_objects::isVehicle(object, *hypothesis_index); });
+      const bool contains_vehicle = std::any_of(objects.begin(), objects.end(), [&](const auto & object) {
+        return utils::world_objects::isVehicle(object, *hypothesis_index);
+      });
       const bool contains_non_vehicle =
         std::any_of(
-          objects.begin(), objects.end(),
+          objects.begin(),
+          objects.end(),
           [&](const auto & object) { return utils::world_objects::isPedestrian(object, *hypothesis_index); }) ||
-        utils::world_objects::containsType(objects, "bicycle") || utils::world_objects::containsType(objects, "cyclist") ||
+        utils::world_objects::containsType(objects, "bicycle") ||
+        utils::world_objects::containsType(objects, "cyclist") ||
         utils::world_objects::containsType(objects, "traffic_light");
 
       if (contains_vehicle && !contains_non_vehicle) {
@@ -128,19 +130,16 @@ public:
     }
 
     const bool missing_right_with_parked_car =
-      !has_right_lane &&
-      std::any_of(
-        right_areas->begin(), right_areas->end(),
-        [&](const auto & area_name) { return utils::area_occupancy::isAreaOccupied(*area_infos, area_name); });
+      !has_right_lane && std::any_of(right_areas->begin(), right_areas->end(), [&](const auto & area_name) {
+        return utils::area_occupancy::isAreaOccupied(*area_infos, area_name);
+      });
     const bool missing_left_with_parked_car =
-      !has_left_lane &&
-      std::any_of(
-        left_areas->begin(), left_areas->end(),
-        [&](const auto & area_name) { return utils::area_occupancy::isAreaOccupied(*area_infos, area_name); });
+      !has_left_lane && std::any_of(left_areas->begin(), left_areas->end(), [&](const auto & area_name) {
+        return utils::area_occupancy::isAreaOccupied(*area_infos, area_name);
+      });
 
     if (missing_right_with_parked_car || missing_left_with_parked_car) {
-      RCLCPP_DEBUG_STREAM(
-        logger(), "Overtake valid: occupied corridor detected on side without an adjacent lane");
+      RCLCPP_DEBUG_STREAM(logger(), "Overtake valid: occupied corridor detected on side without an adjacent lane");
       return BT::NodeStatus::SUCCESS;
     }
 

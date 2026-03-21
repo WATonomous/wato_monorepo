@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
@@ -33,7 +32,8 @@ namespace behaviour
 class IsRegulatoryElementTypeCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsRegulatoryElementTypeCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  IsRegulatoryElementTypeCondition(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -49,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
@@ -65,10 +65,9 @@ public:
     const auto type = utils::lanelet::getTrafficControlElementType(*reg_elem);
     RCLCPP_DEBUG_STREAM(
       logger(),
-      "Comparing type='" << (type ? types::toString(*type) : "unknown")
-                         << "' to expected='" << types::toString(expected.value()) << "'");
-    return (type && *type == expected.value()) ?
-           BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+      "Comparing type='" << (type ? types::toString(*type) : "unknown") << "' to expected='"
+                         << types::toString(expected.value()) << "'");
+    return (type && *type == expected.value()) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };
 

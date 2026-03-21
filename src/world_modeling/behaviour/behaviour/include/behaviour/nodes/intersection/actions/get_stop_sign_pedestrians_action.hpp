@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -26,6 +24,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
@@ -59,9 +58,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const auto missing = [this](const char * port) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port );
-    };
+    const auto missing = [this](const char * port) { RCLCPP_DEBUG_STREAM(logger(), "Missing " << port); };
 
     auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
     if (!ports::require(stop_sign, "stop_sign", missing)) return BT::NodeStatus::FAILURE;
@@ -76,8 +73,7 @@ public:
     std::unordered_set<std::string> seen_ids;
 
     for (const auto lanelet_id : stop_sign->yield_lanelet_ids) {
-      const auto pedestrians =
-        utils::world_objects::getPedestriansByLanelet(*objects, *hypothesis_index, lanelet_id);
+      const auto pedestrians = utils::world_objects::getPedestriansByLanelet(*objects, *hypothesis_index, lanelet_id);
 
       for (const auto * obj : pedestrians) {
         if (obj == nullptr) continue;
@@ -89,8 +85,7 @@ public:
     setOutput("out_stop_sign_pedestrian_ids", out_ids);
 
     if (!out_ids.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "Found " << out_ids.size()
-                << " pedestrian(s) on yield lanelets" );
+      RCLCPP_DEBUG_STREAM(logger(), "Found " << out_ids.size() << " pedestrian(s) on yield lanelets");
     }
 
     return BT::NodeStatus::SUCCESS;

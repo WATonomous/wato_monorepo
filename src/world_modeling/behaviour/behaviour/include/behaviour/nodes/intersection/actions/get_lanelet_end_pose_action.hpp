@@ -16,8 +16,6 @@
 #define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_LANELET_END_POSE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
-
-#include "behaviour/nodes/bt_logger_base.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <cmath>
@@ -27,6 +25,7 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -55,7 +54,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -70,7 +69,7 @@ public:
 
     const auto & lanelet = lane_ctx->current_lanelet;
     if (lanelet.centerline.size() < 2) {
-      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet centerline has fewer than 2 points" );
+      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet centerline has fewer than 2 points");
       setOutput("error_message", "invalid_lanelet_centerline");
       return BT::NodeStatus::FAILURE;
     }
@@ -96,8 +95,9 @@ public:
     pose->pose.orientation = tf2::toMsg(q);
 
     RCLCPP_DEBUG_STREAM(
-      logger(), "Extracted lanelet midpoint pose at (" << pose->pose.position.x << ", "
-                << pose->pose.position.y << ", " << pose->pose.position.z << ") with yaw " << yaw );
+      logger(),
+      "Extracted lanelet midpoint pose at (" << pose->pose.position.x << ", " << pose->pose.position.y << ", "
+                                             << pose->pose.position.z << ") with yaw " << yaw);
 
     setOutput("pose", pose);
     return BT::NodeStatus::SUCCESS;

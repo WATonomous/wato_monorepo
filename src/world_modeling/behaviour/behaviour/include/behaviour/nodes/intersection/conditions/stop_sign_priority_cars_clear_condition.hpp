@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
 namespace behaviour
@@ -35,7 +34,8 @@ namespace behaviour
 class StopSignPriorityCarsClearCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  StopSignPriorityCarsClearCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  StopSignPriorityCarsClearCondition(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -51,7 +51,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto priority = ports::tryGet<std::vector<std::string>>(*this, "priority_ids");
@@ -72,12 +72,12 @@ public:
 
     for (const auto & id : *priority) {
       if (current_set.find(id) != current_set.end()) {
-        RCLCPP_DEBUG_STREAM(logger(), "Blocked (priority car still present: " << id << ")" );
+        RCLCPP_DEBUG_STREAM(logger(), "Blocked (priority car still present: " << id << ")");
         return BT::NodeStatus::FAILURE;
       }
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Clear (no priority cars present)" );
+    RCLCPP_DEBUG_STREAM(logger(), "Clear (no priority cars present)");
     return BT::NodeStatus::SUCCESS;
   }
 };

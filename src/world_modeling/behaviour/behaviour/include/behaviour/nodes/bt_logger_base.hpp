@@ -15,14 +15,13 @@
 #ifndef BEHAVIOUR__NODES__BT_LOGGER_BASE_HPP_
 #define BEHAVIOUR__NODES__BT_LOGGER_BASE_HPP_
 
-#include <behaviortree_ros2/ros_node_params.hpp>
-
-#include <rclcpp/logger.hpp>
-#include <rclcpp/logging.hpp>
-
 #include <stdexcept>
 #include <string>
 #include <utility>
+
+#include <behaviortree_ros2/ros_node_params.hpp>
+#include <rclcpp/logger.hpp>
+#include <rclcpp/logging.hpp>
 
 namespace behaviour
 {

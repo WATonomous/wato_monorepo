@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
@@ -51,7 +50,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -65,8 +64,10 @@ public:
     }
 
     const bool ego_on_lanelet = lane_ctx->current_lanelet.id == lanelet->id;
-    RCLCPP_DEBUG_STREAM(logger(), "current=" << lane_ctx->current_lanelet.id << ", target=" << lanelet->id
-              << ", result=" << (ego_on_lanelet ? "true" : "false") );
+    RCLCPP_DEBUG_STREAM(
+      logger(),
+      "current=" << lane_ctx->current_lanelet.id << ", target=" << lanelet->id
+                 << ", result=" << (ego_on_lanelet ? "true" : "false"));
     return ego_on_lanelet ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

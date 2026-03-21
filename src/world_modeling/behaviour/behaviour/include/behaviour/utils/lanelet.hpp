@@ -50,8 +50,7 @@ inline bool containsLaneletId(const std::vector<int64_t> & lanelet_ids, int64_t 
   return std::find(lanelet_ids.begin(), lanelet_ids.end(), lanelet_id) != lanelet_ids.end();
 }
 
-inline RightOfWayRole getRightOfWayRole(
-  const lanelet_msgs::msg::RegulatoryElement & reg_elem, int64_t lanelet_id)
+inline RightOfWayRole getRightOfWayRole(const lanelet_msgs::msg::RegulatoryElement & reg_elem, int64_t lanelet_id)
 {
   if (reg_elem.subtype != "right_of_way") {
     return RightOfWayRole::NONE;

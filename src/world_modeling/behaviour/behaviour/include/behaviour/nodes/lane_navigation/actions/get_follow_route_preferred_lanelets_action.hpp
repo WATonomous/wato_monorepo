@@ -17,14 +17,13 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 
@@ -42,7 +41,8 @@ namespace behaviour
 class GetFollowRoutePreferredLaneletsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetFollowRoutePreferredLaneletsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  GetFollowRoutePreferredLaneletsAction(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -60,7 +60,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto route_ahead = ports::tryGetPtr<lanelet_msgs::msg::RouteAhead>(*this, "route_ahead");
@@ -69,7 +69,7 @@ public:
     }
 
     if (!route_ahead->has_active_route || route_ahead->ids.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "No active route or empty route ahead" );
+      RCLCPP_DEBUG_STREAM(logger(), "No active route or empty route ahead");
       setOutput("error_message", std::string("No active route or empty route ahead"));
       return BT::NodeStatus::FAILURE;
     }

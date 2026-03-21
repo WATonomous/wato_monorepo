@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
@@ -50,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto msg = ports::tryGet<std::string>(*this, "msg");
@@ -63,8 +62,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Comparing msg='" << *msg << "' to expected='" << *expected << "'"
-              );
+    RCLCPP_DEBUG_STREAM(logger(), "Comparing msg='" << *msg << "' to expected='" << *expected << "'");
 
     if (msg == expected) {
       return BT::NodeStatus::SUCCESS;

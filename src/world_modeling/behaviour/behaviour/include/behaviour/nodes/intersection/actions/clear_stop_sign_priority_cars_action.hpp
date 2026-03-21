@@ -17,11 +17,11 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <vector>
+
+#include "behaviour/nodes/bt_logger_base.hpp"
 
 namespace behaviour
 {
@@ -32,7 +32,8 @@ namespace behaviour
 class ClearStopSignPriorityCarsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  ClearStopSignPriorityCarsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  ClearStopSignPriorityCarsAction(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -47,7 +48,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    RCLCPP_DEBUG_STREAM(logger(), "Clearing stop sign priority car ids" );
+    RCLCPP_DEBUG_STREAM(logger(), "Clearing stop sign priority car ids");
     setOutput("priority_car_ids", std::vector<std::string>{});
     setOutput("priority_latched", false);
     return BT::NodeStatus::SUCCESS;

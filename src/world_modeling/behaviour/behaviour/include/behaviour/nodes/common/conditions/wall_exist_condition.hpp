@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
 namespace behaviour
@@ -49,7 +48,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input -> treat as no-op" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input -> treat as no-op");
     };
 
     auto wall_id = ports::tryGet<int32_t>(*this, "wall_id");

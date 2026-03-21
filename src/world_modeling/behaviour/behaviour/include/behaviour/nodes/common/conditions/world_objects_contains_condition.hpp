@@ -33,8 +33,7 @@ namespace behaviour
 class WorldObjectsContainsCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  WorldObjectsContainsCondition(
-    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  WorldObjectsContainsCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -70,8 +69,9 @@ public:
 
     const bool contains = utils::world_objects::containsType(*objects, *object_type);
     RCLCPP_DEBUG_STREAM(
-      logger(), "Checking " << objects->size() << " object(s) for type '" << *object_type
-                            << "': " << (contains ? "found" : "not found"));
+      logger(),
+      "Checking " << objects->size() << " object(s) for type '" << *object_type
+                  << "': " << (contains ? "found" : "not found"));
 
     return contains ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }

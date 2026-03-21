@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/types.hpp"
 
@@ -53,7 +52,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto diverge_transition = ports::tryGet<types::LaneTransition>(*this, "in_diverge_lane_transition");
@@ -78,8 +77,7 @@ public:
         break;
       case types::LaneTransition::SUCCESSOR:
       default:
-        RCLCPP_DEBUG_STREAM(logger(), "Invalid diverge transition "
-                  << types::toString(*diverge_transition) );
+        RCLCPP_DEBUG_STREAM(logger(), "Invalid diverge transition " << types::toString(*diverge_transition));
         return BT::NodeStatus::FAILURE;
     }
 
@@ -88,8 +86,8 @@ public:
     setOutput("out_behaviour_diverge", diverge_behaviour);
     setOutput("out_behaviour_merge", merge_behaviour);
 
-    RCLCPP_DEBUG_STREAM(logger(), "diverge=" << types::toString(*diverge_transition)
-              << ", merge=" << types::toString(merge_transition) );
+    RCLCPP_DEBUG_STREAM(
+      logger(), "diverge=" << types::toString(*diverge_transition) << ", merge=" << types::toString(merge_transition));
     return BT::NodeStatus::SUCCESS;
   }
 };

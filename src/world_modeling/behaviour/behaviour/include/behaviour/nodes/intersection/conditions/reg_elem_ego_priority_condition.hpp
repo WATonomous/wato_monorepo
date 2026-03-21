@@ -17,15 +17,17 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <string>
+
 #include "behaviour/nodes/bt_logger_base.hpp"
 
 namespace behaviour
 {
 
 /**
- * @class RegElemEgoPriorityCondition
- * @brief Returns SUCCESS once ego has earned priority for the active regulatory element.
- */
+   * @class RegElemEgoPriorityCondition
+   * @brief Returns SUCCESS once ego has earned priority for the active regulatory element.
+   */
 class RegElemEgoPriorityCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:

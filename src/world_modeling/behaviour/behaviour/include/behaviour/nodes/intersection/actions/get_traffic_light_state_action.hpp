@@ -17,14 +17,13 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
@@ -57,7 +56,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "traffic_light");
@@ -79,12 +78,12 @@ public:
     const auto state = utils::world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
     if (!state) {
       setOutput("error_message", "traffic_light_state_not_found");
-      RCLCPP_DEBUG_STREAM(logger(), "failed to get state for reg_elem_id=" << reg_elem_id );
+      RCLCPP_DEBUG_STREAM(logger(), "failed to get state for reg_elem_id=" << reg_elem_id);
       return BT::NodeStatus::FAILURE;
     }
 
     setOutput("out_traffic_light_state", *state);
-    RCLCPP_DEBUG_STREAM(logger(), "state=" << *state << " reg_elem_id=" << reg_elem_id );
+    RCLCPP_DEBUG_STREAM(logger(), "state=" << *state << " reg_elem_id=" << reg_elem_id);
 
     return BT::NodeStatus::SUCCESS;
   }

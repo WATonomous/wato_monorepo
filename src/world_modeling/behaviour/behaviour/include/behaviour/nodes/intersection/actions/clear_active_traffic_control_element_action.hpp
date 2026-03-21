@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 
@@ -34,7 +33,8 @@ namespace behaviour
 class ClearActiveTrafficControlElementAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  ClearActiveTrafficControlElementAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  ClearActiveTrafficControlElementAction(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -50,8 +50,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    RCLCPP_DEBUG_STREAM(logger(), "Clearing active traffic control element "
-              << "and associated lanelet/element IDs" );
+    RCLCPP_DEBUG_STREAM(logger(), "Clearing active traffic control element " << "and associated lanelet/element IDs");
     lanelet_msgs::msg::RegulatoryElement::SharedPtr cleared = nullptr;
     setOutput("active_traffic_control_element", cleared);
     setOutput("active_traffic_control_lanelet_id", static_cast<int64_t>(0));

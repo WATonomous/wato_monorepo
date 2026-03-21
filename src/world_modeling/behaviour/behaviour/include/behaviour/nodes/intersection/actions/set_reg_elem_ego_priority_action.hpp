@@ -17,15 +17,17 @@
 
 #include <behaviortree_cpp/action_node.h>
 
+#include <string>
+
 #include "behaviour/nodes/bt_logger_base.hpp"
 
 namespace behaviour
 {
 
 /**
- * @class SetRegElemEgoPriorityAction
- * @brief Latches that ego has earned priority for the active regulatory element.
- */
+   * @class SetRegElemEgoPriorityAction
+   * @brief Latches that ego has earned priority for the active regulatory element.
+   */
 class SetRegElemEgoPriorityAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:

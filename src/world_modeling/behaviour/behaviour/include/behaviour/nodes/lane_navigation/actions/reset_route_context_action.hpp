@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -27,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -69,7 +68,7 @@ public:
     setOutput("out_global_route_index_map", null_route_index_map);
     setOutput("out_global_route_lanelet_ids", std::vector<int64_t>{});
 
-    RCLCPP_DEBUG_STREAM(logger(), "Cleared goal point, goal lanelet, and global route context" );
+    RCLCPP_DEBUG_STREAM(logger(), "Cleared goal point, goal lanelet, and global route context");
     return BT::NodeStatus::SUCCESS;
   }
 };

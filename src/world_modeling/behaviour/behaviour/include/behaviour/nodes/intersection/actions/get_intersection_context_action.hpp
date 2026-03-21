@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -30,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
@@ -79,7 +78,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -107,8 +106,7 @@ public:
 
       if (active_lanelet_id && is_latch_stale(*active_lanelet_id, *lane_ctx)) {
         // ego has left the intersection zone and the active lanelet is no longer ahead
-        RCLCPP_DEBUG_STREAM(logger(), "Stale latch on lanelet " << *active_lanelet_id
-                  << ", clearing" );
+        RCLCPP_DEBUG_STREAM(logger(), "Stale latch on lanelet " << *active_lanelet_id << ", clearing");
         clear_active_outputs();
         // fall through to rescan for a new element below
       } else {
@@ -125,9 +123,10 @@ public:
     for (const auto & lanelet : *search_lanelets) {
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
         const auto elem_type = utils::lanelet::getTrafficControlElementType(*elem);
-        RCLCPP_DEBUG_STREAM(logger(), "Latched lanelet=" << lanelet.id
-                  << " raw_subtype=" << elem->subtype
-                  << " normalized_type=" << (elem_type ? types::toString(*elem_type) : "unknown") );
+        RCLCPP_DEBUG_STREAM(
+          logger(),
+          "Latched lanelet=" << lanelet.id << " raw_subtype=" << elem->subtype
+                             << " normalized_type=" << (elem_type ? types::toString(*elem_type) : "unknown"));
         setOutput("out_active_traffic_control_lanelet_id", lanelet.id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
@@ -135,8 +134,7 @@ public:
       }
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "No control element found"
-              << " (search_count=" << search_lanelets->size() << ")" );
+    RCLCPP_DEBUG_STREAM(logger(), "No control element found" << " (search_count=" << search_lanelets->size() << ")");
     return BT::NodeStatus::SUCCESS;
   }
 

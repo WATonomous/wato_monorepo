@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -31,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
@@ -54,7 +53,8 @@ namespace behaviour
 class GetIntersectionSearchLaneletsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetIntersectionSearchLaneletsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  GetIntersectionSearchLaneletsAction(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -75,9 +75,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const auto missing = [this](const char * port) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port );
-    };
+    const auto missing = [this](const char * port) { RCLCPP_DEBUG_STREAM(logger(), "Missing " << port); };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
     if (!ports::require(lane_ctx, "lane_ctx", missing)) return BT::NodeStatus::FAILURE;
@@ -99,13 +97,12 @@ public:
     if (route_ahead && route_ahead->has_active_route && !route_ahead->lanelets.empty()) {
       used_route = true;
 
-      auto ra_idx =
-        ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_ahead_index_map");
+      auto ra_idx = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "route_ahead_index_map");
       if (!ra_idx) ra_idx = build_index_map(route_ahead->lanelets);
 
       // upcoming_lanelet_ids is distance-sorted; collect those within lookahead
-      const std::size_t n = std::min(
-        lane_ctx->upcoming_lanelet_ids.size(), lane_ctx->upcoming_lanelet_distances_m.size());
+      const std::size_t n =
+        std::min(lane_ctx->upcoming_lanelet_ids.size(), lane_ctx->upcoming_lanelet_distances_m.size());
       for (std::size_t i = 0; i < n; ++i) {
         if (lane_ctx->upcoming_lanelet_distances_m[i] < 0.0) continue;
         if (lane_ctx->upcoming_lanelet_distances_m[i] > lookahead_m) break;
@@ -131,16 +128,14 @@ public:
     if (!used_route) {
       auto la = ports::tryGetPtr<lanelet_msgs::msg::LaneletAhead>(*this, "lanelets_ahead");
       if (la && !la->lanelets.empty()) {
-        auto la_idx =
-          ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "lanelets_ahead_index_map");
+        auto la_idx = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "lanelets_ahead_index_map");
         if (!la_idx) la_idx = build_index_map(la->lanelets);
 
         // resolve bfs start: prefer ego's lanelet, fall back to message-reported id
         int64_t start_id = lane_ctx->current_lanelet.id;
         if (!la_idx->count(start_id)) {
-          start_id = (la->current_lanelet_id >= 0 && la_idx->count(la->current_lanelet_id))
-                       ? la->current_lanelet_id
-                       : la->lanelets.front().id;
+          start_id = (la->current_lanelet_id >= 0 && la_idx->count(la->current_lanelet_id)) ? la->current_lanelet_id
+                                                                                            : la->lanelets.front().id;
         }
 
         // collect (distance, source-index) pairs via bfs
@@ -170,8 +165,8 @@ public:
         }
 
         // Sort by distance to enforce closest-to-furthest ordering
-        std::sort(candidates.begin(), candidates.end(),
-                  [](const auto & a, const auto & b) { return a.first < b.first; });
+        std::sort(
+          candidates.begin(), candidates.end(), [](const auto & a, const auto & b) { return a.first < b.first; });
 
         for (const auto & [d, idx] : candidates) {
           append_unique(la->lanelets[idx], search_lanelets, *index_map);
@@ -182,9 +177,8 @@ public:
     setOutput("search_lanelets", search_lanelets);
     setOutput("search_lanelet_index_map", index_map);
 
-    RCLCPP_DEBUG_STREAM(logger(), "source="
-              << (used_route ? "route" : "lanelets_ahead")
-              << " count=" << search_lanelets.size() );
+    RCLCPP_DEBUG_STREAM(
+      logger(), "source=" << (used_route ? "route" : "lanelets_ahead") << " count=" << search_lanelets.size());
 
     return BT::NodeStatus::SUCCESS;
   }
@@ -213,7 +207,6 @@ private:
     index_map[lanelet.id] = search_lanelets.size();
     search_lanelets.push_back(lanelet);
   }
-
 };
 }  // namespace behaviour
 

@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 
@@ -92,12 +91,13 @@ public:
         setOutput("out_yield_wall_id", ports::null_id);
         setOutput("out_yield_ego_priority", false);
       }
-      RCLCPP_DEBUG_STREAM(logger(), "Clearing element (raw_subtype=" << reg_elem->subtype
-                << ", normalized_type=" << (normalized_type ? types::toString(*normalized_type) : "unknown")
-                << ", wall_id=" << active_wall_id
-                << ")" );
+      RCLCPP_DEBUG_STREAM(
+        logger(),
+        "Clearing element (raw_subtype=" << reg_elem->subtype << ", normalized_type="
+                                         << (normalized_type ? types::toString(*normalized_type) : "unknown")
+                                         << ", wall_id=" << active_wall_id << ")");
     } else {
-      RCLCPP_DEBUG_STREAM(logger(), "No active element to clear" );
+      RCLCPP_DEBUG_STREAM(logger(), "No active element to clear");
     }
 
     // wall id to despawn

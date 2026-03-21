@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
@@ -53,7 +52,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
@@ -69,11 +68,11 @@ public:
     const double thresh = *threshold_velocity;
 
     if (v <= thresh) {
-      RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " <= threshold_velocity " << thresh );
+      RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " <= threshold_velocity " << thresh);
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " > threshold_velocity " << thresh );
+    RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " > threshold_velocity " << thresh);
     return BT::NodeStatus::FAILURE;
   }
 };

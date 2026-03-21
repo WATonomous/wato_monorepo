@@ -17,9 +17,9 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
-#include <behaviortree_ros2/ros_node_params.hpp>
-
 #include <stdexcept>
+
+#include <behaviortree_ros2/ros_node_params.hpp>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 #include "behaviour/utils/types.hpp"
@@ -43,8 +43,8 @@
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/reg_elem_ego_priority_condition.hpp"
-#include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_pedestrians_clear_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/yield_sign_can_proceed_condition.hpp"
 
 class IntersectionNodeRegistrar : public NodeRegistrarBase

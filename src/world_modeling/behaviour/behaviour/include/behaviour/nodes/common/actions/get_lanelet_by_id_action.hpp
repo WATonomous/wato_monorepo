@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -26,6 +24,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
@@ -57,7 +56,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lanelet_id = ports::tryGet<int64_t>(*this, "lanelet_id");
@@ -70,8 +69,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto index_map =
-      ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "lanelets_ahead_index_map");
+    auto index_map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "lanelets_ahead_index_map");
     if (!index_map) {
       index_map = std::make_shared<std::unordered_map<int64_t, std::size_t>>();
       index_map->reserve(lanelets_ahead->lanelets.size());
@@ -82,13 +80,11 @@ public:
 
     const auto target_it = index_map->find(*lanelet_id);
     if (target_it == index_map->end() || target_it->second >= lanelets_ahead->lanelets.size()) {
-      RCLCPP_DEBUG_STREAM(logger(), "Lanelet " << *lanelet_id << " not found in lanelets_ahead cache" );
+      RCLCPP_DEBUG_STREAM(logger(), "Lanelet " << *lanelet_id << " not found in lanelets_ahead cache");
       return BT::NodeStatus::FAILURE;
     }
 
-    setOutput(
-      "out_lanelet",
-      std::make_shared<lanelet_msgs::msg::Lanelet>(lanelets_ahead->lanelets[target_it->second]));
+    setOutput("out_lanelet", std::make_shared<lanelet_msgs::msg::Lanelet>(lanelets_ahead->lanelets[target_it->second]));
     return BT::NodeStatus::SUCCESS;
   }
 };

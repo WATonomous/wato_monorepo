@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -26,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -68,7 +67,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto route = ports::tryGetPtr<lanelet_msgs::srv::GetShortestRoute::Response>(*this, "route");
@@ -90,7 +89,7 @@ public:
     auto current_it = map->find(current_id);
     if (current_it == map->end()) {
       // Current lanelet not found on route
-      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet ID " << current_id << " not found on route" );
+      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet ID " << current_id << " not found on route");
       return BT::NodeStatus::FAILURE;
     }
 
@@ -102,7 +101,7 @@ public:
       auto current_lanelet_ptr = std::make_shared<lanelet_msgs::msg::Lanelet>(current_lane_context->current_lanelet);
       setOutput("out_next_lanelet", current_lanelet_ptr);
 
-      RCLCPP_DEBUG_STREAM(logger(), "Result=SUCCESS (end of route, default SUCCESSOR)" );
+      RCLCPP_DEBUG_STREAM(logger(), "Result=SUCCESS (end of route, default SUCCESSOR)");
       return BT::NodeStatus::SUCCESS;
     }
 

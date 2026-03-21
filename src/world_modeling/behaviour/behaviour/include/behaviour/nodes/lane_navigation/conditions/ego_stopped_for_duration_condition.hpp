@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <chrono>
 #include <cmath>
 #include <optional>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
 namespace behaviour

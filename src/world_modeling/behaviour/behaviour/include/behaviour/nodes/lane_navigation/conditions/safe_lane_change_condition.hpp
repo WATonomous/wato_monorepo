@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "world_model_msgs/msg/area_occupancy_info.hpp"
 
@@ -66,7 +65,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
@@ -89,7 +88,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
     if (transition == types::LaneTransition::SUCCESSOR) {
-      RCLCPP_DEBUG_STREAM(logger(), "Transition is SUCCESSOR (no lane change)" );
+      RCLCPP_DEBUG_STREAM(logger(), "Transition is SUCCESSOR (no lane change)");
       return BT::NodeStatus::FAILURE;
     }
 
@@ -98,20 +97,19 @@ public:
       (transition == types::LaneTransition::LEFT) ? *left_areas : *right_areas;
 
     if (configured_areas.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "No configured occupancy areas for transition " << types::toString(*transition)
-                );
+      RCLCPP_DEBUG_STREAM(logger(), "No configured occupancy areas for transition " << types::toString(*transition));
       return BT::NodeStatus::FAILURE;
     }
 
     for (const auto & area_name : configured_areas) {
       if (utils::area_occupancy::isAreaOccupied(*area_infos, area_name)) {
-        RCLCPP_DEBUG_STREAM(logger(), "Not safe (occupied area=" << area_name
-                  << ", transition=" << types::toString(*transition) << ")" );
+        RCLCPP_DEBUG_STREAM(
+          logger(), "Not safe (occupied area=" << area_name << ", transition=" << types::toString(*transition) << ")");
         return BT::NodeStatus::FAILURE;
       }
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Safe (areas clear, transition=" << types::toString(*transition) << ")" );
+    RCLCPP_DEBUG_STREAM(logger(), "Safe (areas clear, transition=" << types::toString(*transition) << ")");
     return BT::NodeStatus::SUCCESS;
   }
 };
