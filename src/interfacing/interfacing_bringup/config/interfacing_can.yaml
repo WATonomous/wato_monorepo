@@ -11,10 +11,10 @@
 /**/ackermann_velocity_trapezoid:
   ros__parameters:
     target_velocity: 2.22
-    rise_time: 1.0
+    rise_time: 1.5
     hold_time: 4.0
     ramp_down_time: 1.0
-    down_hold_time: 1.0
+    down_hold_time: 4.0
     publish_rate: 50.0
 
 # Joystick hardware node
@@ -39,7 +39,7 @@
     throttle_axis: 4
 
     # ACKERMANN SCALING ---- max speed and steering angle
-    ackermann_max_speed: 2.0
+    ackermann_max_speed: 5.0
     ackermann_max_steering_angle: 0.5
 
     # ROSCCO SCALING ---- max speed and steering angle
@@ -116,6 +116,13 @@
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
+# Ackermann Smoother (acceleration-limits setpoint changes before PID)
+/**/ackermann_smoother_node:
+  ros__parameters:
+    max_steering_accel: 2.0  # rad/s^2 - max rate of change of steering velocity
+    max_speed_accel: 2.0     # m/s^3 - max rate of change of speed (jerk limit)
+    publish_rate: 50.0       # Hz
+
 # Velocity-Driven Feedforward PID Control
 /**/vel_driven_feedforward_pid_node:
   ros__parameters:
@@ -124,7 +131,7 @@
     output_clamp_min: -1.0
     steering_pid:
       p: 4.0
-      i: 0.0
+      i: 0.2
       d: 0.0
       i_clamp_max: 1.0
       i_clamp_min: -1.0
@@ -134,8 +141,8 @@
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
     velocity_pid:
-      p: 1.0
-      i: 0.0
+      p: 0.4
+      i: 0.1
       d: 0.0
       i_clamp_max: 0.5
       i_clamp_min: -0.5
@@ -145,16 +152,17 @@
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
     steering_d_on_measurement: 0.2  # D-on-measurement gain (set control_toolbox d to 0)
+    velocity_filter_alpha: 0.05     # EMA filter on velocity measurement (0.0=no update, 1.0=no filter)
     velocity_output:
       throttle_scale: 1.0  # Scale factor for positive PID effort → throttle
-      brake_scale: 0.5     # Scale factor for negative PID effort → brake (brake is more aggressive)
-      deadband: 0.02       # PID effort below this → coast (no throttle, no brake)
+      brake_scale: 1.0     # Scale factor for negative PID effort → brake (brake is more aggressive)
+      deadband: 0.05       # PID effort below this → coast (no throttle, no brake)
     # T_ff = (c0 + c1*v + c2*v^2) * delta + friction_offset * sign(delta)
     # Model B symmetric fit (R²=0.845, 63182 samples)
     # 90 perturbations at ±2% scaling from baseline (100%)
     feedforward:
-      coefficients: [-0.137961, 0.097721, -0.002266]  # baseline (100%)
-      friction_offset: 0.049855                      # baseline (100%)
+      # coefficients: [-0.137961, 0.097721, -0.002266]  # baseline (100%)
+      # friction_offset: 0.049855                      # baseline (100%)
       # coefficients: [-0.013796, 0.009772, -0.000227]  # 10%
       # friction_offset: 0.004985                      # 10%
       # coefficients: [-0.016555, 0.011727, -0.000272]  # 12%
@@ -273,8 +281,8 @@
       # friction_offset: 0.062817                      # 126%
       # coefficients: [-0.176590, 0.125083, -0.002900]  # 128%
       # friction_offset: 0.063814                      # 128%
-      # coefficients: [-0.179349, 0.127037, -0.002946]  # 130%
-      # friction_offset: 0.064811                      # 130%
+      coefficients: [-0.179349, 0.127037, -0.002946]  # 130%
+      friction_offset: 0.064811                      # 130%
       # coefficients: [-0.182109, 0.128992, -0.002991]  # 132%
       # friction_offset: 0.065809                      # 132%
       # coefficients: [-0.184868, 0.130946, -0.003036]  # 134%
@@ -417,10 +425,10 @@
     steering_conversion_factor: 15.7 # factor to convert from steering wheel angle
     steering_torque_deadzone_pos: 0.00 # Deadzone compensation added to positive steering torque commands
     steering_torque_deadzone_neg: 0.00 # Deadzone compensation added to negative steering torque commands
-    enable_all: false # If true, arm/disarm enables/disables all modules at once
+    enable_all: true # If true, arm/disarm enables/disables all modules at once
     enable_steering: true # Enable steering module on arm (only used when enable_all is false)
-    enable_throttle: false # Enable throttle module on arm (only used when enable_all is false)
-    enable_brakes: false # Enable brake module on arm (only used when enable_all is false)
+    enable_throttle: true # Enable throttle module on arm (only used when enable_all is false)
+    enable_brakes: true # Enable brake module on arm (only used when enable_all is false)
 
 # Topic Healthchecker (monitors topic liveness and message rates)
 /**/topic_healthchecker:

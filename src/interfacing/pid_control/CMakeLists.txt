@@ -113,10 +113,33 @@ rclcpp_components_register_node(gain_scheduled_pid_component
   EXECUTABLE gain_scheduled_pid_node
 )
 
+# Ackermann Smoother (setpoint rate limiter)
+add_library(ackermann_smoother_component SHARED
+  src/ackermann_smoother_node.cpp
+)
+
+target_include_directories(ackermann_smoother_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(ackermann_smoother_component PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${ackermann_msgs_TARGETS}
+)
+
+rclcpp_components_register_node(ackermann_smoother_component
+  PLUGIN "pid_control::AckermannSmootherNode"
+  EXECUTABLE ackermann_smoother_node
+)
+
 install(TARGETS
   pid_control_component
   vel_driven_feedforward_pid_component
   gain_scheduled_pid_component
+  ackermann_smoother_component
   DESTINATION lib
 )
 

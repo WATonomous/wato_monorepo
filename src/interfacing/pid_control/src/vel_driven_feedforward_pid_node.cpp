@@ -35,6 +35,7 @@ VelDrivenFeedforwardPidNode::VelDrivenFeedforwardPidNode(const rclcpp::NodeOptio
   this->declare_parameter<double>("velocity_output.brake_scale", 1.0);
   this->declare_parameter<double>("velocity_output.deadband", 0.0);
   this->declare_parameter<double>("steering_d_on_measurement", 0.0);
+  this->declare_parameter<double>("velocity_filter_alpha", 0.2);
 
   RCLCPP_INFO(this->get_logger(), "VelDrivenFeedforwardPidNode created (unconfigured)");
 }
@@ -52,6 +53,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   brake_scale_ = this->get_parameter("velocity_output.brake_scale").as_double();
   velocity_deadband_ = this->get_parameter("velocity_output.deadband").as_double();
   d_on_meas_gain_ = this->get_parameter("steering_d_on_measurement").as_double();
+  velocity_filter_alpha_ = this->get_parameter("velocity_filter_alpha").as_double();
 
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
@@ -99,6 +101,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   // Publishers
   roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
   feedforward_pub_ = this->create_publisher<pid_msgs::msg::Feedforward>("feedforward", rclcpp::QoS(10));
+  velocity_derived_pub_ = this->create_publisher<std_msgs::msg::Float64>("velocity_derived", rclcpp::QoS(10));
 
   // Parameter change callback
   param_callback_handle_ = this->add_on_set_parameters_callback([this](const std::vector<rclcpp::Parameter> & params) {
@@ -163,6 +166,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_clea
   odom_meas_sub_.reset();
   roscco_pub_.reset();
   feedforward_pub_.reset();
+  velocity_derived_pub_.reset();
   steering_pid_ros_.reset();
   velocity_pid_ros_.reset();
   param_callback_handle_.reset();
@@ -179,6 +183,8 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_clea
   feedforward_rebuild_pending_ = false;
   steering_meas_prev_ = 0.0;
   steering_meas_prev_valid_ = false;
+  velocity_meas_filtered_ = 0.0;
+  velocity_filter_initialized_ = false;
 
   return CallbackReturn::SUCCESS;
 }
@@ -199,6 +205,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_shut
   odom_meas_sub_.reset();
   roscco_pub_.reset();
   feedforward_pub_.reset();
+  velocity_derived_pub_.reset();
   steering_pid_ros_.reset();
   velocity_pid_ros_.reset();
   param_callback_handle_.reset();
@@ -254,6 +261,10 @@ void VelDrivenFeedforwardPidNode::odom_feedback_callback(const nav_msgs::msg::Od
   velocity_meas_ = speed;
   current_velocity_ = speed;
   velocity_meas_received_ = true;
+
+  std_msgs::msg::Float64 speed_msg;
+  speed_msg.data = speed;
+  velocity_derived_pub_->publish(speed_msg);
 }
 
 double VelDrivenFeedforwardPidNode::compute_feedforward(double velocity, double steering_setpoint) const
@@ -327,11 +338,8 @@ void VelDrivenFeedforwardPidNode::control_loop()
     double combined = pid_output + ff_output + d_on_meas;
     steering_command = std::clamp(combined, output_clamp_min_, output_clamp_max_);
 
-    RCLCPP_INFO(
-      this->get_logger(),
-      "STEER | err=%.4f pid=%.4f ff=%.4f d_meas=%.4f combined=%.4f clamped=%.4f setpt=%.4f meas=%.4f vel=%.4f",
-      steering_error, pid_output, ff_output, d_on_meas, combined, steering_command,
-      steering_setpoint_, steering_meas_, current_velocity_);
+
+
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for steering feedback...");
   }
@@ -350,7 +358,10 @@ void VelDrivenFeedforwardPidNode::control_loop()
     }
     velocity_command = std::clamp(velocity_command, -1.0, 1.0);
 
-
+    RCLCPP_INFO(
+      this->get_logger(),
+      "VEL | err=%.4f raw=%.4f cmd=%.4f setpt=%.4f meas=%.4f",
+      velocity_error, raw_effort, velocity_command, velocity_setpoint_, velocity_meas_);
   } else {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for velocity feedback...");
   }

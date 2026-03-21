@@ -121,6 +121,21 @@ launch:
   #     param:
   #       - from: "$(var config_file)"
 
+  # Ackermann Smoother (rate-limits setpoint changes before PID)
+  - node:
+      pkg: "pid_control"
+      exec: "ackermann_smoother_node"
+      name: "ackermann_smoother_node"
+      namespace: "interfacing"
+      output: "screen"
+      remap:
+        - from: "ackermann_in"
+          to: "ackermann"
+        - from: "ackermann_out"
+          to: "smoothed/ackermann"
+      param:
+        - from: "$(var config_file)"
+
   # --- ALTERNATIVE: Velocity-Driven Feedforward PID ---
   # Uncomment this and comment out pid_control_node above to use feedforward PID.
   # Also swap the lifecycle manager entry below.
@@ -131,6 +146,8 @@ launch:
       namespace: "interfacing"
       output: "screen"
       remap:
+        - from: "ackermann"
+          to: "smoothed/ackermann"
         - from: "steering_feedback"
           to: "can_state_estimator/steering_angle"
         - from: "odom_feedback"
@@ -203,10 +220,10 @@ launch:
           value:
             - /interfacing/joystick_node
             - /interfacing/ackermann_mux
+            - /interfacing/ackermann_smoother_node
             - /interfacing/oscc_mux
             - /interfacing/can_state_estimator_node
             - /interfacing/vel_driven_feedforward_pid_node
-            - /interfacing/ackermann_square_wave
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

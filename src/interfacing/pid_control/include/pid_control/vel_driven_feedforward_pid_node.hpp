@@ -70,6 +70,7 @@ private:
   // Publishers
   rclcpp::Publisher<roscco_msg::msg::Roscco>::SharedPtr roscco_pub_;
   rclcpp::Publisher<pid_msgs::msg::Feedforward>::SharedPtr feedforward_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr velocity_derived_pub_;
 
   // PID controllers
   std::shared_ptr<control_toolbox::PidROS> steering_pid_ros_;
@@ -107,6 +108,11 @@ private:
   std::vector<double> feedforward_coefficients_;
   double feedforward_friction_offset_{0.0};
   bool feedforward_rebuild_pending_{false};
+
+  // Velocity measurement filter
+  double velocity_filter_alpha_{0.2};
+  double velocity_meas_filtered_{0.0};
+  bool velocity_filter_initialized_{false};
 
   // Velocity output scaling
   double throttle_scale_{1.0};
