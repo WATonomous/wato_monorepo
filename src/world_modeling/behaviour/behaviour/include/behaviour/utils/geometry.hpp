@@ -26,7 +26,7 @@
 #include "lanelet_msgs/msg/way.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
-namespace behaviour::geometry
+namespace behaviour::utils::geometry
 {
 inline double distanceXY(const geometry_msgs::msg::Point & a, const geometry_msgs::msg::Point & b)
 {
@@ -164,6 +164,6 @@ inline double polylineLengthXY(const std::vector<geometry_msgs::msg::Point> & po
   }
   return length_m;
 }
-}  // namespace behaviour::geometry
+}  // namespace behaviour::utils::geometry
 
 #endif  // BEHAVIOUR__UTILS__GEOMETRY_UTILS_HPP_

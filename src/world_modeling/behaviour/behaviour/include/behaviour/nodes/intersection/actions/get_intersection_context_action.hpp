@@ -51,7 +51,7 @@ namespace behaviour
    *
    * Assumptions:
    * - `search_lanelet_index_map` is consistent with `search_lanelets`.
-   * - Regulatory element subtype strings match expected classifier values.
+   * - Regulatory element raw subtype and attributes can be normalized into BT control types.
    * - Priority order is fixed to traffic light, then stop sign, then yield.
  */
 class GetIntersectionContextAction : public BT::SyncActionNode, protected BTLoggerBase
@@ -124,8 +124,10 @@ public:
 
     for (const auto & lanelet : *search_lanelets) {
       if (auto elem = classify_lanelet_traffic_control_element(lanelet)) {
+        const auto elem_type = utils::lanelet::getTrafficControlElementType(*elem);
         RCLCPP_DEBUG_STREAM(logger(), "Latched lanelet=" << lanelet.id
-                  << " subtype=" << elem->subtype );
+                  << " raw_subtype=" << elem->subtype
+                  << " normalized_type=" << (elem_type ? types::toString(*elem_type) : "unknown") );
         setOutput("out_active_traffic_control_lanelet_id", lanelet.id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
@@ -188,15 +190,11 @@ private:
     setOutput("out_active_traffic_control_element_id", static_cast<int64_t>(0));
   }
 
-  inline static constexpr std::string_view traffic_light_subtype_ = "traffic_light";
-  inline static constexpr std::string_view stop_sign_subtype_ = "stop_sign";
-  inline static constexpr std::string_view yield_subtype_ = "yield";
-
-  static int priority(std::string_view subtype)
+  static int priority(types::TrafficControlElementType type)
   {
-    if (subtype == traffic_light_subtype_) return 0;
-    if (subtype == stop_sign_subtype_) return 1;
-    if (subtype == yield_subtype_) return 2;
+    if (type == types::TrafficControlElementType::TRAFFIC_LIGHT) return 0;
+    if (type == types::TrafficControlElementType::STOP_SIGN) return 1;
+    if (type == types::TrafficControlElementType::YIELD) return 2;
     return 999;
   }
 
@@ -211,7 +209,12 @@ private:
     int best_prio = 999;
 
     for (const auto & reg_elem : lanelet.regulatory_elements) {
-      const int p = priority(reg_elem.subtype);
+      const auto elem_type = utils::lanelet::getTrafficControlElementType(reg_elem);
+      if (!elem_type) {
+        continue;
+      }
+
+      const int p = priority(*elem_type);
       if (p < best_prio) {
         best_prio = p;
         primary_reg_elem = std::make_shared<lanelet_msgs::msg::RegulatoryElement>(reg_elem);

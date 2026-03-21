@@ -68,7 +68,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    const bool contains = world_objects::containsType(*objects, *object_type);
+    const bool contains = utils::world_objects::containsType(*objects, *object_type);
     RCLCPP_DEBUG_STREAM(
       logger(), "Checking " << objects->size() << " object(s) for type '" << *object_type
                             << "': " << (contains ? "found" : "not found"));

@@ -39,7 +39,7 @@ namespace behaviour
  * - Return FAILURE when both adjacent lane IDs are missing.
  * - Return SUCCESS when the configured overtake-front area is occupied only by vehicle-like objects.
  * - Return SUCCESS when a side lane is missing and that side's lane-change corridor is occupied
- *   (used to simulate parked cars close to the ego lane).
+ *   (used to model parked cars close to the ego lane).
  * - Return FAILURE otherwise.
  */
 class OvertakeValidCondition : public BT::ConditionNode, protected BTLoggerBase
@@ -109,17 +109,17 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    if (area_occupancy_utils::isAreaOccupied(*area_infos, *overtake_front_area)) {
-      const auto objects = area_occupancy_utils::getAreaObjects(*area_infos, *overtake_front_area);
+    if (utils::area_occupancy::isAreaOccupied(*area_infos, *overtake_front_area)) {
+      const auto objects = utils::area_occupancy::getAreaObjects(*area_infos, *overtake_front_area);
       const bool contains_vehicle = std::any_of(
         objects.begin(), objects.end(),
-        [&](const auto & object) { return world_objects::isVehicle(object, *hypothesis_index); });
+        [&](const auto & object) { return utils::world_objects::isVehicle(object, *hypothesis_index); });
       const bool contains_non_vehicle =
         std::any_of(
           objects.begin(), objects.end(),
-          [&](const auto & object) { return world_objects::isPedestrian(object, *hypothesis_index); }) ||
-        world_objects::containsType(objects, "bicycle") || world_objects::containsType(objects, "cyclist") ||
-        world_objects::containsType(objects, "traffic_light");
+          [&](const auto & object) { return utils::world_objects::isPedestrian(object, *hypothesis_index); }) ||
+        utils::world_objects::containsType(objects, "bicycle") || utils::world_objects::containsType(objects, "cyclist") ||
+        utils::world_objects::containsType(objects, "traffic_light");
 
       if (contains_vehicle && !contains_non_vehicle) {
         RCLCPP_DEBUG_STREAM(logger(), "Overtake valid: front area contains only vehicle-like objects");
@@ -131,12 +131,12 @@ public:
       !has_right_lane &&
       std::any_of(
         right_areas->begin(), right_areas->end(),
-        [&](const auto & area_name) { return area_occupancy_utils::isAreaOccupied(*area_infos, area_name); });
+        [&](const auto & area_name) { return utils::area_occupancy::isAreaOccupied(*area_infos, area_name); });
     const bool missing_left_with_parked_car =
       !has_left_lane &&
       std::any_of(
         left_areas->begin(), left_areas->end(),
-        [&](const auto & area_name) { return area_occupancy_utils::isAreaOccupied(*area_infos, area_name); });
+        [&](const auto & area_name) { return utils::area_occupancy::isAreaOccupied(*area_infos, area_name); });
 
     if (missing_right_with_parked_car || missing_left_with_parked_car) {
       RCLCPP_DEBUG_STREAM(

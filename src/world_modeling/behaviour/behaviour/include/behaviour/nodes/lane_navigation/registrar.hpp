@@ -34,6 +34,7 @@
 #include "behaviour/nodes/lane_navigation/actions/set_overtake_stage_action.hpp"
 
 // conditions
+#include "behaviour/nodes/lane_navigation/conditions/ego_stopped_for_duration_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/overtake_valid_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_lane_transition_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_overtake_state_condition.hpp"
@@ -71,6 +72,8 @@ public:
       "SetOvertakeStage", logger.get_child("SetOvertakeStage"));
 
     // conditions
+    factory.registerNodeType<behaviour::EgoStoppedForDurationCondition>(
+      "EgoStoppedForDuration", logger.get_child("EgoStoppedForDuration"));
     factory.registerNodeType<behaviour::IsLaneTransitionCondition>(
       "IsLaneTransition", logger.get_child("IsLaneTransition"));
     factory.registerNodeType<behaviour::OvertakeValidCondition>(

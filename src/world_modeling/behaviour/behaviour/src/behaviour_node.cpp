@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "behaviour/behaviour_node.hpp"
+#include "behaviour/utils/types.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -51,7 +52,6 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("set_route_timeout_ms", 6000);
   this->declare_parameter("get_area_occupancy_timeout_ms", 5000);
   this->declare_parameter("get_world_objects_enriched_timeout_ms", 5000);
-  this->declare_parameter("get_lanelets_by_reg_elem_timeout_ms", 5000);
   this->declare_parameter("wall_service_timeout_ms", 5000);
 
   // Init TF
@@ -183,7 +183,9 @@ int main(int argc, char * argv[])
   auto node = std::make_shared<behaviour::BehaviourNode>();
   node->init();
 
-  rclcpp::spin(node);
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
   return 0;
 }

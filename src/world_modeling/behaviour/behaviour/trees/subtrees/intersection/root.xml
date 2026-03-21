@@ -46,8 +46,12 @@
             out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
             out_active_traffic_control_element_id="{active_traffic_control_element_id}"
             out_stop_sign_wall_id="{stop_sign.wall_id}"
+            out_stop_sign_priority_car_ids="{stop_sign.priority_ids}"
+            out_stop_sign_priority_latched="{stop_sign.priority_latched}"
+            out_stop_sign_ego_priority="{stop_sign.ego_priority}"
             out_traffic_light_wall_id="{traffic_light.wall_id}"
             out_yield_wall_id="{yield.wall_id}"
+            out_yield_ego_priority="{yield.ego_priority}"
             out_active_wall_id="{active_wall_id}" />
 
           <Fallback name="DespawnIfNeeded">
@@ -69,6 +73,9 @@
               stop_sign="{active_traffic_control_element}"
               stop_sign_id="{active_traffic_control_element_id}"
               stop_sign.wall_id="{stop_sign.wall_id}"
+              stop_sign.priority_ids="{stop_sign.priority_ids}"
+              stop_sign.priority_latched="{stop_sign.priority_latched}"
+              stop_sign.ego_priority="{stop_sign.ego_priority}"
             />
           </Sequence>
 
@@ -90,7 +97,9 @@
               ID="YieldSubTree"
               yield_sign="{active_traffic_control_element}"
               yield_sign_id="{active_traffic_control_element_id}"
+              active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
               yield.wall_id="{yield.wall_id}"
+              yield.ego_priority="{yield.ego_priority}"
             />
           </Sequence>
         </Fallback>

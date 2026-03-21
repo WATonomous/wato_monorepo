@@ -14,26 +14,27 @@
 
         <!-- else decide whether we should overtake -->
         <Sequence name="Start Overtake">
-          <!-- if ego stopped -->
-          <EgoStopped
+          <EgoStoppedForDuration
             ego_odom="{@ego_odom}"
-            threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
-          <Delay delay_msec="10000">
-            <Sequence name="Delayed Overtake Front Check">
-              <!-- get area occupancy -->
-              <GetAreaOccupancySub
-                areas="{lane_nav.area_occupancy_areas}"
-                error_message="{lane_nav.get_area_occupancy_error_msg}"
-                topic_name="/world_modeling/area_occupancy" />
-              <OvertakeValid
-                lane_ctx="{@current_lane_ctx}"
-                areas="{lane_nav.area_occupancy_areas}"
-                overtake_front_area="overtake_front"
-                left_lane_change_areas="{@bt.left_lane_change_areas}"
-                right_lane_change_areas="{@bt.right_lane_change_areas}"
-                hypothesis_index="{@world_objects_hypothesis_index}" />
-            </Sequence>
-          </Delay>
+            threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
+            duration_msec="10000" />
+          <GlobalRouteExist route="{global_route}" />
+          <EgoOnRoute
+            route_index_map="{global_route_index_map}"
+            lane_ctx="{@current_lane_ctx}"
+            error_message="{overtake.ego_on_route_error_msg}" />
+          <!-- get area occupancy -->
+          <GetAreaOccupancySub
+            areas="{lane_nav.area_occupancy_areas}"
+            error_message="{lane_nav.get_area_occupancy_error_msg}"
+            topic_name="/world_modeling/area_occupancy" />
+          <OvertakeValid
+            lane_ctx="{@current_lane_ctx}"
+            areas="{lane_nav.area_occupancy_areas}"
+            overtake_front_area="overtake_front"
+            left_lane_change_areas="{@bt.left_lane_change_areas}"
+            right_lane_change_areas="{@bt.right_lane_change_areas}"
+            hypothesis_index="{@world_objects_hypothesis_index}" />
 
           <!-- find either left or right lane transition valid and safe for diverging stage -->
           <Fallback name="Find Diverge Lane">

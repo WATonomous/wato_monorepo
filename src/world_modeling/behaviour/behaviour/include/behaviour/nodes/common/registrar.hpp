@@ -30,7 +30,6 @@
 #include "behaviour/nodes/common/actions/get_area_occupancy_subscriber.hpp"
 #include "behaviour/nodes/common/actions/get_lanelet_by_id_action.hpp"
 #include "behaviour/nodes/common/actions/get_lanelet_by_relation_action.hpp"
-#include "behaviour/nodes/common/actions/get_lanelets_by_reg_elem_service.hpp"
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_subscriber.hpp"
@@ -62,7 +61,6 @@ public:
     BT::RosNodeParams set_route_params = params;
     BT::RosNodeParams get_area_occupancy_params = params;
     BT::RosNodeParams get_objects_params = params;
-    BT::RosNodeParams get_lanelets_by_reg_elem_params = params;
     BT::RosNodeParams wall_service = params;
 
     // Read timeout values from node parameters
@@ -75,14 +73,12 @@ public:
     int set_route_timeout = node->get_parameter("set_route_timeout_ms").as_int();
     int get_area_occupancy_timeout = node->get_parameter("get_area_occupancy_timeout_ms").as_int();
     int get_world_objects_enriched_timeout = node->get_parameter("get_world_objects_enriched_timeout_ms").as_int();
-    int get_lanelets_timeout = node->get_parameter("get_lanelets_by_reg_elem_timeout_ms").as_int();
     int wall_timeout = node->get_parameter("wall_service_timeout_ms").as_int();
 
     get_shortest_route_params.server_timeout = std::chrono::milliseconds(get_shortest_route_timeout);
     set_route_params.server_timeout = std::chrono::milliseconds(set_route_timeout);
     get_area_occupancy_params.server_timeout = std::chrono::milliseconds(get_area_occupancy_timeout);
     get_objects_params.server_timeout = std::chrono::milliseconds(get_world_objects_enriched_timeout);
-    get_lanelets_by_reg_elem_params.server_timeout = std::chrono::milliseconds(get_lanelets_timeout);
     wall_service.server_timeout = std::chrono::milliseconds(wall_timeout);
 
     // actions
@@ -90,8 +86,6 @@ public:
     factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
     factory.registerNodeType<behaviour::GetAreaOccupancyService>("GetAreaOccupancy", get_area_occupancy_params);
     factory.registerNodeType<behaviour::GetWorldObjectsService>("GetWorldObjects", get_objects_params);
-    factory.registerNodeType<behaviour::GetLaneletsByRegElemService>(
-      "GetLaneletsByRegElem", get_lanelets_by_reg_elem_params);
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
     factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById", logger.get_child("GetLaneletById"));

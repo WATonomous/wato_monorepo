@@ -104,7 +104,7 @@ public:
     }
 
     for (const auto & area_name : configured_areas) {
-      if (area_occupancy_utils::isAreaOccupied(*area_infos, area_name)) {
+      if (utils::area_occupancy::isAreaOccupied(*area_infos, area_name)) {
         RCLCPP_DEBUG_STREAM(logger(), "Not safe (occupied area=" << area_name
                   << ", transition=" << types::toString(*transition) << ")" );
         return BT::NodeStatus::FAILURE;
