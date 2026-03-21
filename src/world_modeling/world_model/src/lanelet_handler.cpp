@@ -31,7 +31,12 @@ namespace world_model
 {
 
 bool LaneletHandler::loadMap(
-  const std::string & osm_path, double utm_origin_x, double utm_origin_y, const std::string & projector_type)
+  const std::string & osm_path,
+  double utm_origin_x,
+  double utm_origin_y,
+  double origin_lat,
+  double origin_lon,
+  const std::string & projector_type)
 {
   try {
     if (projector_type == "local_cartesian") {
@@ -40,22 +45,9 @@ bool LaneletHandler::loadMap(
       projector_ = std::make_unique<lanelet::projection::LocalCartesianProjector>(origin);
       map_ = lanelet::load(osm_path, *projector_);
     } else {
-      // Default: UTM projector with origin offset
-      // First load OSM to get reference GPS coordinate for UTM zone
-      auto temp_projector = lanelet::projection::UtmProjector(lanelet::Origin({0, 0}));
-      auto temp_map = lanelet::load(osm_path, temp_projector);
-
-      if (temp_map->pointLayer.empty()) {
-        return false;
-      }
-
-      // Get first point to determine UTM zone
-      auto first_point = *temp_map->pointLayer.begin();
-      double ref_lat = first_point.y();
-      double ref_lon = first_point.x();
-
-      // Create temporary projector to convert UTM offset to GPS
-      lanelet::Origin ref_origin({ref_lat, ref_lon});
+      // Use an explicit georeferenced origin from params to select the UTM zone
+      // and map frame offset instead of inferring lat/lon from projected points.
+      lanelet::Origin ref_origin({origin_lat, origin_lon});
       lanelet::projection::UtmProjector temp_utm_projector(ref_origin);
 
       // Reverse projection to find GPS at UTM offset
@@ -282,6 +274,22 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
     if (dist <= radius) {
       result.push_back(ll);
     }
+  }
+
+  return result;
+}
+
+std::vector<lanelet::ConstLanelet> LaneletHandler::getAllLanelets() const
+{
+  std::vector<lanelet::ConstLanelet> result;
+
+  if (!map_) {
+    return result;
+  }
+
+  result.reserve(map_->laneletLayer.size());
+  for (const auto & ll : map_->laneletLayer) {
+    result.push_back(ll);
   }
 
   return result;
