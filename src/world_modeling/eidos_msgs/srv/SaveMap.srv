@@ -1,8 +1,6 @@
-# Directory to save the map to
-string directory
-
-# Voxel leaf size (meters) for optional global map PCD export (0 = skip export)
-float32 global_map_leaf_size 0.0
+# Output file path for the map (e.g. "/tmp/my_map.map")
+# If empty, uses the default save path from config.
+string filepath
 ---
 # Whether the save operation succeeded
 bool success

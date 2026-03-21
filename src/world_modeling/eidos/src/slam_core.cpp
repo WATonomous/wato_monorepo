@@ -1018,7 +1018,7 @@ void SlamCore::saveMapCallback(
     std::shared_ptr<eidos_msgs::srv::SaveMap::Response> response) {
   std::lock_guard<std::mutex> lock(mtx_);
   namespace fs = std::filesystem;
-  std::string dir = request->directory.empty() ? map_save_directory_ : request->directory;
+  std::string dir = request->filepath.empty() ? map_save_directory_ : request->filepath;
 
   RCLCPP_INFO(get_logger(), "Saving map to: %s", dir.c_str());
 
@@ -1049,8 +1049,8 @@ void SlamCore::saveMapCallback(
     plugin->saveData(plugin_dir.string());
   }
 
-  // 5. Optional: export combined global map
-  if (request->global_map_leaf_size > 0) {
+  // 5. Export combined global map
+  {
     auto exports_dir = fs::path(dir) / "exports";
     fs::create_directories(exports_dir);
 
@@ -1068,12 +1068,7 @@ void SlamCore::saveMapCallback(
       } catch (const std::bad_any_cast&) {}
     }
     if (!global_map->empty()) {
-      pcl::VoxelGrid<PointType> filter;
-      pcl::PointCloud<PointType>::Ptr ds(new pcl::PointCloud<PointType>());
-      filter.setLeafSize(request->global_map_leaf_size, request->global_map_leaf_size, request->global_map_leaf_size);
-      filter.setInputCloud(global_map);
-      filter.filter(*ds);
-      pcl::io::savePCDFileBinary((exports_dir / "global_map.pcd").string(), *ds);
+      pcl::io::savePCDFileBinary((exports_dir / "global_map.pcd").string(), *global_map);
     }
   }
 
@@ -1089,11 +1084,11 @@ void SlamCore::loadMapCallback(
   std::lock_guard<std::mutex> lock(mtx_);
   namespace fs = std::filesystem;
 
-  RCLCPP_INFO(get_logger(), "Loading map from: %s", request->directory.c_str());
+  RCLCPP_INFO(get_logger(), "Loading map from: %s", request->filepath.c_str());
 
   // 1. Load poses + keys + metadata
   std::vector<std::string> saved_plugins;
-  if (!map_manager_->loadMap(request->directory, saved_plugins)) {
+  if (!map_manager_->loadMap(request->filepath, saved_plugins)) {
     response->success = false;
     response->message = "Failed to load map";
     return;
@@ -1112,7 +1107,7 @@ void SlamCore::loadMapCallback(
 
   // 3. Each plugin loads its own data
   for (auto& plugin : factor_plugins_) {
-    auto plugin_dir = fs::path(request->directory) / "plugins" / plugin->getName();
+    auto plugin_dir = fs::path(request->filepath) / "plugins" / plugin->getName();
     if (fs::exists(plugin_dir)) {
       plugin->loadData(plugin_dir.string());
     }

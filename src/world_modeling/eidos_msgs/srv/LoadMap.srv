@@ -1,5 +1,5 @@
-# Directory to load the map from
-string directory
+# File path of the map to load (e.g. "/tmp/my_map.map")
+string filepath
 ---
 # Whether the load operation succeeded
 bool success

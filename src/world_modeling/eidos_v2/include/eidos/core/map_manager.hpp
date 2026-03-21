@@ -1,6 +1,7 @@
 #pragma once
 
 #include <any>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -16,23 +17,46 @@
 
 #include "eidos/utils/types.hpp"
 
+// Forward declare sqlite3
+struct sqlite3;
+
 namespace eidos {
 
 /**
- * @brief Centralized keyframe pose + data store.
+ * @brief Centralized keyframe pose + data store with SQLite persistence.
  *
- * Owns keyframe poses (PCL clouds for KD-tree) and provides generic
- * per-keyframe and global data storage via std::any.
+ * At runtime, all data lives in memory as std::any (unchanged from v1).
+ * Persistence uses a single SQLite .map file. Plugins register their
+ * data formats via registerKeyframeFormat/registerGlobalFormat — the
+ * shared format registry handles serialization.
  *
- * MapManager owns all persistence — saves/loads poses, keys, metadata,
- * and plugin data via registered serializers. Plugins register their
- * serializers in onInitialize(); MapManager handles all file I/O.
- *
- * TODO: Implement registerSerializer<T>() to replace per-plugin saveData/loadData.
+ * The .map file is self-describing: a data_formats table stores which
+ * format each data_key uses, so any reader (eidos_tools CLI) can
+ * deserialize without external knowledge.
  */
 class MapManager {
 public:
   MapManager();
+  ~MapManager();
+
+  // ---- Format registration ----
+
+  /**
+   * @brief Register a keyframe data format for persistence.
+   *
+   * Type contract: the std::any stored via store() for this data_key
+   * must contain the C++ type that the named format expects. E.g. "pcl_pcd_binary"
+   * expects pcl::PointCloud<PointType>::Ptr. A mismatch causes bad_any_cast at save time.
+   *
+   * @param data_key  Key used in store (e.g. "liso_factor/cloud").
+   * @param format    Format name from the shared registry (e.g. "pcl_pcd_binary").
+   */
+  void registerKeyframeFormat(const std::string& data_key, const std::string& format);
+
+  /**
+   * @brief Register a global data format for persistence. Same type contract.
+   */
+  void registerGlobalFormat(const std::string& data_key, const std::string& format);
 
   // ---- Keyframe pose management ----
 
@@ -43,43 +67,69 @@ public:
 
   pcl::PointCloud<PointType>::Ptr getKeyPoses3D() const;
   pcl::PointCloud<PoseType>::Ptr getKeyPoses6D() const;
-
-  /// Cached KD-tree on key_poses_3d_, rebuilt lazily on first access after changes.
   pcl::KdTreeFLANN<PointType>::Ptr getKdTree();
   int numKeyframes() const;
   std::vector<gtsam::Key> getKeyList() const;
   int getCloudIndex(gtsam::Key gtsam_key) const;
   gtsam::Key getKeyFromCloudIndex(int cloud_index) const;
 
-  // ---- Generic per-keyframe data storage (runtime) ----
+  // ---- Typed data storage (runtime, in-memory) ----
+  // std::any is internal — plugins use store<T>() / retrieve<T>().
 
-  void addKeyframeData(gtsam::Key gtsam_key, const std::string& key, std::any data);
-  std::optional<std::any> getKeyframeData(gtsam::Key gtsam_key, const std::string& key) const;
-  std::unordered_map<std::string, std::any> getKeyframeDataForPlugin(
-      gtsam::Key gtsam_key, const std::string& plugin_name) const;
+  /// Store typed keyframe data. T is wrapped in std::any internally.
+  template<typename T>
+  void store(gtsam::Key key, const std::string& data_key, T value) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    keyframe_data_[key][data_key] = std::any(std::move(value));
+  }
 
-  // ---- Global data storage (runtime) ----
+  /// Retrieve typed keyframe data. Returns std::nullopt if key/data_key missing or type mismatch.
+  template<typename T>
+  std::optional<T> retrieve(gtsam::Key key, const std::string& data_key) const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto kf = keyframe_data_.find(key);
+    if (kf == keyframe_data_.end()) return std::nullopt;
+    auto it = kf->second.find(data_key);
+    if (it == kf->second.end()) return std::nullopt;
+    try { return std::any_cast<T>(it->second); }
+    catch (...) { return std::nullopt; }
+  }
 
-  void setGlobalData(const std::string& key, std::any data);
-  std::optional<std::any> getGlobalData(const std::string& key) const;
+  /// Store typed global data.
+  template<typename T>
+  void storeGlobal(const std::string& data_key, T value) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    global_data_[data_key] = std::any(std::move(value));
+  }
 
-  // ---- Graph adjacency (incremental) ----
+  /// Retrieve typed global data.
+  template<typename T>
+  std::optional<T> retrieveGlobal(const std::string& data_key) const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = global_data_.find(data_key);
+    if (it == global_data_.end()) return std::nullopt;
+    try { return std::any_cast<T>(it->second); }
+    catch (...) { return std::nullopt; }
+  }
+
+  /// Check if keyframe data exists for a given key + data_key.
+  bool hasKeyframeData(gtsam::Key key, const std::string& data_key) const;
+
+  // ---- Graph adjacency ----
 
   void addEdges(const gtsam::NonlinearFactorGraph& new_factors,
                 const std::vector<std::string>& factor_owners = {});
   const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>>& getAdjacency() const;
-
-  /// Get the owner plugin name for an edge (key_a, key_b). Returns "" if unknown.
   std::string getEdgeOwner(gtsam::Key key_a, gtsam::Key key_b) const;
 
-  // ---- Persistence (poses + keys + metadata only) ----
+  // ---- Persistence (single .map SQLite file) ----
 
-  /// Save poses and keys to directory. Returns list of plugin names found.
-  bool saveMap(const std::string& directory,
-               const std::vector<std::string>& plugin_names);
-  /// Load poses and keys from directory. Returns plugin names from metadata.
-  bool loadMap(const std::string& directory,
-               std::vector<std::string>& saved_plugin_names);
+  /// Save everything to a .map file. Creates/overwrites the file.
+  bool saveMap(const std::string& path);
+
+  /// Load from a .map file. Poses loaded immediately, blobs on demand.
+  bool loadMap(const std::string& path);
+
   bool hasPriorMap() const;
   bool isPriorMapKey(gtsam::Key key) const;
 
@@ -94,14 +144,21 @@ private:
   std::map<gtsam::Key, std::unordered_map<std::string, std::any>> keyframe_data_;
   std::unordered_map<std::string, std::any> global_data_;
   std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> adjacency_;
-  std::map<std::pair<gtsam::Key, gtsam::Key>, std::string> edge_owners_; ///< (min_key, max_key) → owner
+  std::map<std::pair<gtsam::Key, gtsam::Key>, std::string> edge_owners_;
 
   pcl::KdTreeFLANN<PointType>::Ptr kdtree_;
   bool kdtree_dirty_ = true;
 
   std::set<gtsam::Key> prior_map_keys_;
-
   bool prior_map_loaded_ = false;
+
+  // ---- Format registration ----
+  std::unordered_map<std::string, std::string> keyframe_formats_;  ///< data_key → format name
+  std::unordered_map<std::string, std::string> global_formats_;    ///< data_key → format name
+
+  // ---- SQLite handle for lazy loading ----
+  sqlite3* load_db_ = nullptr;
+
   mutable std::mutex mtx_;
 };
 

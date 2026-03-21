@@ -66,6 +66,11 @@ void GpsFactor::onInitialize() {
   utm_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(
       name_ + "/utm_pose", 10);
 
+  // Register data formats with MapManager for persistence
+  map_manager_->registerGlobalFormat("gps_factor/utm_to_map", "raw_double5");
+  map_manager_->registerKeyframeFormat("gps_factor/position", "raw_double3");
+  map_manager_->registerKeyframeFormat("gps_factor/utm_position", "raw_double4_eigen");
+
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (unary GPSFactor)", name_.c_str());
 }
 
@@ -74,9 +79,9 @@ void GpsFactor::activate() {
   utm_pub_->on_activate();
 
   // Check if a prior offset was loaded from a saved map
-  auto global = map_manager_->getGlobalData("gps_factor/utm_to_map");
-  if (global.has_value()) {
-    auto offset = std::any_cast<std::array<double, 5>>(global.value());
+  auto offset_opt = map_manager_->retrieveGlobal<std::array<double, 5>>("gps_factor/utm_to_map");
+  if (offset_opt.has_value()) {
+    auto offset = *offset_opt;
     utm_to_map_offset_ = gtsam::Point3(offset[0], offset[1], offset[2]);
     int encoded = static_cast<int>(offset[3]);
     utm_zone_ = encoded / 10;
@@ -176,7 +181,7 @@ StampedFactorResult GpsFactor::latchFactor(gtsam::Key key, double timestamp) {
     std::array<double, 5> global_offset = {
         utm_to_map_offset_.x(), utm_to_map_offset_.y(), utm_to_map_offset_.z(),
         zone_encoded, initial_yaw_};
-    map_manager_->setGlobalData("gps_factor/utm_to_map", global_offset);
+    map_manager_->storeGlobal("gps_factor/utm_to_map", global_offset);
 
     RCLCPP_INFO(node_->get_logger(),
                 "\033[35m[%s] offset initialized: yaw=%.1f deg, offset=(%.1f, %.1f, %.1f)\033[0m",
@@ -216,11 +221,11 @@ StampedFactorResult GpsFactor::latchFactor(gtsam::Key key, double timestamp) {
         gtsam::make_shared<gtsam::GPSFactor>(key, gps_measurement, gps_noise));
   }
 
-  map_manager_->addKeyframeData(key, "gps_factor/position", gps_measurement);
+  map_manager_->store(key, "gps_factor/position", gps_measurement);
 
   double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
   Eigen::Vector4d utm_data(utm.easting, utm.northing, utm.altitude, zone_encoded);
-  map_manager_->addKeyframeData(key, "gps_factor/utm_position", utm_data);
+  map_manager_->store(key, "gps_factor/utm_position", utm_data);
 
   gtsam::Symbol sym(key);
   RCLCPP_INFO(node_->get_logger(),

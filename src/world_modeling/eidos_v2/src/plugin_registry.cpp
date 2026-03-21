@@ -7,11 +7,10 @@ void PluginRegistry::loadAll(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node,
     tf2_ros::Buffer* tf,
     MapManager* map_manager,
-    const std::string& mode,
     const LockFreePose* estimator_pose,
     const std::atomic<SlamState>* state,
     const AtomicSlot<gtsam::Values>* estimator_values) {
-  loadFactorPlugins(node, tf, map_manager, mode, estimator_pose, state);
+  loadFactorPlugins(node, tf, map_manager, estimator_pose, state);
   loadMotionModel(node, tf, state);
   loadRelocalizationPlugins(node, tf, map_manager);
   loadVisualizationPlugins(node, tf, map_manager, estimator_values);
@@ -33,7 +32,7 @@ void PluginRegistry::deactivateAll() {
 
 void PluginRegistry::loadFactorPlugins(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer* tf,
-    MapManager* map_manager, const std::string& mode,
+    MapManager* map_manager,
     const LockFreePose* estimator_pose, const std::atomic<SlamState>* state) {
   factor_loader_ = std::make_unique<pluginlib::ClassLoader<FactorPlugin>>(
       "eidos_v2", "eidos::FactorPlugin");
@@ -53,7 +52,7 @@ void PluginRegistry::loadFactorPlugins(
 
     auto cb_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
     auto plugin = factor_loader_->createSharedInstance(plugin_type);
-    plugin->initialize(name, node, tf, cb_group, map_manager, mode, estimator_pose, state);
+    plugin->initialize(name, node, tf, cb_group, map_manager, estimator_pose, state);
     factor_plugins.push_back(plugin);
 
     RCLCPP_INFO(node->get_logger(), "Loaded factor plugin: %s (%s)", name.c_str(), plugin_type.c_str());

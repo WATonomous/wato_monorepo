@@ -87,7 +87,8 @@ private:
   int num_threads_ = 4;
   int num_neighbors_ = 10;
   std::vector<double> loop_closure_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
-  std::string pointcloud_from_;
+  std::string pointcloud_from_;           ///< PCL cloud data key (fallback)
+  std::string gicp_pointcloud_from_;     ///< small_gicp cloud data key (preferred, optional)
 };
 
 }  // namespace eidos

@@ -26,6 +26,7 @@ find_package(pluginlib REQUIRED)
 find_package(PCL REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(SQLite3 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(small_gicp_vendor REQUIRED)
 find_package(small_gicp REQUIRED)
@@ -40,6 +41,7 @@ add_library(eidos_v2_core SHARED
   src/plugin_registry.cpp
   src/init_sequencer.cpp
   src/pose_ekf.cpp
+  src/format_registry.cpp
 )
 target_include_directories(eidos_v2_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -63,6 +65,8 @@ target_link_libraries(eidos_v2_core PUBLIC
   ${PCL_LIBRARIES}
   gtsam
   OpenMP::OpenMP_CXX
+  SQLite::SQLite3
+  small_gicp::small_gicp
 )
 
 # ---- Plugin library ----

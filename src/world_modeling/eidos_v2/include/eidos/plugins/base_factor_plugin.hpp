@@ -45,7 +45,6 @@ public:
       tf2_ros::Buffer* tf,
       rclcpp::CallbackGroup::SharedPtr callback_group,
       MapManager* map_manager,
-      const std::string& mode,
       const LockFreePose* estimator_pose,
       const std::atomic<SlamState>* state) {
     name_ = name;
@@ -53,7 +52,6 @@ public:
     tf_ = tf;
     callback_group_ = callback_group;
     map_manager_ = map_manager;
-    mode_ = mode;
     estimator_pose_ = estimator_pose;
     state_ = state;
     onInitialize();
@@ -124,7 +122,6 @@ protected:
   tf2_ros::Buffer* tf_ = nullptr;                   ///< TF lookup buffer (read-only, for extrinsics etc.)
   rclcpp::CallbackGroup::SharedPtr callback_group_; ///< Dedicated callback group for this plugin's subs
   MapManager* map_manager_ = nullptr;               ///< Keyframe + global data store (direct access)
-  std::string mode_;                                ///< "slam" or "localization", set once at initialize()
   const LockFreePose* estimator_pose_ = nullptr;    ///< Lock-free read of Estimator's latest optimized pose
   const std::atomic<SlamState>* state_ = nullptr;   ///< Lock-free read of EidosNode's current state
 

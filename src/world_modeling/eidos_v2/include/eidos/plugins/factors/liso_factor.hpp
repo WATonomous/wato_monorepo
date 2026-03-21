@@ -129,13 +129,15 @@ private:
 
   // ---- Localization submap ----
   Eigen::Vector3f submap_center_{0, 0, 0};
-  bool localization_submap_initialized_ = false;
+  bool prior_map_submap_initialized_ = false;
 
   // ---- Extrinsics ----
   Eigen::Isometry3d T_base_lidar_ = Eigen::Isometry3d::Identity();
   bool has_tf_ = false;
 
   // ---- Config ----
+  bool add_factors_ = true;                          ///< Whether to cache GICP results for factor graph
+  std::string submap_source_ = "recent_keyframes";   ///< "recent_keyframes" or "prior_map"
   double scan_ds_resolution_ = 0.5;
   double submap_ds_resolution_ = 0.5;
   int num_neighbors_ = 10;

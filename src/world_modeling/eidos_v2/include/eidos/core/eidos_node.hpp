@@ -36,8 +36,8 @@ namespace eidos {
  * - MapManager: keyframe + data store
  * - PluginRegistry: owns all plugins + ClassLoaders
  *
- * The SLAM loop dispatches to InitSequencer until TRACKING is reached,
- * then runs handleSlamTracking / handleLocalizationTracking.
+ * The main tick dispatches to InitSequencer until TRACKING is reached,
+ * then runs handleTracking which polls plugins for factors and optimizes if any.
  *
  * Autonomous components (EidosNode never calls them at runtime):
  * - TransformManager: own timer, reads poses lock-free, broadcasts TF.
@@ -71,13 +71,9 @@ private:
   /// then runs the appropriate tracking handler.
   void tick();
 
-  /// TRACKING (SLAM mode) — polls factor plugins for factors, feeds them
-  /// to Estimator, runs ISAM2 optimization, notifies plugins of corrections.
-  void handleSlamTracking(double timestamp);
-
-  /// TRACKING (localization mode) — polls factor plugins for pose updates.
-  /// No ISAM2 optimization. TransformManager handles TF autonomously.
-  void handleLocalizationTracking(double timestamp);
+  /// Polls factor plugins for factors, feeds to Estimator if available.
+  /// If no factors produced, just publishes pose/odom.
+  void handleTracking(double timestamp);
 
   /// Called by InitSequencer when TRACKING is reached. Resets Estimator
   /// and notifies all factor plugins via onTrackingBegin().
@@ -109,7 +105,6 @@ private:
 
   // ---- State ----
   std::atomic<SlamState> state_{SlamState::INITIALIZING}; ///< Lock-free, read by plugins
-  std::string mode_;  ///< "slam" or "localization", from config
 
   // ---- SLAM timer ----
   rclcpp::TimerBase::SharedPtr slam_timer_;

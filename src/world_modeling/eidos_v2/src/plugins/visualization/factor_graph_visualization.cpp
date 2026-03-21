@@ -141,8 +141,7 @@ void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
 
   // Render GPS factor markers — larger magenta spheres at GPS-corrected states
   for (gtsam::Key k : key_list) {
-    auto gps_data = map_manager_->getKeyframeData(k, "gps_factor/position");
-    if (!gps_data.has_value()) continue;
+    if (!map_manager_->hasKeyframeData(k, "gps_factor/position")) continue;
 
     gtsam::Pose3 pose;
     try {

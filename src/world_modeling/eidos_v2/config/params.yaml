@@ -3,7 +3,6 @@
 
 /**/eidos_node:
   ros__parameters:
-    mode: "slam"  # "slam" or "localization"
     slam_rate: 10.0
     relocalization_timeout: 30.0
 

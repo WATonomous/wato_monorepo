@@ -10,6 +10,7 @@
 #include <gtsam/nonlinear/Values.h>
 
 #include "eidos/utils/atomic_slot.hpp"
+#include "eidos/utils/lock_free_pose.hpp"
 
 namespace eidos {
 
@@ -87,8 +88,10 @@ protected:
 private:
   void tick() {
     auto values = values_slot_->load();
-    if (!values) return;
-    render(*values);
+    // Render even without optimized values (localization mode has no ISAM2).
+    // Pass empty Values if slot is null — render() uses MapManager poses.
+    static const gtsam::Values empty_values;
+    render(values ? *values : empty_values);
   }
 
   const AtomicSlot<gtsam::Values>* values_slot_ = nullptr;

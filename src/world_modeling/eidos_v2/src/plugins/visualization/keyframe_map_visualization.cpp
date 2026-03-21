@@ -56,46 +56,47 @@ void KeyframeMapVisualization::render(const gtsam::Values& optimized_values) {
   pcl::PointCloud<PointType> output;
 
   if (mode_ == "accumulate") {
+    // Track which keys to include (skip logic), but rebuild output
+    // from body-frame clouds + current poses every render so that
+    // graph optimizations (GPS, loop closure) are reflected.
     for (size_t i = 0; i < key_list.size(); i++) {
       gtsam::Key k = key_list[i];
-      if (appended_keys_.count(k)) continue;
+      if (seen_keys_.count(k)) continue;
+      seen_keys_.insert(k);
 
-      skip_counter_++;
-      if (skip_counter_ < skip_factor_) continue;
-      skip_counter_ = 0;
+      if (!accepted_keys_.empty()) {
+        skip_counter_++;
+        if (skip_counter_ < skip_factor_) continue;  // skip this key
+        skip_counter_ = 0;
+      }
 
-      auto cloud_data = map_manager_->getKeyframeData(k, pointcloud_from_ + "/cloud");
-      if (!cloud_data.has_value()) continue;
+      // Check cloud exists before accepting
+      if (!map_manager_->hasKeyframeData(k, pointcloud_from_)) continue;
+      accepted_keys_.insert(k);
+    }
 
-      pcl::PointCloud<PointType>::Ptr body_cloud;
-      try {
-        body_cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(cloud_data.value());
-      } catch (const std::bad_any_cast&) { continue; }
-      if (!body_cloud || body_cloud->empty()) continue;
+    // Rebuild from body-frame clouds using current optimized poses
+    for (gtsam::Key k : accepted_keys_) {
+      auto cloud = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(k, pointcloud_from_);
+      if (!cloud || (*cloud)->empty()) continue;
 
       int idx = map_manager_->getCloudIndex(k);
       if (idx < 0 || idx >= static_cast<int>(poses_6d->size())) continue;
 
       Eigen::Affine3f world_T = poseTypeToAffine3f(poses_6d->points[idx]);
       pcl::PointCloud<PointType> transformed;
-      pcl::transformPointCloud(*body_cloud, transformed, world_T);
-      *accumulated_cloud_ += transformed;
-      appended_keys_.insert(k);
+      pcl::transformPointCloud(**cloud, transformed, world_T);
+      output += transformed;
     }
-    output = *accumulated_cloud_;
   } else {
+    // Window center: latest keyframe pose from optimized values
     gtsam::Key latest_key = key_list.back();
-    if (!optimized_values.exists(latest_key)) {
-      RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
-          "[%s] windowed: latest key not in optimized values (keys=%zu, values=%zu)",
-          name_.c_str(), key_list.size(), optimized_values.size());
-      return;
-    }
-    auto current = optimized_values.at<gtsam::Pose3>(latest_key);
+    if (!optimized_values.exists(latest_key)) return;
+    auto latest_pose = optimized_values.at<gtsam::Pose3>(latest_key);
     Eigen::Vector3f current_pos(
-        static_cast<float>(current.translation().x()),
-        static_cast<float>(current.translation().y()),
-        static_cast<float>(current.translation().z()));
+        static_cast<float>(latest_pose.translation().x()),
+        static_cast<float>(latest_pose.translation().y()),
+        static_cast<float>(latest_pose.translation().z()));
 
     for (size_t i = 0; i < key_list.size(); i++) {
       int idx = map_manager_->getCloudIndex(key_list[i]);
@@ -104,18 +105,12 @@ void KeyframeMapVisualization::render(const gtsam::Values& optimized_values) {
       Eigen::Vector3f pos(poses_6d->points[idx].x, poses_6d->points[idx].y, poses_6d->points[idx].z);
       if ((pos - current_pos).norm() > window_radius_) continue;
 
-      auto cloud_data = map_manager_->getKeyframeData(key_list[i], pointcloud_from_ + "/cloud");
-      if (!cloud_data.has_value()) continue;
-
-      pcl::PointCloud<PointType>::Ptr body_cloud;
-      try {
-        body_cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(cloud_data.value());
-      } catch (const std::bad_any_cast&) { continue; }
-      if (!body_cloud || body_cloud->empty()) continue;
+      auto cloud = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key_list[i], pointcloud_from_);
+      if (!cloud || (*cloud)->empty()) continue;
 
       Eigen::Affine3f world_T = poseTypeToAffine3f(poses_6d->points[idx]);
       pcl::PointCloud<PointType> transformed;
-      pcl::transformPointCloud(*body_cloud, transformed, world_T);
+      pcl::transformPointCloud(**cloud, transformed, world_T);
       output += transformed;
     }
   }

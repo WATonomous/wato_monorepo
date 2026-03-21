@@ -40,7 +40,6 @@ public:
       rclcpp_lifecycle::LifecycleNode::SharedPtr node,
       tf2_ros::Buffer* tf,
       MapManager* map_manager,
-      const std::string& mode,
       const LockFreePose* estimator_pose,
       const std::atomic<SlamState>* state,
       const AtomicSlot<gtsam::Values>* estimator_values);
@@ -68,7 +67,7 @@ public:
 private:
   void loadFactorPlugins(
       rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer* tf,
-      MapManager* map_manager, const std::string& mode,
+      MapManager* map_manager,
       const LockFreePose* estimator_pose, const std::atomic<SlamState>* state);
   void loadMotionModel(
       rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer* tf,

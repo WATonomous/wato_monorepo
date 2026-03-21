@@ -33,6 +33,8 @@ void LisoFactor::onInitialize() {
   node_->declare_parameter(prefix + ".lidar_topic", "/lidar/points");
   node_->declare_parameter(prefix + ".odom_topic", "liso/odometry");
   node_->declare_parameter(prefix + ".odometry_incremental_topic", "liso/odometry_incremental");
+  node_->declare_parameter(prefix + ".add_factors", true);
+  node_->declare_parameter(prefix + ".submap_source", std::string("recent_keyframes"));
   node_->declare_parameter(prefix + ".scan_ds_resolution", scan_ds_resolution_);
   node_->declare_parameter(prefix + ".submap_ds_resolution", submap_ds_resolution_);
   node_->declare_parameter(prefix + ".num_neighbors", num_neighbors_);
@@ -56,6 +58,8 @@ void LisoFactor::onInitialize() {
   node_->get_parameter(prefix + ".lidar_topic", lidar_topic);
   node_->get_parameter(prefix + ".odom_topic", odom_topic);
   node_->get_parameter(prefix + ".odometry_incremental_topic", odom_inc_topic);
+  node_->get_parameter(prefix + ".add_factors", add_factors_);
+  node_->get_parameter(prefix + ".submap_source", submap_source_);
   node_->get_parameter(prefix + ".scan_ds_resolution", scan_ds_resolution_);
   node_->get_parameter(prefix + ".submap_ds_resolution", submap_ds_resolution_);
   node_->get_parameter(prefix + ".num_neighbors", num_neighbors_);
@@ -97,6 +101,10 @@ void LisoFactor::onInitialize() {
   submap_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>(
       "liso/submap", rclcpp::QoS(1).transient_local());
 
+  // Register data formats with MapManager for persistence
+  map_manager_->registerKeyframeFormat("liso_factor/cloud", "pcl_pcd_binary");
+  map_manager_->registerKeyframeFormat("liso_factor/gicp_cloud", "small_gicp_binary");
+
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (GICP scan-to-submap)", name_.c_str());
 }
 
@@ -114,11 +122,20 @@ void LisoFactor::deactivate() {
 }
 
 // ==========================================================================
-// onTrackingBegin — build initial submap for localization mode
+// onTrackingBegin — build initial submap when submap_source is "prior_map"
 // ==========================================================================
 
 void LisoFactor::onTrackingBegin(const gtsam::Pose3& initial_pose) {
-  if (mode_ != "localization") return;
+  RCLCPP_INFO(node_->get_logger(),
+      "\033[33m[%s] onTrackingBegin called: pos=(%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f) "
+      "submap_source=%s add_factors=%d\033[0m",
+      name_.c_str(),
+      initial_pose.translation().x(), initial_pose.translation().y(), initial_pose.translation().z(),
+      initial_pose.rotation().roll() * 180.0 / M_PI,
+      initial_pose.rotation().pitch() * 180.0 / M_PI,
+      initial_pose.rotation().yaw() * 180.0 / M_PI,
+      submap_source_.c_str(), add_factors_);
+  if (submap_source_ != "prior_map") return;
 
   Eigen::Vector3f pos(
       static_cast<float>(initial_pose.translation().x()),
@@ -126,12 +143,18 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3& initial_pose) {
       static_cast<float>(initial_pose.translation().z()));
   submap_center_ = pos;
   rebuildSubmapAtPosition(pos);
-  localization_submap_initialized_ = true;
+  prior_map_submap_initialized_ = true;
   last_matched_pose_ = initial_pose;
   has_last_match_ = true;
 
+  // Seed the lock-free pose outputs so TransformManager has data immediately
+  // Map pose is in map frame (the relocalized position).
+  // Odom pose starts at identity — map→odom absorbs the global offset.
+  setMapPose(initial_pose);
+  setOdomPose(gtsam::Pose3());
+
   RCLCPP_INFO(node_->get_logger(),
-      "[%s] onTrackingBegin: built initial localization submap at (%.2f, %.2f, %.2f)",
+      "[%s] onTrackingBegin: built initial prior map submap at (%.2f, %.2f, %.2f)",
       name_.c_str(), pos.x(), pos.y(), pos.z());
 }
 
@@ -141,7 +164,7 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3& initial_pose) {
 
 StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp*/) {
   StampedFactorResult result;
-  if (!active_) return result;
+  if (!active_ || !add_factors_) return result;
 
   std::lock_guard lock(result_mtx_);
   if (!has_cached_result_) return result;
@@ -154,8 +177,8 @@ StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp
   result.values.insert(key, cached_pose_);
 
   // Store body-frame clouds in MapManager
-  map_manager_->addKeyframeData(key, "liso_factor/gicp_cloud", cached_cloud_);
-  map_manager_->addKeyframeData(key, "liso_factor/cloud", cached_pcl_cloud_);
+  map_manager_->store(key, "liso_factor/gicp_cloud", cached_cloud_);
+  map_manager_->store(key, "liso_factor/cloud", cached_pcl_cloud_);
 
   // BetweenFactor: relative LiDAR odometry from previous LISO state
   if (has_prev_liso_) {
@@ -274,22 +297,45 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     cached_cloud_ = scan;
     cached_pcl_cloud_ = pcl_cloud;
     cached_timestamp_ = scan_time;
-    cached_pose_ = gtsam::Pose3(initial_gravity_orientation_, gtsam::Point3(0, 0, 0));
+    // Use relocalized pose if available (set by onTrackingBegin), otherwise origin
+    if (has_last_match_) {
+      cached_pose_ = last_matched_pose_;
+      RCLCPP_INFO(node_->get_logger(),
+          "\033[33m[%s] first scan: using relocalized pose (%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)\033[0m",
+          name_.c_str(),
+          cached_pose_.translation().x(), cached_pose_.translation().y(), cached_pose_.translation().z(),
+          cached_pose_.rotation().roll() * 180.0 / M_PI,
+          cached_pose_.rotation().pitch() * 180.0 / M_PI,
+          cached_pose_.rotation().yaw() * 180.0 / M_PI);
+    } else {
+      cached_pose_ = gtsam::Pose3(initial_gravity_orientation_, gtsam::Point3(0, 0, 0));
+      last_matched_pose_ = cached_pose_;
+      has_last_match_ = true;
+      RCLCPP_INFO(node_->get_logger(),
+          "\033[33m[%s] first scan: using gravity-aligned origin (%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)\033[0m",
+          name_.c_str(),
+          cached_pose_.translation().x(), cached_pose_.translation().y(), cached_pose_.translation().z(),
+          cached_pose_.rotation().roll() * 180.0 / M_PI,
+          cached_pose_.rotation().pitch() * 180.0 / M_PI,
+          cached_pose_.rotation().yaw() * 180.0 / M_PI);
+    }
     cached_result_ = small_gicp::RegistrationResult();
     cached_result_.converged = true;
     cached_result_.num_inliers = scan->size();
     cached_result_.H = Eigen::Matrix<double, 6, 6>::Identity() * kInitialHessianScale;
     has_cached_result_ = true;
     first_scan_ = false;
-    last_matched_pose_ = cached_pose_;
-    has_last_match_ = true;
     gyro_tracking_active_ = true;
     gyro_delta_rpy_ = Eigen::Vector3d::Zero();
     last_gyro_time_ = scan_time;
     return;
   }
 
-  if (submap_stale_.load()) return;
+  if (submap_stale_.load()) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+        "[%s] lidarCallback: submap_stale, skipping", name_.c_str());
+    return;
+  }
 
   // Initial guess from gyro-integrated rotation
   Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
@@ -304,7 +350,13 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   small_gicp::RegistrationResult result;
   {
     std::shared_lock lock(submap_mtx_);
-    if (!cached_submap_ || !cached_submap_tree_ || cached_submap_->empty()) return;
+    if (!cached_submap_ || !cached_submap_tree_ || cached_submap_->empty()) {
+      RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+          "[%s] lidarCallback: submap empty/null (submap=%d tree=%d empty=%d)",
+          name_.c_str(), !!cached_submap_, !!cached_submap_tree_,
+          cached_submap_ ? cached_submap_->empty() : true);
+      return;
+    }
 
     small_gicp::RegistrationSetting setting;
     setting.type = small_gicp::RegistrationSetting::GICP;
@@ -315,16 +367,31 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     result = small_gicp::align(*cached_submap_, *scan, *cached_submap_tree_, init_guess, setting);
   }
 
-  if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) return;
+  if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+        "[%s] GICP failed: converged=%d inliers=%zu (min=%d)",
+        name_.c_str(), result.converged, result.num_inliers, min_inliers_);
+    return;
+  }
 
   gtsam::Pose3 matched_pose(gtsam::Rot3(result.T_target_source.rotation()),
                               gtsam::Point3(result.T_target_source.translation()));
 
+  RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+      "\033[36m[%s] GICP match: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
+      "guess: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | inliers=%zu\033[0m",
+      name_.c_str(),
+      matched_pose.translation().x(), matched_pose.translation().y(), matched_pose.translation().z(),
+      matched_pose.rotation().yaw() * 180.0 / M_PI,
+      init_guess.translation().x(), init_guess.translation().y(), init_guess.translation().z(),
+      gtsam::Rot3(init_guess.rotation()).yaw() * 180.0 / M_PI,
+      result.num_inliers);
+
   // Lock-free pose outputs — TransformManager reads these
   setMapPose(matched_pose);
 
-  // Cache for produceFactor (SLAM mode only)
-  if (mode_ != "localization") {
+  // Cache for produceFactor (when add_factors is enabled)
+  if (add_factors_) {
     std::lock_guard lock(result_mtx_);
     if (!has_cached_result_) {
       bool should_cache = !has_last_factor_ ||
@@ -355,7 +422,9 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     incremental_pose_ = incremental_pose_.compose(delta);
     has_delta = true;
   } else {
-    incremental_pose_ = matched_pose;
+    // In localization (prior_map), odom starts at identity — map→odom absorbs
+    // the relocalized offset. In SLAM, odom ≈ map frame (no offset to absorb).
+    incremental_pose_ = prior_map_submap_initialized_ ? gtsam::Pose3() : matched_pose;
     has_prev_incremental_ = true;
   }
   prev_incremental_pose_ = matched_pose;
@@ -428,8 +497,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   // No TF broadcasting — TransformManager reads setMapPose/setOdomPose lock-free
 
-  // Localization mode: distance-based submap rebuild
-  if (mode_ == "localization" && localization_submap_initialized_) {
+  // Prior map: distance-based submap rebuild
+  if (submap_source_ == "prior_map" && prior_map_submap_initialized_) {
     Eigen::Vector3f pos(
         static_cast<float>(matched_pose.translation().x()),
         static_cast<float>(matched_pose.translation().y()),
@@ -542,14 +611,8 @@ void LisoFactor::rebuildSubmap() {
   auto poses_6d = map_manager_->getKeyPoses6D();
 
   for (gtsam::Key k : collected_keys) {
-    auto cloud_data = map_manager_->getKeyframeData(k, "liso_factor/gicp_cloud");
-    if (!cloud_data.has_value()) continue;
-
-    small_gicp::PointCloud::Ptr body_cloud;
-    try {
-      body_cloud = std::any_cast<small_gicp::PointCloud::Ptr>(cloud_data.value());
-    } catch (const std::bad_any_cast&) { continue; }
-    if (!body_cloud || body_cloud->empty()) continue;
+    auto body_cloud = map_manager_->retrieve<small_gicp::PointCloud::Ptr>(k, "liso_factor/gicp_cloud");
+    if (!body_cloud || (*body_cloud)->empty()) continue;
 
     int idx = map_manager_->getCloudIndex(k);
     if (idx < 0 || idx >= static_cast<int>(poses_6d->size())) continue;
@@ -559,8 +622,8 @@ void LisoFactor::rebuildSubmap() {
     Eigen::Isometry3d world_T_d;
     world_T_d.matrix() = world_T.matrix().cast<double>();
 
-    for (size_t i = 0; i < body_cloud->size(); i++) {
-      Eigen::Vector3d p = world_T_d * body_cloud->point(i).head<3>();
+    for (size_t i = 0; i < (*body_cloud)->size(); i++) {
+      Eigen::Vector3d p = world_T_d * (*body_cloud)->point(i).head<3>();
       merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
     }
   }
@@ -581,10 +644,16 @@ void LisoFactor::rebuildSubmap() {
 void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
   auto poses_6d = map_manager_->getKeyPoses6D();
   auto key_list = map_manager_->getKeyList();
-  if (key_list.empty()) return;
+  if (key_list.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmapAtPosition: key_list empty", name_.c_str());
+    return;
+  }
 
   auto kdtree = map_manager_->getKdTree();
-  if (!kdtree) return;
+  if (!kdtree) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmapAtPosition: no kdtree", name_.c_str());
+    return;
+  }
 
   PointType search_point;
   search_point.x = position.x();
@@ -594,6 +663,11 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
   std::vector<int> indices;
   std::vector<float> distances;
   kdtree->radiusSearch(search_point, submap_radius_, indices, distances);
+
+  RCLCPP_INFO(node_->get_logger(),
+      "[%s] rebuildSubmapAtPosition: %zu candidates within %.0fm of (%.1f,%.1f,%.1f), key_list=%zu",
+      name_.c_str(), indices.size(), submap_radius_, position.x(), position.y(), position.z(),
+      key_list.size());
 
   if (static_cast<int>(indices.size()) > max_submap_states_) {
     std::vector<std::pair<float, int>> dist_idx;
@@ -607,18 +681,17 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
   }
 
   auto merged = std::make_shared<small_gicp::PointCloud>();
+  int retrieve_fail = 0, retrieve_ok = 0;
   for (int idx : indices) {
     if (idx < 0 || idx >= static_cast<int>(key_list.size())) continue;
     gtsam::Key k = map_manager_->getKeyFromCloudIndex(idx);
 
-    auto cloud_data = map_manager_->getKeyframeData(k, "liso_factor/gicp_cloud");
-    if (!cloud_data.has_value()) continue;
-
-    small_gicp::PointCloud::Ptr body_cloud;
-    try {
-      body_cloud = std::any_cast<small_gicp::PointCloud::Ptr>(cloud_data.value());
-    } catch (const std::bad_any_cast&) { continue; }
-    if (!body_cloud || body_cloud->empty()) continue;
+    auto body_cloud = map_manager_->retrieve<small_gicp::PointCloud::Ptr>(k, "liso_factor/gicp_cloud");
+    if (!body_cloud || (*body_cloud)->empty()) {
+      retrieve_fail++;
+      continue;
+    }
+    retrieve_ok++;
 
     if (idx >= static_cast<int>(poses_6d->size())) continue;
     const auto& pose = poses_6d->points[idx];
@@ -626,13 +699,18 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
     Eigen::Isometry3d world_T_d;
     world_T_d.matrix() = world_T.matrix().cast<double>();
 
-    for (size_t i = 0; i < body_cloud->size(); i++) {
-      Eigen::Vector3d p = world_T_d * body_cloud->point(i).head<3>();
+    for (size_t i = 0; i < (*body_cloud)->size(); i++) {
+      Eigen::Vector3d p = world_T_d * (*body_cloud)->point(i).head<3>();
       merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
     }
   }
 
-  if (merged->empty()) return;
+  if (merged->empty()) {
+    RCLCPP_WARN(node_->get_logger(),
+        "[%s] rebuildSubmapAtPosition: merged empty (retrieve ok=%d fail=%d)",
+        name_.c_str(), retrieve_ok, retrieve_fail);
+    return;
+  }
 
   auto [submap, submap_tree] = small_gicp::preprocess_points(
       *merged, submap_ds_resolution_, num_neighbors_, num_threads_);
@@ -644,8 +722,27 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
   }
   submap_stale_ = false;
 
+  // Publish submap for visualization
+  if (submap_pub_->is_activated()) {
+    pcl::PointCloud<PointType> pcl_submap;
+    pcl_submap.reserve(submap->size());
+    for (size_t i = 0; i < submap->size(); i++) {
+      PointType pt;
+      pt.x = static_cast<float>(submap->point(i).x());
+      pt.y = static_cast<float>(submap->point(i).y());
+      pt.z = static_cast<float>(submap->point(i).z());
+      pt.intensity = 0.0f;
+      pcl_submap.push_back(pt);
+    }
+    sensor_msgs::msg::PointCloud2 submap_msg;
+    pcl::toROSMsg(pcl_submap, submap_msg);
+    submap_msg.header.stamp = node_->now();
+    submap_msg.header.frame_id = map_frame_;
+    submap_pub_->publish(submap_msg);
+  }
+
   RCLCPP_INFO(node_->get_logger(),
-      "[%s] localization submap rebuilt at (%.1f,%.1f,%.1f): %zu points",
+      "[%s] prior map submap rebuilt at (%.1f,%.1f,%.1f): %zu points",
       name_.c_str(), position.x(), position.y(), position.z(), submap->size());
 }
 

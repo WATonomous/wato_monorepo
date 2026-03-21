@@ -42,7 +42,8 @@ private:
   rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 
   pcl::PointCloud<PointType>::Ptr accumulated_cloud_;
-  std::set<gtsam::Key> appended_keys_;
+  std::set<gtsam::Key> seen_keys_;      ///< All keys we've evaluated (skip logic)
+  std::set<gtsam::Key> accepted_keys_;  ///< Keys whose clouds we actually render
   int skip_counter_ = 0;
 };
 

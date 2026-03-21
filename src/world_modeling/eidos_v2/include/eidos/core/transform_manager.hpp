@@ -56,6 +56,15 @@ public:
   void activate();
   void deactivate();
 
+  /// Current robot pose in map frame (lock-free, updated every tick).
+  const LockFreePose& getMapPose() const { return current_map_pose_; }
+
+  /// Set map→odom once from relocalization. Used when map_source is empty
+  /// (localization mode) so map→odom stays fixed.
+  void setMapToOdom(const gtsam::Pose3& map_to_odom) {
+    cached_map_to_odom_ = map_to_odom;
+  }
+
 private:
   void tick();
 
@@ -80,8 +89,12 @@ private:
 
   gtsam::Pose3 cached_map_to_odom_;
   gtsam::Pose3 cached_odom_to_base_;
-  gtsam::Pose3 last_map_pose_;              ///< For detecting when map_src changes
+  gtsam::Pose3 last_map_pose_;                ///< For change-detection on map→odom updates
   bool has_last_map_pose_ = false;
+
+  /// Current robot pose in map frame = map→odom * odom→base.
+  /// Written every tick. Readable by anyone via getMapPose().
+  LockFreePose current_map_pose_;
 
   // ---- EKF fusion (when odom_source is set) ----
   PoseEKF odom_ekf_;                        ///< Fuses MM prediction + odom_source corrections

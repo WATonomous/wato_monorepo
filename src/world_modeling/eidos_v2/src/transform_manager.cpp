@@ -86,28 +86,60 @@ void TransformManager::tick() {
   }
 
   // 2. Read map-frame pose from configured source (lock-free)
+  //    When map_source is empty (localization mode), map→odom is fixed from
+  //    relocalization via setMapToOdom() and never recomputed.
   std::optional<gtsam::Pose3> map_pose;
-  if (map_source_name_ == "slam_core") {
-    if (estimator_pose_) {
-      map_pose = estimator_pose_->load();
+  if (!map_source_name_.empty()) {
+    if (map_source_name_ == "slam_core") {
+      if (estimator_pose_) {
+        map_pose = estimator_pose_->load();
+      }
+    } else {
+      auto src = registry_->findFactor(map_source_name_);
+      if (src) {
+        map_pose = src->getMapPose();
+      }
     }
-  } else {
-    auto src = registry_->findFactor(map_source_name_);
-    if (src) {
-      map_pose = src->getMapPose();
+
+    // 3. map→odom only changes when map_src changes (SLAM optimization).
+    //    Between optimizations, map→odom is constant — odom→base carries all motion.
+    if (map_pose) {
+      if (!has_last_map_pose_ || !map_pose->equals(last_map_pose_, 1e-12)) {
+        cached_map_to_odom_ = map_pose->compose(cached_odom_to_base_.inverse());
+        last_map_pose_ = *map_pose;
+        has_last_map_pose_ = true;
+      }
     }
   }
 
-  // 3. map→odom only changes when map_src changes (SLAM optimization).
-  //    Between optimizations, map→odom is constant — odom→base carries all motion.
-  if (map_pose) {
-    if (!has_last_map_pose_ || !map_pose->equals(last_map_pose_, 1e-12)) {
-      cached_map_to_odom_ = map_pose->compose(cached_odom_to_base_.inverse());
-      last_map_pose_ = *map_pose;
-      has_last_map_pose_ = true;
-    }
+  // Diagnostic: log TF state every 500 ticks (~1s at 500Hz)
+  static int tm_tick = 0;
+  if (++tm_tick % 500 == 0) {
+    RCLCPP_INFO(node_->get_logger(),
+        "\033[33m[TM]\033[0m "
+        "odom->base: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
+        "map->odom: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
+        "map_src=%s pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
+        "ekf=%d",
+        cached_odom_to_base_.translation().x(),
+        cached_odom_to_base_.translation().y(),
+        cached_odom_to_base_.translation().z(),
+        cached_odom_to_base_.rotation().yaw() * 180.0 / M_PI,
+        cached_map_to_odom_.translation().x(),
+        cached_map_to_odom_.translation().y(),
+        cached_map_to_odom_.translation().z(),
+        cached_map_to_odom_.rotation().yaw() * 180.0 / M_PI,
+        map_pose ? "Y" : "N",
+        map_pose ? map_pose->translation().x() : 0.0,
+        map_pose ? map_pose->translation().y() : 0.0,
+        map_pose ? map_pose->translation().z() : 0.0,
+        map_pose ? map_pose->rotation().yaw() * 180.0 / M_PI : 0.0,
+        odom_ekf_.initialized() ? 1 : 0);
   }
   broadcastTf(now, map_frame_, odom_frame_, cached_map_to_odom_);
+
+  // Write current map-frame robot pose (for viz, publishing, etc.)
+  current_map_pose_.store(cached_map_to_odom_.compose(cached_odom_to_base_));
 }
 
 gtsam::Pose3 TransformManager::computeOdomToBase() {
@@ -127,7 +159,7 @@ gtsam::Pose3 TransformManager::computeOdomToBase() {
     gtsam::Pose3 mm_delta = last_mm_pose_.between(*mm_pose);
     odom_ekf_.predict(mm_delta);
   } else {
-    // First MM reading — initialize EKF
+    // First MM reading — initialize EKF from MM pose
     odom_ekf_.reset(*mm_pose);
   }
   last_mm_pose_ = *mm_pose;
@@ -140,7 +172,6 @@ gtsam::Pose3 TransformManager::computeOdomToBase() {
     if (odom_reading) {
       if (!has_odom_source_reading_ ||
           !odom_reading->equals(last_odom_source_pose_, 1e-12)) {
-        // New odom_source reading — EKF measurement update (smooth, no jump)
         odom_ekf_.update(*odom_reading);
         last_odom_source_pose_ = *odom_reading;
         has_odom_source_reading_ = true;

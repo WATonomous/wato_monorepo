@@ -23,9 +23,9 @@ launch:
       description: Enable bond-based crash detection
 
   - arg:
-      name: eidos_map_dir
-      default: "/opt/watonomous/maps/test_track_map"
-      description: Directory containing the prior map to localize against
+      name: eidos_map_path
+      default: "/opt/watonomous/maps/wrestrc.map"
+      description: Path to the .map file to localize against
 
   - arg:
       name: use_sim_time
@@ -265,8 +265,8 @@ launch:
       output: screen
       param:
         - from: $(var eidos_config_file)
-        - name: map.load_directory
-          value: $(var eidos_map_dir)
+        - name: map.load_path
+          value: $(var eidos_map_path)
 
   # Lifecycle Manager
   - node:

@@ -8,12 +8,9 @@
 
     # ---- TransformManager ----
     transforms:
-      odom_source: ""              # empty = motion model IS the odom source
-      map_source: "liso_factor"    # GICP match = map-frame pose
+      odom_source: "liso_factor"   # EKF fuses LISO odom + motion model for smooth odom→base
+      map_source: ""               # map→odom is fixed from relocalization
       rate: 500.0
-
-    # ---- Mode ----
-    mode: "localization"
 
     # ---- Core ----
     slam_rate: 10.0
@@ -27,8 +24,8 @@
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
     map:
-      load_directory: "/tmp/eidos_maps/"
-      save_directory: ""
+      load_path: "/opt/watonomous/maps/wrestrc.map"
+      save_path: ""
 
     # ---- Core topics / services ----
     topics:
@@ -97,6 +94,8 @@
     # ==========================================================================
     liso_factor:
       plugin: "eidos::LisoFactor"
+      add_factors: false
+      submap_source: "prior_map"
 
       lidar_topic: "/lidar_cc/velodyne_points"
       odom_topic: "liso/odometry"
@@ -138,9 +137,10 @@
       imu_topic: "/novatel/oem7/imu/data"
 
       lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
 
       gps_candidate_radius: 30.0
-      pointcloud_from: "liso_factor"
+      pointcloud_from: "liso_factor/cloud"
       gps_from: "gps_factor"
 
       scan_ds_resolution: 0.5
@@ -158,10 +158,10 @@
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"
-      pointcloud_from: "liso_factor"
+      pointcloud_from: "liso_factor/cloud"
       voxel_leaf_size: 0.4
       publish_rate: 1.0
-      mode: "windowed"
+      mode: "accumulate"
 
       accumulate:
         skip_factor: 5

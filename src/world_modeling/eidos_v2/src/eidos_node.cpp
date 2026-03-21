@@ -32,14 +32,14 @@ EidosNode::CallbackReturn EidosNode::on_configure(
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   // Parameters
-  declare_parameter("mode", std::string("slam"));
+  // No global "mode" param — plugin behavior is controlled by per-plugin config.
   declare_parameter("slam_rate", 10.0);
   declare_parameter("relocalization_timeout", 30.0);
   declare_parameter("frames.map", std::string("map"));
   declare_parameter("frames.odometry", std::string("odom"));
   declare_parameter("frames.base_link", std::string("base_footprint"));
-  declare_parameter("map.load_directory", std::string(""));
-  declare_parameter("map.save_directory", std::string("/tmp/eidos_maps/"));
+  declare_parameter("map.load_path", std::string(""));
+  declare_parameter("map.save_path", std::string(""));
   declare_parameter("odom_pose_cov", std::vector<double>{1.0, 1.0, 1.0, 0.1, 0.1, 0.1});
 
   // ISAM2 + prior params (read as locals, passed to Estimator::configure)
@@ -75,18 +75,17 @@ EidosNode::CallbackReturn EidosNode::on_configure(
   declare_parameter("topics.load_map_service", std::string("slam/load_map"));
 
   // Read parameters
-  get_parameter("mode", mode_);
+
   get_parameter("slam_rate", slam_rate_);
   double relocalization_timeout;
   get_parameter("relocalization_timeout", relocalization_timeout);
   get_parameter("frames.map", map_frame_);
   get_parameter("frames.odometry", odom_frame_);
   get_parameter("frames.base_link", base_link_frame_);
-  get_parameter("map.load_directory", map_load_directory_);
-  get_parameter("map.save_directory", map_save_directory_);
+  get_parameter("map.load_path", map_load_directory_);
+  get_parameter("map.save_path", map_save_directory_);
   get_parameter("odom_pose_cov", odom_pose_cov_);
 
-  RCLCPP_INFO(get_logger(), "Mode: %s", mode_.c_str());
 
   // Configure Estimator with all ISAM2 params
   {
@@ -106,7 +105,7 @@ EidosNode::CallbackReturn EidosNode::on_configure(
 
   // Load plugins via PluginRegistry
   registry_.loadAll(shared_from_this(), tf_buffer_.get(), &map_manager_,
-                    mode_, &estimator_.getOptimizedPose(), &state_,
+                    &estimator_.getOptimizedPose(), &state_,
                     &estimator_.getOptimizedValues());
 
   // Configure InitSequencer
@@ -161,8 +160,7 @@ EidosNode::CallbackReturn EidosNode::on_activate(
 
   // Load prior map if configured
   if (!map_load_directory_.empty()) {
-    std::vector<std::string> saved_plugins;
-    if (map_manager_.loadMap(map_load_directory_, saved_plugins)) {
+    if (map_manager_.loadMap(map_load_directory_)) {
       RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m Loaded prior map from: %s",
                   map_load_directory_.c_str());
     }
@@ -236,12 +234,8 @@ void EidosNode::tick() {
     return;
   }
 
-  // TRACKING — run the appropriate handler
-  if (mode_ == "localization") {
-    handleLocalizationTracking(timestamp);
-  } else {
-    handleSlamTracking(timestamp);
-  }
+  // TRACKING — poll plugins, optimize if factors available
+  handleTracking(timestamp);
 
   publishStatus();
 }
@@ -251,19 +245,27 @@ void EidosNode::tick() {
 // ==========================================================================
 
 void EidosNode::beginTracking(const gtsam::Pose3& initial_pose) {
-  RCLCPP_INFO(get_logger(), "\033[32m[TRACKING]\033[0m Beginning at [%.2f, %.2f, %.2f]",
+  RCLCPP_INFO(get_logger(),
+      "\033[32m[TRACKING]\033[0m Beginning at pos=(%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)°",
       initial_pose.translation().x(), initial_pose.translation().y(),
-      initial_pose.translation().z());
+      initial_pose.translation().z(),
+      initial_pose.rotation().roll() * 180.0 / M_PI,
+      initial_pose.rotation().pitch() * 180.0 / M_PI,
+      initial_pose.rotation().yaw() * 180.0 / M_PI);
 
   estimator_.reset();
   state_.store(SlamState::TRACKING, std::memory_order_release);
+
+  // Set map→odom from the relocalized pose. In localization mode (map_source
+  // empty), this stays fixed. In SLAM mode, it gets overwritten by map_source.
+  transform_manager_.setMapToOdom(initial_pose);
 
   for (auto& plugin : registry_.factor_plugins) {
     plugin->onTrackingBegin(initial_pose);
   }
 }
 
-void EidosNode::handleSlamTracking(double timestamp) {
+void EidosNode::handleTracking(double timestamp) {
   // 1. First pass: ask each plugin for state-creating factors.
   //    produceFactor() with result.timestamp set = new state.
   //    produceFactor() with result.timestamp nullopt + factors = standalone latch
@@ -426,14 +428,6 @@ void EidosNode::handleSlamTracking(double timestamp) {
   publishOdometry();
 }
 
-void EidosNode::handleLocalizationTracking(double /*timestamp*/) {
-  // In localization mode, factor plugins update their poses in their own
-  // sensor callbacks (writing to LockFreePose). TransformManager reads
-  // those poses autonomously. Nothing to do here.
-  publishPose();
-  publishOdometry();
-}
-
 // ==========================================================================
 // Publishing
 // ==========================================================================
@@ -459,8 +453,8 @@ void EidosNode::publishStatus() {
 void EidosNode::publishPose() {
   if (!pose_pub_->is_activated()) return;
 
-  // Read latest pose from Estimator (lock-free)
-  auto pose = estimator_.getOptimizedPose().load();
+  // Read current map-frame pose from TransformManager (lock-free)
+  auto pose = transform_manager_.getMapPose().load();
   if (!pose) return;
 
   geometry_msgs::msg::PoseStamped msg;
@@ -482,7 +476,7 @@ void EidosNode::publishPose() {
 void EidosNode::publishOdometry() {
   if (!odom_pub_->is_activated()) return;
 
-  auto pose = estimator_.getOptimizedPose().load();
+  auto pose = transform_manager_.getMapPose().load();
   if (!pose) return;
 
   nav_msgs::msg::Odometry msg;
@@ -513,24 +507,21 @@ void EidosNode::publishOdometry() {
 void EidosNode::saveMapCallback(
     const std::shared_ptr<eidos_msgs::srv::SaveMap::Request> request,
     std::shared_ptr<eidos_msgs::srv::SaveMap::Response> response) {
-  std::string dir = request->directory.empty() ? map_save_directory_ : request->directory;
-  RCLCPP_INFO(get_logger(), "Saving map to: %s", dir.c_str());
+  std::string path = request->filepath.empty() ? map_save_directory_ : request->filepath;
+  RCLCPP_INFO(get_logger(), "\033[36m[SAVE]\033[0m Saving map to: %s", path.c_str());
 
-  std::vector<std::string> plugin_names;
-  for (auto& p : registry_.factor_plugins) plugin_names.push_back(p->getName());
-
-  bool ok = map_manager_.saveMap(dir, plugin_names);
+  bool ok = map_manager_.saveMap(path);
   response->success = ok;
-  response->message = ok ? "Map saved" : "Failed to save map";
+  response->message = ok ? "Map saved to " + path : "Failed to save map";
 }
 
 void EidosNode::loadMapCallback(
     const std::shared_ptr<eidos_msgs::srv::LoadMap::Request> request,
     std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response) {
-  RCLCPP_INFO(get_logger(), "Loading map from: %s", request->directory.c_str());
+  RCLCPP_INFO(get_logger(), "\033[36m[LOAD]\033[0m Loading map from: %s",
+              request->filepath.c_str());
 
-  std::vector<std::string> saved_plugins;
-  bool ok = map_manager_.loadMap(request->directory, saved_plugins);
+  bool ok = map_manager_.loadMap(request->filepath);
   response->success = ok;
   response->message = ok ? "Map loaded" : "Failed to load map";
 }
