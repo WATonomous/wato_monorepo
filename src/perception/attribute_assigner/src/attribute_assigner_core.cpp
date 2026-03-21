@@ -30,6 +30,8 @@ AttributeAssignerCore::AttributeAssignerCore(const Params & params)
 : params_(params)
 , traffic_light_ids_(params.traffic_light_class_ids.begin(), params.traffic_light_class_ids.end())
 , car_ids_(params.car_class_ids.begin(), params.car_class_ids.end())
+, truck_ids_(params.truck_class_ids.begin(), params.truck_class_ids.end())
+, bus_ids_(params.bus_class_ids.begin(), params.bus_class_ids.end())
 {}
 
 vision_msgs::msg::Detection2DArray AttributeAssignerCore::process(
@@ -129,6 +131,16 @@ bool AttributeAssignerCore::isTrafficLightClassId(const std::string & class_id) 
 bool AttributeAssignerCore::isCarClassId(const std::string & class_id) const
 {
   return car_ids_.count(class_id) > 0;
+}
+
+bool AttributeAssignerCore::isTruckClassId(const std::string & class_id) const
+{
+  return truck_ids_.count(class_id) > 0;
+}
+
+bool AttributeAssignerCore::isBusClassId(const std::string & class_id) const
+{
+  return bus_ids_.count(class_id) > 0;
 }
 
 std::string AttributeAssignerCore::getBestClassId(const vision_msgs::msg::Detection2D & det)

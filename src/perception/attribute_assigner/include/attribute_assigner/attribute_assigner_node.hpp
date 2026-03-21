@@ -35,6 +35,9 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/synchronizer.h>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
@@ -132,7 +135,7 @@ private:
   void declareParameters(Params & params);
 
   /**
-   * @brief Synced callback: MultiImage + detections. Decompresses only needed images, crops, classifies.
+   * @brief Synced callback: MultiImage + detections via ApproximateTime sync.
    * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
    * @param detections_msg MultiDetection2DArray with per-camera Detection2DArrays
    */
@@ -141,22 +144,10 @@ private:
     const deep_msgs::msg::MultiDetection2DArray::ConstSharedPtr & detections_msg);
 
   /**
-   * @brief Callback for multi-image messages (with manual synchronization)
-   * @param msg Multi-image message
-   */
-  void multiImageCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & msg);
-
-  /**
-   * @brief Callback for multi-camera-info messages
+   * @brief Callback for multi-camera-info messages (cached, not synced)
    * @param msg Multi-camera-info message
    */
   void multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & msg);
-
-  /**
-   * @brief Callback for detection messages (uses cached latest image)
-   * @param msg Detection array message
-   */
-  void detectionsCallback(const deep_msgs::msg::MultiDetection2DArray::ConstSharedPtr & msg);
 
   /**
    * @brief Decompress a CompressedImage to cv::Mat in BGR format.
@@ -240,13 +231,19 @@ private:
   using MultiCameraInfoMsg = deep_msgs::msg::MultiCameraInfo;
   using DetectionsMsg = deep_msgs::msg::MultiDetection2DArray;
 
-  rclcpp::Subscription<MultiImageMsg>::SharedPtr multi_image_sub_;
-  rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
-  rclcpp::Subscription<DetectionsMsg>::SharedPtr detections_sub_;
+  // ApproximateTime sync for MultiImage + Detections
+  using ImageSub = message_filters::Subscriber<MultiImageMsg, rclcpp_lifecycle::LifecycleNode>;
+  using DetSub = message_filters::Subscriber<DetectionsMsg, rclcpp_lifecycle::LifecycleNode>;
+  using SyncPolicy = message_filters::sync_policies::ApproximateTime<MultiImageMsg, DetectionsMsg>;
+  using Synchronizer = message_filters::Synchronizer<SyncPolicy>;
 
-  // Simple caching - stores latest messages
+  std::shared_ptr<ImageSub> multi_image_sub_;
+  std::shared_ptr<DetSub> detections_sub_;
+  std::shared_ptr<Synchronizer> sync_;
+
+  // CameraInfo is cached separately (changes infrequently)
+  rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
   std::mutex sync_mutex_;
-  MultiImageMsg::ConstSharedPtr cached_multi_image_;
   MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
 
   // TF2 for camera transforms
@@ -271,9 +268,20 @@ private:
   std::string target_frame_;  ///< Target frame for 3D detections (e.g., "base_link")
   double traffic_light_assumed_depth_;  ///< Assumed depth for traffic lights in meters
   double car_assumed_depth_;  ///< Assumed depth for cars in meters
-  double car_real_width_;  ///< Assumed car width in meters for depth estimation
-  double car_real_height_;  ///< Assumed car height in meters for depth estimation
-  double car_real_length_;  ///< Assumed car length in meters for 3D bbox
+  double car_real_width_;  ///< Assumed car width in meters
+  double car_real_height_;  ///< Assumed car height in meters
+  double car_real_length_;  ///< Assumed car length in meters
+
+  double truck_real_width_;  ///< Assumed truck width in meters
+  double truck_real_height_;  ///< Assumed truck height in meters
+  double truck_real_length_;  ///< Assumed truck length in meters
+
+  double bus_real_width_;  ///< Assumed bus width in meters
+  double bus_real_height_;  ///< Assumed bus height in meters
+  double bus_real_length_;  ///< Assumed bus length in meters
+
+  bool enable_image_markers_{true};  ///< Enable 2D image marker overlays
+  bool enable_3d_markers_{true};  ///< Enable 3D visualization markers
 
   std::atomic<uint64_t> multi_image_msg_count_{0};  ///< Count of multi-image messages received
   std::atomic<uint64_t> detections_msg_count_{0};  ///< Count of detection messages received

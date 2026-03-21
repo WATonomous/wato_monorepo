@@ -57,10 +57,14 @@ void AttributeAssignerNode::declareParameters(Params & params)
     "traffic_light_class_ids", std::vector<std::string>{"traffic light", "9"});
   this->declare_parameter<std::vector<std::string>>(
     "car_class_ids", std::vector<std::string>{"car", "2", "truck", "7", "bus", "5"});
+  this->declare_parameter<std::vector<std::string>>("truck_class_ids", std::vector<std::string>{"truck", "7"});
+  this->declare_parameter<std::vector<std::string>>("bus_class_ids", std::vector<std::string>{"bus", "5"});
   this->declare_parameter<double>("min_detection_confidence", 0.3);
 
   params.traffic_light_class_ids = this->get_parameter("traffic_light_class_ids").as_string_array();
   params.car_class_ids = this->get_parameter("car_class_ids").as_string_array();
+  params.truck_class_ids = this->get_parameter("truck_class_ids").as_string_array();
+  params.bus_class_ids = this->get_parameter("bus_class_ids").as_string_array();
   params.min_detection_confidence = this->get_parameter("min_detection_confidence").as_double();
 
   // Traffic light color detection thresholds
@@ -102,6 +106,8 @@ void AttributeAssignerNode::syncedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const deep_msgs::msg::MultiDetection2DArray::ConstSharedPtr & detections_msg)
 {
+  multi_image_msg_count_++;
+  detections_msg_count_++;
   synced_msg_count_++;
 
   if (!core_) {
@@ -247,7 +253,8 @@ void AttributeAssignerNode::syncedCallback(
   }
 
   // Publish image markers for visualization in Foxglove
-  if (image_markers_pub_ && image_markers_pub_->is_activated() && !decompressed_images.empty()) {
+  if (enable_image_markers_ && image_markers_pub_ && image_markers_pub_->is_activated() && !decompressed_images.empty())
+  {
     // Use the first decompressed image dimensions for validation
     auto first_img_it = decompressed_images.begin();
 
@@ -260,7 +267,6 @@ void AttributeAssignerNode::syncedCallback(
       }
     }
   }
-
   // Create and publish 3D detections (traffic lights + cars)
   if (detections_3d_pub_ && detections_3d_pub_->is_activated()) {
     MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
@@ -277,30 +283,25 @@ void AttributeAssignerNode::syncedCallback(
         camera_infos[frame_id] = cached_camera_info->camera_infos[i];
       }
 
-      auto detections_3d = create3DDetections(enriched, camera_infos, detections_msg->header.stamp);
+      auto detections_3d =
+        create3DDetections(enriched, camera_infos, detections_msg->camera_detections[0].header.stamp);
       detections_3d_pub_->publish(detections_3d);
 
-      if (detections_3d_markers_pub_ && detections_3d_markers_pub_->is_activated()) {
+      if (enable_3d_markers_ && detections_3d_markers_pub_ && detections_3d_markers_pub_->is_activated()) {
         auto markers = create3DMarkers(detections_3d);
         detections_3d_markers_pub_->publish(markers);
       }
+    } else {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "3D detections skipped: no cached MultiCameraInfo (topic: '%s')",
+        multi_camera_info_topic_.c_str());
     }
   }
 
   updateDiagnostics(detections_msg->header.stamp);
-}
-
-void AttributeAssignerNode::multiImageCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & msg)
-{
-  multi_image_msg_count_++;
-
-  if (msg->images.empty()) {
-    return;  // Skip empty messages
-  }
-
-  // Simply cache the latest multi-image message
-  std::lock_guard<std::mutex> lock(sync_mutex_);
-  cached_multi_image_ = msg;
 }
 
 void AttributeAssignerNode::multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & msg)
@@ -312,23 +313,6 @@ void AttributeAssignerNode::multiCameraInfoCallback(const deep_msgs::msg::MultiC
   // Cache the latest camera info message
   std::lock_guard<std::mutex> lock(sync_mutex_);
   cached_multi_camera_info_ = msg;
-}
-
-void AttributeAssignerNode::detectionsCallback(const deep_msgs::msg::MultiDetection2DArray::ConstSharedPtr & msg)
-{
-  detections_msg_count_++;
-
-  // Use the cached latest image
-  MultiImageMsg::ConstSharedPtr cached_image;
-  {
-    std::lock_guard<std::mutex> lock(sync_mutex_);
-    cached_image = cached_multi_image_;
-  }
-
-  // If we have a cached image, process the detections
-  if (cached_image) {
-    syncedCallback(cached_image, msg);
-  }
 }
 
 cv::Mat AttributeAssignerNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
@@ -480,7 +464,7 @@ std::vector<visualization_msgs::msg::ImageMarker> AttributeAssignerNode::createD
         bbox_marker.id = marker_id++;
         bbox_marker.type = visualization_msgs::msg::ImageMarker::LINE_STRIP;
         bbox_marker.action = visualization_msgs::msg::ImageMarker::ADD;
-        bbox_marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+        bbox_marker.lifetime = rclcpp::Duration::from_seconds(0.1);
         bbox_marker.outline_color.r = box_r;
         bbox_marker.outline_color.g = box_g;
         bbox_marker.outline_color.b = box_b;
@@ -569,12 +553,41 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::create3DDetections(
         size_y = 0.3;
         size_z = traffic_light_real_height;
       } else {
-        // For cars, use width for depth estimation (more stable than height due to ground occlusion)
-        estimated_depth = (car_real_width_ * fx) / bbox_w_pixels;
+        // Determine vehicle subtype for appropriate dimensions
+        bool is_truck = false;
+        bool is_bus = false;
+        for (const auto & result : det.results) {
+          if (core_->isTruckClassId(result.hypothesis.class_id)) {
+            is_truck = true;
+            break;
+          }
+          if (core_->isBusClassId(result.hypothesis.class_id)) {
+            is_bus = true;
+            break;
+          }
+        }
+
+        double ref_width;
+        if (is_bus) {
+          ref_width = bus_real_width_;
+          size_x = bus_real_width_;
+          size_y = bus_real_length_;
+          size_z = bus_real_height_;
+        } else if (is_truck) {
+          ref_width = truck_real_width_;
+          size_x = truck_real_width_;
+          size_y = truck_real_length_;
+          size_z = truck_real_height_;
+        } else {
+          ref_width = car_real_width_;
+          size_x = car_real_width_;
+          size_y = car_real_length_;
+          size_z = car_real_height_;
+        }
+
+        // Use width for depth estimation (more stable than height due to ground occlusion)
+        estimated_depth = (ref_width * fy) / bbox_w_pixels;
         assumed_depth = car_assumed_depth_;
-        size_x = car_real_width_;
-        size_y = car_real_length_;
-        size_z = car_real_height_;
       }
 
       const double depth = (estimated_depth > 3.0 && estimated_depth < 150.0) ? estimated_depth : assumed_depth;
@@ -918,6 +931,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     RCLCPP_INFO(this->get_logger(), "  - Input detections: '%s'", input_detections_topic_.c_str());
     RCLCPP_INFO(this->get_logger(), "  - Output detections: '%s'", output_detections_topic_.c_str());
 
+    // Visualization toggles
+    this->declare_parameter<bool>("enable_image_markers", true);
+    this->declare_parameter<bool>("enable_3d_markers", true);
+    enable_image_markers_ = this->get_parameter("enable_image_markers").as_bool();
+    enable_3d_markers_ = this->get_parameter("enable_3d_markers").as_bool();
+
     // Declare 3D detection parameters
     this->declare_parameter<std::string>("target_frame", "base_link");
     this->declare_parameter<double>("traffic_light_assumed_depth", 30.0);
@@ -925,6 +944,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     this->declare_parameter<double>("car_real_width", 1.8);
     this->declare_parameter<double>("car_real_height", 1.5);
     this->declare_parameter<double>("car_real_length", 4.5);
+    this->declare_parameter<double>("truck_real_width", 2.5);
+    this->declare_parameter<double>("truck_real_height", 3.5);
+    this->declare_parameter<double>("truck_real_length", 8.0);
+    this->declare_parameter<double>("bus_real_width", 2.5);
+    this->declare_parameter<double>("bus_real_height", 3.2);
+    this->declare_parameter<double>("bus_real_length", 12.0);
 
     target_frame_ = this->get_parameter("target_frame").as_string();
     traffic_light_assumed_depth_ = this->get_parameter("traffic_light_assumed_depth").as_double();
@@ -932,6 +957,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     car_real_width_ = this->get_parameter("car_real_width").as_double();
     car_real_height_ = this->get_parameter("car_real_height").as_double();
     car_real_length_ = this->get_parameter("car_real_length").as_double();
+    truck_real_width_ = this->get_parameter("truck_real_width").as_double();
+    truck_real_height_ = this->get_parameter("truck_real_height").as_double();
+    truck_real_length_ = this->get_parameter("truck_real_length").as_double();
+    bus_real_width_ = this->get_parameter("bus_real_width").as_double();
+    bus_real_height_ = this->get_parameter("bus_real_height").as_double();
+    bus_real_length_ = this->get_parameter("bus_real_length").as_double();
 
     RCLCPP_INFO(this->get_logger(), "3D detection settings:");
     RCLCPP_INFO(this->get_logger(), "  - Target frame: '%s'", target_frame_.c_str());
@@ -943,6 +974,18 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
       car_real_width_,
       car_real_height_,
       car_real_length_);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "  - Truck dimensions (WxHxL): %.1f x %.1f x %.1f m",
+      truck_real_width_,
+      truck_real_height_,
+      truck_real_length_);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "  - Bus dimensions (WxHxL): %.1f x %.1f x %.1f m",
+      bus_real_width_,
+      bus_real_height_,
+      bus_real_length_);
 
     // Initialize TF2 buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -978,7 +1021,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
       "  - Max time difference: %.1f ms (%.3f sec)",
       sync_max_time_diff_ms_,
       sync_max_time_diff_sec_);
-    RCLCPP_INFO(this->get_logger(), "  - Synchronization method: Simple caching (uses latest image)");
+    RCLCPP_INFO(this->get_logger(), "  - Synchronization method: ApproximateTime (MultiImage + Detections)");
 
     // Initialize diagnostics
     diagnostic_updater_ = std::make_unique<diagnostic_updater::Updater>(this);
@@ -1001,27 +1044,34 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "=============================================");
 
   try {
-    // Create subscribers with manual synchronization
+    // Create message_filters subscribers for ApproximateTime sync
     RCLCPP_INFO(this->get_logger(), "Creating subscribers:");
     RCLCPP_INFO(this->get_logger(), "  - MultiImage topic: '%s'", multi_image_topic_.c_str());
-    multi_image_sub_ = this->create_subscription<MultiImageMsg>(
-      multi_image_topic_,
-      subscriber_qos_,
-      std::bind(&AttributeAssignerNode::multiImageCallback, this, std::placeholders::_1));
+    multi_image_sub_ =
+      std::make_shared<ImageSub>(this->shared_from_this(), multi_image_topic_, subscriber_qos_.get_rmw_qos_profile());
 
+    RCLCPP_INFO(this->get_logger(), "  - Detections topic: '%s'", input_detections_topic_.c_str());
+    detections_sub_ = std::make_shared<DetSub>(
+      this->shared_from_this(), input_detections_topic_, subscriber_qos_.get_rmw_qos_profile());
+
+    // ApproximateTime synchronizer
+    sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *detections_sub_);
+    sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
+    sync_->registerCallback(
+      std::bind(&AttributeAssignerNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+    // CameraInfo is cached separately (changes infrequently)
     RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo topic: '%s'", multi_camera_info_topic_.c_str());
     multi_camera_info_sub_ = this->create_subscription<MultiCameraInfoMsg>(
       multi_camera_info_topic_,
       subscriber_qos_,
       std::bind(&AttributeAssignerNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
-    RCLCPP_INFO(this->get_logger(), "  - Detections topic: '%s'", input_detections_topic_.c_str());
-    detections_sub_ = this->create_subscription<DetectionsMsg>(
-      input_detections_topic_,
-      subscriber_qos_,
-      std::bind(&AttributeAssignerNode::detectionsCallback, this, std::placeholders::_1));
-
-    RCLCPP_INFO(this->get_logger(), "Simple caching strategy configured (caches latest image)");
+    RCLCPP_INFO(
+      this->get_logger(),
+      "ApproximateTime sync configured (queue=%d, max_interval=%.3fs)",
+      sync_queue_size_,
+      sync_max_time_diff_sec_);
 
     RCLCPP_INFO(this->get_logger(), "Creating publishers:");
     RCLCPP_INFO(this->get_logger(), "  - Output topic: '%s'", output_detections_topic_.c_str());
@@ -1071,7 +1121,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     RCLCPP_INFO(this->get_logger(), "  - Detections: '%s'", input_detections_topic_.c_str());
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
     RCLCPP_INFO(this->get_logger(), "  - Enriched detections: '%s'", detections_pub_->get_topic_name());
-    RCLCPP_INFO(this->get_logger(), "[SYNC] Simple caching strategy: using latest image for all detections");
+    RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo (cached): '%s'", multi_camera_info_topic_.c_str());
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[SYNC] ApproximateTime sync: MultiImage + Detections (queue=%d, max=%.3fs)",
+      sync_queue_size_,
+      sync_max_time_diff_sec_);
     RCLCPP_INFO(this->get_logger(), "=============================================");
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -1102,13 +1157,15 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     detections_3d_markers_pub_->on_deactivate();
   }
 
+  sync_.reset();
   multi_image_sub_.reset();
-  multi_camera_info_sub_.reset();
   detections_sub_.reset();
+  multi_camera_info_sub_.reset();
 
-  std::lock_guard<std::mutex> lock(sync_mutex_);
-  cached_multi_image_.reset();
-  cached_multi_camera_info_.reset();
+  {
+    std::lock_guard<std::mutex> lock(sync_mutex_);
+    cached_multi_camera_info_.reset();
+  }
 
   RCLCPP_INFO(this->get_logger(), "=============================================");
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
@@ -1120,13 +1177,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up Attribute Assigner node");
 
+  sync_.reset();
   multi_image_sub_.reset();
-  multi_camera_info_sub_.reset();
   detections_sub_.reset();
+  multi_camera_info_sub_.reset();
 
   {
     std::lock_guard<std::mutex> lock(sync_mutex_);
-    cached_multi_image_.reset();
     cached_multi_camera_info_.reset();
   }
 
@@ -1168,6 +1225,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "  - Synchronized callbacks: %lu", synced_msg_count_.load());
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
+  sync_.reset();
   multi_image_sub_.reset();
   detections_sub_.reset();
   multi_camera_info_sub_.reset();

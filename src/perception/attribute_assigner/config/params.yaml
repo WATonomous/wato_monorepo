@@ -44,7 +44,13 @@ attribute_assigner_node:
     input_multi_camera_info_topic: "input_multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
     target_frame: "base_link"                                  # Target coordinate frame for 3D detections
     traffic_light_assumed_depth: 30.0                          # Fallback depth for traffic lights (meters)
-    car_assumed_depth: 20.0                                    # Fallback depth for cars (meters)
+    car_assumed_depth: 20.0                                    # Fallback depth for all vehicles (meters)
     car_real_width: 1.8                                        # Assumed car width (meters)
     car_real_height: 1.5                                       # Assumed car height (meters)
     car_real_length: 4.5                                       # Assumed car length (meters)
+    truck_real_width: 2.5
+    truck_real_height: 3.5
+    truck_real_length: 8.0
+    bus_real_width: 2.5
+    bus_real_height: 3.2
+    bus_real_length: 12.0

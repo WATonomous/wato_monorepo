@@ -37,6 +37,12 @@ struct Params
   /// Class IDs recognized as cars/vehicles (e.g., "car", "2", "truck", "7")
   std::vector<std::string> car_class_ids;
 
+  /// Class IDs recognized specifically as trucks (subset of car_class_ids)
+  std::vector<std::string> truck_class_ids;
+
+  /// Class IDs recognized specifically as buses (subset of car_class_ids)
+  std::vector<std::string> bus_class_ids;
+
   /// Minimum detection confidence to process a detection
   double min_detection_confidence{0.3};
 
@@ -177,6 +183,12 @@ public:
   /// Check if a class_id string matches a car/vehicle class.
   bool isCarClassId(const std::string & class_id) const;
 
+  /// Check if a class_id string matches a truck class.
+  bool isTruckClassId(const std::string & class_id) const;
+
+  /// Check if a class_id string matches a bus class.
+  bool isBusClassId(const std::string & class_id) const;
+
   /**
    * @brief Get the class_id of the highest-scoring hypothesis.
    * @param det The detection to inspect
@@ -250,6 +262,8 @@ private:
   Params params_;
   std::unordered_set<std::string> traffic_light_ids_;  ///< Fast lookup for traffic light class IDs
   std::unordered_set<std::string> car_ids_;  ///< Fast lookup for car class IDs
+  std::unordered_set<std::string> truck_ids_;  ///< Fast lookup for truck class IDs
+  std::unordered_set<std::string> bus_ids_;  ///< Fast lookup for bus class IDs
 
   uint64_t processed_count_{0};  ///< Total detections processed
   double last_processing_time_ms_{0.0};  ///< Processing time for last call (ms)

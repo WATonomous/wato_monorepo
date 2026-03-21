@@ -171,6 +171,8 @@ multi_camera_sync:
     # Class ID mappings (COCO dataset: traffic_light=9, car=2, truck=7, bus=5)
     traffic_light_class_ids: ["traffic light", "9"]
     car_class_ids: ["car", "2", "truck", "7", "bus", "5"]
+    truck_class_ids: ["truck", "7"]
+    bus_class_ids: ["bus", "5"]
     min_detection_confidence: 0.3
 
     # Traffic light color detection thresholds (HSV-based, OpenCV H: 0-180)
@@ -206,15 +208,29 @@ multi_camera_sync:
     sync_max_time_diff_ms: 2000.0  # Max time difference for syncing multi-image and detections (ms)
                                     # Detections are typically 50-150ms after images due to processing time
 
+    # Visualization toggles
+    enable_image_markers: true       # Publish 2D image marker overlays (enriched_detection_markers)
+    enable_3d_markers: true          # Publish 3D MarkerArray for Foxglove
+
     # 3D Detection settings
     # These parameters control the 3D localization of detections using camera intrinsics and TF
     input_multi_camera_info_topic: "/multi_camera_sync/multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
     target_frame: "base_link"                                               # Target coordinate frame for 3D detections
     traffic_light_assumed_depth: 30.0                                       # Fallback depth for traffic lights (meters)
-    car_assumed_depth: 20.0                                                 # Fallback depth for cars (meters)
-    car_real_width: 1.8                                                     # Assumed car width (meters) - used for depth estimation
-    car_real_height: 1.5                                                    # Assumed car height (meters) - 3D bbox z dimension
-    car_real_length: 4.5                                                    # Assumed car length (meters) - 3D bbox y dimension
+    car_assumed_depth: 20.0                                                 # Fallback depth for all vehicles (meters)
+
+    # Vehicle 3D dimensions (width used for depth estimation, all in meters)
+    car_real_width: 1.8
+    car_real_height: 1.8
+    car_real_length: 6.0
+
+    truck_real_width: 2.5
+    truck_real_height: 3.5
+    truck_real_length: 8.0
+
+    bus_real_width: 2.5
+    bus_real_height: 3.2
+    bus_real_length: 12.0
 
 # =============================================================================
 # Lifecycle Managers
