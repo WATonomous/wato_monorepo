@@ -44,7 +44,8 @@ private:
    * Clears previous markers, then creates bounding box, label, history trail,
    * prediction line strip, and lanelet_ahead visualization for each object.
    *
-   * @param msg Array of world objects with detection, history, lanelet_ahead, and prediction data.
+   * @param msg Array of world objects with detection, history, lanelet_ahead,
+   * and prediction data.
    */
   void worldObjectsCallback(const world_model_msgs::msg::WorldObjectArray::SharedPtr msg);
 
@@ -55,6 +56,7 @@ private:
    * @return RGBA color for the given class; gray for unknown classes.
    */
   std_msgs::msg::ColorRGBA getColorForClassId(const std::string & class_id) const;
+  std_msgs::msg::ColorRGBA getColorForConfidence(double confidence, float alpha_scale) const;
 
   rclcpp::Subscription<world_model_msgs::msg::WorldObjectArray>::SharedPtr subscription_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisher_;
@@ -62,6 +64,7 @@ private:
   std::string frame_id_;
   double box_alpha_;
   double label_text_height_;
+  double label_z_offset_;
   double history_line_width_;
   double prediction_line_width_;
   double lanelet_boundary_line_width_;

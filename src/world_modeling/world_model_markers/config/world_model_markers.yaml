@@ -3,6 +3,7 @@ world_objects_markers_node:
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.2
@@ -22,6 +23,7 @@ dynamic_objects_markers_node:
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.2

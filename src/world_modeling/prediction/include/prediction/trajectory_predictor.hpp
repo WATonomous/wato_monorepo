@@ -16,22 +16,33 @@
  * @file trajectory_predictor.hpp
  * @brief Trajectory generation for seed WorldObjects.
  *
- * Generates trajectory predictions for tracked objects to populate seed
- * WorldObjects. Uses motion models to propagate object state forward in time.
+ * Generates lanelet-aware trajectory predictions for tracked objects.
+ * Uses lanelet centerlines as reference paths and the bicycle model
+ * for physically-realistic trajectory propagation.
  */
 
 #ifndef PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 #define PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 
-#include <memory>
-#include <string>
-#include <vector>
+// Standard library headers for functional programming and data structures
+#include <functional>  // For std::function used in callback definitions
+#include <memory>  // For std::unique_ptr and std::shared_ptr
+#include <mutex>  // For std::mutex protecting cross-thread caches
+#include <optional>  // For std::optional return from queryVehicleLanelets
+#include <string>  // For std::string in vehicle IDs and keys
+#include <unordered_map>  // For caching lanelet and position data
+#include <vector>  // For collections of trajectories, centerline points
 
-#include "geometry_msgs/msg/pose_stamped.hpp"
-#include "prediction/motion_models.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "vision_msgs/msg/detection3_d.hpp"
+// ROS2 message types
+#include "geometry_msgs/msg/pose_stamped.hpp"  // For trajectory poses with timestamps
+#include "lanelet_msgs/msg/lanelet.hpp"  // For lanelet geometry and centerline data
+#include "lanelet_msgs/msg/lanelet_ahead.hpp"  // For reachable lanelets from a position
+#include "vision_msgs/msg/detection3_d.hpp"  // For detected object information
+
+// Project-specific headers
+#include "prediction/motion_models.hpp"  // For bicycle and constant velocity models
+#include "rclcpp/rclcpp.hpp"  // ROS2 C++ client library
+#include "rclcpp_lifecycle/lifecycle_node.hpp"  // For lifecycle node management
 
 namespace prediction
 {
@@ -70,62 +81,395 @@ struct TrajectoryHypothesis
   std::vector<geometry_msgs::msg::PoseStamped> poses;
   Intent intent;
   double probability;
+  std::vector<int64_t> lanelet_ids;  // Lanelets used in this prediction path
+};
+
+/**
+ * @brief Read-only view of lanelet data for a single prediction call.
+ *
+ * Built on the stack from either per-vehicle or ego-vehicle lanelet caches
+ * and passed through the entire hypothesis-generation call chain, replacing
+ * the former mutable global lanelet swap (setTemporaryLaneletData / restore).
+ */
+struct LaneletContext
+{
+  const lanelet_msgs::msg::LaneletAhead & data;
+  const std::unordered_map<int64_t, size_t> & id_to_index;
+};
+
+/**
+ * @brief Configuration for the trajectory predictor
+ */
+struct TrajectoryPredictorConfig
+{
+  // Speed estimation
+  double speed_ema_alpha = 0.35;
+  double min_dt_for_speed = 0.01;
+  double max_vehicle_speed = 25.0;
+  double max_pedestrian_speed = 3.0;
+
+  // Stop detection
+  double stop_sigmoid_midpoint = 0.25;
+  double stop_sigmoid_steepness = 12.0;
+  double stop_probability_threshold = 0.01;
+
+  // Object classification
+  double vehicle_min_length = 3.5;
+  double pedestrian_max_length = 1.0;
+  double cyclist_max_length = 3.5;
+
+  // Default velocities
+  double vehicle_default_velocity = 5.0;
+  double pedestrian_default_velocity = 1.4;
+  double cyclist_default_velocity = 5.0;
+
+  // Lanelet matching
+  double lanelet_match_max_distance = 10.0;
+  double heading_penalty_weight = 3.0;
+  double heading_rejection_threshold = 1.047;  // M_PI / 3.0
+
+  // Curvature-aware scoring
+  double curvature_heading_tolerance_scale = 5.0;
+  double curvature_heading_tolerance_max = 0.3;
+  double curvature_lateral_tolerance_denom = 8.0;
+  double curvature_lateral_tolerance_max = 1.0;
+  double curve_offset_discount = 0.3;
+
+  // Geometric scoring
+  double heading_score_denominator = 0.2;
+  double lateral_score_denominator = 4.0;
+
+  // Lane-follow hypothesis
+  double lane_follow_prior = 2.5;
+  double required_distance_buffer = 10.0;
+
+  // Smoothness and inertia
+  double smoothness_penalty_exponent = 2.0;
+  double smoothness_base_weight = 0.5;
+  double maneuver_inertia_boost = 1.3;
+
+  // Turn detection
+  double heading_change_threshold = 0.3;
+  double turn_maneuver_prior = 0.5;
+  double continue_maneuver_prior = 1.5;
+
+  // Lane change
+  double lane_change_base_prior = 0.15;
+  double lateral_velocity_threshold = 0.3;
+  double lane_change_active_prior = 0.6;
+  double intersection_suppression_factor = 0.1;
+  double curvature_threshold = 0.005;
+  double curvature_suppression_multiplier = 50.0;
+  double curvature_suppression_minimum = 0.1;
+  double position_evidence_base = 0.2;
+  double position_evidence_scale = 1.8;
+  double lane_change_offset_threshold = 0.3;
+  double lane_change_offset_scale = 1.2;
+  double lateral_offset_threshold = 0.25;
+  double lateral_offset_boost = 1.25;
+  double lateral_offset_suppress = 0.6;
+  double heading_weight_for_lane_change = 0.4;
+  double lane_change_completion_boost = 1.5;
+  double lane_change_direction_switch_suppress = 0.1;
+  int lane_change_blend_count = 5;
+
+  // Geometric fallback
+  double geometric_straight_probability = 0.6;
+  double geometric_turn_probability = 0.1;
+  double geometric_lane_change_probability = 0.1;
+  double geometric_turn_radius = 10.0;
+  double geometric_turn_angle_step = 0.1;
+  double geometric_lane_width = 3.5;
+  double geometric_lane_change_distance = 30.0;
+  double geometric_path_sampling_interval = 1.0;
+
+  // Cache
+  double vehicle_cache_invalidation_dist = 5.0;
+
+  // Lateral velocity estimation
+  double lateral_velocity_min_dt = 0.01;
+  double lateral_velocity_max_dt = 2.0;
+
+  // Bicycle model config (forwarded)
+  BicycleModelConfig bicycle_config;
+  ConstantVelocityModelConfig cv_config;
 };
 
 /**
  * @brief Generates trajectory hypotheses for tracked objects
  *
- * Uses physics-based motion models to generate multiple trajectory hypotheses
- * representing different possible intents for each object type.
+ * Uses lanelet centerlines as reference paths and physics-based motion models
+ * to generate trajectory hypotheses that follow the actual road geometry.
  */
 class TrajectoryPredictor
 {
 public:
   /**
-   * @brief Construct a new Trajectory Predictor
-   * @param node ROS node pointer for logging
-   * @param prediction_horizon Time horizon for predictions (seconds)
-   * @param time_step Time step between waypoints (seconds)
+   * @brief Construct a trajectory predictor with model and scoring
+   * configuration.
+   * @param node Lifecycle node used for logging and ROS time access.
+   * @param prediction_horizon Prediction horizon in seconds.
+   * @param time_step Time resolution between predicted poses in seconds.
+   * @param config Tuning parameters for classification, scoring, and motion
+   * models.
    */
-  TrajectoryPredictor(rclcpp_lifecycle::LifecycleNode * node, double prediction_horizon, double time_step);
+  TrajectoryPredictor(
+    rclcpp_lifecycle::LifecycleNode * node,
+    double prediction_horizon,
+    double time_step,
+    const TrajectoryPredictorConfig & config = {});
 
   /**
-   * @brief Generate trajectory hypotheses for a tracked object
-   * @param detection Tracked object detection
-   * @return Vector of trajectory hypotheses
+   * @brief Generate trajectory hypotheses for a single detection.
+   *
+   * Selects an object model, attempts lanelet-aware prediction when possible,
+   * and falls back to geometric propagation if lane context is unavailable.
+   *
+   * @param detection Incoming tracked object detection.
+   * @return List of trajectory hypotheses with intents and probabilities.
    */
   std::vector<TrajectoryHypothesis> generateHypotheses(const vision_msgs::msg::Detection3D & detection);
 
   /**
-   * @brief Classify object type based on detection information
-   * @param detection Tracked object detection
-   * @return ObjectType classification
+   * @brief Classify detection into a predictor object type.
+   * @param detection Incoming tracked object detection.
+   * @return Coarse object type used to choose motion model and priors.
    */
   ObjectType classifyObjectType(const vision_msgs::msg::Detection3D & detection);
 
-private:
   /**
-   * @brief Generate hypotheses for vehicle objects
+   * @brief Update cached lanelet data for lanelet-aware prediction
    */
-  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(const vision_msgs::msg::Detection3D & detection);
+  void setLaneletAhead(const lanelet_msgs::msg::LaneletAhead::SharedPtr & msg);
 
   /**
-   * @brief Generate hypotheses for pedestrian objects
+   * @brief Callback type for requesting lanelets around an arbitrary position.
+   *
+   * Fire-and-forget: the callback fires an async service request.
+   * Results are delivered later via updateVehicleLaneletCache().
+   */
+  using LaneletQueryFn =
+    std::function<void(const std::string & vehicle_id, const geometry_msgs::msg::Point & position, double heading_rad)>;
+
+  /**
+   * @brief Set the per-vehicle lanelet query function.
+   *
+   * When the ego-vehicle lanelet cache does not cover a detected vehicle,
+   * this function is called to fetch lanelets around that vehicle's position.
+   */
+  void setLaneletQueryFunction(LaneletQueryFn fn);
+
+  /**
+   * @brief Update the per-vehicle lanelet cache with async query results.
+   * Thread-safe: protected by vehicle_cache_mutex_.
+   */
+  void updateVehicleLaneletCache(
+    const std::string & vehicle_id, const lanelet_msgs::msg::LaneletAhead & data, double x, double y);
+
+  /**
+   * @brief Check whether ego lanelet cache currently contains lanelets.
+   * @return True when lanelet-aware prediction can potentially run.
+   */
+  bool hasLaneletData() const
+  {
+    return !lanelet_cache_.lanelets.empty();
+  }
+
+  /**
+   * @brief Prune all ID-keyed caches, removing entries older than ttl_s.
+   * Called once per prediction cycle to bound memory growth.
+   */
+  void pruneStaleCaches(const rclcpp::Time & now, double ttl_s);
+
+  /**
+   * @brief Estimate vehicle speed from position history.
+   *
+   * Tracks each detection ID's position over time and computes speed
+   * from displacement between the current and previous observation.
+   * Falls back to the bbox-length heuristic when no history exists.
+   */
+  double estimateSpeed(const vision_msgs::msg::Detection3D & detection);
+
+private:
+  /**
+   * @brief Generate lanelet-aware vehicle hypotheses from a local lanelet
+   * context.
+   */
+  std::vector<TrajectoryHypothesis> generateLaneletVehicleHypotheses(
+    const vision_msgs::msg::Detection3D & detection, double speed, const LaneletContext & ctx);
+
+  /**
+   * @brief Generate geometric vehicle hypotheses when lanelet data is
+   * unavailable.
+   */
+  std::vector<TrajectoryHypothesis> generateGeometricVehicleHypotheses(
+    const vision_msgs::msg::Detection3D & detection, double speed);
+
+  /**
+   * @brief Generate pedestrian hypotheses using pedestrian-oriented motion
+   * assumptions.
    */
   std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(const vision_msgs::msg::Detection3D & detection);
 
   /**
-   * @brief Generate hypotheses for cyclist objects
+   * @brief Generate cyclist hypotheses using cyclist-oriented motion
+   * assumptions.
    */
   std::vector<TrajectoryHypothesis> generateCyclistHypotheses(const vision_msgs::msg::Detection3D & detection);
+
+  // Lanelet helpers
+  struct LaneletMatch
+  {
+    const lanelet_msgs::msg::Lanelet * lanelet;
+    size_t closest_centerline_idx;
+    double lateral_offset;
+    double heading_diff;
+  };
+
+  /**
+   * @brief Match a vehicle state to the best lanelet candidate in context.
+   */
+  LaneletMatch findVehicleLanelet(const KinematicState & state, const LaneletContext & ctx) const;
+
+  /**
+   * @brief Extract a forward centerline path through lanelet successors.
+   */
+  std::vector<Eigen::Vector2d> extractForwardPath(
+    const lanelet_msgs::msg::Lanelet & lanelet,
+    size_t start_idx,
+    double required_distance,
+    const LaneletContext & ctx) const;
+
+  /**
+   * @brief Build a lane-change path from current lanelet toward a target
+   * lanelet.
+   */
+  std::vector<Eigen::Vector2d> extractLaneChangePath(
+    const lanelet_msgs::msg::Lanelet & current_lanelet,
+    size_t start_idx,
+    int64_t target_lane_id,
+    double required_distance,
+    const LaneletContext & ctx) const;
+
+  /// Extract lanelet IDs used in a forward path through successors
+  std::vector<int64_t> extractForwardPathLaneletIds(
+    const lanelet_msgs::msg::Lanelet & lanelet, double required_distance, const LaneletContext & ctx) const;
+
+  /// Extract lanelet IDs used in a lane change path
+  std::vector<int64_t> extractLaneChangePathLaneletIds(
+    const lanelet_msgs::msg::Lanelet & current_lanelet,
+    int64_t target_lane_id,
+    double required_distance,
+    const LaneletContext & ctx) const;
+
+  /**
+   * @brief Lookup lanelet pointer by ID using precomputed index map.
+   */
+  const lanelet_msgs::msg::Lanelet * findLaneletById(int64_t id, const LaneletContext & ctx) const;
+
+  /**
+   * @brief Compute polyline arc length for a 2D path.
+   */
+  double computePathLength(const std::vector<Eigen::Vector2d> & path) const;
+
+  /**
+   * @brief Compute path heading at a centerline index.
+   */
+  double computeHeadingAtIndex(const std::vector<geometry_msgs::msg::Point> & centerline, size_t idx) const;
+
+  /**
+   * @brief Compute geometric compatibility score for a maneuver candidate.
+   */
+  double computeGeometricScore(double heading_diff, double lateral_offset, double maneuver_prior) const;
+
+  /// Compute path curvature at a given centerline index (1/radius)
+  double computeCurvatureAtIndex(const std::vector<geometry_msgs::msg::Point> & centerline, size_t idx) const;
+
+  /// Compute trajectory smoothness penalty (mean absolute curvature)
+  double computeTrajectorySmoothness(const std::vector<geometry_msgs::msg::PoseStamped> & poses) const;
+
+  /// Estimate lateral velocity (rate of change of lateral offset)
+  double estimateLateralVelocity(const std::string & vehicle_id, double lateral_offset);
+
+  // Per-vehicle lateral offset history for lateral velocity estimation
+  struct LateralOffsetStamped
+  {
+    double lateral_offset;
+    rclcpp::Time stamp;
+  };
+
+  std::unordered_map<std::string, LateralOffsetStamped> lateral_offset_history_;
+
+  // Per-vehicle previous intent for maneuver inertia
+  struct IntentStamped
+  {
+    Intent intent;
+    rclcpp::Time stamp;
+  };
+
+  std::unordered_map<std::string, IntentStamped> previous_intent_;
 
   rclcpp_lifecycle::LifecycleNode * node_;
   double prediction_horizon_;
   double time_step_;
+  TrajectoryPredictorConfig config_;
 
-  // Motion models
   std::unique_ptr<BicycleModel> bicycle_model_;
   std::unique_ptr<ConstantVelocityModel> constant_velocity_model_;
+
+  // Cached ego-vehicle lanelet data (from lanelet_ahead subscription)
+  lanelet_msgs::msg::LaneletAhead lanelet_cache_;
+  std::unordered_map<int64_t, size_t> lanelet_id_to_index_;
+
+  // Optional per-vehicle lanelet query callback
+  LaneletQueryFn lanelet_query_fn_;
+
+  // Per-vehicle lanelet cache: keyed by detection ID, stores queried lanelet
+  // data so we don't re-query the service every cycle for the same vehicle.
+  // Protected by vehicle_cache_mutex_ (written from async service response
+  // callback, read from subscription callback thread).
+  struct VehicleLaneletEntry
+  {
+    lanelet_msgs::msg::LaneletAhead lanelet_ahead;
+    std::unordered_map<int64_t, size_t> id_to_index;
+    double last_x;
+    double last_y;
+    rclcpp::Time last_update;
+  };
+
+  mutable std::mutex vehicle_cache_mutex_;
+  std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
+
+  // Position history for velocity estimation (keyed by detection ID)
+  struct PositionStamped
+  {
+    double x;
+    double y;
+    double speed;  // Raw instantaneous speed
+    double smoothed_speed;  // EMA-filtered speed
+    rclcpp::Time stamp;
+  };
+
+  std::unordered_map<std::string, PositionStamped> position_history_;
+
+public:
+  /**
+   * @brief Probability that a vehicle is stopped, given its smoothed speed.
+   *
+   * Pure sigmoid — no internal state.  Returns ~1.0 for speed ≈ 0,
+   * 0.5 at 0.5 m/s, and ~0 above ~1.5 m/s.
+   */
+  double computeStopProbability(double speed) const;
+
+  /**
+   * @brief Query lanelets for a specific vehicle, using per-vehicle cache.
+   *
+   * Returns a copy of the cached entry if available and fresh, otherwise
+   * fires an async query and returns std::nullopt.
+   * Thread-safe: protected by vehicle_cache_mutex_.
+   */
+  std::optional<VehicleLaneletEntry> queryVehicleLanelets(
+    const std::string & vehicle_id, const geometry_msgs::msg::Point & position, double heading_rad);
 };
 
 }  // namespace prediction

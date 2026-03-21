@@ -15,9 +15,16 @@
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+
 from flask import Flask, render_template, jsonify, request
 import docker
+import requests as http_requests
 from datetime import datetime, timezone
+
+TOPIC_HEALTHCHECKER_URL = os.environ.get(
+    "TOPIC_HEALTHCHECKER_URL", "http://host.docker.internal:8080"
+)
 
 app = Flask(__name__)
 
@@ -129,6 +136,26 @@ def stream_logs(container_id):
         return generate(), {"Content-Type": "text/event-stream"}
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/topic-health")
+def get_topic_health():
+    """Proxy topic health data from the ROS 2 healthchecker node."""
+    try:
+        resp = http_requests.get(f"{TOPIC_HEALTHCHECKER_URL}/health", timeout=2)
+        return jsonify(resp.json())
+    except http_requests.exceptions.ConnectionError:
+        return (
+            jsonify({"error": "Topic healthchecker is not available", "topics": {}}),
+            503,
+        )
+    except http_requests.exceptions.Timeout:
+        return (
+            jsonify({"error": "Topic healthchecker timed out", "topics": {}}),
+            504,
+        )
+    except Exception as e:
+        return jsonify({"error": str(e), "topics": {}}), 500
 
 
 if __name__ == "__main__":

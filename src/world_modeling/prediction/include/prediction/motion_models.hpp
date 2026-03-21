@@ -49,6 +49,29 @@ struct KinematicState
 };
 
 /**
+ * @brief Configuration for the bicycle kinematic model
+ */
+struct BicycleModelConfig
+{
+  double max_steering_angle = 0.785;
+  double wheelbase = 2.5;
+  double max_lateral_acceleration = 4.0;
+  double speed_limit = 15.0;
+  double max_acceleration = 2.0;
+  double max_deceleration = 4.0;
+  double lookahead_distance = 3.0;
+};
+
+/**
+ * @brief Configuration for the constant-velocity model
+ */
+struct ConstantVelocityModelConfig
+{
+  double position_noise_std = 0.1;
+  double heading_noise_std = 0.05;
+};
+
+/**
  * @brief Bicycle kinematic model for vehicle motion
  *
  * Models vehicle motion using bicycle kinematics with front wheel steering.
@@ -56,13 +79,12 @@ struct KinematicState
 class BicycleModel
 {
 public:
-  BicycleModel();
+  explicit BicycleModel(const BicycleModelConfig & config = {});
 
   /**
    * @brief Propagate state forward using bicycle model
    * @param initial_state Initial kinematic state
    * @param dt Time step
-   * @param wheelbase Vehicle wheelbase
    * @return New kinematic state after dt
    */
   KinematicState propagate(const KinematicState & initial_state, double dt);
@@ -86,8 +108,13 @@ public:
     const std::string & frame_id);
 
 private:
-  double max_steering_angle_;  // Maximum steering angle (rad)
+  double max_steering_angle_;
   double wheelbase_;
+  double max_lateral_acceleration_;
+  double speed_limit_;
+  double max_acceleration_;
+  double max_deceleration_;
+  double lookahead_distance_;
 };
 
 /**
@@ -98,7 +125,7 @@ private:
 class ConstantVelocityModel
 {
 public:
-  ConstantVelocityModel();
+  explicit ConstantVelocityModel(const ConstantVelocityModelConfig & config = {});
 
   /**
    * @brief Propagate state forward with constant velocity
