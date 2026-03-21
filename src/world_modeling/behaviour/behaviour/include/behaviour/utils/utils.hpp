@@ -19,6 +19,7 @@
 
 #include "behaviour/utils/area_occupancy.hpp"
 #include "behaviour/utils/geometry.hpp"
+#include "behaviour/utils/lanelet.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/types.hpp"
 #include "behaviour/utils/world_objects.hpp"

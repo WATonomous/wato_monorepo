@@ -21,7 +21,7 @@
 #include "world_model_msgs/msg/area_occupancy_info.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
-namespace behaviour::area_occupancy_utils
+namespace behaviour::utils::area_occupancy
 {
 inline const world_model_msgs::msg::AreaOccupancyInfo * getAreaByName(
   const std::vector<world_model_msgs::msg::AreaOccupancyInfo> & areas, const std::string & area_name)
@@ -47,6 +47,6 @@ inline std::vector<world_model_msgs::msg::WorldObject> getAreaObjects(
   const auto * area = getAreaByName(areas, area_name);
   return area != nullptr ? area->objects : std::vector<world_model_msgs::msg::WorldObject>{};
 }
-}  // namespace behaviour::area_occupancy_utils
+}  // namespace behaviour::utils::area_occupancy
 
 #endif  // BEHAVIOUR__UTILS__AREA_OCCUPANCY_UTILS_HPP_

@@ -77,7 +77,7 @@ public:
 
     for (const auto lanelet_id : stop_sign->yield_lanelet_ids) {
       const auto pedestrians =
-        world_objects::getPedestriansByLanelet(*objects, *hypothesis_index, lanelet_id);
+        utils::world_objects::getPedestriansByLanelet(*objects, *hypothesis_index, lanelet_id);
 
       for (const auto * obj : pedestrians) {
         if (obj == nullptr) continue;

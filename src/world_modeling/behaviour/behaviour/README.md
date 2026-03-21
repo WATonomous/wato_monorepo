@@ -34,7 +34,6 @@ There is more comments and info under `/config/param.yaml`
 | `set_route_timeout_ms`                    | int      | 6000                           | Service timeout for set_route (ms)                                             |
 | `get_area_occupancy_timeout_ms`           | int      | 5000                           | Service timeout for get_area_occupancy (ms)                                    |
 | `get_world_objects_enriched_timeout_ms`   | int      | 5000                           | Service timeout for get_world_objects_enriched (ms)                            |
-| `get_lanelets_by_reg_elem_timeout_ms`     | int      | 5000                           | Service timeout for get_lanelets_by_reg_elem (ms)                              |
 | `wall_service_timeout_ms`                 | int      | 5000                           | Service timeout for spawn/despawn wall (ms)                                    |
 | `enable_console_logging`                  | bool     | false                          | Enable BT console logging                                                      |
 
@@ -67,9 +66,14 @@ Service names are set directly in the XML tree files (see [DEVELOPING.md](DEVELO
 | `/world_modeling/set_route`                | `lanelet_msgs/SetRoute`              | Set the active route                |
 | `/world_modeling/get_area_occupancy`       | `world_model_msgs/GetAreaOccupancy`  | Get occupancy of defined areas      |
 | `/world_modeling/get_world_objects_enriched` | `world_model_msgs/GetWorldObjectsEnriched` | Get all tracked world objects (enriched) |
-| `/world_modeling/get_lanelets_by_reg_elem` | `lanelet_msgs/GetLaneletsByRegElem`  | Find lanelets by regulatory element |
 | `/world_modeling/spawn_wall`               | `costmap_msgs/SpawnWall`             | Create virtual wall at stop lines   |
 | `/world_modeling/despawn_wall`             | `costmap_msgs/DespawnWall`           | Remove virtual wall                 |
+
+## Intersection Notes
+
+- `traffic_sign` regulatory elements are normalized into BT-level `STOP_SIGN` / `YIELD` types via `behaviour/utils/lanelet.hpp`.
+- Stop sign and yield now use a shared `RegElemEgoPriority` latch to avoid wall flashing once ego has earned the turn but has not physically passed the regulatory element yet.
+- If a stop/yield regulatory element has no usable `ref_line`, `GetLaneletEndPose` falls back to the midpoint of the current lanelet centerline.
 
 ## Tree Structure
 

@@ -33,18 +33,19 @@ namespace behaviour
 {
 /**
    * @class YieldSignCanProceedCondition
-   * @brief ConditionNode to check whether yield lanelets are clear.
+ * @brief ConditionNode to check whether ego may proceed through a right-of-way relation.
    *
    * Logic:
    * - Read the active control element and current world objects.
-   * - Filter objects to cars on lanelets listed in `yield_lanelet_ids`.
-   * - Return `SUCCESS` only when all yield lanelets are clear.
-   * - Return `FAILURE` as soon as any yield lanelet contains a car.
+   * - Determine ego's role in the active right-of-way relation.
+   * - If ego has right of way, return `SUCCESS` immediately.
+   * - If ego is yielding, filter objects to cars on lanelets listed in `right_of_way_lanelet_ids`.
+   * - Return `SUCCESS` only when all priority lanelets are clear.
+   * - Return `FAILURE` as soon as any priority lanelet contains a car.
    * - Return `FAILURE` when required state is missing (fail-safe behavior).
    *
    * Assumptions:
-   * - `yield_lanelet_ids` correctly encodes conflicting traffic lanes.
-   * - If there are no more cars in the yield lanelets, then it's safe to proceed, car might still pose a risk in we do allow the car to go
+   * - `right_of_way_lanelet_ids` encodes conflicting traffic lanes when ego is yielding.
    * - World object lanelet association is up to date and reliable.
    */
 class YieldSignCanProceedCondition : public BT::ConditionNode, protected BTLoggerBase
@@ -59,6 +60,7 @@ public:
   {
     return {
       BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("active_traffic_control_element"),
+      BT::InputPort<int64_t>("active_traffic_control_lanelet_id"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
       BT::InputPort<std::size_t>("hypothesis_index"),
     };
@@ -80,25 +82,42 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
+    auto active_lanelet_id = ports::tryGet<int64_t>(*this, "active_traffic_control_lanelet_id");
+    if (!ports::require(active_lanelet_id, "active_traffic_control_lanelet_id", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
     auto hypothesis_index = ports::tryGet<std::size_t>(*this, "hypothesis_index");
     if (!ports::require(hypothesis_index, "hypothesis_index", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    if (elem->yield_lanelet_ids.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "yield_lanelet_ids empty (fail-safe)" );
+    const auto role = utils::lanelet::getRightOfWayRole(*elem, *active_lanelet_id);
+    if (role == utils::lanelet::RightOfWayRole::RIGHT_OF_WAY) {
+      RCLCPP_DEBUG_STREAM(logger(), "Clear (ego has right of way on lanelet " << *active_lanelet_id << ")" );
+      return BT::NodeStatus::SUCCESS;
+    }
+
+    if (role != utils::lanelet::RightOfWayRole::YIELD) {
+      RCLCPP_DEBUG_STREAM(logger(), "Active right_of_way element does not apply to lanelet "
+                << *active_lanelet_id << " (fail-safe)" );
       return BT::NodeStatus::FAILURE;
     }
 
-    for (const auto lanelet_id : elem->yield_lanelet_ids) {
-      const auto cars = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+    if (elem->right_of_way_lanelet_ids.empty()) {
+      RCLCPP_DEBUG_STREAM(logger(), "right_of_way_lanelet_ids empty while ego is yielding (fail-safe)" );
+      return BT::NodeStatus::FAILURE;
+    }
+
+    for (const auto lanelet_id : elem->right_of_way_lanelet_ids) {
+      const auto cars = utils::world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
       if (!cars.empty()) {
-        RCLCPP_DEBUG_STREAM(logger(), "Blocked (car in yield lanelet " << lanelet_id << ")" );
+        RCLCPP_DEBUG_STREAM(logger(), "Blocked (car in priority lanelet " << lanelet_id << ")" );
         return BT::NodeStatus::FAILURE;
       }
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Clear (no cars in yield lanelets)" );
+    RCLCPP_DEBUG_STREAM(logger(), "Clear (no cars in priority lanelets while ego is yielding)" );
     return BT::NodeStatus::SUCCESS;
   }
 };

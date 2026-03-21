@@ -23,7 +23,7 @@
 
 #include "world_model_msgs/msg/world_object.hpp"
 
-namespace behaviour::world_objects
+namespace behaviour::utils::world_objects
 {
 inline bool containsType(
   const std::vector<world_model_msgs::msg::WorldObject> & objects, const std::string & object_type)
@@ -122,6 +122,6 @@ inline std::optional<std::string> getTrafficLightState(
 
   return traffic_light->detection.results[state_hypothesis_index].hypothesis.class_id;
 }
-}  // namespace behaviour::world_objects
+}  // namespace behaviour::utils::world_objects
 
 #endif  // BEHAVIOUR__UTILS__OBJECT_UTILS_HPP_

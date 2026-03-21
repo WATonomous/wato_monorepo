@@ -76,7 +76,7 @@ public:
     }
 
     const int64_t reg_elem_id = reg_elem->id;
-    const auto state = world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
+    const auto state = utils::world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
     if (!state) {
       setOutput("error_message", "traffic_light_state_not_found");
       RCLCPP_DEBUG_STREAM(logger(), "failed to get state for reg_elem_id=" << reg_elem_id );

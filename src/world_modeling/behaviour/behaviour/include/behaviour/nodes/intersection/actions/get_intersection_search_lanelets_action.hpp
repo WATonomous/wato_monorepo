@@ -122,7 +122,7 @@ public:
         for (const auto & ll : route_ahead->lanelets) {
           if (acc_m > lookahead_m) break;
           append_unique(ll, search_lanelets, *index_map);
-          acc_m += geometry::polylineLengthXY(ll.centerline);
+          acc_m += utils::geometry::polylineLengthXY(ll.centerline);
         }
       }
     }
@@ -161,7 +161,7 @@ public:
           candidates.emplace_back(dist, it->second);
 
           const auto & ll = la->lanelets[it->second];
-          const double next_dist = dist + geometry::polylineLengthXY(ll.centerline);
+          const double next_dist = dist + utils::geometry::polylineLengthXY(ll.centerline);
           for (const auto sid : ll.successor_ids) {
             if (la_idx->count(sid) && visited.insert(sid).second) {
               frontier.emplace(sid, next_dist);

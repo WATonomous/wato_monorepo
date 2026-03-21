@@ -62,9 +62,13 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Comparing msg='" << reg_elem->subtype << "' to expected='"
-              << types::toString(expected.value()) << "'" );
-    return (reg_elem->subtype == types::toString(expected.value())) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+    const auto type = utils::lanelet::getTrafficControlElementType(*reg_elem);
+    RCLCPP_DEBUG_STREAM(
+      logger(),
+      "Comparing type='" << (type ? types::toString(*type) : "unknown")
+                         << "' to expected='" << types::toString(expected.value()) << "'");
+    return (type && *type == expected.value()) ?
+           BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };
 

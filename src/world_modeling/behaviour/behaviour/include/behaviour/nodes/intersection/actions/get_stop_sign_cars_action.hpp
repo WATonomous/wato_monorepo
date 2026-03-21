@@ -111,14 +111,14 @@ public:
         continue;
       }
 
-      const auto cars_in_lanelet = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+      const auto cars_in_lanelet = utils::world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
 
       for (const auto * obj : cars_in_lanelet) {
         if (obj == nullptr) {
           continue;
         }
 
-        const double distance_to_stop_line = geometry::objectToWayDistanceXY(*obj, *stop_line_way);
+        const double distance_to_stop_line = utils::geometry::objectToWayDistanceXY(*obj, *stop_line_way);
         if (!std::isfinite(distance_to_stop_line) || distance_to_stop_line > *stop_sign_line_threshold_m) {
           continue;
         }

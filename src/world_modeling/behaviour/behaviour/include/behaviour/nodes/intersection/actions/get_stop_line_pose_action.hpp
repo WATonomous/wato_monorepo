@@ -62,6 +62,46 @@ public:
     };
   }
 
+  static const lanelet_msgs::msg::Way * findStopLineWayForLanelet(
+    const lanelet_msgs::msg::RegulatoryElement & reg_elem, int64_t lanelet_id)
+  {
+    const lanelet_msgs::msg::Way * first_non_empty_way = nullptr;
+    const lanelet_msgs::msg::Way * first_way_without_lanelet_ids = nullptr;
+    std::size_t non_empty_ref_line_count = 0;
+
+    for (const auto & lanelet_way : reg_elem.ref_lines) {
+      if (lanelet_way.way.points.empty()) {
+        continue;
+      }
+
+      ++non_empty_ref_line_count;
+      if (!first_non_empty_way) {
+        first_non_empty_way = &lanelet_way.way;
+      }
+      if (!first_way_without_lanelet_ids && lanelet_way.lanelet_ids.empty()) {
+        first_way_without_lanelet_ids = &lanelet_way.way;
+      }
+
+      const auto lanelet_id_it =
+        std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), lanelet_id);
+      if (lanelet_id_it != lanelet_way.lanelet_ids.end()) {
+        return &lanelet_way.way;
+      }
+    }
+
+    // Some regulatory elements, especially traffic-sign style stop signs, may expose
+    // a single ref_line without lanelet associations. In that case use the unique line.
+    if (non_empty_ref_line_count == 1) {
+      return first_non_empty_way;
+    }
+
+    if (first_way_without_lanelet_ids) {
+      return first_way_without_lanelet_ids;
+    }
+
+    return nullptr;
+  }
+
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
@@ -90,26 +130,14 @@ public:
     }
 
     const int64_t current_lanelet_id = lane_ctx->current_lanelet.id;
-    const lanelet_msgs::msg::Way * stop_line_way = nullptr;
-    for (const auto & lanelet_way : reg_elem->ref_lines) {
-      if (lanelet_way.way.points.empty()) {
-        continue;
-      }
-
-      const auto lanelet_id_it =
-        std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), current_lanelet_id);
-      if (lanelet_id_it != lanelet_way.lanelet_ids.end()) {
-        stop_line_way = &lanelet_way.way;
-        break;
-      }
-    }
-
+    const lanelet_msgs::msg::Way * stop_line_way = findStopLineWayForLanelet(*reg_elem, current_lanelet_id);
     if (!stop_line_way) {
       RCLCPP_DEBUG_STREAM(logger(), "No stop line found for lanelet " << current_lanelet_id );
       setOutput("error_message", "missing_stop_line_for_lanelet");
       return BT::NodeStatus::FAILURE;
     }
-    const auto center_point = geometry::wayCenterPoint(*stop_line_way);
+    
+    const auto center_point = utils::geometry::wayCenterPoint(*stop_line_way);
     if (!center_point) {
       RCLCPP_DEBUG_STREAM(logger(), "Stop line has no valid points" );
       setOutput("error_message", "invalid_stop_line");

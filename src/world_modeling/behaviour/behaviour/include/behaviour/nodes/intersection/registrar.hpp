@@ -26,14 +26,15 @@
 
 // actions
 #include "behaviour/nodes/intersection/actions/clear_active_traffic_control_element_action.hpp"
-#include "behaviour/nodes/intersection/actions/clear_stop_sign_priority_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_intersection_search_lanelets_action.hpp"
+#include "behaviour/nodes/intersection/actions/get_lanelet_end_pose_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_line_pose_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_pedestrians_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
 #include "behaviour/nodes/intersection/actions/reset_intersection_context_action.hpp"
+#include "behaviour/nodes/intersection/actions/set_reg_elem_ego_priority_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
 
 // conditions
@@ -41,6 +42,7 @@
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_passed_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/reg_elem_ego_priority_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_pedestrians_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/yield_sign_can_proceed_condition.hpp"
@@ -62,12 +64,12 @@ public:
     // actions
     factory.registerNodeType<behaviour::ClearActiveTrafficControlElementAction>(
       "ClearActiveTrafficControlElement", logger.get_child("ClearActiveTrafficControlElement"));
-    factory.registerNodeType<behaviour::ClearStopSignPriorityCarsAction>(
-      "ClearStopSignPriorityCarsAction", logger.get_child("ClearStopSignPriorityCarsAction"));
     factory.registerNodeType<behaviour::GetIntersectionContextAction>(
       "GetIntersectionContext", logger.get_child("GetIntersectionContext"));
     factory.registerNodeType<behaviour::GetIntersectionSearchLaneletsAction>(
       "GetIntersectionSearchLanelets", logger.get_child("GetIntersectionSearchLanelets"));
+    factory.registerNodeType<behaviour::GetLaneletEndPoseAction>(
+      "GetLaneletEndPose", logger.get_child("GetLaneletEndPose"));
     factory.registerNodeType<behaviour::GetStopSignCarsAction>("GetStopSignCars", logger.get_child("GetStopSignCars"));
     factory.registerNodeType<behaviour::GetStopSignPedestriansAction>(
       "GetStopSignPedestrians", logger.get_child("GetStopSignPedestrians"));
@@ -76,6 +78,8 @@ public:
     factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose", logger.get_child("GetStopLinePose"));
     factory.registerNodeType<behaviour::ResetIntersectionContextAction>(
       "ResetIntersectionContext", logger.get_child("ResetIntersectionContext"));
+    factory.registerNodeType<behaviour::SetRegElemEgoPriorityAction>(
+      "SetRegElemEgoPriority", logger.get_child("SetRegElemEgoPriority"));
     factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>(
       "SetStopSignPriorityCars", logger.get_child("SetStopSignPriorityCars"));
 
@@ -92,6 +96,8 @@ public:
       "StopSignPriorityCarsClear", logger.get_child("StopSignPriorityCarsClear"));
     factory.registerNodeType<behaviour::StopSignPedestriansClearCondition>(
       "StopSignPedestriansClear", logger.get_child("StopSignPedestriansClear"));
+    factory.registerNodeType<behaviour::RegElemEgoPriorityCondition>(
+      "RegElemEgoPriority", logger.get_child("RegElemEgoPriority"));
     factory.registerNodeType<behaviour::YieldSignCanProceedCondition>(
       "YieldCanProceed", logger.get_child("YieldCanProceed"));
   }

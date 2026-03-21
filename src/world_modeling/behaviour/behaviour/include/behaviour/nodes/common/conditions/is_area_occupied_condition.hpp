@@ -74,10 +74,10 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    const auto objects = area_occupancy_utils::getAreaObjects(*fetched_areas, *area_name);
+    const auto objects = utils::area_occupancy::getAreaObjects(*fetched_areas, *area_name);
     setOutput("objects", objects);
 
-    if (area_occupancy_utils::isAreaOccupied(*fetched_areas, *area_name)) {
+    if (utils::area_occupancy::isAreaOccupied(*fetched_areas, *area_name)) {
       RCLCPP_DEBUG_STREAM(logger(), "Occupied area found: " << *area_name );
       return BT::NodeStatus::SUCCESS;
     }
