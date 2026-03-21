@@ -45,7 +45,7 @@ public:
   , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     rate_hz_ = node_->declare_parameter<double>("lane_context_publish_rate_hz", 10.0);
-    route_priority_threshold_m_ = node_->declare_parameter<double>("lane_context_route_priority_threshold_m", 10.0);
+    route_priority_threshold_m_ = node_->declare_parameter<double>("lane_context_route_priority_threshold_m", 1.0);
     heading_search_radius_m_ = node_->declare_parameter<double>("lane_context_heading_search_radius_m", 15.0);
 
     pub_ = node_->create_publisher<lanelet_msgs::msg::CurrentLaneContext>("lane_context", 10);
