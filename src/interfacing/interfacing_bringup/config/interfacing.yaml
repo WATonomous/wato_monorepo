@@ -69,21 +69,21 @@
     inputs:
       joystick:
         topic: joystick/ackermann
-        priority: 100
+        priority: 200
         has_mask: true
         mask_topic: joystick/is_idle
         safety_gating: true
 
       action:
         topic: /action/ackermann
-        priority: 200
+        priority: 100
         has_mask: false
         safety_gating: false
 
       # Used by test_steering / test_velocity dummy nodes (inactive in production)
       dummy:
         topic: dummy/ackermann
-        priority: 200
+        priority: 100
         has_mask: false
         safety_gating: false
 
