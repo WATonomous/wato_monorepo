@@ -248,6 +248,10 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
   }
 
   if (stamp < imu_buffer_.front().stamp || stamp > imu_buffer_.back().stamp) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "IMU bounds fail: stamp=%.3f front=%.3f back=%.3f",
+      stamp.seconds(), imu_buffer_.front().stamp.seconds(), imu_buffer_.back().stamp.seconds());
     return false;
   }
 
@@ -270,6 +274,10 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
 
   const double dt = (b.stamp - a.stamp).seconds();
   if (dt <= 1e-6 || dt > max_imu_interp_gap_sec_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "IMU gap fail: gap=%.3fs max=%.3fs stamp=%.3f",
+      dt, max_imu_interp_gap_sec_, stamp.seconds());
     return false;
   }
 

@@ -36,7 +36,11 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
+<<<<<<< HEAD
 #export ACTIVE_MODULES=""
+=======
+export ACTIVE_MODULES="infrastructure interfacing"
+>>>>>>> acef062c (debug log when imu interpolation failed)
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Install Claude Code in dev containers. Set to "false" to skip installation.
