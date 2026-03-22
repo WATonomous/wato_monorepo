@@ -136,7 +136,8 @@ private:
   /// back to @p center_stamp. Returns a copy with updated x/y/z; returns the
   /// input unchanged (with updated stamp) if no `time` field is present.
   sensor_msgs::msg::PointCloud2::SharedPtr deskew_center_cloud(
-    const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg, const rclcpp::Time & center_stamp) const;
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
+    const rclcpp::Time & center_stamp) const;
 
   /// @brief Concatenate center, NE, and NW clouds into a single merged output cloud.
   sensor_msgs::msg::PointCloud2::SharedPtr merge_clouds(

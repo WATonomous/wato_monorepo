@@ -486,7 +486,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
 }
 
 sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::deskew_center_cloud(
-  const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg, const rclcpp::Time & center_stamp) const
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg, const rclcpp::Time & center_stamp) const
 {
   if (!center_msg) {
     return nullptr;
@@ -638,7 +638,7 @@ double LidarAggregatorNode::score_side_offset_candidate(
   return static_cast<double>(hits) / static_cast<double>(total);
 }
 
-bool LidarAggregatorNode::update_side_offset(
+bool LidarAggregatorNode::maybe_update_side_offset(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
   const RigidTransform & t_center_side,
@@ -759,7 +759,7 @@ void LidarAggregatorNode::try_publish_fusion(
   }
 
   if (estimator_cfg_.enabled) {
-    update_side_offset(
+    maybe_update_side_offset(
       center_msg,
       ne_msg,
       t_center_ne_,
@@ -767,7 +767,7 @@ void LidarAggregatorNode::try_publish_fusion(
       estimator_runtime_.ne_last_score,
       "ne",
       "timing.ne_time_offset_sec");
-    update_side_offset(
+    maybe_update_side_offset(
       center_msg,
       nw_msg,
       t_center_nw_,
