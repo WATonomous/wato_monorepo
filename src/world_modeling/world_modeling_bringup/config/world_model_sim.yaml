@@ -22,6 +22,7 @@
     projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
 
     # the origin of the osm map in lat/lon for utm projector only (maybe in the future have a dictionary of origins for different maps)
+    # origin of test_track_utm.osm
     origin_lat: 43.43663210811
     origin_lon: -80.5788350291
 
