@@ -23,6 +23,7 @@
       max_pair_dt_sec: 0.05
       max_imu_buffer_sec: 20.0
       max_imu_interp_gap_sec: 0.5
+      scan_period_sec: 0.1
 
     timing:
       ne_time_offset_sec: 0.0

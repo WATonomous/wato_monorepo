@@ -63,6 +63,7 @@ private:
     rclcpp::Time stamp;
     Eigen::Quaterniond orientation;
     double gyro_z = 0.0;
+    Eigen::Vector3d angular_velocity = Eigen::Vector3d::Zero();
   };
 
   /// @brief Configuration for the online timing-offset estimator.
@@ -119,14 +120,24 @@ private:
 
   /// @brief Motion-compensate a side cloud into the center lidar frame.
   ///
-  /// Applies the side-to-center extrinsic and an IMU-derived rotation delta to
-  /// align the side cloud's timestamp with @p center_stamp.
+  /// Applies the side-to-center extrinsic and per-point IMU-derived rotation deltas to
+  /// align each point's capture time with @p center_stamp. Falls back to scan-level
+  /// deskew if the cloud has no per-point `time` field.
   sensor_msgs::msg::PointCloud2::SharedPtr compensate_side_cloud(
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
     const rclcpp::Time & center_stamp,
     const RigidTransform & t_center_side,
     double side_time_offset_sec,
     const std::string & output_frame) const;
+
+  /// @brief Within-scan deskew the center lidar cloud.
+  ///
+  /// Uses per-point `time` offsets to rotate each CC point from its capture time
+  /// back to @p center_stamp. Returns a copy with updated x/y/z; returns the
+  /// input unchanged (with updated stamp) if no `time` field is present.
+  sensor_msgs::msg::PointCloud2::SharedPtr deskew_center_cloud(
+    const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
+    const rclcpp::Time & center_stamp) const;
 
   /// @brief Concatenate center, NE, and NW clouds into a single merged output cloud.
   sensor_msgs::msg::PointCloud2::SharedPtr merge_clouds(
@@ -213,6 +224,7 @@ private:
   double max_pair_dt_sec_ = 0.08;
   double max_imu_buffer_sec_ = 20.0;
   double max_imu_interp_gap_sec_ = 0.05;
+  double scan_period_sec_ = 0.1;
 
   double ne_time_offset_sec_ = 0.0;
   double nw_time_offset_sec_ = 0.0;

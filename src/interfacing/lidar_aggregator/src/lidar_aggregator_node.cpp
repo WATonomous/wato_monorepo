@@ -22,9 +22,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -134,6 +136,7 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("runtime.max_pair_dt_sec", 0.08);
   declare_parameter<double>("runtime.max_imu_buffer_sec", 20.0);
   declare_parameter<double>("runtime.max_imu_interp_gap_sec", 0.05);
+  declare_parameter<double>("runtime.scan_period_sec", 0.1);
 
   declare_parameter<double>("timing.ne_time_offset_sec", 0.0);
   declare_parameter<double>("timing.nw_time_offset_sec", 0.0);
@@ -168,6 +171,7 @@ void LidarAggregatorNode::declare_and_load_parameters()
   get_parameter("runtime.max_pair_dt_sec", max_pair_dt_sec_);
   get_parameter("runtime.max_imu_buffer_sec", max_imu_buffer_sec_);
   get_parameter("runtime.max_imu_interp_gap_sec", max_imu_interp_gap_sec_);
+  get_parameter("runtime.scan_period_sec", scan_period_sec_);
   get_parameter("timing.ne_time_offset_sec", ne_time_offset_sec_);
   get_parameter("timing.nw_time_offset_sec", nw_time_offset_sec_);
   get_parameter("estimation.enable_online_offset", estimator_cfg_.enabled);
@@ -235,7 +239,9 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
     q.normalize();
   }
 
-  imu_buffer_.push_back(ImuSample{rclcpp::Time(msg->header.stamp), q, msg->angular_velocity.z});
+  imu_buffer_.push_back(ImuSample{
+    rclcpp::Time(msg->header.stamp), q, msg->angular_velocity.z,
+    Eigen::Vector3d(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z)});
 
   if (imu_buffer_.empty()) {
     return;
@@ -265,12 +271,35 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
     return false;
   }
 
-  if (stamp < imu_buffer_.front().stamp || stamp > imu_buffer_.back().stamp) {
+  if (stamp < imu_buffer_.front().stamp) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 2000,
       "IMU bounds fail: query=%.3f front=%.3f back=%.3f",
       stamp.seconds(), imu_buffer_.front().stamp.seconds(), imu_buffer_.back().stamp.seconds());
     return false;
+  }
+
+  // Forward extrapolation for within-scan deskewing: point timestamps may be slightly
+  // ahead of the latest buffered IMU sample (up to one scan period, ~0.15s).
+  if (stamp > imu_buffer_.back().stamp) {
+    const double dt = (stamp - imu_buffer_.back().stamp).seconds();
+    if (dt > 0.15) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "IMU bounds fail: query=%.3f front=%.3f back=%.3f",
+        stamp.seconds(), imu_buffer_.front().stamp.seconds(), imu_buffer_.back().stamp.seconds());
+      return false;
+    }
+    const auto & last = imu_buffer_.back();
+    const double angle = last.angular_velocity.norm() * dt;
+    if (angle > 1e-10) {
+      q_out = last.orientation *
+        Eigen::Quaterniond(Eigen::AngleAxisd(angle, last.angular_velocity.normalized()));
+      q_out.normalize();
+    } else {
+      q_out = last.orientation;
+    }
+    return true;
   }
 
   auto upper = std::lower_bound(
@@ -358,52 +387,164 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
     return nullptr;
   }
 
-  pcl::PointCloud<pcl::PointXYZI> side_cloud;
-  pcl::fromROSMsg(*side_msg, side_cloud);
+  // Find field offsets in the PointCloud2 layout
+  int x_off = -1, y_off = -1, z_off = -1;
+  for (const auto & f : side_msg->fields) {
+    if (f.name == "x") x_off = static_cast<int>(f.offset);
+    else if (f.name == "y") y_off = static_cast<int>(f.offset);
+    else if (f.name == "z") z_off = static_cast<int>(f.offset);
+  }
+  if (x_off < 0 || y_off < 0 || z_off < 0) {
+    return nullptr;
+  }
 
-  pcl::PointCloud<pcl::PointXYZI> corrected;
-  corrected.reserve(side_cloud.size());
+  const uint32_t step = side_msg->point_step;
+  const size_t n = side_msg->width * side_msg->height;
 
   const rclcpp::Time side_stamp =
     rclcpp::Time(side_msg->header.stamp) + rclcpp::Duration::from_seconds(side_time_offset_sec);
-  Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
-  bool has_delta;
-  {
-    std::lock_guard<std::mutex> lock(imu_mutex_);
-    has_delta = get_rotation_delta(side_stamp, center_stamp, r_delta);
-  }
+  // Hold the IMU lock for the entire compensation to get a consistent buffer snapshot
+  std::lock_guard<std::mutex> lock(imu_mutex_);
 
-  if (!has_delta) {
+  // Scan-level fallback rotation used when per-point IMU lookup fails
+  Eigen::Matrix3d r_scan = Eigen::Matrix3d::Identity();
+  const bool has_scan_delta = get_rotation_delta(side_stamp, center_stamp, r_scan);
+  if (!has_scan_delta) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(),
-      *get_clock(),
-      2000,
+      get_logger(), *get_clock(), 2000,
       "IMU interpolation unavailable for side cloud compensation. Publishing extrinsic-only transformed cloud.");
   }
 
-  for (const auto & p : side_cloud.points) {
-    Eigen::Vector3d p_side(p.x, p.y, p.z);
-    Eigen::Vector3d p_center = t_center_side.rotation * p_side + t_center_side.translation;
-    if (has_delta) {
-      p_center = r_delta * p_center;
-    }
-
-    pcl::PointXYZI out;
-    out.x = static_cast<float>(p_center.x());
-    out.y = static_cast<float>(p_center.y());
-    out.z = static_cast<float>(p_center.z());
-    out.intensity = p.intensity;
-    corrected.push_back(out);
-  }
-
-  corrected.width = static_cast<uint32_t>(corrected.size());
-  corrected.height = 1;
-  corrected.is_dense = false;
-
-  auto out_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
-  pcl::toROSMsg(corrected, *out_msg);
+  // Copy message preserving all fields (ring, intensity, etc.), then overwrite x/y/z
+  auto out_msg = std::make_shared<sensor_msgs::msg::PointCloud2>(*side_msg);
   out_msg->header.stamp = center_stamp;
   out_msg->header.frame_id = output_frame;
+
+  const uint8_t * in = side_msg->data.data();
+  uint8_t * out = out_msg->data.data();
+
+  // Cache per-point rotations keyed by azimuth bin (many points share same horizontal angle)
+  std::unordered_map<int32_t, Eigen::Matrix3d> r_cache;
+
+  for (size_t i = 0; i < n; ++i) {
+    const uint8_t * ip = in + i * step;
+    uint8_t * op = out + i * step;
+
+    float x, y, z;
+    memcpy(&x, ip + x_off, sizeof(float));
+    memcpy(&y, ip + y_off, sizeof(float));
+    memcpy(&z, ip + z_off, sizeof(float));
+
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+      continue;
+    }
+
+    Eigen::Vector3d p_side(x, y, z);
+
+    // Compute per-point time from azimuth in the side lidar's own frame (before extrinsic).
+    // The lidar motor spins at a constant rate, so horizontal angle maps linearly to capture time.
+    double azimuth = std::atan2(p_side.y(), p_side.x());
+    if (azimuth < 0.0) azimuth += 2.0 * M_PI;
+    const double pt = azimuth / (2.0 * M_PI) * scan_period_sec_;
+    const int32_t key = static_cast<int32_t>(azimuth * 1000.0);
+
+    Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
+    auto it = r_cache.find(key);
+    if (it != r_cache.end()) {
+      r_delta = it->second;
+    } else {
+      const rclcpp::Time point_stamp = side_stamp + rclcpp::Duration::from_seconds(pt);
+      if (!get_rotation_delta(point_stamp, center_stamp, r_delta)) {
+        r_delta = r_scan;
+      }
+      r_cache[key] = r_delta;
+    }
+
+    Eigen::Vector3d p_center = t_center_side.rotation * p_side + t_center_side.translation;
+    p_center = r_delta * p_center;
+
+    float ox = static_cast<float>(p_center.x());
+    float oy = static_cast<float>(p_center.y());
+    float oz = static_cast<float>(p_center.z());
+    memcpy(op + x_off, &ox, sizeof(float));
+    memcpy(op + y_off, &oy, sizeof(float));
+    memcpy(op + z_off, &oz, sizeof(float));
+  }
+
+  return out_msg;
+}
+
+sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::deskew_center_cloud(
+  const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
+  const rclcpp::Time & center_stamp) const
+{
+  if (!center_msg) {
+    return nullptr;
+  }
+
+  // Always work on a copy so we don't mutate the cached input message
+  auto out_msg = std::make_shared<sensor_msgs::msg::PointCloud2>(*center_msg);
+  out_msg->header.stamp = center_stamp;
+
+  int x_off = -1, y_off = -1, z_off = -1;
+  for (const auto & f : center_msg->fields) {
+    if (f.name == "x") x_off = static_cast<int>(f.offset);
+    else if (f.name == "y") y_off = static_cast<int>(f.offset);
+    else if (f.name == "z") z_off = static_cast<int>(f.offset);
+  }
+
+  if (x_off < 0 || y_off < 0 || z_off < 0) {
+    return out_msg;
+  }
+
+  const uint32_t step = center_msg->point_step;
+  const size_t n = center_msg->width * center_msg->height;
+  const uint8_t * in = center_msg->data.data();
+  uint8_t * out = out_msg->data.data();
+
+  // Cache rotations keyed by azimuth bin (many points share the same horizontal angle)
+  std::unordered_map<int32_t, Eigen::Matrix3d> r_cache;
+
+  for (size_t i = 0; i < n; ++i) {
+    const uint8_t * ip = in + i * step;
+    uint8_t * op = out + i * step;
+
+    float x, y, z;
+    memcpy(&x, ip + x_off, sizeof(float));
+    memcpy(&y, ip + y_off, sizeof(float));
+    memcpy(&z, ip + z_off, sizeof(float));
+
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+      continue;
+    }
+
+    // Derive per-point capture time from azimuth in the CC lidar's own frame.
+    double azimuth = std::atan2(static_cast<double>(y), static_cast<double>(x));
+    if (azimuth < 0.0) azimuth += 2.0 * M_PI;
+    const double pt = azimuth / (2.0 * M_PI) * scan_period_sec_;
+    const int32_t key = static_cast<int32_t>(azimuth * 1000.0);
+
+    Eigen::Matrix3d r_delta = Eigen::Matrix3d::Identity();
+    auto it = r_cache.find(key);
+    if (it != r_cache.end()) {
+      r_delta = it->second;
+    } else {
+      const rclcpp::Time point_stamp = center_stamp + rclcpp::Duration::from_seconds(pt);
+      get_rotation_delta(point_stamp, center_stamp, r_delta);
+      r_cache[key] = r_delta;
+    }
+
+    Eigen::Vector3d p(x, y, z);
+    p = r_delta * p;
+
+    float ox = static_cast<float>(p.x());
+    float oy = static_cast<float>(p.y());
+    float oz = static_cast<float>(p.z());
+    memcpy(op + x_off, &ox, sizeof(float));
+    memcpy(op + y_off, &oy, sizeof(float));
+    memcpy(op + z_off, &oz, sizeof(float));
+  }
+
   return out_msg;
 }
 
@@ -633,14 +774,13 @@ void LidarAggregatorNode::try_publish_fusion(
     return;
   }
 
-  auto center_in_center_frame = std::make_shared<sensor_msgs::msg::PointCloud2>(*center_msg);
-  center_in_center_frame->header.stamp = center_stamp;
-  center_in_center_frame->header.frame_id = center_frame_;
+  auto cc_deskewed = deskew_center_cloud(center_msg, center_stamp);
+  cc_deskewed->header.frame_id = center_frame_;
 
   pub_ne_deskewed_cc_->publish(*ne_corrected);
   pub_nw_deskewed_cc_->publish(*nw_corrected);
 
-  auto merged = merge_clouds(center_in_center_frame, ne_corrected, nw_corrected, center_stamp, center_frame_);
+  auto merged = merge_clouds(cc_deskewed, ne_corrected, nw_corrected, center_stamp, center_frame_);
   if (merged) {
     pub_merged_->publish(*merged);
   }
