@@ -15,7 +15,7 @@
 launch:
   - arg:
       name: "config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/interfacing_can.yaml"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
       description: "Path to the CAN/control configuration file"
 
   # Sensors (GPS, LiDAR, cameras, TF)

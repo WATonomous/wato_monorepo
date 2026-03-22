@@ -35,7 +35,7 @@ launch:
 
   - arg:
       name: "can_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/interfacing_can.yaml"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
       description: "Path to the CAN/control configuration file"
 
   # GPS Configs
