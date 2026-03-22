@@ -41,7 +41,7 @@ except ImportError:
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = SCRIPT_DIR / "output"
-PLOT_DIR = OUTPUT_DIR / "plots"
+PLOT_DIR = OUTPUT_DIR / "plots" / "plot_data"
 
 
 def load_data():

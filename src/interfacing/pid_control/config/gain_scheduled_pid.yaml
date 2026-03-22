@@ -30,3 +30,8 @@ gain_scheduled_pid_node:
       saturation: true
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
+
+    velocity_output:
+      throttle_scale: 1.0
+      brake_scale: 0.5
+      deadband: 0.02

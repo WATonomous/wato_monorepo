@@ -1,0 +1,60 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+launch:
+  # GPS Configs
+  - arg:
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+      description: "IP address of the OEM7 GPS receiver"
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
+
+  # GPS - Novatel OEM7
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+      arg:
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"
+
+  # LiDAR VLP-32
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
+
+  # Eve Robot Description
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
+#   # Hikrobot Cameras
+#   - node_container:
+#       pkg: rclcpp_components
+#       exec: component_container_mt
+#       name: cameras_container
+#       namespace: ""
+
+#   - include:
+#       file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+#       arg:
+#         - name: "container_name"
+#           value: "cameras_container"

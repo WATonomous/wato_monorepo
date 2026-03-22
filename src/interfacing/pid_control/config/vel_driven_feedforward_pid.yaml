@@ -29,13 +29,16 @@ vel_driven_feedforward_pid_node:
       antiwindup: true
       antiwindup_strategy: "conditional_integration"
 
-    # T_ff = (c0 + c1*v + c2*v^2 + ...) * steering_setpoint + friction_offset * sign(steering_setpoint)
-    # Examples: [0.0] = disabled, [0.0, k2, k1] = (k1*v^2 + k2*v)*δ
-    # Model A (R²=0.860): coefficients only, friction_offset: 0.0
-    # Model B (R²=0.903): with friction term for Coulomb steering friction
+    steering_d_on_measurement: 0.1  # D-on-measurement gain (set control_toolbox d to 0)
+    velocity_filter_alpha: 0.2     # EMA filter on velocity measurement (0.0=no update, 1.0=no filter)
+
+    velocity_output:
+      throttle_scale: 1.0
+      brake_scale: 0.5
+      deadband: 0.02
+
+    # T_ff = (c0 + c1*v + c2*v^2) * steering_setpoint + friction_offset * sign(steering_setpoint)
+    # Symmetric Model B fit (R²=0.845, RMSE=0.046, 63182 samples)
     feedforward:
-      coefficients: [0.008056, -0.069744, -0.004519]
-      friction_offset: 0.0
-      # Model B alternative — uncomment to enable friction compensation:
-      # coefficients: [0.221360, -0.120708, 0.005332]
-      # friction_offset: -0.063768
+      coefficients: [-0.137961, 0.097721, -0.002266]
+      friction_offset: 0.049855

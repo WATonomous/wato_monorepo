@@ -11,136 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+---
 launch:
   - arg:
-      name: "autostart"
-      default: "true"
-      description: "Automatically configure and activate managed nodes"
-
-  - arg:
-      name: "bond_enabled"
-      default: "false"
-      description: "Enable bond-based crash detection"
-
-  - arg:
       name: "config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
-      description: "Path to the joystick configuration file"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing_can.yaml"
+      description: "Path to the CAN/control configuration file"
 
-  - arg:
-      name: "healthchecker_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
-      description: "Path to the topic healthchecker configuration file"
-
-  # GPS Configs
-  - arg:
-      name: "oem7_ip_addr"
-      default: "10.8.0.8"
-      description: "IP address of the OEM7 GPS receiver"
-  - arg:
-      name: "oem7_port"
-      default: "3001"
-      description: "TCP or UDP port for OEM7 communication"
-  - arg:
-      name: "oem7_if"
-      default: "Oem7ReceiverTcp"
-      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
-
-  # GPS - Novatel OEM7
+  # Sensors (GPS, LiDAR, cameras, TF)
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+      file: "$(find-pkg-share interfacing_bringup)/launch/interfacing_sensors.launch.yaml"
+
+  # CAN / Controls (joystick, ackermann mux, PID, OSCC, CAN state estimator)
+  - include:
+      file: "$(find-pkg-share interfacing_bringup)/launch/interfacing_can.launch.yaml"
       arg:
-        - name: "oem7_ip_addr"
-          value: "$(var oem7_ip_addr)"
-        - name: "oem7_port"
-          value: "$(var oem7_port)"
-        - name: "oem7_if"
-          value: "$(var oem7_if)"
-
-  # LiDAR VLP-32 with config file
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
-
-  # Eve Robot Description
-  - include:
-      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
-
-  # Hikrobot Cameras
-  - node_container:
-      pkg: rclcpp_components
-      exec: component_container_mt
-      name: cameras_container
-      namespace: ""
-
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-      arg:
-        - name: "container_name"
-          value: "cameras_container"
-
-  # Joystick hardware node (publishes joy messages from physical joystick)
-  - node:
-      pkg: "joy"
-      exec: "joy_node"
-      name: "joy_node"
-      namespace: "interfacing"
-      param:
-        - from: "$(var config_file)"
-
-  # Joystick interfacing node (converts joy to joystick/ackermann)
-  - node:
-      pkg: "joystick_interfacing"
-      exec: "joystick_interfacing_node"
-      name: "joystick_node"
-      namespace: "interfacing"
-      output: "screen"
-      ros_args: "--log-level warn"
-      param:
-        - from: "$(var config_file)"
-
-  # Ackermann Mux Node
-  - node:
-      pkg: "ackermann_mux"
-      exec: "ackermann_mux_node"
-      name: "ackermann_mux"
-      namespace: "interfacing"
-      output: "screen"
-      ros_args: "--log-level warn"
-      param:
-        - from: "$(var config_file)"
-
-  - node:
-      pkg: "pid_control"
-      exec: "pid_control_node"
-      name: "pid_control_node"
-      namespace: "interfacing"
-      output: "screen"
-      remap:
-        - from: "steering_feedback"
-          to: "can_state_estimator/steering_angle"
-        - from: "velocity_feedback"
-          to: "can_state_estimator/body_velocity"
-      param:
-        - from: "$(var config_file)"
-
-  # OSCC interfacing Node
-  - node:
-      pkg: "oscc_interfacing"
-      exec: "oscc_interfacing_node"
-      name: "oscc_interfacing"
-      namespace: "interfacing"
-      param:
-        - from: "$(var config_file)"
-
-  # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
-  - node:
-      pkg: can_state_estimator
-      exec: can_state_estimator_node
-      name: can_state_estimator_node
-      namespace: interfacing
-      output: screen
-      param:
-        - from: "$(var config_file)"
+        - name: "config_file"
+          value: "$(var config_file)"
 
   # Topic Healthchecker (monitors topic liveness and message rates)
   - node:
@@ -150,28 +37,6 @@ launch:
       namespace: interfacing
       output: screen
       param:
-        - from: "$(var healthchecker_config_file)"
+        - from: "$(var config_file)"
         - name: http_port
           value: $(env TOPIC_HEALTHCHECKER__PORT)
-
-  # Lifecycle Manager
-  - node:
-      pkg: wato_lifecycle_manager
-      exec: wato_lifecycle_manager_node
-      name: interfacing_lifecycle_manager
-      output: screen
-      param:
-        - name: node_names
-          value:
-            - /interfacing/joystick_node
-            - /interfacing/ackermann_mux
-            - /interfacing/can_state_estimator_node
-            - /interfacing/pid_control_node
-        - name: autostart
-          value: $(var autostart)
-        - name: transition_timeout_s
-          value: 10.0
-        - name: bond_timeout_s
-          value: 4.0
-        - name: bond_enabled
-          value: $(var bond_enabled)

@@ -359,7 +359,16 @@ def label_contiguous_segments(mask):
     return labels, len(starts)
 
 
-def filter_steady_state(df, min_segment_s=1.0, outlier_sigma=2.5):
+def filter_steady_state(
+    df,
+    min_segment_s=0.5,
+    outlier_sigma=3.0,
+    d_angle_thresh=0.05,
+    d_speed_thresh=0.5,
+    d_torque_thresh=0.3,
+    min_speed=0.5,
+    min_torque=0.005,
+):
     """Enhanced steady-state filtering pipeline."""
     df = df.copy()
     total = len(df)
@@ -388,17 +397,17 @@ def filter_steady_state(df, min_segment_s=1.0, outlier_sigma=2.5):
     print("  [2] Derivative thresholds...")
     mask = np.ones(total, dtype=bool)
 
-    m = np.abs(d_angle_dt) < 0.02
+    m = np.abs(d_angle_dt) < d_angle_thresh
     mask &= m
-    print(f"      |d(angle)/dt| < 0.02 rad/s:  {np.sum(mask):>8} / {total}")
+    print(f"      |d(angle)/dt| < {d_angle_thresh} rad/s:  {np.sum(mask):>8} / {total}")
 
-    m = np.abs(d_speed_dt) < 0.3
+    m = np.abs(d_speed_dt) < d_speed_thresh
     mask &= m
-    print(f"      + |d(speed)/dt| < 0.3 m/s²:  {np.sum(mask):>8} / {total}")
+    print(f"      + |d(speed)/dt| < {d_speed_thresh} m/s²:  {np.sum(mask):>8} / {total}")
 
-    m = np.abs(d_torque_dt) < 0.2
+    m = np.abs(d_torque_dt) < d_torque_thresh
     mask &= m
-    print(f"      + |d(torque)/dt| < 0.2 /s:   {np.sum(mask):>8} / {total}")
+    print(f"      + |d(torque)/dt| < {d_torque_thresh} /s:   {np.sum(mask):>8} / {total}")
 
     # --- 3. is_armed filter (skip if data too sparse) ---
     print("  [3] is_armed filter...")
@@ -421,16 +430,16 @@ def filter_steady_state(df, min_segment_s=1.0, outlier_sigma=2.5):
 
     # --- 5. Basic thresholds ---
     print("  [5] Basic thresholds...")
-    m = df["speed_mps"].values > 1.0
+    m = df["speed_mps"].values > min_speed
     mask &= m
-    print(f"      + speed > 1.0 m/s:           {np.sum(mask):>8} / {total}")
+    print(f"      + speed > {min_speed} m/s:           {np.sum(mask):>8} / {total}")
 
-    m = np.abs(df["torque"].values) > 0.01
+    m = np.abs(df["torque"].values) > min_torque
     mask &= m
-    print(f"      + |torque| > 0.01:           {np.sum(mask):>8} / {total}")
+    print(f"      + |torque| > {min_torque}:           {np.sum(mask):>8} / {total}")
 
     # --- 6. Minimum segment duration ---
-    print(f"  [6] Minimum segment duration ({min_segment_s}s)...")
+    print(f"  [6] Minimum segment duration ({min_segment_s:.1f}s)...")
     labels, n_segs = label_contiguous_segments(mask)
     for seg_id in range(1, n_segs + 1):
         seg_mask = labels == seg_id
@@ -441,7 +450,7 @@ def filter_steady_state(df, min_segment_s=1.0, outlier_sigma=2.5):
         duration = time_s[seg_indices[-1]] - time_s[seg_indices[0]]
         if duration < min_segment_s:
             mask[seg_mask] = False
-    print(f"      + segments >= {min_segment_s}s:          {np.sum(mask):>8} / {total}")
+    print(f"      + segments >= {min_segment_s:.1f}s:          {np.sum(mask):>8} / {total}")
 
     # --- 7. Per-bin outlier rejection ---
     print(f"  [7] Outlier rejection ({outlier_sigma} sigma per bin)...")
@@ -496,6 +505,20 @@ def main():
         default=10.0,
         help="Maximum sync gap tolerance in milliseconds (default: 10.0)",
     )
+    parser.add_argument("--d-angle-thresh", type=float, default=0.05,
+                        help="Max |d(angle)/dt| for steady-state (default: 0.05 rad/s)")
+    parser.add_argument("--d-speed-thresh", type=float, default=0.5,
+                        help="Max |d(speed)/dt| for steady-state (default: 0.5 m/s²)")
+    parser.add_argument("--d-torque-thresh", type=float, default=0.3,
+                        help="Max |d(torque)/dt| for steady-state (default: 0.3 /s)")
+    parser.add_argument("--min-speed", type=float, default=0.5,
+                        help="Minimum speed threshold (default: 0.5 m/s)")
+    parser.add_argument("--min-torque", type=float, default=0.005,
+                        help="Minimum |torque| threshold (default: 0.005)")
+    parser.add_argument("--min-segment-s", type=float, default=0.5,
+                        help="Minimum steady-state segment duration (default: 0.5 s)")
+    parser.add_argument("--outlier-sigma", type=float, default=3.0,
+                        help="Outlier rejection sigma (default: 3.0)")
     args = parser.parse_args()
 
     bag_dir = Path(args.bag_dir).resolve()
@@ -536,7 +559,16 @@ def main():
     print("\n" + "=" * 60)
     print("STAGE 1e: Filtering for quasi-steady-state")
     print("=" * 60)
-    df_steady = filter_steady_state(df_synced)
+    df_steady = filter_steady_state(
+        df_synced,
+        min_segment_s=args.min_segment_s,
+        outlier_sigma=args.outlier_sigma,
+        d_angle_thresh=args.d_angle_thresh,
+        d_speed_thresh=args.d_speed_thresh,
+        d_torque_thresh=args.d_torque_thresh,
+        min_speed=args.min_speed,
+        min_torque=args.min_torque,
+    )
 
     df_steady.to_csv(OUTPUT_DIR / "feedforward_data_steady.csv", index=False)
     print(f"\n  Saved feedforward_data_steady.csv ({len(df_steady)} rows)")

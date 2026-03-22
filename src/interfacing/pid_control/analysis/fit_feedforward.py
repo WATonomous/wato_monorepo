@@ -41,7 +41,7 @@ from sklearn.model_selection import train_test_split
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = SCRIPT_DIR / "output"
-PLOT_DIR = OUTPUT_DIR / "plots"
+PLOT_DIR = OUTPUT_DIR / "plots" / "fit_feedforward"
 
 
 def calc_rmse(y_true, y_pred):
