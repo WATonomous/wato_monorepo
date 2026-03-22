@@ -36,7 +36,7 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-#export ACTIVE_MODULES=""
+# export ACTIVE_MODULES=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Install Claude Code in dev containers. Set to "false" to skip installation.
@@ -60,7 +60,7 @@
 # export REGISTRY_URL=""
 
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
-#export BAG_DIRECTORY=""
+# export BAG_DIRECTORY=""
 
 # Recording profile for bag recording. DEFAULT = "camera_only"
 # Available profiles: all_sensors, all_sensors_compressed, camera_only, camera_compressed, lidar_only
