@@ -8,8 +8,13 @@ launch:
       description: Path to the eidos SLAM configuration file
 
   - arg:
+      name: config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      description: Path to the world_model configuration file
+
+  - arg:
       name: use_sim_time
-      default: "true"
+      default: "false"
       description: Use simulation time from /clock topic
 
   # Eidos SLAM Node
@@ -24,6 +29,30 @@ launch:
         - name: use_sim_time
           value: $(var use_sim_time)
 
+  # Costmap Node
+  - node:
+      pkg: costmap
+      exec: costmap_node
+      name: costmap_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+      remap:
+        - from: world_objects
+          to: world_objects_enriched
+        - from: costmap
+          to: costmap
+        - from: pointcloud
+          to: /lidar_cc/velodyne_points
+        - from: footprint
+          to: costmap_footprint
+        - from: spawn_wall
+          to: spawn_wall
+        - from: despawn_wall
+          to: despawn_wall
+
+
   # Lifecycle Manager
   - node:
       pkg: wato_lifecycle_manager
@@ -35,6 +64,7 @@ launch:
         - name: node_names
           value:
             - /world_modeling/eidos_node
+            - /world_modeling/costmap_node
         - name: autostart
           value: true
         - name: transition_timeout_s

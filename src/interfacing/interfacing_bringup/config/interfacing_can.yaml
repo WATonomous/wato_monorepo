@@ -75,10 +75,9 @@
         safety_gating: true
 
       action:
-        topic: action/ackermann
-        priority: 10
-        has_mask: true
-        mask_topic: action/is_idle
+        topic: /action/ackermann
+        priority: 200
+        has_mask: false
         safety_gating: false
 
       # Used by test_steering / test_velocity dummy nodes (inactive in production)

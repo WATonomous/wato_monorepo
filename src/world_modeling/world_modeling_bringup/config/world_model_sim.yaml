@@ -133,8 +133,8 @@
     layers.objects.max_centroid_height_m: 5.0
 
     # PointCloudLayer params
-    layers.pointcloud.max_height_m: 2.0
-    layers.pointcloud.min_height_m: 0.1
+    layers.pointcloud.max_height_m: 102.0
+    layers.pointcloud.min_height_m: 100.0
     layers.pointcloud.inflation_m: 0.3
     layers.pointcloud.cost_decay: 0.1
 
