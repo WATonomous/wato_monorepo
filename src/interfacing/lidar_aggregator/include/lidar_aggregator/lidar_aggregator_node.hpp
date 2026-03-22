@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/synchronizer.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -26,9 +29,6 @@
 
 #include <geometry_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/approximate_time.h>
-#include <message_filters/synchronizer.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -136,8 +136,7 @@ private:
   /// back to @p center_stamp. Returns a copy with updated x/y/z; returns the
   /// input unchanged (with updated stamp) if no `time` field is present.
   sensor_msgs::msg::PointCloud2::SharedPtr deskew_center_cloud(
-    const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
-    const rclcpp::Time & center_stamp) const;
+    const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg, const rclcpp::Time & center_stamp) const;
 
   /// @brief Concatenate center, NE, and NW clouds into a single merged output cloud.
   sensor_msgs::msg::PointCloud2::SharedPtr merge_clouds(
@@ -194,10 +193,8 @@ private:
   message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_ne_;
   message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_nw_;
 
-  using LidarSyncPolicy = message_filters::sync_policies::ApproximateTime<
-    sensor_msgs::msg::PointCloud2,
-    sensor_msgs::msg::PointCloud2,
-    sensor_msgs::msg::PointCloud2>;
+  using LidarSyncPolicy = message_filters::sync_policies::
+    ApproximateTime<sensor_msgs::msg::PointCloud2, sensor_msgs::msg::PointCloud2, sensor_msgs::msg::PointCloud2>;
   std::shared_ptr<message_filters::Synchronizer<LidarSyncPolicy>> lidar_sync_;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_ne_deskewed_cc_;

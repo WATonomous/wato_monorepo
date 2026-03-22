@@ -224,12 +224,10 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
       q = Eigen::Quaterniond::Identity();
     } else {
       const double dt = (rclcpp::Time(msg->header.stamp) - imu_buffer_.back().stamp).seconds();
-      const Eigen::Vector3d omega(
-        msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
+      const Eigen::Vector3d omega(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
       const double angle = omega.norm() * dt;
       if (dt > 0.0 && dt < 1.0 && angle > 1e-10) {
-        q = imu_buffer_.back().orientation *
-          Eigen::Quaterniond(Eigen::AngleAxisd(angle, omega.normalized()));
+        q = imu_buffer_.back().orientation * Eigen::Quaterniond(Eigen::AngleAxisd(angle, omega.normalized()));
         q.normalize();
       } else {
         q = imu_buffer_.back().orientation;
@@ -240,7 +238,9 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
   }
 
   imu_buffer_.push_back(ImuSample{
-    rclcpp::Time(msg->header.stamp), q, msg->angular_velocity.z,
+    rclcpp::Time(msg->header.stamp),
+    q,
+    msg->angular_velocity.z,
     Eigen::Vector3d(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z)});
 
   if (imu_buffer_.empty()) {
@@ -273,9 +273,13 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
 
   if (stamp < imu_buffer_.front().stamp) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000,
+      get_logger(),
+      *get_clock(),
+      2000,
       "IMU bounds fail: query=%.3f front=%.3f back=%.3f",
-      stamp.seconds(), imu_buffer_.front().stamp.seconds(), imu_buffer_.back().stamp.seconds());
+      stamp.seconds(),
+      imu_buffer_.front().stamp.seconds(),
+      imu_buffer_.back().stamp.seconds());
     return false;
   }
 
@@ -285,16 +289,19 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
     const double dt = (stamp - imu_buffer_.back().stamp).seconds();
     if (dt > 0.15) {
       RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 2000,
+        get_logger(),
+        *get_clock(),
+        2000,
         "IMU bounds fail: query=%.3f front=%.3f back=%.3f",
-        stamp.seconds(), imu_buffer_.front().stamp.seconds(), imu_buffer_.back().stamp.seconds());
+        stamp.seconds(),
+        imu_buffer_.front().stamp.seconds(),
+        imu_buffer_.back().stamp.seconds());
       return false;
     }
     const auto & last = imu_buffer_.back();
     const double angle = last.angular_velocity.norm() * dt;
     if (angle > 1e-10) {
-      q_out = last.orientation *
-        Eigen::Quaterniond(Eigen::AngleAxisd(angle, last.angular_velocity.normalized()));
+      q_out = last.orientation * Eigen::Quaterniond(Eigen::AngleAxisd(angle, last.angular_velocity.normalized()));
       q_out.normalize();
     } else {
       q_out = last.orientation;
@@ -322,8 +329,7 @@ bool LidarAggregatorNode::get_orientation_at_time(const rclcpp::Time & stamp, Ei
   const double dt = (b.stamp - a.stamp).seconds();
   if (dt <= 1e-6 || dt > max_imu_interp_gap_sec_) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000,
-      "IMU gap fail: gap=%.3fs max=%.3fs", dt, max_imu_interp_gap_sec_);
+      get_logger(), *get_clock(), 2000, "IMU gap fail: gap=%.3fs max=%.3fs", dt, max_imu_interp_gap_sec_);
     return false;
   }
 
@@ -390,9 +396,12 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
   // Find field offsets in the PointCloud2 layout
   int x_off = -1, y_off = -1, z_off = -1;
   for (const auto & f : side_msg->fields) {
-    if (f.name == "x") x_off = static_cast<int>(f.offset);
-    else if (f.name == "y") y_off = static_cast<int>(f.offset);
-    else if (f.name == "z") z_off = static_cast<int>(f.offset);
+    if (f.name == "x")
+      x_off = static_cast<int>(f.offset);
+    else if (f.name == "y")
+      y_off = static_cast<int>(f.offset);
+    else if (f.name == "z")
+      z_off = static_cast<int>(f.offset);
   }
   if (x_off < 0 || y_off < 0 || z_off < 0) {
     return nullptr;
@@ -411,7 +420,9 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
   const bool has_scan_delta = get_rotation_delta(side_stamp, center_stamp, r_scan);
   if (!has_scan_delta) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000,
+      get_logger(),
+      *get_clock(),
+      2000,
       "IMU interpolation unavailable for side cloud compensation. Publishing extrinsic-only transformed cloud.");
   }
 
@@ -475,8 +486,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cl
 }
 
 sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::deskew_center_cloud(
-  const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg,
-  const rclcpp::Time & center_stamp) const
+  const sensor_msgs::msg::PointCloud2::SharedPtr & center_msg, const rclcpp::Time & center_stamp) const
 {
   if (!center_msg) {
     return nullptr;
@@ -488,9 +498,12 @@ sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::deskew_center_clou
 
   int x_off = -1, y_off = -1, z_off = -1;
   for (const auto & f : center_msg->fields) {
-    if (f.name == "x") x_off = static_cast<int>(f.offset);
-    else if (f.name == "y") y_off = static_cast<int>(f.offset);
-    else if (f.name == "z") z_off = static_cast<int>(f.offset);
+    if (f.name == "x")
+      x_off = static_cast<int>(f.offset);
+    else if (f.name == "y")
+      y_off = static_cast<int>(f.offset);
+    else if (f.name == "z")
+      z_off = static_cast<int>(f.offset);
   }
 
   if (x_off < 0 || y_off < 0 || z_off < 0) {
