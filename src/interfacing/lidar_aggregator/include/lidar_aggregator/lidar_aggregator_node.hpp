@@ -159,7 +159,7 @@ private:
   /// @brief Run one iteration of the online offset estimator for a side lidar.
   ///
   /// Updates @p side_time_offset_sec in-place if a better-scoring offset is found.
-  bool maybe_update_side_offset(
+  bool update_side_offset(
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr & center_msg,
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
     const RigidTransform & t_center_side,
