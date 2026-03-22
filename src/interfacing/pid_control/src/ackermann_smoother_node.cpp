@@ -15,17 +15,15 @@
 #include "pid_control/ackermann_smoother_node.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 
 namespace pid_control
 {
 
 // Acceleration-limited smoothing with braking.
 // Accelerates toward target, then decelerates to arrive with zero velocity.
-static double smooth_step(
-  double current, double & rate, double target,
-  double max_accel, double dt)
+static double smooth_step(double current, double & rate, double target, double max_accel, double dt)
 {
   double error = target - current;
 
@@ -57,9 +55,7 @@ static double smooth_step(
   double next = current + rate * dt;
 
   // Snap to target if we've crossed it and rate is small
-  if ((current <= target && next >= target && rate >= 0.0) ||
-      (current >= target && next <= target && rate <= 0.0))
-  {
+  if ((current <= target && next >= target && rate >= 0.0) || (current >= target && next <= target && rate <= 0.0)) {
     if (std::abs(rate) <= max_accel * dt * 2.0) {
       rate = 0.0;
       return target;
@@ -79,8 +75,7 @@ AckermannSmootherNode::AckermannSmootherNode(const rclcpp::NodeOptions & options
   RCLCPP_INFO(this->get_logger(), "AckermannSmootherNode created (unconfigured)");
 }
 
-AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_configure(
-  const rclcpp_lifecycle::State & /*state*/)
+AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Configuring...");
 
@@ -89,20 +84,15 @@ AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_configure(
   publish_rate_ = this->get_parameter("publish_rate").as_double();
 
   input_sub_ = this->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann_in",
-    rclcpp::QoS(10),
-    std::bind(&AckermannSmootherNode::input_callback, this, std::placeholders::_1));
+    "ackermann_in", rclcpp::QoS(10), std::bind(&AckermannSmootherNode::input_callback, this, std::placeholders::_1));
 
-  output_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
-    "ackermann_out",
-    rclcpp::QoS(10));
+  output_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("ackermann_out", rclcpp::QoS(10));
 
   RCLCPP_INFO(this->get_logger(), "Configured successfully");
   return CallbackReturn::SUCCESS;
 }
 
-AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_activate(
-  const rclcpp_lifecycle::State & /*state*/)
+AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Activating...");
 
@@ -114,12 +104,13 @@ AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_activate(
   RCLCPP_INFO(
     this->get_logger(),
     "Activated - publishing at %.1f Hz, max_steering_accel=%.3f rad/s^2, max_speed_accel=%.3f m/s^3",
-    publish_rate_, max_steering_accel_, max_speed_accel_);
+    publish_rate_,
+    max_steering_accel_,
+    max_speed_accel_);
   return CallbackReturn::SUCCESS;
 }
 
-AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_deactivate(
-  const rclcpp_lifecycle::State & /*state*/)
+AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating...");
   if (timer_) {
@@ -129,8 +120,7 @@ AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_cleanup(
-  const rclcpp_lifecycle::State & /*state*/)
+AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up...");
   timer_.reset();
@@ -146,8 +136,7 @@ AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_shutdown(
-  const rclcpp_lifecycle::State & /*state*/)
+AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
   if (timer_) {
@@ -159,8 +148,7 @@ AckermannSmootherNode::CallbackReturn AckermannSmootherNode::on_shutdown(
   return CallbackReturn::SUCCESS;
 }
 
-void AckermannSmootherNode::input_callback(
-  const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
+void AckermannSmootherNode::input_callback(const ackermann_msgs::msg::AckermannDriveStamped::SharedPtr msg)
 {
   target_steering_ = msg->drive.steering_angle;
   target_speed_ = msg->drive.speed;
@@ -175,11 +163,9 @@ void AckermannSmootherNode::publish_loop()
 
   double dt = 1.0 / publish_rate_;
 
-  current_steering_ = smooth_step(
-    current_steering_, steering_rate_, target_steering_, max_steering_accel_, dt);
+  current_steering_ = smooth_step(current_steering_, steering_rate_, target_steering_, max_steering_accel_, dt);
 
-  current_speed_ = smooth_step(
-    current_speed_, speed_rate_, target_speed_, max_speed_accel_, dt);
+  current_speed_ = smooth_step(current_speed_, speed_rate_, target_speed_, max_speed_accel_, dt);
 
   ackermann_msgs::msg::AckermannDriveStamped msg;
   msg.header.stamp = this->now();

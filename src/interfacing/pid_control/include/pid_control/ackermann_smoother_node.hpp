@@ -46,8 +46,8 @@ private:
 
   // Acceleration limiting parameters
   double max_steering_accel_{2.0};  // rad/s^2 - max change in steering rate
-  double max_speed_accel_{2.0};     // m/s^3 - max change in speed rate (jerk)
-  double publish_rate_{50.0};       // Hz
+  double max_speed_accel_{2.0};  // m/s^3 - max change in speed rate (jerk)
+  double publish_rate_{50.0};  // Hz
 
   // Current smoothed state (position + velocity)
   double current_steering_{0.0};

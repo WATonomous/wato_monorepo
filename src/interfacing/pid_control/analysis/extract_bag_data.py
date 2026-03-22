@@ -403,11 +403,15 @@ def filter_steady_state(
 
     m = np.abs(d_speed_dt) < d_speed_thresh
     mask &= m
-    print(f"      + |d(speed)/dt| < {d_speed_thresh} m/s²:  {np.sum(mask):>8} / {total}")
+    print(
+        f"      + |d(speed)/dt| < {d_speed_thresh} m/s²:  {np.sum(mask):>8} / {total}"
+    )
 
     m = np.abs(d_torque_dt) < d_torque_thresh
     mask &= m
-    print(f"      + |d(torque)/dt| < {d_torque_thresh} /s:   {np.sum(mask):>8} / {total}")
+    print(
+        f"      + |d(torque)/dt| < {d_torque_thresh} /s:   {np.sum(mask):>8} / {total}"
+    )
 
     # --- 3. is_armed filter (skip if data too sparse) ---
     print("  [3] is_armed filter...")
@@ -450,7 +454,9 @@ def filter_steady_state(
         duration = time_s[seg_indices[-1]] - time_s[seg_indices[0]]
         if duration < min_segment_s:
             mask[seg_mask] = False
-    print(f"      + segments >= {min_segment_s:.1f}s:          {np.sum(mask):>8} / {total}")
+    print(
+        f"      + segments >= {min_segment_s:.1f}s:          {np.sum(mask):>8} / {total}"
+    )
 
     # --- 7. Per-bin outlier rejection ---
     print(f"  [7] Outlier rejection ({outlier_sigma} sigma per bin)...")
@@ -505,20 +511,48 @@ def main():
         default=10.0,
         help="Maximum sync gap tolerance in milliseconds (default: 10.0)",
     )
-    parser.add_argument("--d-angle-thresh", type=float, default=0.05,
-                        help="Max |d(angle)/dt| for steady-state (default: 0.05 rad/s)")
-    parser.add_argument("--d-speed-thresh", type=float, default=0.5,
-                        help="Max |d(speed)/dt| for steady-state (default: 0.5 m/s²)")
-    parser.add_argument("--d-torque-thresh", type=float, default=0.3,
-                        help="Max |d(torque)/dt| for steady-state (default: 0.3 /s)")
-    parser.add_argument("--min-speed", type=float, default=0.5,
-                        help="Minimum speed threshold (default: 0.5 m/s)")
-    parser.add_argument("--min-torque", type=float, default=0.005,
-                        help="Minimum |torque| threshold (default: 0.005)")
-    parser.add_argument("--min-segment-s", type=float, default=0.5,
-                        help="Minimum steady-state segment duration (default: 0.5 s)")
-    parser.add_argument("--outlier-sigma", type=float, default=3.0,
-                        help="Outlier rejection sigma (default: 3.0)")
+    parser.add_argument(
+        "--d-angle-thresh",
+        type=float,
+        default=0.05,
+        help="Max |d(angle)/dt| for steady-state (default: 0.05 rad/s)",
+    )
+    parser.add_argument(
+        "--d-speed-thresh",
+        type=float,
+        default=0.5,
+        help="Max |d(speed)/dt| for steady-state (default: 0.5 m/s²)",
+    )
+    parser.add_argument(
+        "--d-torque-thresh",
+        type=float,
+        default=0.3,
+        help="Max |d(torque)/dt| for steady-state (default: 0.3 /s)",
+    )
+    parser.add_argument(
+        "--min-speed",
+        type=float,
+        default=0.5,
+        help="Minimum speed threshold (default: 0.5 m/s)",
+    )
+    parser.add_argument(
+        "--min-torque",
+        type=float,
+        default=0.005,
+        help="Minimum |torque| threshold (default: 0.005)",
+    )
+    parser.add_argument(
+        "--min-segment-s",
+        type=float,
+        default=0.5,
+        help="Minimum steady-state segment duration (default: 0.5 s)",
+    )
+    parser.add_argument(
+        "--outlier-sigma",
+        type=float,
+        default=3.0,
+        help="Outlier rejection sigma (default: 3.0)",
+    )
     args = parser.parse_args()
 
     bag_dir = Path(args.bag_dir).resolve()
