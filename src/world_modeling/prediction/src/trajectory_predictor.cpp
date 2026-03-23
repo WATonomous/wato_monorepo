@@ -1303,9 +1303,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
   hypotheses.push_back(stop_behavior);
 
   RCLCPP_DEBUG(
-    node_->get_logger(),
-    "Generated %zu pedestrian trajectory hypotheses, velocity=%.2f m/s",
-    hypotheses.size(), v);
+    node_->get_logger(), "Generated %zu pedestrian trajectory hypotheses, velocity=%.2f m/s", hypotheses.size(), v);
 
   return hypotheses;
 }
