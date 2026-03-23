@@ -1,12 +1,8 @@
 <library path="eidos_plugins">
-  <class name="eidos::ImuMotionModel"
-         type="eidos::ImuMotionModel"
-         base_class_type="eidos::MotionModelPlugin">
-    <description>IMU-based motion model. Generates ImuFactor constraints between states using preintegrated IMU measurements.</description>
+  <class name="eidos::ImuMotionModel" type="eidos::ImuMotionModel" base_class_type="eidos::MotionModelPlugin">
+    <description>IMU-based high-rate odom filler</description>
   </class>
-  <class name="eidos::HolonomicMotionModel"
-         type="eidos::HolonomicMotionModel"
-         base_class_type="eidos::MotionModelPlugin">
-    <description>Simple holonomic motion model using BetweenFactor with time-scaled noise. For testing without IMU.</description>
+  <class name="eidos::HolonomicMotionModel" type="eidos::HolonomicMotionModel" base_class_type="eidos::MotionModelPlugin">
+    <description>No-op motion model (no IMU)</description>
   </class>
 </library>

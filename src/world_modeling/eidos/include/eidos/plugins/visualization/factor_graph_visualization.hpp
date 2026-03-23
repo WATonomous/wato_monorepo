@@ -8,26 +8,31 @@
 
 namespace eidos {
 
+/**
+ * @brief Publishes factor graph state markers for RViz.
+ *
+ * Renders optimized poses as spheres and factor connections as lines.
+ */
 class FactorGraphVisualization : public VisualizationPlugin {
 public:
   FactorGraphVisualization() = default;
   ~FactorGraphVisualization() override = default;
 
   void onInitialize() override;
-  void activate() override;
-  void deactivate() override;
-  void onOptimizationComplete(
-      const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+
+protected:
+  void onActivate() override;
+  void onDeactivate() override;
+  void render(const gtsam::Values& optimized_values) override;
 
 private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_;
 
-  bool active_ = false;
   std::string map_frame_;
   double state_scale_;
   double line_width_;
   double publish_rate_ = 1.0;
-  std::string mode_ = "full";       // "full" or "windowed"
+  std::string mode_ = "full";
   double window_radius_ = 50.0;
   rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 };

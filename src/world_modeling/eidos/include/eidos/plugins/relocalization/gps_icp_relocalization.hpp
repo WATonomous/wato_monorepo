@@ -13,7 +13,7 @@
 #include <small_gicp/ann/kdtree.hpp>
 
 #include "eidos/plugins/base_relocalization_plugin.hpp"
-#include "eidos/types.hpp"
+#include "eidos/utils/types.hpp"
 #include "eidos/utils/utm.hpp"
 
 namespace eidos {
@@ -60,6 +60,17 @@ private:
   bool has_imu_ = false;
 
   bool active_ = false;
+
+  // base_link ← lidar TF (resolved once)
+  Eigen::Isometry3d T_base_lidar_ = Eigen::Isometry3d::Identity();
+  bool has_lidar_tf_ = false;
+
+  // base_link ← imu TF (resolved once)
+  Eigen::Matrix3d R_base_imu_ = Eigen::Matrix3d::Identity();
+  bool has_imu_tf_ = false;
+
+  std::string base_link_frame_;
+  std::string imu_frame_;
 
   // Parameters
   double gps_candidate_radius_ = 30.0;

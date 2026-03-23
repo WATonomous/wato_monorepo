@@ -9,17 +9,22 @@
 
 #include <gtsam/nonlinear/Values.h>
 
+#include "eidos/utils/atomic_slot.hpp"
+#include "eidos/utils/lock_free_pose.hpp"
+
 namespace eidos {
 
-// Forward declaration
-class SlamCore;
+class MapManager;
 
 /**
  * @brief Base class for read-only visualization plugins.
  *
- * Visualization plugins publish RViz-compatible messages (PointCloud2,
- * MarkerArray, etc.) derived from the current SLAM state. They do not
- * produce factors or modify the pose graph.
+ * Each visualization plugin runs on its own timer and callback group,
+ * reading optimized values from an AtomicSlot on the Estimator (lock-free).
+ * Plugins never block each other — each ticks independently.
+ *
+ * Subclasses implement render() to publish RViz messages.
+ * The base class handles the timer lifecycle.
  */
 class VisualizationPlugin {
 public:
@@ -27,53 +32,70 @@ public:
 
   const std::string& getName() const { return name_; }
 
-  /**
-   * @brief Framework calls this, then calls onInitialize().
-   */
   void initialize(
-      SlamCore* core,
       const std::string& name,
       rclcpp_lifecycle::LifecycleNode::SharedPtr node,
       tf2_ros::Buffer* tf,
-      rclcpp::CallbackGroup::SharedPtr callback_group) {
-    core_ = core;
+      MapManager* map_manager,
+      const AtomicSlot<gtsam::Values>* values_slot,
+      double rate_hz) {
     name_ = name;
     node_ = node;
     tf_ = tf;
-    callback_group_ = callback_group;
+    map_manager_ = map_manager;
+    values_slot_ = values_slot;
+
+    callback_group_ = node_->create_callback_group(
+        rclcpp::CallbackGroupType::MutuallyExclusive);
+    auto period = std::chrono::duration<double>(1.0 / rate_hz);
+    timer_ = node_->create_wall_timer(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+        std::bind(&VisualizationPlugin::tick, this),
+        callback_group_);
+    timer_->cancel();  // starts inactive, activate() enables it
+
     onInitialize();
   }
 
-  /**
-   * @brief Plugin creates its own publishers and declares its params.
-   */
   virtual void onInitialize() = 0;
 
-  /**
-   * @brief Activate the plugin (start publishing).
-   */
-  virtual void activate() = 0;
+  void activate() {
+    timer_->reset();
+    onActivate();
+  }
 
-  /**
-   * @brief Deactivate the plugin (stop publishing).
-   */
-  virtual void deactivate() = 0;
-
-  /**
-   * @brief Called after factor plugins' onOptimizationComplete().
-   * @param optimized_values All optimized values from ISAM2.
-   * @param loop_closure_detected Whether a loop closure was detected this cycle.
-   */
-  virtual void onOptimizationComplete(
-      const gtsam::Values& optimized_values,
-      bool loop_closure_detected) = 0;
+  void deactivate() {
+    timer_->cancel();
+    onDeactivate();
+  }
 
 protected:
-  SlamCore* core_ = nullptr;
+  /// Subclass lifecycle hooks.
+  virtual void onActivate() {}
+  virtual void onDeactivate() {}
+
+  /// Subclass implements this to publish visualization messages.
+  /// Called at the configured rate with the latest optimized values.
+  /// Only called when new values are available.
+  virtual void render(const gtsam::Values& optimized_values) = 0;
+
   std::string name_;
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
   tf2_ros::Buffer* tf_ = nullptr;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
+  MapManager* map_manager_ = nullptr;
+
+private:
+  void tick() {
+    auto values = values_slot_->load();
+    // Render even without optimized values (localization mode has no ISAM2).
+    // Pass empty Values if slot is null — render() uses MapManager poses.
+    static const gtsam::Values empty_values;
+    render(values ? *values : empty_values);
+  }
+
+  const AtomicSlot<gtsam::Values>* values_slot_ = nullptr;
+  rclcpp::TimerBase::SharedPtr timer_;
 };
 
 }  // namespace eidos

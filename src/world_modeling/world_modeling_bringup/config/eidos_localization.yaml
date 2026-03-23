@@ -6,23 +6,17 @@
       odometry: "odom"
       map: "map"
 
-    # ---- TF broadcasting ----
+    # ---- TransformManager ----
     transforms:
-      map_to_odom:
-        publish: true
-
-    # ---- Mode ----
-    mode: "localization"
+      odom_source: "liso_factor"   # EKF fuses LISO odom + motion model for smooth odom→base
+      map_source: ""               # map→odom is fixed from relocalization
+      rate: 500.0
 
     # ---- Core ----
     slam_rate: 10.0
     relocalization_timeout: 30.0
 
-    # ISAM2 is unused in localization mode, but must be declared
     isam2:
-      update_iterations: 2
-      correction_iterations: 5
-      loop_closure_iterations: 5
       relinearize_threshold: 0.01
       relinearize_skip: 1
 
@@ -30,8 +24,8 @@
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
     map:
-      load_directory: "/tmp/eidos_maps/"    # required: prior map to localize against
-      save_directory: ""
+      load_path: "/opt/watonomous/maps/wrestrc.map"
+      save_path: ""
 
     # ---- Core topics / services ----
     topics:
@@ -44,12 +38,10 @@
     odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]
 
     # ---- Plugin lists ----
-    # LISO for scan-to-submap matching, GPS for utm_to_map offset (no factors injected).
     factor_plugins:
       - "gps_factor"
       - "liso_factor"
 
-    # GPS+ICP relocalization finds the initial pose in the prior map
     relocalization_plugins:
       - "gps_icp_relocalization"
 
@@ -57,11 +49,10 @@
       - "keyframe_map_visualization"
 
     # ==========================================================================
-    # Motion Model (needed for warmup phase, unused during localization tracking)
+    # Motion Model (pure odom filler)
     # ==========================================================================
     motion_model:
       plugin: "eidos::ImuMotionModel"
-      publish_tf: false
 
       imu_topic: "/novatel/oem7/imu/data"
       odom_topic: "motion_model/odometry/imu_incremental"
@@ -69,14 +60,11 @@
 
       acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]
       gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]
-      bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]
       gravity: 0.0
       integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
       default_imu_dt: 0.002
 
       initialization:
-        prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]
-        prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6]
         stationary_acc_threshold: 0.05
         stationary_gyr_threshold: 0.005
         stationary_samples: 200
@@ -90,7 +78,6 @@
     # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
-      publish_tf: true
       add_factors: false
 
       gps_topic: "/novatel/oem7/fix"
@@ -107,8 +94,8 @@
     # ==========================================================================
     liso_factor:
       plugin: "eidos::LisoFactor"
-      publish_tf: true
-      sphere_scale: 1.0
+      add_factors: false
+      submap_source: "prior_map"
 
       lidar_topic: "/lidar_cc/velodyne_points"
       odom_topic: "liso/odometry"
@@ -125,8 +112,8 @@
       scan_ds_resolution: 0.5
       submap_ds_resolution: 0.5
       num_neighbors: 10
-      submap_radius: 30.0               # larger radius — prior map is dense, more context helps
-      max_submap_states: 15              # more states — prior map keyframes are already built
+      submap_radius: 30.0
+      max_submap_states: 15
 
       max_correspondence_distance: 2.0
       max_iterations: 20
@@ -140,7 +127,7 @@
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
     # ==========================================================================
-    # GPS + ICP Relocalization (initial pose estimation against prior map)
+    # GPS + ICP Relocalization
     # ==========================================================================
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"
@@ -150,9 +137,10 @@
       imu_topic: "/novatel/oem7/imu/data"
 
       lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
 
       gps_candidate_radius: 30.0
-      pointcloud_from: "liso_factor"
+      pointcloud_from: "liso_factor/cloud"
       gps_from: "gps_factor"
 
       scan_ds_resolution: 0.5
@@ -165,18 +153,18 @@
       fitness_threshold: 0.3
 
     # ==========================================================================
-    # Keyframe Map Visualization (shows prior map)
+    # Keyframe Map Visualization
     # ==========================================================================
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"
-      pointcloud_from: "liso_factor"
+      pointcloud_from: "liso_factor/cloud"
       voxel_leaf_size: 0.4
       publish_rate: 1.0
-      mode: "windowed"                   # windowed — only show map near current pose
+      mode: "accumulate"
 
       accumulate:
-        skip_factor: 5
+        skip_factor: 20
 
       windowed:
         radius: 50.0

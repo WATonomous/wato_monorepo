@@ -35,7 +35,7 @@ void PluginRegistry::loadFactorPlugins(
     MapManager* map_manager,
     const LockFreePose* estimator_pose, const std::atomic<SlamState>* state) {
   factor_loader_ = std::make_unique<pluginlib::ClassLoader<FactorPlugin>>(
-      "eidos_v2", "eidos::FactorPlugin");
+      "eidos", "eidos::FactorPlugin");
 
   std::vector<std::string> plugin_names;
   node->get_parameter("factor_plugins", plugin_names);
@@ -63,7 +63,7 @@ void PluginRegistry::loadMotionModel(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer* tf,
     const std::atomic<SlamState>* state) {
   motion_model_loader_ = std::make_unique<pluginlib::ClassLoader<MotionModelPlugin>>(
-      "eidos_v2", "eidos::MotionModelPlugin");
+      "eidos", "eidos::MotionModelPlugin");
 
   std::string plugin_type;
   node->get_parameter("motion_model.plugin", plugin_type);
@@ -84,7 +84,7 @@ void PluginRegistry::loadRelocalizationPlugins(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer* tf,
     MapManager* map_manager) {
   reloc_loader_ = std::make_unique<pluginlib::ClassLoader<RelocalizationPlugin>>(
-      "eidos_v2", "eidos::RelocalizationPlugin");
+      "eidos", "eidos::RelocalizationPlugin");
 
   std::vector<std::string> plugin_names;
   node->get_parameter("relocalization_plugins", plugin_names);
@@ -110,7 +110,7 @@ void PluginRegistry::loadVisualizationPlugins(
     MapManager* map_manager,
     const AtomicSlot<gtsam::Values>* estimator_values) {
   vis_loader_ = std::make_unique<pluginlib::ClassLoader<VisualizationPlugin>>(
-      "eidos_v2", "eidos::VisualizationPlugin");
+      "eidos", "eidos::VisualizationPlugin");
 
   std::vector<std::string> plugin_names;
   node->get_parameter("visualization_plugins", plugin_names);

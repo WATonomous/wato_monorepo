@@ -1,17 +1,11 @@
 <library path="eidos_plugins">
-  <class name="eidos::GpsFactor"
-         type="eidos::GpsFactor"
-         base_class_type="eidos::FactorPlugin">
-    <description>GPS factor. Provides BiasedGPSFactor constraints from GNSS data.</description>
+  <class name="eidos::LisoFactor" type="eidos::LisoFactor" base_class_type="eidos::FactorPlugin">
+    <description>LiDAR-Inertial Submap Odometry (GICP scan-to-submap matching)</description>
   </class>
-  <class name="eidos::EuclideanDistanceLoopClosureFactor"
-         type="eidos::EuclideanDistanceLoopClosureFactor"
-         base_class_type="eidos::FactorPlugin">
-    <description>Euclidean distance-based loop closure. Detects loops via KD-tree radius search and validates with ICP alignment.</description>
+  <class name="eidos::GpsFactor" type="eidos::GpsFactor" base_class_type="eidos::FactorPlugin">
+    <description>GPS unary factor (latching, UTM-to-map)</description>
   </class>
-  <class name="eidos::LisoFactor"
-         type="eidos::LisoFactor"
-         base_class_type="eidos::FactorPlugin">
-    <description>LiDAR-Inertial Submap Odometry. GICP scan-to-submap matching with graph BFS submap assembly.</description>
+  <class name="eidos::EuclideanDistanceLoopClosureFactor" type="eidos::EuclideanDistanceLoopClosureFactor" base_class_type="eidos::FactorPlugin">
+    <description>Euclidean distance loop closure (GICP between keyframes)</description>
   </class>
 </library>

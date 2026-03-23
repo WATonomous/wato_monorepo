@@ -112,30 +112,6 @@ void TransformManager::tick() {
     }
   }
 
-  // Diagnostic: log TF state every 500 ticks (~1s at 500Hz)
-  static int tm_tick = 0;
-  if (++tm_tick % 500 == 0) {
-    RCLCPP_INFO(node_->get_logger(),
-        "\033[33m[TM]\033[0m "
-        "odom->base: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
-        "map->odom: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
-        "map_src=%s pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
-        "ekf=%d",
-        cached_odom_to_base_.translation().x(),
-        cached_odom_to_base_.translation().y(),
-        cached_odom_to_base_.translation().z(),
-        cached_odom_to_base_.rotation().yaw() * 180.0 / M_PI,
-        cached_map_to_odom_.translation().x(),
-        cached_map_to_odom_.translation().y(),
-        cached_map_to_odom_.translation().z(),
-        cached_map_to_odom_.rotation().yaw() * 180.0 / M_PI,
-        map_pose ? "Y" : "N",
-        map_pose ? map_pose->translation().x() : 0.0,
-        map_pose ? map_pose->translation().y() : 0.0,
-        map_pose ? map_pose->translation().z() : 0.0,
-        map_pose ? map_pose->rotation().yaw() * 180.0 / M_PI : 0.0,
-        odom_ekf_.initialized() ? 1 : 0);
-  }
   broadcastTf(now, map_frame_, odom_frame_, cached_map_to_odom_);
 
   // Write current map-frame robot pose (for viz, publishing, etc.)

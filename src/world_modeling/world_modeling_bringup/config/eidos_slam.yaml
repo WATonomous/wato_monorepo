@@ -6,17 +6,21 @@
       odometry: "odom"
       map: "map"
 
-    # ---- TF broadcasting ----
+    # ---- TransformManager ----
     transforms:
-      map_to_odom:
-        publish: true
+      odom_source: "liso_factor"   # fuse LISO odom with motion model via EKF
+      map_source: "slam_core"      # Estimator optimized pose (graph-corrected)
+      rate: 500.0                  # TransformManager timer rate (Hz)
+      fusion:
+        # EKF noise params [roll, pitch, yaw, x, y, z]
+        # process_noise: per-tick MM prediction uncertainty. Higher = trust MM less.
+        process_noise: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]
+        # measurement_noise: LISO odom correction uncertainty. Lower = trust LISO more.
+        measurement_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-2, 1.0e-2]
 
-    # ---- Mode ----
-    mode: "slam"
-
-    # ---- SLAM core ----
-    slam_rate: 10.0                    # Hz, main SLAM loop frequency
-    relocalization_timeout: 30.0       # seconds without relocalization before fallback to fresh SLAM
+    # ---- Core ----
+    slam_rate: 10.0
+    relocalization_timeout: 30.0
 
     # ---- ISAM2 optimizer ----
     isam2:
@@ -30,8 +34,8 @@
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
     map:
-      load_directory: ""
-      save_directory: "/tmp/eidos_maps_temp/"
+      load_path: ""
+      save_path: "/opt/watonomous/maps/wrestrc.map"
 
     # ---- Core topics / services ----
     topics:
@@ -57,11 +61,10 @@
       - "factor_graph_visualization"
 
     # ==========================================================================
-    # Motion Model
+    # Motion Model (pure odom filler — no factor graph involvement)
     # ==========================================================================
     motion_model:
       plugin: "eidos::ImuMotionModel"
-      publish_tf: false
 
       imu_topic: "/novatel/oem7/imu/data"
       odom_topic: "motion_model/odometry/imu_incremental"
@@ -69,14 +72,11 @@
 
       acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]
       gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]
-      bias_walk_cov: [9.6e-7, 9.6e-7, 9.6e-7, 2.9e-10, 2.9e-10, 2.9e-10]
       gravity: 0.0
       integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
       default_imu_dt: 0.002
 
       initialization:
-        prior_vel_cov: [1.0e-16, 1.0e-16, 1.0e-16]
-        prior_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6, 1.0e-6]
         stationary_acc_threshold: 0.05
         stationary_gyr_threshold: 0.005
         stationary_samples: 200
@@ -90,7 +90,6 @@
     # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
-      publish_tf: true
 
       gps_topic: "/novatel/oem7/fix"
       imu_topic: "/novatel/oem7/imu/data"
@@ -98,17 +97,17 @@
       add_factors: true
       max_cov: 5.0
       use_elevation: true
-      min_radius: 200.0
+      min_radius: 150.0
       pose_cov_threshold: 1.0
       gps_cov: [2.0, 2.0, 4.0]
 
     # ==========================================================================
-    # LISO Factor (LiDAR-Inertial Submap Odometry)
+    # LISO Factor
     # ==========================================================================
     liso_factor:
       plugin: "eidos::LisoFactor"
-      publish_tf: true
-      sphere_scale: 1.0
+      add_factors: true
+      submap_source: "recent_keyframes"
 
       lidar_topic: "/lidar_cc/velodyne_points"
       odom_topic: "liso/odometry"
@@ -159,7 +158,7 @@
       num_neighbors: 10
       loop_closure_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
-      pointcloud_from: "liso_factor"
+      gicp_pointcloud_from: "liso_factor/gicp_cloud"
 
     # ==========================================================================
     # GPS + ICP Relocalization
@@ -172,9 +171,11 @@
       imu_topic: "/novatel/oem7/imu/data"
 
       lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
 
       gps_candidate_radius: 30.0
-      pointcloud_from: "liso_factor"
+      pointcloud_from: "liso_factor/cloud"
+      gps_from: "gps_factor"
 
       scan_ds_resolution: 0.5
       submap_leaf_size: 0.4
@@ -191,13 +192,13 @@
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"
-      pointcloud_from: "liso_factor"
+      pointcloud_from: "liso_factor/cloud"
       voxel_leaf_size: 0.4
       publish_rate: 1.0
       mode: "accumulate"
 
       accumulate:
-        skip_factor: 5
+        skip_factor: 20
 
       windowed:
         radius: 50.0

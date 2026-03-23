@@ -14,7 +14,7 @@ namespace eidos::formats {
  * Maps format names (e.g. "pcl_pcd_binary") to Format instances.
  * Used by MapManager for persistence and by eidos_tools for export.
  *
- * Both eidos_v2 and eidos_tools link the same registry.
+ * Both eidos and eidos_tools link the same registry.
  */
 const std::unordered_map<std::string, std::unique_ptr<Format>>& registry();
 

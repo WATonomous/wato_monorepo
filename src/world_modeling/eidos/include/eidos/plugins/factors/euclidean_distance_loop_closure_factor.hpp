@@ -13,7 +13,7 @@
 #include <small_gicp/ann/kdtree.hpp>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
-#include "eidos/types.hpp"
+#include "eidos/utils/types.hpp"
 
 namespace eidos {
 
@@ -22,7 +22,7 @@ namespace eidos {
  *
  * Latching plugin: triggered when a keyframe-producing plugin creates a
  * new state.  Heavy GICP runs on a background thread; result is delivered
- * on the next latchFactors() call so it always lands in a cycle with a
+ * on the next latchFactor() call so it always lands in a cycle with a
  * new state (ensuring last_optimized_pose_ / map->odom update).
  *
  * Submaps are assembled in body frame of the center keyframe, and the
@@ -38,14 +38,8 @@ public:
   void onInitialize() override;
   void activate() override;
   void deactivate() override;
-  void reset() override;
-
-  // Not a state-producing plugin
-  std::optional<gtsam::Pose3> processFrame(double timestamp) override;
-  StampedFactorResult getFactors(gtsam::Key key) override;
-
-  // Latching: delivers pending results + dispatches new GICP searches
-  StampedFactorResult latchFactors(gtsam::Key key, double timestamp) override;
+  /// Latching plugin: delivers pending loop closure results + dispatches new GICP searches.
+  StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
 private:
   // BFS over adjacency graph, bounded by radius and max states
@@ -93,7 +87,8 @@ private:
   int num_threads_ = 4;
   int num_neighbors_ = 10;
   std::vector<double> loop_closure_cov_ = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
-  std::string pointcloud_from_;
+  std::string pointcloud_from_;           ///< PCL cloud data key (fallback)
+  std::string gicp_pointcloud_from_;     ///< small_gicp cloud data key (preferred, optional)
 };
 
 }  // namespace eidos

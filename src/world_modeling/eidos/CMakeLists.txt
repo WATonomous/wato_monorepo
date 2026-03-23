@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(eidos)
 
-# C++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -26,18 +25,23 @@ find_package(pluginlib REQUIRED)
 
 find_package(PCL REQUIRED)
 find_package(GTSAM REQUIRED)
-find_package(GTSAM_UNSTABLE REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(SQLite3 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(small_gicp_vendor REQUIRED)
 find_package(small_gicp REQUIRED)
 
 # ---- Core library ----
 add_library(eidos_core SHARED
-  src/slam_core.cpp
+  src/eidos_node.cpp
+  src/estimator.cpp
+  src/transform_manager.cpp
   src/pose_graph.cpp
   src/map_manager.cpp
-  src/graph_serialization.cpp
+  src/plugin_registry.cpp
+  src/init_sequencer.cpp
+  src/pose_ekf.cpp
+  src/format_registry.cpp
 )
 target_include_directories(eidos_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -60,15 +64,16 @@ target_link_libraries(eidos_core PUBLIC
   pluginlib::pluginlib
   ${PCL_LIBRARIES}
   gtsam
-  gtsam_unstable
   OpenMP::OpenMP_CXX
+  SQLite::SQLite3
+  small_gicp::small_gicp
 )
 
 # ---- Plugin library ----
 add_library(eidos_plugins SHARED
+  src/plugins/factors/liso_factor.cpp
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
-  src/plugins/factors/liso_factor.cpp
   src/plugins/motion_models/imu_motion_model.cpp
   src/plugins/motion_models/holonomic_motion_model.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
@@ -91,14 +96,7 @@ target_link_libraries(eidos_plugins PUBLIC
 
 # ---- Node executable ----
 add_executable(eidos_node src/main.cpp)
-target_include_directories(eidos_node PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  ${PCL_INCLUDE_DIRS}
-  ${GTSAM_INCLUDE_DIR}
-)
-target_link_libraries(eidos_node PRIVATE
-  eidos_core
-)
+target_link_libraries(eidos_node PRIVATE eidos_core)
 
 # ---- Plugin descriptions ----
 pluginlib_export_plugin_description_file(eidos factor_plugins.xml)
@@ -121,31 +119,15 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY config launch
+install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(FILES factor_plugins.xml motion_model_plugins.xml relocalization_plugins.xml visualization_plugins.xml
+install(FILES
+  factor_plugins.xml motion_model_plugins.xml
+  relocalization_plugins.xml visualization_plugins.xml
   DESTINATION share/${PROJECT_NAME}
 )
-
-# ---- Tests ----
-if(BUILD_TESTING)
-  find_package(wato_test REQUIRED)
-
-  add_wato_test(test_pose_graph
-    test/test_pose_graph.cpp
-    LIBRARIES
-      eidos_core
-  )
-
-  add_wato_test(test_map_manager
-    test/test_map_manager.cpp
-    LIBRARIES
-      eidos_core
-  )
-
-endif()
 
 # ---- Export ----
 ament_export_include_directories(include)

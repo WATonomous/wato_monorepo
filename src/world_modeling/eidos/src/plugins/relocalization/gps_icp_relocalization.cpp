@@ -1,15 +1,17 @@
 #include "eidos/plugins/relocalization/gps_icp_relocalization.hpp"
+#include "eidos/utils/conversions.hpp"
 
 #include <array>
 #include <cmath>
 
 #include <pcl/filters/voxel_grid.h>
+#include <tf2_ros/buffer.h>
 
 #include <small_gicp/registration/registration_helper.hpp>
 
 #include <pluginlib/class_list_macros.hpp>
 
-#include "eidos/slam_core.hpp"
+#include "eidos/core/map_manager.hpp"
 #include "eidos/utils/small_gicp_ros.hpp"
 
 namespace eidos {
@@ -24,6 +26,7 @@ void GpsIcpRelocalization::onInitialize() {
   node_->declare_parameter(prefix + ".lidar_topic", "velodyne_points");
   node_->declare_parameter(prefix + ".imu_topic", "/imu/data");
   node_->declare_parameter(prefix + ".lidar_frame", "velodyne");
+  node_->declare_parameter(prefix + ".imu_frame", "imu_link");
   node_->declare_parameter(prefix + ".gps_candidate_radius", gps_candidate_radius_);
   node_->declare_parameter(prefix + ".fitness_threshold", fitness_threshold_);
   node_->declare_parameter(prefix + ".max_icp_iterations", max_iterations_);
@@ -40,6 +43,7 @@ void GpsIcpRelocalization::onInitialize() {
   node_->get_parameter(prefix + ".lidar_topic", lidar_topic);
   node_->get_parameter(prefix + ".imu_topic", imu_topic);
   node_->get_parameter(prefix + ".lidar_frame", lidar_frame_);
+  node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".gps_candidate_radius", gps_candidate_radius_);
   node_->get_parameter(prefix + ".fitness_threshold", fitness_threshold_);
   node_->get_parameter(prefix + ".max_icp_iterations", max_iterations_);
@@ -50,6 +54,7 @@ void GpsIcpRelocalization::onInitialize() {
   node_->get_parameter(prefix + ".num_neighbors", num_neighbors_);
   node_->get_parameter(prefix + ".pointcloud_from", pointcloud_from_);
   node_->get_parameter(prefix + ".gps_from", gps_from_);
+  node_->get_parameter("frames.base_link", base_link_frame_);
 
   rclcpp::SubscriptionOptions sub_opts;
   sub_opts.callback_group = callback_group_;
@@ -95,9 +100,29 @@ void GpsIcpRelocalization::gpsCallback(
 
 void GpsIcpRelocalization::lidarCallback(
     const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-  // Convert to small_gicp and downsample
+  // Resolve base_link ← lidar TF (once)
+  if (!has_lidar_tf_) {
+    try {
+      auto tf_msg = tf_->lookupTransform(base_link_frame_, lidar_frame_, tf2::TimePointZero);
+      const auto& t = tf_msg.transform.translation;
+      const auto& r = tf_msg.transform.rotation;
+      T_base_lidar_ = Eigen::Isometry3d::Identity();
+      T_base_lidar_.translation() = Eigen::Vector3d(t.x, t.y, t.z);
+      T_base_lidar_.linear() = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
+      has_lidar_tf_ = true;
+    } catch (const tf2::TransformException&) {
+      return;
+    }
+  }
+
+  // Convert to small_gicp and transform to body frame
   auto raw = fromRosMsg(*msg);
   if (!raw || raw->empty()) return;
+
+  for (size_t i = 0; i < raw->size(); i++) {
+    Eigen::Vector4d& pt = raw->point(i);
+    pt.head<3>() = T_base_lidar_ * pt.head<3>();
+  }
 
   auto [ds, tree] = small_gicp::preprocess_points(
       *raw, scan_ds_resolution_, num_neighbors_, num_threads_);
@@ -108,18 +133,33 @@ void GpsIcpRelocalization::lidarCallback(
 
 void GpsIcpRelocalization::imuCallback(
     const sensor_msgs::msg::Imu::SharedPtr msg) {
-  // Extract roll/pitch from IMU orientation (gravity alignment)
-  auto& q = msg->orientation;
-  // Convert quaternion to roll/pitch (ignore yaw — GPS doesn't give heading)
-  double sinr_cosp = 2.0 * (q.w * q.x + q.y * q.z);
-  double cosr_cosp = 1.0 - 2.0 * (q.x * q.x + q.y * q.y);
-  double sinp = 2.0 * (q.w * q.y - q.z * q.x);
+  // Resolve base_link ← imu TF (once, rotation only)
+  if (!has_imu_tf_) {
+    try {
+      auto tf_msg = tf_->lookupTransform(base_link_frame_, imu_frame_, tf2::TimePointZero);
+      const auto& r = tf_msg.transform.rotation;
+      R_base_imu_ = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
+      has_imu_tf_ = true;
+    } catch (const tf2::TransformException&) {
+      return;
+    }
+  }
+
+  // IMU quaternion gives R_world_imu. Transform to body frame:
+  // R_world_base = R_world_imu * R_imu_base = R_world_imu * inv(R_base_imu)
+  Eigen::Quaterniond q_imu(msg->orientation.w, msg->orientation.x,
+                            msg->orientation.y, msg->orientation.z);
+  if (q_imu.squaredNorm() < 0.5) return;
+  q_imu.normalize();
+
+  Eigen::Matrix3d R_world_base = q_imu.toRotationMatrix() * R_base_imu_.transpose();
+
+  // Extract roll/pitch from body-frame rotation (ignore yaw — GPS doesn't give heading)
+  gtsam::Rot3 body_rot(R_world_base);
 
   std::lock_guard<std::mutex> lock(imu_lock_);
-  latest_imu_roll_ = std::atan2(sinr_cosp, cosr_cosp);
-  latest_imu_pitch_ = (std::abs(sinp) >= 1.0)
-      ? std::copysign(M_PI / 2.0, sinp)
-      : std::asin(sinp);
+  latest_imu_roll_ = body_rot.roll();
+  latest_imu_pitch_ = body_rot.pitch();
   has_imu_ = true;
 }
 
@@ -130,7 +170,7 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
     double /*timestamp*/) {
   if (!active_) return std::nullopt;
 
-  const auto& map_manager = core_->getMapManager();
+  const auto& map_manager = (*map_manager_);
   if (!map_manager.hasPriorMap()) {
     RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
         "[%s] no prior map loaded", name_.c_str());
@@ -169,14 +209,14 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
   }
 
   // 3. Convert GPS to map frame using saved utm_to_map offset
-  auto global_offset = map_manager.getGlobalData(gps_from_ + "/utm_to_map");
-  if (!global_offset.has_value()) {
+  auto offset_opt = map_manager.retrieveGlobal<std::array<double, 5>>(gps_from_ + "/utm_to_map");
+  if (!offset_opt.has_value()) {
     RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 5000,
         "[%s] no utm_to_map offset in prior map", name_.c_str());
     return std::nullopt;
   }
 
-  auto offset_arr = std::any_cast<std::array<double, 5>>(global_offset.value());
+  auto offset_arr = *offset_opt;
   Eigen::Vector3d utm_bias(offset_arr[0], offset_arr[1], offset_arr[2]);
   double saved_yaw = offset_arr[4];
   double cy = std::cos(-saved_yaw);
@@ -196,7 +236,7 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
   auto key_poses_6d = map_manager.getKeyPoses6D();
   if (key_poses_3d->empty()) return std::nullopt;
 
-  auto kdtree = core_->getMapManager().getKdTree();
+  auto kdtree = (*map_manager_).getKdTree();
   if (!kdtree) return std::nullopt;
 
   PointType search_point;
@@ -228,21 +268,16 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
     gtsam::Key idx_key = map_manager.getKeyFromCloudIndex(idx);
     if (idx_key == 0) continue;
 
-    // Try gicp_cloud first, fall back to PCL cloud
-    auto gicp_data = map_manager.getKeyframeData(idx_key, pointcloud_from_ + "/gicp_cloud");
-    if (gicp_data.has_value()) {
-      try {
-        auto cloud = std::any_cast<small_gicp::PointCloud::Ptr>(gicp_data.value());
-        if (cloud && !cloud->empty()) {
-          Eigen::Affine3f world_T = poseTypeToAffine3f(key_poses_6d->points[idx]);
-          Eigen::Isometry3d T;
-          T.matrix() = world_T.matrix().cast<double>();
-          for (size_t i = 0; i < cloud->size(); i++) {
-            Eigen::Vector3d p = T * cloud->point(i).head<3>();
-            submap_merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
-          }
-        }
-      } catch (const std::bad_any_cast&) {}
+    auto cloud = map_manager.retrieve<pcl::PointCloud<PointType>::Ptr>(idx_key, pointcloud_from_);
+    if (!cloud || (*cloud)->empty()) continue;
+
+    Eigen::Affine3f world_T = poseTypeToAffine3f(key_poses_6d->points[idx]);
+    Eigen::Isometry3d T;
+    T.matrix() = world_T.matrix().cast<double>();
+    for (size_t i = 0; i < (*cloud)->size(); i++) {
+      Eigen::Vector3d p = T * Eigen::Vector3d(
+          (*cloud)->points[i].x, (*cloud)->points[i].y, (*cloud)->points[i].z);
+      submap_merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
     }
   }
 
@@ -326,7 +361,7 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(
   double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
   std::array<double, 5> refined_global = {
       refined_bias.x(), refined_bias.y(), refined_bias.z(), zone_encoded, saved_yaw};
-  core_->getMapManager().setGlobalData("gps_factor/utm_to_map", refined_global);
+  map_manager_->storeGlobal("gps_factor/utm_to_map", refined_global);
 
   RelocalizationResult reloc_result;
   reloc_result.pose = relocalized_pose;
