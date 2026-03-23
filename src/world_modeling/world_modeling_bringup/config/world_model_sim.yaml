@@ -18,8 +18,13 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/simulation_map/lanelet/Town10HD.osm"
-    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
+    osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
+    projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
+
+    # the origin of the osm map in lat/lon for utm projector only
+    # TODO (wato): have a dictionary of origins for different maps
+    origin_lat: 43.43663210811 # origin of test_track_utm.osm
+    origin_lon: -80.5788350291
 
     # Frames
     map_frame: "map"
@@ -43,6 +48,7 @@
     # Map visualization
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 50.0
+    map_viz_mode: "all" # "all" to viz all markers or "nearby" to viz markers within a radius of the ego
 
     # World objects enriched
     world_objects_enriched_publish_rate_hz: 20.0
@@ -129,7 +135,6 @@
     # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.2
     layers.objects.bbox_cost_decay: 0.3
-    layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
     layers.objects.max_centroid_height_m: 5.0
 
@@ -209,12 +214,13 @@
 # World Object Marker Nodes
 # =============================================================================
 
-# Pre-enrichment (subscribes to world_object_seeds from simple_prediction)
+# Pre-enrichment (subscribes to world_object_seeds from prediction)
 /**/world_objects_markers_seed_node:
   ros__parameters:
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.25
@@ -245,6 +251,7 @@
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.25

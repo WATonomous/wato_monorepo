@@ -5,7 +5,8 @@ code_server_config/*/start_code_server.sh
 *.swp
 .env
 .vscode/
-.claude/
+.claude/*
+!.claude/CLAUDE.md
 ssh_config/
 .ruff_cache/
 

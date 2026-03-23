@@ -107,19 +107,32 @@ else
   ALL_COMPOSE_FILES=("${DEFAULT_ALL_COMPOSE_FILES[@]}")
 fi
 
-# If build, pull base images first to ensure they're tagged locally
+# If build, pull base images for active modules to ensure they're tagged locally
 if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
-  echo "Pulling base images..."
-  base_images=$(grep -h "^ARG BASE_IMAGE=" docker/*.Dockerfile 2>/dev/null | \
-                sed 's/ARG BASE_IMAGE=//' | \
-                sort -u)
+  echo "Pulling base images for active modules..."
 
-  if [[ -n "$base_images" ]]; then
-    while IFS= read -r base_image; do
-      echo "  Pulling $base_image..."
-      docker pull "$base_image" 2>/dev/null || \
-        echo "    (Skipped - using cached version or offline)"
-    done <<< "$base_images"
+  # Derive Dockerfiles from active module profiles
+  declare -a active_dockerfiles=()
+  for p in "${PRE_PROFILES[@]}"; do
+    module_name="${p%_pre}"
+    dockerfile="docker/${module_name}.Dockerfile"
+    if [[ -f "$dockerfile" ]]; then
+      active_dockerfiles+=("$dockerfile")
+    fi
+  done
+
+  if [[ ${#active_dockerfiles[@]} -gt 0 ]]; then
+    base_images=$(grep -h "^ARG BASE_IMAGE=" "${active_dockerfiles[@]}" 2>/dev/null | \
+                  sed 's/ARG BASE_IMAGE=//' | \
+                  sort -u)
+
+    if [[ -n "$base_images" ]]; then
+      while IFS= read -r base_image; do
+        echo "  Pulling $base_image..."
+        docker pull "$base_image" 2>/dev/null || \
+          echo "    (Skipped - using cached version or offline)"
+      done <<< "$base_images"
+    fi
   fi
 fi
 

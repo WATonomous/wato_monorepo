@@ -32,6 +32,7 @@
 
 // Services
 #include "world_model/interfaces/services/get_area_occupancy_service.hpp"
+#include "world_model/interfaces/services/get_lanelet_ahead_service.hpp"
 #include "world_model/interfaces/services/get_objects_by_lanelet_service.hpp"
 #include "world_model/interfaces/services/get_world_objects_enriched_service.hpp"
 #include "world_model/interfaces/services/reg_elem_service.hpp"
@@ -50,6 +51,8 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<std::string>("base_frame", "base_footprint");
   this->declare_parameter<std::string>("utm_frame", "utm");
   this->declare_parameter<std::string>("projector_type", "utm");
+  this->declare_parameter<double>("origin_lat", 0.0);
+  this->declare_parameter<double>("origin_lon", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -64,6 +67,8 @@ WorldModelNode::CallbackReturn WorldModelNode::on_configure(const rclcpp_lifecyc
   base_frame_ = this->get_parameter("base_frame").as_string();
   utm_frame_ = this->get_parameter("utm_frame").as_string();
   projector_type_ = this->get_parameter("projector_type").as_string();
+  origin_lat_ = this->get_parameter("origin_lat").as_double();
+  origin_lon_ = this->get_parameter("origin_lon").as_double();
 
   // Initialize TF
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -111,6 +116,8 @@ void WorldModelNode::createInterfaces()
 
   interfaces_.push_back(
     std::make_unique<GetAreaOccupancyService>(this, world_state_.get(), tf_buffer_.get(), lanelet_handler_.get()));
+
+  interfaces_.push_back(std::make_unique<GetLaneletAheadService>(this, lanelet_handler_.get()));
 
   // Single inbound subscriber
   writer_ = std::make_unique<WorldModelWriter>(this, world_state_.get(), lanelet_handler_.get(), tf_buffer_.get());
@@ -245,7 +252,7 @@ void WorldModelNode::tryLoadMap()
 
   RCLCPP_INFO(
     this->get_logger(), "Loading map from: %s (projector: %s)", osm_map_path_.c_str(), projector_type_.c_str());
-  if (lanelet_handler_->loadMap(osm_map_path_, utm_origin_x, utm_origin_y, projector_type_)) {
+  if (lanelet_handler_->loadMap(osm_map_path_, utm_origin_x, utm_origin_y, origin_lat_, origin_lon_, projector_type_)) {
     RCLCPP_INFO(this->get_logger(), "Map loaded successfully");
     map_init_timer_->cancel();
   } else {

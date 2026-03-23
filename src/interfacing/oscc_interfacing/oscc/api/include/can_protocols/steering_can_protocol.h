@@ -161,7 +161,9 @@ typedef struct
 
   uint8_t dtcs; /*!< Bitfield of DTCs present in the module. */
 
-  uint8_t reserved[3]; /*!< Reserved. */
+  int16_t torque; /*!< Normalized steering torque: -32767 to 32767. */
+
+  uint8_t reserved[1]; /*!< Reserved. */
 } oscc_steering_report_s;
 
 #pragma pack(pop)

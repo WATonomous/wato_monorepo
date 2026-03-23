@@ -1,0 +1,48 @@
+vel_driven_feedforward_pid_node:
+  ros__parameters:
+    update_rate: 20.0
+
+    steering:
+      output_clamp_max: 1.0   # Total steering command limit (PID + FF combined)
+      output_clamp_min: -1.0
+      d_on_measurement: 0.2   # D-on-measurement gain (set control_toolbox d to 0)
+
+      pid:
+        p: 4.0
+        i: 0.2
+        d: 0.0
+        i_clamp_max: 1.0
+        i_clamp_min: -1.0
+        u_clamp_max: 1.0
+        u_clamp_min: -1.0
+        saturation: true
+        antiwindup: true
+        antiwindup_strategy: "conditional_integration"
+
+      # T_ff = (c0 + c1*v + c2*v^2) * steering_setpoint + friction_offset * sign(steering_setpoint)
+      # Model B symmetric fit (R²=0.845, 63182 samples)
+      feedforward:
+        # coefficients: [-0.137961, 0.097721, -0.002266]  # baseline (100%)
+        # friction_offset: 0.049855                      # baseline (100%)
+        coefficients: [-0.220738, 0.156354, -0.003626]  # 160%
+        friction_offset: 0.079768                      # 160%
+
+    velocity:
+      filter_alpha: 0.05      # EMA filter on velocity measurement (0.0=no update, 1.0=no filter)
+
+      pid:
+        p: 0.4
+        i: 0.1
+        d: 0.0
+        i_clamp_max: 0.5
+        i_clamp_min: -0.5
+        u_clamp_max: 1.0
+        u_clamp_min: -1.0
+        saturation: true
+        antiwindup: true
+        antiwindup_strategy: "conditional_integration"
+
+      output:
+        throttle_scale: 1.0   # Scale factor for positive PID effort → throttle
+        brake_scale: 1.0      # Scale factor for negative PID effort → brake
+        deadband: 0.05        # PID effort below this → coast (no throttle, no brake)

@@ -39,6 +39,10 @@
 # export ACTIVE_MODULES=""
 
 ############################## ADVANCED CONFIGURATIONS ##############################
+## Install Claude Code in dev containers. Set to "false" to skip installation.
+## DEFAULT = "true"
+# export CLAUDE_CODE="false"
+
 ## Enable WATCloud mode for rootless Docker environments.
 ## Adds a shared network namespace container so services can communicate
 ## without requiring network_mode: host.

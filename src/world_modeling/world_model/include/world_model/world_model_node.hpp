@@ -76,6 +76,8 @@ private:
   std::string base_frame_;
   std::string utm_frame_;
   std::string projector_type_;
+  double origin_lat_{0.0};
+  double origin_lon_{0.0};
   rclcpp::TimerBase::SharedPtr map_init_timer_;
 
   /**

@@ -35,8 +35,8 @@ launch:
 
   - arg:
       name: "can_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
-      description: "Path to the joystick configuration file"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
+      description: "Path to the CAN/control configuration file"
 
   # GPS Configs
   - arg:
@@ -102,6 +102,36 @@ launch:
             - from: "$(find-pkg-share interfacing_bringup)/config/bag_recorder/$(var recording_profile).yaml"
             - name: storage.uri
               value: "$(var bag_path)"
+
+  # Topic Healthchecker (monitors topic liveness and message rates)
+  - node:
+      pkg: topic_healthchecker
+      exec: topic_healthchecker_node
+      name: topic_healthchecker
+      namespace: interfacing
+      output: screen
+      param:
+        - from: "$(var can_config_file)"
+        - name: http_port
+          value: $(env TOPIC_HEALTHCHECKER__PORT)
+
+  # OSCC Interfacing (steering torque from OSCC CAN bus, controls disabled)
+  - node:
+      pkg: "oscc_interfacing"
+      exec: "oscc_interfacing_node"
+      name: "oscc_interfacing"
+      namespace: "interfacing"
+      output: "screen"
+      param:
+        - from: "$(var can_config_file)"
+        - name: "enable_all"
+          value: false
+        - name: "enable_steering"
+          value: false
+        - name: "enable_throttle"
+          value: false
+        - name: "enable_brakes"
+          value: false
 
   # CAN State Estimator (steering angle + velocity + odometry from CAN bus)
   - node:
