@@ -77,8 +77,15 @@ bool InputHandle::eligible_for_mux() const
   if (!has_cmd_) {
     return false;
   }
-  if (cfg_.has_mask && !cfg_.mask_topic.empty() && mask_value_) {
-    return false;
+  if (cfg_.has_mask && !cfg_.mask_topic.empty()) {
+    // No heartbeat received yet → not eligible
+    if (!has_mask_msg_) {
+      return false;
+    }
+    // Masked (idle) → not eligible
+    if (mask_value_) {
+      return false;
+    }
   }
 
   return true;
@@ -92,6 +99,18 @@ bool InputHandle::safety_trip(const rclcpp::Time & now, double safety_threshold_
 
   std::scoped_lock<std::mutex> lk(mtx_);
 
+  // For inputs with a mask, use the mask as a heartbeat.
+  // Safety trips only when the heartbeat is lost (stale or never received).
+  // A fresh mask (even is_idle=true) means the source is alive → no trip.
+  if (cfg_.has_mask && !cfg_.mask_topic.empty()) {
+    if (!has_mask_msg_) {
+      return true;  // No heartbeat ever received
+    }
+    const double mask_age_sec = (now - last_mask_time_).seconds();
+    return mask_age_sec > safety_threshold_sec;
+  }
+
+  // For inputs without a mask, use command staleness (original behavior).
   if (!has_cmd_) {
     return true;
   }
