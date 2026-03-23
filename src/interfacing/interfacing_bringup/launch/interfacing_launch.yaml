@@ -61,6 +61,10 @@ launch:
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
 
+  # LiDAR Aggregator (fuses all 3 LiDARs into /lidar/all/points_merged)
+  - include:
+      file: "$(find-pkg-share lidar_aggregator)/launch/lidar_runtime_fusion.yaml"
+
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
