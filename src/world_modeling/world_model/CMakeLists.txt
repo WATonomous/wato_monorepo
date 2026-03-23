@@ -56,17 +56,16 @@ target_link_libraries(${PROJECT_NAME}_lib
     tf2_ros::tf2_ros
     ${geometry_msgs_TARGETS}
     ${world_model_msgs_TARGETS}
-  PRIVATE
-    tf2_geometry_msgs::tf2_geometry_msgs
-    ${std_msgs_TARGETS}
-    ${vision_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
-
     lanelet2_core::lanelet2_core
     lanelet2_io::lanelet2_io
     lanelet2_projection::lanelet2_projection
     lanelet2_routing::lanelet2_routing
     lanelet2_traffic_rules::lanelet2_traffic_rules
+  PRIVATE
+    tf2_geometry_msgs::tf2_geometry_msgs
+    ${std_msgs_TARGETS}
+    ${vision_msgs_TARGETS}
 )
 
 add_executable(world_model_node
@@ -105,9 +104,10 @@ install(TARGETS world_model_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY
-  DESTINATION share/${PROJECT_NAME}
+install(DIRECTORY include/
+  DESTINATION include
 )
+
 
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)

@@ -24,6 +24,9 @@
 #ifndef PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 #define PREDICTION__TRAJECTORY_PREDICTOR_HPP_
 
+#include <deque>
+#include <utility>
+
 // Standard library headers for functional programming and data structures
 #include <functional>  // For std::function used in callback definitions
 #include <memory>  // For std::unique_ptr and std::shared_ptr
@@ -196,6 +199,15 @@ struct TrajectoryPredictorConfig
 };
 
 /**
+ * @brief Timestamped position for detection history tracking
+ */
+struct TimestampedPosition
+{
+  geometry_msgs::msg::Point position;
+  double timestamp;  // Seconds since epoch
+};
+
+/**
  * @brief Generates trajectory hypotheses for tracked objects
  *
  * Uses lanelet centerlines as reference paths and physics-based motion models
@@ -205,6 +217,39 @@ class TrajectoryPredictor
 {
 public:
   /**
+   * @brief Parameters for vehicle prediction (loaded from params.yaml)
+   */
+  struct VehicleParams
+  {
+    double default_speed;  // m/s - fallback when no velocity history
+    double max_speed;  // m/s - clamp upper bound
+  };
+
+  /**
+   * @brief Parameters for pedestrian prediction (loaded from params.yaml)
+   */
+  struct PedestrianParams
+  {
+    double default_speed;  // m/s - fallback when no velocity history
+    double max_speed;  // m/s - clamp upper bound
+  };
+
+  /**
+   * @brief Parameters for cyclist prediction (loaded from params.yaml)
+   */
+  struct CyclistParams
+  {
+    double lanelet_proximity_threshold;  // meters
+    double min_speed;  // m/s
+    double max_speed;  // m/s
+    int max_lanelet_search_depth;  // max successive lanelets to follow
+    double lanelet_confidence;  // total confidence for lanelet-based hypotheses
+    double cv_fallback_confidence;  // confidence for constant-velocity fallback
+    double straight_boost;  // weight multiplier for straight-ahead paths
+    double turn_angle_threshold;  // radians - threshold for turn detection
+  };
+
+  /**
    * @brief Construct a trajectory predictor with model and scoring
    * configuration.
    * @param node Lifecycle node used for logging and ROS time access.
@@ -212,11 +257,19 @@ public:
    * @param time_step Time resolution between predicted poses in seconds.
    * @param config Tuning parameters for classification, scoring, and motion
    * models.
+   * @param vehicle_params Vehicle-specific parameters (from params.yaml)
+   * @param pedestrian_params Pedestrian-specific parameters (from params.yaml)
+   * @param cyclist_params Cyclist-specific parameters (from params.yaml)
+   * @param lanelet_handler Optional LaneletHandler for map queries
+
    */
   TrajectoryPredictor(
     rclcpp_lifecycle::LifecycleNode * node,
     double prediction_horizon,
     double time_step,
+    const VehicleParams & vehicle_params,
+    const PedestrianParams & pedestrian_params,
+    const CyclistParams & cyclist_params,
     const TrajectoryPredictorConfig & config = {});
 
   /**
@@ -228,17 +281,11 @@ public:
    * @param detection Incoming tracked object detection.
    * @return List of trajectory hypotheses with intents and probabilities.
    */
-  std::vector<TrajectoryHypothesis> generateHypotheses(const vision_msgs::msg::Detection3D & detection);
+  std::vector<TrajectoryHypothesis> generateHypotheses(
+    const vision_msgs::msg::Detection3D & detection, double timestamp);
 
   /**
-   * @brief Classify detection into a predictor object type.
-   * @param detection Incoming tracked object detection.
-   * @return Coarse object type used to choose motion model and priors.
-   */
-  ObjectType classifyObjectType(const vision_msgs::msg::Detection3D & detection);
-
-  /**
-   * @brief Update cached lanelet data for lanelet-aware prediction
+   * @brief Update cached lanelet data for lanelet-aware prediction.
    */
   void setLaneletAhead(const lanelet_msgs::msg::LaneletAhead::SharedPtr & msg);
 
@@ -281,16 +328,14 @@ public:
    */
   void pruneStaleCaches(const rclcpp::Time & now, double ttl_s);
 
-  /**
-   * @brief Estimate vehicle speed from position history.
-   *
-   * Tracks each detection ID's position over time and computes speed
-   * from displacement between the current and previous observation.
-   * Falls back to the bbox-length heuristic when no history exists.
-   */
-  double estimateSpeed(const vision_msgs::msg::Detection3D & detection);
-
 private:
+  /**
+   * @brief Generate hypotheses for vehicle objects.
+   * @param velocity Computed velocity, or nullopt if insufficient history.
+   */
+  std::vector<TrajectoryHypothesis> generateVehicleHypotheses(
+    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
+
   /**
    * @brief Generate lanelet-aware vehicle hypotheses from a local lanelet
    * context.
@@ -309,13 +354,45 @@ private:
    * @brief Generate pedestrian hypotheses using pedestrian-oriented motion
    * assumptions.
    */
-  std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(const vision_msgs::msg::Detection3D & detection);
+  std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(
+    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
 
   /**
-   * @brief Generate cyclist hypotheses using cyclist-oriented motion
-   * assumptions.
+   * @brief Generate hypotheses for cyclist objects (hybrid model)
+   * @param velocity Computed velocity, or nullopt if insufficient history
    */
-  std::vector<TrajectoryHypothesis> generateCyclistHypotheses(const vision_msgs::msg::Detection3D & detection);
+  std::vector<TrajectoryHypothesis> generateCyclistHypotheses(
+    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
+
+  /**
+   * @brief Update detection history and compute velocity
+   * @param object_id Unique object identifier
+   * @param position Current position
+   * @param timestamp Current timestamp
+   * @return Computed velocity magnitude (m/s), or nullopt if insufficient
+   * history
+   */
+  std::optional<double> updateHistoryAndComputeVelocity(
+    const std::string & object_id, const geometry_msgs::msg::Point & position, double timestamp);
+
+  /**
+   * @brief Get all possible lanelet paths (for multi-hypothesis generation)
+   * @param start_lanelet Starting lanelet
+   * @param max_depth Maximum number of successive lanelets to follow
+   * @return Vector of (path_points, intent) pairs for each possible route
+   */
+  // Each entry: (centerline_points, intent, lanelet_ids_along_path)
+  std::vector<std::tuple<std::vector<Eigen::Vector2d>, Intent, std::vector<int64_t>>> getAllLaneletPaths(
+    const lanelet_msgs::msg::Lanelet & start_lanelet, int max_depth, const LaneletContext & ctx) const;
+
+  /**
+   * @brief Build a single constant-velocity fallback hypothesis
+   * @param state Kinematic state for trajectory generation
+   * @param velocity Current velocity for logging
+   * @param reason Descriptive reason for fallback (for logging)
+   * @return Vector containing a single CV hypothesis with probability 1.0
+   */
+  std::vector<TrajectoryHypothesis> buildCvFallback(const KinematicState & state, double velocity, const char * reason);
 
   // Lanelet helpers
   struct LaneletMatch
@@ -417,6 +494,19 @@ private:
   std::unique_ptr<BicycleModel> bicycle_model_;
   std::unique_ptr<ConstantVelocityModel> constant_velocity_model_;
 
+  // Per-type parameters (const after construction)
+  const VehicleParams vehicle_params_;
+  const PedestrianParams pedestrian_params_;
+  const CyclistParams cyclist_params_;
+
+  // Detection history for velocity computation (object_id -> history)
+  // Protected by mutex for thread-safe access from multi-threaded executor
+  mutable std::mutex history_mutex_;
+  std::unordered_map<std::string, std::deque<TimestampedPosition>> detection_history_;
+
+  // History parameters
+  static constexpr double kHistoryMaxAge = 2.0;  // seconds
+  static constexpr size_t kHistoryMaxSize = 10;  // entries per object
   // Cached ego-vehicle lanelet data (from lanelet_ahead subscription)
   lanelet_msgs::msg::LaneletAhead lanelet_cache_;
   std::unordered_map<int64_t, size_t> lanelet_id_to_index_;
@@ -439,18 +529,6 @@ private:
 
   mutable std::mutex vehicle_cache_mutex_;
   std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
-
-  // Position history for velocity estimation (keyed by detection ID)
-  struct PositionStamped
-  {
-    double x;
-    double y;
-    double speed;  // Raw instantaneous speed
-    double smoothed_speed;  // EMA-filtered speed
-    rclcpp::Time stamp;
-  };
-
-  std::unordered_map<std::string, PositionStamped> position_history_;
 
 public:
   /**

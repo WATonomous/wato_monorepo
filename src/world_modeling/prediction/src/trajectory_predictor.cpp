@@ -18,7 +18,9 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -34,6 +36,34 @@ double extractYaw(const geometry_msgs::msg::Quaternion & q)
   return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 }
 
+// Build KinematicState from detection
+KinematicState stateFromDetection(
+  const geometry_msgs::msg::Point & position, const geometry_msgs::msg::Quaternion & orientation, double velocity)
+{
+  KinematicState state;
+  state.x = position.x;
+  state.y = position.y;
+  state.theta = extractYaw(orientation);
+  state.v = velocity;
+  state.a = 0.0;
+  state.delta = 0.0;
+  return state;
+}
+
+// Build TrajectoryHypothesis from motion model output (move semantics for
+// efficiency)
+TrajectoryHypothesis buildHypothesis(
+  std::vector<geometry_msgs::msg::PoseStamped> && poses,
+  double /*time_step*/,
+  Intent intent = Intent::CONTINUE_STRAIGHT)
+{
+  TrajectoryHypothesis hypothesis;
+  hypothesis.intent = intent;
+  hypothesis.probability = 0.0;
+  hypothesis.poses = std::move(poses);
+  return hypothesis;
+}
+
 double normalizeAngle(double angle)
 {
   while (angle > M_PI) angle -= 2.0 * M_PI;
@@ -46,10 +76,16 @@ TrajectoryPredictor::TrajectoryPredictor(
   rclcpp_lifecycle::LifecycleNode * node,
   double prediction_horizon,
   double time_step,
+  const VehicleParams & vehicle_params,
+  const PedestrianParams & pedestrian_params,
+  const CyclistParams & cyclist_params,
   const TrajectoryPredictorConfig & config)
 : node_(node)
 , prediction_horizon_(prediction_horizon)
 , time_step_(time_step)
+, vehicle_params_(vehicle_params)
+, pedestrian_params_(pedestrian_params)
+, cyclist_params_(cyclist_params)
 , config_(config)
 {
   bicycle_model_ = std::make_unique<BicycleModel>(config_.bicycle_config);
@@ -117,116 +153,69 @@ void TrajectoryPredictor::updateVehicleLaneletCache(
   vehicle_lanelet_cache_[vehicle_id] = std::move(entry);
 }
 
-double TrajectoryPredictor::estimateSpeed(const vision_msgs::msg::Detection3D & detection)
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::buildCvFallback(
+  const KinematicState & state, double velocity, const char * reason)
 {
-  rclcpp::Time now = node_->get_clock()->now();
-  double x = detection.bbox.center.position.x;
-  double y = detection.bbox.center.position.y;
+  auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
+  auto hypothesis = buildHypothesis(std::move(poses), time_step_, Intent::CONTINUE_STRAIGHT);
+  hypothesis.probability = 1.0;
 
-  auto it = position_history_.find(detection.id);
+  RCLCPP_DEBUG_THROTTLE(
+    node_->get_logger(), *node_->get_clock(), 5000, "CV fallback prediction (%s), velocity=%.2f m/s", reason, velocity);
 
-  // First observation — no displacement history yet.
-  // Return -1 sentinel: generators will skip stop/moving bias entirely,
-  // producing uniform priors so the confidence smoother has no bad data.
-  if (it == position_history_.end()) {
-    position_history_[detection.id] = {x, y, 0.0, -1.0, now};
-    return -1.0;
-  }
-
-  double dt = (now - it->second.stamp).seconds();
-  double raw_speed = 0.0;
-
-  if (dt > config_.min_dt_for_speed) {
-    // Displacement-based speed — works for any dt, including stale tracks.
-    double dx = x - it->second.x;
-    double dy = y - it->second.y;
-    raw_speed = std::sqrt(dx * dx + dy * dy) / dt;
-    double max_speed =
-      (detection.bbox.size.x > config_.vehicle_min_length) ? config_.max_vehicle_speed : config_.max_pedestrian_speed;
-    raw_speed = std::clamp(raw_speed, 0.0, max_speed);
-  } else {
-    // Sub-centisecond dt: displacement too small to measure, carry forward.
-    raw_speed = it->second.smoothed_speed;
-  }
-
-  // Second frame (first real measurement): previous smoothed_speed is the -1
-  // sentinel.  Use raw_speed directly — don't EMA-blend against a meaningless
-  // initial value.  After this, normal EMA applies.
-  double smoothed;
-  if (it->second.smoothed_speed < 0.0) {
-    smoothed = raw_speed;
-  } else {
-    smoothed = config_.speed_ema_alpha * raw_speed + (1.0 - config_.speed_ema_alpha) * it->second.smoothed_speed;
-  }
-
-  position_history_[detection.id] = {x, y, raw_speed, smoothed, now};
-
-  RCLCPP_DEBUG(
-    node_->get_logger(),
-    "Speed [%s]: raw=%.2f smoothed=%.2f dt=%.3f stop_prob=%.3f",
-    detection.id.c_str(),
-    raw_speed,
-    smoothed,
-    dt,
-    (smoothed >= 0.0) ? computeStopProbability(smoothed) : -1.0);
-
-  return smoothed;
+  return {std::move(hypothesis)};
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
-  const vision_msgs::msg::Detection3D & detection)
+  const vision_msgs::msg::Detection3D & detection, double timestamp)
 {
-  ObjectType obj_type = classifyObjectType(detection);
+  std::optional<double> velocity =
+    updateHistoryAndComputeVelocity(detection.id, detection.bbox.center.position, timestamp);
 
-  // Estimate speed from position history — used by all vehicle hypothesis
-  // generators so that both lanelet and geometric predictions are scaled
-  // consistently by actual vehicle speed.
-  double estimated_speed = estimateSpeed(detection);
+  if (!detection.results.empty()) {
+    const std::string & class_id = detection.results[0].hypothesis.class_id;
+    if (class_id == "car" || class_id == "truck" || class_id == "bus" || class_id == "vehicle") {
+      return generateVehicleHypotheses(detection, velocity);
+    } else if (class_id == "pedestrian") {
+      return generatePedestrianHypotheses(detection, velocity);
+    } else if (class_id == "bicycle") {
+      return generateCyclistHypotheses(detection, velocity);
+    } else {
+      RCLCPP_WARN(node_->get_logger(), "Unknown object type, skipping prediction");
+      return {};
+    }
+  } else {
+    RCLCPP_WARN(node_->get_logger(), "Detection has no classification results, skipping prediction");
+    return {};
+  }
+}
+
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateVehicleHypotheses(
+  const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
+{
+  // Use computed velocity if available, otherwise default to typical vehicle
+  // speed
+  double v = velocity.value_or(vehicle_params_.default_speed);
+  v = std::clamp(v, 0.0, vehicle_params_.max_speed);
 
   std::vector<TrajectoryHypothesis> hypotheses;
 
-  switch (obj_type) {
-    case ObjectType::VEHICLE:
-      if (lanelet_query_fn_) {
-        double heading = extractYaw(detection.bbox.center.orientation);
-        auto entry = queryVehicleLanelets(detection.id, detection.bbox.center.position, heading);
-        if (entry && !entry->lanelet_ahead.lanelets.empty()) {
-          LaneletContext ctx{entry->lanelet_ahead, entry->id_to_index};
-          hypotheses = generateLaneletVehicleHypotheses(detection, estimated_speed, ctx);
-        }
-      }
-      if (hypotheses.empty()) {
-        hypotheses = generateGeometricVehicleHypotheses(detection, estimated_speed);
-      }
-      break;
-    case ObjectType::PEDESTRIAN:
-      hypotheses = generatePedestrianHypotheses(detection);
-      break;
-    case ObjectType::CYCLIST:
-      hypotheses = generateCyclistHypotheses(detection);
-      break;
-    default:
-      RCLCPP_WARN(node_->get_logger(), "Unknown object type, skipping prediction");
-      break;
+  // Try lanelet-aware prediction first
+  if (lanelet_query_fn_) {
+    double heading = extractYaw(detection.bbox.center.orientation);
+    auto entry = queryVehicleLanelets(detection.id, detection.bbox.center.position, heading);
+    if (entry && !entry->lanelet_ahead.lanelets.empty()) {
+      LaneletContext ctx{entry->lanelet_ahead, entry->id_to_index};
+      hypotheses = generateLaneletVehicleHypotheses(detection, v, ctx);
+    }
+  }
+
+  // Fall back to geometric if lanelet prediction didn't produce results
+  if (hypotheses.empty()) {
+    hypotheses = generateGeometricVehicleHypotheses(detection, v);
   }
 
   return hypotheses;
-}
-
-ObjectType TrajectoryPredictor::classifyObjectType(const vision_msgs::msg::Detection3D & detection)
-{
-  double length = detection.bbox.size.x;
-  double height = detection.bbox.size.z;
-
-  if (length > config_.vehicle_min_length) {
-    return ObjectType::VEHICLE;
-  } else if (length < config_.pedestrian_max_length && height > config_.pedestrian_max_length) {
-    return ObjectType::PEDESTRIAN;
-  } else if (length >= config_.pedestrian_max_length && length <= config_.cyclist_max_length) {
-    return ObjectType::CYCLIST;
-  }
-
-  return ObjectType::VEHICLE;
 }
 
 // =============================================================================
@@ -950,14 +939,6 @@ double TrajectoryPredictor::estimateLateralVelocity(const std::string & vehicle_
 
 void TrajectoryPredictor::pruneStaleCaches(const rclcpp::Time & now, double ttl_s)
 {
-  for (auto it = position_history_.begin(); it != position_history_.end();) {
-    if ((now - it->second.stamp).seconds() > ttl_s) {
-      it = position_history_.erase(it);
-    } else {
-      ++it;
-    }
-  }
-
   for (auto it = lateral_offset_history_.begin(); it != lateral_offset_history_.end();) {
     if ((now - it->second.stamp).seconds() > ttl_s) {
       it = lateral_offset_history_.erase(it);
@@ -979,6 +960,18 @@ void TrajectoryPredictor::pruneStaleCaches(const rclcpp::Time & now, double ttl_
     for (auto it = vehicle_lanelet_cache_.begin(); it != vehicle_lanelet_cache_.end();) {
       if ((now - it->second.last_update).seconds() > ttl_s) {
         it = vehicle_lanelet_cache_.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(history_mutex_);
+    const double now_sec = now.seconds();
+    for (auto it = detection_history_.begin(); it != detection_history_.end();) {
+      if (it->second.empty() || (now_sec - it->second.back().timestamp) > ttl_s) {
+        it = detection_history_.erase(it);
       } else {
         ++it;
       }
@@ -1171,79 +1164,347 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
 // =============================================================================
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
-  const vision_msgs::msg::Detection3D & detection)
+  const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
+  hypotheses.reserve(4);
 
+  // Use computed velocity if available, otherwise default to walking speed
+  double v = velocity.value_or(pedestrian_params_.default_speed);
+  v = std::clamp(v, 0.0, pedestrian_params_.max_speed);
+
+  // Current ROS time for trajectory timestamps
   rclcpp::Time current_time = node_->get_clock()->now();
   std::string frame_id = "map";
 
-  TrajectoryHypothesis walk_hyp;
-  walk_hyp.header.stamp = current_time;
-  walk_hyp.header.frame_id = frame_id;
-  walk_hyp.intent = Intent::CONTINUE_STRAIGHT;
-  walk_hyp.probability = 1.0;
+  // Extract pedestrian state
+  const double start_x = detection.bbox.center.position.x;
+  const double start_y = detection.bbox.center.position.y;
+  const double start_z = detection.bbox.center.position.z;
 
-  double current_x = detection.bbox.center.position.x;
-  double current_y = detection.bbox.center.position.y;
-  double current_z = detection.bbox.center.position.z;
-  double heading = extractYaw(detection.bbox.center.orientation);
+  const double heading_yaw = extractYaw(detection.bbox.center.orientation);
 
-  double length = detection.bbox.size.x;
-  double velocity =
-    (length > config_.vehicle_min_length) ? config_.vehicle_default_velocity : config_.pedestrian_default_velocity;
+  // Precompute orientation aligned with heading
+  geometry_msgs::msg::Quaternion aligned_orientation;
+  aligned_orientation.w = std::cos(heading_yaw * 0.5);
+  aligned_orientation.z = std::sin(heading_yaw * 0.5);
 
-  for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::PoseStamped pose_stamped;
-    pose_stamped.header.frame_id = frame_id;
-    pose_stamped.header.stamp = current_time + rclcpp::Duration::from_seconds(t);
-    pose_stamped.pose.position.x = current_x + velocity * std::cos(heading) * t;
-    pose_stamped.pose.position.y = current_y + velocity * std::sin(heading) * t;
-    pose_stamped.pose.position.z = current_z;
-    pose_stamped.pose.orientation = detection.bbox.center.orientation;
+  // Hypothesis 1: Confident forward walking
+  TrajectoryHypothesis confident_walk;
+  confident_walk.header.stamp = current_time;
+  confident_walk.header.frame_id = frame_id;
+  confident_walk.intent = Intent::CONTINUE_STRAIGHT;
+  confident_walk.probability = 0.0;
 
-    walk_hyp.poses.push_back(pose_stamped);
+  for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = frame_id;
+    pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+    pose.pose.position.x = start_x + v * std::cos(heading_yaw) * time_sec;
+    pose.pose.position.y = start_y + v * std::sin(heading_yaw) * time_sec;
+    pose.pose.position.z = start_z;
+    pose.pose.orientation = aligned_orientation;
+
+    confident_walk.poses.push_back(pose);
   }
 
-  hypotheses.push_back(walk_hyp);
+  hypotheses.push_back(confident_walk);
+
+  // Hypothesis 2a: Hesitant / wandering — drift left
+  // Models uncertainty without lateral acceleration
+  TrajectoryHypothesis hesitant_walk_left;
+  hesitant_walk_left.header.stamp = current_time;
+  hesitant_walk_left.header.frame_id = frame_id;
+  hesitant_walk_left.intent = Intent::UNKNOWN;
+  hesitant_walk_left.probability = 0.0;
+
+  {
+    double accumulated_forward_distance = 0.0;
+
+    for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+      accumulated_forward_distance += 0.6 * v * time_step_;
+
+      // Lateral uncertainty grows with time — offset to the LEFT (+90 deg)
+      double lateral_offset = 0.15 * std::sqrt(time_sec);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = frame_id;
+      pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+      pose.pose.position.x = start_x + accumulated_forward_distance * std::cos(heading_yaw) +
+                             lateral_offset * std::cos(heading_yaw + M_PI / 2.0);
+      pose.pose.position.y = start_y + accumulated_forward_distance * std::sin(heading_yaw) +
+                             lateral_offset * std::sin(heading_yaw + M_PI / 2.0);
+      pose.pose.position.z = start_z;
+      pose.pose.orientation = aligned_orientation;
+
+      hesitant_walk_left.poses.push_back(pose);
+    }
+  }
+
+  hypotheses.push_back(hesitant_walk_left);
+
+  // Hypothesis 2b: Hesitant / wandering — drift right
+  // Mirror of 2a: identical forward speed and uncertainty magnitude, but
+  // offset to the RIGHT (-90 deg) so both lateral directions are covered.
+  TrajectoryHypothesis hesitant_walk_right;
+  hesitant_walk_right.header.stamp = current_time;
+  hesitant_walk_right.header.frame_id = frame_id;
+  hesitant_walk_right.intent = Intent::UNKNOWN;
+  hesitant_walk_right.probability = 0.0;
+
+  {
+    double accumulated_forward_distance = 0.0;
+
+    for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+      accumulated_forward_distance += 0.6 * v * time_step_;
+
+      // Lateral uncertainty grows with time — offset to the RIGHT (-90 deg)
+      double lateral_offset = 0.15 * std::sqrt(time_sec);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = frame_id;
+      pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+      pose.pose.position.x = start_x + accumulated_forward_distance * std::cos(heading_yaw) +
+                             lateral_offset * std::cos(heading_yaw - M_PI / 2.0);
+      pose.pose.position.y = start_y + accumulated_forward_distance * std::sin(heading_yaw) +
+                             lateral_offset * std::sin(heading_yaw - M_PI / 2.0);
+      pose.pose.position.z = start_z;
+      pose.pose.orientation = aligned_orientation;
+
+      hesitant_walk_right.poses.push_back(pose);
+    }
+  }
+
+  hypotheses.push_back(hesitant_walk_right);
+
+  // Hypothesis 3: Stop / yield
+  TrajectoryHypothesis stop_behavior;
+  stop_behavior.header.stamp = current_time;
+  stop_behavior.header.frame_id = frame_id;
+  stop_behavior.intent = Intent::STOP;
+  stop_behavior.probability = 0.0;
+
+  for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = frame_id;
+    pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+    pose.pose.position.x = start_x;
+    pose.pose.position.y = start_y;
+    pose.pose.position.z = start_z;
+    pose.pose.orientation = aligned_orientation;
+
+    stop_behavior.poses.push_back(pose);
+  }
+
+  hypotheses.push_back(stop_behavior);
+
+  RCLCPP_DEBUG(
+    node_->get_logger(), "Generated %zu pedestrian trajectory hypotheses, velocity=%.2f m/s", hypotheses.size(), v);
+
   return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
-  const vision_msgs::msg::Detection3D & detection)
+  const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
-  std::vector<TrajectoryHypothesis> hypotheses;
+  const auto & pos = detection.bbox.center.position;
+  const double default_speed = (cyclist_params_.min_speed + cyclist_params_.max_speed) * 0.5;
+  double v = velocity.value_or(default_speed);
+  v = std::clamp(v, cyclist_params_.min_speed, cyclist_params_.max_speed);
 
-  rclcpp::Time current_time = node_->get_clock()->now();
-  std::string frame_id = "map";
+  auto state = stateFromDetection(pos, detection.bbox.center.orientation, v);
 
-  TrajectoryHypothesis cycle_hyp;
-  cycle_hyp.header.stamp = current_time;
-  cycle_hyp.header.frame_id = frame_id;
-  cycle_hyp.intent = Intent::CONTINUE_STRAIGHT;
-  cycle_hyp.probability = 1.0;
+  if (lanelet_query_fn_) {
+    double heading = extractYaw(detection.bbox.center.orientation);
+    auto entry = queryVehicleLanelets(detection.id, pos, heading);
+    if (entry && !entry->lanelet_ahead.lanelets.empty()) {
+      LaneletContext ctx{entry->lanelet_ahead, entry->id_to_index};
+      auto match = findVehicleLanelet(state, ctx);
+      if (match.lanelet && match.lateral_offset <= cyclist_params_.lanelet_proximity_threshold) {
+        auto all_paths = getAllLaneletPaths(*match.lanelet, cyclist_params_.max_lanelet_search_depth, ctx);
 
-  double current_x = detection.bbox.center.position.x;
-  double current_y = detection.bbox.center.position.y;
-  double current_z = detection.bbox.center.position.z;
-  double heading = extractYaw(detection.bbox.center.orientation);
+        const double kLaneletTotalConf = cyclist_params_.lanelet_confidence;
+        const double kCvFallbackConf = cyclist_params_.cv_fallback_confidence;
+        const double kStraightBoost = cyclist_params_.straight_boost;
 
-  double velocity = config_.cyclist_default_velocity;
+        double total_weight = 0.0;
+        for (const auto & [path, intent, ids] : all_paths) {
+          if (path.size() >= 2) {
+            total_weight += (intent == Intent::CONTINUE_STRAIGHT) ? kStraightBoost : 1.0;
+          }
+        }
 
-  for (double t = time_step_; t <= prediction_horizon_; t += time_step_) {
-    geometry_msgs::msg::PoseStamped pose_stamped;
-    pose_stamped.header.frame_id = frame_id;
-    pose_stamped.header.stamp = current_time + rclcpp::Duration::from_seconds(t);
-    pose_stamped.pose.position.x = current_x + velocity * std::cos(heading) * t;
-    pose_stamped.pose.position.y = current_y + velocity * std::sin(heading) * t;
-    pose_stamped.pose.position.z = current_z;
-    pose_stamped.pose.orientation = detection.bbox.center.orientation;
+        if (total_weight > 0.0) {
+          std::vector<TrajectoryHypothesis> hypotheses;
+          hypotheses.reserve(all_paths.size() + 1);
 
-    cycle_hyp.poses.push_back(pose_stamped);
+          rclcpp::Time current_time = node_->get_clock()->now();
+          for (auto & [path_points, intent, lanelet_ids] : all_paths) {
+            if (path_points.size() < 2) continue;
+            TrajectoryHypothesis hyp;
+            hyp.header.stamp = current_time;
+            hyp.header.frame_id = "map";
+            hyp.intent = intent;
+            hyp.poses = bicycle_model_->generateTrajectory(
+              state, path_points, prediction_horizon_, time_step_, current_time, "map");
+            hyp.lanelet_ids = lanelet_ids;
+            const double weight = (intent == Intent::CONTINUE_STRAIGHT) ? kStraightBoost : 1.0;
+            hyp.probability = kLaneletTotalConf * (weight / total_weight);
+            hypotheses.push_back(std::move(hyp));
+          }
+
+          auto cv_poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
+          auto cv_hypothesis = buildHypothesis(std::move(cv_poses), time_step_, Intent::UNKNOWN);
+          cv_hypothesis.probability = kCvFallbackConf;
+          hypotheses.push_back(std::move(cv_hypothesis));
+
+          RCLCPP_DEBUG_THROTTLE(
+            node_->get_logger(),
+            *node_->get_clock(),
+            1000,
+            "Cyclist prediction: %zu lanelet-based + 1 CV fallback, velocity=%.2f m/s",
+            all_paths.size(),
+            v);
+
+          return hypotheses;
+        }
+      }
+    }
   }
 
-  hypotheses.push_back(cycle_hyp);
-  return hypotheses;
+  return buildCvFallback(state, v, "no lanelet");
+}
+
+std::optional<double> TrajectoryPredictor::updateHistoryAndComputeVelocity(
+  const std::string & object_id, const geometry_msgs::msg::Point & position, double timestamp)
+{
+  std::lock_guard lock(history_mutex_);
+
+  auto & history = detection_history_[object_id];
+
+  // Prune old entries (O(1) with deque)
+  while (!history.empty() && (timestamp - history.front().timestamp) > kHistoryMaxAge) {
+    history.pop_front();
+  }
+
+  // Add current detection
+  history.push_back({position, timestamp});
+
+  // Limit history size (O(1) with deque)
+  while (history.size() > kHistoryMaxSize) {
+    history.pop_front();
+  }
+
+  // Need at least 2 points to compute velocity
+  if (history.size() < 2) {
+    return std::nullopt;
+  }
+
+  const auto & prev = history[history.size() - 2];
+  const auto & curr = history.back();
+
+  const double dt = curr.timestamp - prev.timestamp;
+  constexpr double kMinTimeDelta = 0.01;  // 10ms minimum to avoid division issues
+  if (dt < kMinTimeDelta) {
+    return std::nullopt;
+  }
+
+  const double dx = curr.position.x - prev.position.x;
+  const double dy = curr.position.y - prev.position.y;
+  const double dz = curr.position.z - prev.position.z;
+
+  return std::sqrt(dx * dx + dy * dy + dz * dz) / dt;
+}
+
+std::vector<std::tuple<std::vector<Eigen::Vector2d>, Intent, std::vector<int64_t>>>
+TrajectoryPredictor::getAllLaneletPaths(
+  const lanelet_msgs::msg::Lanelet & start_lanelet, int max_depth, const LaneletContext & ctx) const
+{
+  std::vector<std::tuple<std::vector<Eigen::Vector2d>, Intent, std::vector<int64_t>>> all_paths;
+
+  if (start_lanelet.centerline.empty()) {
+    return all_paths;
+  }
+
+  // Pre-cache start lanelet points for reuse across all paths
+  std::vector<Eigen::Vector2d> start_path_points;
+  start_path_points.reserve(start_lanelet.centerline.size());
+  for (const auto & pt : start_lanelet.centerline) {
+    start_path_points.emplace_back(pt.x, pt.y);
+  }
+
+  if (start_lanelet.successor_ids.empty()) {
+    all_paths.emplace_back(
+      std::move(start_path_points), Intent::CONTINUE_STRAIGHT, std::vector<int64_t>{start_lanelet.id});
+    return all_paths;
+  }
+
+  const double kTurnAngleThreshold = cyclist_params_.turn_angle_threshold;
+  const auto & sc = start_lanelet.centerline;
+
+  for (int64_t successor_id : start_lanelet.successor_ids) {
+    const auto * next_ll = findLaneletById(successor_id, ctx);
+    if (!next_ll) {
+      continue;
+    }
+
+    // Determine intent from heading change between start and next lanelet
+    Intent intent = Intent::CONTINUE_STRAIGHT;
+    const auto & nc = next_ll->centerline;
+    if (sc.size() >= 2 && nc.size() >= 2) {
+      const double start_heading =
+        std::atan2(sc[sc.size() - 1].y - sc[sc.size() - 2].y, sc[sc.size() - 1].x - sc[sc.size() - 2].x);
+      const double next_heading = std::atan2(nc[1].y - nc[0].y, nc[1].x - nc[0].x);
+      const double angle_diff =
+        std::atan2(std::sin(next_heading - start_heading), std::cos(next_heading - start_heading));
+      if (angle_diff > kTurnAngleThreshold) {
+        intent = Intent::TURN_LEFT;
+      } else if (angle_diff < -kTurnAngleThreshold) {
+        intent = Intent::TURN_RIGHT;
+      }
+    }
+
+    // DFS: stack of (lanelet ptr, path-so-far, lanelet-ids-so-far, depth)
+    using StackEntry =
+      std::tuple<const lanelet_msgs::msg::Lanelet *, std::vector<Eigen::Vector2d>, std::vector<int64_t>, int>;
+    std::vector<StackEntry> stack;
+    stack.emplace_back(next_ll, start_path_points, std::vector<int64_t>{start_lanelet.id}, 0);
+
+    while (!stack.empty()) {
+      auto [current, current_path, current_ids, depth] = std::move(stack.back());
+      stack.pop_back();
+
+      for (const auto & pt : current->centerline) {
+        current_path.emplace_back(pt.x, pt.y);
+      }
+      current_ids.push_back(current->id);
+
+      if (depth + 1 >= max_depth) {
+        if (current_path.size() >= 2) {
+          all_paths.emplace_back(std::move(current_path), intent, std::move(current_ids));
+        }
+        continue;
+      }
+
+      bool pushed_any = false;
+      for (int64_t next_id : current->successor_ids) {
+        const auto * next = findLaneletById(next_id, ctx);
+        if (next) {
+          stack.emplace_back(next, current_path, current_ids, depth + 1);
+          pushed_any = true;
+        }
+      }
+      if (!pushed_any && current_path.size() >= 2) {
+        all_paths.emplace_back(std::move(current_path), intent, std::move(current_ids));
+      }
+    }
+  }
+
+  return all_paths;
 }
 
 }  // namespace prediction

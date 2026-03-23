@@ -45,9 +45,7 @@ void IntentClassifier::assignProbabilities(
   }
 
   if (existing_total > 1e-6) {
-    // Probabilities already set by trajectory predictor (lanelet-based) — just
-    // normalize
-    normalizeProbabilities(hypotheses);
+    // Probabilities already set by trajectory predictor (lanelet-based) — preserve as-is
     RCLCPP_DEBUG(node_->get_logger(), "Using lanelet-based probabilities for %zu hypotheses", hypotheses.size());
     return;
   }

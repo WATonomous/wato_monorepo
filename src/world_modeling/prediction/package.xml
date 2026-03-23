@@ -18,6 +18,9 @@
   <depend>vision_msgs</depend>
   <depend>world_model_msgs</depend>
   <depend>lanelet_msgs</depend>
+  <depend>world_model</depend>
+  <depend>lanelet2_core</depend>
+  <depend>lanelet2_routing</depend>
   <depend>visualization_msgs</depend>
   <depend>eigen</depend>
 
