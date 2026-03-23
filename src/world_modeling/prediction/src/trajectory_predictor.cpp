@@ -1166,17 +1166,146 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
+  std::vector<TrajectoryHypothesis> hypotheses;
+  hypotheses.reserve(4);
+
   // Use computed velocity if available, otherwise default to walking speed
   double v = velocity.value_or(pedestrian_params_.default_speed);
   v = std::clamp(v, 0.0, pedestrian_params_.max_speed);
 
-  auto state = stateFromDetection(detection.bbox.center.position, detection.bbox.center.orientation, v);
+  // Current ROS time for trajectory timestamps
+  rclcpp::Time current_time = node_->get_clock()->now();
+  std::string frame_id = "map";
 
-  auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
+  // Extract pedestrian state
+  const double start_x = detection.bbox.center.position.x;
+  const double start_y = detection.bbox.center.position.y;
+  const double start_z = detection.bbox.center.position.z;
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Pedestrian prediction: velocity=%.2f m/s", v);
+  const double heading_yaw = extractYaw(detection.bbox.center.orientation);
 
-  return {buildHypothesis(std::move(poses), time_step_)};
+  // Precompute orientation aligned with heading
+  geometry_msgs::msg::Quaternion aligned_orientation;
+  aligned_orientation.w = std::cos(heading_yaw * 0.5);
+  aligned_orientation.z = std::sin(heading_yaw * 0.5);
+
+  // Hypothesis 1: Confident forward walking
+  TrajectoryHypothesis confident_walk;
+  confident_walk.header.stamp = current_time;
+  confident_walk.header.frame_id = frame_id;
+  confident_walk.intent = Intent::CONTINUE_STRAIGHT;
+  confident_walk.probability = 0.0;
+
+  for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = frame_id;
+    pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+    pose.pose.position.x = start_x + v * std::cos(heading_yaw) * time_sec;
+    pose.pose.position.y = start_y + v * std::sin(heading_yaw) * time_sec;
+    pose.pose.position.z = start_z;
+    pose.pose.orientation = aligned_orientation;
+
+    confident_walk.poses.push_back(pose);
+  }
+
+  hypotheses.push_back(confident_walk);
+
+  // Hypothesis 2a: Hesitant / wandering — drift left
+  // Models uncertainty without lateral acceleration
+  TrajectoryHypothesis hesitant_walk_left;
+  hesitant_walk_left.header.stamp = current_time;
+  hesitant_walk_left.header.frame_id = frame_id;
+  hesitant_walk_left.intent = Intent::UNKNOWN;
+  hesitant_walk_left.probability = 0.0;
+
+  {
+    double accumulated_forward_distance = 0.0;
+
+    for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+      accumulated_forward_distance += 0.6 * v * time_step_;
+
+      // Lateral uncertainty grows with time — offset to the LEFT (+90 deg)
+      double lateral_offset = 0.15 * std::sqrt(time_sec);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = frame_id;
+      pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+      pose.pose.position.x = start_x + accumulated_forward_distance * std::cos(heading_yaw) +
+                             lateral_offset * std::cos(heading_yaw + M_PI / 2.0);
+      pose.pose.position.y = start_y + accumulated_forward_distance * std::sin(heading_yaw) +
+                             lateral_offset * std::sin(heading_yaw + M_PI / 2.0);
+      pose.pose.position.z = start_z;
+      pose.pose.orientation = aligned_orientation;
+
+      hesitant_walk_left.poses.push_back(pose);
+    }
+  }
+
+  hypotheses.push_back(hesitant_walk_left);
+
+  // Hypothesis 2b: Hesitant / wandering — drift right
+  // Mirror of 2a: identical forward speed and uncertainty magnitude, but
+  // offset to the RIGHT (-90 deg) so both lateral directions are covered.
+  TrajectoryHypothesis hesitant_walk_right;
+  hesitant_walk_right.header.stamp = current_time;
+  hesitant_walk_right.header.frame_id = frame_id;
+  hesitant_walk_right.intent = Intent::UNKNOWN;
+  hesitant_walk_right.probability = 0.0;
+
+  {
+    double accumulated_forward_distance = 0.0;
+
+    for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+      accumulated_forward_distance += 0.6 * v * time_step_;
+
+      // Lateral uncertainty grows with time — offset to the RIGHT (-90 deg)
+      double lateral_offset = 0.15 * std::sqrt(time_sec);
+
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = frame_id;
+      pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+      pose.pose.position.x = start_x + accumulated_forward_distance * std::cos(heading_yaw) +
+                             lateral_offset * std::cos(heading_yaw - M_PI / 2.0);
+      pose.pose.position.y = start_y + accumulated_forward_distance * std::sin(heading_yaw) +
+                             lateral_offset * std::sin(heading_yaw - M_PI / 2.0);
+      pose.pose.position.z = start_z;
+      pose.pose.orientation = aligned_orientation;
+
+      hesitant_walk_right.poses.push_back(pose);
+    }
+  }
+
+  hypotheses.push_back(hesitant_walk_right);
+
+  // Hypothesis 3: Stop / yield
+  TrajectoryHypothesis stop_behavior;
+  stop_behavior.header.stamp = current_time;
+  stop_behavior.header.frame_id = frame_id;
+  stop_behavior.intent = Intent::STOP;
+  stop_behavior.probability = 0.0;
+
+  for (double time_sec = time_step_; time_sec <= prediction_horizon_; time_sec += time_step_) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = frame_id;
+    pose.header.stamp = current_time + rclcpp::Duration::from_seconds(time_sec);
+
+    pose.pose.position.x = start_x;
+    pose.pose.position.y = start_y;
+    pose.pose.position.z = start_z;
+    pose.pose.orientation = aligned_orientation;
+
+    stop_behavior.poses.push_back(pose);
+  }
+
+  hypotheses.push_back(stop_behavior);
+
+  RCLCPP_DEBUG(
+    node_->get_logger(), "Generated %zu pedestrian trajectory hypotheses, velocity=%.2f m/s", hypotheses.size(), v);
+
+  return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
