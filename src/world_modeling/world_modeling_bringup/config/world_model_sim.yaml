@@ -18,11 +18,17 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/osm/Town10HD_with_regulatory.osm"
-    projector_type: "local_cartesian"  # "utm" for real-world, "local_cartesian" for CARLA
+    osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
+    projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
+
+    # the origin of the osm map in lat/lon for utm projector only
+    # TODO (wato): have a dictionary of origins for different maps
+    origin_lat: 43.43663210811 # origin of test_track_utm.osm
+    origin_lon: -80.5788350291
 
     # Frames
     map_frame: "map"
+    base_frame: "base_footprint"
     utm_frame: "utm"
 
     # Entity tracking
@@ -41,11 +47,12 @@
 
     # Map visualization
     map_viz_publish_rate_hz: 1.0
-    map_viz_radius_m: 100.0
+    map_viz_radius_m: 50.0
+    map_viz_mode: "all" # "all" to viz all markers or "nearby" to viz markers within a radius of the ego
 
-    # Dynamic objects (world_objects topic)
-    dynamic_objects_publish_rate_hz: 20.0
-    dynamic_objects_lanelet_ahead_radius_m: 15.0
+    # World objects enriched
+    world_objects_enriched_publish_rate_hz: 20.0
+    world_objects_enriched_lanelet_ahead_radius_m: 15.0
 
     # Route ahead
     route_ahead_publish_rate_hz: 20.0
@@ -58,12 +65,14 @@
     # --- Area occupancy ---
 
     area_occupancy_publish_rate_hz: 20.0
-    area_occupancy_frame: "base_link"
+    area_occupancy_frame: "base_footprint"
     occupancy_areas:
       - "front_near"
       - "front_far"
       - "left_blind_spot"
       - "right_blind_spot"
+      - "left_lane_change_corridor"
+      - "right_lane_change_corridor"
 
     occupancy_area:
       front_near:
@@ -90,13 +99,25 @@
         radius: 10.0
         start_angle_deg: 180.0
         end_angle_deg: 250.0
+      left_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: 3.0
+        length: 12.5
+        width: 4.0
+      right_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: -3.0
+        length: 12.5
+        width: 4.0
 
 # =============================================================================
 # Costmap Node
 # =============================================================================
 /**/costmap_node:
   ros__parameters:
-    costmap_frame: "base_link"
+    costmap_frame: "base_footprint"
     map_frame: "map"
     publish_rate_hz: 30.0
     grid_width_m: 100.0
@@ -114,8 +135,8 @@
     # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.2
     layers.objects.bbox_cost_decay: 0.3
-    layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
+    layers.objects.max_centroid_height_m: 5.0
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 2.0
@@ -147,6 +168,9 @@
     direction_arrow_size: 0.8
     speed_limit_text_height: 1.0
     yield_marker_size: 1.5
+    show_reg_elem_labels: true
+    show_lanelet_ids: true
+    lanelet_id_text_height: 0.5
 
 /**/lane_context_markers_node:
   ros__parameters:
@@ -172,15 +196,31 @@
     show_boundaries: true
 
 # =============================================================================
+# Behaviour Markers Node
+# =============================================================================
+/**/behaviour_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    preferred_centerline_line_width: 0.45
+    preferred_boundary_line_width: 0.18
+    current_lane_line_width: 0.2
+    text_height: 0.8
+    show_boundaries: true
+    show_lanelet_ids: false
+    show_current_lane: true
+    show_info: true
+
+# =============================================================================
 # World Object Marker Nodes
 # =============================================================================
 
-# Pre-enrichment (subscribes to world_object_seeds from simple_prediction)
+# Pre-enrichment (subscribes to world_object_seeds from prediction)
 /**/world_objects_markers_seed_node:
   ros__parameters:
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.25
@@ -201,7 +241,7 @@
 
 /**/costmap_markers_node:
   ros__parameters:
-    frame_id: "base_link"
+    frame_id: "base_footprint"
     footprint_color: [0.5, 0.0, 1.0, 0.8]
     footprint_line_width: 0.1
 
@@ -211,6 +251,7 @@
     frame_id: "map"
     box_alpha: 0.6
     label_text_height: 0.5
+    label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
     lanelet_boundary_line_width: 0.25

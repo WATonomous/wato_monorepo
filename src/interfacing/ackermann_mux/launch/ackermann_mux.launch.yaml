@@ -10,6 +10,6 @@ launch:
       name: "ackermann_mux"
       output: "screen"
       ros_args: "--log-level warn"
-      namespace: ""
+      namespace: "interfacing"
       param:
         - from: "$(var ackermann_config_file)"

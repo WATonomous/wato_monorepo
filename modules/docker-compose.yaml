@@ -1,7 +1,7 @@
 ---
 services:
 
-#################### INFRASTRUCTURE SERVICES ####################
+  #################### INFRASTRUCTURE SERVICES ####################
   infrastructure_source:
     profiles: ["infrastructure_pre"]
     build:
@@ -54,8 +54,12 @@ services:
       - ${DOCKER_SOCKET_PATH}:/var/run/docker.sock
     ports:
       - "${LOG_VIEWER__PORT}:8888"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - TOPIC_HEALTHCHECKER_URL=http://host.docker.internal:${TOPIC_HEALTHCHECKER__PORT}
 
-#################### INTERFACING SERVICE ####################
+  #################### INTERFACING SERVICE ####################
   interfacing_source:
     profiles: ["interfacing_pre"]
     build:
@@ -98,6 +102,7 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+      - TOPIC_HEALTHCHECKER__PORT=${TOPIC_HEALTHCHECKER__PORT}
     volumes:
       - /dev/input:/dev/input
       - /run/udev:/run/udev:ro
@@ -107,7 +112,7 @@ services:
         condition: service_started
         required: false
 
-#################### PERCEPTION SERVICE ####################
+  #################### PERCEPTION SERVICE ####################
   perception_source:
     profiles: ["perception_pre"]
     build:
@@ -133,6 +138,8 @@ services:
       memlock: -1
     ipc: host
     network_mode: host
+    runtime: nvidia
+    privileged: true
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -146,18 +153,27 @@ services:
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
     volumes:
-      - /mnt/wato-drive2/perception_models:/perception_models
+      - ../models:/ws/models
+      - ../src/perception/perception_bringup/config:/ws/src/perception/perception_bringup/config
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
     depends_on:
       infrastructure_bringup:
         condition: service_started
         required: false
 
-#################### WORLD MODELING SERVICE ####################
+  #################### WORLD MODELING SERVICE ####################
   world_modeling_source:
     profiles: ["world_modeling_pre"]
     build:
@@ -205,7 +221,7 @@ services:
         condition: service_started
         required: false
 
-#################### ACTION SERVICE ####################
+  #################### ACTION SERVICE ####################
   action_source:
     profiles: ["action_pre"]
     build:
@@ -242,7 +258,7 @@ services:
         - "${ACTION_IMAGE}:main"
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch action_bringup action_launch.py"
+    command: /bin/bash -c "ros2 launch action_bringup action_launch.yaml"
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
@@ -253,7 +269,7 @@ services:
         condition: service_started
         required: false
 
-#################### SIMULATION SERVICES ####################
+  #################### SIMULATION SERVICES ####################
   carla_sim:
     image: carlasim/carla:0.10.0
     runtime: nvidia

@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <string>
+#include <vector>
 
 #include "lanelet_msgs/msg/map_visualization.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -43,6 +44,7 @@ public:
   {
     rate_hz_ = node_->declare_parameter<double>("map_viz_publish_rate_hz", 1.0);
     radius_m_ = node_->declare_parameter<double>("map_viz_radius_m", 100.0);
+    mode_ = node_->declare_parameter<std::string>("map_viz_mode", "nearby");
 
     pub_ = node_->create_publisher<lanelet_msgs::msg::MapVisualization>("map_visualization", 10);
   }
@@ -81,17 +83,23 @@ private:
       return;
     }
 
-    auto center = ego_pose_.getEgoPoint();
-    if (!center.has_value()) {
-      return;
-    }
-
     lanelet_msgs::msg::MapVisualization msg;
     msg.header.stamp = node_->get_clock()->now();
     msg.header.frame_id = ego_pose_.mapFrame();
 
-    auto nearby = lanelet_->getLaneletsInRadius(*center, radius_m_);
-    for (const auto & ll : nearby) {
+    std::vector<lanelet::ConstLanelet> lanelets;
+    if (mode_ == "all") {
+      lanelets = lanelet_->getAllLanelets();
+    } else {
+      auto center = ego_pose_.getEgoPoint();
+      if (center.has_value()) {
+        lanelets = lanelet_->getLaneletsInRadius(*center, radius_m_);
+      } else {
+        lanelets = lanelet_->getAllLanelets();
+      }
+    }
+
+    for (const auto & ll : lanelets) {
       msg.lanelets.push_back(lanelet_->toLaneletMsg(ll));
     }
 
@@ -103,6 +111,7 @@ private:
   EgoPoseHelper ego_pose_;
   double rate_hz_;
   double radius_m_;
+  std::string mode_;
 
   rclcpp_lifecycle::LifecyclePublisher<lanelet_msgs::msg::MapVisualization>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;

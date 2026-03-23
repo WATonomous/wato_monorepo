@@ -16,6 +16,7 @@ RUN apt-get -qq update && \
         | sort > /tmp/colcon_install_list && \
     (grep 'pip3 install' /tmp/rosdep_output || true) \
         | sed 's/.*pip3 install //' \
+        | sed 's/ --hash=[^ ]*//g' \
         | sort > /tmp/colcon_pip_install_list
 
 ################################ Install Rosdeps ################################
@@ -73,6 +74,7 @@ FROM rosdep_install AS develop
 ARG USERNAME
 ARG USER_GID
 ARG USER_UID
+ARG CLAUDE_CODE
 
 # Update Sources and Install Useful Developer Tools
 # hadolint ignore=DL3009
@@ -84,7 +86,8 @@ RUN apt-get update && \
     wget \
     htop \
     nano \
-    tree
+    tree \
+    can-utils
 
 # Set user in container to developer's user
 # hadolint ignore=SC2086
@@ -105,9 +108,11 @@ RUN existing_user=$(getent passwd ${USER_UID} | cut -d: -f1 || true) \
 
 USER $USERNAME
 
-# Install Claude Code natively
+# Optionally install Claude Code
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN curl -fsSL https://claude.ai/install.sh | bash
+RUN if [ "$CLAUDE_CODE" = "true" ]; then \
+      curl -fsSL https://claude.ai/install.sh | bash; \
+    fi
 
 # Setup dev bashrc
 COPY docker/config/wato_dev.bashrc ${WATONOMOUS_INSTALL}/wato_dev.bashrc

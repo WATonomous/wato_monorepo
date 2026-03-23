@@ -1,0 +1,13 @@
+/**/oscc_interfacing:
+  ros__parameters:
+    is_armed_publish_rate_hz: 100
+    oscc_can_bus: 0 # Can bus number (int)
+    steering_scaling: 1.0 # value 0-1 to scale the effectiveness of steering commands
+    disable_boards_on_fault: false # If true, will disable OSCC boards on fault instead of just disarming
+    steering_conversion_factor: 15.7 # factor to convert from steering wheel angle
+    steering_torque_deadzone_pos: 0.09 # Deadzone compensation added to positive steering torque commands
+    steering_torque_deadzone_neg: 0.13 # Deadzone compensation added to negative steering torque commands
+    enable_all: true # If true, arm/disarm enables/disables all modules at once
+    enable_steering: true # Enable steering module on arm (only used when enable_all is false)
+    enable_throttle: true # Enable throttle module on arm (only used when enable_all is false)
+    enable_brakes: true # Enable brake module on arm (only used when enable_all is false)

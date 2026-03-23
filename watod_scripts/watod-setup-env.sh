@@ -152,6 +152,10 @@ FOXGLOVE_BRIDGE_PORT=${FOXGLOVE_BRIDGE_PORT:-$((BASE_PORT+2))}
 LOG_VIEWER__PORT=${LOG_VIEWER__PORT:-$((BASE_PORT+6))}
 PYGAME_HUD_PORT=${PYGAME_HUD_PORT:-$((BASE_PORT+7))}
 CARLA_PORT=${CARLA_PORT:-$((BASE_PORT+8))}
+TOPIC_HEALTHCHECKER__PORT=${TOPIC_HEALTHCHECKER__PORT:-$((BASE_PORT+9))}
+
+################################  Claude Code  #######################################
+CLAUDE_CODE=${CLAUDE_CODE:-"true"}
 
 ################################  Simulation  ########################################
 CARLA_RENDER_MODE=${CARLA_RENDER_MODE:-"no_gpu"}
@@ -196,6 +200,10 @@ append "FOXGLOVE_BRIDGE_PORT" "$FOXGLOVE_BRIDGE_PORT"
 append "LOG_VIEWER__PORT" "$LOG_VIEWER__PORT"
 append "PYGAME_HUD_PORT" "$PYGAME_HUD_PORT"
 append "CARLA_PORT" "$CARLA_PORT"
+append "TOPIC_HEALTHCHECKER__PORT" "$TOPIC_HEALTHCHECKER__PORT"
+
+# Claude Code
+append "CLAUDE_CODE" "$CLAUDE_CODE"
 
 # Simulation
 append "CARLA_RENDER_MODE" "$CARLA_RENDER_MODE"

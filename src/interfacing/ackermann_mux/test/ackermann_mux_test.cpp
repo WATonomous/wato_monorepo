@@ -17,6 +17,7 @@
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <lifecycle_msgs/msg/transition.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/bool.hpp>
 
@@ -49,6 +50,10 @@ TEST_CASE_METHOD(TestExecutorFixture, "Ackermann Mux Operation", "[ackermann_mux
 
   auto mux_node = std::make_shared<ackermann_mux::AckermannMuxNode>(options);
   add_node(mux_node);
+
+  // Transition lifecycle node to active state
+  mux_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  mux_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
 
   // Test Inputs
   auto input1_pub = std::make_shared<PublisherTestNode<AckermannDriveStamped>>("/input1", "input1_pub");

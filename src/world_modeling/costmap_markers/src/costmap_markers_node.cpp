@@ -24,7 +24,7 @@ namespace costmap_markers
 CostmapMarkersNode::CostmapMarkersNode()
 : Node("costmap_markers_node")
 {
-  this->declare_parameter("frame_id", "base_link");
+  this->declare_parameter("frame_id", "base_footprint");
   this->declare_parameter("footprint_color", std::vector<double>{0.0, 1.0, 0.0, 0.8});
   this->declare_parameter("footprint_line_width", 0.05);
 

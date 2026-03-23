@@ -1,6 +1,7 @@
 geometry_msgs/PoseStamped pose
 float64 length
 float64 width
+string position_frame
 ---
 bool success
 int32 wall_id

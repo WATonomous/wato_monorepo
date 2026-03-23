@@ -1,6 +1,6 @@
 costmap_node:
   ros__parameters:
-    costmap_frame: "base_link"
+    costmap_frame: "base_footprint"
     map_frame: "map"
     publish_rate_hz: 20.0
     grid_width_m: 60.0
@@ -18,8 +18,6 @@ costmap_node:
     # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.5
     layers.objects.bbox_cost_decay: 1.0
-    layers.objects.prediction_inflation_m: 0.3
-    layers.objects.prediction_cost_decay: 0.8
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 0.0

@@ -21,7 +21,7 @@ x-common-settings: &common_settings
   AcquisitionControl:
     ExposureAuto: "Continuous"
     AutoExposureTimeLowerLimit: 100        # microseconds
-    AutoExposureTimeUpperLimit: 15000      # microseconds - limit for motion blur
+    AutoExposureTimeUpperLimit: 15000      # microseconds             ` - limit for motion blur
     GainShutPrior: "Shut"                  # Prioritize shutter speed over gain
     AcquisitionFrameRateEnable: true
     AcquisitionFrameRate: 12.0

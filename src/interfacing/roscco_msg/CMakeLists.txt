@@ -25,6 +25,9 @@ find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Roscco.msg"
+  "msg/WheelSpeeds.msg"
+  "msg/SteeringAngle.msg"
+  "msg/SteeringTorque.msg"
   DEPENDENCIES std_msgs
 )
 

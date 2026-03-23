@@ -22,10 +22,14 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(roscco_msg REQUIRED)
 find_package(control_toolbox REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(pid_msgs REQUIRED)
 
 add_library(pid_control_component SHARED
   src/pid_control_node.cpp
@@ -40,6 +44,8 @@ target_include_directories(pid_control_component PUBLIC
 target_link_libraries(pid_control_component PUBLIC
   rclcpp::rclcpp
   rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${lifecycle_msgs_TARGETS}
   ${std_msgs_TARGETS}
   ${ackermann_msgs_TARGETS}
   roscco_msg::roscco_msg__rosidl_typesupport_cpp
@@ -51,8 +57,66 @@ rclcpp_components_register_node(pid_control_component
   EXECUTABLE pid_control_node
 )
 
+# Velocity-Driven Feedforward PID
+add_library(vel_driven_feedforward_pid_component SHARED
+  src/vel_driven_feedforward_pid_node.cpp
+)
+
+target_include_directories(vel_driven_feedforward_pid_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(vel_driven_feedforward_pid_component PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${lifecycle_msgs_TARGETS}
+  ${std_msgs_TARGETS}
+  ${ackermann_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  roscco_msg::roscco_msg__rosidl_typesupport_cpp
+  pid_msgs::pid_msgs__rosidl_typesupport_cpp
+  control_toolbox::control_toolbox
+)
+
+rclcpp_components_register_node(vel_driven_feedforward_pid_component
+  PLUGIN "pid_control::VelDrivenFeedforwardPidNode"
+  EXECUTABLE vel_driven_feedforward_pid_node
+)
+
+# Gain-Scheduled PID
+add_library(gain_scheduled_pid_component SHARED
+  src/gain_scheduled_pid_node.cpp
+)
+
+target_include_directories(gain_scheduled_pid_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(gain_scheduled_pid_component PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${lifecycle_msgs_TARGETS}
+  ${std_msgs_TARGETS}
+  ${ackermann_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  roscco_msg::roscco_msg__rosidl_typesupport_cpp
+  pid_msgs::pid_msgs__rosidl_typesupport_cpp
+  control_toolbox::control_toolbox
+)
+
+rclcpp_components_register_node(gain_scheduled_pid_component
+  PLUGIN "pid_control::GainScheduledPidNode"
+  EXECUTABLE gain_scheduled_pid_node
+)
+
 install(TARGETS
   pid_control_component
+  vel_driven_feedforward_pid_component
+  gain_scheduled_pid_component
   DESTINATION lib
 )
 
