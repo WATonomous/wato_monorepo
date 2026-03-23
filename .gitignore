@@ -17,5 +17,6 @@ build/
 install/
 log/
 external/
-maps/
 weights/
+models/
+maps/
