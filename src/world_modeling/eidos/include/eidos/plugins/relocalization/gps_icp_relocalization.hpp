@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <deque>
@@ -5,18 +19,18 @@
 #include <optional>
 
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <sensor_msgs/msg/imu.hpp>
-
-#include <small_gicp/points/point_cloud.hpp>
 #include <small_gicp/ann/kdtree.hpp>
+#include <small_gicp/points/point_cloud.hpp>
 
 #include "eidos/plugins/base_relocalization_plugin.hpp"
 #include "eidos/utils/types.hpp"
 #include "eidos/utils/utm.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 /**
  * @brief GPS + ICP relocalization against a prior map.
@@ -26,7 +40,8 @@ namespace eidos {
  * clouds, then aligns the live LiDAR scan against that submap via GICP.
  * The init_guess comes from GPS position + IMU gravity + nearest keyframe yaw.
  */
-class GpsIcpRelocalization : public RelocalizationPlugin {
+class GpsIcpRelocalization : public RelocalizationPlugin
+{
 public:
   GpsIcpRelocalization() = default;
   ~GpsIcpRelocalization() override = default;

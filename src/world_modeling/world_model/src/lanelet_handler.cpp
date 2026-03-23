@@ -14,7 +14,6 @@
 
 #include "world_model/lanelet_handler.hpp"
 
-#include <rclcpp/rclcpp.hpp>
 #include <lanelet2_core/geometry/Lanelet.h>
 #include <lanelet2_routing/Route.h>
 
@@ -27,6 +26,8 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+
+#include <rclcpp/rclcpp.hpp>
 
 namespace world_model
 {

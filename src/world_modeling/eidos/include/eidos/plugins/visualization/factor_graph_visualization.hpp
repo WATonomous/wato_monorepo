@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <rclcpp/rclcpp.hpp>
@@ -6,14 +20,16 @@
 
 #include "eidos/plugins/base_visualization_plugin.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 /**
  * @brief Publishes factor graph state markers for RViz.
  *
  * Renders optimized poses as spheres and factor connections as lines.
  */
-class FactorGraphVisualization : public VisualizationPlugin {
+class FactorGraphVisualization : public VisualizationPlugin
+{
 public:
   FactorGraphVisualization() = default;
   ~FactorGraphVisualization() override = default;
@@ -23,7 +39,7 @@ public:
 protected:
   void onActivate() override;
   void onDeactivate() override;
-  void render(const gtsam::Values& optimized_values) override;
+  void render(const gtsam::Values & optimized_values) override;
 
 private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_;

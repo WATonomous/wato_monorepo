@@ -1,33 +1,45 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
+
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
+#include <pcl/point_cloud.h>
 
 #include <atomic>
 #include <deque>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <mutex>
 #include <shared_mutex>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-
-#include <gtsam/inference/Symbol.h>
-#include <gtsam/geometry/Pose3.h>
-
-#include <pcl/point_cloud.h>
-
-#include <small_gicp/points/point_cloud.hpp>
 #include <small_gicp/ann/kdtree.hpp>
+#include <small_gicp/points/point_cloud.hpp>
 #include <small_gicp/registration/registration_result.hpp>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
 #include "eidos/utils/types.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 /**
  * @brief LiDAR-Inertial Submap Odometry factor plugin.
@@ -45,7 +57,8 @@ namespace eidos {
  * - SLAM loop: reads produceFactor() (lock-free via AtomicSlot).
  * - Submap rebuild: synchronous in lidarCallback (fixed window, fast).
  */
-class LisoFactor : public FactorPlugin {
+class LisoFactor : public FactorPlugin
+{
 public:
   LisoFactor() = default;
   ~LisoFactor() override = default;
@@ -55,15 +68,14 @@ public:
   void deactivate() override;
 
   StampedFactorResult produceFactor(gtsam::Key key, double timestamp) override;
-  void onTrackingBegin(const gtsam::Pose3& initial_pose) override;
-  void onOptimizationComplete(
-      const gtsam::Values& optimized_values, bool loop_closure_detected) override;
+  void onTrackingBegin(const gtsam::Pose3 & initial_pose) override;
+  void onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected) override;
 
 private:
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
   void rebuildSubmap();
-  void rebuildSubmapAtPosition(const Eigen::Vector3f& position);
+  void rebuildSubmapAtPosition(const Eigen::Vector3f & position);
   std::vector<gtsam::Key> collectRecentStates(gtsam::Key start, double radius);
 
   // ---- State flags ----
@@ -136,8 +148,8 @@ private:
   bool has_tf_ = false;
 
   // ---- Config ----
-  bool add_factors_ = true;                          ///< Whether to cache GICP results for factor graph
-  std::string submap_source_ = "recent_keyframes";   ///< "recent_keyframes" or "prior_map"
+  bool add_factors_ = true;  ///< Whether to cache GICP results for factor graph
+  std::string submap_source_ = "recent_keyframes";  ///< "recent_keyframes" or "prior_map"
   double scan_ds_resolution_ = 0.5;
   double submap_ds_resolution_ = 0.5;
   int num_neighbors_ = 10;

@@ -1,31 +1,51 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/plugins/visualization/factor_graph_visualization.hpp"
-#include "eidos/core/map_manager.hpp"
+
+#include <gtsam/inference/Symbol.h>
 
 #include <functional>
 #include <unordered_set>
 
 #include <pluginlib/class_list_macros.hpp>
-#include <gtsam/inference/Symbol.h>
 
-namespace eidos {
+#include "eidos/core/map_manager.hpp"
+
+namespace eidos
+{
 
 // Deterministic color from plugin name
-static std_msgs::msg::ColorRGBA pluginColor(const std::string& name, float alpha) {
+static std_msgs::msg::ColorRGBA pluginColor(const std::string & name, float alpha)
+{
   static const float palette[][3] = {
-    {0.0f, 1.0f, 1.0f},   // cyan
-    {1.0f, 0.0f, 1.0f},   // magenta
-    {1.0f, 1.0f, 0.0f},   // yellow
-    {1.0f, 0.5f, 0.0f},   // orange
-    {0.5f, 0.0f, 1.0f},   // purple
-    {0.0f, 1.0f, 0.5f},   // spring green
-    {1.0f, 0.3f, 0.3f},   // salmon
-    {0.3f, 0.7f, 1.0f},   // light blue
+    {0.0f, 1.0f, 1.0f},  // cyan
+    {1.0f, 0.0f, 1.0f},  // magenta
+    {1.0f, 1.0f, 0.0f},  // yellow
+    {1.0f, 0.5f, 0.0f},  // orange
+    {0.5f, 0.0f, 1.0f},  // purple
+    {0.0f, 1.0f, 0.5f},  // spring green
+    {1.0f, 0.3f, 0.3f},  // salmon
+    {0.3f, 0.7f, 1.0f},  // light blue
   };
   static constexpr int n = sizeof(palette) / sizeof(palette[0]);
   std_msgs::msg::ColorRGBA c;
   c.a = alpha;
   if (name.empty()) {
-    c.r = 0.5f; c.g = 0.5f; c.b = 0.5f;
+    c.r = 0.5f;
+    c.g = 0.5f;
+    c.b = 0.5f;
     return c;
   }
   size_t h = std::hash<std::string>{}(name);
@@ -35,7 +55,8 @@ static std_msgs::msg::ColorRGBA pluginColor(const std::string& name, float alpha
   return c;
 }
 
-void FactorGraphVisualization::onInitialize() {
+void FactorGraphVisualization::onInitialize()
+{
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".topic", "slam/visualization/factor_graph");
@@ -59,15 +80,18 @@ void FactorGraphVisualization::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized", name_.c_str());
 }
 
-void FactorGraphVisualization::onActivate() {
+void FactorGraphVisualization::onActivate()
+{
   pub_->on_activate();
 }
 
-void FactorGraphVisualization::onDeactivate() {
+void FactorGraphVisualization::onDeactivate()
+{
   pub_->on_deactivate();
 }
 
-void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
+void FactorGraphVisualization::render(const gtsam::Values & optimized_values)
+{
   if (!pub_->is_activated()) return;
   if (pub_->get_subscription_count() == 0) return;
 
@@ -86,14 +110,16 @@ void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
   auto key_list = map_manager_->getKeyList();
 
   // Render state spheres — colored by owner plugin
-  for (const auto& kv : optimized_values) {
+  for (const auto & kv : optimized_values) {
     gtsam::Symbol sym(kv.key);
     if (sym.chr() != 'x') continue;
 
     gtsam::Pose3 pose;
     try {
       pose = optimized_values.at<gtsam::Pose3>(kv.key);
-    } catch (...) { continue; }
+    } catch (...) {
+      continue;
+    }
 
     std::string owner = map_manager_->getOwnerPlugin(kv.key);
     auto color = pluginColor(owner, 0.8f);
@@ -133,8 +159,7 @@ void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
     label.color.g = 1.0f;
     label.color.b = 1.0f;
     label.color.a = 1.0f;
-    label.text = (owner.empty() ? "?" : std::string(1, std::toupper(owner[0])))
-                 + std::to_string(sym.index());
+    label.text = (owner.empty() ? "?" : std::string(1, std::toupper(owner[0]))) + std::to_string(sym.index());
     label.lifetime = rclcpp::Duration(0, 0);
     markers.markers.push_back(label);
   }
@@ -146,7 +171,9 @@ void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
     gtsam::Pose3 pose;
     try {
       pose = optimized_values.at<gtsam::Pose3>(k);
-    } catch (...) { continue; }
+    } catch (...) {
+      continue;
+    }
 
     visualization_msgs::msg::Marker gps_sphere;
     gps_sphere.header.stamp = now;
@@ -193,12 +220,14 @@ void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
   }
 
   // Render edges from adjacency graph — colored by factor type
-  const auto& adjacency = map_manager_->getAdjacency();
-  for (const auto& [key, neighbors] : adjacency) {
+  const auto & adjacency = map_manager_->getAdjacency();
+  for (const auto & [key, neighbors] : adjacency) {
     gtsam::Pose3 from_pose;
     try {
       from_pose = optimized_values.at<gtsam::Pose3>(key);
-    } catch (...) { continue; }
+    } catch (...) {
+      continue;
+    }
 
     for (gtsam::Key neighbor : neighbors) {
       if (neighbor <= key) continue;
@@ -206,7 +235,9 @@ void FactorGraphVisualization::render(const gtsam::Values& optimized_values) {
       gtsam::Pose3 to_pose;
       try {
         to_pose = optimized_values.at<gtsam::Pose3>(neighbor);
-      } catch (...) { continue; }
+      } catch (...) {
+        continue;
+      }
 
       std::string edge_owner = map_manager_->getEdgeOwner(key, neighbor);
       auto edge_color = pluginColor(edge_owner, 0.7f);

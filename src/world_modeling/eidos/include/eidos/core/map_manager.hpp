@@ -1,4 +1,22 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
+
+#include <gtsam/inference/Key.h>
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/nonlinear/Values.h>
 
 #include <any>
 #include <functional>
@@ -11,16 +29,13 @@
 #include <unordered_map>
 #include <vector>
 
-#include <gtsam/inference/Key.h>
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <gtsam/nonlinear/Values.h>
-
 #include "eidos/utils/types.hpp"
 
 // Forward declare sqlite3
 struct sqlite3;
 
-namespace eidos {
+namespace eidos
+{
 
 /**
  * @brief Centralized keyframe pose + data store with SQLite persistence.
@@ -34,7 +49,8 @@ namespace eidos {
  * format each data_key uses, so any reader (eidos_tools CLI) can
  * deserialize without external knowledge.
  */
-class MapManager {
+class MapManager
+{
 public:
   MapManager();
   ~MapManager();
@@ -51,19 +67,18 @@ public:
    * @param data_key  Key used in store (e.g. "liso_factor/cloud").
    * @param format    Format name from the shared registry (e.g. "pcl_pcd_binary").
    */
-  void registerKeyframeFormat(const std::string& data_key, const std::string& format);
+  void registerKeyframeFormat(const std::string & data_key, const std::string & format);
 
   /**
    * @brief Register a global data format for persistence. Same type contract.
    */
-  void registerGlobalFormat(const std::string& data_key, const std::string& format);
+  void registerGlobalFormat(const std::string & data_key, const std::string & format);
 
   // ---- Keyframe pose management ----
 
-  void addKeyframe(gtsam::Key gtsam_key, const PoseType& pose,
-                   const std::string& owner = "");
+  void addKeyframe(gtsam::Key gtsam_key, const PoseType & pose, const std::string & owner = "");
   std::string getOwnerPlugin(gtsam::Key gtsam_key) const;
-  void updatePoses(const gtsam::Values& optimized);
+  void updatePoses(const gtsam::Values & optimized);
 
   pcl::PointCloud<PointType>::Ptr getKeyPoses3D() const;
   pcl::PointCloud<PoseType>::Ptr getKeyPoses6D() const;
@@ -77,58 +92,67 @@ public:
   // std::any is internal — plugins use store<T>() / retrieve<T>().
 
   /// Store typed keyframe data. T is wrapped in std::any internally.
-  template<typename T>
-  void store(gtsam::Key key, const std::string& data_key, T value) {
+  template <typename T>
+  void store(gtsam::Key key, const std::string & data_key, T value)
+  {
     std::lock_guard<std::mutex> lock(mtx_);
     keyframe_data_[key][data_key] = std::any(std::move(value));
   }
 
   /// Retrieve typed keyframe data. Returns std::nullopt if key/data_key missing or type mismatch.
-  template<typename T>
-  std::optional<T> retrieve(gtsam::Key key, const std::string& data_key) const {
+  template <typename T>
+  std::optional<T> retrieve(gtsam::Key key, const std::string & data_key) const
+  {
     std::lock_guard<std::mutex> lock(mtx_);
     auto kf = keyframe_data_.find(key);
     if (kf == keyframe_data_.end()) return std::nullopt;
     auto it = kf->second.find(data_key);
     if (it == kf->second.end()) return std::nullopt;
-    try { return std::any_cast<T>(it->second); }
-    catch (...) { return std::nullopt; }
+    try {
+      return std::any_cast<T>(it->second);
+    } catch (...) {
+      return std::nullopt;
+    }
   }
 
   /// Store typed global data.
-  template<typename T>
-  void storeGlobal(const std::string& data_key, T value) {
+  template <typename T>
+  void storeGlobal(const std::string & data_key, T value)
+  {
     std::lock_guard<std::mutex> lock(mtx_);
     global_data_[data_key] = std::any(std::move(value));
   }
 
   /// Retrieve typed global data.
-  template<typename T>
-  std::optional<T> retrieveGlobal(const std::string& data_key) const {
+  template <typename T>
+  std::optional<T> retrieveGlobal(const std::string & data_key) const
+  {
     std::lock_guard<std::mutex> lock(mtx_);
     auto it = global_data_.find(data_key);
     if (it == global_data_.end()) return std::nullopt;
-    try { return std::any_cast<T>(it->second); }
-    catch (...) { return std::nullopt; }
+    try {
+      return std::any_cast<T>(it->second);
+    } catch (...) {
+      return std::nullopt;
+    }
   }
 
   /// Check if keyframe data exists for a given key + data_key.
-  bool hasKeyframeData(gtsam::Key key, const std::string& data_key) const;
+  bool hasKeyframeData(gtsam::Key key, const std::string & data_key) const;
 
   // ---- Graph adjacency ----
 
-  void addEdges(const gtsam::NonlinearFactorGraph& new_factors,
-                const std::vector<std::string>& factor_owners = {});
-  const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>>& getAdjacency() const;
+  void addEdges(const gtsam::NonlinearFactorGraph & new_factors, const std::vector<std::string> & factor_owners = {});
+  const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> & getAdjacency() const;
   std::string getEdgeOwner(gtsam::Key key_a, gtsam::Key key_b) const;
 
   // ---- Persistence (single .map SQLite file) ----
 
   /// Save everything to a .map file. Creates/overwrites the file.
-  bool saveMap(const std::string& path);
+  bool saveMap(const std::string & path);
 
   /// Load from a .map file. Poses loaded immediately, blobs on demand.
-  bool loadMap(const std::string& path);
+  bool loadMap(const std::string & path);
 
   bool hasPriorMap() const;
   bool isPriorMapKey(gtsam::Key key) const;
@@ -154,10 +178,10 @@ private:
 
   // ---- Format registration ----
   std::unordered_map<std::string, std::string> keyframe_formats_;  ///< data_key → format name
-  std::unordered_map<std::string, std::string> global_formats_;    ///< data_key → format name
+  std::unordered_map<std::string, std::string> global_formats_;  ///< data_key → format name
 
   // ---- SQLite handle for lazy loading ----
-  sqlite3* load_db_ = nullptr;
+  sqlite3 * load_db_ = nullptr;
 
   mutable std::mutex mtx_;
 };

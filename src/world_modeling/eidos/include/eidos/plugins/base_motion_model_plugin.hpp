@@ -1,4 +1,21 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
+
+#include <gtsam/geometry/Pose3.h>
+#include <tf2_ros/buffer.h>
 
 #include <atomic>
 #include <memory>
@@ -7,14 +24,12 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <tf2_ros/buffer.h>
-
-#include <gtsam/geometry/Pose3.h>
 
 #include "eidos/utils/lock_free_pose.hpp"
 #include "eidos/utils/types.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 /**
  * @brief Base class for motion model plugins.
@@ -25,18 +40,23 @@ namespace eidos {
  *
  * The motion model does NOT contribute factors to the SLAM graph.
  */
-class MotionModelPlugin {
+class MotionModelPlugin
+{
 public:
   virtual ~MotionModelPlugin() = default;
 
-  const std::string& getName() const { return name_; }
+  const std::string & getName() const
+  {
+    return name_;
+  }
 
   void initialize(
-      const std::string& name,
-      rclcpp_lifecycle::LifecycleNode::SharedPtr node,
-      tf2_ros::Buffer* tf,
-      rclcpp::CallbackGroup::SharedPtr callback_group,
-      const std::atomic<SlamState>* state) {
+    const std::string & name,
+    rclcpp_lifecycle::LifecycleNode::SharedPtr node,
+    tf2_ros::Buffer * tf,
+    rclcpp::CallbackGroup::SharedPtr callback_group,
+    const std::atomic<SlamState> * state)
+  {
     name_ = name;
     node_ = node;
     tf_ = tf;
@@ -51,23 +71,36 @@ public:
   virtual void deactivate() = 0;
 
   /// Whether the motion model has enough data to begin (e.g. IMU warmup).
-  virtual bool isReady() const { return true; }
-  virtual std::string getReadyStatus() const { return ""; }
+  virtual bool isReady() const
+  {
+    return true;
+  }
+
+  virtual std::string getReadyStatus() const
+  {
+    return "";
+  }
 
   // ---- Lock-free pose output (base class enforced) ----
 
   /// Odom-frame pose. Always non-blocking.
-  std::optional<gtsam::Pose3> getOdomPose() const { return odom_pose_.load(); }
+  std::optional<gtsam::Pose3> getOdomPose() const
+  {
+    return odom_pose_.load();
+  }
 
 protected:
   /// Write odom-frame pose from sensor callback. Single writer only.
-  void setOdomPose(const gtsam::Pose3& pose) { odom_pose_.store(pose); }
+  void setOdomPose(const gtsam::Pose3 & pose)
+  {
+    odom_pose_.store(pose);
+  }
 
   std::string name_;
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
-  tf2_ros::Buffer* tf_ = nullptr;
+  tf2_ros::Buffer * tf_ = nullptr;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
-  const std::atomic<SlamState>* state_ = nullptr;
+  const std::atomic<SlamState> * state_ = nullptr;
 
 private:
   LockFreePose odom_pose_;

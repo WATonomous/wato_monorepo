@@ -1,20 +1,36 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/plugins/factors/liso_factor.hpp"
-#include "eidos/utils/conversions.hpp"
+
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/slam/BetweenFactor.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <filesystem>
 #include <queue>
 #include <unordered_set>
 
-#include <pcl_conversions/pcl_conversions.h>
 #include <pluginlib/class_list_macros.hpp>
-#include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/inference/Symbol.h>
 #include <small_gicp/registration/registration_helper.hpp>
 
 #include "eidos/core/map_manager.hpp"
+#include "eidos/utils/conversions.hpp"
 #include "eidos/utils/small_gicp_ros.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 constexpr double kInitialHessianScale = 100.0;
 constexpr size_t kImuBufferMaxSize = 2500;
@@ -27,7 +43,8 @@ constexpr float kSubmapRebuildFraction = 0.5f;
 // Lifecycle
 // ==========================================================================
 
-void LisoFactor::onInitialize() {
+void LisoFactor::onInitialize()
+{
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".lidar_topic", "/lidar/points");
@@ -87,19 +104,14 @@ void LisoFactor::onInitialize() {
   sub_opts.callback_group = callback_group_;
 
   lidar_sub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>(
-      lidar_topic, rclcpp::SensorDataQoS(),
-      std::bind(&LisoFactor::lidarCallback, this, std::placeholders::_1),
-      sub_opts);
+    lidar_topic, rclcpp::SensorDataQoS(), std::bind(&LisoFactor::lidarCallback, this, std::placeholders::_1), sub_opts);
 
   imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
-      imu_topic_, rclcpp::SensorDataQoS(),
-      std::bind(&LisoFactor::imuCallback, this, std::placeholders::_1),
-      sub_opts);
+    imu_topic_, rclcpp::SensorDataQoS(), std::bind(&LisoFactor::imuCallback, this, std::placeholders::_1), sub_opts);
 
   odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odom_topic, 10);
   odom_incremental_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odom_inc_topic, 10);
-  submap_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>(
-      "liso/submap", rclcpp::QoS(1).transient_local());
+  submap_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("liso/submap", rclcpp::QoS(1).transient_local());
 
   // Register data formats with MapManager for persistence
   map_manager_->registerKeyframeFormat("liso_factor/cloud", "pcl_pcd_binary");
@@ -108,7 +120,8 @@ void LisoFactor::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (GICP scan-to-submap)", name_.c_str());
 }
 
-void LisoFactor::activate() {
+void LisoFactor::activate()
+{
   active_ = true;
   odom_pub_->on_activate();
   odom_incremental_pub_->on_activate();
@@ -116,7 +129,8 @@ void LisoFactor::activate() {
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
-void LisoFactor::deactivate() {
+void LisoFactor::deactivate()
+{
   active_ = false;
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
@@ -125,22 +139,27 @@ void LisoFactor::deactivate() {
 // onTrackingBegin — build initial submap when submap_source is "prior_map"
 // ==========================================================================
 
-void LisoFactor::onTrackingBegin(const gtsam::Pose3& initial_pose) {
-  RCLCPP_INFO(node_->get_logger(),
-      "\033[33m[%s] onTrackingBegin called: pos=(%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f) "
-      "submap_source=%s add_factors=%d\033[0m",
-      name_.c_str(),
-      initial_pose.translation().x(), initial_pose.translation().y(), initial_pose.translation().z(),
-      initial_pose.rotation().roll() * 180.0 / M_PI,
-      initial_pose.rotation().pitch() * 180.0 / M_PI,
-      initial_pose.rotation().yaw() * 180.0 / M_PI,
-      submap_source_.c_str(), add_factors_);
+void LisoFactor::onTrackingBegin(const gtsam::Pose3 & initial_pose)
+{
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "\033[33m[%s] onTrackingBegin called: pos=(%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f) "
+    "submap_source=%s add_factors=%d\033[0m",
+    name_.c_str(),
+    initial_pose.translation().x(),
+    initial_pose.translation().y(),
+    initial_pose.translation().z(),
+    initial_pose.rotation().roll() * 180.0 / M_PI,
+    initial_pose.rotation().pitch() * 180.0 / M_PI,
+    initial_pose.rotation().yaw() * 180.0 / M_PI,
+    submap_source_.c_str(),
+    add_factors_);
   if (submap_source_ != "prior_map") return;
 
   Eigen::Vector3f pos(
-      static_cast<float>(initial_pose.translation().x()),
-      static_cast<float>(initial_pose.translation().y()),
-      static_cast<float>(initial_pose.translation().z()));
+    static_cast<float>(initial_pose.translation().x()),
+    static_cast<float>(initial_pose.translation().y()),
+    static_cast<float>(initial_pose.translation().z()));
   submap_center_ = pos;
   rebuildSubmapAtPosition(pos);
   prior_map_submap_initialized_ = true;
@@ -153,16 +172,21 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3& initial_pose) {
   setMapPose(initial_pose);
   setOdomPose(gtsam::Pose3());
 
-  RCLCPP_INFO(node_->get_logger(),
-      "[%s] onTrackingBegin: built initial prior map submap at (%.2f, %.2f, %.2f)",
-      name_.c_str(), pos.x(), pos.y(), pos.z());
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "[%s] onTrackingBegin: built initial prior map submap at (%.2f, %.2f, %.2f)",
+    name_.c_str(),
+    pos.x(),
+    pos.y(),
+    pos.z());
 }
 
 // ==========================================================================
 // produceFactor — return BetweenFactor from cached GICP result
 // ==========================================================================
 
-StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp*/) {
+StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp*/)
+{
   StampedFactorResult result;
   if (!active_ || !add_factors_) return result;
 
@@ -182,13 +206,16 @@ StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp
 
   // BetweenFactor: relative LiDAR odometry from previous LISO state
   if (has_prev_liso_) {
-    auto noise = gtsam::noiseModel::Diagonal::Variances(
-        (gtsam::Vector(6) << odom_pose_cov_[3], odom_pose_cov_[4], odom_pose_cov_[5],
-         odom_pose_cov_[0], odom_pose_cov_[1], odom_pose_cov_[2]).finished());
+    auto noise = gtsam::noiseModel::Diagonal::Variances((gtsam::Vector(6) << odom_pose_cov_[3],
+                                                         odom_pose_cov_[4],
+                                                         odom_pose_cov_[5],
+                                                         odom_pose_cov_[0],
+                                                         odom_pose_cov_[1],
+                                                         odom_pose_cov_[2])
+                                                          .finished());
     gtsam::Pose3 relative_pose = prev_liso_pose_.between(cached_pose_);
     result.factors.push_back(
-        gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-            prev_liso_key_, key, relative_pose, noise));
+      gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(prev_liso_key_, key, relative_pose, noise));
   }
 
   // Update tracking
@@ -199,15 +226,17 @@ StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp
   has_prev_liso_ = true;
 
   gtsam::Symbol sym(key);
-  RCLCPP_INFO(node_->get_logger(),
-              "\033[36m[%s] %s at (%c,%lu) pos=(%.2f,%.2f,%.2f) inliers=%zu\033[0m",
-              name_.c_str(),
-              result.factors.empty() ? "origin" : "BetweenFactor",
-              sym.chr(), sym.index(),
-              cached_pose_.translation().x(),
-              cached_pose_.translation().y(),
-              cached_pose_.translation().z(),
-              cached_result_.num_inliers);
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "\033[36m[%s] %s at (%c,%lu) pos=(%.2f,%.2f,%.2f) inliers=%zu\033[0m",
+    name_.c_str(),
+    result.factors.empty() ? "origin" : "BetweenFactor",
+    sym.chr(),
+    sym.index(),
+    cached_pose_.translation().x(),
+    cached_pose_.translation().y(),
+    cached_pose_.translation().z(),
+    cached_result_.num_inliers);
 
   return result;
 }
@@ -216,8 +245,8 @@ StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp
 // onOptimizationComplete — re-anchor poses after graph correction
 // ==========================================================================
 
-void LisoFactor::onOptimizationComplete(
-    const gtsam::Values& optimized_values, bool loop_closure_detected) {
+void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected)
+{
   if (has_prev_liso_ && optimized_values.exists(prev_liso_key_)) {
     gtsam::Pose3 corrected = optimized_values.at<gtsam::Pose3>(prev_liso_key_);
     prev_liso_pose_ = corrected;
@@ -237,13 +266,17 @@ void LisoFactor::onOptimizationComplete(
 // LiDAR callback — GICP scan matching + odometry publishing
 // ==========================================================================
 
-void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
   if (!active_) return;
 
   if (!scan_received_) {
     scan_received_ = true;
-    RCLCPP_INFO(node_->get_logger(), "[%s] first LiDAR scan received (%zu points)",
-                name_.c_str(), static_cast<size_t>(msg->width * msg->height));
+    RCLCPP_INFO(
+      node_->get_logger(),
+      "[%s] first LiDAR scan received (%zu points)",
+      name_.c_str(),
+      static_cast<size_t>(msg->width * msg->height));
   }
 
   if (state_->load(std::memory_order_acquire) != SlamState::TRACKING) return;
@@ -252,16 +285,22 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   if (!has_tf_) {
     try {
       auto tf_msg = tf_->lookupTransform(base_link_frame_, lidar_frame_, tf2::TimePointZero);
-      const auto& t = tf_msg.transform.translation;
-      const auto& r = tf_msg.transform.rotation;
+      const auto & t = tf_msg.transform.translation;
+      const auto & r = tf_msg.transform.rotation;
       T_base_lidar_ = Eigen::Isometry3d::Identity();
       T_base_lidar_.translation() = Eigen::Vector3d(t.x, t.y, t.z);
       T_base_lidar_.linear() = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
       has_tf_ = true;
-    } catch (const tf2::TransformException& ex) {
-      RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-                            "[%s] waiting for TF %s <- %s: %s",
-                            name_.c_str(), base_link_frame_.c_str(), lidar_frame_.c_str(), ex.what());
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN_THROTTLE(
+        node_->get_logger(),
+        *node_->get_clock(),
+        2000,
+        "[%s] waiting for TF %s <- %s: %s",
+        name_.c_str(),
+        base_link_frame_.c_str(),
+        lidar_frame_.c_str(),
+        ex.what());
       return;
     }
   }
@@ -273,7 +312,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   auto pcl_cloud = pcl::make_shared<pcl::PointCloud<PointType>>();
   pcl_cloud->reserve(raw_cloud->size());
   for (size_t i = 0; i < raw_cloud->size(); i++) {
-    Eigen::Vector4d& pt = raw_cloud->point(i);
+    Eigen::Vector4d & pt = raw_cloud->point(i);
     Eigen::Vector3d p = T_base_lidar_ * pt.head<3>();
     pt.head<3>() = p;
     PointType pcl_pt;
@@ -285,8 +324,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   }
 
   // Preprocess: downsample + normals + covariances
-  auto [scan, scan_tree] = small_gicp::preprocess_points(
-      *raw_cloud, scan_ds_resolution_, num_neighbors_, num_threads_);
+  auto [scan, scan_tree] = small_gicp::preprocess_points(*raw_cloud, scan_ds_resolution_, num_neighbors_, num_threads_);
   if (scan->empty()) return;
 
   double scan_time = rclcpp::Time(msg->header.stamp).seconds();
@@ -300,24 +338,30 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     // Use relocalized pose if available (set by onTrackingBegin), otherwise origin
     if (has_last_match_) {
       cached_pose_ = last_matched_pose_;
-      RCLCPP_INFO(node_->get_logger(),
-          "\033[33m[%s] first scan: using relocalized pose (%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)\033[0m",
-          name_.c_str(),
-          cached_pose_.translation().x(), cached_pose_.translation().y(), cached_pose_.translation().z(),
-          cached_pose_.rotation().roll() * 180.0 / M_PI,
-          cached_pose_.rotation().pitch() * 180.0 / M_PI,
-          cached_pose_.rotation().yaw() * 180.0 / M_PI);
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "\033[33m[%s] first scan: using relocalized pose (%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)\033[0m",
+        name_.c_str(),
+        cached_pose_.translation().x(),
+        cached_pose_.translation().y(),
+        cached_pose_.translation().z(),
+        cached_pose_.rotation().roll() * 180.0 / M_PI,
+        cached_pose_.rotation().pitch() * 180.0 / M_PI,
+        cached_pose_.rotation().yaw() * 180.0 / M_PI);
     } else {
       cached_pose_ = gtsam::Pose3(initial_gravity_orientation_, gtsam::Point3(0, 0, 0));
       last_matched_pose_ = cached_pose_;
       has_last_match_ = true;
-      RCLCPP_INFO(node_->get_logger(),
-          "\033[33m[%s] first scan: using gravity-aligned origin (%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)\033[0m",
-          name_.c_str(),
-          cached_pose_.translation().x(), cached_pose_.translation().y(), cached_pose_.translation().z(),
-          cached_pose_.rotation().roll() * 180.0 / M_PI,
-          cached_pose_.rotation().pitch() * 180.0 / M_PI,
-          cached_pose_.rotation().yaw() * 180.0 / M_PI);
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "\033[33m[%s] first scan: using gravity-aligned origin (%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)\033[0m",
+        name_.c_str(),
+        cached_pose_.translation().x(),
+        cached_pose_.translation().y(),
+        cached_pose_.translation().z(),
+        cached_pose_.rotation().roll() * 180.0 / M_PI,
+        cached_pose_.rotation().pitch() * 180.0 / M_PI,
+        cached_pose_.rotation().yaw() * 180.0 / M_PI);
     }
     cached_result_ = small_gicp::RegistrationResult();
     cached_result_.converged = true;
@@ -359,18 +403,25 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) return;
 
-  gtsam::Pose3 matched_pose(gtsam::Rot3(result.T_target_source.rotation()),
-                              gtsam::Point3(result.T_target_source.translation()));
+  gtsam::Pose3 matched_pose(
+    gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
 
-  RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-      "\033[36m[%s] GICP match: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
-      "guess: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | inliers=%zu\033[0m",
-      name_.c_str(),
-      matched_pose.translation().x(), matched_pose.translation().y(), matched_pose.translation().z(),
-      matched_pose.rotation().yaw() * 180.0 / M_PI,
-      init_guess.translation().x(), init_guess.translation().y(), init_guess.translation().z(),
-      gtsam::Rot3(init_guess.rotation()).yaw() * 180.0 / M_PI,
-      result.num_inliers);
+  RCLCPP_INFO_THROTTLE(
+    node_->get_logger(),
+    *node_->get_clock(),
+    2000,
+    "\033[36m[%s] GICP match: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
+    "guess: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | inliers=%zu\033[0m",
+    name_.c_str(),
+    matched_pose.translation().x(),
+    matched_pose.translation().y(),
+    matched_pose.translation().z(),
+    matched_pose.rotation().yaw() * 180.0 / M_PI,
+    init_guess.translation().x(),
+    init_guess.translation().y(),
+    init_guess.translation().z(),
+    gtsam::Rot3(init_guess.rotation()).yaw() * 180.0 / M_PI,
+    result.num_inliers);
 
   // Lock-free pose outputs — TransformManager reads these
   setMapPose(matched_pose);
@@ -379,8 +430,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   if (add_factors_) {
     std::lock_guard lock(result_mtx_);
     if (!has_cached_result_) {
-      bool should_cache = !has_last_factor_ ||
-          (matched_pose.translation() - last_factor_position_).norm() >= min_scan_distance_;
+      bool should_cache =
+        !has_last_factor_ || (matched_pose.translation() - last_factor_position_).norm() >= min_scan_distance_;
       if (should_cache) {
         cached_result_ = result;
         cached_pose_ = matched_pose;
@@ -432,8 +483,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_msg.pose.pose.orientation.y = q.y();
     odom_msg.pose.pose.orientation.z = q.z();
     odom_msg.pose.pose.orientation.w = q.w();
-    for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++)
-      odom_msg.pose.covariance[i * 7] = odom_pose_cov_[i];
+    for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++) odom_msg.pose.covariance[i * 7] = odom_pose_cov_[i];
     if (has_delta && dt > 0.0 && dt < kMaxTwistDt) {
       gtsam::Point3 t = delta.translation();
       gtsam::Vector3 rpy = delta.rotation().rpy();
@@ -463,8 +513,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_inc_msg.pose.pose.orientation.y = q_inc.y();
     odom_inc_msg.pose.pose.orientation.z = q_inc.z();
     odom_inc_msg.pose.pose.orientation.w = q_inc.w();
-    for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++)
-      odom_inc_msg.pose.covariance[i * 7] = odom_pose_cov_[i];
+    for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++) odom_inc_msg.pose.covariance[i * 7] = odom_pose_cov_[i];
     if (has_delta && dt > 0.0 && dt < kMaxTwistDt) {
       gtsam::Point3 t = delta.translation();
       gtsam::Vector3 rpy = delta.rotation().rpy();
@@ -485,9 +534,9 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   // Prior map: distance-based submap rebuild
   if (submap_source_ == "prior_map" && prior_map_submap_initialized_) {
     Eigen::Vector3f pos(
-        static_cast<float>(matched_pose.translation().x()),
-        static_cast<float>(matched_pose.translation().y()),
-        static_cast<float>(matched_pose.translation().z()));
+      static_cast<float>(matched_pose.translation().x()),
+      static_cast<float>(matched_pose.translation().y()),
+      static_cast<float>(matched_pose.translation().z()));
     if ((pos - submap_center_).norm() > submap_radius_ * kSubmapRebuildFraction) {
       submap_center_ = pos;
       rebuildSubmapAtPosition(pos);
@@ -499,17 +548,18 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 // IMU callback — warmup + gyro integration for GICP initial guess
 // ==========================================================================
 
-void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
   double current_time = rclcpp::Time(msg->header.stamp).seconds();
 
   // Resolve base_link ← imu TF (once)
   if (!has_imu_tf_) {
     try {
       auto tf_msg = tf_->lookupTransform(base_link_frame_, imu_frame_, tf2::TimePointZero);
-      const auto& r = tf_msg.transform.rotation;
+      const auto & r = tf_msg.transform.rotation;
       R_base_imu_ = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
       has_imu_tf_ = true;
-    } catch (const tf2::TransformException&) {
+    } catch (const tf2::TransformException &) {
       return;
     }
   }
@@ -524,13 +574,11 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
   if (!imu_warmup_complete_) {
     bool has_orientation = msg->orientation_covariance[0] >= 0.0;
     double gyr_mag = std::sqrt(
-        msg->angular_velocity.x * msg->angular_velocity.x +
-        msg->angular_velocity.y * msg->angular_velocity.y +
-        msg->angular_velocity.z * msg->angular_velocity.z);
+      msg->angular_velocity.x * msg->angular_velocity.x + msg->angular_velocity.y * msg->angular_velocity.y +
+      msg->angular_velocity.z * msg->angular_velocity.z);
 
     if (gyr_mag < imu_stationary_gyr_threshold_ && has_orientation) {
-      Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x,
-                           msg->orientation.y, msg->orientation.z);
+      Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
       if (q.squaredNorm() > kQuatSquaredNormMin) {
         q.normalize();
         if (!warmup_quat_hemisphere_set_) {
@@ -556,10 +604,12 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
       gtsam::Rot3 full_rot(R_world_base);
       initial_gravity_orientation_ = gtsam::Rot3::RzRyRx(0.0, full_rot.pitch(), full_rot.roll());
       imu_warmup_complete_ = true;
-      RCLCPP_INFO(node_->get_logger(),
-                  "[%s] IMU warmup complete (roll: %.4f, pitch: %.4f)",
-                  name_.c_str(), initial_gravity_orientation_.roll(),
-                  initial_gravity_orientation_.pitch());
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "[%s] IMU warmup complete (roll: %.4f, pitch: %.4f)",
+        name_.c_str(),
+        initial_gravity_orientation_.roll(),
+        initial_gravity_orientation_.pitch());
     }
     last_gyro_time_ = current_time;
     return;
@@ -569,9 +619,7 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
   if (gyro_tracking_active_ && last_gyro_time_ > 0.0) {
     double dt = current_time - last_gyro_time_;
     if (dt > 0.0 && dt < kMaxGyroDt) {
-      Eigen::Vector3d omega_imu(msg->angular_velocity.x,
-                                 msg->angular_velocity.y,
-                                 msg->angular_velocity.z);
+      Eigen::Vector3d omega_imu(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
       gyro_delta_rpy_ += R_base_imu_ * omega_imu * dt;
     }
   }
@@ -582,7 +630,8 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
 // Submap management
 // ==========================================================================
 
-void LisoFactor::rebuildSubmap() {
+void LisoFactor::rebuildSubmap()
+{
   if (state_->load(std::memory_order_acquire) != SlamState::TRACKING) return;
 
   auto key_list = map_manager_->getKeyList();
@@ -602,7 +651,7 @@ void LisoFactor::rebuildSubmap() {
     int idx = map_manager_->getCloudIndex(k);
     if (idx < 0 || idx >= static_cast<int>(poses_6d->size())) continue;
 
-    const auto& pose = poses_6d->points[idx];
+    const auto & pose = poses_6d->points[idx];
     Eigen::Affine3f world_T = poseTypeToAffine3f(pose);
     Eigen::Isometry3d world_T_d;
     world_T_d.matrix() = world_T.matrix().cast<double>();
@@ -615,8 +664,8 @@ void LisoFactor::rebuildSubmap() {
 
   if (merged->empty()) return;
 
-  auto [submap, submap_tree] = small_gicp::preprocess_points(
-      *merged, submap_ds_resolution_, num_neighbors_, num_threads_);
+  auto [submap, submap_tree] =
+    small_gicp::preprocess_points(*merged, submap_ds_resolution_, num_neighbors_, num_threads_);
 
   {
     std::unique_lock lock(submap_mtx_);
@@ -626,7 +675,8 @@ void LisoFactor::rebuildSubmap() {
   submap_stale_ = false;
 }
 
-void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
+void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f & position)
+{
   auto poses_6d = map_manager_->getKeyPoses6D();
   auto key_list = map_manager_->getKeyList();
   if (key_list.empty()) return;
@@ -646,12 +696,10 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
   if (static_cast<int>(indices.size()) > max_submap_states_) {
     std::vector<std::pair<float, int>> dist_idx;
     dist_idx.reserve(indices.size());
-    for (size_t i = 0; i < indices.size(); i++)
-      dist_idx.emplace_back(distances[i], indices[i]);
+    for (size_t i = 0; i < indices.size(); i++) dist_idx.emplace_back(distances[i], indices[i]);
     std::sort(dist_idx.begin(), dist_idx.end());
     indices.clear();
-    for (int i = 0; i < max_submap_states_; i++)
-      indices.push_back(dist_idx[i].second);
+    for (int i = 0; i < max_submap_states_; i++) indices.push_back(dist_idx[i].second);
   }
 
   auto merged = std::make_shared<small_gicp::PointCloud>();
@@ -663,7 +711,7 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
     if (!body_cloud || (*body_cloud)->empty()) continue;
 
     if (idx >= static_cast<int>(poses_6d->size())) continue;
-    const auto& pose = poses_6d->points[idx];
+    const auto & pose = poses_6d->points[idx];
     Eigen::Affine3f world_T = poseTypeToAffine3f(pose);
     Eigen::Isometry3d world_T_d;
     world_T_d.matrix() = world_T.matrix().cast<double>();
@@ -676,8 +724,8 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
 
   if (merged->empty()) return;
 
-  auto [submap, submap_tree] = small_gicp::preprocess_points(
-      *merged, submap_ds_resolution_, num_neighbors_, num_threads_);
+  auto [submap, submap_tree] =
+    small_gicp::preprocess_points(*merged, submap_ds_resolution_, num_neighbors_, num_threads_);
 
   {
     std::unique_lock lock(submap_mtx_);
@@ -705,36 +753,42 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f& position) {
     submap_pub_->publish(submap_msg);
   }
 
-  RCLCPP_INFO(node_->get_logger(),
-      "[%s] prior map submap rebuilt at (%.1f,%.1f,%.1f): %zu points",
-      name_.c_str(), position.x(), position.y(), position.z(), submap->size());
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "[%s] prior map submap rebuilt at (%.1f,%.1f,%.1f): %zu points",
+    name_.c_str(),
+    position.x(),
+    position.y(),
+    position.z(),
+    submap->size());
 }
 
 /// Walk backwards chronologically from start, collecting states within radius.
-std::vector<gtsam::Key> LisoFactor::collectRecentStates(
-    gtsam::Key start, double radius) {
+std::vector<gtsam::Key> LisoFactor::collectRecentStates(gtsam::Key start, double radius)
+{
   auto poses_6d = map_manager_->getKeyPoses6D();
   auto key_list = map_manager_->getKeyList();
 
   int start_idx = map_manager_->getCloudIndex(start);
   if (start_idx < 0) return {};
-  const auto& start_pose = poses_6d->points[start_idx];
+  const auto & start_pose = poses_6d->points[start_idx];
   Eigen::Vector3f start_pos(start_pose.x, start_pose.y, start_pose.z);
 
   int list_pos = -1;
   for (int i = static_cast<int>(key_list.size()) - 1; i >= 0; i--) {
-    if (key_list[i] == start) { list_pos = i; break; }
+    if (key_list[i] == start) {
+      list_pos = i;
+      break;
+    }
   }
   if (list_pos < 0) return {};
 
   std::vector<gtsam::Key> collected;
-  for (int i = list_pos;
-       i >= 0 && static_cast<int>(collected.size()) < max_submap_states_;
-       i--) {
+  for (int i = list_pos; i >= 0 && static_cast<int>(collected.size()) < max_submap_states_; i--) {
     gtsam::Key k = key_list[i];
     int idx = map_manager_->getCloudIndex(k);
     if (idx < 0 || idx >= static_cast<int>(poses_6d->size())) continue;
-    const auto& pose = poses_6d->points[idx];
+    const auto & pose = poses_6d->points[idx];
     Eigen::Vector3f pos(pose.x, pose.y, pose.z);
     if ((pos - start_pos).norm() > radius) break;
     collected.push_back(k);

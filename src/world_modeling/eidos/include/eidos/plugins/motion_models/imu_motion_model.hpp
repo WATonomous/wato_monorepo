@@ -1,23 +1,37 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
+#include <gtsam/navigation/ImuBias.h>
+#include <gtsam/navigation/ImuFactor.h>
+#include <gtsam/navigation/NavState.h>
+
 #include <deque>
+#include <Eigen/Geometry>
 #include <mutex>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
-
-#include <Eigen/Geometry>
-
-#include <gtsam/navigation/ImuFactor.h>
-#include <gtsam/navigation/NavState.h>
-#include <gtsam/navigation/ImuBias.h>
 
 #include "eidos/plugins/base_motion_model_plugin.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 /**
  * @brief IMU-based high-rate odom filler.
@@ -34,7 +48,8 @@ namespace eidos {
  * - TransformManager: reads getOdomPose() on its own timer (lock-free read).
  * - No mutexes on the hot path.
  */
-class ImuMotionModel : public MotionModelPlugin {
+class ImuMotionModel : public MotionModelPlugin
+{
 public:
   ImuMotionModel() = default;
   ~ImuMotionModel() override = default;
@@ -50,17 +65,15 @@ private:
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   // ---- Sub-methods of imuCallback ----
-  void updateStationaryDetection(const sensor_msgs::msg::Imu& imu_converted);
-  gtsam::NavState integrateSingleAndPredict(const sensor_msgs::msg::Imu& imu_converted);
-  void publishIncrementalOdom(const sensor_msgs::msg::Imu& imu_converted,
-                              const gtsam::Pose3& base_pose,
-                              const gtsam::NavState& state);
+  void updateStationaryDetection(const sensor_msgs::msg::Imu & imu_converted);
+  gtsam::NavState integrateSingleAndPredict(const sensor_msgs::msg::Imu & imu_converted);
+  void publishIncrementalOdom(
+    const sensor_msgs::msg::Imu & imu_converted, const gtsam::Pose3 & base_pose, const gtsam::NavState & state);
 
   // ---- IMU extrinsic conversion ----
-  sensor_msgs::msg::Imu imuConverter(const sensor_msgs::msg::Imu& imu_in);
-  static std::pair<gtsam::Vector3, gtsam::Vector3>
-  extractMeasurement(const sensor_msgs::msg::Imu& msg);
-  static bool isValidImuMessage(const sensor_msgs::msg::Imu& msg);
+  sensor_msgs::msg::Imu imuConverter(const sensor_msgs::msg::Imu & imu_in);
+  static std::pair<gtsam::Vector3, gtsam::Vector3> extractMeasurement(const sensor_msgs::msg::Imu & msg);
+  static bool isValidImuMessage(const sensor_msgs::msg::Imu & msg);
 
   // ---- Subscription + publisher ----
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
@@ -75,7 +88,7 @@ private:
   // ---- GTSAM preintegration (for real-time odom prediction only) ----
   boost::shared_ptr<gtsam::PreintegrationParams> preint_params_;
   std::unique_ptr<gtsam::PreintegratedImuMeasurements> imu_integrator_;
-  gtsam::NavState odom_reference_state_;     ///< Anchor for forward prediction
+  gtsam::NavState odom_reference_state_;  ///< Anchor for forward prediction
   gtsam::imuBias::ConstantBias odom_reference_bias_;
 
   double last_imu_t_ = -1;

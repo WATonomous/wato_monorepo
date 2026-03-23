@@ -1,13 +1,31 @@
-#include "eidos/plugins/visualization/keyframe_map_visualization.hpp"
-#include "eidos/utils/conversions.hpp"
-#include "eidos/core/map_manager.hpp"
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include <pluginlib/class_list_macros.hpp>
+#include "eidos/plugins/visualization/keyframe_map_visualization.hpp"
+
 #include <pcl_conversions/pcl_conversions.h>
 
-namespace eidos {
+#include <pluginlib/class_list_macros.hpp>
 
-void KeyframeMapVisualization::onInitialize() {
+#include "eidos/core/map_manager.hpp"
+#include "eidos/utils/conversions.hpp"
+
+namespace eidos
+{
+
+void KeyframeMapVisualization::onInitialize()
+{
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".topic", "slam/visualization/map");
@@ -34,15 +52,18 @@ void KeyframeMapVisualization::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (mode=%s)", name_.c_str(), mode_.c_str());
 }
 
-void KeyframeMapVisualization::onActivate() {
+void KeyframeMapVisualization::onActivate()
+{
   pub_->on_activate();
 }
 
-void KeyframeMapVisualization::onDeactivate() {
+void KeyframeMapVisualization::onDeactivate()
+{
   pub_->on_deactivate();
 }
 
-void KeyframeMapVisualization::render(const gtsam::Values& optimized_values) {
+void KeyframeMapVisualization::render(const gtsam::Values & optimized_values)
+{
   if (!pub_->is_activated()) return;
 
   auto now = node_->now();
@@ -94,9 +115,9 @@ void KeyframeMapVisualization::render(const gtsam::Values& optimized_values) {
     if (!optimized_values.exists(latest_key)) return;
     auto latest_pose = optimized_values.at<gtsam::Pose3>(latest_key);
     Eigen::Vector3f current_pos(
-        static_cast<float>(latest_pose.translation().x()),
-        static_cast<float>(latest_pose.translation().y()),
-        static_cast<float>(latest_pose.translation().z()));
+      static_cast<float>(latest_pose.translation().x()),
+      static_cast<float>(latest_pose.translation().y()),
+      static_cast<float>(latest_pose.translation().z()));
 
     for (size_t i = 0; i < key_list.size(); i++) {
       int idx = map_manager_->getCloudIndex(key_list[i]);

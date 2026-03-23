@@ -1,19 +1,36 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/core/eidos_node.hpp"
-#include "eidos/utils/conversions.hpp"
+
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/slam/BetweenFactor.h>
 
 #include <chrono>
 #include <filesystem>
 #include <functional>
 
-#include <gtsam/inference/Symbol.h>
-#include <gtsam/slam/BetweenFactor.h>
+#include "eidos/utils/conversions.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 using gtsam::symbol_shorthand::X;
 
-EidosNode::EidosNode(const rclcpp::NodeOptions& options)
-    : rclcpp_lifecycle::LifecycleNode("eidos_node", options) {
+EidosNode::EidosNode(const rclcpp::NodeOptions & options)
+: rclcpp_lifecycle::LifecycleNode("eidos_node", options)
+{
   RCLCPP_INFO(get_logger(), "EidosNode created (unconfigured)");
 }
 
@@ -23,8 +40,8 @@ EidosNode::~EidosNode() = default;
 // Lifecycle
 // ==========================================================================
 
-EidosNode::CallbackReturn EidosNode::on_configure(
-    const rclcpp_lifecycle::State&) {
+EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(get_logger(), "\033[36m[CONFIGURING]\033[0m ...");
 
   // TF buffer — shared with plugins for extrinsic lookups
@@ -48,18 +65,15 @@ EidosNode::CallbackReturn EidosNode::on_configure(
   declare_parameter("isam2.update_iterations", 2);
   declare_parameter("isam2.correction_iterations", 5);
   declare_parameter("isam2.loop_closure_iterations", 20);
-  declare_parameter("prior.pose_cov",
-                    std::vector<double>{1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+  declare_parameter("prior.pose_cov", std::vector<double>{1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
 
   // TransformManager params (no defaults — must be in config)
   declare_parameter("transforms.odom_source", rclcpp::PARAMETER_STRING);
   declare_parameter("transforms.map_source", rclcpp::PARAMETER_STRING);
   declare_parameter("transforms.rate", rclcpp::PARAMETER_DOUBLE);
   // EKF fusion noise (only needed when odom_source is set)
-  declare_parameter("transforms.fusion.process_noise",
-                    std::vector<double>{1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4});
-  declare_parameter("transforms.fusion.measurement_noise",
-                    std::vector<double>{1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2});
+  declare_parameter("transforms.fusion.process_noise", std::vector<double>{1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4});
+  declare_parameter("transforms.fusion.measurement_noise", std::vector<double>{1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2});
 
   // Plugin list params (read by PluginRegistry)
   declare_parameter("factor_plugins", std::vector<std::string>{});
@@ -86,7 +100,6 @@ EidosNode::CallbackReturn EidosNode::on_configure(
   get_parameter("map.save_path", map_save_directory_);
   get_parameter("odom_pose_cov", odom_pose_cov_);
 
-
   // Configure Estimator with all ISAM2 params
   {
     double relinearize_threshold;
@@ -98,21 +111,24 @@ EidosNode::CallbackReturn EidosNode::on_configure(
     get_parameter("isam2.correction_iterations", correction_iters);
     get_parameter("isam2.loop_closure_iterations", loop_closure_iters);
     get_parameter("prior.pose_cov", prior_pose_cov);
-    estimator_.configure(relinearize_threshold, relinearize_skip,
-                         prior_pose_cov, update_iters, correction_iters,
-                         loop_closure_iters);
+    estimator_.configure(
+      relinearize_threshold, relinearize_skip, prior_pose_cov, update_iters, correction_iters, loop_closure_iters);
   }
 
   // Load plugins via PluginRegistry
-  registry_.loadAll(shared_from_this(), tf_buffer_.get(), &map_manager_,
-                    &estimator_.getOptimizedPose(), &state_,
-                    &estimator_.getOptimizedValues());
+  registry_.loadAll(
+    shared_from_this(),
+    tf_buffer_.get(),
+    &map_manager_,
+    &estimator_.getOptimizedPose(),
+    &state_,
+    &estimator_.getOptimizedValues());
 
   // Configure InitSequencer
   init_sequencer_.configure(
-      get_logger(), &state_, &registry_, &map_manager_,
-      relocalization_timeout,
-      [this](const gtsam::Pose3& pose) { beginTracking(pose); });
+    get_logger(), &state_, &registry_, &map_manager_, relocalization_timeout, [this](const gtsam::Pose3 & pose) {
+      beginTracking(pose);
+    });
 
   // Configure TransformManager
   std::string odom_source, map_source;
@@ -122,9 +138,15 @@ EidosNode::CallbackReturn EidosNode::on_configure(
   get_parameter("transforms.rate", tf_rate);
 
   transform_manager_.configure(
-      shared_from_this(), &registry_, &estimator_.getOptimizedPose(),
-      map_frame_, odom_frame_, base_link_frame_,
-      odom_source, map_source, tf_rate);
+    shared_from_this(),
+    &registry_,
+    &estimator_.getOptimizedPose(),
+    map_frame_,
+    odom_frame_,
+    base_link_frame_,
+    odom_source,
+    map_source,
+    tf_rate);
 
   // Publishers
   std::string status_topic, odom_topic, pose_topic;
@@ -142,27 +164,22 @@ EidosNode::CallbackReturn EidosNode::on_configure(
   get_parameter("topics.load_map_service", load_svc);
 
   save_map_srv_ = create_service<eidos_msgs::srv::SaveMap>(
-      save_svc,
-      std::bind(&EidosNode::saveMapCallback, this,
-                std::placeholders::_1, std::placeholders::_2));
+    save_svc, std::bind(&EidosNode::saveMapCallback, this, std::placeholders::_1, std::placeholders::_2));
   load_map_srv_ = create_service<eidos_msgs::srv::LoadMap>(
-      load_svc,
-      std::bind(&EidosNode::loadMapCallback, this,
-                std::placeholders::_1, std::placeholders::_2));
+    load_svc, std::bind(&EidosNode::loadMapCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   RCLCPP_INFO(get_logger(), "\033[36m[CONFIGURED]\033[0m");
   return CallbackReturn::SUCCESS;
 }
 
-EidosNode::CallbackReturn EidosNode::on_activate(
-    const rclcpp_lifecycle::State&) {
+EidosNode::CallbackReturn EidosNode::on_activate(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m ...");
 
   // Load prior map if configured
   if (!map_load_directory_.empty()) {
     if (map_manager_.loadMap(map_load_directory_)) {
-      RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m Loaded prior map from: %s",
-                  map_load_directory_.c_str());
+      RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATING]\033[0m Loaded prior map from: %s", map_load_directory_.c_str());
     }
   }
 
@@ -181,20 +198,19 @@ EidosNode::CallbackReturn EidosNode::on_activate(
   transform_manager_.activate();
 
   // Start SLAM timer
-  slam_callback_group_ = create_callback_group(
-      rclcpp::CallbackGroupType::MutuallyExclusive);
+  slam_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto period = std::chrono::duration<double>(1.0 / slam_rate_);
   slam_timer_ = create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-      std::bind(&EidosNode::tick, this),
-      slam_callback_group_);
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+    std::bind(&EidosNode::tick, this),
+    slam_callback_group_);
 
   RCLCPP_INFO(get_logger(), "\033[36m[ACTIVATED]\033[0m");
   return CallbackReturn::SUCCESS;
 }
 
-EidosNode::CallbackReturn EidosNode::on_deactivate(
-    const rclcpp_lifecycle::State&) {
+EidosNode::CallbackReturn EidosNode::on_deactivate(const rclcpp_lifecycle::State &)
+{
   slam_timer_->cancel();
   transform_manager_.deactivate();
   registry_.deactivateAll();
@@ -207,16 +223,16 @@ EidosNode::CallbackReturn EidosNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-EidosNode::CallbackReturn EidosNode::on_cleanup(
-    const rclcpp_lifecycle::State&) {
+EidosNode::CallbackReturn EidosNode::on_cleanup(const rclcpp_lifecycle::State &)
+{
   slam_timer_.reset();
   tf_buffer_.reset();
   RCLCPP_INFO(get_logger(), "\033[36m[CLEANED UP]\033[0m");
   return CallbackReturn::SUCCESS;
 }
 
-EidosNode::CallbackReturn EidosNode::on_shutdown(
-    const rclcpp_lifecycle::State&) {
+EidosNode::CallbackReturn EidosNode::on_shutdown(const rclcpp_lifecycle::State &)
+{
   RCLCPP_INFO(get_logger(), "\033[36m[SHUTDOWN]\033[0m");
   return CallbackReturn::SUCCESS;
 }
@@ -225,7 +241,8 @@ EidosNode::CallbackReturn EidosNode::on_shutdown(
 // SLAM Loop + State Machine
 // ==========================================================================
 
-void EidosNode::tick() {
+void EidosNode::tick()
+{
   double timestamp = now().seconds();
 
   // InitSequencer handles INIT → WARMUP → RELOCALIZING → TRACKING
@@ -244,14 +261,17 @@ void EidosNode::tick() {
 // Tracking Transition
 // ==========================================================================
 
-void EidosNode::beginTracking(const gtsam::Pose3& initial_pose) {
-  RCLCPP_INFO(get_logger(),
-      "\033[32m[TRACKING]\033[0m Beginning at pos=(%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)°",
-      initial_pose.translation().x(), initial_pose.translation().y(),
-      initial_pose.translation().z(),
-      initial_pose.rotation().roll() * 180.0 / M_PI,
-      initial_pose.rotation().pitch() * 180.0 / M_PI,
-      initial_pose.rotation().yaw() * 180.0 / M_PI);
+void EidosNode::beginTracking(const gtsam::Pose3 & initial_pose)
+{
+  RCLCPP_INFO(
+    get_logger(),
+    "\033[32m[TRACKING]\033[0m Beginning at pos=(%.2f,%.2f,%.2f) rpy=(%.2f,%.2f,%.2f)°",
+    initial_pose.translation().x(),
+    initial_pose.translation().y(),
+    initial_pose.translation().z(),
+    initial_pose.rotation().roll() * 180.0 / M_PI,
+    initial_pose.rotation().pitch() * 180.0 / M_PI,
+    initial_pose.rotation().yaw() * 180.0 / M_PI);
 
   estimator_.reset();
   state_.store(SlamState::TRACKING, std::memory_order_release);
@@ -260,22 +280,25 @@ void EidosNode::beginTracking(const gtsam::Pose3& initial_pose) {
   // empty), this stays fixed. In SLAM mode, it gets overwritten by map_source.
   transform_manager_.setMapToOdom(initial_pose);
 
-  for (auto& plugin : registry_.factor_plugins) {
+  for (auto & plugin : registry_.factor_plugins) {
     plugin->onTrackingBegin(initial_pose);
   }
 }
 
-void EidosNode::handleTracking(double timestamp) {
+void EidosNode::handleTracking(double timestamp)
+{
   // 1. First pass: ask each plugin for state-creating factors.
   //    produceFactor() with result.timestamp set = new state.
   //    produceFactor() with result.timestamp nullopt + factors = standalone latch
   //    (e.g. loop closure BetweenFactor between existing keys).
-  struct NewState {
+  struct NewState
+  {
     gtsam::Key key;
     double ts;
     StampedFactorResult result;
     std::string owner;
   };
+
   std::vector<NewState> new_states;
 
   gtsam::NonlinearFactorGraph new_factors;
@@ -289,7 +312,7 @@ void EidosNode::handleTracking(double timestamp) {
   // factors with a timestamp, a new state is created at that timestamp.
   // Plugins that return factors WITHOUT a timestamp are deferred to pass 2
   // (they need the key of a newly created state to latch onto).
-  for (auto& plugin : registry_.factor_plugins) {
+  for (auto & plugin : registry_.factor_plugins) {
     gtsam::Key next_key = gtsam::Symbol('x', estimator_.getNextStateIndex());
     auto result = plugin->produceFactor(next_key, timestamp);
     if (result.factors.empty() && !result.timestamp.has_value()) continue;
@@ -297,19 +320,18 @@ void EidosNode::handleTracking(double timestamp) {
     if (result.timestamp.has_value()) {
       // State-creating plugin (e.g. LISO)
       auto key = estimator_.createState(result.timestamp.value(), plugin->getName());
-      new_states.push_back({key, result.timestamp.value(),
-                            std::move(result), plugin->getName()});
+      new_states.push_back({key, result.timestamp.value(), std::move(result), plugin->getName()});
     } else {
       // Standalone factors between existing keys (e.g. loop closure).
       // These don't need a new state — just add them directly.
-      for (auto& f : result.factors) {
+      for (auto & f : result.factors) {
         new_factors.add(f);
         new_factor_owners.push_back(plugin->getName());
         if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f)) {
           loop_closure_detected = true;
         }
       }
-      for (const auto& kv : result.values) {
+      for (const auto & kv : result.values) {
         if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
       }
     }
@@ -323,13 +345,11 @@ void EidosNode::handleTracking(double timestamp) {
   }
 
   // 3. Sort new states by timestamp, chain factors + initial values
-  std::sort(new_states.begin(), new_states.end(),
-            [](auto& a, auto& b) { return a.ts < b.ts; });
+  std::sort(new_states.begin(), new_states.end(), [](auto & a, auto & b) { return a.ts < b.ts; });
 
-  auto current_pose = estimator_.getOptimizedPose().load()
-      .value_or(gtsam::Pose3::Identity());
+  auto current_pose = estimator_.getOptimizedPose().load().value_or(gtsam::Pose3::Identity());
 
-  for (auto& ns : new_states) {
+  for (auto & ns : new_states) {
     // Initial value for this state
     if (ns.result.values.exists(ns.key)) {
       new_values.insert(ns.key, ns.result.values.at<gtsam::Pose3>(ns.key));
@@ -338,36 +358,34 @@ void EidosNode::handleTracking(double timestamp) {
     }
 
     // Factors from the state creator
-    for (auto& f : ns.result.factors) {
+    for (auto & f : ns.result.factors) {
       new_factors.add(f);
       new_factor_owners.push_back(ns.owner);
     }
 
     // Additional values (bias keys, etc.)
-    for (const auto& kv : ns.result.values) {
+    for (const auto & kv : ns.result.values) {
       if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
     }
 
     // First state ever: add PriorFactor
     if (estimator_.getNextStateIndex() == 1) {
-      gtsam::Pose3 anchor = ns.result.values.exists(ns.key)
-          ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose;
-      auto& cov = estimator_.getPriorPoseCov();
+      gtsam::Pose3 anchor = ns.result.values.exists(ns.key) ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose;
+      auto & cov = estimator_.getPriorPoseCov();
       if (cov.size() >= 6) {
         auto noise = gtsam::noiseModel::Diagonal::Variances(
-            (gtsam::Vector(6) << cov[3], cov[4], cov[5],
-             cov[0], cov[1], cov[2]).finished());
+          (gtsam::Vector(6) << cov[3], cov[4], cov[5], cov[0], cov[1], cov[2]).finished());
         new_factors.addPrior(ns.key, anchor, noise);
         new_factor_owners.push_back("prior");
       }
     }
 
     // Pass 2: let all plugins latch onto this new state via latchFactor().
-    for (auto& plugin : registry_.factor_plugins) {
+    for (auto & plugin : registry_.factor_plugins) {
       auto latch = plugin->latchFactor(ns.key, ns.ts);
       if (latch.factors.empty()) continue;
 
-      for (auto& f : latch.factors) {
+      for (auto & f : latch.factors) {
         new_factors.add(f);
         new_factor_owners.push_back(plugin->getName());
         if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f)) {
@@ -376,7 +394,7 @@ void EidosNode::handleTracking(double timestamp) {
           correction_detected = true;
         }
       }
-      for (const auto& kv : latch.values) {
+      for (const auto & kv : latch.values) {
         if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
       }
     }
@@ -387,8 +405,7 @@ void EidosNode::handleTracking(double timestamp) {
 
   // 6. Optimize
   auto latest_key = new_states.back().key;
-  auto optimized = estimator_.optimize(new_factors, new_values, latest_key,
-                                        estimator_.getUpdateIterations());
+  auto optimized = estimator_.optimize(new_factors, new_values, latest_key, estimator_.getUpdateIterations());
 
   // 7. Extra iterations for convergence
   if (loop_closure_detected) {
@@ -401,28 +418,29 @@ void EidosNode::handleTracking(double timestamp) {
 
   // 8. Update keyframe poses + store new keyframes
   map_manager_.updatePoses(optimized);
-  for (auto& ns : new_states) {
-    gtsam::Pose3 pose = optimized.exists(ns.key)
-        ? optimized.at<gtsam::Pose3>(ns.key) : gtsam::Pose3::Identity();
+  for (auto & ns : new_states) {
+    gtsam::Pose3 pose = optimized.exists(ns.key) ? optimized.at<gtsam::Pose3>(ns.key) : gtsam::Pose3::Identity();
     PoseType pose_6d = gtsamPose3ToPoseType(pose, ns.ts);
     pose_6d.intensity = static_cast<float>(map_manager_.numKeyframes());
     map_manager_.addKeyframe(ns.key, pose_6d, ns.owner);
   }
 
   // 9. Notify factor plugins of optimization result
-  for (auto& plugin : registry_.factor_plugins) {
+  for (auto & plugin : registry_.factor_plugins) {
     plugin->onOptimizationComplete(optimized, loop_closure_detected);
   }
 
   // Estimator already wrote optimized pose + values to lock-free slots.
   // TransformManager and vis plugins read them autonomously.
 
-  RCLCPP_INFO(get_logger(),
-      "\033[32m[TRACKING]\033[0m states=%zu factors=%zu pos=(%.3f, %.3f, %.3f)",
-      new_states.size(), new_factors.size(),
-      optimized.at<gtsam::Pose3>(latest_key).translation().x(),
-      optimized.at<gtsam::Pose3>(latest_key).translation().y(),
-      optimized.at<gtsam::Pose3>(latest_key).translation().z());
+  RCLCPP_INFO(
+    get_logger(),
+    "\033[32m[TRACKING]\033[0m states=%zu factors=%zu pos=(%.3f, %.3f, %.3f)",
+    new_states.size(),
+    new_factors.size(),
+    optimized.at<gtsam::Pose3>(latest_key).translation().x(),
+    optimized.at<gtsam::Pose3>(latest_key).translation().y(),
+    optimized.at<gtsam::Pose3>(latest_key).translation().z());
 
   publishPose();
   publishOdometry();
@@ -432,7 +450,8 @@ void EidosNode::handleTracking(double timestamp) {
 // Publishing
 // ==========================================================================
 
-void EidosNode::publishStatus() {
+void EidosNode::publishStatus()
+{
   if (!status_pub_->is_activated()) return;
 
   eidos_msgs::msg::SlamStatus msg;
@@ -442,15 +461,14 @@ void EidosNode::publishStatus() {
   msg.num_keyframes = map_manager_.numKeyframes();
   msg.num_factors = estimator_.numFactors();
 
-  for (auto& p : registry_.factor_plugins)
-    msg.active_factor_plugins.push_back(p->getName());
-  for (auto& p : registry_.reloc_plugins)
-    msg.active_relocalization_plugins.push_back(p->getName());
+  for (auto & p : registry_.factor_plugins) msg.active_factor_plugins.push_back(p->getName());
+  for (auto & p : registry_.reloc_plugins) msg.active_relocalization_plugins.push_back(p->getName());
 
   status_pub_->publish(msg);
 }
 
-void EidosNode::publishPose() {
+void EidosNode::publishPose()
+{
   if (!pose_pub_->is_activated()) return;
 
   // Read current map-frame pose from TransformManager (lock-free)
@@ -473,7 +491,8 @@ void EidosNode::publishPose() {
   pose_pub_->publish(msg);
 }
 
-void EidosNode::publishOdometry() {
+void EidosNode::publishOdometry()
+{
   if (!odom_pub_->is_activated()) return;
 
   auto pose = transform_manager_.getMapPose().load();
@@ -505,8 +524,9 @@ void EidosNode::publishOdometry() {
 // ==========================================================================
 
 void EidosNode::saveMapCallback(
-    const std::shared_ptr<eidos_msgs::srv::SaveMap::Request> request,
-    std::shared_ptr<eidos_msgs::srv::SaveMap::Response> response) {
+  const std::shared_ptr<eidos_msgs::srv::SaveMap::Request> request,
+  std::shared_ptr<eidos_msgs::srv::SaveMap::Response> response)
+{
   std::string path = request->filepath.empty() ? map_save_directory_ : request->filepath;
   RCLCPP_INFO(get_logger(), "\033[36m[SAVE]\033[0m Saving map to: %s", path.c_str());
 
@@ -516,10 +536,10 @@ void EidosNode::saveMapCallback(
 }
 
 void EidosNode::loadMapCallback(
-    const std::shared_ptr<eidos_msgs::srv::LoadMap::Request> request,
-    std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response) {
-  RCLCPP_INFO(get_logger(), "\033[36m[LOAD]\033[0m Loading map from: %s",
-              request->filepath.c_str());
+  const std::shared_ptr<eidos_msgs::srv::LoadMap::Request> request,
+  std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response)
+{
+  RCLCPP_INFO(get_logger(), "\033[36m[LOAD]\033[0m Loading map from: %s", request->filepath.c_str());
 
   bool ok = map_manager_.loadMap(request->filepath);
   response->success = ok;

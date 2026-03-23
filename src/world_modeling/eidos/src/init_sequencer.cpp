@@ -1,14 +1,30 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/core/init_sequencer.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 void InitSequencer::configure(
-    rclcpp::Logger logger,
-    std::atomic<SlamState>* state,
-    const PluginRegistry* registry,
-    const MapManager* map_manager,
-    double relocalization_timeout,
-    TrackingCallback on_tracking) {
+  rclcpp::Logger logger,
+  std::atomic<SlamState> * state,
+  const PluginRegistry * registry,
+  const MapManager * map_manager,
+  double relocalization_timeout,
+  TrackingCallback on_tracking)
+{
   logger_ = logger;
   state_ = state;
   registry_ = registry;
@@ -17,12 +33,14 @@ void InitSequencer::configure(
   on_tracking_ = std::move(on_tracking);
 }
 
-void InitSequencer::reset() {
+void InitSequencer::reset()
+{
   state_->store(SlamState::WARMING_UP, std::memory_order_release);
   relocalization_start_time_ = 0.0;
 }
 
-bool InitSequencer::step(double timestamp) {
+bool InitSequencer::step(double timestamp)
+{
   auto current = state_->load(std::memory_order_acquire);
 
   switch (current) {
@@ -42,7 +60,8 @@ bool InitSequencer::step(double timestamp) {
   return state_->load(std::memory_order_acquire) == SlamState::TRACKING;
 }
 
-void InitSequencer::handleWarmingUp(double timestamp) {
+void InitSequencer::handleWarmingUp(double timestamp)
+{
   // Check if motion model is ready
   if (registry_->motion_model && !registry_->motion_model->isReady()) {
     return;
@@ -60,19 +79,22 @@ void InitSequencer::handleWarmingUp(double timestamp) {
   on_tracking_(gtsam::Pose3::Identity());
 }
 
-void InitSequencer::handleRelocalizing(double timestamp) {
+void InitSequencer::handleRelocalizing(double timestamp)
+{
   // Keep factor plugins warm
-  for (auto& plugin : registry_->factor_plugins) {
+  for (auto & plugin : registry_->factor_plugins) {
     plugin->produceFactor(0, timestamp);
   }
 
   // Try each relocalization plugin
-  for (auto& plugin : registry_->reloc_plugins) {
+  for (auto & plugin : registry_->reloc_plugins) {
     auto result = plugin->tryRelocalize(timestamp);
     if (result.has_value()) {
-      RCLCPP_INFO(logger_,
-                  "\033[35m[RELOCALIZING]\033[0m Succeeded (fitness: %.3f, keyframe: %d)",
-                  result->fitness_score, result->matched_keyframe_index);
+      RCLCPP_INFO(
+        logger_,
+        "\033[35m[RELOCALIZING]\033[0m Succeeded (fitness: %.3f, keyframe: %d)",
+        result->fitness_score,
+        result->matched_keyframe_index);
       on_tracking_(result->pose);
       return;
     }
@@ -80,9 +102,10 @@ void InitSequencer::handleRelocalizing(double timestamp) {
 
   // Timeout fallback
   if (timestamp - relocalization_start_time_ > relocalization_timeout_) {
-    RCLCPP_WARN(logger_,
-                "\033[35m[RELOCALIZING]\033[0m Timed out after %.1f seconds, starting from origin",
-                timestamp - relocalization_start_time_);
+    RCLCPP_WARN(
+      logger_,
+      "\033[35m[RELOCALIZING]\033[0m Timed out after %.1f seconds, starting from origin",
+      timestamp - relocalization_start_time_);
     on_tracking_(gtsam::Pose3::Identity());
   }
 }

@@ -53,6 +53,4 @@ def generate_launch_description():
         output="screen",
     )
 
-    return LaunchDescription(
-        [localization_param, ekf_local, ekf_global]
-    )
+    return LaunchDescription([localization_param, ekf_local, ekf_global])

@@ -1,3 +1,17 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 
 #include <cmath>
@@ -7,21 +21,25 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <small_gicp/points/point_cloud.hpp>
 
-namespace eidos {
+namespace eidos
+{
 
 /// @brief Convert a ROS PointCloud2 message to a small_gicp::PointCloud.
 /// Extracts XYZ from the message fields, skips NaN/Inf points.
 /// No PCL dependency.
-inline small_gicp::PointCloud::Ptr fromRosMsg(
-    const sensor_msgs::msg::PointCloud2& msg) {
+inline small_gicp::PointCloud::Ptr fromRosMsg(const sensor_msgs::msg::PointCloud2 & msg)
+{
   auto cloud = std::make_shared<small_gicp::PointCloud>();
 
   // Find x, y, z field offsets
   int x_offset = -1, y_offset = -1, z_offset = -1;
-  for (const auto& field : msg.fields) {
-    if (field.name == "x") x_offset = static_cast<int>(field.offset);
-    else if (field.name == "y") y_offset = static_cast<int>(field.offset);
-    else if (field.name == "z") z_offset = static_cast<int>(field.offset);
+  for (const auto & field : msg.fields) {
+    if (field.name == "x")
+      x_offset = static_cast<int>(field.offset);
+    else if (field.name == "y")
+      y_offset = static_cast<int>(field.offset);
+    else if (field.name == "z")
+      z_offset = static_cast<int>(field.offset);
   }
 
   if (x_offset < 0 || y_offset < 0 || z_offset < 0) {
@@ -33,7 +51,7 @@ inline small_gicp::PointCloud::Ptr fromRosMsg(
   cloud->points.reserve(num_points);
 
   for (size_t i = 0; i < num_points; ++i) {
-    const uint8_t* ptr = msg.data.data() + i * point_step;
+    const uint8_t * ptr = msg.data.data() + i * point_step;
     float x, y, z;
     std::memcpy(&x, ptr + x_offset, sizeof(float));
     std::memcpy(&y, ptr + y_offset, sizeof(float));
@@ -43,9 +61,7 @@ inline small_gicp::PointCloud::Ptr fromRosMsg(
       continue;
     }
 
-    cloud->points.emplace_back(
-        static_cast<double>(x), static_cast<double>(y),
-        static_cast<double>(z), 1.0);
+    cloud->points.emplace_back(static_cast<double>(x), static_cast<double>(y), static_cast<double>(z), 1.0);
   }
 
   return cloud;

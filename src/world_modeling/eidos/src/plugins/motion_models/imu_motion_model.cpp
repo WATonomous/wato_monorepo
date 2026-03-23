@@ -1,41 +1,54 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/plugins/motion_models/imu_motion_model.hpp"
+
+#include <tf2/LinearMath/Quaternion.h>
 
 #include <cmath>
 
-#include <pluginlib/class_list_macros.hpp>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
+#include <pluginlib/class_list_macros.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-namespace eidos {
+namespace eidos
+{
 
 constexpr double kTfLookupTimeout = 5.0;
 
 // ---------------------------------------------------------------------------
 // Static utilities
 // ---------------------------------------------------------------------------
-std::pair<gtsam::Vector3, gtsam::Vector3>
-ImuMotionModel::extractMeasurement(const sensor_msgs::msg::Imu& msg) {
+std::pair<gtsam::Vector3, gtsam::Vector3> ImuMotionModel::extractMeasurement(const sensor_msgs::msg::Imu & msg)
+{
   return {
-    gtsam::Vector3(msg.linear_acceleration.x,
-                   msg.linear_acceleration.y,
-                   msg.linear_acceleration.z),
-    gtsam::Vector3(msg.angular_velocity.x,
-                   msg.angular_velocity.y,
-                   msg.angular_velocity.z)
-  };
+    gtsam::Vector3(msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z),
+    gtsam::Vector3(msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z)};
 }
 
-bool ImuMotionModel::isValidImuMessage(const sensor_msgs::msg::Imu& msg) {
-  return !(msg.angular_velocity.x == 0.0 && msg.angular_velocity.y == 0.0 &&
-           msg.angular_velocity.z == 0.0 && msg.linear_acceleration.x == 0.0 &&
-           msg.linear_acceleration.y == 0.0 && msg.linear_acceleration.z == 0.0);
+bool ImuMotionModel::isValidImuMessage(const sensor_msgs::msg::Imu & msg)
+{
+  return !(
+    msg.angular_velocity.x == 0.0 && msg.angular_velocity.y == 0.0 && msg.angular_velocity.z == 0.0 &&
+    msg.linear_acceleration.x == 0.0 && msg.linear_acceleration.y == 0.0 && msg.linear_acceleration.z == 0.0);
 }
 
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
-void ImuMotionModel::onInitialize() {
+void ImuMotionModel::onInitialize()
+{
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".imu_topic", "imu/data");
@@ -50,10 +63,8 @@ void ImuMotionModel::onInitialize() {
   node_->declare_parameter(prefix + ".initialization.stationary_samples", 200);
   node_->declare_parameter(prefix + ".odom_topic", name_ + "/odometry/imu_incremental");
   node_->declare_parameter(prefix + ".imu_frame", "imu_link");
-  node_->declare_parameter(prefix + ".odom_pose_cov",
-      std::vector<double>{0.01, 0.01, 0.01, 0.01, 0.01, 0.01});
-  node_->declare_parameter(prefix + ".odom_twist_cov",
-      std::vector<double>{0.01, 0.01, 0.01, 0.01, 0.01, 0.01});
+  node_->declare_parameter(prefix + ".odom_pose_cov", std::vector<double>{0.01, 0.01, 0.01, 0.01, 0.01, 0.01});
+  node_->declare_parameter(prefix + ".odom_twist_cov", std::vector<double>{0.01, 0.01, 0.01, 0.01, 0.01, 0.01});
 
   std::string imu_topic;
   node_->get_parameter(prefix + ".imu_topic", imu_topic);
@@ -74,24 +85,20 @@ void ImuMotionModel::onInitialize() {
 
   // GTSAM preintegration (for real-time odom prediction only)
   auto p = gtsam::PreintegrationParams::MakeSharedU(gravity_);
-  p->accelerometerCovariance =
-      Eigen::Vector3d(acc_cov_[0], acc_cov_[1], acc_cov_[2]).asDiagonal();
-  p->gyroscopeCovariance =
-      Eigen::Vector3d(gyr_cov_[0], gyr_cov_[1], gyr_cov_[2]).asDiagonal();
+  p->accelerometerCovariance = Eigen::Vector3d(acc_cov_[0], acc_cov_[1], acc_cov_[2]).asDiagonal();
+  p->gyroscopeCovariance = Eigen::Vector3d(gyr_cov_[0], gyr_cov_[1], gyr_cov_[2]).asDiagonal();
   p->integrationCovariance =
-      Eigen::Vector3d(integration_cov_[0], integration_cov_[1], integration_cov_[2]).asDiagonal();
+    Eigen::Vector3d(integration_cov_[0], integration_cov_[1], integration_cov_[2]).asDiagonal();
   preint_params_ = p;
 
-  imu_integrator_ = std::make_unique<gtsam::PreintegratedImuMeasurements>(
-      preint_params_, gtsam::imuBias::ConstantBias());
+  imu_integrator_ =
+    std::make_unique<gtsam::PreintegratedImuMeasurements>(preint_params_, gtsam::imuBias::ConstantBias());
 
   // Subscription
   rclcpp::SubscriptionOptions sub_opts;
   sub_opts.callback_group = callback_group_;
   imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
-      imu_topic, rclcpp::SensorDataQoS(),
-      std::bind(&ImuMotionModel::imuCallback, this, std::placeholders::_1),
-      sub_opts);
+    imu_topic, rclcpp::SensorDataQoS(), std::bind(&ImuMotionModel::imuCallback, this, std::placeholders::_1), sub_opts);
 
   // Publisher
   std::string odom_topic;
@@ -101,22 +108,26 @@ void ImuMotionModel::onInitialize() {
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (pure odom filler)", name_.c_str());
 }
 
-void ImuMotionModel::activate() {
+void ImuMotionModel::activate()
+{
   active_ = true;
   imu_odom_pub_->on_activate();
 
   // Resolve IMU → base_link static TF
   try {
-    tf_imu_to_base_msg_ = tf_->lookupTransform(
-        base_link_frame_, imu_frame_, tf2::TimePointZero,
-        tf2::durationFromSec(kTfLookupTimeout));
+    tf_imu_to_base_msg_ =
+      tf_->lookupTransform(base_link_frame_, imu_frame_, tf2::TimePointZero, tf2::durationFromSec(kTfLookupTimeout));
     extrinsics_resolved_ = true;
-    RCLCPP_INFO(node_->get_logger(), "[%s] resolved TF %s -> %s",
-                name_.c_str(), imu_frame_.c_str(), base_link_frame_.c_str());
-  } catch (const tf2::TransformException& e) {
-    RCLCPP_ERROR(node_->get_logger(),
-                 "[%s] failed TF %s -> %s: %s. Using identity.",
-                 name_.c_str(), imu_frame_.c_str(), base_link_frame_.c_str(), e.what());
+    RCLCPP_INFO(
+      node_->get_logger(), "[%s] resolved TF %s -> %s", name_.c_str(), imu_frame_.c_str(), base_link_frame_.c_str());
+  } catch (const tf2::TransformException & e) {
+    RCLCPP_ERROR(
+      node_->get_logger(),
+      "[%s] failed TF %s -> %s: %s. Using identity.",
+      name_.c_str(),
+      imu_frame_.c_str(),
+      base_link_frame_.c_str(),
+      e.what());
     tf_imu_to_base_msg_.transform.rotation.w = 1.0;
     extrinsics_resolved_ = false;
   }
@@ -124,7 +135,8 @@ void ImuMotionModel::activate() {
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
-void ImuMotionModel::deactivate() {
+void ImuMotionModel::deactivate()
+{
   active_ = false;
   imu_odom_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
@@ -133,7 +145,8 @@ void ImuMotionModel::deactivate() {
 // ---------------------------------------------------------------------------
 // Readiness
 // ---------------------------------------------------------------------------
-bool ImuMotionModel::isReady() const {
+bool ImuMotionModel::isReady() const
+{
   int count = stationary_count_.load(std::memory_order_relaxed);
   if (count < stationary_samples_) return false;
   double acc_rms = stationary_acc_rms_.load(std::memory_order_relaxed);
@@ -141,29 +154,34 @@ bool ImuMotionModel::isReady() const {
   return acc_rms < stationary_acc_threshold_ && gyr_rms < stationary_gyr_threshold_;
 }
 
-std::string ImuMotionModel::getReadyStatus() const {
+std::string ImuMotionModel::getReadyStatus() const
+{
   int count = stationary_count_.load(std::memory_order_relaxed);
   if (count == 0) return "no IMU data received";
   if (count < stationary_samples_) {
-    return "buffering (" + std::to_string(count) + "/"
-           + std::to_string(stationary_samples_) + " samples)";
+    return "buffering (" + std::to_string(count) + "/" + std::to_string(stationary_samples_) + " samples)";
   }
   double acc_rms = stationary_acc_rms_.load(std::memory_order_relaxed);
   double gyr_rms = stationary_gyr_rms_.load(std::memory_order_relaxed);
   char buf[160];
-  std::snprintf(buf, sizeof(buf),
-      "acc_rms=%.4f (thr %.4f) %s, gyr_rms=%.5f (thr %.5f) %s",
-      acc_rms, stationary_acc_threshold_,
-      acc_rms < stationary_acc_threshold_ ? "OK" : "HIGH",
-      gyr_rms, stationary_gyr_threshold_,
-      gyr_rms < stationary_gyr_threshold_ ? "OK" : "HIGH");
+  std::snprintf(
+    buf,
+    sizeof(buf),
+    "acc_rms=%.4f (thr %.4f) %s, gyr_rms=%.5f (thr %.5f) %s",
+    acc_rms,
+    stationary_acc_threshold_,
+    acc_rms < stationary_acc_threshold_ ? "OK" : "HIGH",
+    gyr_rms,
+    stationary_gyr_threshold_,
+    gyr_rms < stationary_gyr_threshold_ ? "OK" : "HIGH");
   return buf;
 }
 
 // ---------------------------------------------------------------------------
 // IMU callback — high-rate processing
 // ---------------------------------------------------------------------------
-void ImuMotionModel::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+void ImuMotionModel::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+{
   if (!isValidImuMessage(*msg)) return;
 
   sensor_msgs::msg::Imu imu_converted = imuConverter(*msg);
@@ -181,8 +199,8 @@ void ImuMotionModel::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
   publishIncrementalOdom(imu_converted, base_pose, current_state);
 }
 
-void ImuMotionModel::updateStationaryDetection(
-    const sensor_msgs::msg::Imu& imu_converted) {
+void ImuMotionModel::updateStationaryDetection(const sensor_msgs::msg::Imu & imu_converted)
+{
   if (stationary_buffer_.empty()) {
     RCLCPP_INFO(node_->get_logger(), "[%s] first IMU message received", name_.c_str());
   }
@@ -192,14 +210,12 @@ void ImuMotionModel::updateStationaryDetection(
   }
 
   double acc_sq = 0.0, gyr_sq = 0.0;
-  for (const auto& m : stationary_buffer_) {
+  for (const auto & m : stationary_buffer_) {
     double az_compensated = m.linear_acceleration.z - gravity_;
-    acc_sq += m.linear_acceleration.x * m.linear_acceleration.x
-            + m.linear_acceleration.y * m.linear_acceleration.y
-            + az_compensated * az_compensated;
-    gyr_sq += m.angular_velocity.x * m.angular_velocity.x
-            + m.angular_velocity.y * m.angular_velocity.y
-            + m.angular_velocity.z * m.angular_velocity.z;
+    acc_sq += m.linear_acceleration.x * m.linear_acceleration.x + m.linear_acceleration.y * m.linear_acceleration.y +
+              az_compensated * az_compensated;
+    gyr_sq += m.angular_velocity.x * m.angular_velocity.x + m.angular_velocity.y * m.angular_velocity.y +
+              m.angular_velocity.z * m.angular_velocity.z;
   }
   int n = static_cast<int>(stationary_buffer_.size());
   stationary_acc_rms_.store(std::sqrt(acc_sq / n), std::memory_order_relaxed);
@@ -207,8 +223,8 @@ void ImuMotionModel::updateStationaryDetection(
   stationary_count_.store(n, std::memory_order_relaxed);
 }
 
-gtsam::NavState ImuMotionModel::integrateSingleAndPredict(
-    const sensor_msgs::msg::Imu& imu_converted) {
+gtsam::NavState ImuMotionModel::integrateSingleAndPredict(const sensor_msgs::msg::Imu & imu_converted)
+{
   double imu_time = rclcpp::Time(imu_converted.header.stamp).seconds();
   double dt = (last_imu_t_ < 0) ? default_imu_dt_ : (imu_time - last_imu_t_);
   last_imu_t_ = imu_time;
@@ -220,9 +236,8 @@ gtsam::NavState ImuMotionModel::integrateSingleAndPredict(
 }
 
 void ImuMotionModel::publishIncrementalOdom(
-    const sensor_msgs::msg::Imu& imu_converted,
-    const gtsam::Pose3& base_pose,
-    const gtsam::NavState& state) {
+  const sensor_msgs::msg::Imu & imu_converted, const gtsam::Pose3 & base_pose, const gtsam::NavState & state)
+{
   if (!imu_odom_pub_->is_activated()) return;
 
   auto odom = nav_msgs::msg::Odometry();
@@ -246,10 +261,8 @@ void ImuMotionModel::publishIncrementalOdom(
   odom.twist.twist.angular.y = imu_converted.angular_velocity.y;
   odom.twist.twist.angular.z = imu_converted.angular_velocity.z;
 
-  for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++)
-    odom.pose.covariance[i * 7] = odom_pose_cov_[i];
-  for (size_t i = 0; i < odom_twist_cov_.size() && i < 6; i++)
-    odom.twist.covariance[i * 7] = odom_twist_cov_[i];
+  for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++) odom.pose.covariance[i * 7] = odom_pose_cov_[i];
+  for (size_t i = 0; i < odom_twist_cov_.size() && i < 6; i++) odom.twist.covariance[i * 7] = odom_twist_cov_[i];
 
   imu_odom_pub_->publish(odom);
 }
@@ -257,8 +270,8 @@ void ImuMotionModel::publishIncrementalOdom(
 // ---------------------------------------------------------------------------
 // IMU extrinsic conversion
 // ---------------------------------------------------------------------------
-sensor_msgs::msg::Imu ImuMotionModel::imuConverter(
-    const sensor_msgs::msg::Imu& imu_in) {
+sensor_msgs::msg::Imu ImuMotionModel::imuConverter(const sensor_msgs::msg::Imu & imu_in)
+{
   sensor_msgs::msg::Imu imu_out = imu_in;
 
   geometry_msgs::msg::Vector3Stamped acc_in, acc_out;

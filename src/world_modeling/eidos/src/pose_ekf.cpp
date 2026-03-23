@@ -1,22 +1,40 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/utils/pose_ekf.hpp"
 
 #include <gtsam/base/Lie.h>
 
-namespace eidos {
+namespace eidos
+{
 
-void PoseEKF::configure(const Eigen::Matrix<double, 6, 1>& process_noise_diag,
-                         const Eigen::Matrix<double, 6, 1>& measurement_noise_diag) {
+void PoseEKF::configure(
+  const Eigen::Matrix<double, 6, 1> & process_noise_diag, const Eigen::Matrix<double, 6, 1> & measurement_noise_diag)
+{
   Q_ = process_noise_diag.asDiagonal();
   R_ = measurement_noise_diag.asDiagonal();
 }
 
-void PoseEKF::reset(const gtsam::Pose3& initial_pose) {
+void PoseEKF::reset(const gtsam::Pose3 & initial_pose)
+{
   state_ = initial_pose;
   P_ = Eigen::Matrix<double, 6, 6>::Identity() * 1.0;  // high initial uncertainty
   initialized_ = true;
 }
 
-void PoseEKF::predict(const gtsam::Pose3& delta) {
+void PoseEKF::predict(const gtsam::Pose3 & delta)
+{
   if (!initialized_) return;
 
   // State prediction: compose the relative delta
@@ -28,7 +46,8 @@ void PoseEKF::predict(const gtsam::Pose3& delta) {
   P_ += Q_;
 }
 
-void PoseEKF::update(const gtsam::Pose3& measurement) {
+void PoseEKF::update(const gtsam::Pose3 & measurement)
+{
   if (!initialized_) {
     reset(measurement);
     return;

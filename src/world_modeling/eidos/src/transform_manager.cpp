@@ -1,17 +1,33 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "eidos/core/transform_manager.hpp"
 
-namespace eidos {
+namespace eidos
+{
 
 void TransformManager::configure(
-    rclcpp_lifecycle::LifecycleNode::SharedPtr node,
-    const PluginRegistry* registry,
-    const LockFreePose* estimator_pose,
-    const std::string& map_frame,
-    const std::string& odom_frame,
-    const std::string& base_link_frame,
-    const std::string& odom_source_name,
-    const std::string& map_source_name,
-    double rate_hz) {
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node,
+  const PluginRegistry * registry,
+  const LockFreePose * estimator_pose,
+  const std::string & map_frame,
+  const std::string & odom_frame,
+  const std::string & base_link_frame,
+  const std::string & odom_source_name,
+  const std::string & map_source_name,
+  double rate_hz)
+{
   node_ = node;
   registry_ = registry;
   estimator_pose_ = estimator_pose;
@@ -33,35 +49,35 @@ void TransformManager::configure(
 
     Eigen::Matrix<double, 6, 1> Q_diag, R_diag;
     // Config is [roll,pitch,yaw,x,y,z], same order as GTSAM Pose3 Logmap
-    for (int i = 0; i < 6 && i < static_cast<int>(process_noise.size()); i++)
-      Q_diag(i) = process_noise[i];
-    for (int i = 0; i < 6 && i < static_cast<int>(measurement_noise.size()); i++)
-      R_diag(i) = measurement_noise[i];
+    for (int i = 0; i < 6 && i < static_cast<int>(process_noise.size()); i++) Q_diag(i) = process_noise[i];
+    for (int i = 0; i < 6 && i < static_cast<int>(measurement_noise.size()); i++) R_diag(i) = measurement_noise[i];
 
     odom_ekf_.configure(Q_diag, R_diag);
   }
 
-  callback_group_ = node_->create_callback_group(
-      rclcpp::CallbackGroupType::MutuallyExclusive);
+  callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto period = std::chrono::duration<double>(1.0 / rate_hz);
   timer_ = node_->create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-      std::bind(&TransformManager::tick, this),
-      callback_group_);
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+    std::bind(&TransformManager::tick, this),
+    callback_group_);
   timer_->cancel();
 }
 
-void TransformManager::activate() {
+void TransformManager::activate()
+{
   odom_pub_->on_activate();
   timer_->reset();
 }
 
-void TransformManager::deactivate() {
+void TransformManager::deactivate()
+{
   timer_->cancel();
   odom_pub_->on_deactivate();
 }
 
-void TransformManager::tick() {
+void TransformManager::tick()
+{
   auto now = node_->now();
 
   // 1. Compute and broadcast odom → base_link
@@ -118,7 +134,8 @@ void TransformManager::tick() {
   current_map_pose_.store(cached_map_to_odom_.compose(cached_odom_to_base_));
 }
 
-gtsam::Pose3 TransformManager::computeOdomToBase() {
+gtsam::Pose3 TransformManager::computeOdomToBase()
+{
   if (!registry_->motion_model) return cached_odom_to_base_;
   auto mm_pose = registry_->motion_model->getOdomPose();
   if (!mm_pose) return cached_odom_to_base_;
@@ -146,8 +163,7 @@ gtsam::Pose3 TransformManager::computeOdomToBase() {
   if (src) {
     auto odom_reading = src->getOdomPose();
     if (odom_reading) {
-      if (!has_odom_source_reading_ ||
-          !odom_reading->equals(last_odom_source_pose_, 1e-12)) {
+      if (!has_odom_source_reading_ || !odom_reading->equals(last_odom_source_pose_, 1e-12)) {
         odom_ekf_.update(*odom_reading);
         last_odom_source_pose_ = *odom_reading;
         has_odom_source_reading_ = true;
@@ -159,10 +175,11 @@ gtsam::Pose3 TransformManager::computeOdomToBase() {
 }
 
 void TransformManager::broadcastTf(
-    const rclcpp::Time& stamp,
-    const std::string& frame_id,
-    const std::string& child_frame_id,
-    const gtsam::Pose3& pose) {
+  const rclcpp::Time & stamp,
+  const std::string & frame_id,
+  const std::string & child_frame_id,
+  const gtsam::Pose3 & pose)
+{
   geometry_msgs::msg::TransformStamped tf;
   tf.header.stamp = stamp;
   tf.header.frame_id = frame_id;
