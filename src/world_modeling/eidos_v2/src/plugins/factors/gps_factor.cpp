@@ -17,7 +17,7 @@
 namespace eidos {
 
 constexpr double kGpsTimeWindow = 0.2;
-constexpr double kElevationLockedNoise = 0.01;
+constexpr double kElevationLockedNoise = 1e6;
 constexpr double kQuatLength2Min = 0.01;
 
 // ==========================================================================

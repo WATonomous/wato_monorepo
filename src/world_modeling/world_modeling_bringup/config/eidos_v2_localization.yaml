@@ -164,7 +164,7 @@
       mode: "accumulate"
 
       accumulate:
-        skip_factor: 5
+        skip_factor: 20
 
       windowed:
         radius: 50.0

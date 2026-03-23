@@ -97,7 +97,7 @@
       add_factors: true
       max_cov: 5.0
       use_elevation: true
-      min_radius: 200.0
+      min_radius: 150.0
       pose_cov_threshold: 1.0
       gps_cov: [2.0, 2.0, 4.0]
 
@@ -198,7 +198,7 @@
       mode: "accumulate"
 
       accumulate:
-        skip_factor: 5
+        skip_factor: 20
 
       windowed:
         radius: 50.0
