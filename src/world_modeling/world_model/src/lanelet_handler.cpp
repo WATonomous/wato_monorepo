@@ -14,6 +14,7 @@
 
 #include "world_model/lanelet_handler.hpp"
 
+#include <rclcpp/rclcpp.hpp>
 #include <lanelet2_core/geometry/Lanelet.h>
 #include <lanelet2_routing/Route.h>
 
@@ -45,20 +46,12 @@ bool LaneletHandler::loadMap(
       projector_ = std::make_unique<lanelet::projection::LocalCartesianProjector>(origin);
       map_ = lanelet::load(osm_path, *projector_);
     } else {
-      // Use an explicit georeferenced origin from params to select the UTM zone
-      // and map frame offset instead of inferring lat/lon from projected points.
-      lanelet::Origin ref_origin({origin_lat, origin_lon});
-      lanelet::projection::UtmProjector temp_utm_projector(ref_origin);
-
-      // Reverse projection to find GPS at UTM offset
-      lanelet::BasicPoint3d utm_offset(utm_origin_x, utm_origin_y, 0);
-      lanelet::GPSPoint origin_gps = temp_utm_projector.reverse(utm_offset);
-
-      // Create actual projector with computed origin
-      lanelet::Origin actual_origin({origin_gps.lat, origin_gps.lon});
-      projector_ = std::make_unique<lanelet::projection::UtmProjector>(actual_origin);
-
-      // Load map with properly positioned projector
+      // Use the configured lat/lon origin directly as the UTM projector origin.
+      // The projector maps GPS coordinates in the OSM file to local XY relative
+      // to this origin. The utm→map TF (from eidos GPS factor) aligns this
+      // local frame with the SLAM map frame.
+      lanelet::Origin origin({origin_lat, origin_lon});
+      projector_ = std::make_unique<lanelet::projection::UtmProjector>(origin);
       map_ = lanelet::load(osm_path, *projector_);
     }
 
@@ -74,7 +67,8 @@ bool LaneletHandler::loadMap(
     routing_graph_ = lanelet::routing::RoutingGraph::build(*map_, *traffic_rules_);
 
     return true;
-  } catch (const std::exception &) {
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(rclcpp::get_logger("lanelet_handler"), "Map load exception: %s", e.what());
     return false;
   }
 }

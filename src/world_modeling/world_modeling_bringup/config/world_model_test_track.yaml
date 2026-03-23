@@ -18,8 +18,10 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_wgs84.osm"
-    projector_type: "utm"  # real-world GPS coordinates
+    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track.osm"
+    projector_type: "utm"
+    origin_lat: 43.43663210811
+    origin_lon: -80.5788350291
 
     # Frames
     map_frame: "map"
