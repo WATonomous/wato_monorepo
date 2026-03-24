@@ -69,6 +69,20 @@ prediction_node:
     pedestrian_default_speed: 1.4  # m/s - average human walking speed
     pedestrian_max_speed: 3.0      # m/s - fast jog upper bound
 
+    # Pedestrian context-aware prediction
+    pedestrian_lanelet_proximity_threshold: 8.0  # meters - max distance to consider lanelet nearby
+    pedestrian_nearby_query_radius: 15.0         # meters - radius for GetNearbyLanelets query
+    pedestrian_cache_invalidation_dist: 3.0      # meters - re-query after moving this far
+    pedestrian_crosswalk_heading_tolerance: 1.05  # radians (~60deg) - max heading diff for crosswalk
+    pedestrian_heading_score_denominator: 1.5     # Gaussian denominator (wider than vehicle 0.2)
+    pedestrian_lateral_score_denominator: 10.0    # Gaussian denominator (wider than vehicle 4.0)
+    pedestrian_crosswalk_prior: 2.0               # maneuver prior for crosswalk-following
+    pedestrian_forward_prior: 1.5                 # maneuver prior for forward walking
+    pedestrian_road_crossing_prior: 0.15          # maneuver prior for jaywalking
+    pedestrian_parking_fan_half_angle: 1.05       # radians (~60deg) - half-spread of fan
+    pedestrian_parking_fan_count: 5               # number of directional hypotheses
+    pedestrian_parking_forward_boost: 1.5         # boost for forward direction in fan
+
     # Cyclist confidence distribution (lanelet-based multi-hypothesis)
     cyclist_lanelet_confidence: 0.7      # total confidence split among lanelet paths
     cyclist_cv_fallback_confidence: 0.3  # confidence for constant-velocity fallback

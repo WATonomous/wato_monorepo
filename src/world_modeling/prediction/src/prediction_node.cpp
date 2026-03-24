@@ -46,6 +46,18 @@ PredictionNode::PredictionNode(const rclcpp::NodeOptions & options)
   // Pedestrian defaults
   this->declare_parameter("pedestrian_default_speed", 1.4);
   this->declare_parameter("pedestrian_max_speed", 3.0);
+  this->declare_parameter("pedestrian_lanelet_proximity_threshold", 8.0);
+  this->declare_parameter("pedestrian_nearby_query_radius", 15.0);
+  this->declare_parameter("pedestrian_cache_invalidation_dist", 3.0);
+  this->declare_parameter("pedestrian_crosswalk_heading_tolerance", 1.05);
+  this->declare_parameter("pedestrian_heading_score_denominator", 1.5);
+  this->declare_parameter("pedestrian_lateral_score_denominator", 10.0);
+  this->declare_parameter("pedestrian_crosswalk_prior", 2.0);
+  this->declare_parameter("pedestrian_forward_prior", 1.5);
+  this->declare_parameter("pedestrian_road_crossing_prior", 0.15);
+  this->declare_parameter("pedestrian_parking_fan_half_angle", 1.05);
+  this->declare_parameter("pedestrian_parking_fan_count", 5);
+  this->declare_parameter("pedestrian_parking_forward_boost", 1.5);
 
   // Cyclist confidence distribution
   this->declare_parameter("cyclist_lanelet_confidence", 0.7);
@@ -200,6 +212,30 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
   TrajectoryPredictor::PedestrianParams pedestrian_params;
   pedestrian_params.default_speed = this->get_parameter("pedestrian_default_speed").as_double();
   pedestrian_params.max_speed = this->get_parameter("pedestrian_max_speed").as_double();
+  pedestrian_params.lanelet_proximity_threshold =
+    this->get_parameter("pedestrian_lanelet_proximity_threshold").as_double();
+  pedestrian_params.nearby_query_radius =
+    this->get_parameter("pedestrian_nearby_query_radius").as_double();
+  pedestrian_params.cache_invalidation_dist =
+    this->get_parameter("pedestrian_cache_invalidation_dist").as_double();
+  pedestrian_params.crosswalk_heading_tolerance =
+    this->get_parameter("pedestrian_crosswalk_heading_tolerance").as_double();
+  pedestrian_params.heading_score_denominator =
+    this->get_parameter("pedestrian_heading_score_denominator").as_double();
+  pedestrian_params.lateral_score_denominator =
+    this->get_parameter("pedestrian_lateral_score_denominator").as_double();
+  pedestrian_params.crosswalk_prior =
+    this->get_parameter("pedestrian_crosswalk_prior").as_double();
+  pedestrian_params.forward_prior =
+    this->get_parameter("pedestrian_forward_prior").as_double();
+  pedestrian_params.road_crossing_prior =
+    this->get_parameter("pedestrian_road_crossing_prior").as_double();
+  pedestrian_params.parking_fan_half_angle =
+    this->get_parameter("pedestrian_parking_fan_half_angle").as_double();
+  pedestrian_params.parking_fan_count =
+    this->get_parameter("pedestrian_parking_fan_count").as_int();
+  pedestrian_params.parking_forward_boost =
+    this->get_parameter("pedestrian_parking_forward_boost").as_double();
 
   // Build cyclist params from ROS params
   TrajectoryPredictor::CyclistParams cyclist_params;
@@ -230,9 +266,17 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
     vehicle_params.max_speed);
   RCLCPP_INFO(
     this->get_logger(),
-    "Pedestrian params: default_speed=%.1f m/s, max_speed=%.1f m/s",
+    "Pedestrian params: default_speed=%.1f m/s, max_speed=%.1f m/s, "
+    "proximity=%.1fm, query_radius=%.1fm, crosswalk_prior=%.1f, "
+    "forward_prior=%.1f, road_crossing_prior=%.2f, fan_count=%d",
     pedestrian_params.default_speed,
-    pedestrian_params.max_speed);
+    pedestrian_params.max_speed,
+    pedestrian_params.lanelet_proximity_threshold,
+    pedestrian_params.nearby_query_radius,
+    pedestrian_params.crosswalk_prior,
+    pedestrian_params.forward_prior,
+    pedestrian_params.road_crossing_prior,
+    pedestrian_params.parking_fan_count);
   RCLCPP_INFO(
     this->get_logger(),
     "Cyclist params: speed=[%.1f, %.1f] m/s, lanelet_threshold=%.1f m, max_depth=%d, "

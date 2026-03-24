@@ -76,6 +76,17 @@ enum class Intent
 };
 
 /**
+ * @brief Spatial context for pedestrian prediction.
+ */
+enum class PedestrianContext
+{
+  CROSSWALK,       // Near a crosswalk lanelet
+  PARKING,         // Near a parking lanelet
+  ROAD_ADJACENT,   // Near a road/intersection lanelet (no crosswalk)
+  OPEN_AREA        // No lanelets nearby
+};
+
+/**
  * @brief Single trajectory hypothesis (sequence of waypoints)
  */
 struct TrajectoryHypothesis
@@ -232,6 +243,22 @@ public:
   {
     double default_speed;  // m/s - fallback when no velocity history
     double max_speed;  // m/s - clamp upper bound
+    // Context classification
+    double lanelet_proximity_threshold;  // meters - max distance to consider lanelet nearby
+    double nearby_query_radius;  // meters - radius for GetNearbyLanelets service query
+    double cache_invalidation_dist;  // meters - re-query after pedestrian moves this far
+    // Crosswalk scoring
+    double crosswalk_heading_tolerance;  // radians - reject crosswalk if heading too far off
+    double heading_score_denominator;  // Gaussian denominator for heading scoring
+    double lateral_score_denominator;  // Gaussian denominator for lateral scoring
+    double crosswalk_prior;  // maneuver prior for crosswalk-following
+    // Road-adjacent
+    double forward_prior;  // maneuver prior for forward walking
+    double road_crossing_prior;  // maneuver prior for jaywalking
+    // Parking / open area fan
+    double parking_fan_half_angle;  // radians - half-spread of directional fan
+    int parking_fan_count;  // number of directional hypotheses
+    double parking_forward_boost;  // boost for forward direction in fan
   };
 
   /**
@@ -305,6 +332,22 @@ public:
    * this function is called to fetch lanelets around that vehicle's position.
    */
   void setLaneletQueryFunction(LaneletQueryFn fn);
+
+  /**
+   * @brief Callback type for requesting nearby lanelets around a pedestrian.
+   * Fire-and-forget: response populates pedestrian_lanelet_cache_.
+   */
+  using PedestrianQueryFn =
+    std::function<void(const std::string & ped_id, const geometry_msgs::msg::Point & position)>;
+
+  void setPedestrianQueryFunction(PedestrianQueryFn fn);
+
+  /**
+   * @brief Update the per-pedestrian nearby lanelet cache with async query results.
+   * Thread-safe: protected by pedestrian_cache_mutex_.
+   */
+  void updatePedestrianLaneletCache(
+    const std::string & ped_id, std::vector<lanelet_msgs::msg::Lanelet> lanelets, double x, double y);
 
   /**
    * @brief Update the per-vehicle lanelet cache with async query results.
@@ -513,6 +556,7 @@ private:
 
   // Optional per-vehicle lanelet query callback
   LaneletQueryFn lanelet_query_fn_;
+  PedestrianQueryFn pedestrian_query_fn_;
 
   // Per-vehicle lanelet cache: keyed by detection ID, stores queried lanelet
   // data so we don't re-query the service every cycle for the same vehicle.
@@ -530,6 +574,20 @@ private:
   mutable std::mutex vehicle_cache_mutex_;
   std::unordered_map<std::string, VehicleLaneletEntry> vehicle_lanelet_cache_;
 
+  // Per-pedestrian nearby lanelet cache (from GetNearbyLanelets spatial query).
+  // Separate from vehicle cache because it stores raw lanelet arrays, not
+  // routing-graph-based LaneletAhead responses.
+  struct PedestrianLaneletEntry
+  {
+    std::vector<lanelet_msgs::msg::Lanelet> lanelets;
+    double last_x;
+    double last_y;
+    rclcpp::Time last_update;
+  };
+
+  mutable std::mutex pedestrian_cache_mutex_;
+  std::unordered_map<std::string, PedestrianLaneletEntry> pedestrian_lanelet_cache_;
+
 public:
   /**
    * @brief Probability that a vehicle is stopped, given its smoothed speed.
@@ -538,6 +596,8 @@ public:
    * 0.5 at 0.5 m/s, and ~0 above ~1.5 m/s.
    */
   double computeStopProbability(double speed) const;
+
+  double getPedestrianQueryRadius() const { return pedestrian_params_.nearby_query_radius; }
 
   /**
    * @brief Query lanelets for a specific vehicle, using per-vehicle cache.
