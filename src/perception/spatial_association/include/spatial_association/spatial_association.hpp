@@ -23,6 +23,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -85,6 +86,8 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
 private:
+  struct ClusteredCloudSnapshot;
+
   bool publish_bounding_box_;
   bool publish_visualization_;
   bool publish_image_visualization_;
@@ -102,7 +105,19 @@ private:
   void nonGroundCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
   void workerLoop();
   void stopWorker();
+  void associationLoop();
+  void stopAssociationWorker();
+  void notifyAssociationWorker(std::shared_ptr<const ClusteredCloudSnapshot> forced_snapshot_hint = nullptr);
   void multiDetectionCallback(const deep_msgs::msg::MultiDetection2DArray::SharedPtr msg);
+  /** Core association + publish; serialized by @c association_mutex_. Forced snapshot is treated as a hint. */
+  void runAssociationFromDetections(
+    const deep_msgs::msg::MultiDetection2DArray::SharedPtr msg,
+    std::shared_ptr<const ClusteredCloudSnapshot> forced_snapshot = nullptr);
+
+  /** With @c cloud_mutex_ held: bump invalidation generation and clear @c clustered_cloud_cache_. */
+  void invalidateClusteredCloudCacheLocked();
+  /** After @c stopWorker(): clear clustered cache (with bump), TF cache; shared by cleanup/shutdown. */
+  void resetCachesAfterWorkerStopped();
 
   DetectionOutputs processDetections(
     const vision_msgs::msg::Detection2DArray & detections,
@@ -115,27 +130,61 @@ private:
     int image_height = 0,
     bool skip_iou_assignment = false);
 
-  std::mutex cloud_mutex_;
-  std_msgs::msg::Header latest_lidar_header_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_point_cloud_;
-  std::vector<pcl::PointIndices> cluster_indices;
+  /** Filtered + clustered LiDAR for one non-ground message; shared into @c clustered_cloud_cache_. */
+  struct ClusteredCloudSnapshot
+  {
+    uint64_t seq{0};
+    std_msgs::msg::Header header;
+    /** Same instant as @c header.stamp; avoids repeated rclcpp::Time construction. */
+    rclcpp::Time cloud_stamp{0, 0, RCL_ROS_TIME};
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+    std::vector<pcl::PointIndices> cluster_indices;
+    /** Built in worker when @c use_roi_first_clustering_ is false; unused otherwise. */
+    std::optional<std::vector<projection_utils::ClusterCandidate>> global_candidates;
+  };
 
-  std::mutex candidates_cache_mutex_;
-  rclcpp::Time cached_candidates_stamp_{0, 0, RCL_ROS_TIME};
-  std::vector<projection_utils::ClusterCandidate> cached_candidates_;
+  struct PendingRawCloudJob
+  {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+    std_msgs::msg::Header header;
+    uint64_t seq{0};
+  };
+
+  std::mutex cloud_mutex_;
+  std::atomic<uint64_t> clustered_cache_invalidation_generation_{0};
+  std::deque<std::shared_ptr<ClusteredCloudSnapshot>> clustered_cloud_cache_;
+  size_t clustered_cloud_cache_size_{24};
+  /** Call with @c cloud_mutex_ held. Closest cached snapshot to @p det_time, honoring @c max_detection_cloud_stamp_delta_. */
+  std::shared_ptr<ClusteredCloudSnapshot> pickNearestClusteredCloudLocked(const rclcpp::Time & det_time);
 
   std::thread worker_thread_;
   std::mutex job_mutex_;
   std::condition_variable job_cv_;
   std::atomic<bool> worker_shutdown_{false};
   std::atomic<uint64_t> cloud_job_id_{0};
-  pcl::PointCloud<pcl::PointXYZ>::Ptr pending_cloud_;
-  std_msgs::msg::Header pending_header_;
-  uint64_t pending_job_id_{0};  // 0 means no pending job
+  std::atomic<uint64_t> latest_detection_seq_{0};
+  std::atomic<uint64_t> latest_raw_cloud_seq_{0};
+  std::atomic<uint64_t> latest_clustered_cloud_seq_{0};
+  std::deque<PendingRawCloudJob> pending_cloud_queue_;
+  /** Max raw clouds queued when @c raw_cloud_latest_only_ is false; excess drops oldest. */
+  size_t pending_cloud_queue_max_{1};
+  /** If true, each new cloud replaces the entire pending queue (freshest LiDAR for the worker). */
+  bool raw_cloud_latest_only_{true};
+
+  std::mutex latest_detections_mutex_;
+  deep_msgs::msg::MultiDetection2DArray::SharedPtr latest_detections_;
+  std::mutex association_mutex_;
+  std::thread association_thread_;
+  std::mutex association_trigger_mutex_;
+  std::condition_variable association_trigger_cv_;
+  bool association_trigger_pending_{false};
+  bool association_shutdown_{false};
+  std::shared_ptr<const ClusteredCloudSnapshot> association_forced_snapshot_hint_;
 
   std::unique_ptr<SpatialAssociationCore> core_;
 
   std::mutex transform_cache_mutex_;
+  /** Static lidar→camera extrinsics: looked up with tf2::TimePointZero only; restart node if calibration changes. */
   std::unordered_map<std::string, geometry_msgs::msg::TransformStamped> lidar_to_cam_transform_cache_;
 
   rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
@@ -154,7 +203,10 @@ private:
   void initializeParams();
 
   std::string lidar_frame_;
-  double max_detection_cloud_stamp_delta_{0.0};
+  /** Max |detection time − cloud time| (s); ≤0 disables rejection (still pick nearest cached cloud). */
+  double max_detection_cloud_stamp_delta_{0.08};
+  /** Fallback for zero MultiDetection header stamp: median_camera_stamp (default) or max_camera_stamp. */
+  std::string detection_stamp_fallback_policy_{"median_camera_stamp"};
 
   double euclid_cluster_tolerance_;
   int euclid_min_cluster_size_;
@@ -171,6 +223,18 @@ private:
 
   /** When true, cluster only points projecting into each 2D detection ROI (skips global cluster association). */
   bool use_roi_first_clustering_{false};
+
+  /** RViz-only: stamp bbox markers with batch detection time; does not fix real LiDAR–det alignment (see @c skip_repeat_association_publish_). */
+  bool bbox_markers_use_detection_stamp_{false};
+  /** If true, emit debug logs for repeated timestamp-pair associations (pair is no longer used for suppression). */
+  bool skip_repeat_association_publish_{true};
+
+  std::mutex publish_freshness_mutex_;
+  uint64_t last_published_detection_seq_{0};
+  uint64_t last_published_clustered_seq_{0};
+  bool last_association_publish_pair_valid_{false};
+  int64_t last_association_publish_det_ns_{0};
+  int64_t last_association_publish_cloud_ns_{0};
 
   /** Same as quality_filter_params.max_distance; applied as core max lidar range pre-voxel. */
   double quality_max_distance_{60.0};

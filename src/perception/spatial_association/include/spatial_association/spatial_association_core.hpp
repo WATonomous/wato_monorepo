@@ -89,7 +89,8 @@ public:
    * @brief Performs clustering on the filtered point cloud.
    * @param filtered_cloud Input filtered point cloud
    * @param cluster_indices Output vector of cluster indices
-   * @details Uses Euclidean (or adaptive Euclidean) clustering, then mergeClusters with precomputed stats.
+   * @details Uses Euclidean (or adaptive Euclidean) clustering. mergeClusters is temporarily disabled
+   *          in the implementation; re-enable in spatial_association_core.cpp when needed.
    *          Post-IoU quality filtering runs in the node via
    *          @c projection_utils::filterCandidatesByClassAwareConstraints (uses @c projection_utils::getParams()).
    */

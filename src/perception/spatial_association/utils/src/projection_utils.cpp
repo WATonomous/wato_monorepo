@@ -688,6 +688,62 @@ std::optional<cv::Rect2d> projectAABBRect(
   }
   return cv::Rect2d(u0_clip, v0_clip, u1_clip - u0_clip, v1_clip - v0_clip);
 }
+
+std::optional<cv::Rect2d> projectOrientedBoxImageRect(
+  const Box3D & box,
+  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  double image_w,
+  double image_h)
+{
+  if (box.size.x() <= 1e-6f || box.size.y() <= 1e-6f || box.size.z() <= 1e-6f) {
+    return std::nullopt;
+  }
+  const double c = std::cos(box.yaw);
+  const double s = std::sin(box.yaw);
+  const double hx = 0.5 * static_cast<double>(box.size.x());
+  const double hy = 0.5 * static_cast<double>(box.size.y());
+  const double hz = 0.5 * static_cast<double>(box.size.z());
+  const double cx = static_cast<double>(box.center.x());
+  const double cy = static_cast<double>(box.center.y());
+  const double cz = static_cast<double>(box.center.z());
+
+  double u0 = std::numeric_limits<double>::infinity(), v0 = std::numeric_limits<double>::infinity();
+  double u1 = -std::numeric_limits<double>::infinity(), v1 = -std::numeric_limits<double>::infinity();
+  size_t valid_count = 0;
+
+  for (int ix = -1; ix <= 1; ix += 2) {
+    for (int iy = -1; iy <= 1; iy += 2) {
+      for (int iz = -1; iz <= 1; iz += 2) {
+        const double lx = static_cast<double>(ix) * hx;
+        const double ly = static_cast<double>(iy) * hy;
+        const double lz = static_cast<double>(iz) * hz;
+        pcl::PointXYZ pt;
+        pt.x = static_cast<float>(cx + c * lx - s * ly);
+        pt.y = static_cast<float>(cy + s * lx + c * ly);
+        pt.z = static_cast<float>(cz + lz);
+        auto uv = projectLidarToCamera(lidar_to_image, pt);
+        if (!uv) continue;
+        u0 = std::min(u0, uv->x);
+        v0 = std::min(v0, uv->y);
+        u1 = std::max(u1, uv->x);
+        v1 = std::max(v1, uv->y);
+        ++valid_count;
+      }
+    }
+  }
+
+  if (valid_count == 0 || u1 <= u0 || v1 <= v0) {
+    return std::nullopt;
+  }
+  const double u0_clip = std::max(0.0, u0);
+  const double v0_clip = std::max(0.0, v0);
+  const double u1_clip = std::min(image_w, u1);
+  const double v1_clip = std::min(image_h, v1);
+  if (u1_clip <= u0_clip || v1_clip <= v0_clip) {
+    return std::nullopt;
+  }
+  return cv::Rect2d(u0_clip, v0_clip, u1_clip - u0_clip, v1_clip - v0_clip);
+}
 }  // namespace
 
 void assignCandidatesToDetectionsByIOU(
@@ -719,11 +775,20 @@ void assignCandidatesToDetectionsByIOU(
   const double ih = static_cast<double>(ih_param);
   const double min_iou = params.min_iou_threshold;
 
+  // First-pass greedy assignment sorts by combined_score (not IoU alone) so stronger point/center
+  // support can beat a slightly higher-IoU split overlap. Weights sum to 1.
+  constexpr double kAssocWIoU = 0.30;
+  constexpr double kAssocWInsideFrac = 0.28;
+  constexpr double kAssocWAr = 0.18;
+  constexpr double kAssocWCentroid = 0.14;
+  constexpr double kAssocWPoints = 0.10;
+
   struct Pair
   {
     size_t cand_idx;
     int det_idx;
     double iou;
+    double combined_score;
   };
 
   std::vector<Pair> pairs;
@@ -833,7 +898,18 @@ void assignCandidatesToDetectionsByIOU(
         const double ar_score = std::min(rr, 1.0 / rr);
         if (ar_score < params.association_min_ar_consistency_score) continue;
 
-        pairs.push_back({c, d, iou});
+        const double inside_frac = static_cast<double>(inside) / static_cast<double>(g.uvs.size());
+        const double det_cx = b.center.position.x;
+        const double det_cy = b.center.position.y;
+        const double dist_c = std::hypot(g.centroid_uv.x - det_cx, g.centroid_uv.y - det_cy);
+        const double det_scale = std::max(1e-3, 0.35 * std::hypot(b.size_x, b.size_y));
+        const double centroid_score = std::exp(-dist_c / det_scale);
+        const double point_score =
+          std::min(1.0, std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + 120.0));
+        const double combined_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac +
+          kAssocWAr * ar_score + kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
+
+        pairs.push_back({c, d, iou, combined_score});
       }
     }
   } else {
@@ -855,7 +931,7 @@ void assignCandidatesToDetectionsByIOU(
           if (uni > 0.0) {
             const double iou = inter_area / uni;
             if (iou >= min_iou) {
-              pairs.push_back({c, static_cast<int>(d), iou});
+              pairs.push_back({c, static_cast<int>(d), iou, iou});
             }
           }
         }
@@ -877,7 +953,7 @@ void assignCandidatesToDetectionsByIOU(
             const double det_right = det_left + b.size_x;
             const double det_bottom = det_top + b.size_y;
             if (uv->x >= det_left && uv->x <= det_right && uv->y >= det_top && uv->y <= det_bottom) {
-              pairs.push_back({c, static_cast<int>(d), min_iou});
+              pairs.push_back({c, static_cast<int>(d), min_iou, min_iou});
               break;
             }
           }
@@ -886,7 +962,13 @@ void assignCandidatesToDetectionsByIOU(
     }
   }
 
-  std::sort(pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b) { return a.iou > b.iou; });
+  std::sort(pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b)
+  {
+    if (a.combined_score != b.combined_score) {
+      return a.combined_score > b.combined_score;
+    }
+    return a.iou > b.iou;
+  });
 
   std::unordered_set<size_t> used_candidates;
   std::unordered_set<int> used_detections;
@@ -920,6 +1002,7 @@ void assignCandidatesToDetectionsByIOU(
     const bool can_compute_point_support = static_cast<bool>(cloud && !cloud->empty());
     std::vector<CandidateProjInfo> proj_infos(candidates.size());
     std::vector<std::optional<cv::Rect2d>> cand_aabb_rects(candidates.size());
+    std::vector<std::optional<cv::Rect2d>> second_pass_iou_rects(candidates.size());
 
     auto pointInRect = [](const cv::Point2d & uv, const cv::Rect2d & r) -> bool
     {
@@ -963,34 +1046,52 @@ void assignCandidatesToDetectionsByIOU(
         proj_infos[c].centroid_uv = *centroid_uv;
       }
 
-      if (!can_compute_point_support) continue;
-
-      // Project all points in this cluster (using stored indices) to support inside-bbox scoring.
       auto & info = proj_infos[c];
-      info.projected_pts.clear();
-      info.projected_pts.reserve(static_cast<size_t>(std::max(0, candidates[c].stats.num_points)));
+      if (can_compute_point_support) {
+        // Project all points in this cluster (using stored indices) to support inside-bbox scoring.
+        info.projected_pts.clear();
+        info.projected_pts.reserve(static_cast<size_t>(std::max(0, candidates[c].stats.num_points)));
 
-      double u_min = std::numeric_limits<double>::infinity();
-      double v_min = std::numeric_limits<double>::infinity();
-      double u_max = -std::numeric_limits<double>::infinity();
-      double v_max = -std::numeric_limits<double>::infinity();
+        double u_min = std::numeric_limits<double>::infinity();
+        double v_min = std::numeric_limits<double>::infinity();
+        double u_max = -std::numeric_limits<double>::infinity();
+        double v_max = -std::numeric_limits<double>::infinity();
 
-      for (int idx : candidates[c].indices.indices) {
-        if (!cloud || idx < 0 || static_cast<size_t>(idx) >= cloud->points.size()) continue;
-        const auto & pt = cloud->points[static_cast<size_t>(idx)];
-        auto uv = projectLidarToCamera(lidar_to_image, pt);
-        if (!uv) continue;
-        if (uv->x < 0 || uv->x >= iw || uv->y < 0 || uv->y >= ih) continue;
-        info.projected_pts.push_back(*uv);
-        u_min = std::min(u_min, uv->x);
-        v_min = std::min(v_min, uv->y);
-        u_max = std::max(u_max, uv->x);
-        v_max = std::max(v_max, uv->y);
+        for (int idx : candidates[c].indices.indices) {
+          if (!cloud || idx < 0 || static_cast<size_t>(idx) >= cloud->points.size()) continue;
+          const auto & pt = cloud->points[static_cast<size_t>(idx)];
+          auto uv = projectLidarToCamera(lidar_to_image, pt);
+          if (!uv) continue;
+          if (uv->x < 0 || uv->x >= iw || uv->y < 0 || uv->y >= ih) continue;
+          info.projected_pts.push_back(*uv);
+          u_min = std::min(u_min, uv->x);
+          v_min = std::min(v_min, uv->y);
+          u_max = std::max(u_max, uv->x);
+          v_max = std::max(v_max, uv->y);
+        }
+        info.projected_point_count = info.projected_pts.size();
+        if (info.projected_point_count > 0) {
+          info.projected_rect = cv::Rect2d(u_min, v_min, u_max - u_min, v_max - v_min);
+        }
       }
-      info.projected_point_count = info.projected_pts.size();
-      if (info.projected_point_count > 0) {
-        info.projected_rect = cv::Rect2d(u_min, v_min, u_max - u_min, v_max - v_min);
+
+      std::optional<cv::Rect2d> iou_rect;
+      if (params.association_use_point_projection_rect_for_iou && can_compute_point_support) {
+        if (info.projected_point_count >= 2u && info.projected_rect.width > 0.0 && info.projected_rect.height > 0.0) {
+          iou_rect = info.projected_rect;
+        } else if (info.projected_point_count == 1u) {
+          iou_rect = cv::Rect2d(
+            info.projected_pts[0].x - 3.0, info.projected_pts[0].y - 3.0, 6.0, 6.0);
+        }
       }
+      if (!iou_rect && cloud && !candidates[c].indices.indices.empty()) {
+        const Box3D obox = cluster_box::computeClusterBox(cloud, candidates[c].indices);
+        iou_rect = projectOrientedBoxImageRect(obox, lidar_to_image, iw, ih);
+      }
+      if (!iou_rect) {
+        iou_rect = cand_aabb_rects[c];
+      }
+      second_pass_iou_rects[c] = iou_rect;
     }
 
     for (int det_idx : unassigned_dets) {
@@ -1017,7 +1118,7 @@ void assignCandidatesToDetectionsByIOU(
       const cv::Rect2d expanded_det_rect = expandRectToImage(det_rect, params.second_pass_bbox_expand_fraction);
       if (expanded_det_rect.width <= 0.0 || expanded_det_rect.height <= 0.0) continue;
 
-      Pair best{static_cast<size_t>(-1), -1, 0.0};
+      Pair best{static_cast<size_t>(-1), -1, 0.0, 0.0};
       double best_score = -1.0;
       double second_best_score = -1.0;
 
@@ -1029,8 +1130,8 @@ void assignCandidatesToDetectionsByIOU(
         if (!info.centroid_valid) continue;
         if (!pointInRect(info.centroid_uv, expanded_det_rect)) continue;
 
-        // Compute IoU from projected candidate AABB (relaxed IoU is part of combined score, not the only gate).
-        const auto & cand_rect_opt = cand_aabb_rects[c];
+        // IoU from point hull (matches strict pass when enabled), else oriented-box image hull, else 3D AABB.
+        const auto & cand_rect_opt = second_pass_iou_rects[c];
         double iou_val = 0.0;
         if (cand_rect_opt) {
           const cv::Rect2d inter = *cand_rect_opt & det_rect;
@@ -1038,12 +1139,12 @@ void assignCandidatesToDetectionsByIOU(
           const double uni = cand_rect_opt->area() + det_rect.area() - inter_area;
           if (uni > 0.0) iou_val = inter_area / uni;
         } else {
-          // If we couldn't project AABB, still allow rescue when centroid/support is strong.
+          // If we couldn't project any candidate rect, still allow rescue when centroid/support is strong.
           iou_val = params.second_pass_min_iou;
         }
         if (iou_val < params.second_pass_min_iou) continue;
 
-        // Range tiering (for minimum support points).
+        // Range tiering (for minimum support points and support AND/OR).
         const auto & sc = candidates[c].stats;
         const double range =
           std::sqrt(sc.centroid.x() * sc.centroid.x() + sc.centroid.y() * sc.centroid.y() + sc.centroid.z() * sc.centroid.z());
@@ -1088,9 +1189,11 @@ void assignCandidatesToDetectionsByIOU(
           inside_fraction = 0.0;
         }
 
-        const bool support_ok = can_compute_point_support ?
-          (inside_count >= static_cast<size_t>(min_inside_points) || inside_fraction >= min_inside_fraction) :
-          true;
+        const bool is_far_range = range > params.quality_distance_threshold_far;
+        const bool support_ok = !can_compute_point_support ? true :
+          (is_far_range ?
+            (inside_count >= static_cast<size_t>(min_inside_points) || inside_fraction >= min_inside_fraction) :
+            (inside_count >= static_cast<size_t>(min_inside_points) && inside_fraction >= min_inside_fraction));
         if (!support_ok) continue;
 
         // Size plausibility (2D footprint match between projected candidate and detection bbox).
@@ -1133,7 +1236,7 @@ void assignCandidatesToDetectionsByIOU(
         if (combined_score > best_score) {
           second_best_score = best_score;
           best_score = combined_score;
-          best = {c, det_idx, iou_val};
+          best = {c, det_idx, iou_val, combined_score};
         } else if (combined_score > second_best_score) {
           second_best_score = combined_score;
         }

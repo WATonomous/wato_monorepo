@@ -4,9 +4,39 @@ spatial_association:
     # Camera<->lidar transforms are read from TF (published by sensor_interfacing).
     lidar_frame: lidar_cc
 
-    # Max allowed |detection.stamp - cloud.stamp| in seconds; 0 = disabled. When > 0, associations
-    # are skipped when exceeded to reduce ghost associations (camera/lidar often unsynced, so default 0).
-    max_detection_cloud_stamp_delta: 0.0
+    # Max allowed |detection.stamp - cloud.stamp| in seconds; ≤0 disables per-camera rejection (nearest cached cloud
+    # is still used). Batch time = MultiDetection2DArray.header.stamp if set, else median of per-camera stamps.
+    max_detection_cloud_stamp_delta: 0.08
+
+    # When MultiDetection2DArray.header.stamp is zero/unset, fallback batch-time policy:
+    # - median_camera_stamp (default): robust against one delayed camera
+    # - max_camera_stamp: lowest-latency choice using newest valid per-camera stamp
+    detection_stamp_fallback_policy: "median_camera_stamp"
+
+    # Ring buffer of recent clustered LiDAR snapshots (async worker vs detection callback). Order-of-magnitude: keep
+    # enough frames to span max_detection_cloud_stamp_delta at your LiDAR rate (e.g. 0.08 s × 20 Hz ≈ 2 frames min;
+    # use a larger buffer when processing lags).
+    clustered_cloud_cache_size: 24
+
+    # Raw non-ground clouds queued for the worker (used only when raw_cloud_latest_only is false). When full, oldest
+    # pending clouds are dropped. Default 1 favors low latency over queuing intermediate scans.
+    raw_cloud_pending_queue_size: 1
+
+    # If true (default), each new non-ground cloud replaces all pending raw jobs so the worker always processes the
+    # freshest scan; additionally, stale in-flight worker results are dropped when a newer cloud seq is seen before
+    # cache insert/publish. Set false to use a bounded FIFO of size raw_cloud_pending_queue_size (better temporal
+    # coverage, higher latency when the worker falls behind).
+    raw_cloud_latest_only: true
+
+    # If true, /bounding_box marker headers use the detection batch time (RViz looks less “behind” the image).
+    # /detection_3d still uses the LiDAR snapshot stamp — markers and 3D messages can disagree; this does not improve
+    # real temporal matching, only display. Treat as a UI/debug knob.
+    bbox_markers_use_detection_stamp: false
+
+
+    # If true, skip publishing /detection_3d and /bounding_box when the (representative detection time, chosen cloud stamp)
+    # pair matches the last publish — cuts duplicate outputs for repeated det/cloud pairs.
+    skip_repeat_association_publish: true
 
     # filtering parameters
 

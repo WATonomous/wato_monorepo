@@ -133,7 +133,7 @@ struct ProjectionUtilsParams
   double second_pass_min_det_area_far_px2 = 0.0;
 
   // Support checks: projected points that fall inside the expanded detection bbox.
-  // Candidate is eligible if inside_count >= min_inside_points OR inside_fraction >= min_inside_fraction.
+  // Near/medium range: require both count and fraction. Far range: require either (sparse points).
   int second_pass_min_inside_points = 3;
   double second_pass_min_inside_fraction = 0.20;
   double second_pass_inside_points_far_scale = 0.75;
@@ -374,7 +374,8 @@ bool computeClusterCentroid(
   pcl::PointXYZ & centroid);
 
 /**
- * @brief Greedy one-to-one assignment by IoU (and optional strict gates from @ref getParams()).
+ * @brief Greedy one-to-one assignment: strict mode ranks surviving pairs by a combined score (IoU, in-box
+ *        point fraction, AR consistency, centroid proximity, point count); legacy mode ranks by IoU only.
  *
  * When @c association_strict_matching is true: centroid in inner box, IoU on projected point rect (or AABB),
  * in-detection point fraction, tiered min points, and 2D aspect consistency must all pass. Unmatched

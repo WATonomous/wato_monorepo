@@ -135,11 +135,13 @@ void SpatialAssociationCore::performClustering(
       cluster_indices);
   }
 
-  // Compute stats and merge nearby clusters. Physics filtering is done in the node on ClusterCandidates.
-  if (!cluster_indices.empty()) {
-    auto cluster_stats = projection_utils::computeClusterStats(filtered_cloud, cluster_indices);
-    projection_utils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
-  }
+  // TEMP: post-cluster merge disabled. Re-enable by uncommenting the block below.
+  // Computes stats and merges nearby clusters (AABB gap < merge_threshold). Physics filtering is done
+  // in the node on ClusterCandidates.
+  // if (!cluster_indices.empty()) {
+  //   auto cluster_stats = projection_utils::computeClusterStats(filtered_cloud, cluster_indices);
+  //   projection_utils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
+  // }
 }
 
 std::vector<projection_utils::Box3D> SpatialAssociationCore::computeClusterBoxes(
