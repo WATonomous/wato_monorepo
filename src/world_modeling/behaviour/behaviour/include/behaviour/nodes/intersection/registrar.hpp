@@ -42,6 +42,7 @@
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_passed_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/passing_active_traffic_control_element_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/reg_elem_ego_priority_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_pedestrians_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
@@ -91,6 +92,8 @@ public:
       "IsRegulatoryElementType", logger_.get_child("IsRegulatoryElementType"));
     factory.registerNodeType<behaviour::IsTrafficLightStateCondition>(
       "IsTrafficLightState", logger_.get_child("IsTrafficLightState"));
+    factory.registerNodeType<behaviour::PassingActiveTrafficControlElementCondition>(
+      "PassingActiveTrafficControlElement", logger_.get_child("PassingActiveTrafficControlElement"));
     factory.registerNodeType<behaviour::StopSignPriorityCarsClearCondition>(
       "StopSignPriorityCarsClear", logger_.get_child("StopSignPriorityCarsClear"));
     factory.registerNodeType<behaviour::StopSignPedestriansClearCondition>(

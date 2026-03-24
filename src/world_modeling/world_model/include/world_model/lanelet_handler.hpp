@@ -300,6 +300,14 @@ public:
    */
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
 
+  /**
+   * @brief Determine whether a lanelet should be treated as an intersection lanelet.
+   *
+   * Uses map semantics first (turn direction / subtype) and falls back to routing-graph
+   * conflicts, which are a stronger signal than turn direction alone.
+   */
+  bool isIntersectionLanelet(const lanelet::ConstLanelet & ll) const;
+
   // Accessors
 
   /// @brief Returns the routing graph (may be null if map not loaded).

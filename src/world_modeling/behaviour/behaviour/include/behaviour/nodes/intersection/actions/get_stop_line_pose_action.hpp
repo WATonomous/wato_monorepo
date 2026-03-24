@@ -16,6 +16,8 @@
 #define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_STOP_LINE_POSE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
+
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
@@ -28,7 +30,6 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -81,7 +82,8 @@ public:
         first_way_without_lanelet_ids = &lanelet_way.way;
       }
 
-      const auto lanelet_id_it = std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), lanelet_id);
+      const auto lanelet_id_it =
+        std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), lanelet_id);
       if (lanelet_id_it != lanelet_way.lanelet_ids.end()) {
         return &lanelet_way.way;
       }
@@ -103,7 +105,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "reg_elem");
@@ -117,7 +119,7 @@ public:
     }
 
     if (reg_elem->ref_lines.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "RegulatoryElement has no ref_lines");
+      RCLCPP_DEBUG_STREAM(logger(), "invalid_regulatory_element reason=no_ref_lines");
       setOutput("error_message", "invalid_port");
       return BT::NodeStatus::FAILURE;
     }
@@ -130,14 +132,15 @@ public:
     const int64_t current_lanelet_id = lane_ctx->current_lanelet.id;
     const lanelet_msgs::msg::Way * stop_line_way = findStopLineWayForLanelet(*reg_elem, current_lanelet_id);
     if (!stop_line_way) {
-      RCLCPP_DEBUG_STREAM(logger(), "No stop line found for lanelet " << current_lanelet_id);
+      RCLCPP_DEBUG_STREAM(
+        logger(), "missing_stop_line lanelet_id=" << current_lanelet_id);
       setOutput("error_message", "missing_stop_line_for_lanelet");
       return BT::NodeStatus::FAILURE;
     }
 
     const auto center_point = utils::geometry::wayCenterPoint(*stop_line_way);
     if (!center_point) {
-      RCLCPP_DEBUG_STREAM(logger(), "Stop line has no valid points");
+      RCLCPP_DEBUG_STREAM(logger(), "invalid_stop_line reason=no_valid_points");
       setOutput("error_message", "invalid_stop_line");
       return BT::NodeStatus::FAILURE;
     }
@@ -146,7 +149,8 @@ public:
     const auto & pts = stop_line_way->points;
 
     if (pts.size() < 2) {
-      RCLCPP_DEBUG_STREAM(logger(), "Stop line has fewer than 2 points");
+      RCLCPP_DEBUG_STREAM(
+        logger(), "invalid_stop_line reason=insufficient_points point_count=" << pts.size());
       setOutput("error_message", "invalid_stop_line");
       return BT::NodeStatus::FAILURE;
     }
@@ -158,7 +162,7 @@ public:
 
     const double dx = static_cast<double>(pts[i1].x) - static_cast<double>(pts[i0].x);
     const double dy = static_cast<double>(pts[i1].y) - static_cast<double>(pts[i0].y);
-    const double yaw = std::atan2(dy, dx) + M_PI_2;
+    const double yaw = std::atan2(dy, dx);
 
     tf2::Quaternion q;
     q.setRPY(0.0, 0.0, yaw);
@@ -172,11 +176,6 @@ public:
     pose->pose.position.y = center_point->y;
     pose->pose.position.z = center_point->z;
     pose->pose.orientation = tf2::toMsg(q);
-
-    RCLCPP_DEBUG_STREAM(
-      logger(),
-      "Extracted stop line pose at (" << pose->pose.position.x << ", " << pose->pose.position.y << ", "
-                                      << pose->pose.position.z << ") with yaw " << yaw);
 
     setOutput("pose", pose);
     return BT::NodeStatus::SUCCESS;

@@ -16,6 +16,8 @@
 #define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_LANELET_END_POSE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
+
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <cmath>
@@ -25,7 +27,6 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -54,7 +55,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -69,18 +70,18 @@ public:
 
     const auto & lanelet = lane_ctx->current_lanelet;
     if (lanelet.centerline.size() < 2) {
-      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet centerline has fewer than 2 points");
+      RCLCPP_DEBUG_STREAM(
+        logger(), "invalid_lanelet_centerline point_count=" << lanelet.centerline.size());
       setOutput("error_message", "invalid_lanelet_centerline");
       return BT::NodeStatus::FAILURE;
     }
 
-    const std::size_t mid = lanelet.centerline.size() / 2;
-    const std::size_t i0 = (mid == 0) ? 0 : (mid - 1);
-    const std::size_t i1 = (mid + 1 >= lanelet.centerline.size()) ? (lanelet.centerline.size() - 1) : (mid + 1);
+    const std::size_t last_idx = lanelet.centerline.size() - 1;
+    const std::size_t prev_idx = last_idx - 1;
 
-    const auto & mid_point = lanelet.centerline[mid];
-    const auto & p0 = lanelet.centerline[i0];
-    const auto & p1 = lanelet.centerline[i1];
+    const auto & end_point = lanelet.centerline[last_idx];
+    const auto & p0 = lanelet.centerline[prev_idx];
+    const auto & p1 = lanelet.centerline[last_idx];
     const double dx = static_cast<double>(p1.x) - static_cast<double>(p0.x);
     const double dy = static_cast<double>(p1.y) - static_cast<double>(p0.y);
     const double yaw = std::atan2(dy, dx);
@@ -91,13 +92,8 @@ public:
     auto pose = std::make_shared<geometry_msgs::msg::PoseStamped>();
     pose->header.stamp = rclcpp::Time(0);
     pose->header.frame_id = *map_frame;
-    pose->pose.position = mid_point;
+    pose->pose.position = end_point;
     pose->pose.orientation = tf2::toMsg(q);
-
-    RCLCPP_DEBUG_STREAM(
-      logger(),
-      "Extracted lanelet midpoint pose at (" << pose->pose.position.x << ", " << pose->pose.position.y << ", "
-                                             << pose->pose.position.z << ") with yaw " << yaw);
 
     setOutput("pose", pose);
     return BT::NodeStatus::SUCCESS;

@@ -17,9 +17,9 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
-#include <stdexcept>
-
 #include <behaviortree_ros2/ros_node_params.hpp>
+
+#include <stdexcept>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 #include "behaviour/utils/types.hpp"
@@ -37,6 +37,7 @@
 #include "behaviour/nodes/lane_navigation/conditions/ego_stopped_for_duration_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_lane_transition_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/is_overtake_state_condition.hpp"
+#include "behaviour/nodes/lane_navigation/conditions/overtake_stage_elapsed_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/overtake_valid_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/safe_lane_change_condition.hpp"
 #include "behaviour/nodes/lane_navigation/conditions/valid_lane_change_condition.hpp"
@@ -77,7 +78,10 @@ public:
       "IsLaneTransition", logger_.get_child("IsLaneTransition"));
     factory.registerNodeType<behaviour::OvertakeValidCondition>(
       "OvertakeValid", logger_.get_child("OvertakeValid"));
-    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage", logger_.get_child("IsOvertakeStage"));
+    factory.registerNodeType<behaviour::IsOvertakeStateCondition>(
+      "IsOvertakeStage", logger_.get_child("IsOvertakeStage"));
+    factory.registerNodeType<behaviour::OvertakeStageElapsedCondition>(
+      "OvertakeStageElapsed", logger_.get_child("OvertakeStageElapsed"));
     factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange", logger_.get_child("ValidLaneChange"));
     factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange", logger_.get_child("SafeLaneChange"));
   }

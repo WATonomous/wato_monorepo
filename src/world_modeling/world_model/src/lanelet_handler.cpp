@@ -878,15 +878,32 @@ void LaneletHandler::populateLaneletSemantics(lanelet_msgs::msg::Lanelet & msg, 
     msg.turn_direction = ll.attribute("turn_direction").value();
   }
 
-  // Check if intersection
-  msg.is_intersection = !msg.turn_direction.empty() || ll.hasAttribute(lanelet::AttributeName::Subtype) &&
-    ll.attribute(lanelet::AttributeName::Subtype).value() == "intersection";;
+  msg.is_intersection = isIntersectionLanelet(ll);
 
   // Speed limit
   if (traffic_rules_) {
     auto speed = traffic_rules_->speedLimit(ll);
     msg.speed_limit_mps = speed.speedLimit.value();
   }
+}
+
+bool LaneletHandler::isIntersectionLanelet(const lanelet::ConstLanelet & ll) const
+{
+  if (ll.hasAttribute("turn_direction") && !ll.attribute("turn_direction").value().empty()) {
+    return true;
+  }
+
+  if (ll.hasAttribute(lanelet::AttributeName::Subtype) &&
+    ll.attribute(lanelet::AttributeName::Subtype).value() == "intersection")
+  {
+    return true;
+  }
+
+  if (routing_graph_) {
+    return !routing_graph_->conflicting(ll).empty();
+  }
+
+  return false;
 }
 
 void LaneletHandler::populateLaneletConnectivity(

@@ -67,7 +67,7 @@ public:
       BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("route_ahead_index_map"),
       BT::InputPort<lanelet_msgs::msg::LaneletAhead::SharedPtr>("lanelets_ahead"),
       BT::InputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("lanelets_ahead_index_map"),
-      BT::InputPort<double>("lookahead_threshold_m"),
+      BT::InputPort<double>("lookahead_m"),
       BT::OutputPort<std::vector<lanelet_msgs::msg::Lanelet>>("search_lanelets"),
       BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("search_lanelet_index_map"),
     };
@@ -75,13 +75,15 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const auto missing = [this](const char * port) { RCLCPP_DEBUG_STREAM(logger(), "Missing " << port); };
+    const auto missing = [this](const char * port) {
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port);
+    };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
     if (!ports::require(lane_ctx, "lane_ctx", missing)) return BT::NodeStatus::FAILURE;
 
-    auto lookahead_opt = ports::tryGet<double>(*this, "lookahead_threshold_m");
-    if (!ports::require(lookahead_opt, "lookahead_threshold_m", missing)) return BT::NodeStatus::FAILURE;
+    auto lookahead_opt = ports::tryGet<double>(*this, "lookahead_m");
+    if (!ports::require(lookahead_opt, "lookahead_m", missing)) return BT::NodeStatus::FAILURE;
     const double lookahead_m = *lookahead_opt;
 
     std::vector<lanelet_msgs::msg::Lanelet> search_lanelets;
@@ -178,7 +180,9 @@ public:
     setOutput("search_lanelet_index_map", index_map);
 
     RCLCPP_DEBUG_STREAM(
-      logger(), "source=" << (used_route ? "route" : "lanelets_ahead") << " count=" << search_lanelets.size());
+      logger(), "search_lanelets_ready source="
+                << (used_route ? "route" : "lanelets_ahead")
+                << " count=" << search_lanelets.size());
 
     return BT::NodeStatus::SUCCESS;
   }

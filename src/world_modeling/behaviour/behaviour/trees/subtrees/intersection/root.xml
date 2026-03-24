@@ -10,7 +10,7 @@
         route_ahead_index_map="{@route_ahead_index_map}"
         lanelets_ahead="{@lanelets_ahead}"
         lanelets_ahead_index_map="{@lanelets_ahead_index_map}"
-        lookahead_threshold_m="{@bt.intersection_lookahead_m}"
+        lookahead_m="{@bt.intersection_lookahead_m}"
         search_lanelets="{intersection.search_lanelets}"
         search_lanelet_index_map="{intersection.search_lanelet_index_map}"
       />
@@ -18,22 +18,38 @@
       <GetIntersectionContext
         lane_ctx="{@current_lane_ctx}"
         search_lanelets="{intersection.search_lanelets}"
-        search_lanelet_index_map="{intersection.search_lanelet_index_map}"
         in_active_traffic_control_element="{active_traffic_control_element}"
         in_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
         out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
         out_active_traffic_control_element="{active_traffic_control_element}"
         out_active_traffic_control_element_id="{active_traffic_control_element_id}"
         out_distance_to_intersection_m="{intersection.distance_to_intersection_m}"
+        out_passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}"
       />
 
+      <!-- speed behaviour for safer traj planning speed -->
       <Fallback name="Publish Intersection Speed Behaviour">
         <Sequence>
           <ActiveTrafficControlElementExist
             active_traffic_control_element="{active_traffic_control_element}" />
+          <Inverter>
+            <PassingActiveTrafficControlElement
+              passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}" />
+          </Inverter>
           <SpeedBehaviour
             speed_behaviour="upcoming intersection"
             dist_to_stop="{intersection.distance_to_intersection_m}"
+            topic_name="speed_behaviour" />
+        </Sequence>
+
+        <Sequence>
+          <ActiveTrafficControlElementExist
+            active_traffic_control_element="{active_traffic_control_element}" />
+          <PassingActiveTrafficControlElement
+            passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}" />
+          <SpeedBehaviour
+            speed_behaviour="passing active traffic control element"
+            dist_to_stop="-1.0"
             topic_name="speed_behaviour" />
         </Sequence>
 

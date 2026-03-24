@@ -17,11 +17,13 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
+
 #include <cstdint>
 #include <iostream>
 #include <string>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
+#include "behaviour/utils/intersection.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 
@@ -47,8 +49,7 @@ namespace behaviour
 class ActiveTrafficControlElementPassedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  ActiveTrafficControlElementPassedCondition(
-    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  ActiveTrafficControlElementPassedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -64,7 +65,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
@@ -78,31 +79,9 @@ public:
     }
 
     const int64_t active_id = *active_lanelet_id;
-    const int64_t ego_id = lane_ctx->current_lanelet.id;
-
-    // still on the active lanelet
-    if (ego_id == active_id) {
-      RCLCPP_DEBUG_STREAM(logger(), "ego on active traffic control element lanelet " << active_id << " — not passed");
+    if (!utils::intersection::hasPassedActiveTrafficControlElement(active_id, *lane_ctx)) {
       return BT::NodeStatus::FAILURE;
     }
-
-    // still inside an intersection lanelet
-    if (lane_ctx->current_lanelet.is_intersection) {
-      RCLCPP_DEBUG_STREAM(logger(), "ego on intersection lanelet " << ego_id << " — not passed");
-      return BT::NodeStatus::FAILURE;
-    }
-
-    // the active lanelet is still ahead in the upcoming path
-    for (const auto & upcoming_id : lane_ctx->upcoming_lanelet_ids) {
-      if (upcoming_id == active_id) {
-        RCLCPP_DEBUG_STREAM(
-          logger(), "active traffic control element lanelet " << active_id << " still ahead — not passed");
-        return BT::NodeStatus::FAILURE;
-      }
-    }
-
-    // None of the keep-alive conditions hold — the element is passed
-    RCLCPP_DEBUG_STREAM(logger(), "ego lanelet=" << ego_id << " active_lanelet=" << active_id << " — PASSED");
     return BT::NodeStatus::SUCCESS;
   }
 };

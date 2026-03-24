@@ -48,7 +48,6 @@ public:
 
   BT::NodeStatus tick() override
   {
-    RCLCPP_DEBUG_STREAM(logger(), "Clearing stop sign priority car ids");
     setOutput("priority_car_ids", std::vector<std::string>{});
     setOutput("priority_latched", false);
     return BT::NodeStatus::SUCCESS;
