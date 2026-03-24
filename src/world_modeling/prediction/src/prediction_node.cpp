@@ -473,6 +473,47 @@ PredictionNode::CallbackReturn PredictionNode::on_configure(const rclcpp_lifecyc
         });
     });
 
+  // Create service client for pedestrian spatial lanelet queries
+  nearby_lanelets_client_ = this->create_client<lanelet_msgs::srv::GetNearbyLanelets>("get_nearby_lanelets");
+
+  // Wire per-pedestrian spatial query as async fire-and-forget.
+  trajectory_predictor_->setPedestrianQueryFunction(
+    [this](const std::string & ped_id, const geometry_msgs::msg::Point & position) {
+      if (!nearby_lanelets_client_ || !nearby_lanelets_client_->service_is_ready()) {
+        RCLCPP_WARN_THROTTLE(
+          this->get_logger(), *this->get_clock(), 5000,
+          "GetNearbyLanelets service not ready, using open-area fallback");
+        return;
+      }
+      {
+        std::lock_guard<std::mutex> lock(pending_pedestrian_requests_mutex_);
+        if (pending_pedestrian_requests_.count(ped_id) ||
+            pending_pedestrian_requests_.size() >= kMaxPendingPedestrianRequests) {
+          return;
+        }
+        pending_pedestrian_requests_.insert(ped_id);
+      }
+
+      auto request = std::make_shared<lanelet_msgs::srv::GetNearbyLanelets::Request>();
+      request->position = position;
+      request->radius_m = trajectory_predictor_->getPedestrianQueryRadius();
+
+      double px = position.x, py = position.y;
+      nearby_lanelets_client_->async_send_request(
+        request,
+        [this, ped_id, px, py](rclcpp::Client<lanelet_msgs::srv::GetNearbyLanelets>::SharedFuture future) {
+          {
+            std::lock_guard<std::mutex> lock(pending_pedestrian_requests_mutex_);
+            pending_pedestrian_requests_.erase(ped_id);
+          }
+          auto response = future.get();
+          if (response->success) {
+            trajectory_predictor_->updatePedestrianLaneletCache(
+              ped_id, response->lanelets, px, py);
+          }
+        });
+    });
+
   RCLCPP_INFO(this->get_logger(), "Configured successfully");
   return CallbackReturn::SUCCESS;
 }

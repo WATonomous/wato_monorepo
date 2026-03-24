@@ -27,6 +27,7 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"  // For ego vehicle pose
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"  // For reachable lanelets
 #include "lanelet_msgs/srv/get_lanelet_ahead.hpp"  // For querying lanelets around vehicles
+#include "lanelet_msgs/srv/get_nearby_lanelets.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"  // For tracked object detections
 #include "world_model_msgs/msg/world_object.hpp"  // For individual predicted objects
 #include "world_model_msgs/msg/world_object_array.hpp"  // For predicted object arrays
@@ -105,6 +106,8 @@ private:
 
   // Service client for per-vehicle lanelet queries
   rclcpp::Client<lanelet_msgs::srv::GetLaneletAhead>::SharedPtr lanelet_ahead_client_;
+  // Service client for per-pedestrian spatial lanelet queries
+  rclcpp::Client<lanelet_msgs::srv::GetNearbyLanelets>::SharedPtr nearby_lanelets_client_;
 
   // Callback group: all subscription callbacks run in the same mutually-
   // exclusive group so they never race against each other. The async
@@ -121,6 +124,11 @@ private:
   std::mutex pending_requests_mutex_;
   std::unordered_set<std::string> pending_vehicle_requests_;
   static constexpr size_t kMaxPendingRequests = 8;
+
+  // Pedestrian pending request tracking (separate from vehicle)
+  std::mutex pending_pedestrian_requests_mutex_;
+  std::unordered_set<std::string> pending_pedestrian_requests_;
+  static constexpr size_t kMaxPendingPedestrianRequests = 8;
 
   // Per-object history for confidence smoothing.
   std::unordered_map<std::string, SmoothedObjectState> confidence_history_;

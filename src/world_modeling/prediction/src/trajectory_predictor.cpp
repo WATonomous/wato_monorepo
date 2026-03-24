@@ -113,6 +113,46 @@ void TrajectoryPredictor::setLaneletQueryFunction(LaneletQueryFn fn)
   lanelet_query_fn_ = std::move(fn);
 }
 
+void TrajectoryPredictor::setPedestrianQueryFunction(PedestrianQueryFn fn)
+{
+  pedestrian_query_fn_ = std::move(fn);
+}
+
+void TrajectoryPredictor::updatePedestrianLaneletCache(
+  const std::string & ped_id, std::vector<lanelet_msgs::msg::Lanelet> lanelets, double x, double y)
+{
+  std::lock_guard<std::mutex> lock(pedestrian_cache_mutex_);
+  auto & entry = pedestrian_lanelet_cache_[ped_id];
+  entry.lanelets = std::move(lanelets);
+  entry.last_x = x;
+  entry.last_y = y;
+  entry.last_update = node_->get_clock()->now();
+}
+
+std::optional<std::vector<lanelet_msgs::msg::Lanelet>> TrajectoryPredictor::queryPedestrianNearbyLanelets(
+  const std::string & ped_id, const geometry_msgs::msg::Point & position)
+{
+  {
+    std::lock_guard<std::mutex> lock(pedestrian_cache_mutex_);
+    auto it = pedestrian_lanelet_cache_.find(ped_id);
+    if (it != pedestrian_lanelet_cache_.end()) {
+      double dx = position.x - it->second.last_x;
+      double dy = position.y - it->second.last_y;
+      if (dx * dx + dy * dy <
+        pedestrian_params_.cache_invalidation_dist * pedestrian_params_.cache_invalidation_dist)
+      {
+        return it->second.lanelets;  // Cache hit
+      }
+    }
+  }
+
+  // Cache miss — fire async query
+  if (pedestrian_query_fn_) {
+    pedestrian_query_fn_(ped_id, position);
+  }
+  return std::nullopt;
+}
+
 std::optional<TrajectoryPredictor::VehicleLaneletEntry> TrajectoryPredictor::queryVehicleLanelets(
   const std::string & vehicle_id, const geometry_msgs::msg::Point & position, double heading_rad)
 {
@@ -960,6 +1000,17 @@ void TrajectoryPredictor::pruneStaleCaches(const rclcpp::Time & now, double ttl_
     for (auto it = vehicle_lanelet_cache_.begin(); it != vehicle_lanelet_cache_.end();) {
       if ((now - it->second.last_update).seconds() > ttl_s) {
         it = vehicle_lanelet_cache_.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(pedestrian_cache_mutex_);
+    for (auto it = pedestrian_lanelet_cache_.begin(); it != pedestrian_lanelet_cache_.end();) {
+      if ((now - it->second.last_update).seconds() > ttl_s) {
+        it = pedestrian_lanelet_cache_.erase(it);
       } else {
         ++it;
       }

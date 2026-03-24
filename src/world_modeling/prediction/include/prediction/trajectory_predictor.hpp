@@ -400,6 +400,9 @@ private:
   std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(
     const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
 
+  std::optional<std::vector<lanelet_msgs::msg::Lanelet>> queryPedestrianNearbyLanelets(
+    const std::string & ped_id, const geometry_msgs::msg::Point & position);
+
   /**
    * @brief Generate hypotheses for cyclist objects (hybrid model)
    * @param velocity Computed velocity, or nullopt if insufficient history
