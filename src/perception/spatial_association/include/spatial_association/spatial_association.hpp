@@ -42,6 +42,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "spatial_association/spatial_association_core.hpp"
 #include "utils/projection_utils.hpp"
@@ -52,6 +53,8 @@ struct DetectionOutputs
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr colored_cluster;
   pcl::PointCloud<pcl::PointXYZ>::Ptr centroid_cloud;
   vision_msgs::msg::Detection3DArray detections3d;
+  /** Same length and order as @c detections3d.detections (LiDAR voxel indices into the filtered cloud). */
+  std::vector<pcl::PointIndices> lidar_indices_per_detection;
 };
 
 class SpatialAssociationNode : public rclcpp_lifecycle::LifecycleNode
@@ -109,7 +112,8 @@ private:
     std::vector<projection_utils::ClusterCandidate> candidates,
     const std_msgs::msg::Header & lidar_header,
     int image_width = 0,
-    int image_height = 0);
+    int image_height = 0,
+    bool skip_iou_assignment = false);
 
   std::mutex cloud_mutex_;
   std_msgs::msg::Header latest_lidar_header_;
@@ -164,6 +168,23 @@ private:
   float object_detection_confidence_;
 
   float voxel_size_;
+
+  /** When true, cluster only points projecting into each 2D detection ROI (skips global cluster association). */
+  bool use_roi_first_clustering_{false};
+
+  /** Same as quality_filter_params.max_distance; applied as core max lidar range pre-voxel. */
+  double quality_max_distance_{60.0};
+
+  bool cross_camera_dedup_enabled_{true};
+  /** intersection / min(|A|,|B|) on sorted LiDAR indices — same cluster in non-ROI mode often ≈1. */
+  double cross_camera_min_lidar_overlap_{0.5};
+  /** With same class_id, merge if overlap ≥ this and BEV center distance ≤ @c cross_camera_max_center_dist_m. */
+  double cross_camera_weak_lidar_overlap_{0.22};
+  double cross_camera_max_center_dist_m_{1.8};
+  /** BEV axis-aligned IoU of oriented box footprints; merges same object seen by different cameras with disjoint LiDAR indices. */
+  double cross_camera_min_bev_box_iou_{0.16};
+  /** Stricter BEV IoU when both hypotheses lack class_id. */
+  double cross_camera_min_bev_box_iou_no_class_{0.30};
 };
 
 #endif

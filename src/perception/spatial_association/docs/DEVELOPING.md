@@ -126,6 +126,12 @@ Greedy one-to-one assignment on `std::vector<ClusterCandidate>`: fills `candidat
 2. Falls back to centroid projection when all AABB corners are behind the camera
 3. Computes IoU with each camera detection
 4. Keeps only clusters with IoU ≥ `min_iou_threshold` (0.11)
+5. Optional second pass (`enable_second_pass_fallback`): for *unassigned* detections, rescues candidates using stronger evidence than IoU-only:
+   - centroid must land inside an expanded 2D detection bbox
+   - projected point support inside the expanded bbox must pass `inside_count`/`inside_fraction` thresholds
+   - projected footprint size plausibility must pass
+   - the best match is chosen by a combined score `0.35*iou + 0.30*inside_fraction + 0.20*center_score + 0.15*size_score`
+   - acceptance requires the best score to exceed `second_pass_min_combined_score` and be separated from the second-best by `second_pass_best_second_margin`
 
 ### Bounding Box Computation
 

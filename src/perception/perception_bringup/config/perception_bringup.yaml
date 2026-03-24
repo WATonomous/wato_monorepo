@@ -207,8 +207,10 @@ multi_camera_sync:
       max_density: 1000.0
       max_dimension: 15.0
       max_aspect_ratio: 15.0
-    # Detection inference ~400–600ms;
-    max_detection_cloud_stamp_delta: 1.2
+    # Batched 2D detections are stamped with the image sync time; the voxel cloud uses the last *completed*
+    # worker job stamp and often lags by >1 s. A positive threshold here skips every camera and produces
+    # no 3D output despite valid TF and clusters. Use 0 to disable (recommended for this pipeline).
+    max_detection_cloud_stamp_delta: 0.0
     publish_visualization: false  # Disable for production; enable for debugging
     debug_logging: false
 
@@ -217,7 +219,11 @@ multi_camera_sync:
       marker_lifetime_s: 0.5
       marker_alpha: 0.2
       min_iou_threshold: 0.08   # Lower = more permissive association (was 0.15)
-      min_camera_z_distance: 1.0
+      min_camera_z_distance: 0.6
+      # Strict gates (inner box, in-box point fraction, aspect) need accurate projection; disable for bringup
+      # until camera–lidar calibration is verified, otherwise 3D output can be empty despite 2D detections.
+      association_strict_matching: false
+      association_allow_aabb_centroid_fallback: true
       ar_front_view_threshold: 1.2
       # Orientation search (coarse/fine derived from step)
       min_points_for_fit: 3

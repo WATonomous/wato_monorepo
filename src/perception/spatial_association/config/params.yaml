@@ -20,6 +20,20 @@ spatial_association:
 
     merge_threshold: 0.5
 
+    # If true: cluster only LiDAR points projecting into each 2D detection ROI (per camera), then skip IoU reassignment.
+    # If false: cluster full voxel cloud, then strict IoU association (default pipeline).
+    use_roi_first_clustering: true
+
+    # After all cameras: merge 3D outputs that share the same LiDAR points (or weak overlap + same class + close BEV center).
+    cross_camera_dedup:
+      enabled: true
+      min_lidar_index_overlap: 0.5       # |A∩B| / min(|A|,|B|) on filtered-cloud indices
+      weak_lidar_index_overlap: 0.22     # needs same class_id and max_center_dist_m
+      max_center_dist_m: 1.8             # BEV XY meters for weak-overlap path only
+      # Footprint IoU (axis-aligned rect of oriented box in lidar XY) — catches same object with disjoint LiDAR clusters
+      min_bev_box_iou: 0.16
+      min_bev_box_iou_no_class: 0.30     # when both lack class_id (stricter)
+
     object_detection_confidence: 0.52
 
     # Voxel downsampling parameter
@@ -76,3 +90,18 @@ spatial_association:
       enable_second_pass_fallback: false
       second_pass_min_iou: 0.05  # Relaxed IoU or centroid-in-box; only when enable_second_pass_fallback is true
       max_unassigned_detections_second_pass: 10  # Cap second-pass work to avoid becoming a bottleneck
+
+      # Strict primary association (all must pass when association_strict_matching is true)
+      association_strict_matching: true
+      association_centroid_inner_box_fraction: 0.75   # Centroid inside centered inner box (≈75% of det W×H)
+      association_min_inside_point_fraction: 0.45    # Share of projected cluster points inside det box
+      association_min_ar_consistency_score: 0.30     # 2D projected vs detection aspect ratio similarity
+      association_use_point_projection_rect_for_iou: true
+      association_allow_aabb_centroid_fallback: false  # No synthetic IoU when 8-corner AABB fails
+      association_suppress_second_pass_under_strict: true
+      association_roi_expand_fraction: 0.12          # ROI gather + ROI-first clustering
+
+      # Post-match class caps (3D AABB), used with matched detection class_id
+      quality_person_max_height_m: 2.5
+      quality_person_max_footprint_xy_m: 1.45
+      quality_vehicle_max_height_m: 4.8

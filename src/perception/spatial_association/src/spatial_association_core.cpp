@@ -42,13 +42,48 @@ void SpatialAssociationCore::processPointCloud(
     return;
   }
 
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cleaned(new pcl::PointCloud<pcl::PointXYZ>);
+  std::vector<int> nan_removed_idx;
+  pcl::removeNaNFromPointCloud(*input_cloud, *cleaned, nan_removed_idx);
+  if (!cleaned || cleaned->empty()) {
+    if (output_cloud) {
+      output_cloud->clear();
+    }
+    return;
+  }
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr working = cleaned;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr ranged_holder;
+  if (params_.max_lidar_range_m > 0.0) {
+    const double rmax = params_.max_lidar_range_m;
+    const double r2 = rmax * rmax;
+    ranged_holder.reset(new pcl::PointCloud<pcl::PointXYZ>);
+    ranged_holder->reserve(cleaned->size());
+    for (const auto & p : cleaned->points) {
+      const double d2 = static_cast<double>(p.x) * p.x + static_cast<double>(p.y) * p.y +
+        static_cast<double>(p.z) * p.z;
+      if (d2 <= r2 && std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z)) {
+        ranged_holder->points.push_back(p);
+      }
+    }
+    ranged_holder->width = ranged_holder->points.size();
+    ranged_holder->height = 1;
+    if (ranged_holder->empty()) {
+      if (output_cloud) {
+        output_cloud->clear();
+      }
+      return;
+    }
+    working = ranged_holder;
+  }
+
   // PCL VoxelGrid uses a single int for voxel index; too many voxels overflow.
   // Clamp leaf size so extent/leaf_size <= kMaxVoxelsPerDimension (~safe for 32-bit index).
   float min_x = std::numeric_limits<float>::max();
   float min_y = min_x, min_z = min_x;
   float max_x = std::numeric_limits<float>::lowest();
   float max_y = max_x, max_z = max_x;
-  for (const auto & p : input_cloud->points) {
+  for (const auto & p : working->points) {
     min_x = std::min(min_x, p.x);
     min_y = std::min(min_y, p.y);
     min_z = std::min(min_z, p.z);
@@ -63,7 +98,7 @@ void SpatialAssociationCore::processPointCloud(
   const float leaf = std::max(params_.voxel_size, min_leaf);
   voxel_filter_.setLeafSize(leaf, leaf, leaf);
 
-  voxel_filter_.setInputCloud(input_cloud);
+  voxel_filter_.setInputCloud(working);
   voxel_filter_.filter(*output_cloud);
 }
 

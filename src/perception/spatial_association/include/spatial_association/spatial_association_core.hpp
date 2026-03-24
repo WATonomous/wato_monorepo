@@ -15,6 +15,7 @@
 #ifndef SPATIAL_ASSOCIATION_CORE_HPP
 #define SPATIAL_ASSOCIATION_CORE_HPP
 
+#include <pcl/filters/filter.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -45,6 +46,9 @@ public:
     double euclid_close_tolerance_mult = 1.5;
 
     double merge_threshold = 0.3;
+
+    /** Drop points beyond this range from lidar origin (m). 0 = disabled. Reduces far noise before voxel/cluster. */
+    double max_lidar_range_m = 0.0;
   };
 
   /**

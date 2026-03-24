@@ -123,6 +123,39 @@ struct ProjectionUtilsParams
   double second_pass_min_iou = 0.05;
   int max_unassigned_detections_second_pass = 10;
 
+  // Second-pass rescue policy (stronger evidence gates than IoU-only).
+  // These are tuned to preserve recall while reducing false associations.
+  double second_pass_min_det_conf = -1.0;  // If < 0, uses `object_detection_confidence` only.
+  double second_pass_bbox_expand_fraction = 0.15;  // Expands det width/height by (1 + fraction).
+
+  // Early rejection of very small 2D boxes (px^2). Set <= 0 to disable.
+  double second_pass_min_det_area_px2 = 0.0;
+  double second_pass_min_det_area_far_px2 = 0.0;
+
+  // Support checks: projected points that fall inside the expanded detection bbox.
+  // Candidate is eligible if inside_count >= min_inside_points OR inside_fraction >= min_inside_fraction.
+  int second_pass_min_inside_points = 3;
+  double second_pass_min_inside_fraction = 0.20;
+  double second_pass_inside_points_far_scale = 0.75;
+  double second_pass_inside_points_medium_scale = 0.90;
+
+  // Class-aware tightening (string class_id comes from det.results[0].hypothesis.class_id).
+  // Expected sets: "person"; and vehicles: "car", "truck", "bus".
+  double second_pass_person_inside_fraction_scale = 1.20;
+  double second_pass_person_inside_points_scale = 1.20;
+  double second_pass_vehicle_inside_fraction_scale = 0.90;
+  double second_pass_vehicle_inside_points_scale = 0.90;
+
+  // Dimension/size plausibility via projected footprint match (ratio score in [0,1]).
+  double second_pass_min_size_score = 0.40;
+  double second_pass_person_min_size_score = 0.50;
+  double second_pass_vehicle_min_size_score = 0.35;
+
+  // Combined-score acceptance: best score must be high and clearly above 2nd best.
+  // Combined score uses: 0.35*iou + 0.30*inside_fraction + 0.20*center_score + 0.15*size_score.
+  double second_pass_min_combined_score = 0.45;
+  double second_pass_best_second_margin = 0.10;
+
   /** @{ @name Quality filter (post-IoU)
    *  Retention rules on @ref ClusterCandidate::stats : global min points/height, distance- and
    *  volume-dependent point floors, optional density check, max AABB extent and aspect ratio,
@@ -152,6 +185,34 @@ struct ProjectionUtilsParams
   /** Max ratio of largest to smallest AABB edge (thin slivers rejected). */
   float quality_max_aspect_ratio = 15.0f;
   /** @} */
+
+  /** @{ @name Strict association (primary IoU pass)
+   *  When @c association_strict_matching is true, a candidate pairs with a detection only if all
+   *  gates pass (inner-box centroid, IoU on projected point hull or AABB, in-box point fraction,
+   *  tiered min points, 2D aspect consistency). Disables permissive centroid-only fallback unless
+   *  @c association_allow_aabb_centroid_fallback is true.
+   */
+  bool association_strict_matching = true;
+  /** Centroid must lie inside a box this fraction of the 2D detection width/height (centered). 0.75 ≈ inner 75%. */
+  double association_centroid_inner_box_fraction = 0.75;
+  /** Min fraction of cluster points that project inside the (unexpanded) 2D detection box. */
+  double association_min_inside_point_fraction = 0.45;
+  /** min(projected AR / det AR, det AR / projected AR); below threshold rejects the pair. */
+  double association_min_ar_consistency_score = 0.30;
+  /** If true, IoU uses the image-axis bounding rect of projected cluster points (tighter than 3D AABB corners). */
+  bool association_use_point_projection_rect_for_iou = true;
+  /** Legacy: allow centroid-in-box with synthetic IoU when 8-corner AABB projection fails. */
+  bool association_allow_aabb_centroid_fallback = false;
+  /** If true (default), second-pass rescue is skipped while strict matching is on. */
+  bool association_suppress_second_pass_under_strict = true;
+
+  /** Expand each 2D box by this fraction (of width/height) when gathering LiDAR for ROI-first clustering. */
+  double association_roi_expand_fraction = 0.12;
+  /** Class-tight 3D caps after match (meters); applied in @ref filterCandidatesByClassAwareConstraints. */
+  float quality_person_max_height_m = 2.5f;
+  float quality_person_max_footprint_xy_m = 1.45f;
+  float quality_vehicle_max_height_m = 4.8f;
+  /** @} */
 };
 
 constexpr int kDefaultImageWidth = 1280;
@@ -174,6 +235,27 @@ const ProjectionUtilsParams & getParams();
  */
 std::vector<ClusterCandidate> buildCandidates(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices);
+
+/**
+ * @brief For each 2D detection (high score first), Euclidean-cluster LiDAR points that project into an
+ *        expanded image ROI; keep the best cluster and pre-fill @c candidate.match.
+ *
+ * Intended as ROI-first alternative to clustering the full cloud then associating.
+ *
+ * @param claim_points_unique If true, a point is consumed by the first (highest-score) detection that uses it.
+ */
+std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  const vision_msgs::msg::Detection2DArray & detections,
+  float object_detection_confidence,
+  double roi_expand_fraction,
+  double cluster_tolerance,
+  int min_cluster_size,
+  int max_cluster_size,
+  int image_width,
+  int image_height,
+  bool claim_points_unique);
 
 /**
  * @brief Extracts cluster indices from candidates (for APIs that take indices).
@@ -270,11 +352,10 @@ void mergeClusters(
 /**
  * @brief Drops cluster candidates that fail size/density/range heuristics.
  *
- * Reads thresholds from @ref getParams() (@c quality_* members). Currently uses only
- * @c candidate.stats; @p detections is unused but kept for a future class-aware policy.
+ * Reads thresholds from @ref getParams() (@c quality_* members). When @c candidate.match is set,
+ * applies class-specific 3D caps using @p detections and the matched @c det_idx.
  *
  * @param[in,out] candidates In-place filter; order of survivors is not specified vs. input.
- * @param detections Unused; API placeholder for per-class limits.
  * @pre @ref setParams called with valid @c quality_* fields before use.
  */
 void filterCandidatesByClassAwareConstraints(
@@ -293,12 +374,17 @@ bool computeClusterCentroid(
   pcl::PointXYZ & centroid);
 
 /**
- * @brief Greedy one-to-one assignment by IoU using 8-corner AABB projection from candidate stats.
- * Fills candidate.match for kept, removes unmatched (in place).
+ * @brief Greedy one-to-one assignment by IoU (and optional strict gates from @ref getParams()).
+ *
+ * When @c association_strict_matching is true: centroid in inner box, IoU on projected point rect (or AABB),
+ * in-detection point fraction, tiered min points, and 2D aspect consistency must all pass. Unmatched
+ * candidates are dropped. Second pass is suppressed if @c association_suppress_second_pass_under_strict.
+ *
  * @param image_width Image width for projection clipping (from CameraInfo). 0 = use params or 1280.
  * @param image_height Image height for projection clipping. 0 = use params or 1024.
  */
 void assignCandidatesToDetectionsByIOU(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
   std::vector<ClusterCandidate> & candidates,
   const vision_msgs::msg::Detection2DArray & detections,
   const geometry_msgs::msg::TransformStamped & transform,
