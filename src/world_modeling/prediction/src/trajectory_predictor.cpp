@@ -1366,6 +1366,92 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateRoadAdjacentPedes
   return hypotheses;
 }
 
+double TrajectoryPredictor::computePedestrianCrosswalkScore(
+  double heading_diff, double lateral_offset) const
+{
+  double heading_score = std::exp(
+    -heading_diff * heading_diff / pedestrian_params_.heading_score_denominator);
+  double lateral_score = std::exp(
+    -lateral_offset * lateral_offset / pedestrian_params_.lateral_score_denominator);
+  return heading_score * lateral_score;
+}
+
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCrosswalkPedestrianHypotheses(
+  const KinematicState & state, double velocity,
+  const lanelet_msgs::msg::Lanelet & crosswalk_lanelet)
+{
+  std::vector<TrajectoryHypothesis> hypotheses;
+  double stop_prob = computeStopProbability(velocity);
+
+  if (crosswalk_lanelet.centerline.size() < 2) {
+    return generateOpenAreaPedestrianHypotheses(state, velocity);
+  }
+
+  // Compute crosswalk heading (forward and reverse)
+  const auto & cl = crosswalk_lanelet.centerline;
+  double cw_heading_fwd = std::atan2(
+    cl.back().y - cl.front().y, cl.back().x - cl.front().x);
+  double cw_heading_rev = normalizeAngle(cw_heading_fwd + M_PI);
+
+  double diff_fwd = std::abs(normalizeAngle(state.theta - cw_heading_fwd));
+  double diff_rev = std::abs(normalizeAngle(state.theta - cw_heading_rev));
+
+  // Primary direction: the crosswalk direction closer to pedestrian heading
+  double primary_heading = (diff_fwd <= diff_rev) ? cw_heading_fwd : cw_heading_rev;
+  double primary_diff = std::min(diff_fwd, diff_rev);
+
+  // Only generate crosswalk-following if heading is within tolerance
+  if (primary_diff <= pedestrian_params_.crosswalk_heading_tolerance) {
+    KinematicState cw_state = state;
+    cw_state.theta = primary_heading;
+    auto cw_poses = constant_velocity_model_->generateTrajectory(cw_state, prediction_horizon_, time_step_);
+    auto cw_hyp = buildHypothesis(std::move(cw_poses), time_step_, Intent::CONTINUE_STRAIGHT);
+
+    // Also consider reverse direction with lower score
+    double secondary_heading = (primary_heading == cw_heading_fwd) ? cw_heading_rev : cw_heading_fwd;
+    double secondary_diff = std::max(diff_fwd, diff_rev);
+
+    double primary_score = computePedestrianCrosswalkScore(primary_diff, 0.0) * pedestrian_params_.crosswalk_prior;
+    double secondary_score = 0.0;
+
+    TrajectoryHypothesis secondary_hyp;
+    bool has_secondary = secondary_diff <= pedestrian_params_.crosswalk_heading_tolerance;
+    if (has_secondary) {
+      KinematicState sec_state = state;
+      sec_state.theta = secondary_heading;
+      auto sec_poses = constant_velocity_model_->generateTrajectory(sec_state, prediction_horizon_, time_step_);
+      secondary_hyp = buildHypothesis(std::move(sec_poses), time_step_, Intent::CONTINUE_STRAIGHT);
+      secondary_score = computePedestrianCrosswalkScore(secondary_diff, 0.0) * pedestrian_params_.crosswalk_prior;
+    }
+
+    // Stop hypothesis
+    KinematicState stopped_state = state;
+    stopped_state.v = 0.0;
+    auto stop_poses = constant_velocity_model_->generateTrajectory(stopped_state, prediction_horizon_, time_step_);
+    auto stop_hyp = buildHypothesis(std::move(stop_poses), time_step_, Intent::STOP);
+
+    // Assign probabilities
+    stop_hyp.probability = stop_prob;
+    double remaining = 1.0 - stop_prob;
+    double total_score = primary_score + secondary_score;
+    if (total_score < 1e-6) total_score = 1.0;  // Prevent division by zero
+
+    cw_hyp.probability = remaining * primary_score / total_score;
+    hypotheses.push_back(std::move(cw_hyp));
+
+    if (has_secondary) {
+      secondary_hyp.probability = remaining * secondary_score / total_score;
+      hypotheses.push_back(std::move(secondary_hyp));
+    }
+
+    hypotheses.push_back(std::move(stop_hyp));
+    return hypotheses;
+  }
+
+  // Heading too far off crosswalk — fall back to open area
+  return generateOpenAreaPedestrianHypotheses(state, velocity);
+}
+
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
