@@ -60,7 +60,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing = [this](const char * port) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port );
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port);
     };
 
     auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
@@ -89,8 +89,8 @@ public:
     setOutput("out_stop_sign_pedestrian_ids", out_ids);
 
     if (!out_ids.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "Found " << out_ids.size()
-                << " pedestrian(s) on yield lanelets" );
+      RCLCPP_DEBUG_STREAM(
+        logger(), "stop_sign_pedestrians_detected count=" << out_ids.size());
     }
 
     return BT::NodeStatus::SUCCESS;

@@ -150,6 +150,11 @@
           <IsOvertakeStage stage="{overtake.stage}" expected="OVERTAKE" />
           <Fallback name="Continue Overtake Or Advance To Merge">
             <Sequence name="Ready To Merge">
+              <!-- wait for 5 seconds before trying to merge back in -->
+              <OvertakeStageElapsed
+                stage="{overtake.stage}"
+                expected="OVERTAKE"
+                duration_msec="5000" />
               <!-- for now and to see even if works -->
               <!-- if area on the lane diverged from is safe to merge back -->
               <!-- then we assume that we passed the object -->

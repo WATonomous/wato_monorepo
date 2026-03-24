@@ -51,7 +51,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto priority = ports::tryGet<std::vector<std::string>>(*this, "priority_ids");
@@ -72,12 +72,10 @@ public:
 
     for (const auto & id : *priority) {
       if (current_set.find(id) != current_set.end()) {
-        RCLCPP_DEBUG_STREAM(logger(), "Blocked (priority car still present: " << id << ")" );
+        RCLCPP_DEBUG_STREAM(logger(), "priority_car_blocked car_id=" << id);
         return BT::NodeStatus::FAILURE;
       }
     }
-
-    RCLCPP_DEBUG_STREAM(logger(), "Clear (no priority cars present)" );
     return BT::NodeStatus::SUCCESS;
   }
 };

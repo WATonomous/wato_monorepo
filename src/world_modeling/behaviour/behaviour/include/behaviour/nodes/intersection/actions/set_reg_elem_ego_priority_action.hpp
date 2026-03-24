@@ -41,7 +41,6 @@ public:
 
   BT::NodeStatus tick() override
   {
-    RCLCPP_DEBUG_STREAM(logger(), "Setting ego priority for active regulatory element");
     setOutput("ego_priority", true);
     return BT::NodeStatus::SUCCESS;
   }

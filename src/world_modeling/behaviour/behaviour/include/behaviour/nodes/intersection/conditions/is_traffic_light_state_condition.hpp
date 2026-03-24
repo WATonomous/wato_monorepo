@@ -51,7 +51,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
@@ -63,9 +63,6 @@ public:
     if (!ports::require(expected, "expected", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
-
-    RCLCPP_DEBUG_STREAM(logger(), "Comparing msg='" << *state << "' to expected='" << *expected << "'"
-              );
 
     return (*state == *expected) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }

@@ -69,7 +69,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "active_traffic_control_element");
@@ -94,30 +94,29 @@ public:
 
     const auto role = utils::lanelet::getRightOfWayRole(*elem, *active_lanelet_id);
     if (role == utils::lanelet::RightOfWayRole::RIGHT_OF_WAY) {
-      RCLCPP_DEBUG_STREAM(logger(), "Clear (ego has right of way on lanelet " << *active_lanelet_id << ")" );
       return BT::NodeStatus::SUCCESS;
     }
 
     if (role != utils::lanelet::RightOfWayRole::YIELD) {
-      RCLCPP_DEBUG_STREAM(logger(), "Active right_of_way element does not apply to lanelet "
-                << *active_lanelet_id << " (fail-safe)" );
+      RCLCPP_DEBUG_STREAM(
+        logger(), "yield_fail_safe reason=role_not_applicable lanelet_id=" << *active_lanelet_id);
       return BT::NodeStatus::FAILURE;
     }
 
     if (elem->right_of_way_lanelet_ids.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "right_of_way_lanelet_ids empty while ego is yielding (fail-safe)" );
+      RCLCPP_DEBUG_STREAM(
+        logger(), "yield_fail_safe reason=missing_priority_lanelets lanelet_id=" << *active_lanelet_id);
       return BT::NodeStatus::FAILURE;
     }
 
     for (const auto lanelet_id : elem->right_of_way_lanelet_ids) {
       const auto cars = utils::world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
       if (!cars.empty()) {
-        RCLCPP_DEBUG_STREAM(logger(), "Blocked (car in priority lanelet " << lanelet_id << ")" );
+        RCLCPP_DEBUG_STREAM(
+          logger(), "yield_blocked priority_lanelet_id=" << lanelet_id);
         return BT::NodeStatus::FAILURE;
       }
     }
-
-    RCLCPP_DEBUG_STREAM(logger(), "Clear (no cars in priority lanelets while ego is yielding)" );
     return BT::NodeStatus::SUCCESS;
   }
 };

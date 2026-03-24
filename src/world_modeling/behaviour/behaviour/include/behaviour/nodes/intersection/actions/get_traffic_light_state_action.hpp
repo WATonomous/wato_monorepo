@@ -57,7 +57,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input" );
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "traffic_light");
@@ -79,12 +79,15 @@ public:
     const auto state = utils::world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
     if (!state) {
       setOutput("error_message", "traffic_light_state_not_found");
-      RCLCPP_DEBUG_STREAM(logger(), "failed to get state for reg_elem_id=" << reg_elem_id );
+      RCLCPP_DEBUG_STREAM(
+        logger(), "traffic_light_state_not_found reg_elem_id=" << reg_elem_id);
       return BT::NodeStatus::FAILURE;
     }
 
     setOutput("out_traffic_light_state", *state);
-    RCLCPP_DEBUG_STREAM(logger(), "state=" << *state << " reg_elem_id=" << reg_elem_id );
+    RCLCPP_DEBUG_STREAM(
+      logger(), "traffic_light_state reg_elem_id=" << reg_elem_id
+                << " state=" << *state);
 
     return BT::NodeStatus::SUCCESS;
   }

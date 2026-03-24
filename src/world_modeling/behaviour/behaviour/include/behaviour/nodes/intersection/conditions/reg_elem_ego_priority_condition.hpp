@@ -42,7 +42,6 @@ public:
   BT::NodeStatus tick() override
   {
     const bool ego_priority = ports::tryGet<bool>(*this, "ego_priority").value_or(false);
-    RCLCPP_DEBUG_STREAM(logger(), "ego_priority=" << (ego_priority ? "true" : "false"));
     return ego_priority ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

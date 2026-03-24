@@ -189,6 +189,9 @@ private:
       cached_context_.distance_to_lanelet_end_m = 0.0;
     }
 
+    cached_context_.distance_to_intersection_m =
+      cached_context_.current_lanelet.is_intersection ? 0.0 : -1.0;
+
     // Populate upcoming lanelets and distances using a fixed ego-relative route lookahead.
     auto route_ahead = lanelet_->getRouteAhead(ego.pose.position, route_lookahead_m_);
     cached_context_.upcoming_lanelet_ids = route_ahead.ids;

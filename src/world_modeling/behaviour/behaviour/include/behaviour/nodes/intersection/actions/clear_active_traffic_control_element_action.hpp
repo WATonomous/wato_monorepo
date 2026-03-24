@@ -50,8 +50,6 @@ public:
 
   BT::NodeStatus tick() override
   {
-    RCLCPP_DEBUG_STREAM(logger(), "Clearing active traffic control element "
-              << "and associated lanelet/element IDs" );
     lanelet_msgs::msg::RegulatoryElement::SharedPtr cleared = nullptr;
     setOutput("active_traffic_control_element", cleared);
     setOutput("active_traffic_control_lanelet_id", static_cast<int64_t>(0));

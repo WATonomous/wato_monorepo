@@ -92,12 +92,12 @@ public:
         setOutput("out_yield_wall_id", ports::null_id);
         setOutput("out_yield_ego_priority", false);
       }
-      RCLCPP_DEBUG_STREAM(logger(), "Clearing element (raw_subtype=" << reg_elem->subtype
-                << ", normalized_type=" << (normalized_type ? types::toString(*normalized_type) : "unknown")
-                << ", wall_id=" << active_wall_id
-                << ")" );
+      RCLCPP_DEBUG_STREAM(
+        logger(), "raw_subtype=" << reg_elem->subtype
+                  << " type=" << (normalized_type ? types::toString(*normalized_type) : "unknown")
+                  << " wall_id=" << active_wall_id);
     } else {
-      RCLCPP_DEBUG_STREAM(logger(), "No active element to clear" );
+      RCLCPP_DEBUG_STREAM(logger(), "no_active_element=true");
     }
 
     // wall id to despawn

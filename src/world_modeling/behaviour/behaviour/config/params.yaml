@@ -39,8 +39,8 @@
         - "right_lane_change_corridor"
 
       # Stop line wall of doom dimensions (meters)
-      intersection_wall_of_doom_width: 5.0
-      intersection_wall_of_doom_length: 1.0
+      intersection_wall_of_doom_width: 1.0
+      intersection_wall_of_doom_length: 8.0
 
       # Ego stopped velocity threshold (m/s)
       ego_stopped_velocity_threshold: 0.1

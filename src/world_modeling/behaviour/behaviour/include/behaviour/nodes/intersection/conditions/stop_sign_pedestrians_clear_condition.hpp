@@ -53,8 +53,8 @@ public:
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "Blocked (" << pedestrian_ids->size()
-              << " pedestrian(s) crossing)" );
+    RCLCPP_DEBUG_STREAM(
+      logger(), "pedestrian_blocked count=" << pedestrian_ids->size());
     return BT::NodeStatus::FAILURE;
   }
 };
