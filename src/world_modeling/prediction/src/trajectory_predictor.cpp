@@ -1452,6 +1452,62 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCrosswalkPedestri
   return generateOpenAreaPedestrianHypotheses(state, velocity);
 }
 
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateOpenAreaPedestrianHypotheses(
+  const KinematicState & state, double velocity)
+{
+  std::vector<TrajectoryHypothesis> hypotheses;
+  double stop_prob = computeStopProbability(velocity);
+
+  int fan_count = pedestrian_params_.parking_fan_count;
+  double half_angle = pedestrian_params_.parking_fan_half_angle;
+
+  // Generate evenly spaced directions within [-half_angle, +half_angle]
+  std::vector<double> offsets;
+  if (fan_count <= 1) {
+    offsets.push_back(0.0);
+  } else {
+    double step = (2.0 * half_angle) / (fan_count - 1);
+    for (int i = 0; i < fan_count; ++i) {
+      offsets.push_back(-half_angle + i * step);
+    }
+  }
+
+  double remaining = 1.0 - stop_prob;
+  double total_prior = 0.0;
+  std::vector<double> priors;
+
+  for (double offset : offsets) {
+    // Forward (offset=0) gets boost, others get 1.0
+    double prior = (std::abs(offset) < 1e-3) ? pedestrian_params_.parking_forward_boost : 1.0;
+    priors.push_back(prior);
+    total_prior += prior;
+  }
+
+  for (size_t i = 0; i < offsets.size(); ++i) {
+    KinematicState fan_state = state;
+    fan_state.theta = normalizeAngle(state.theta + offsets[i]);
+    auto poses = constant_velocity_model_->generateTrajectory(fan_state, prediction_horizon_, time_step_);
+
+    Intent intent = Intent::CONTINUE_STRAIGHT;
+    if (offsets[i] > 0.1) intent = Intent::TURN_LEFT;
+    else if (offsets[i] < -0.1) intent = Intent::TURN_RIGHT;
+
+    auto hyp = buildHypothesis(std::move(poses), time_step_, intent);
+    hyp.probability = remaining * priors[i] / total_prior;
+    hypotheses.push_back(std::move(hyp));
+  }
+
+  // Stop hypothesis
+  KinematicState stopped_state = state;
+  stopped_state.v = 0.0;
+  auto stop_poses = constant_velocity_model_->generateTrajectory(stopped_state, prediction_horizon_, time_step_);
+  auto stop_hyp = buildHypothesis(std::move(stop_poses), time_step_, Intent::STOP);
+  stop_hyp.probability = stop_prob;
+  hypotheses.push_back(std::move(stop_hyp));
+
+  return hypotheses;
+}
+
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
