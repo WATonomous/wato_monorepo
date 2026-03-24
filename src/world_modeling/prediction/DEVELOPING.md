@@ -116,15 +116,44 @@ For each reachable lanelet:
 3. Propagate bicycle model with lane-following controller
 4. Return hypothesis with matching intent and probability=0 (classifier sets)
 
+### Pedestrian Context-Aware Prediction
+
+Pedestrians use a spatial query (`GetNearbyLanelets`) that bypasses the vehicle routing graph
+and returns ALL lanelet types (road, crosswalk, parking). A context classifier dispatches to
+context-specific hypothesis generators:
+
+| Context | Trigger | Hypotheses |
+|---------|---------|------------|
+| **Crosswalk** | Nearest lanelet is `crosswalk` type | Forward/reverse along crosswalk centerline + stop (2-3) |
+| **Road-adjacent** | Nearest lanelet is `road` or `intersection` | Forward walk + perpendicular road-crossing (jaywalking) + stop (3) |
+| **Parking / Open area** | Nearest is `parking`, or no lanelets nearby | Multi-directional fan (5 directions) + stop (6) |
+
+**Priority**: crosswalk > parking > road > open area.
+
+**Fallback chain**: Service unavailable → open-area fan. No nearby lanelets → open-area fan.
+Context generator returns empty → open-area fan. Every path produces valid hypotheses.
+
+**Caching**: Per-pedestrian cache (`pedestrian_lanelet_cache_`) with separate mutex.
+Invalidated when pedestrian moves >3m. Separate from vehicle cache (different data types).
+
 ### Service Query Pattern
 
 ```cpp
+// Vehicle lanelet queries (routing-graph-based)
 auto callback = [this](rclcpp::Client<GetLaneletAhead>::SharedFuture future) {
   auto response = future.get();
   trajectory_predictor_->updateVehicleLaneletCache(
       vehicle_id, response->lanelet_ahead, x, y);
 };
 lanelet_ahead_client_->async_send_request(request, callback);
+
+// Pedestrian lanelet queries (spatial, non-routing)
+auto ped_callback = [this](rclcpp::Client<GetNearbyLanelets>::SharedFuture future) {
+  auto response = future.get();
+  trajectory_predictor_->updatePedestrianLaneletCache(
+      ped_id, response->lanelets, px, py);
+};
+nearby_lanelets_client_->async_send_request(request, ped_callback);
 ```
 
 ## Testing
@@ -184,7 +213,7 @@ Edit `motion_models.cpp`:
 ## Known Limitations & TODO
 
 - **No velocity scaling in bicycle model**: All trajectories use same arc radius
-- **Pedestrian model too simple**: Constant velocity ignores obstacles, goals
+- **Pedestrian model**: Context-aware but no goal prediction or obstacle avoidance
 - **No loop detection**: Lanelet queries can return cycles (e.g., roundabouts)
 - **No turn signal integration**: All vehicle hypotheses equally likely
 - **Limited object type classification**: Uses only bounding box aspect ratio
