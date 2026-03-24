@@ -1,0 +1,10 @@
+# Request: spatial query — all lanelets within radius of a point.
+# Unlike GetLaneletAhead, this does NOT use the routing graph BFS
+# and returns ALL lanelet types (road, crosswalk, parking, etc.)
+geometry_msgs/Point position
+float64 radius_m
+---
+# Response
+bool success
+string error_message
+lanelet_msgs/Lanelet[] lanelets
