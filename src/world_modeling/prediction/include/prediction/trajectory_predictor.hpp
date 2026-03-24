@@ -404,6 +404,33 @@ private:
     const std::string & ped_id, const geometry_msgs::msg::Point & position);
 
   /**
+   * @brief Classify spatial context around a pedestrian from nearby lanelets.
+   */
+  struct PedestrianContextResult {
+    PedestrianContext context;
+    const lanelet_msgs::msg::Lanelet * lanelet;  // Nearest relevant lanelet (nullptr for OPEN_AREA)
+    double distance;  // Distance to the nearest lanelet
+  };
+
+  PedestrianContextResult classifyPedestrianContext(
+    const geometry_msgs::msg::Point & position,
+    const std::vector<lanelet_msgs::msg::Lanelet> & nearby_lanelets) const;
+
+  std::vector<TrajectoryHypothesis> generateRoadAdjacentPedestrianHypotheses(
+    const KinematicState & state, double velocity,
+    const lanelet_msgs::msg::Lanelet & road_lanelet);
+
+  std::vector<TrajectoryHypothesis> generateCrosswalkPedestrianHypotheses(
+    const KinematicState & state, double velocity,
+    const lanelet_msgs::msg::Lanelet & crosswalk_lanelet);
+
+  std::vector<TrajectoryHypothesis> generateOpenAreaPedestrianHypotheses(
+    const KinematicState & state, double velocity);
+
+  double computePedestrianCrosswalkScore(
+    double heading_diff, double lateral_offset) const;
+
+  /**
    * @brief Generate hypotheses for cyclist objects (hybrid model)
    * @param velocity Computed velocity, or nullopt if insufficient history
    */

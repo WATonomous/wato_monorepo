@@ -1217,17 +1217,153 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
   const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
-  // Use computed velocity if available, otherwise default to walking speed
   double v = velocity.value_or(pedestrian_params_.default_speed);
   v = std::clamp(v, 0.0, pedestrian_params_.max_speed);
 
   auto state = stateFromDetection(detection.bbox.center.position, detection.bbox.center.orientation, v);
 
-  auto poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
+  // Try to get nearby lanelets for context classification
+  auto nearby = queryPedestrianNearbyLanelets(detection.id, detection.bbox.center.position);
 
-  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Pedestrian prediction: velocity=%.2f m/s", v);
+  if (nearby.has_value() && !nearby->empty()) {
+    auto ctx = classifyPedestrianContext(detection.bbox.center.position, *nearby);
 
-  return {buildHypothesis(std::move(poses), time_step_)};
+    std::vector<TrajectoryHypothesis> hypotheses;
+    switch (ctx.context) {
+      case PedestrianContext::CROSSWALK:
+        hypotheses = generateCrosswalkPedestrianHypotheses(state, v, *ctx.lanelet);
+        break;
+      case PedestrianContext::PARKING:
+        hypotheses = generateOpenAreaPedestrianHypotheses(state, v);  // Same as open area
+        break;
+      case PedestrianContext::ROAD_ADJACENT:
+        hypotheses = generateRoadAdjacentPedestrianHypotheses(state, v, *ctx.lanelet);
+        break;
+      case PedestrianContext::OPEN_AREA:
+        hypotheses = generateOpenAreaPedestrianHypotheses(state, v);
+        break;
+    }
+
+    if (!hypotheses.empty()) {
+      RCLCPP_DEBUG_ONCE(node_->get_logger(),
+        "Pedestrian context-aware prediction: v=%.2f, context=%d, hypotheses=%zu",
+        v, static_cast<int>(ctx.context), hypotheses.size());
+      return hypotheses;
+    }
+  }
+
+  // Fallback: open area fan
+  RCLCPP_DEBUG_ONCE(node_->get_logger(), "Pedestrian open-area fallback: v=%.2f", v);
+  return generateOpenAreaPedestrianHypotheses(state, v);
+}
+
+TrajectoryPredictor::PedestrianContextResult TrajectoryPredictor::classifyPedestrianContext(
+  const geometry_msgs::msg::Point & position,
+  const std::vector<lanelet_msgs::msg::Lanelet> & nearby_lanelets) const
+{
+  // Find nearest lanelet of each type by 2D distance to centerline
+  struct TypeMatch {
+    const lanelet_msgs::msg::Lanelet * lanelet = nullptr;
+    double distance = std::numeric_limits<double>::max();
+  };
+
+  TypeMatch crosswalk_match, parking_match, road_match;
+
+  for (const auto & ll : nearby_lanelets) {
+    // Compute min distance from position to this lanelet's centerline
+    double min_dist = std::numeric_limits<double>::max();
+    for (const auto & pt : ll.centerline) {
+      double dx = pt.x - position.x;
+      double dy = pt.y - position.y;
+      double d = std::sqrt(dx * dx + dy * dy);
+      if (d < min_dist) min_dist = d;
+    }
+
+    if (min_dist > pedestrian_params_.lanelet_proximity_threshold) continue;
+
+    if (ll.lanelet_type == "crosswalk" && min_dist < crosswalk_match.distance) {
+      crosswalk_match = {&ll, min_dist};
+    } else if (ll.lanelet_type == "parking" && min_dist < parking_match.distance) {
+      parking_match = {&ll, min_dist};
+    } else if ((ll.lanelet_type == "road" || ll.lanelet_type == "intersection") &&
+               min_dist < road_match.distance) {
+      road_match = {&ll, min_dist};
+    }
+  }
+
+  // Priority: crosswalk > parking > road > open
+  if (crosswalk_match.lanelet) {
+    return {PedestrianContext::CROSSWALK, crosswalk_match.lanelet, crosswalk_match.distance};
+  }
+  if (parking_match.lanelet) {
+    return {PedestrianContext::PARKING, parking_match.lanelet, parking_match.distance};
+  }
+  if (road_match.lanelet) {
+    return {PedestrianContext::ROAD_ADJACENT, road_match.lanelet, road_match.distance};
+  }
+  return {PedestrianContext::OPEN_AREA, nullptr, 0.0};
+}
+
+std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateRoadAdjacentPedestrianHypotheses(
+  const KinematicState & state, double velocity,
+  const lanelet_msgs::msg::Lanelet & road_lanelet)
+{
+  std::vector<TrajectoryHypothesis> hypotheses;
+  double stop_prob = computeStopProbability(velocity);
+
+  // 1. Forward walking hypothesis
+  auto forward_poses = constant_velocity_model_->generateTrajectory(state, prediction_horizon_, time_step_);
+  auto forward_hyp = buildHypothesis(std::move(forward_poses), time_step_, Intent::CONTINUE_STRAIGHT);
+
+  // 2. Road-crossing hypothesis: perpendicular to nearest road centerline
+  // Find the heading of the road at the closest point
+  double road_heading = 0.0;
+  double min_dist = std::numeric_limits<double>::max();
+  for (size_t i = 0; i + 1 < road_lanelet.centerline.size(); ++i) {
+    double cx = (road_lanelet.centerline[i].x + road_lanelet.centerline[i + 1].x) * 0.5;
+    double cy = (road_lanelet.centerline[i].y + road_lanelet.centerline[i + 1].y) * 0.5;
+    double dx = cx - state.x;
+    double dy = cy - state.y;
+    double d = std::sqrt(dx * dx + dy * dy);
+    if (d < min_dist) {
+      min_dist = d;
+      road_heading = std::atan2(
+        road_lanelet.centerline[i + 1].y - road_lanelet.centerline[i].y,
+        road_lanelet.centerline[i + 1].x - road_lanelet.centerline[i].x);
+    }
+  }
+
+  // Perpendicular: choose the direction closer to pedestrian's current heading
+  double perp_left = road_heading + M_PI / 2.0;
+  double perp_right = road_heading - M_PI / 2.0;
+  double diff_left = std::abs(normalizeAngle(state.theta - perp_left));
+  double diff_right = std::abs(normalizeAngle(state.theta - perp_right));
+  double crossing_heading = (diff_left < diff_right) ? perp_left : perp_right;
+  Intent crossing_intent = (diff_left < diff_right) ? Intent::TURN_LEFT : Intent::TURN_RIGHT;
+
+  KinematicState crossing_state = state;
+  crossing_state.theta = crossing_heading;
+  auto crossing_poses = constant_velocity_model_->generateTrajectory(crossing_state, prediction_horizon_, time_step_);
+  auto crossing_hyp = buildHypothesis(std::move(crossing_poses), time_step_, crossing_intent);
+
+  // 3. Stop hypothesis
+  KinematicState stopped_state = state;
+  stopped_state.v = 0.0;
+  auto stop_poses = constant_velocity_model_->generateTrajectory(stopped_state, prediction_horizon_, time_step_);
+  auto stop_hyp = buildHypothesis(std::move(stop_poses), time_step_, Intent::STOP);
+
+  // Assign probabilities: stop from sigmoid, rest proportional to priors
+  stop_hyp.probability = stop_prob;
+  double remaining = 1.0 - stop_prob;
+  double total_prior = pedestrian_params_.forward_prior + pedestrian_params_.road_crossing_prior;
+  forward_hyp.probability = remaining * pedestrian_params_.forward_prior / total_prior;
+  crossing_hyp.probability = remaining * pedestrian_params_.road_crossing_prior / total_prior;
+
+  hypotheses.push_back(std::move(forward_hyp));
+  hypotheses.push_back(std::move(crossing_hyp));
+  hypotheses.push_back(std::move(stop_hyp));
+
+  return hypotheses;
 }
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses(
