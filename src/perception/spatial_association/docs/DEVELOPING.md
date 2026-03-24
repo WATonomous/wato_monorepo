@@ -152,12 +152,15 @@ Computes oriented 3D bounding boxes:
 
 ```yaml
 euclid_params:
-  cluster_tolerance: 0.40        # Max distance between points in same cluster (m)
+  cluster_tolerance: 0.40        # Reference tolerance (m); each band uses cluster_tolerance * multiplier
   min_cluster_size: 20          # Minimum points per cluster
   max_cluster_size: 1200        # Maximum points per cluster
-  use_adaptive_clustering: true # Use distance-adaptive tolerance
-  close_threshold: 10.0         # Distance threshold for "close" objects (m)
-  close_tolerance_mult: 1.25    # Multiplier for close objects (1.25x = 0.50m)
+  use_adaptive_clustering: true # Radial bands with tighter tolerance near ego (better for 2D association)
+  close_threshold: 10.0         # Upper radius (m) of near band
+  mid_threshold: 25.0           # Upper radius of mid band (set ≤ close_threshold for two-band near/far only)
+  close_tolerance_mult: 0.65    # Near-band multiplier (typically < 1)
+  mid_tolerance_mult: 1.125     # Mid-band multiplier
+  far_tolerance_mult: 1.75      # Far-band multiplier (typically > 1 for sparse returns)
 ```
 
 #### Quality Filter Parameters
@@ -166,7 +169,7 @@ The `filterCandidatesByClassAwareConstraints()` function uses the `quality_*` fi
 #### Other Parameters
 
 ```yaml
-merge_threshold: 0.5                     # Max AABB gap distance between clusters to merge (m)
+merge_threshold: 0.1                     # Max AABB gap distance between clusters to merge (m)
 object_detection_confidence: 0.52        # Min camera detection confidence
 voxel_size: 0.2                         # Voxel grid leaf size (m)
 # Visualization toggles (independent):
@@ -228,11 +231,13 @@ spatial_association/
 
 ### 1. Adaptive Euclidean Clustering
 
-Splits point cloud into "close" and "far" regions:
-- **Close** (< `close_threshold`): Uses `base_tolerance * close_tolerance_mult`
-- **Far** (≥ `close_threshold`): Uses `base_tolerance`
+Splits the cloud by radial distance from the lidar origin into up to three bands, then runs Euclidean clustering **separately** in each band with a band-specific tolerance `cluster_tolerance * multiplier`:
 
-Prevents fragmentation of close objects while maintaining precision for distant objects.
+- **Near** (`[0, close_threshold)`): `close_tolerance_mult` — keep **below 1.0** so dense, nearby returns do not merge separate objects (helps one-to-one 2D association).
+- **Mid** (`[close_threshold, mid_threshold)`): `mid_tolerance_mult` — omitted if `mid_threshold` ≤ `close_threshold`.
+- **Far** (`[mid_threshold, ∞)` when mid is enabled, else `[close_threshold, ∞)`): `far_tolerance_mult` — often **> 1.0** to link sparser far-range points.
+
+For ROI-centric association, consider `use_roi_first_clustering` in `params.yaml`.
 
 ### 2. Search-Based Orientation Fitting
 
@@ -314,13 +319,13 @@ Then visualize in RViz:
 
 ### Issue: Clusters Too Fragmented
 
-**Solution**: Increase cluster tolerance or use adaptive clustering:
+**Solution**: Increase `cluster_tolerance` and/or raise the **far** (and optionally **mid**) multipliers; avoid pushing `close_tolerance_mult` above 1.0 if nearby objects incorrectly merge.
 
 ```yaml
 euclid_params:
-  cluster_tolerance: 0.50  # Increase from 0.40
+  cluster_tolerance: 0.50
   use_adaptive_clustering: true
-  close_tolerance_mult: 1.5  # Increase from 1.25
+  far_tolerance_mult: 2.0
 ```
 
 ### Issue: TF Transform Errors

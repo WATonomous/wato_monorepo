@@ -37,15 +37,26 @@ public:
   struct ClusteringParams
   {
     float voxel_size = 0.2f;
+    bool skip_voxel_for_roi_first = false;
 
     double euclid_cluster_tolerance = 0.5;
     int euclid_min_cluster_size = 50;
     int euclid_max_cluster_size = 700;
     bool use_adaptive_clustering = true;
     double euclid_close_threshold = 10.0;
-    double euclid_close_tolerance_mult = 1.5;
+    double euclid_mid_threshold = 25.0;
+    /** Extend mid band down to (close_threshold - overlap) m XY so near/mid boundary does not split objects. 0 = off. */
+    double euclid_band_near_mid_overlap_m = 2.0;
+    /** Include points from (mid_threshold - overlap) m XY in far band as well as mid. 0 = off. */
+    double euclid_band_mid_far_overlap_m = 4.0;
+    /** Merge clusters from overlapping bands when |A∩B|/min(|A|,|B|) ≥ this. ≤ 0 skips merge. */
+    double euclid_band_merge_min_index_overlap = 0.35;
+    /** Multiplier on cluster_tolerance for radial range [0, close_threshold). Use < 1 for tighter near clustering. */
+    double euclid_near_tolerance_mult = 0.65;
+    double euclid_mid_tolerance_mult = 1.125;
+    double euclid_far_tolerance_mult = 1.75;
 
-    double merge_threshold = 0.3;
+    double merge_threshold = 0.1;
 
     /** Drop points beyond this range from lidar origin (m). 0 = disabled. Reduces far noise before voxel/cluster. */
     double max_lidar_range_m = 0.0;
@@ -89,8 +100,8 @@ public:
    * @brief Performs clustering on the filtered point cloud.
    * @param filtered_cloud Input filtered point cloud
    * @param cluster_indices Output vector of cluster indices
-   * @details Uses Euclidean (or adaptive Euclidean) clustering. mergeClusters is temporarily disabled
-   *          in the implementation; re-enable in spatial_association_core.cpp when needed.
+   * @details Uses Euclidean (or adaptive Euclidean) clustering followed by post-cluster merge
+   *          passes (AABB-gap merge + vertical-alignment merge for scan-split objects).
    *          Post-IoU quality filtering runs in the node via
    *          @c projection_utils::filterCandidatesByClassAwareConstraints (uses @c projection_utils::getParams()).
    */

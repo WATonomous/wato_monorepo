@@ -21,6 +21,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <builtin_interfaces/msg/time.hpp>
@@ -173,6 +174,17 @@ double bevAabbIou(const Aabb2d & a, const Aabb2d & b)
   return uni > 1e-9 ? inter / uni : 0.0;
 }
 
+double zOverlapRatioMinHeight(const vision_msgs::msg::BoundingBox3D & a, const vision_msgs::msg::BoundingBox3D & b)
+{
+  const double a0 = a.center.position.z - 0.5 * a.size.z;
+  const double a1 = a.center.position.z + 0.5 * a.size.z;
+  const double b0 = b.center.position.z - 0.5 * b.size.z;
+  const double b1 = b.center.position.z + 0.5 * b.size.z;
+  const double inter = std::max(0.0, std::min(a1, b1) - std::max(a0, b0));
+  const double mn_h = std::max(1e-6, std::min(std::max(1e-6, a.size.z), std::max(1e-6, b.size.z)));
+  return inter / mn_h;
+}
+
 bool areCrossCameraDuplicates(
   const CrossCameraWorkItem & a,
   const CrossCameraWorkItem & b,
@@ -180,7 +192,8 @@ bool areCrossCameraDuplicates(
   double weak_overlap,
   double max_center_m,
   double min_bev_iou,
-  double min_bev_iou_no_class)
+  double min_bev_iou_no_class,
+  double min_z_overlap_ratio)
 {
   const std::string ca = primaryClassId(a.det3d);
   const std::string cb = primaryClassId(b.det3d);
@@ -200,8 +213,10 @@ bool areCrossCameraDuplicates(
   const Aabb2d ra = bevAabbFromBoundingBox3D(a.det3d.bbox);
   const Aabb2d rb = bevAabbFromBoundingBox3D(b.det3d.bbox);
   const double biou = bevAabbIou(ra, rb);
-  if (!ca.empty() && ca == cb && biou >= min_bev_iou) return true;
-  if (ca.empty() && cb.empty() && biou >= min_bev_iou_no_class) return true;
+  const double z_overlap = zOverlapRatioMinHeight(a.det3d.bbox, b.det3d.bbox);
+  const bool z_ok = z_overlap >= min_z_overlap_ratio;
+  if (z_ok && !ca.empty() && ca == cb && biou >= min_bev_iou) return true;
+  if (z_ok && ca.empty() && cb.empty() && biou >= min_bev_iou_no_class) return true;
   return false;
 }
 
@@ -211,22 +226,33 @@ void deduplicateCrossCameraWorkItems(
   double weak_overlap,
   double max_center_m,
   double min_bev_iou,
-  double min_bev_iou_no_class)
+  double min_bev_iou_no_class,
+  double min_z_overlap_ratio)
 {
   if (items.size() <= 1u) return;
 
   std::vector<size_t> order(items.size());
   std::iota(order.begin(), order.end(), 0);
-  std::sort(order.begin(), order.end(), [&](size_t i, size_t j) { return items[i].score > items[j].score; });
+  std::sort(order.begin(), order.end(), [&](size_t i, size_t j)
+  {
+    if (items[i].score != items[j].score) {
+      return items[i].score > items[j].score;
+    }
+    // Deterministic tie-breaker: keep lower original index first.
+    return i < j;
+  });
 
   std::vector<char> suppressed(items.size(), 0);
   for (size_t oi = 0; oi < order.size(); ++oi) {
     const size_t i = order[oi];
     if (suppressed[i]) continue;
-    for (size_t j = 0; j < items.size(); ++j) {
-      if (i == j || suppressed[j]) continue;
+    // Only consider lower-ranked items for suppression.
+    for (size_t oj = oi + 1; oj < order.size(); ++oj) {
+      const size_t j = order[oj];
+      if (suppressed[j]) continue;
       if (areCrossCameraDuplicates(
-            items[i], items[j], min_overlap, weak_overlap, max_center_m, min_bev_iou, min_bev_iou_no_class))
+            items[i], items[j], min_overlap, weak_overlap, max_center_m, min_bev_iou, min_bev_iou_no_class,
+            min_z_overlap_ratio))
       {
         suppressed[j] = 1;
       }
@@ -347,12 +373,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
 
     SpatialAssociationCore::ClusteringParams core_params;
     core_params.voxel_size = voxel_size_;
+    core_params.skip_voxel_for_roi_first = skip_voxel_for_roi_first_;
     core_params.euclid_cluster_tolerance = euclid_cluster_tolerance_;
     core_params.euclid_min_cluster_size = euclid_min_cluster_size_;
     core_params.euclid_max_cluster_size = euclid_max_cluster_size_;
     core_params.use_adaptive_clustering = use_adaptive_clustering_;
     core_params.euclid_close_threshold = euclid_close_threshold_;
-    core_params.euclid_close_tolerance_mult = euclid_close_tolerance_mult_;
+    core_params.euclid_mid_threshold = euclid_mid_threshold_;
+    core_params.euclid_band_near_mid_overlap_m = euclid_band_near_mid_overlap_m_;
+    core_params.euclid_band_mid_far_overlap_m = euclid_band_mid_far_overlap_m_;
+    core_params.euclid_band_merge_min_index_overlap = euclid_band_merge_min_index_overlap_;
+    core_params.euclid_near_tolerance_mult = euclid_near_tolerance_mult_;
+    core_params.euclid_mid_tolerance_mult = euclid_mid_tolerance_mult_;
+    core_params.euclid_far_tolerance_mult = euclid_far_tolerance_mult_;
     core_params.merge_threshold = merge_threshold_;
     core_params.max_lidar_range_m = quality_max_distance_;
 
@@ -575,14 +608,22 @@ void SpatialAssociationNode::initializeParams()
 
   declareIfMissing(this, "euclid_params.cluster_tolerance", 0.5);
   declareIfMissing(this, "euclid_params.min_cluster_size", 50);
+  declareIfMissing(this, "euclid_params.roi_min_cluster_size", 4);
   declareIfMissing(this, "euclid_params.max_cluster_size", 700);
   declareIfMissing(this, "euclid_params.use_adaptive_clustering", true);
   declareIfMissing(this, "euclid_params.close_threshold", 10.0);
-  declareIfMissing(this, "euclid_params.close_tolerance_mult", 1.5);
+  declareIfMissing(this, "euclid_params.mid_threshold", 25.0);
+  declareIfMissing(this, "euclid_params.band_near_mid_overlap_m", 2.0);
+  declareIfMissing(this, "euclid_params.band_mid_far_overlap_m", 4.0);
+  declareIfMissing(this, "euclid_params.band_merge_min_index_overlap", 0.35);
+  declareIfMissing(this, "euclid_params.close_tolerance_mult", 0.65);
+  declareIfMissing(this, "euclid_params.mid_tolerance_mult", 1.125);
+  declareIfMissing(this, "euclid_params.far_tolerance_mult", 1.75);
 
-  declareIfMissing(this, "merge_threshold", 0.3);
+  declareIfMissing(this, "merge_threshold", 0.1);
 
   declareIfMissing(this, "use_roi_first_clustering", false);
+  declareIfMissing(this, "skip_voxel_for_roi_first", false);
 
   declareIfMissing(this, "cross_camera_dedup.enabled", true);
   declareIfMissing(this, "cross_camera_dedup.min_lidar_index_overlap", 0.5);
@@ -590,6 +631,7 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "cross_camera_dedup.max_center_dist_m", 1.8);
   declareIfMissing(this, "cross_camera_dedup.min_bev_box_iou", 0.16);
   declareIfMissing(this, "cross_camera_dedup.min_bev_box_iou_no_class", 0.30);
+  declareIfMissing(this, "cross_camera_dedup.min_z_overlap_ratio", 0.20);
 
   declareIfMissing(this, "object_detection_confidence", 0.4f);
 
@@ -605,6 +647,7 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "quality_filter_params.volume_threshold_large", 8.0);
   declareIfMissing(this, "quality_filter_params.min_density", 5.0);
   declareIfMissing(this, "quality_filter_params.max_density", 1000.0);
+  declareIfMissing(this, "quality_filter_params.density_lower_bound_max_volume", 12.0);
   declareIfMissing(this, "quality_filter_params.max_dimension", 15.0);
   declareIfMissing(this, "quality_filter_params.max_aspect_ratio", 15.0);
 
@@ -654,13 +697,23 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, pu + "association_centroid_inner_box_fraction", 0.75);
   declareIfMissing(this, pu + "association_min_inside_point_fraction", 0.45);
   declareIfMissing(this, pu + "association_min_ar_consistency_score", 0.30);
+  declareIfMissing(this, pu + "association_min_combined_score_strict", 0.20);
   declareIfMissing(this, pu + "association_use_point_projection_rect_for_iou", true);
   declareIfMissing(this, pu + "association_allow_aabb_centroid_fallback", false);
   declareIfMissing(this, pu + "association_suppress_second_pass_under_strict", true);
   declareIfMissing(this, pu + "association_roi_expand_fraction", 0.12);
+  declareIfMissing(this, pu + "association_roi_soft_claim_penalty_scale", 0.0);
+  declareIfMissing(this, pu + "assumed_height_person_m", 1.7);
+  declareIfMissing(this, pu + "assumed_height_car_m", 1.5);
+  declareIfMissing(this, pu + "assumed_height_truck_bus_m", 3.0);
+  declareIfMissing(this, pu + "assumed_height_bus_m", 3.4);
+  declareIfMissing(this, pu + "assumed_height_traffic_control_m", 0.6);
   declareIfMissing(this, pu + "quality_person_max_height_m", 2.5);
-  declareIfMissing(this, pu + "quality_person_max_footprint_xy_m", 1.45);
-  declareIfMissing(this, pu + "quality_vehicle_max_height_m", 4.8);
+  declareIfMissing(this, pu + "quality_person_max_footprint_xy_m", 1.5);
+  declareIfMissing(this, pu + "quality_vehicle_max_height_m", 5.0);
+  declareIfMissing(this, pu + "quality_vehicle_max_footprint_xy_m", 3.5);
+  declareIfMissing(this, pu + "quality_sign_max_height_m", 4.5);
+  declareIfMissing(this, pu + "quality_sign_max_footprint_xy_m", 1.5);
 
   publish_bounding_box_ = this->get_parameter("publish_bounding_box").as_bool();
   publish_visualization_ = this->get_parameter("publish_visualization").as_bool();
@@ -679,13 +732,23 @@ void SpatialAssociationNode::initializeParams()
 
   euclid_cluster_tolerance_ = this->get_parameter("euclid_params.cluster_tolerance").as_double();
   euclid_min_cluster_size_ = this->get_parameter("euclid_params.min_cluster_size").as_int();
+  euclid_roi_min_cluster_size_ = this->get_parameter("euclid_params.roi_min_cluster_size").as_int();
   euclid_max_cluster_size_ = this->get_parameter("euclid_params.max_cluster_size").as_int();
   use_adaptive_clustering_ = this->get_parameter("euclid_params.use_adaptive_clustering").as_bool();
   euclid_close_threshold_ = this->get_parameter("euclid_params.close_threshold").as_double();
-  euclid_close_tolerance_mult_ = this->get_parameter("euclid_params.close_tolerance_mult").as_double();
+  euclid_mid_threshold_ = this->get_parameter("euclid_params.mid_threshold").as_double();
+  euclid_band_near_mid_overlap_m_ = this->get_parameter("euclid_params.band_near_mid_overlap_m").as_double();
+  euclid_band_mid_far_overlap_m_ = this->get_parameter("euclid_params.band_mid_far_overlap_m").as_double();
+  euclid_band_merge_min_index_overlap_ =
+    this->get_parameter("euclid_params.band_merge_min_index_overlap").as_double();
+  euclid_near_tolerance_mult_ = this->get_parameter("euclid_params.close_tolerance_mult").as_double();
+  euclid_mid_tolerance_mult_ = this->get_parameter("euclid_params.mid_tolerance_mult").as_double();
+  euclid_far_tolerance_mult_ = this->get_parameter("euclid_params.far_tolerance_mult").as_double();
 
   merge_threshold_ = this->get_parameter("merge_threshold").as_double();
   use_roi_first_clustering_ = this->get_parameter("use_roi_first_clustering").as_bool();
+  skip_voxel_for_roi_first_ =
+    this->get_parameter("skip_voxel_for_roi_first").as_bool() && use_roi_first_clustering_;
   cross_camera_dedup_enabled_ = this->get_parameter("cross_camera_dedup.enabled").as_bool();
   cross_camera_min_lidar_overlap_ = this->get_parameter("cross_camera_dedup.min_lidar_index_overlap").as_double();
   cross_camera_weak_lidar_overlap_ = this->get_parameter("cross_camera_dedup.weak_lidar_index_overlap").as_double();
@@ -693,6 +756,7 @@ void SpatialAssociationNode::initializeParams()
   cross_camera_min_bev_box_iou_ = this->get_parameter("cross_camera_dedup.min_bev_box_iou").as_double();
   cross_camera_min_bev_box_iou_no_class_ =
     this->get_parameter("cross_camera_dedup.min_bev_box_iou_no_class").as_double();
+  cross_camera_min_z_overlap_ratio_ = this->get_parameter("cross_camera_dedup.min_z_overlap_ratio").as_double();
   object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
 
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
@@ -763,6 +827,8 @@ void SpatialAssociationNode::initializeParams()
     this->get_parameter(pu + "association_min_inside_point_fraction").as_double();
   proj_params.association_min_ar_consistency_score =
     this->get_parameter(pu + "association_min_ar_consistency_score").as_double();
+  proj_params.association_min_combined_score_strict =
+    this->get_parameter(pu + "association_min_combined_score_strict").as_double();
   proj_params.association_use_point_projection_rect_for_iou =
     this->get_parameter(pu + "association_use_point_projection_rect_for_iou").as_bool();
   proj_params.association_allow_aabb_centroid_fallback =
@@ -771,12 +837,30 @@ void SpatialAssociationNode::initializeParams()
     this->get_parameter(pu + "association_suppress_second_pass_under_strict").as_bool();
   proj_params.association_roi_expand_fraction =
     this->get_parameter(pu + "association_roi_expand_fraction").as_double();
+  proj_params.association_roi_soft_claim_penalty_scale =
+    this->get_parameter(pu + "association_roi_soft_claim_penalty_scale").as_double();
+  proj_params.assumed_height_person_m =
+    this->get_parameter(pu + "assumed_height_person_m").as_double();
+  proj_params.assumed_height_car_m =
+    this->get_parameter(pu + "assumed_height_car_m").as_double();
+  proj_params.assumed_height_truck_bus_m =
+    this->get_parameter(pu + "assumed_height_truck_bus_m").as_double();
+  proj_params.assumed_height_bus_m =
+    this->get_parameter(pu + "assumed_height_bus_m").as_double();
+  proj_params.assumed_height_traffic_control_m =
+    this->get_parameter(pu + "assumed_height_traffic_control_m").as_double();
   proj_params.quality_person_max_height_m =
     static_cast<float>(this->get_parameter(pu + "quality_person_max_height_m").as_double());
   proj_params.quality_person_max_footprint_xy_m =
     static_cast<float>(this->get_parameter(pu + "quality_person_max_footprint_xy_m").as_double());
   proj_params.quality_vehicle_max_height_m =
     static_cast<float>(this->get_parameter(pu + "quality_vehicle_max_height_m").as_double());
+  proj_params.quality_vehicle_max_footprint_xy_m =
+    static_cast<float>(this->get_parameter(pu + "quality_vehicle_max_footprint_xy_m").as_double());
+  proj_params.quality_sign_max_height_m =
+    static_cast<float>(this->get_parameter(pu + "quality_sign_max_height_m").as_double());
+  proj_params.quality_sign_max_footprint_xy_m =
+    static_cast<float>(this->get_parameter(pu + "quality_sign_max_footprint_xy_m").as_double());
 
   proj_params.quality_max_distance = this->get_parameter("quality_filter_params.max_distance").as_double();
   quality_max_distance_ = proj_params.quality_max_distance;
@@ -797,6 +881,8 @@ void SpatialAssociationNode::initializeParams()
     static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
   proj_params.quality_max_density =
     static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
+  proj_params.quality_density_lower_bound_max_volume =
+    static_cast<float>(this->get_parameter("quality_filter_params.density_lower_bound_max_volume").as_double());
   proj_params.quality_max_dimension =
     static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
   proj_params.quality_max_aspect_ratio =
@@ -999,22 +1085,34 @@ void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::Poin
 std::shared_ptr<SpatialAssociationNode::ClusteredCloudSnapshot>
 SpatialAssociationNode::pickNearestClusteredCloudLocked(const rclcpp::Time & det_time)
 {
-  std::shared_ptr<ClusteredCloudSnapshot> best;
-  double best_abs_s = std::numeric_limits<double>::infinity();
+  std::shared_ptr<ClusteredCloudSnapshot> best_past;
+  std::shared_ptr<ClusteredCloudSnapshot> best_nearest;
+  double best_past_dt_s = std::numeric_limits<double>::infinity();
+  double best_nearest_abs_s = std::numeric_limits<double>::infinity();
   for (const auto & snap : clustered_cloud_cache_) {
     if (!snap || !snap->cloud || snap->cloud->empty()) {
       continue;
     }
-    const double d = std::abs((det_time - snap->cloud_stamp).seconds());
-    if (max_detection_cloud_stamp_delta_ > 0.0 && d > max_detection_cloud_stamp_delta_) {
+    const double dt_s = (det_time - snap->cloud_stamp).seconds();
+    const double abs_s = std::abs(dt_s);
+    if (max_detection_cloud_stamp_delta_ > 0.0 && abs_s > max_detection_cloud_stamp_delta_) {
       continue;
     }
-    if (d < best_abs_s) {
-      best_abs_s = d;
-      best = snap;
+    // Prefer most-recent cloud at-or-before detection time.
+    if (dt_s >= 0.0 && dt_s < best_past_dt_s) {
+      best_past_dt_s = dt_s;
+      best_past = snap;
+    }
+    // Fallback when all admissible snapshots are in the future.
+    if (abs_s < best_nearest_abs_s) {
+      best_nearest_abs_s = abs_s;
+      best_nearest = snap;
     }
   }
-  return best;
+  if (best_past) {
+    return best_past;
+  }
+  return best_nearest;
 }
 
 void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiDetection2DArray::SharedPtr msg)
@@ -1034,12 +1132,25 @@ void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiD
     }
     if (publish_bounding_box_ && bounding_box_pub_ && bounding_box_pub_->is_activated()) {
       visualization_msgs::msg::MarkerArray clear_markers;
-      visualization_msgs::msg::Marker delete_all;
-      delete_all.header.frame_id = lidar_frame_;
-      delete_all.header.stamp = timeToMsg(get_clock()->now());
-      delete_all.action = visualization_msgs::msg::Marker::DELETEALL;
-      clear_markers.markers.push_back(std::move(delete_all));
-      bounding_box_pub_->publish(clear_markers);
+      const builtin_interfaces::msg::Time clear_stamp = timeToMsg(get_clock()->now());
+      std::vector<std::pair<std::string, int32_t>> stale_keys;
+      {
+        std::lock_guard<std::mutex> lock(publish_freshness_mutex_);
+        stale_keys = std::move(last_published_bbox_marker_keys_);
+      }
+      clear_markers.markers.reserve(stale_keys.size());
+      for (const auto & key : stale_keys) {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = lidar_frame_;
+        marker.header.stamp = clear_stamp;
+        marker.ns = key.first;
+        marker.id = key.second;
+        marker.action = visualization_msgs::msg::Marker::DELETE;
+        clear_markers.markers.push_back(std::move(marker));
+      }
+      if (!clear_markers.markers.empty()) {
+        bounding_box_pub_->publish(clear_markers);
+      }
     }
     return;
   }
@@ -1132,17 +1243,9 @@ void SpatialAssociationNode::runAssociationFromDetections(
   const std::vector<pcl::PointIndices> & indices = snap->cluster_indices;
   const std_msgs::msg::Header & lidar_header = snap->header;
 
-  if (!use_roi_first_clustering_ && indices.empty()) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No clusters available from non-ground cloud");
-    return;
-  }
-
-  if (!use_roi_first_clustering_) {
-    if (!snap->global_candidates.has_value() || snap->global_candidates->empty()) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No cluster candidates available");
-      return;
-    }
-  }
+  const bool global_clusters_empty = !use_roi_first_clustering_ && indices.empty();
+  const bool global_candidates_empty = !use_roi_first_clustering_ &&
+    (!snap->global_candidates.has_value() || snap->global_candidates->empty());
 
   const rclcpp::Time & cloud_time = snap->cloud_stamp;
 
@@ -1155,9 +1258,10 @@ void SpatialAssociationNode::runAssociationFromDetections(
   accumulated.reserve(total_2d);
 
   size_t skipped_no_camera_info = 0;
-  size_t skipped_stamp_delta = 0;
+  size_t cameras_with_large_per_camera_stamp_delta = 0;
   size_t skipped_tf_failed = 0;
   size_t skipped_roi_no_candidates = 0;
+  size_t cameras_using_roi_fallback = 0;
   size_t cameras_with_2d_but_zero_3d = 0;
 
   for (const auto & camera_detections : msg->camera_detections) {
@@ -1203,13 +1307,12 @@ void SpatialAssociationNode::runAssociationFromDetections(
           get_logger(),
           *get_clock(),
           5000,
-          "Skipping camera %s: detection–cloud stamp delta %.3f s > %.3f s (relax max_detection_cloud_stamp_delta if "
-          "needed)",
+          "Camera %s has large per-camera detection-cloud delta %.3f s > %.3f s; continuing association because cloud "
+          "snapshot was already selected by representative batch time.",
           frame_id.c_str(),
           stamp_delta_s,
           max_detection_cloud_stamp_delta_);
-        ++skipped_stamp_delta;
-        continue;
+        ++cameras_with_large_per_camera_stamp_delta;
       }
     }
 
@@ -1246,25 +1349,34 @@ void SpatialAssociationNode::runAssociationFromDetections(
     }
 
     std::vector<projection_utils::ClusterCandidate> candidates;
-    if (use_roi_first_clustering_) {
+    bool skip_iou_assignment_for_camera = false;
+    const bool use_roi_fallback_for_camera =
+      !use_roi_first_clustering_ && (global_clusters_empty || global_candidates_empty);
+    const bool use_roi_seeded_candidates_for_camera = use_roi_first_clustering_ || use_roi_fallback_for_camera;
+    if (use_roi_first_clustering_ || use_roi_fallback_for_camera) {
       const Eigen::Matrix<double, 3, 4> lidar_to_image =
         projection_utils::buildLidarToImageMatrix(tf_lidar_to_cam, projection_matrix);
       const auto & pup = projection_utils::getParams();
       candidates = projection_utils::buildCandidatesFromDetectionRois(
         cloud,
         lidar_to_image,
+        projection_matrix,
         camera_detections,
         static_cast<float>(object_detection_confidence_),
         pup.association_roi_expand_fraction,
         euclid_cluster_tolerance_,
-        euclid_min_cluster_size_,
+        std::max(2, euclid_roi_min_cluster_size_),
         euclid_max_cluster_size_,
         cam_width,
         cam_height,
         true);
+      projection_utils::deduplicateCandidatesBySharedPoints(candidates, 0.70, &camera_detections);
       if (candidates.empty()) {
         ++skipped_roi_no_candidates;
         continue;
+      }
+      if (use_roi_fallback_for_camera) {
+        ++cameras_using_roi_fallback;
       }
     } else {
       candidates = *snap->global_candidates;
@@ -1279,7 +1391,9 @@ void SpatialAssociationNode::runAssociationFromDetections(
       lidar_header,
       cam_width,
       cam_height,
-      use_roi_first_clustering_);
+      skip_iou_assignment_for_camera,
+      !use_roi_seeded_candidates_for_camera,
+      !use_roi_seeded_candidates_for_camera);
 
     const size_t nd = detection_results.detections3d.detections.size();
     if (nd == 0 && !camera_detections.detections.empty()) {
@@ -1300,6 +1414,8 @@ void SpatialAssociationNode::runAssociationFromDetections(
     for (size_t k = 0; k < nd; ++k) {
       CrossCameraWorkItem w;
       w.det3d = std::move(detection_results.detections3d.detections[k]);
+      // Cross-camera dedup ranks by Detection3D hypothesis score. In current pipeline this
+      // is the first-pass/second-pass association combined score when available.
       w.score =
         w.det3d.results.empty() ? 0.0 : static_cast<double>(w.det3d.results[0].hypothesis.score);
       if (k < ni) {
@@ -1338,7 +1454,8 @@ void SpatialAssociationNode::runAssociationFromDetections(
       cross_camera_weak_lidar_overlap_,
       cross_camera_max_center_dist_m_,
       cross_camera_min_bev_box_iou_,
-      cross_camera_min_bev_box_iou_no_class_);
+      cross_camera_min_bev_box_iou_no_class_,
+      cross_camera_min_z_overlap_ratio_);
     if (debug_logging_ && before != accumulated.size()) {
       RCLCPP_INFO(
         get_logger(),
@@ -1372,19 +1489,21 @@ void SpatialAssociationNode::runAssociationFromDetections(
       get_logger(),
       *get_clock(),
       5000,
-      "No 3D detections despite %zu 2D (across %zu camera(s)). Skipped: stamp_delta=%zu no_camera_info=%zu "
-      "tf_fail=%zu roi_empty=%zu. Cameras that ran association but produced 0 3D: %zu. Hints: if "
-      "stamp_delta==%zu increase max_detection_cloud_stamp_delta or clustered_cloud_cache_size; match detection "
+      "No 3D detections despite %zu 2D (across %zu camera(s)). Skipped: no_camera_info=%zu "
+      "tf_fail=%zu roi_empty=%zu. Cameras using ROI fallback from empty global clustering: %zu. "
+      "Cameras with large per-camera stamp delta (not skipped): %zu. "
+      "Cameras that ran association but produced 0 3D: %zu. Hints: if snapshots are often unavailable increase "
+      "max_detection_cloud_stamp_delta or clustered_cloud_cache_size; match detection "
       "frame_id to MultiCameraInfo; "
       "check TF %s→camera; relax object_detection_confidence, min_iou_threshold, or association_strict_matching.",
       total_2d,
       n_cams,
-      skipped_stamp_delta,
       skipped_no_camera_info,
       skipped_tf_failed,
       skipped_roi_no_candidates,
+      cameras_using_roi_fallback,
+      cameras_with_large_per_camera_stamp_delta,
       cameras_with_2d_but_zero_3d,
-      n_cams,
       lidar_frame_.c_str());
   }
 
@@ -1427,11 +1546,8 @@ void SpatialAssociationNode::runAssociationFromDetections(
 
   if (publish_bounding_box_ && bounding_box_pub_ && bounding_box_pub_->is_activated()) {
     visualization_msgs::msg::MarkerArray out_markers;
-    visualization_msgs::msg::Marker delete_all;
-    delete_all.header.frame_id = lidar_header.frame_id;
-    delete_all.header.stamp = bbox_markers_use_detection_stamp_ ? timeToMsg(rep_det_time) : lidar_header.stamp;
-    delete_all.action = visualization_msgs::msg::Marker::DELETEALL;
-    out_markers.markers.push_back(std::move(delete_all));
+    const builtin_interfaces::msg::Time marker_stamp =
+      bbox_markers_use_detection_stamp_ ? timeToMsg(rep_det_time) : lidar_header.stamp;
 
     if (bbox_markers_use_detection_stamp_) {
       const builtin_interfaces::msg::Time det_stamp_msg = timeToMsg(rep_det_time);
@@ -1439,6 +1555,38 @@ void SpatialAssociationNode::runAssociationFromDetections(
         m.header.stamp = det_stamp_msg;
         m.header.frame_id = lidar_header.frame_id;
       }
+    }
+    std::vector<std::pair<std::string, int32_t>> current_keys;
+    current_keys.reserve(merged_bboxes.markers.size());
+    std::unordered_set<std::string> current_key_set;
+    current_key_set.reserve(merged_bboxes.markers.size());
+    for (const auto & m : merged_bboxes.markers) {
+      current_keys.emplace_back(m.ns, m.id);
+      current_key_set.insert(m.ns + "\x1f" + std::to_string(m.id));
+    }
+
+    std::vector<std::pair<std::string, int32_t>> stale_keys;
+    {
+      std::lock_guard<std::mutex> lock(publish_freshness_mutex_);
+      stale_keys.reserve(last_published_bbox_marker_keys_.size());
+      for (const auto & key : last_published_bbox_marker_keys_) {
+        const std::string composed = key.first + "\x1f" + std::to_string(key.second);
+        if (current_key_set.find(composed) == current_key_set.end()) {
+          stale_keys.push_back(key);
+        }
+      }
+      last_published_bbox_marker_keys_ = current_keys;
+    }
+
+    out_markers.markers.reserve(stale_keys.size() + merged_bboxes.markers.size());
+    for (const auto & key : stale_keys) {
+      visualization_msgs::msg::Marker marker;
+      marker.header.frame_id = lidar_header.frame_id;
+      marker.header.stamp = marker_stamp;
+      marker.ns = key.first;
+      marker.id = key.second;
+      marker.action = visualization_msgs::msg::Marker::DELETE;
+      out_markers.markers.push_back(std::move(marker));
     }
     for (auto & m : merged_bboxes.markers) {
       out_markers.markers.push_back(std::move(m));
@@ -1465,7 +1613,9 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   const std_msgs::msg::Header & lidar_header,
   int image_width,
   int image_height,
-  bool skip_iou_assignment)
+  bool skip_iou_assignment,
+  bool apply_pre_assoc_constraints,
+  bool use_tiered_post_assoc_constraints)
 {
   DetectionOutputs detection_outputs;
 
@@ -1485,6 +1635,14 @@ DetectionOutputs SpatialAssociationNode::processDetections(
       transform.header.frame_id.c_str(),
       candidates.size(),
       detection.detections.size());
+  }
+
+  if (apply_pre_assoc_constraints) {
+    // Pre-association quality gate is for global clustering mode (unmatched candidates).
+    projection_utils::filterCandidatesByClassAwareConstraints(cloud, candidates, detection);
+    if (candidates.empty()) {
+      return detection_outputs;
+    }
   }
 
   if (!skip_iou_assignment) {
@@ -1511,7 +1669,11 @@ DetectionOutputs SpatialAssociationNode::processDetections(
     return detection_outputs;
   }
 
-  projection_utils::filterCandidatesByClassAwareConstraints(candidates, detection);
+  // Post-association gate: enforce class-aware limits once candidate class is known from match.
+  // ROI-seeded candidates use the non-tiered minimum-point floor because the ROI prior already
+  // provides object evidence; globally clustered candidates keep tiered constraints.
+  projection_utils::filterCandidatesByClassAwareConstraints(
+    cloud, candidates, detection, use_tiered_post_assoc_constraints);
 
   std::vector<pcl::PointIndices> out_indices = projection_utils::extractIndices(candidates);
   auto boxes = core_->computeClusterBoxes(cloud, out_indices);

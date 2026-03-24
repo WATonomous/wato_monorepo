@@ -183,7 +183,13 @@ multi_camera_sync:
       max_cluster_size: 1200
       use_adaptive_clustering: true
       close_threshold: 10.0
-      close_tolerance_mult: 1.5
+      mid_threshold: 25.0
+      band_near_mid_overlap_m: 2.0
+      band_mid_far_overlap_m: 4.0
+      band_merge_min_index_overlap: 0.35
+      close_tolerance_mult: 0.65
+      mid_tolerance_mult: 1.125
+      far_tolerance_mult: 1.75
     density_filter_params:
       density_weight: 0.6
       size_weight: 0.8
@@ -240,7 +246,7 @@ detection_lifecycle_manager:
   ros__parameters:
     node_names: ["deep_object_detection_node"]
     autostart: true
-    transition_timeout_s: 10.0
+    transition_timeout_s: 4.0
     bond_timeout_s: 4.0
     bond_enabled: false
 
@@ -248,7 +254,7 @@ perception_lifecycle_manager:
   ros__parameters:
     node_names: ["/perception/patchworkpp_node", "/spatial_association_node"]
     autostart: true
-    autostart_delay_s: 15.0
-    transition_timeout_s: 15.0
+    autostart_delay_s: 5.0
+    transition_timeout_s: 5.0
     bond_timeout_s: 4.0
     bond_enabled: false

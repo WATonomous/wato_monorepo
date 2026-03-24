@@ -67,6 +67,10 @@ struct ClusterDetectionMatch
   size_t cluster_idx{0};
   int det_idx{-1};
   double iou{0.0};
+  /** Final association quality score used during assignment; <0 when unavailable. */
+  double association_score{-1.0};
+  /** Expected object depth inferred from 2D box scale and camera fy; <=0 when unavailable. */
+  double expected_depth{-1.0};
 };
 
 /**
@@ -78,6 +82,10 @@ struct ClusterCandidate
   pcl::PointIndices indices;
   ClusterStats stats;
   std::optional<ClusterDetectionMatch> match;
+  /** ROI-first origin detection index; nullopt for global clustering candidates. */
+  std::optional<int> roi_seed_det_idx;
+  /** ROI-first candidate ranking score from buildCandidatesFromDetectionRois(); <0 when unavailable. */
+  double roi_seed_score{-1.0};
 };
 
 /**
@@ -180,6 +188,11 @@ struct ProjectionUtilsParams
   /** Allowed points-per-unit-volume band when volume is non-trivial. */
   float quality_min_density = 5.0f;
   float quality_max_density = 1000.0f;
+  /**
+   * For large volumes, skip the lower density bound to avoid rejecting big sparse objects
+   * (e.g. buses/trucks at range). Upper bound still applies.
+   */
+  float quality_density_lower_bound_max_volume = 12.0f;
   /** Max largest AABB edge length (m). */
   float quality_max_dimension = 15.0f;
   /** Max ratio of largest to smallest AABB edge (thin slivers rejected). */
@@ -187,10 +200,10 @@ struct ProjectionUtilsParams
   /** @} */
 
   /** @{ @name Strict association (primary IoU pass)
-   *  When @c association_strict_matching is true, a candidate pairs with a detection only if all
-   *  gates pass (inner-box centroid, IoU on projected point hull or AABB, in-box point fraction,
-   *  tiered min points, 2D aspect consistency). Disables permissive centroid-only fallback unless
-   *  @c association_allow_aabb_centroid_fallback is true.
+   *  When @c association_strict_matching is true, strict geometry checks contribute weighted
+   *  penalties to a combined score (with hard-reject outlier limits for severe mismatches).
+   *  Disables permissive centroid-only fallback unless @c association_allow_aabb_centroid_fallback
+   *  is true.
    */
   bool association_strict_matching = true;
   /** Centroid must lie inside a box this fraction of the 2D detection width/height (centered). 0.75 ≈ inner 75%. */
@@ -199,6 +212,8 @@ struct ProjectionUtilsParams
   double association_min_inside_point_fraction = 0.45;
   /** min(projected AR / det AR, det AR / projected AR); below threshold rejects the pair. */
   double association_min_ar_consistency_score = 0.30;
+  /** Minimum strict-pass combined score after soft penalties. */
+  double association_min_combined_score_strict = 0.20;
   /** If true, IoU uses the image-axis bounding rect of projected cluster points (tighter than 3D AABB corners). */
   bool association_use_point_projection_rect_for_iou = true;
   /** Legacy: allow centroid-in-box with synthetic IoU when 8-corner AABB projection fails. */
@@ -208,10 +223,21 @@ struct ProjectionUtilsParams
 
   /** Expand each 2D box by this fraction (of width/height) when gathering LiDAR for ROI-first clustering. */
   double association_roi_expand_fraction = 0.12;
+  /** Soft-claim reuse penalty scale in ROI-first candidate scoring: score *= (1 - scale * reuse_ratio). */
+  double association_roi_soft_claim_penalty_scale = 0.0;
+  /** Assumed object heights (m) for ROI-first depth prior from 2D box scale. */
+  double assumed_height_person_m = 1.7;
+  double assumed_height_car_m = 1.5;
+  double assumed_height_truck_bus_m = 3.0;
+  double assumed_height_bus_m = 3.4;
+  double assumed_height_traffic_control_m = 0.6;
   /** Class-tight 3D caps after match (meters); applied in @ref filterCandidatesByClassAwareConstraints. */
   float quality_person_max_height_m = 2.5f;
-  float quality_person_max_footprint_xy_m = 1.45f;
-  float quality_vehicle_max_height_m = 4.8f;
+  float quality_person_max_footprint_xy_m = 1.5f;
+  float quality_vehicle_max_height_m = 5.0f;
+  float quality_vehicle_max_footprint_xy_m = 3.5f;
+  float quality_sign_max_height_m = 4.5f;
+  float quality_sign_max_footprint_xy_m = 1.5f;
   /** @} */
 };
 
@@ -238,15 +264,18 @@ std::vector<ClusterCandidate> buildCandidates(
 
 /**
  * @brief For each 2D detection (high score first), Euclidean-cluster LiDAR points that project into an
- *        expanded image ROI; keep the best cluster and pre-fill @c candidate.match.
+ *        expanded image ROI; score clusters and emit only the top candidates per detection,
+ *        tagged with source detection index.
+ *        Uses raw camera intrinsics from @p projection_matrix (fy) for depth-aware ROI gating/scoring.
  *
  * Intended as ROI-first alternative to clustering the full cloud then associating.
  *
- * @param claim_points_unique If true, a point is consumed by the first (highest-score) detection that uses it.
+ * @param claim_points_unique If true, point reuse across detections is softly penalized (not hard-excluded).
  */
 std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
   const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  const std::array<double, 12> & projection_matrix,
   const vision_msgs::msg::Detection2DArray & detections,
   float object_detection_confidence,
   double roi_expand_fraction,
@@ -256,6 +285,16 @@ std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
   int image_width,
   int image_height,
   bool claim_points_unique);
+
+/**
+ * @brief Drops near-duplicate ROI candidates from one camera by LiDAR index overlap.
+ * Keeps the higher match score when overlap ratio > threshold.
+ * Uses detection class labels (when available) to avoid collapsing nearby true objects.
+ */
+void deduplicateCandidatesBySharedPoints(
+  std::vector<ClusterCandidate> & candidates,
+  double min_shared_ratio,
+  const vision_msgs::msg::Detection2DArray * detections = nullptr);
 
 /**
  * @brief Extracts cluster indices from candidates (for APIs that take indices).
@@ -297,15 +336,25 @@ void euclideanClusterExtraction(
   std::vector<pcl::PointIndices> & cluster_indices);
 
 /**
- * @brief Performs adaptive Euclidean clustering with distance-based tolerance.
+ * @brief Performs adaptive Euclidean clustering with range-scaled tolerance (association-friendly).
  * @param cloud Input point cloud
- * @param base_cluster_tolerance Base cluster tolerance for far points
+ * @param base_cluster_tolerance Reference tolerance (m); each band uses base * band multiplier
  * @param minClusterSize Minimum number of points required for a valid cluster
  * @param maxClusterSize Maximum number of points allowed in a cluster
  * @param cluster_indices Output vector of cluster indices
- * @param close_threshold Distance threshold to classify points as "close"
- * @param close_tolerance_mult Multiplier for cluster tolerance on close points
- * @details Uses larger cluster tolerance for closer points to prevent fragmentation.
+ * @param close_threshold Upper radius (m) of the near band [0, close_threshold); banding uses horizontal range
+ *   hypot(x, y) in meters (Z is ignored for band assignment).
+ * @param mid_threshold Upper radius (m) of the mid band; if <= close_threshold, only near/far bands are used
+ * @param near_tolerance_mult Multiplier for near band (typically < 1 — tighter to split adjacent objects)
+ * @param mid_tolerance_mult Multiplier for mid band
+ * @param far_tolerance_mult Multiplier for far band (typically > 1 — sparser returns need more linkage)
+ * @param band_near_mid_overlap_m If > 0 (and mid band enabled), mid includes points from
+ *   [close_threshold - overlap, mid_threshold) so objects near the near/mid boundary are clustered in both bands;
+ *   results are merged by index overlap (see @p band_merge_min_index_overlap). 0 = disjoint bands (legacy).
+ * @param band_mid_far_overlap_m If > 0 (and mid band enabled), far includes points from
+ *   [mid_threshold - overlap, inf) overlapping the upper mid range. 0 = far starts at mid_threshold (legacy).
+ * @param band_merge_min_index_overlap When overlap > 0, merge cluster pairs with
+ *   |A∩B|/min(|A|,|B|) ≥ this. ≤ 0 skips the merge pass (can duplicate clusters if overlap > 0).
  */
 void adaptiveEuclideanClusterExtraction(
   pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
@@ -314,7 +363,13 @@ void adaptiveEuclideanClusterExtraction(
   int maxClusterSize,
   std::vector<pcl::PointIndices> & cluster_indices,
   double close_threshold = 10.0,
-  double close_tolerance_mult = 1.5);
+  double mid_threshold = 25.0,
+  double near_tolerance_mult = 0.65,
+  double mid_tolerance_mult = 1.125,
+  double far_tolerance_mult = 1.75,
+  double band_near_mid_overlap_m = 2.0,
+  double band_mid_far_overlap_m = 4.0,
+  double band_merge_min_index_overlap = 0.35);
 
 /**
  * @brief Assigns random colors to clusters for visualization
@@ -359,7 +414,10 @@ void mergeClusters(
  * @pre @ref setParams called with valid @c quality_* fields before use.
  */
 void filterCandidatesByClassAwareConstraints(
-  std::vector<ClusterCandidate> & candidates, const vision_msgs::msg::Detection2DArray & detections);
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  std::vector<ClusterCandidate> & candidates,
+  const vision_msgs::msg::Detection2DArray & detections,
+  bool use_tiered_min_points = true);
 
 /**
  * @brief Computes the centroid of a cluster
@@ -374,8 +432,10 @@ bool computeClusterCentroid(
   pcl::PointXYZ & centroid);
 
 /**
- * @brief Greedy one-to-one assignment: strict mode ranks surviving pairs by a combined score (IoU, in-box
- *        point fraction, AR consistency, centroid proximity, point count); legacy mode ranks by IoU only.
+ * @brief First pass assignment strategy depends on candidate source: ROI-seeded candidates use per-detection
+ *        argmax on combined score; global candidates use one-to-one Hungarian matching. Strict mode optimizes
+ *        combined score (IoU, in-box point fraction, AR consistency, centroid proximity, point count);
+ *        legacy mode uses IoU.
  *
  * When @c association_strict_matching is true: centroid in inner box, IoU on projected point rect (or AABB),
  * in-detection point fraction, tiered min points, and 2D aspect consistency must all pass. Unmatched
@@ -420,6 +480,8 @@ visualization_msgs::msg::MarkerArray computeBoundingBox(
  * @brief Builds 3D detection array from boxes and candidates.
  * @param boxes 3D boxes (same order as candidates)
  * @param candidates Used for class and score via candidate.match and detections
+ *        (prefers match.association_score when available; otherwise falls back to
+ *        detection_score_weight * det_score + iou_score_weight * match.iou).
  * @param header Frame and stamp for output
  * @param detections 2D detections (for class/scores when match.det_idx is set)
  * @return Detection3DArray with one entry per candidate (empty candidates skipped)

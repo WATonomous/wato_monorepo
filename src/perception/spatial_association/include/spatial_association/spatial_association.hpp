@@ -29,6 +29,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <unordered_map>
 #include <vector>
 
@@ -128,7 +129,9 @@ private:
     const std_msgs::msg::Header & lidar_header,
     int image_width = 0,
     int image_height = 0,
-    bool skip_iou_assignment = false);
+    bool skip_iou_assignment = false,
+    bool apply_pre_assoc_constraints = true,
+    bool use_tiered_post_assoc_constraints = true);
 
   /** Filtered + clustered LiDAR for one non-ground message; shared into @c clustered_cloud_cache_. */
   struct ClusteredCloudSnapshot
@@ -210,10 +213,17 @@ private:
 
   double euclid_cluster_tolerance_;
   int euclid_min_cluster_size_;
+  int euclid_roi_min_cluster_size_;
   int euclid_max_cluster_size_;
   bool use_adaptive_clustering_;
   double euclid_close_threshold_;
-  double euclid_close_tolerance_mult_;
+  double euclid_mid_threshold_;
+  double euclid_band_near_mid_overlap_m_;
+  double euclid_band_mid_far_overlap_m_;
+  double euclid_band_merge_min_index_overlap_;
+  double euclid_near_tolerance_mult_;
+  double euclid_mid_tolerance_mult_;
+  double euclid_far_tolerance_mult_;
 
   double merge_threshold_;
 
@@ -223,6 +233,8 @@ private:
 
   /** When true, cluster only points projecting into each 2D detection ROI (skips global cluster association). */
   bool use_roi_first_clustering_{false};
+  /** When true and ROI-first is enabled, skip voxel downsampling in core pre-processing. */
+  bool skip_voxel_for_roi_first_{false};
 
   /** RViz-only: stamp bbox markers with batch detection time; does not fix real LiDAR–det alignment (see @c skip_repeat_association_publish_). */
   bool bbox_markers_use_detection_stamp_{false};
@@ -235,6 +247,7 @@ private:
   bool last_association_publish_pair_valid_{false};
   int64_t last_association_publish_det_ns_{0};
   int64_t last_association_publish_cloud_ns_{0};
+  std::vector<std::pair<std::string, int32_t>> last_published_bbox_marker_keys_;
 
   /** Same as quality_filter_params.max_distance; applied as core max lidar range pre-voxel. */
   double quality_max_distance_{60.0};
@@ -249,6 +262,8 @@ private:
   double cross_camera_min_bev_box_iou_{0.16};
   /** Stricter BEV IoU when both hypotheses lack class_id. */
   double cross_camera_min_bev_box_iou_no_class_{0.30};
+  /** Minimum Z-overlap ratio (intersection / min(height_a,height_b)) required for BEV-IoU dedup paths. */
+  double cross_camera_min_z_overlap_ratio_{0.20};
 };
 
 #endif

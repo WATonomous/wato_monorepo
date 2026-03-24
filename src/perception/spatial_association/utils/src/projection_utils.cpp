@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -32,7 +33,7 @@
 #include "Eigen/Dense"
 #include "pcl/filters/voxel_grid.h"
 #include "utils/cluster_box_utils.hpp"
-
+#include "utils/hungarian.hpp"
 namespace projection_utils
 {
 
@@ -61,7 +62,7 @@ std::vector<ClusterCandidate> buildCandidates(
   candidates.reserve(cluster_indices.size());
   std::vector<ClusterStats> stats = cluster_box::computeClusterStatsBatch(cloud, cluster_indices);
   for (size_t i = 0; i < cluster_indices.size(); ++i) {
-    candidates.push_back(ClusterCandidate{cluster_indices[i], std::move(stats[i]), std::nullopt});
+    candidates.push_back(ClusterCandidate{cluster_indices[i], std::move(stats[i]), std::nullopt, std::nullopt});
   }
   return candidates;
 }
@@ -181,6 +182,175 @@ void euclideanClusterExtraction(
   }
 }
 
+static void appendEuclideanClustersMapped(
+  pcl::PointCloud<pcl::PointXYZ>::Ptr segment,
+  const std::vector<int> & orig_indices,
+  double tolerance,
+  int minClusterSize,
+  int maxClusterSize,
+  std::vector<pcl::PointIndices> & cluster_indices)
+{
+  if (!segment || segment->size() < 2u) {
+    return;
+  }
+  std::vector<pcl::PointIndices> local;
+  euclideanClusterExtraction(segment, tolerance, minClusterSize, maxClusterSize, local);
+  for (auto & cluster : local) {
+    pcl::PointIndices mapped;
+    mapped.indices.reserve(cluster.indices.size());
+    for (int idx : cluster.indices) {
+      mapped.indices.push_back(orig_indices[static_cast<size_t>(idx)]);
+    }
+    cluster_indices.push_back(std::move(mapped));
+  }
+}
+
+static size_t countSortedIntersection(const std::vector<int> & a, const std::vector<int> & b)
+{
+  size_t i = 0;
+  size_t j = 0;
+  size_t cnt = 0;
+  while (i < a.size() && j < b.size()) {
+    if (a[i] == b[j]) {
+      ++cnt;
+      ++i;
+      ++j;
+    } else if (a[i] < b[j]) {
+      ++i;
+    } else {
+      ++j;
+    }
+  }
+  return cnt;
+}
+
+/** Union clusters that are mostly the same points (e.g. same object extracted in overlapping radial bands). */
+static void mergeClustersBySortedIndexOverlap(
+  std::vector<pcl::PointIndices> & cluster_indices,
+  double min_overlap_ratio,
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud = nullptr,
+  double max_centroid_xy_dist = 0.0,
+  double min_z_overlap_for_centroid_merge = 0.0)
+{
+  if (cluster_indices.size() < 2 || min_overlap_ratio <= 0.0) {
+    return;
+  }
+
+  const size_t n = cluster_indices.size();
+  for (auto & c : cluster_indices) {
+    std::sort(c.indices.begin(), c.indices.end());
+  }
+
+  struct ClusterGeom
+  {
+    bool valid = false;
+    double cx = 0.0;
+    double cy = 0.0;
+    double z_min = 0.0;
+    double z_max = 0.0;
+  };
+  std::vector<ClusterGeom> geoms(n);
+  const bool enable_centroid_fallback =
+    cloud && max_centroid_xy_dist > 0.0 && min_z_overlap_for_centroid_merge > 0.0;
+  if (enable_centroid_fallback) {
+    for (size_t i = 0; i < n; ++i) {
+      const auto & idxs = cluster_indices[i].indices;
+      if (idxs.empty()) continue;
+
+      double sx = 0.0;
+      double sy = 0.0;
+      double z0 = std::numeric_limits<double>::infinity();
+      double z1 = -std::numeric_limits<double>::infinity();
+      size_t count = 0;
+      for (int idx : idxs) {
+        if (idx < 0 || static_cast<size_t>(idx) >= cloud->points.size()) continue;
+        const auto & p = cloud->points[static_cast<size_t>(idx)];
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) continue;
+        sx += static_cast<double>(p.x);
+        sy += static_cast<double>(p.y);
+        z0 = std::min(z0, static_cast<double>(p.z));
+        z1 = std::max(z1, static_cast<double>(p.z));
+        ++count;
+      }
+      if (count == 0) continue;
+      geoms[i].valid = true;
+      geoms[i].cx = sx / static_cast<double>(count);
+      geoms[i].cy = sy / static_cast<double>(count);
+      geoms[i].z_min = z0;
+      geoms[i].z_max = z1;
+    }
+  }
+
+  std::vector<int> parent(n);
+  std::iota(parent.begin(), parent.end(), 0);
+
+  std::function<int(int)> find = [&](int x) -> int {
+    if (parent[static_cast<size_t>(x)] != x) {
+      parent[static_cast<size_t>(x)] = find(parent[static_cast<size_t>(x)]);
+    }
+    return parent[static_cast<size_t>(x)];
+  };
+
+  auto unite = [&](int a, int b) {
+    a = find(a);
+    b = find(b);
+    if (a != b) {
+      parent[static_cast<size_t>(a)] = b;
+    }
+  };
+
+  for (size_t i = 0; i < n; ++i) {
+    const auto & ai = cluster_indices[i].indices;
+    if (ai.empty()) {
+      continue;
+    }
+    const size_t si = ai.size();
+    for (size_t j = i + 1; j < n; ++j) {
+      const auto & aj = cluster_indices[j].indices;
+      if (aj.empty()) {
+        continue;
+      }
+      const size_t sj = aj.size();
+      const size_t inter = countSortedIntersection(ai, aj);
+      const size_t mn = std::min(si, sj);
+      if (mn == 0) {
+        continue;
+      }
+      if (static_cast<double>(inter) / static_cast<double>(mn) >= min_overlap_ratio) {
+        unite(static_cast<int>(i), static_cast<int>(j));
+      } else if (enable_centroid_fallback && geoms[i].valid && geoms[j].valid) {
+        const double centroid_xy_dist = std::hypot(geoms[i].cx - geoms[j].cx, geoms[i].cy - geoms[j].cy);
+        const double z_inter = std::max(0.0, std::min(geoms[i].z_max, geoms[j].z_max) - std::max(geoms[i].z_min, geoms[j].z_min));
+        const double z_min_span = std::max(
+          1e-6, std::min(geoms[i].z_max - geoms[i].z_min, geoms[j].z_max - geoms[j].z_min));
+        const double z_overlap = z_inter / z_min_span;
+        if (centroid_xy_dist < max_centroid_xy_dist && z_overlap > min_z_overlap_for_centroid_merge) {
+          unite(static_cast<int>(i), static_cast<int>(j));
+        }
+      }
+    }
+  }
+
+  std::unordered_map<int, std::vector<int>> groups;
+  for (size_t i = 0; i < n; ++i) {
+    const int r = find(static_cast<int>(i));
+    auto & g = groups[r];
+    g.insert(g.end(), cluster_indices[i].indices.begin(), cluster_indices[i].indices.end());
+  }
+
+  std::vector<pcl::PointIndices> merged;
+  merged.reserve(groups.size());
+  for (auto & kv : groups) {
+    auto & idxs = kv.second;
+    std::sort(idxs.begin(), idxs.end());
+    idxs.erase(std::unique(idxs.begin(), idxs.end()), idxs.end());
+    pcl::PointIndices pi;
+    pi.indices = std::move(idxs);
+    merged.push_back(std::move(pi));
+  }
+  cluster_indices = std::move(merged);
+}
+
 void adaptiveEuclideanClusterExtraction(
   pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
   double base_cluster_tolerance,
@@ -188,72 +358,126 @@ void adaptiveEuclideanClusterExtraction(
   int maxClusterSize,
   std::vector<pcl::PointIndices> & cluster_indices,
   double close_threshold,
-  double close_tolerance_mult)
+  double mid_threshold,
+  double near_tolerance_mult,
+  double mid_tolerance_mult,
+  double far_tolerance_mult,
+  double band_near_mid_overlap_m,
+  double band_mid_far_overlap_m,
+  double band_merge_min_index_overlap)
 {
   if (!cloud || cloud->empty()) {
     cluster_indices.clear();
     return;
   }
 
-  pcl::PointCloud<pcl::PointXYZ>::Ptr close_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::PointCloud<pcl::PointXYZ>::Ptr far_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  std::vector<int> close_indices_map;
-  std::vector<int> far_indices_map;
+  const bool use_mid_band = mid_threshold > close_threshold;
 
-  close_cloud->reserve(cloud->size());
+  pcl::PointCloud<pcl::PointXYZ>::Ptr near_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr mid_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr far_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  std::vector<int> near_map;
+  std::vector<int> mid_map;
+  std::vector<int> far_map;
+
+  near_cloud->reserve(cloud->size());
+  mid_cloud->reserve(cloud->size());
   far_cloud->reserve(cloud->size());
-  close_indices_map.reserve(cloud->size());
-  far_indices_map.reserve(cloud->size());
+  near_map.reserve(cloud->size());
+  mid_map.reserve(cloud->size());
+  far_map.reserve(cloud->size());
+
+  auto finalizeCloud = [](const pcl::PointCloud<pcl::PointXYZ>::Ptr & c) {
+    c->width = c->points.size();
+    c->height = 1;
+    c->is_dense = false;
+  };
+
+  if (!use_mid_band) {
+    for (size_t i = 0; i < cloud->points.size(); ++i) {
+      const auto & pt = cloud->points[i];
+      if (!std::isfinite(pt.x) || !std::isfinite(pt.y)) {
+        continue;
+      }
+      const double r_xy = std::hypot(static_cast<double>(pt.x), static_cast<double>(pt.y));
+      if (r_xy < close_threshold) {
+        near_cloud->points.push_back(pt);
+        near_map.push_back(static_cast<int>(i));
+      } else {
+        far_cloud->points.push_back(pt);
+        far_map.push_back(static_cast<int>(i));
+      }
+    }
+    finalizeCloud(near_cloud);
+    finalizeCloud(mid_cloud);
+    finalizeCloud(far_cloud);
+
+    cluster_indices.clear();
+    appendEuclideanClustersMapped(
+      near_cloud, near_map, base_cluster_tolerance * near_tolerance_mult, minClusterSize, maxClusterSize,
+      cluster_indices);
+    appendEuclideanClustersMapped(
+      far_cloud, far_map, base_cluster_tolerance * far_tolerance_mult, minClusterSize, maxClusterSize,
+      cluster_indices);
+    return;
+  }
+
+  const double mid_min = (band_near_mid_overlap_m > 0.0)
+    ? std::max(0.0, close_threshold - band_near_mid_overlap_m)
+    : close_threshold;
+  const double far_min = (band_mid_far_overlap_m > 0.0)
+    ? std::max(0.0, mid_threshold - band_mid_far_overlap_m)
+    : mid_threshold;
 
   for (size_t i = 0; i < cloud->points.size(); ++i) {
     const auto & pt = cloud->points[i];
-    double distance = std::sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z);
+    if (!std::isfinite(pt.x) || !std::isfinite(pt.y)) {
+      continue;
+    }
+    const double r_xy = std::hypot(static_cast<double>(pt.x), static_cast<double>(pt.y));
 
-    if (distance < close_threshold) {
-      close_cloud->points.push_back(pt);
-      close_indices_map.push_back(static_cast<int>(i));
-    } else {
+    if (r_xy < close_threshold) {
+      near_cloud->points.push_back(pt);
+      near_map.push_back(static_cast<int>(i));
+    }
+    if (r_xy >= mid_min && r_xy < mid_threshold) {
+      mid_cloud->points.push_back(pt);
+      mid_map.push_back(static_cast<int>(i));
+    }
+    if (r_xy >= far_min) {
       far_cloud->points.push_back(pt);
-      far_indices_map.push_back(static_cast<int>(i));
+      far_map.push_back(static_cast<int>(i));
     }
   }
 
-  close_cloud->width = close_cloud->points.size();
-  close_cloud->height = 1;
-  close_cloud->is_dense = false;
-  far_cloud->width = far_cloud->points.size();
-  far_cloud->height = 1;
-  far_cloud->is_dense = false;
+  finalizeCloud(near_cloud);
+  finalizeCloud(mid_cloud);
+  finalizeCloud(far_cloud);
 
   cluster_indices.clear();
 
-  if (close_cloud->size() >= 2u) {
-    double close_tolerance = base_cluster_tolerance * close_tolerance_mult;
-    std::vector<pcl::PointIndices> close_clusters;
-    euclideanClusterExtraction(close_cloud, close_tolerance, minClusterSize, maxClusterSize, close_clusters);
+  appendEuclideanClustersMapped(
+    near_cloud, near_map, base_cluster_tolerance * near_tolerance_mult, minClusterSize, maxClusterSize,
+    cluster_indices);
+  appendEuclideanClustersMapped(
+    mid_cloud, mid_map, base_cluster_tolerance * mid_tolerance_mult, minClusterSize, maxClusterSize,
+    cluster_indices);
+  appendEuclideanClustersMapped(
+    far_cloud, far_map, base_cluster_tolerance * far_tolerance_mult, minClusterSize, maxClusterSize,
+    cluster_indices);
 
-    for (auto & cluster : close_clusters) {
-      pcl::PointIndices mapped_cluster;
-      mapped_cluster.indices.reserve(cluster.indices.size());
-      for (int idx : cluster.indices) {
-        mapped_cluster.indices.push_back(close_indices_map[idx]);
-      }
-      cluster_indices.push_back(mapped_cluster);
-    }
-  }
-
-  if (far_cloud->size() >= 2u) {
-    std::vector<pcl::PointIndices> far_clusters;
-    euclideanClusterExtraction(far_cloud, base_cluster_tolerance, minClusterSize, maxClusterSize, far_clusters);
-
-    for (auto & cluster : far_clusters) {
-      pcl::PointIndices mapped_cluster;
-      mapped_cluster.indices.reserve(cluster.indices.size());
-      for (int idx : cluster.indices) {
-        mapped_cluster.indices.push_back(far_indices_map[idx]);
-      }
-      cluster_indices.push_back(mapped_cluster);
-    }
+  const bool bands_overlap =
+    (band_near_mid_overlap_m > 0.0 && mid_min < close_threshold) ||
+    (band_mid_far_overlap_m > 0.0 && far_min < mid_threshold);
+  if (bands_overlap && band_merge_min_index_overlap > 0.0) {
+    constexpr double kBandMergeMaxCentroidXyDist = 0.6;
+    constexpr double kBandMergeMinZOverlap = 0.5;
+    mergeClustersBySortedIndexOverlap(
+      cluster_indices,
+      band_merge_min_index_overlap,
+      cloud,
+      kBandMergeMaxCentroidXyDist,
+      kBandMergeMinZOverlap);
   }
 }
 
@@ -450,6 +674,7 @@ std::vector<pcl::PointIndices> euclideanClustersOnSubset(
 std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
   const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  const std::array<double, 12> & projection_matrix,
   const vision_msgs::msg::Detection2DArray & detections,
   float object_detection_confidence,
   double roi_expand_fraction,
@@ -460,6 +685,7 @@ std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
   int image_height,
   bool claim_points_unique)
 {
+  constexpr size_t kMaxCandidatesPerDetection = 6;
   std::vector<ClusterCandidate> result;
   if (!cloud || cloud->empty() || detections.detections.empty()) {
     return result;
@@ -473,8 +699,19 @@ std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
                          : (params.image_height > 0 ? params.image_height : kDefaultImageHeight);
   const double iw = static_cast<double>(iw_param);
   const double ih = static_cast<double>(ih_param);
+  auto assumedObjectHeightMeters = [](const std::string & class_id) -> double {
+      const auto & p = getParams();
+      if (class_id == "person") return p.assumed_height_person_m;
+      if (class_id == "car") return p.assumed_height_car_m;
+      if (class_id == "truck") return p.assumed_height_truck_bus_m;
+      if (class_id == "bus") return p.assumed_height_bus_m;
+      if (class_id == "traffic_sign" || class_id == "stop_sign" || class_id == "traffic_light") {
+        return p.assumed_height_traffic_control_m;
+      }
+      return p.assumed_height_car_m;
+    };
 
-  std::vector<char> claimed(cloud->points.size(), 0);
+  std::vector<int> claim_count(cloud->points.size(), 0);
 
   std::vector<int> order(detections.detections.size());
   std::iota(order.begin(), order.end(), 0);
@@ -496,23 +733,35 @@ std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
       continue;
     }
     const auto & b = det.bbox;
+    const std::string cls = det.results.empty() ? std::string() : det.results[0].hypothesis.class_id;
+    const double assumed_height_m = assumedObjectHeightMeters(cls);
+    const double focal_y = std::max(1e-6, std::abs(projection_matrix[5]));
     const cv::Rect2d det_rect(
       b.center.position.x - b.size_x / 2.0, b.center.position.y - b.size_y / 2.0, b.size_x, b.size_y);
     const cv::Rect2d roi_rect = expandRectToImageBounds(det_rect, roi_expand_fraction, iw, ih);
     if (roi_rect.width <= 0.0 || roi_rect.height <= 0.0) {
       continue;
     }
+    const double expected_depth = (focal_y * assumed_height_m) / std::max(1.0, det_rect.height);
+    const bool is_heavy_vehicle = (cls == "truck" || cls == "bus");
+    const double depth_band_low_mult = is_heavy_vehicle ? 0.25 : ((expected_depth < 15.0) ? 0.50 : 0.35);
+    const double depth_band_high_mult = is_heavy_vehicle ? 3.5 : ((expected_depth < 15.0) ? 1.8 : 2.5);
+    const double depth_min = expected_depth * depth_band_low_mult;
+    const double depth_max = expected_depth * depth_band_high_mult;
 
     std::vector<int> roi_globals;
     roi_globals.reserve(cloud->size() / 8u + 8u);
     for (size_t i = 0; i < cloud->points.size(); ++i) {
-      if (claim_points_unique && claimed[i]) continue;
       const auto & pt = cloud->points[i];
       if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z)) continue;
       auto uv = projectLidarToCamera(lidar_to_image, pt);
       if (!uv) continue;
       if (uv->x < 0.0 || uv->x >= iw || uv->y < 0.0 || uv->y >= ih) continue;
       if (!pointInRectClosed(*uv, roi_rect)) continue;
+      const Eigen::Vector4d lidar_pt(pt.x, pt.y, pt.z, 1.0);
+      const Eigen::Vector3d projected = lidar_to_image * lidar_pt;
+      const double cam_depth = projected.z();
+      if (cam_depth < depth_min || cam_depth > depth_max) continue;
       roi_globals.push_back(static_cast<int>(i));
     }
 
@@ -526,48 +775,125 @@ std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
       continue;
     }
 
-    int best_k = -1;
-    int best_inside = -1;
+    struct ScoredCluster
+    {
+      size_t k;
+      double score;
+    };
+    std::vector<ScoredCluster> scored;
+    scored.reserve(clusters.size());
     for (size_t k = 0; k < clusters.size(); ++k) {
       int inside = 0;
+      int proj_count = 0;
+      double u_min = std::numeric_limits<double>::infinity();
+      double v_min = std::numeric_limits<double>::infinity();
+      double u_max = -std::numeric_limits<double>::infinity();
+      double v_max = -std::numeric_limits<double>::infinity();
       for (int gi : clusters[k].indices) {
         const auto & pt = cloud->points[static_cast<size_t>(gi)];
         auto uv = projectLidarToCamera(lidar_to_image, pt);
         if (!uv) continue;
         if (uv->x < 0.0 || uv->x >= iw || uv->y < 0.0 || uv->y >= ih) continue;
+        ++proj_count;
+        u_min = std::min(u_min, uv->x);
+        v_min = std::min(v_min, uv->y);
+        u_max = std::max(u_max, uv->x);
+        v_max = std::max(v_max, uv->y);
         if (pointInRectClosed(*uv, det_rect)) ++inside;
       }
-      if (inside > best_inside) {
-        best_inside = inside;
-        best_k = static_cast<int>(k);
+
+      if (inside <= 0 || proj_count <= 0) {
+        continue;
       }
-    }
-    if (best_k < 0 || static_cast<int>(clusters[static_cast<size_t>(best_k)].indices.size()) < min_cluster_size) {
-      continue;
-    }
 
-    ClusterCandidate cand;
-    cand.indices = std::move(clusters[static_cast<size_t>(best_k)]);
-    cand.stats = cluster_box::computeSingleClusterStats(cloud, cand.indices);
-    cand.match = ClusterDetectionMatch{0, det_idx, 1.0};
+      const double proj_w = std::max(1e-6, u_max - u_min);
+      const double proj_h = std::max(1e-6, v_max - v_min);
+      const double det_w = std::max(1e-6, det_rect.width);
+      const double det_h = std::max(1e-6, det_rect.height);
+      const double w_ratio = std::min(proj_w / det_w, det_w / proj_w);
+      const double h_ratio = std::min(proj_h / det_h, det_h / proj_h);
+      const double size_match = std::max(0.0, std::min(1.0, w_ratio * h_ratio));
 
-    if (claim_points_unique) {
-      for (int gi : cand.indices.indices) {
-        if (gi >= 0 && static_cast<size_t>(gi) < claimed.size()) {
-          claimed[static_cast<size_t>(gi)] = 1;
+      const cv::Rect2d proj_rect(u_min, v_min, proj_w, proj_h);
+      const cv::Rect2d inter = proj_rect & det_rect;
+      const double inter_area = (inter.width > 0.0 && inter.height > 0.0) ? inter.area() : 0.0;
+      const double det_area = std::max(1e-6, det_rect.area());
+      const double det_coverage = std::max(0.0, std::min(1.0, inter_area / det_area));
+
+      const ClusterStats cand_stats = cluster_box::computeSingleClusterStats(cloud, clusters[k]);
+      const double cluster_range = std::hypot(
+        static_cast<double>(cand_stats.centroid.x()), static_cast<double>(cand_stats.centroid.y()));
+      const double depth_ratio = cluster_range / std::max(0.5, expected_depth);
+      double depth_score = 0.0;
+      if (depth_ratio >= 0.5 && depth_ratio <= 2.0) {
+        depth_score = 1.0 - std::abs(depth_ratio - 1.0) * 0.8;
+        depth_score = std::max(0.0, depth_score);
+      }
+
+      const double inside_score =
+        static_cast<double>(inside) / std::max(1.0, static_cast<double>(proj_count));
+      int reused_points = 0;
+      if (claim_points_unique) {
+        for (int gi : clusters[k].indices) {
+          if (gi >= 0 && static_cast<size_t>(gi) < claim_count.size() &&
+              claim_count[static_cast<size_t>(gi)] > 0)
+          {
+            ++reused_points;
+          }
         }
       }
+      const double reuse_penalty = claim_points_unique
+                                     ? static_cast<double>(reused_points) /
+                                       std::max(1.0, static_cast<double>(clusters[k].indices.size()))
+                                     : 0.0;
+      const double base_score =
+        0.30 * inside_score + 0.36 * size_match + 0.24 * det_coverage + 0.10 * depth_score;
+      const double reuse_penalty_scale =
+        std::max(0.0, std::min(1.0, params.association_roi_soft_claim_penalty_scale));
+      const double score = base_score * (1.0 - reuse_penalty_scale * reuse_penalty);
+      if (score <= 0.0 || static_cast<int>(clusters[k].indices.size()) < min_cluster_size) {
+        continue;
+      }
+      scored.push_back({k, score});
     }
-    result.push_back(std::move(cand));
+    std::sort(
+      scored.begin(), scored.end(),
+      [](const ScoredCluster & a, const ScoredCluster & b) { return a.score > b.score; });
+    if (scored.size() > kMaxCandidatesPerDetection) {
+      scored.resize(kMaxCandidatesPerDetection);
+    }
+    for (const auto & sc : scored) {
+      ClusterCandidate cand;
+      cand.indices = std::move(clusters[sc.k]);
+      cand.stats = cluster_box::computeSingleClusterStats(cloud, cand.indices);
+      // ROI seeding carries det_idx/expected_depth for downstream gating, but this is not
+      // a real IoU match yet (real matching happens in assignCandidatesToDetectionsByIOU()).
+      cand.match = ClusterDetectionMatch{0, det_idx, 0.0, -1.0, expected_depth};
+      cand.roi_seed_det_idx = det_idx;
+      cand.roi_seed_score = sc.score;
+      if (claim_points_unique) {
+        for (int gi : cand.indices.indices) {
+          if (gi >= 0 && static_cast<size_t>(gi) < claim_count.size()) {
+            ++claim_count[static_cast<size_t>(gi)];
+          }
+        }
+      }
+      result.push_back(std::move(cand));
+    }
   }
   return result;
 }
 
 void filterCandidatesByClassAwareConstraints(
-  std::vector<ClusterCandidate> & candidates, const vision_msgs::msg::Detection2DArray & detections)
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  std::vector<ClusterCandidate> & candidates,
+  const vision_msgs::msg::Detection2DArray & detections,
+  bool use_tiered_min_points)
 {
   constexpr float kMinDimensionForAspect = 0.05f;
-  constexpr float kVolumeThresholdDensity = 0.01f;
+  constexpr float kMinDimForDensity = 0.15f;
+  constexpr float kMinVolumeForDensity = 0.1f;
+  constexpr float kMaxVehicleLength = 20.0f;
 
   const auto & q = getParams();
 
@@ -585,28 +911,47 @@ void filterCandidatesByClassAwareConstraints(
 
     if (s.num_points < q.quality_min_points || height < q.quality_min_height) continue;
 
-    int min_points_threshold = qualityTieredMinPoints(s, q);
+    int min_points_threshold = use_tiered_min_points ? qualityTieredMinPoints(s, q) : q.quality_min_points;
     if (s.num_points < min_points_threshold) continue;
 
-    if (volume > kVolumeThresholdDensity) {
-      float density = s.num_points / volume;
-      if (density < q.quality_min_density || density > q.quality_max_density) continue;
+    const float min_dim = std::min({width_x, width_y, height});
+    const bool thin_object = min_dim < kMinDimForDensity;
+    if (!thin_object && volume > kMinVolumeForDensity) {
+      // Exempt sparse, small-volume clusters at range from min-density rejection.
+      bool exempt_by_range = false;
+      if (distance > q.quality_distance_threshold_medium && volume < 2.0f) {
+        exempt_by_range = true;
+      }
+
+      if (volume <= q.quality_density_lower_bound_max_volume && !exempt_by_range) {
+        float density = s.num_points / volume;
+        if (density < q.quality_min_density) continue;
+        if (density > q.quality_max_density) continue;
+      } else if (!exempt_by_range) {
+        float density = s.num_points / volume;
+        if (density > q.quality_max_density) continue;
+      }
     }
 
     float max_dim = std::max({width_x, width_y, height});
     if (max_dim > q.quality_max_dimension) continue;
-    float min_dim = std::min({width_x, width_y, height});
     if (min_dim > kMinDimensionForAspect && max_dim / min_dim > q.quality_max_aspect_ratio) continue;
 
     if (distance > q.quality_max_distance) continue;
 
     if (cand.match.has_value()) {
+      if (cand.match->expected_depth > 0.0) {
+        const double cluster_range = std::hypot(static_cast<double>(s.centroid.x()), static_cast<double>(s.centroid.y()));
+        const double depth_ratio = cluster_range / cand.match->expected_depth;
+        if (depth_ratio < 0.3 || depth_ratio > 3.0) continue;
+      }
       const int di = cand.match->det_idx;
       if (di >= 0 && static_cast<size_t>(di) < detections.detections.size()) {
         const auto & det = detections.detections[static_cast<size_t>(di)];
         const std::string cid = det.results.empty() ? std::string() : det.results[0].hypothesis.class_id;
         const bool is_person = cid == "person";
         const bool is_vehicle = cid == "car" || cid == "truck" || cid == "bus";
+        const bool is_sign = cid == "traffic_sign" || cid == "stop_sign" || cid == "traffic_light";
         float cap_h = q.quality_max_dimension;
         float cap_xy = q.quality_max_dimension;
         if (is_person) {
@@ -614,11 +959,24 @@ void filterCandidatesByClassAwareConstraints(
           cap_xy = std::min(cap_xy, q.quality_person_max_footprint_xy_m);
         } else if (is_vehicle) {
           cap_h = std::min(cap_h, q.quality_vehicle_max_height_m);
+          cap_xy = std::min(cap_xy, q.quality_vehicle_max_footprint_xy_m);
+        } else if (is_sign) {
+          cap_h = std::min(cap_h, q.quality_sign_max_height_m);
+          cap_xy = std::min(cap_xy, q.quality_sign_max_footprint_xy_m);
         }
         if (height > cap_h) continue;
-        if (is_person) {
-          const float foot = std::max(width_x, width_y);
-          if (foot > cap_xy) continue;
+        if (is_person || is_vehicle || is_sign) {
+          const float max_foot = std::max(width_x, width_y);
+          if (is_vehicle) {
+            // Use oriented box dimensions for vehicles to avoid yaw-inflated AABB footprint rejections.
+            const Box3D box = cluster_box::computeClusterBox(cloud, cand.indices);
+            const float veh_length = std::max(box.size.x(), box.size.y());
+            const float veh_width = std::min(box.size.x(), box.size.y());
+            if (veh_width > cap_xy) continue;
+            if (veh_length > kMaxVehicleLength) continue;
+          } else if (max_foot > cap_xy) {
+            continue;
+          }
         }
       }
     }
@@ -626,6 +984,127 @@ void filterCandidatesByClassAwareConstraints(
     kept.push_back(std::move(cand));
   }
   candidates = std::move(kept);
+}
+
+void deduplicateCandidatesBySharedPoints(
+  std::vector<ClusterCandidate> & candidates,
+  double min_shared_ratio,
+  const vision_msgs::msg::Detection2DArray * detections)
+{
+  if (candidates.size() < 2u) {
+    return;
+  }
+  const double thresh = std::max(0.0, std::min(1.0, min_shared_ratio));
+  if (thresh <= 0.0) {
+    return;
+  }
+
+  std::vector<std::vector<int>> sorted_indices(candidates.size());
+  for (size_t i = 0; i < candidates.size(); ++i) {
+    sorted_indices[i] = candidates[i].indices.indices;
+    std::sort(sorted_indices[i].begin(), sorted_indices[i].end());
+    sorted_indices[i].erase(std::unique(sorted_indices[i].begin(), sorted_indices[i].end()), sorted_indices[i].end());
+  }
+
+  auto overlap_ratio = [](const std::vector<int> & a, const std::vector<int> & b) -> double {
+      if (a.empty() || b.empty()) return 0.0;
+      size_t inter = 0;
+      size_t ia = 0;
+      size_t ib = 0;
+      while (ia < a.size() && ib < b.size()) {
+        if (a[ia] == b[ib]) {
+          ++inter;
+          ++ia;
+          ++ib;
+        } else if (a[ia] < b[ib]) {
+          ++ia;
+        } else {
+          ++ib;
+        }
+      }
+      const size_t denom = std::min(a.size(), b.size());
+      return denom == 0u ? 0.0 : static_cast<double>(inter) / static_cast<double>(denom);
+    };
+
+  std::vector<char> keep(candidates.size(), 1);
+  auto candidateClassId = [&](const ClusterCandidate & c) -> std::string {
+      if (!detections || !c.match.has_value()) {
+        return std::string();
+      }
+      const int di = c.match->det_idx;
+      if (di < 0 || static_cast<size_t>(di) >= detections->detections.size()) {
+        return std::string();
+      }
+      const auto & d = detections->detections[static_cast<size_t>(di)];
+      return d.results.empty() ? std::string() : d.results[0].hypothesis.class_id;
+    };
+  auto classAwareMinSeparationForDedup = [](const std::string & ci, const std::string & cj) -> double {
+      const bool i_person = ci == "person";
+      const bool j_person = cj == "person";
+      if (i_person && j_person) {
+        return 0.35;
+      }
+      if (i_person || j_person) {
+        return 0.50;
+      }
+      return 0.80;
+    };
+  auto candidate_score = [](const ClusterCandidate & c) -> double {
+      // In ROI-seeded pre-association mode, `match->iou` is placeholder-only and should not
+      // drive dedup ranking. Prefer the ROI candidate ranking score when available.
+      if (c.roi_seed_det_idx.has_value()) {
+        if (c.roi_seed_score >= 0.0) {
+          return c.roi_seed_score;
+        }
+        // Backward-safe fallback for candidates created before roi_seed_score was set.
+        return static_cast<double>(std::max(0, c.stats.num_points));
+      }
+      if (!c.match.has_value()) {
+        return 0.0;
+      }
+      return c.match->iou;
+    };
+
+  for (size_t i = 0; i < candidates.size(); ++i) {
+    if (!keep[i]) continue;
+    for (size_t j = i + 1; j < candidates.size(); ++j) {
+      if (!keep[j]) continue;
+      if (overlap_ratio(sorted_indices[i], sorted_indices[j]) <= thresh) continue;
+
+      // Preserve nearby distinct objects that may share ROI-extracted points.
+      const bool both_matched = candidates[i].match.has_value() && candidates[j].match.has_value();
+      if (both_matched && candidates[i].match->det_idx != candidates[j].match->det_idx) {
+        const double cx_i = candidates[i].stats.centroid.x();
+        const double cy_i = candidates[i].stats.centroid.y();
+        const double cx_j = candidates[j].stats.centroid.x();
+        const double cy_j = candidates[j].stats.centroid.y();
+        const double sep = std::hypot(cx_i - cx_j, cy_i - cy_j);
+        const std::string ci = candidateClassId(candidates[i]);
+        const std::string cj = candidateClassId(candidates[j]);
+        const double min_sep_for_dedup = classAwareMinSeparationForDedup(ci, cj);
+        if (sep > min_sep_for_dedup) {
+          continue;
+        }
+      }
+
+      const double si = candidate_score(candidates[i]);
+      const double sj = candidate_score(candidates[j]);
+      if (sj > si) {
+        keep[i] = 0;
+        break;
+      }
+      keep[j] = 0;
+    }
+  }
+
+  std::vector<ClusterCandidate> deduped;
+  deduped.reserve(candidates.size());
+  for (size_t i = 0; i < candidates.size(); ++i) {
+    if (keep[i]) {
+      deduped.push_back(std::move(candidates[i]));
+    }
+  }
+  candidates = std::move(deduped);
 }
 
 bool computeClusterCentroid(
@@ -647,6 +1126,35 @@ bool computeClusterCentroid(
 
 namespace
 {
+std::optional<cv::Rect2d> percentileRectFromProjectedPoints(
+  const std::vector<cv::Point2d> & pts, double low_q, double high_q)
+{
+  if (pts.empty() || low_q < 0.0 || high_q > 1.0 || low_q >= high_q) {
+    return std::nullopt;
+  }
+  std::vector<double> us;
+  std::vector<double> vs;
+  us.reserve(pts.size());
+  vs.reserve(pts.size());
+  for (const auto & p : pts) {
+    us.push_back(p.x);
+    vs.push_back(p.y);
+  }
+  std::sort(us.begin(), us.end());
+  std::sort(vs.begin(), vs.end());
+  const size_t n = us.size();
+  const size_t i0 = std::min(n - 1, static_cast<size_t>(std::floor(low_q * static_cast<double>(n - 1))));
+  const size_t i1 = std::min(n - 1, static_cast<size_t>(std::ceil(high_q * static_cast<double>(n - 1))));
+  const double u0 = us[i0];
+  const double u1 = us[i1];
+  const double v0 = vs[i0];
+  const double v1 = vs[i1];
+  if (u1 <= u0 || v1 <= v0) {
+    return std::nullopt;
+  }
+  return cv::Rect2d(u0, v0, u1 - u0, v1 - v0);
+}
+
 std::optional<cv::Rect2d> projectAABBRect(
   const ClusterStats & stats, const Eigen::Matrix<double, 3, 4> & lidar_to_image, double image_w, double image_h)
 {
@@ -775,8 +1283,8 @@ void assignCandidatesToDetectionsByIOU(
   const double ih = static_cast<double>(ih_param);
   const double min_iou = params.min_iou_threshold;
 
-  // First-pass greedy assignment sorts by combined_score (not IoU alone) so stronger point/center
-  // support can beat a slightly higher-IoU split overlap. Weights sum to 1.
+  // First-pass scoring weights (sum to 1). Assignment uses per-detection argmax for ROI-seeded
+  // candidates and global one-to-one Hungarian matching for unseeded/global candidates.
   constexpr double kAssocWIoU = 0.30;
   constexpr double kAssocWInsideFrac = 0.28;
   constexpr double kAssocWAr = 0.18;
@@ -801,20 +1309,47 @@ void assignCandidatesToDetectionsByIOU(
     const double nh = det.height * frac;
     return cv::Rect2d(cx - nw * 0.5, cy - nh * 0.5, nw, nh);
   };
+  auto detectionRectAt = [&](int det_idx) -> std::optional<cv::Rect2d> {
+    if (det_idx < 0 || static_cast<size_t>(det_idx) >= detections.detections.size()) {
+      return std::nullopt;
+    }
+    const auto & b = detections.detections[static_cast<size_t>(det_idx)].bbox;
+    const cv::Rect2d r(
+      b.center.position.x - b.size_x / 2.0, b.center.position.y - b.size_y / 2.0, b.size_x, b.size_y);
+    if (r.width <= 0.0 || r.height <= 0.0) {
+      return std::nullopt;
+    }
+    return r;
+  };
+  auto boxOverlapIoU = [](const cv::Rect2d & a, const cv::Rect2d & b) -> double {
+    const cv::Rect2d inter = a & b;
+    const double inter_area = (inter.width > 0.0 && inter.height > 0.0) ? inter.area() : 0.0;
+    const double uni = a.area() + b.area() - inter_area;
+    return (uni > 0.0) ? inter_area / uni : 0.0;
+  };
+  constexpr double kSeedNeighborDetIouThreshold = 0.35;
+  constexpr double kSeedNeighborMatchPenalty = 0.10;
 
   if (params.association_strict_matching) {
+    constexpr double kAssocPointRectLowQ = 0.05;
+    constexpr double kAssocPointRectHighQ = 0.95;
     struct CandGeom
     {
       std::vector<cv::Point2d> uvs;
       bool centroid_ok{false};
       cv::Point2d centroid_uv{0.0, 0.0};
       std::optional<cv::Rect2d> point_rect;
+      std::optional<cv::Rect2d> oriented_rect;
       std::optional<cv::Rect2d> aabb_rect;
     };
     std::vector<CandGeom> geoms(candidates.size());
     for (size_t c = 0; c < candidates.size(); ++c) {
       CandGeom & g = geoms[c];
       g.aabb_rect = projectAABBRect(candidates[c].stats, lidar_to_image, iw, ih);
+      if (cloud && !candidates[c].indices.indices.empty()) {
+        const Box3D obox = cluster_box::computeClusterBox(cloud, candidates[c].indices);
+        g.oriented_rect = projectOrientedBoxImageRect(obox, lidar_to_image, iw, ih);
+      }
       pcl::PointXYZ centroid_pt;
       centroid_pt.x = candidates[c].stats.centroid.x();
       centroid_pt.y = candidates[c].stats.centroid.y();
@@ -842,7 +1377,7 @@ void assignCandidatesToDetectionsByIOU(
         v1 = std::max(v1, uv->y);
       }
       if (g.uvs.size() >= 2u && u1 > u0 && v1 > v0) {
-        g.point_rect = cv::Rect2d(u0, v0, u1 - u0, v1 - v0);
+        g.point_rect = percentileRectFromProjectedPoints(g.uvs, kAssocPointRectLowQ, kAssocPointRectHighQ);
       } else if (g.uvs.size() == 1u) {
         g.point_rect = cv::Rect2d(g.uvs[0].x - 3.0, g.uvs[0].y - 3.0, 6.0, 6.0);
       }
@@ -851,7 +1386,18 @@ void assignCandidatesToDetectionsByIOU(
     for (size_t c = 0; c < candidates.size(); ++c) {
       const CandGeom & g = geoms[c];
       const auto & st = candidates[c].stats;
+      const int seeded_det_idx = candidates[c].roi_seed_det_idx.value_or(-1);
+      const std::optional<cv::Rect2d> seeded_det_rect =
+        (seeded_det_idx >= 0) ? detectionRectAt(seeded_det_idx) : std::nullopt;
       for (int d = 0; d < static_cast<int>(detections.detections.size()); ++d) {
+        if (seeded_det_idx >= 0 && d != seeded_det_idx) {
+          const std::optional<cv::Rect2d> det_rect_for_seed_gate = detectionRectAt(d);
+          if (!seeded_det_rect || !det_rect_for_seed_gate ||
+            boxOverlapIoU(*seeded_det_rect, *det_rect_for_seed_gate) < kSeedNeighborDetIouThreshold)
+          {
+            continue;
+          }
+        }
         const auto & det = detections.detections[static_cast<size_t>(d)];
         if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
           continue;
@@ -861,11 +1407,13 @@ void assignCandidatesToDetectionsByIOU(
           b.center.position.x - b.size_x / 2.0, b.center.position.y - b.size_y / 2.0, b.size_x, b.size_y);
         const cv::Rect2d inner = shrinkInner(det_rect, params.association_centroid_inner_box_fraction);
         if (inner.width <= 0.0 || inner.height <= 0.0) continue;
-        if (!g.centroid_ok || !pointInRectClosed(g.centroid_uv, inner)) continue;
+        if (!g.centroid_ok) continue;
 
         std::optional<cv::Rect2d> cand_rect;
         if (params.association_use_point_projection_rect_for_iou && g.point_rect) {
           cand_rect = g.point_rect;
+        } else if (g.oriented_rect) {
+          cand_rect = g.oriented_rect;
         } else {
           cand_rect = g.aabb_rect;
         }
@@ -883,22 +1431,17 @@ void assignCandidatesToDetectionsByIOU(
         for (const auto & uv : g.uvs) {
           if (pointInRectClosed(uv, det_rect)) ++inside;
         }
-        if (static_cast<double>(inside) <
-            params.association_min_inside_point_fraction * static_cast<double>(g.uvs.size()))
-        {
-          continue;
-        }
 
         if (st.num_points < params.quality_min_points) continue;
-        if (st.num_points < qualityTieredMinPoints(st, params)) continue;
+        const bool is_roi_seeded_candidate = candidates[c].roi_seed_det_idx.has_value();
+        if (!is_roi_seeded_candidate && st.num_points < qualityTieredMinPoints(st, params)) continue;
 
         const double cand_ar = cand_rect->width / std::max(1e-6, cand_rect->height);
         const double det_ar = b.size_x / std::max(1e-6, b.size_y);
         const double rr = cand_ar / std::max(1e-9, det_ar);
         const double ar_score = std::min(rr, 1.0 / rr);
-        if (ar_score < params.association_min_ar_consistency_score) continue;
-
-        const double inside_frac = static_cast<double>(inside) / static_cast<double>(g.uvs.size());
+        const double actual_inside_frac =
+          static_cast<double>(inside) / std::max(1.0, static_cast<double>(g.uvs.size()));
         const double det_cx = b.center.position.x;
         const double det_cy = b.center.position.y;
         const double dist_c = std::hypot(g.centroid_uv.x - det_cx, g.centroid_uv.y - det_cy);
@@ -906,18 +1449,40 @@ void assignCandidatesToDetectionsByIOU(
         const double centroid_score = std::exp(-dist_c / det_scale);
         const double point_score =
           std::min(1.0, std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + 120.0));
-        const double combined_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac +
+
+        if (!pointInRectClosed(g.centroid_uv, inner)) continue;
+        if (actual_inside_frac < params.association_min_inside_point_fraction) continue;
+        if (ar_score < params.association_min_ar_consistency_score) continue;
+        const double det_coverage = inter_area / std::max(1e-6, det_rect.area());
+        if (det_coverage < 0.30) continue;
+
+        const bool is_seed_neighbor_match = (seeded_det_idx >= 0 && d != seeded_det_idx);
+        const double combined_score_raw = kAssocWIoU * iou + kAssocWInsideFrac * actual_inside_frac +
           kAssocWAr * ar_score + kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
+        const double combined_score =
+          combined_score_raw - (is_seed_neighbor_match ? kSeedNeighborMatchPenalty : 0.0);
+        if (combined_score < params.association_min_combined_score_strict) continue;
 
         pairs.push_back({c, d, iou, combined_score});
       }
     }
   } else {
     for (size_t c = 0; c < candidates.size(); ++c) {
+      const int seeded_det_idx = candidates[c].roi_seed_det_idx.value_or(-1);
+      const std::optional<cv::Rect2d> seeded_det_rect =
+        (seeded_det_idx >= 0) ? detectionRectAt(seeded_det_idx) : std::nullopt;
       auto cluster_rect = projectAABBRect(candidates[c].stats, lidar_to_image, iw, ih);
 
       if (cluster_rect) {
         for (size_t d = 0; d < detections.detections.size(); ++d) {
+          if (seeded_det_idx >= 0 && static_cast<int>(d) != seeded_det_idx) {
+            const std::optional<cv::Rect2d> det_rect_for_seed_gate = detectionRectAt(static_cast<int>(d));
+            if (!seeded_det_rect || !det_rect_for_seed_gate ||
+              boxOverlapIoU(*seeded_det_rect, *det_rect_for_seed_gate) < kSeedNeighborDetIouThreshold)
+            {
+              continue;
+            }
+          }
           const auto & det = detections.detections[d];
           if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
             continue;
@@ -931,7 +1496,10 @@ void assignCandidatesToDetectionsByIOU(
           if (uni > 0.0) {
             const double iou = inter_area / uni;
             if (iou >= min_iou) {
-              pairs.push_back({c, static_cast<int>(d), iou, iou});
+              const bool is_seed_neighbor_match = (seeded_det_idx >= 0 && static_cast<int>(d) != seeded_det_idx);
+              const double combined_score =
+                iou - (is_seed_neighbor_match ? kSeedNeighborMatchPenalty : 0.0);
+              pairs.push_back({c, static_cast<int>(d), iou, combined_score});
             }
           }
         }
@@ -943,6 +1511,14 @@ void assignCandidatesToDetectionsByIOU(
         auto uv = projectLidarToCamera(lidar_to_image, centroid_pt);
         if (uv && uv->x >= 0 && uv->x < iw && uv->y >= 0 && uv->y < ih) {
           for (size_t d = 0; d < detections.detections.size(); ++d) {
+            if (seeded_det_idx >= 0 && static_cast<int>(d) != seeded_det_idx) {
+              const std::optional<cv::Rect2d> det_rect_for_seed_gate = detectionRectAt(static_cast<int>(d));
+              if (!seeded_det_rect || !det_rect_for_seed_gate ||
+                boxOverlapIoU(*seeded_det_rect, *det_rect_for_seed_gate) < kSeedNeighborDetIouThreshold)
+              {
+                continue;
+              }
+            }
             const auto & det = detections.detections[d];
             if (!det.results.empty() && det.results[0].hypothesis.score < object_detection_confidence) {
               continue;
@@ -953,7 +1529,10 @@ void assignCandidatesToDetectionsByIOU(
             const double det_right = det_left + b.size_x;
             const double det_bottom = det_top + b.size_y;
             if (uv->x >= det_left && uv->x <= det_right && uv->y >= det_top && uv->y <= det_bottom) {
-              pairs.push_back({c, static_cast<int>(d), min_iou, min_iou});
+              const bool is_seed_neighbor_match = (seeded_det_idx >= 0 && static_cast<int>(d) != seeded_det_idx);
+              const double combined_score =
+                min_iou - (is_seed_neighbor_match ? kSeedNeighborMatchPenalty : 0.0);
+              pairs.push_back({c, static_cast<int>(d), min_iou, combined_score});
               break;
             }
           }
@@ -962,22 +1541,75 @@ void assignCandidatesToDetectionsByIOU(
     }
   }
 
-  std::sort(pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b)
-  {
-    if (a.combined_score != b.combined_score) {
-      return a.combined_score > b.combined_score;
-    }
-    return a.iou > b.iou;
-  });
-
   std::unordered_set<size_t> used_candidates;
   std::unordered_set<int> used_detections;
   std::vector<Pair> assignments;
-  for (const auto & p : pairs) {
-    if (used_candidates.count(p.cand_idx) || used_detections.count(p.det_idx)) continue;
-    used_candidates.insert(p.cand_idx);
-    used_detections.insert(p.det_idx);
-    assignments.push_back(p);
+  if (!pairs.empty()) {
+    bool all_candidates_roi_seeded = !candidates.empty();
+    for (const auto & cand : candidates) {
+      if (!cand.roi_seed_det_idx.has_value()) {
+        all_candidates_roi_seeded = false;
+        break;
+      }
+    }
+
+    if (all_candidates_roi_seeded) {
+      std::sort(
+        pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b) {
+          if (a.combined_score != b.combined_score) return a.combined_score > b.combined_score;
+          if (a.iou != b.iou) return a.iou > b.iou;
+          if (a.cand_idx != b.cand_idx) return a.cand_idx < b.cand_idx;
+          return a.det_idx < b.det_idx;
+        });
+
+      for (const auto & p : pairs) {
+        if (used_candidates.count(p.cand_idx) || used_detections.count(p.det_idx)) {
+          continue;
+        }
+        used_candidates.insert(p.cand_idx);
+        used_detections.insert(p.det_idx);
+        assignments.push_back(p);
+      }
+    } else {
+      // Non-ROI/global candidate mode retains global one-to-one matching.
+      const size_t nc = candidates.size();
+      const size_t nd = detections.detections.size();
+      const size_t dim = std::max(nc, nd);
+      constexpr double kInvalidPairCost = 1e9;
+      constexpr double kInvalidPairCostThreshold = 1e8;
+
+      std::vector<double> cost(dim * dim, kInvalidPairCost);
+      std::unordered_map<uint64_t, double> pair_iou;
+      pair_iou.reserve(pairs.size());
+
+      auto pairKey = [dim](size_t c, size_t d) -> uint64_t {
+          return static_cast<uint64_t>(c) * static_cast<uint64_t>(dim) + static_cast<uint64_t>(d);
+        };
+
+      for (const auto & p : pairs) {
+        const size_t det_idx = static_cast<size_t>(p.det_idx);
+        cost[p.cand_idx * dim + det_idx] = -p.combined_score;
+        pair_iou[pairKey(p.cand_idx, det_idx)] = p.iou;
+      }
+
+      const std::vector<int> assignment = hungarian::solve(cost, dim);
+      for (size_t c = 0; c < nc; ++c) {
+        const int d = assignment[c];
+        if (d < 0) continue;
+        const size_t det_idx = static_cast<size_t>(d);
+        if (det_idx >= nd) continue;
+
+        const double val = cost[c * dim + det_idx];
+        if (val >= kInvalidPairCostThreshold) continue;
+
+        const auto iou_it = pair_iou.find(pairKey(c, det_idx));
+        if (iou_it == pair_iou.end()) continue;
+
+        used_candidates.insert(c);
+        used_detections.insert(d);
+        assignments.push_back({c, d, iou_it->second, -val});
+      }
+    }
   }
 
   const bool allow_second_pass = params.enable_second_pass_fallback &&
@@ -1029,6 +1661,8 @@ void assignCandidatesToDetectionsByIOU(
       return cv::Rect2d(x0, y0, x1 - x0, y1 - y0);
     };
 
+    constexpr double kAssocPointRectLowQ = 0.05;
+    constexpr double kAssocPointRectHighQ = 0.95;
     // Precompute projection support for all unused candidates.
     for (size_t c = 0; c < candidates.size(); ++c) {
       if (used_candidates.count(c)) continue;
@@ -1070,8 +1704,16 @@ void assignCandidatesToDetectionsByIOU(
           v_max = std::max(v_max, uv->y);
         }
         info.projected_point_count = info.projected_pts.size();
-        if (info.projected_point_count > 0) {
-          info.projected_rect = cv::Rect2d(u_min, v_min, u_max - u_min, v_max - v_min);
+        if (info.projected_point_count >= 2u) {
+          auto rect = percentileRectFromProjectedPoints(info.projected_pts, kAssocPointRectLowQ, kAssocPointRectHighQ);
+          if (rect) {
+            info.projected_rect = *rect;
+          } else if (u_max > u_min && v_max > v_min) {
+            info.projected_rect = cv::Rect2d(u_min, v_min, u_max - u_min, v_max - v_min);
+          }
+        } else if (info.projected_point_count == 1u) {
+          info.projected_rect = cv::Rect2d(
+            info.projected_pts[0].x - 3.0, info.projected_pts[0].y - 3.0, 6.0, 6.0);
         }
       }
 
@@ -1258,11 +1900,20 @@ void assignCandidatesToDetectionsByIOU(
   std::sort(
     assignments.begin(), assignments.end(), [](const Pair & a, const Pair & b) { return a.cand_idx < b.cand_idx; });
 
+  std::vector<double> expected_depths(assignments.size(), -1.0);
+  for (size_t i = 0; i < assignments.size(); ++i) {
+    const auto & a = assignments[i];
+    if (candidates[a.cand_idx].match.has_value()) {
+      expected_depths[i] = candidates[a.cand_idx].match->expected_depth;
+    }
+  }
+
   std::vector<ClusterCandidate> kept;
   kept.reserve(assignments.size());
-  for (const auto & a : assignments) {
+  for (size_t i = 0; i < assignments.size(); ++i) {
+    const auto & a = assignments[i];
     ClusterCandidate cand = std::move(candidates[a.cand_idx]);
-    cand.match = ClusterDetectionMatch{a.cand_idx, a.det_idx, a.iou};
+    cand.match = ClusterDetectionMatch{a.cand_idx, a.det_idx, a.iou, a.combined_score, expected_depths[i]};
     kept.push_back(std::move(cand));
   }
   candidates = std::move(kept);
@@ -1348,8 +1999,12 @@ vision_msgs::msg::Detection3DArray compute3DDetection(
         const auto & d = detections.detections[static_cast<size_t>(m.det_idx)];
         if (!d.results.empty()) {
           hypo.hypothesis.class_id = d.results[0].hypothesis.class_id;
-          const double det_score = static_cast<double>(d.results[0].hypothesis.score);
-          hypo.hypothesis.score = params.detection_score_weight * det_score + params.iou_score_weight * m.iou;
+          if (m.association_score >= 0.0) {
+            hypo.hypothesis.score = m.association_score;
+          } else {
+            const double det_score = static_cast<double>(d.results[0].hypothesis.score);
+            hypo.hypothesis.score = params.detection_score_weight * det_score + params.iou_score_weight * m.iou;
+          }
           hypo.hypothesis.score = std::max(0.0, std::min(1.0, hypo.hypothesis.score));
         } else {
           hypo.hypothesis.class_id = "cluster";

@@ -18,6 +18,82 @@
 #include <limits>
 #include <vector>
 
+#include <rclcpp/rclcpp.hpp>
+
+#include "utils/cluster_box_utils.hpp"
+
+namespace
+{
+const auto kLogger = rclcpp::get_logger("spatial_association_core");
+
+void mergeVerticallyAlignedClusters(
+  std::vector<pcl::PointIndices> & cluster_indices,
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  std::vector<projection_utils::ClusterStats> & stats,
+  double max_xy_centroid_dist)
+{
+  if (!cloud || cluster_indices.size() < 2u || stats.size() != cluster_indices.size()) {
+    return;
+  }
+
+  std::vector<bool> merged(cluster_indices.size(), false);
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    if (merged[i]) continue;
+    for (size_t j = i + 1; j < cluster_indices.size(); ++j) {
+      if (merged[j]) continue;
+
+      const double dx = static_cast<double>(stats[i].centroid.x() - stats[j].centroid.x());
+      const double dy = static_cast<double>(stats[i].centroid.y() - stats[j].centroid.y());
+      const double xy_dist = std::hypot(dx, dy);
+      if (xy_dist > max_xy_centroid_dist) continue;
+
+      const double z_min_i = static_cast<double>(stats[i].min_z);
+      const double z_max_i = static_cast<double>(stats[i].max_z);
+      const double z_min_j = static_cast<double>(stats[j].min_z);
+      const double z_max_j = static_cast<double>(stats[j].max_z);
+      const double z_gap = std::max(0.0, std::max(z_min_i, z_min_j) - std::min(z_max_i, z_max_j));
+      if (z_gap > 0.2) continue;  // Keep vertical merge tight to avoid cross-object fusion.
+
+      const double x_overlap = std::max(
+        0.0,
+        std::min(static_cast<double>(stats[i].max_x), static_cast<double>(stats[j].max_x)) -
+          std::max(static_cast<double>(stats[i].min_x), static_cast<double>(stats[j].min_x)));
+      const double y_overlap = std::max(
+        0.0,
+        std::min(static_cast<double>(stats[i].max_y), static_cast<double>(stats[j].max_y)) -
+          std::max(static_cast<double>(stats[i].min_y), static_cast<double>(stats[j].min_y)));
+      const double area_i = std::max(
+        1e-6,
+        (static_cast<double>(stats[i].max_x) - static_cast<double>(stats[i].min_x)) *
+          (static_cast<double>(stats[i].max_y) - static_cast<double>(stats[i].min_y)));
+      const double area_j = std::max(
+        1e-6,
+        (static_cast<double>(stats[j].max_x) - static_cast<double>(stats[j].min_x)) *
+          (static_cast<double>(stats[j].max_y) - static_cast<double>(stats[j].min_y)));
+      const double overlap_ratio = (x_overlap * y_overlap) / std::max(1e-6, std::min(area_i, area_j));
+      if (overlap_ratio < 0.3) continue;
+
+      cluster_indices[i].indices.insert(
+        cluster_indices[i].indices.end(), cluster_indices[j].indices.begin(), cluster_indices[j].indices.end());
+      merged[j] = true;
+      stats[i] = cluster_box::computeSingleClusterStats(cloud, cluster_indices[i]);
+    }
+  }
+
+  std::vector<pcl::PointIndices> kept_clusters;
+  std::vector<projection_utils::ClusterStats> kept_stats;
+  kept_clusters.reserve(cluster_indices.size());
+  kept_stats.reserve(stats.size());
+  for (size_t i = 0; i < cluster_indices.size(); ++i) {
+    if (merged[i]) continue;
+    kept_stats.push_back(stats[i]);
+    kept_clusters.push_back(std::move(cluster_indices[i]));
+  }
+  cluster_indices = std::move(kept_clusters);
+  stats = std::move(kept_stats);
+}
+}
+
 SpatialAssociationCore::SpatialAssociationCore()
 {
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -77,8 +153,14 @@ void SpatialAssociationCore::processPointCloud(
     working = ranged_holder;
   }
 
-  // PCL VoxelGrid uses a single int for voxel index; too many voxels overflow.
-  // Clamp leaf size so extent/leaf_size <= kMaxVoxelsPerDimension (~safe for 32-bit index).
+  if (params_.skip_voxel_for_roi_first) {
+    *output_cloud = *working;
+    return;
+  }
+
+  // PCL VoxelGrid uses 32-bit indexing internally; too many voxels can overflow.
+  // Instead of clamping by max extent only (overly conservative on long/highway scenes),
+  // clamp by estimated total voxel index count nx*ny*nz.
   float min_x = std::numeric_limits<float>::max();
   float min_y = min_x, min_z = min_x;
   float max_x = std::numeric_limits<float>::lowest();
@@ -91,11 +173,44 @@ void SpatialAssociationCore::processPointCloud(
     max_y = std::max(max_y, p.y);
     max_z = std::max(max_z, p.z);
   }
-  const float extent = std::max({max_x - min_x, max_y - min_y, max_z - min_z});
-  // PCL uses 32-bit voxel index; ~1200 voxels/dim is safe and keeps resolution when clamping.
-  constexpr float kMaxVoxelsPerDimension = 1200.f;
-  const float min_leaf = extent / kMaxVoxelsPerDimension;
-  const float leaf = std::max(params_.voxel_size, min_leaf);
+  const double ex = std::max(1e-3, static_cast<double>(max_x - min_x));
+  const double ey = std::max(1e-3, static_cast<double>(max_y - min_y));
+  const double ez = std::max(1e-3, static_cast<double>(max_z - min_z));
+  const double configured_leaf = std::max(1e-4, static_cast<double>(params_.voxel_size));
+  constexpr double kMaxVoxelIndexProduct = static_cast<double>(std::numeric_limits<int32_t>::max());
+  auto estimatedVoxelProduct = [&](double leaf) -> double {
+    const double nx = std::floor(ex / leaf) + 1.0;
+    const double ny = std::floor(ey / leaf) + 1.0;
+    const double nz = std::floor(ez / leaf) + 1.0;
+    return nx * ny * nz;
+  };
+
+  double effective_leaf = configured_leaf;
+  if (estimatedVoxelProduct(effective_leaf) > kMaxVoxelIndexProduct) {
+    double low = configured_leaf;
+    double high = std::max({ex, ey, ez, configured_leaf});
+    for (int iter = 0; iter < 40; ++iter) {
+      const double mid = 0.5 * (low + high);
+      if (estimatedVoxelProduct(mid) > kMaxVoxelIndexProduct) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    effective_leaf = high;
+  }
+  const float leaf = static_cast<float>(effective_leaf);
+  if (leaf > params_.voxel_size + 1e-6f) {
+    RCLCPP_WARN(
+      kLogger,
+      "Voxel leaf clamped from configured %.3f m to %.3f m due to voxel-index safety "
+      "(extents x=%.1f m y=%.1f m z=%.1f m). Clustering behavior may differ from tuned settings.",
+      params_.voxel_size,
+      leaf,
+      ex,
+      ey,
+      ez);
+  }
   voxel_filter_.setLeafSize(leaf, leaf, leaf);
 
   voxel_filter_.setInputCloud(working);
@@ -125,7 +240,13 @@ void SpatialAssociationCore::performClustering(
       params_.euclid_max_cluster_size,
       cluster_indices,
       params_.euclid_close_threshold,
-      params_.euclid_close_tolerance_mult);
+      params_.euclid_mid_threshold,
+      params_.euclid_near_tolerance_mult,
+      params_.euclid_mid_tolerance_mult,
+      params_.euclid_far_tolerance_mult,
+      params_.euclid_band_near_mid_overlap_m,
+      params_.euclid_band_mid_far_overlap_m,
+      params_.euclid_band_merge_min_index_overlap);
   } else {
     projection_utils::euclideanClusterExtraction(
       filtered_cloud,
@@ -135,13 +256,18 @@ void SpatialAssociationCore::performClustering(
       cluster_indices);
   }
 
-  // TEMP: post-cluster merge disabled. Re-enable by uncommenting the block below.
-  // Computes stats and merges nearby clusters (AABB gap < merge_threshold). Physics filtering is done
-  // in the node on ClusterCandidates.
-  // if (!cluster_indices.empty()) {
-  //   auto cluster_stats = projection_utils::computeClusterStats(filtered_cloud, cluster_indices);
-  //   projection_utils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
-  // }
+  if (!cluster_indices.empty()) {
+    auto cluster_stats = projection_utils::computeClusterStats(filtered_cloud, cluster_indices);
+
+    // Pass 1: merge by AABB gap distance.
+    projection_utils::mergeClusters(cluster_indices, filtered_cloud, cluster_stats, params_.merge_threshold);
+
+    // Refresh stats after pass 1 before vertical-alignment pass.
+    cluster_stats = projection_utils::computeClusterStats(filtered_cloud, cluster_indices);
+
+    // Pass 2: merge clusters split vertically by scan pattern.
+    mergeVerticallyAlignedClusters(cluster_indices, filtered_cloud, cluster_stats, 0.2);
+  }
 }
 
 std::vector<projection_utils::Box3D> SpatialAssociationCore::computeClusterBoxes(
