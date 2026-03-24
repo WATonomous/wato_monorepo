@@ -24,7 +24,24 @@
         out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
         out_active_traffic_control_element="{active_traffic_control_element}"
         out_active_traffic_control_element_id="{active_traffic_control_element_id}"
+        out_distance_to_intersection_m="{intersection.distance_to_intersection_m}"
       />
+
+      <Fallback name="Publish Intersection Speed Behaviour">
+        <Sequence>
+          <ActiveTrafficControlElementExist
+            active_traffic_control_element="{active_traffic_control_element}" />
+          <SpeedBehaviour
+            speed_behaviour="upcoming intersection"
+            dist_to_stop="{intersection.distance_to_intersection_m}"
+            topic_name="speed_behaviour" />
+        </Sequence>
+
+        <SpeedBehaviour
+          speed_behaviour="speed limit"
+          dist_to_stop="-1.0"
+          topic_name="speed_behaviour" />
+      </Fallback>
 
       <ActiveTrafficControlElementExist
         active_traffic_control_element="{active_traffic_control_element}" />

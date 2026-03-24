@@ -14,6 +14,7 @@
 
 #include "behaviour_markers/behaviour_markers_node.hpp"
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -51,6 +52,9 @@ BehaviourMarkersNode::BehaviourMarkersNode()
   execute_behaviour_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
     "execute_behaviour", 10, std::bind(&BehaviourMarkersNode::executeBehaviourCallback, this, std::placeholders::_1));
 
+  speed_behaviour_sub_ = create_subscription<behaviour_msgs::msg::SpeedBehaviour>(
+    "speed_behaviour", 10, std::bind(&BehaviourMarkersNode::speedBehaviourCallback, this, std::placeholders::_1));
+
   lanelet_ahead_sub_ = create_subscription<lanelet_msgs::msg::LaneletAhead>(
     "lanelet_ahead", 10, std::bind(&BehaviourMarkersNode::laneletAheadCallback, this, std::placeholders::_1));
 
@@ -64,6 +68,13 @@ void BehaviourMarkersNode::executeBehaviourCallback(const behaviour_msgs::msg::E
   publishMarkers();
 }
 
+void BehaviourMarkersNode::speedBehaviourCallback(const behaviour_msgs::msg::SpeedBehaviour::SharedPtr msg)
+{
+  latest_speed_behaviour_ = *msg;
+  has_speed_behaviour_ = true;
+  publishMarkers();
+}
+
 void BehaviourMarkersNode::laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg)
 {
   // Cache lanelet geometry from lanelet_ahead
@@ -74,7 +85,7 @@ void BehaviourMarkersNode::laneletAheadCallback(const lanelet_msgs::msg::Lanelet
     }
   }
 
-  if (has_behaviour_) {
+  if (has_behaviour_ || has_speed_behaviour_) {
     publishMarkers();
   }
 }
@@ -93,7 +104,7 @@ void BehaviourMarkersNode::publishMarkers()
     marker_array.markers.push_back(delete_marker);
   }
 
-  if (!has_behaviour_) {
+  if (!has_behaviour_ && !has_speed_behaviour_) {
     markers_pub_->publish(marker_array);
     return;
   }
@@ -116,15 +127,31 @@ void BehaviourMarkersNode::publishMarkers()
     geometry_msgs::msg::Point text_pos = ego_position;
     text_pos.z += text_offset_z_;
 
+    std::string marker_text;
+    if (has_behaviour_) {
+      marker_text = latest_behaviour_.behaviour;
+    }
+    if (has_speed_behaviour_) {
+      if (!marker_text.empty()) {
+        marker_text += "\n";
+      }
+      marker_text += latest_speed_behaviour_.speed_behaviour;
+      if (latest_speed_behaviour_.dist_to_stop >= 0.0) {
+        char dist_text[64];
+        std::snprintf(dist_text, sizeof(dist_text), " (%.1fm)", latest_speed_behaviour_.dist_to_stop);
+        marker_text += dist_text;
+      }
+    }
+
     const auto text_color = lanelet_markers::makeColor(1.0f, 1.0f, 1.0f, 0.95f);
     auto text_marker = lanelet_markers::createTextMarker(
-      "bt_behaviour", marker_id++, map_frame_, text_pos, latest_behaviour_.behaviour, text_color, text_height_);
+      "bt_behaviour", marker_id++, map_frame_, text_pos, marker_text, text_color, text_height_);
     text_marker.header.stamp = stamp;
     marker_array.markers.push_back(text_marker);
   }
 
   // Only show preferred lanelets if there are any
-  if (!latest_behaviour_.preferred_lanelet_ids.empty()) {
+  if (has_behaviour_ && !latest_behaviour_.preferred_lanelet_ids.empty()) {
     const auto preferred_color = lanelet_markers::makeColor(1.0f, 0.2f, 0.2f, 0.9f);  // Red for preferred
 
     // Draw only preferred lanelets

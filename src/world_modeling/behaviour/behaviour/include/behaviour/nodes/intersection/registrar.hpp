@@ -50,56 +50,55 @@
 class IntersectionNodeRegistrar : public NodeRegistrarBase
 {
 public:
+  explicit IntersectionNodeRegistrar(const rclcpp::Node::SharedPtr & node)
+  : NodeRegistrarBase(node) {}
+
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {
-    auto node = params.nh.lock();
-    if (!node) {
-      throw std::runtime_error("ROS node expired in IntersectionNodeRegistrar");
-    }
-    auto logger = node->get_logger();
+    (void)params;
 
     // enums
     factory.registerScriptingEnums<behaviour::types::TrafficControlElementType>();
 
     // actions
     factory.registerNodeType<behaviour::ClearActiveTrafficControlElementAction>(
-      "ClearActiveTrafficControlElement", logger.get_child("ClearActiveTrafficControlElement"));
+      "ClearActiveTrafficControlElement", logger_.get_child("ClearActiveTrafficControlElement"));
     factory.registerNodeType<behaviour::GetIntersectionContextAction>(
-      "GetIntersectionContext", logger.get_child("GetIntersectionContext"));
+      "GetIntersectionContext", logger_.get_child("GetIntersectionContext"));
     factory.registerNodeType<behaviour::GetIntersectionSearchLaneletsAction>(
-      "GetIntersectionSearchLanelets", logger.get_child("GetIntersectionSearchLanelets"));
+      "GetIntersectionSearchLanelets", logger_.get_child("GetIntersectionSearchLanelets"));
     factory.registerNodeType<behaviour::GetLaneletEndPoseAction>(
-      "GetLaneletEndPose", logger.get_child("GetLaneletEndPose"));
-    factory.registerNodeType<behaviour::GetStopSignCarsAction>("GetStopSignCars", logger.get_child("GetStopSignCars"));
+      "GetLaneletEndPose", logger_.get_child("GetLaneletEndPose"));
+    factory.registerNodeType<behaviour::GetStopSignCarsAction>("GetStopSignCars", logger_.get_child("GetStopSignCars"));
     factory.registerNodeType<behaviour::GetStopSignPedestriansAction>(
-      "GetStopSignPedestrians", logger.get_child("GetStopSignPedestrians"));
+      "GetStopSignPedestrians", logger_.get_child("GetStopSignPedestrians"));
     factory.registerNodeType<behaviour::GetTrafficLightStateAction>(
-      "GetTrafficLightState", logger.get_child("GetTrafficLightState"));
-    factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose", logger.get_child("GetStopLinePose"));
+      "GetTrafficLightState", logger_.get_child("GetTrafficLightState"));
+    factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose", logger_.get_child("GetStopLinePose"));
     factory.registerNodeType<behaviour::ResetIntersectionContextAction>(
-      "ResetIntersectionContext", logger.get_child("ResetIntersectionContext"));
+      "ResetIntersectionContext", logger_.get_child("ResetIntersectionContext"));
     factory.registerNodeType<behaviour::SetRegElemEgoPriorityAction>(
-      "SetRegElemEgoPriority", logger.get_child("SetRegElemEgoPriority"));
+      "SetRegElemEgoPriority", logger_.get_child("SetRegElemEgoPriority"));
     factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>(
-      "SetStopSignPriorityCars", logger.get_child("SetStopSignPriorityCars"));
+      "SetStopSignPriorityCars", logger_.get_child("SetStopSignPriorityCars"));
 
     // conditions
     factory.registerNodeType<behaviour::ActiveTrafficControlElementExistCondition>(
-      "ActiveTrafficControlElementExist", logger.get_child("ActiveTrafficControlElementExist"));
+      "ActiveTrafficControlElementExist", logger_.get_child("ActiveTrafficControlElementExist"));
     factory.registerNodeType<behaviour::ActiveTrafficControlElementPassedCondition>(
-      "ActiveTrafficControlElementPassed", logger.get_child("ActiveTrafficControlElementPassed"));
+      "ActiveTrafficControlElementPassed", logger_.get_child("ActiveTrafficControlElementPassed"));
     factory.registerNodeType<behaviour::IsRegulatoryElementTypeCondition>(
-      "IsRegulatoryElementType", logger.get_child("IsRegulatoryElementType"));
+      "IsRegulatoryElementType", logger_.get_child("IsRegulatoryElementType"));
     factory.registerNodeType<behaviour::IsTrafficLightStateCondition>(
-      "IsTrafficLightState", logger.get_child("IsTrafficLightState"));
+      "IsTrafficLightState", logger_.get_child("IsTrafficLightState"));
     factory.registerNodeType<behaviour::StopSignPriorityCarsClearCondition>(
-      "StopSignPriorityCarsClear", logger.get_child("StopSignPriorityCarsClear"));
+      "StopSignPriorityCarsClear", logger_.get_child("StopSignPriorityCarsClear"));
     factory.registerNodeType<behaviour::StopSignPedestriansClearCondition>(
-      "StopSignPedestriansClear", logger.get_child("StopSignPedestriansClear"));
+      "StopSignPedestriansClear", logger_.get_child("StopSignPedestriansClear"));
     factory.registerNodeType<behaviour::RegElemEgoPriorityCondition>(
-      "RegElemEgoPriority", logger.get_child("RegElemEgoPriority"));
+      "RegElemEgoPriority", logger_.get_child("RegElemEgoPriority"));
     factory.registerNodeType<behaviour::YieldSignCanProceedCondition>(
-      "YieldCanProceed", logger.get_child("YieldCanProceed"));
+      "YieldCanProceed", logger_.get_child("YieldCanProceed"));
   }
 };
 

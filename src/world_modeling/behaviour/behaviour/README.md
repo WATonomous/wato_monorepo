@@ -27,14 +27,11 @@ There is more comments and info under `/config/param.yaml`
 | `bt.intersection_wall_of_doom_width`      | double   | 5.0                            | Virtual wall width at stop lines (m)                                           |
 | `bt.intersection_wall_of_doom_length`     | double   | 1.0                            | Virtual wall length at stop lines (m)                                          |
 | `bt.ego_stopped_velocity_threshold`       | double   | 0.1                            | Velocity threshold for "stopped" (m/s)                                         |
-| `bt.intersection_lookahead_m`             | double   | 40.0                           | Intersection detection lookahead (m)                                           |
+| `bt.intersection_lookahead_m`             | double   | 100.0                          | Intersection detection lookahead (m)                                            |
 | `bt.stop_sign_stop_line_proximity_m`      | double   | 5.0                            | Max distance from stop line for a car to be considered at the intersection (m) |
 | `bt.goal_reached_threshold_m`             | double   | 1.0                            | Distance to goal to consider reached (m)                                       |
-| `get_shortest_route_timeout_ms`           | int      | 6000                           | Service timeout for get_shortest_route (ms)                                    |
-| `set_route_timeout_ms`                    | int      | 6000                           | Service timeout for set_route (ms)                                             |
-| `get_area_occupancy_timeout_ms`           | int      | 5000                           | Service timeout for get_area_occupancy (ms)                                    |
-| `get_world_objects_enriched_timeout_ms`   | int      | 5000                           | Service timeout for get_world_objects_enriched (ms)                            |
-| `wall_service_timeout_ms`                 | int      | 5000                           | Service timeout for spawn/despawn wall (ms)                                    |
+| `service_timeout_ms`                      | int      | 6000                           | Global timeout for behaviour service calls (ms)                                |
+| `wait_for_service_timeout_ms`             | int      | 60000                          | Max time to wait for required services during BT startup (ms)                  |
 | `enable_console_logging`                  | bool     | false                          | Enable BT console logging                                                      |
 
 ## Topics
@@ -54,7 +51,7 @@ There is more comments and info under `/config/param.yaml`
 | Topic               | Type                                  | Description                                                                                                               |
 | ------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `execute_behaviour` | `behaviour_msgs/ExecuteBehaviour.msg` | Sends lattice planner the message to execute the accurate behaviour and the preferred lanelets that the car should be on. |
-|                     |
+| `speed_behaviour`   | `behaviour_msgs/SpeedBehaviour.msg`   | Publishes intersection speed advice and ego-relative distance to the upcoming intersection. |
 
 ## Services Called
 

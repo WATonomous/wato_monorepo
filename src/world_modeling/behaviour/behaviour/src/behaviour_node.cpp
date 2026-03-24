@@ -46,14 +46,11 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("bt.intersection_wall_of_doom_width", 5.0);
   this->declare_parameter("bt.intersection_wall_of_doom_length", 1.0);
   this->declare_parameter("bt.ego_stopped_velocity_threshold", 0.1);
-  this->declare_parameter("bt.intersection_lookahead_m", 40.0);
+  this->declare_parameter("bt.intersection_lookahead_m", 100.0);
   this->declare_parameter("bt.stop_sign_stop_line_proximity_m", 8.0);
   this->declare_parameter("bt.goal_reached_threshold_m", 1.0);
-  this->declare_parameter("get_shortest_route_timeout_ms", 6000);
-  this->declare_parameter("set_route_timeout_ms", 6000);
-  this->declare_parameter("get_area_occupancy_timeout_ms", 5000);
-  this->declare_parameter("get_world_objects_enriched_timeout_ms", 5000);
-  this->declare_parameter("wall_service_timeout_ms", 5000);
+  this->declare_parameter("service_timeout_ms", 6000);
+  this->declare_parameter("wait_for_service_timeout_ms", 60000);
 
   // Init TF
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());

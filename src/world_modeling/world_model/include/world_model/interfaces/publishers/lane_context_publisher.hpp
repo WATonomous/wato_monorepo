@@ -45,7 +45,8 @@ public:
   , ego_pose_(tf_buffer, node->get_parameter("map_frame").as_string(), node->get_parameter("base_frame").as_string())
   {
     rate_hz_ = node_->declare_parameter<double>("lane_context_publish_rate_hz", 10.0);
-    route_priority_threshold_m_ = node_->declare_parameter<double>("lane_context_route_priority_threshold_m", 1.0);
+    route_lookahead_m_ = node_->declare_parameter<double>("lane_context_route_lookahead_m", 100.0);
+    route_priority_threshold_m_ = node_->declare_parameter<double>("lane_context_route_priority_threshold_m", 1);
     heading_search_radius_m_ = node_->declare_parameter<double>("lane_context_heading_search_radius_m", 15.0);
 
     pub_ = node_->create_publisher<lanelet_msgs::msg::CurrentLaneContext>("lane_context", 10);
@@ -179,33 +180,17 @@ private:
     cached_context_.lateral_offset = 0.0;
     cached_context_.heading_error = 0.0;
 
-    // Calculate distance to lanelet end using arc length along centerline
-    const auto & cl = cached_context_.current_lanelet.centerline;
-    if (cl.size() >= 2) {
-      double min_dist_sq = std::numeric_limits<double>::max();
-      size_t closest_idx = 0;
-      for (size_t i = 0; i < cl.size(); ++i) {
-        double dx = cl[i].x - ego.pose.position.x;
-        double dy = cl[i].y - ego.pose.position.y;
-        double d = dx * dx + dy * dy;
-        if (d < min_dist_sq) {
-          min_dist_sq = d;
-          closest_idx = i;
-        }
-      }
-      // Sum arc length from closest point to end
-      double arc_len = 0.0;
-      for (size_t i = closest_idx; i + 1 < cl.size(); ++i) {
-        double dx = cl[i + 1].x - cl[i].x;
-        double dy = cl[i + 1].y - cl[i].y;
-        arc_len += std::sqrt(dx * dx + dy * dy);
-      }
-      cached_context_.distance_to_lanelet_end_m = arc_len;
+    // Calculate distance to lanelet end using the shared lanelet-handler utility.
+    auto current_lanelet = lanelet_->getLaneletById(cached_context_.current_lanelet.id);
+    if (current_lanelet.has_value()) {
+      cached_context_.distance_to_lanelet_end_m =
+        lanelet_->getRemainingDistanceToLaneletEnd(*current_lanelet, ego.pose.position);
+    } else {
+      cached_context_.distance_to_lanelet_end_m = 0.0;
     }
 
-    // Populate upcoming lanelets and distances using route lookahead
-    // Use a fixed lookahead for context generation (e.g. 100m)
-    auto route_ahead = lanelet_->getRouteAhead(ego.pose.position, 100.0);
+    // Populate upcoming lanelets and distances using a fixed ego-relative route lookahead.
+    auto route_ahead = lanelet_->getRouteAhead(ego.pose.position, route_lookahead_m_);
     cached_context_.upcoming_lanelet_ids = route_ahead.ids;
     cached_context_.upcoming_lanelet_distances_m.clear();
 
@@ -255,6 +240,7 @@ private:
   const LaneletHandler * lanelet_;
   EgoPoseHelper ego_pose_;
   double rate_hz_;
+  double route_lookahead_m_;
   double route_priority_threshold_m_;
   double heading_search_radius_m_;
 

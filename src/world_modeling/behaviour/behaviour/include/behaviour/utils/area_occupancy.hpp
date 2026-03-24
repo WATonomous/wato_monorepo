@@ -41,6 +41,22 @@ inline bool isAreaOccupied(
   return area != nullptr && area->is_occupied;
 }
 
+inline bool isAreaOccupiedByLaneTrackedObject(
+  const std::vector<world_model_msgs::msg::AreaOccupancyInfo> & areas, const std::string & area_name)
+{
+  const auto * area = getAreaByName(areas, area_name);
+  if (area == nullptr) {
+    return false;
+  }
+
+  for (const auto & object : area->objects) {
+    if (object.lanelet_ahead.current_lanelet_id >= 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 inline std::vector<world_model_msgs::msg::WorldObject> getAreaObjects(
   const std::vector<world_model_msgs::msg::AreaOccupancyInfo> & areas, const std::string & area_name)
 {
