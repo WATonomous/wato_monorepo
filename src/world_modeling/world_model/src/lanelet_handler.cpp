@@ -279,6 +279,18 @@ std::vector<lanelet::ConstLanelet> LaneletHandler::getLaneletsInRadius(
   return result;
 }
 
+std::vector<lanelet_msgs::msg::Lanelet> LaneletHandler::getNearbyLanelets(
+  const geometry_msgs::msg::Point & center, double radius) const
+{
+  std::vector<lanelet_msgs::msg::Lanelet> result;
+  auto lanelets = getLaneletsInRadius(center, radius);
+  result.reserve(lanelets.size());
+  for (const auto & ll : lanelets) {
+    result.push_back(toLaneletMsg(ll));
+  }
+  return result;
+}
+
 std::vector<lanelet::ConstLanelet> LaneletHandler::getAllLanelets() const
 {
   std::vector<lanelet::ConstLanelet> result;

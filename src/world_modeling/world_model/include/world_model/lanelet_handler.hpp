@@ -150,6 +150,13 @@ public:
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
 
   /**
+   * @brief Get all lanelets within radius as ROS messages (no routing graph).
+   * Pure spatial query — returns ALL lanelet types (road, crosswalk, parking, etc.)
+   */
+  std::vector<lanelet_msgs::msg::Lanelet> getNearbyLanelets(
+    const geometry_msgs::msg::Point & center, double radius) const;
+
+  /**
    * @brief Return all lanelets in the loaded map.
    */
   std::vector<lanelet::ConstLanelet> getAllLanelets() const;
