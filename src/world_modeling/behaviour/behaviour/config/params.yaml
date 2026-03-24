@@ -46,7 +46,7 @@
       ego_stopped_velocity_threshold: 0.1
 
       # Intersection lookahead distance (meters)
-      intersection_lookahead_m: 40.0
+      intersection_lookahead_m: 100.0
 
       # Max distance from a stop line for a car to be considered
       # part of the intersection (i.e. waiting/stopped at the stop sign)
@@ -56,11 +56,8 @@
       goal_reached_threshold_m: 3.0
 
     # Service timeouts (milliseconds)
-    get_shortest_route_timeout_ms: 50000
-    set_route_timeout_ms: 50000
-    get_area_occupancy_timeout_ms: 30000
-    get_world_objects_enriched_timeout_ms: 30000
-    wall_service_timeout_ms: 5000
+    service_timeout_ms: 50000
+    wait_for_service_timeout_ms: 60000
 
     # Logging options
     enable_console_logging: false

@@ -44,11 +44,12 @@
 
     # Lane context
     lane_context_publish_rate_hz: 20.0
+    lane_context_route_lookahead_m: 100.0
 
     # Map visualization
     map_viz_publish_rate_hz: 1.0
     map_viz_radius_m: 50.0
-    map_viz_mode: "all" # "all" to viz all markers or "nearby" to viz markers within a radius of the ego
+    map_viz_mode: "nearby" # "all" to viz all markers or "nearby" to viz markers within a radius of the ego
 
     # World objects enriched
     world_objects_enriched_publish_rate_hz: 20.0

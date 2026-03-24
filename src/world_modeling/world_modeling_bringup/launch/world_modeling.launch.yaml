@@ -222,14 +222,14 @@ launch:
       name: behaviour_node
       namespace: "world_modeling"
       output: screen
-      # delay bt for wm to load all services
-      launch-prefix: "bash -c 'sleep 15; $0 $@'"
       param:
         - from: $(find-pkg-share behaviour)/config/params.yaml
       ros_args: "--log-level world_modeling.behaviour_node:=$(var log_behaviour_node)"
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
+        - from: speed_behaviour
+          to: /behaviour/speed_behaviour
         - from: route_ahead
           to: lanelet/route_ahead
         - from: lanelet_ahead
@@ -257,6 +257,8 @@ launch:
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
+        - from: speed_behaviour
+          to: /behaviour/speed_behaviour
         - from: route_ahead
           to: lanelet/route_ahead
         - from: lanelet_ahead

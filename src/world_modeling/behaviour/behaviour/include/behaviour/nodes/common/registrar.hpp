@@ -19,6 +19,8 @@
 
 #include <behaviortree_ros2/ros_node_params.hpp>
 
+#include <chrono>
+#include <rclcpp/rclcpp.hpp>
 #include <stdexcept>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
@@ -34,6 +36,7 @@
 #include "behaviour/nodes/common/actions/get_world_objects_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_subscriber.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
+#include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 
 // conditions
@@ -55,63 +58,58 @@
 class CommonNodeRegistrar : public NodeRegistrarBase
 {
 public:
+  explicit CommonNodeRegistrar(const rclcpp::Node::SharedPtr & node)
+  : NodeRegistrarBase(node) {}
+
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {
-    BT::RosNodeParams get_shortest_route_params = params;
-    BT::RosNodeParams set_route_params = params;
-    BT::RosNodeParams get_area_occupancy_params = params;
-    BT::RosNodeParams get_objects_params = params;
-    BT::RosNodeParams wall_service = params;
+    int service_timeout = node_->get_parameter("service_timeout_ms").as_int();
+    int wait_for_service_timeout = node_->get_parameter("wait_for_service_timeout_ms").as_int();
 
-    // Read timeout values from node parameters
-    auto node = params.nh.lock();
-    if (!node) {
-      throw std::runtime_error("ROS node expired in CommonNodeRegistrar");
-    }
-    auto logger = node->get_logger();
-    int get_shortest_route_timeout = node->get_parameter("get_shortest_route_timeout_ms").as_int();
-    int set_route_timeout = node->get_parameter("set_route_timeout_ms").as_int();
-    int get_area_occupancy_timeout = node->get_parameter("get_area_occupancy_timeout_ms").as_int();
-    int get_world_objects_enriched_timeout = node->get_parameter("get_world_objects_enriched_timeout_ms").as_int();
-    int wall_timeout = node->get_parameter("wall_service_timeout_ms").as_int();
+    BT::RosNodeParams service_params = params;
+    service_params.server_timeout = std::chrono::milliseconds(service_timeout);
+    service_params.wait_for_server_timeout = std::chrono::milliseconds(wait_for_service_timeout);
 
-    get_shortest_route_params.server_timeout = std::chrono::milliseconds(get_shortest_route_timeout);
-    set_route_params.server_timeout = std::chrono::milliseconds(set_route_timeout);
-    get_area_occupancy_params.server_timeout = std::chrono::milliseconds(get_area_occupancy_timeout);
-    get_objects_params.server_timeout = std::chrono::milliseconds(get_world_objects_enriched_timeout);
-    wall_service.server_timeout = std::chrono::milliseconds(wall_timeout);
+    // if ever we need to set different timeouts for different services
+    BT::RosNodeParams get_shortest_route_params = service_params;
+    BT::RosNodeParams set_route_params = service_params;
+    BT::RosNodeParams get_area_occupancy_params = service_params;
+    BT::RosNodeParams get_objects_params = service_params;
+    BT::RosNodeParams spawn_wall_params = service_params;
+    BT::RosNodeParams despawn_wall_params = service_params;
 
     // actions
     factory.registerNodeType<behaviour::GetShortestRouteService>("GetShortestRoute", get_shortest_route_params);
     factory.registerNodeType<behaviour::SetRouteService>("SetRoute", set_route_params);
     factory.registerNodeType<behaviour::GetAreaOccupancyService>("GetAreaOccupancy", get_area_occupancy_params);
     factory.registerNodeType<behaviour::GetWorldObjectsService>("GetWorldObjects", get_objects_params);
-    factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", wall_service);
-    factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", wall_service);
-    factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById", logger.get_child("GetLaneletById"));
+    factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", spawn_wall_params);
+    factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", despawn_wall_params);
+    factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById", logger_.get_child("GetLaneletById"));
     factory.registerNodeType<behaviour::GetLaneletByRelationAction>(
-      "GetLaneletByRelation", logger.get_child("GetLaneletByRelation"));
+      "GetLaneletByRelation", logger_.get_child("GetLaneletByRelation"));
 
-    factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", params);
-    factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", params);
+    factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", service_params);
+    factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", service_params);
 
-    factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", params);
+    factory.registerNodeType<behaviour::ExecuteBehaviourPublisher>("ExecuteBehaviour", service_params);
+    factory.registerNodeType<behaviour::SpeedBehaviourPublisher>("SpeedBehaviour", service_params);
 
     // conditions
-    factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage", logger.get_child("IsErrorMessage"));
-    factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist", logger.get_child("WallIdExist"));
-    factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached", logger.get_child("GoalReached"));
-    factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist", logger.get_child("GoalExist"));
+    factory.registerNodeType<behaviour::IsErrorMessageCondition>("IsErrorMessage", logger_.get_child("IsErrorMessage"));
+    factory.registerNodeType<behaviour::WallIdExistCondition>("WallIdExist", logger_.get_child("WallIdExist"));
+    factory.registerNodeType<behaviour::GoalReachedCondition>("GoalReached", logger_.get_child("GoalReached"));
+    factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist", logger_.get_child("GoalExist"));
     factory.registerNodeType<behaviour::GoalLaneletExistCondition>(
-      "GoalLaneletExist", logger.get_child("GoalLaneletExist"));
+      "GoalLaneletExist", logger_.get_child("GoalLaneletExist"));
     factory.registerNodeType<behaviour::GlobalRouteExistCondition>(
-      "GlobalRouteExist", logger.get_child("GlobalRouteExist"));
-    factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute", logger.get_child("EgoOnRoute"));
-    factory.registerNodeType<behaviour::EgoOnLaneletCondition>("IsEgoOnLanelet", logger.get_child("IsEgoOnLanelet"));
-    factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped", logger.get_child("EgoStopped"));
-    factory.registerNodeType<behaviour::IsAreaOccupiedCondition>("IsAreaOccupied", logger.get_child("IsAreaOccupied"));
+      "GlobalRouteExist", logger_.get_child("GlobalRouteExist"));
+    factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute", logger_.get_child("EgoOnRoute"));
+    factory.registerNodeType<behaviour::EgoOnLaneletCondition>("IsEgoOnLanelet", logger_.get_child("IsEgoOnLanelet"));
+    factory.registerNodeType<behaviour::EgoStoppedCondition>("EgoStopped", logger_.get_child("EgoStopped"));
+    factory.registerNodeType<behaviour::IsAreaOccupiedCondition>("IsAreaOccupied", logger_.get_child("IsAreaOccupied"));
     factory.registerNodeType<behaviour::WorldObjectsContainsCondition>(
-      "WorldObjectsContains", logger.get_child("WorldObjectsContains"));
+      "WorldObjectsContains", logger_.get_child("WorldObjectsContains"));
 
     // decorators
     factory.registerNodeType<behaviour::RateController>("RateController");

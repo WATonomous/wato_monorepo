@@ -44,43 +44,42 @@
 class LaneNavigationNodeRegistrar : public NodeRegistrarBase
 {
 public:
+  explicit LaneNavigationNodeRegistrar(const rclcpp::Node::SharedPtr & node)
+  : NodeRegistrarBase(node) {}
+
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {
-    auto node = params.nh.lock();
-    if (!node) {
-      throw std::runtime_error("ROS node expired in LaneNavigationNodeRegistrar");
-    }
-    auto logger = node->get_logger();
+    (void)params;
 
     // enums
     factory.registerScriptingEnums<behaviour::types::LaneTransition>();
     factory.registerScriptingEnums<behaviour::types::OvertakeStage>();
 
     // actions
-    factory.registerNodeType<behaviour::GetRouteContextAction>("GetRouteContext", logger.get_child("GetRouteContext"));
+    factory.registerNodeType<behaviour::GetRouteContextAction>("GetRouteContext", logger_.get_child("GetRouteContext"));
     factory.registerNodeType<behaviour::GetFollowLanePreferredLaneletsAction>(
-      "GetFollowLanePreferredLanelets", logger.get_child("GetFollowLanePreferredLanelets"));
+      "GetFollowLanePreferredLanelets", logger_.get_child("GetFollowLanePreferredLanelets"));
     factory.registerNodeType<behaviour::GetFollowRoutePreferredLaneletsAction>(
-      "GetFollowRoutePreferredLanelets", logger.get_child("GetFollowRoutePreferredLanelets"));
+      "GetFollowRoutePreferredLanelets", logger_.get_child("GetFollowRoutePreferredLanelets"));
     factory.registerNodeType<behaviour::GetLaneChangePreferredLaneletsAction>(
-      "GetLaneChangePreferredLanelets", logger.get_child("GetLaneChangePreferredLanelets"));
+      "GetLaneChangePreferredLanelets", logger_.get_child("GetLaneChangePreferredLanelets"));
     factory.registerNodeType<behaviour::ResetRouteContextAction>(
-      "ResetRouteContext", logger.get_child("ResetRouteContext"));
+      "ResetRouteContext", logger_.get_child("ResetRouteContext"));
     factory.registerNodeType<behaviour::SetOvertakeContextAction>(
-      "SetOvertakeContext", logger.get_child("SetOvertakeContext"));
+      "SetOvertakeContext", logger_.get_child("SetOvertakeContext"));
     factory.registerNodeType<behaviour::SetOvertakeStageAction>(
-      "SetOvertakeStage", logger.get_child("SetOvertakeStage"));
+      "SetOvertakeStage", logger_.get_child("SetOvertakeStage"));
 
     // conditions
     factory.registerNodeType<behaviour::EgoStoppedForDurationCondition>(
-      "EgoStoppedForDuration", logger.get_child("EgoStoppedForDuration"));
+      "EgoStoppedForDuration", logger_.get_child("EgoStoppedForDuration"));
     factory.registerNodeType<behaviour::IsLaneTransitionCondition>(
-      "IsLaneTransition", logger.get_child("IsLaneTransition"));
+      "IsLaneTransition", logger_.get_child("IsLaneTransition"));
     factory.registerNodeType<behaviour::OvertakeValidCondition>(
-      "OvertakeValid", logger.get_child("OvertakeValid"));
-    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage", logger.get_child("IsOvertakeStage"));
-    factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange", logger.get_child("ValidLaneChange"));
-    factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange", logger.get_child("SafeLaneChange"));
+      "OvertakeValid", logger_.get_child("OvertakeValid"));
+    factory.registerNodeType<behaviour::IsOvertakeStateCondition>("IsOvertakeStage", logger_.get_child("IsOvertakeStage"));
+    factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange", logger_.get_child("ValidLaneChange"));
+    factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange", logger_.get_child("SafeLaneChange"));
   }
 };
 

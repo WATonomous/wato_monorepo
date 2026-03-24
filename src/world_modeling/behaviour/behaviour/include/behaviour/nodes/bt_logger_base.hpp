@@ -42,16 +42,6 @@ protected:
 private:
   rclcpp::Logger logger_;
 };
-
-inline rclcpp::Logger makeBTChildLogger(const BT::RosNodeParams & params, const std::string & child_name)
-{
-  auto node = params.nh.lock();
-  if (!node) {
-    throw std::runtime_error("ROS node expired while creating BT logger for " + child_name);
-  }
-  return node->get_logger().get_child(child_name);
-}
-
 }  // namespace behaviour
 
 #endif  // BEHAVIOUR__NODES__BT_LOGGER_BASE_HPP_

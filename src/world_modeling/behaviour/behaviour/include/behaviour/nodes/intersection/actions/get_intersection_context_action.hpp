@@ -73,6 +73,7 @@ public:
       BT::OutputPort<int64_t>("out_active_traffic_control_lanelet_id"),
       BT::OutputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("out_active_traffic_control_element"),
       BT::OutputPort<int64_t>("out_active_traffic_control_element_id"),
+      BT::OutputPort<double>("out_distance_to_intersection_m"),
     };
   }
 
@@ -118,6 +119,9 @@ public:
         }
         setOutput("out_active_traffic_control_element_id", active_traffic_control_element->id);
         setOutput("out_active_traffic_control_element", active_traffic_control_element);
+        setOutput(
+          "out_distance_to_intersection_m",
+          getDistanceToIntersection(*lane_ctx, *search_lanelets));
         return BT::NodeStatus::SUCCESS;
       }
     }
@@ -131,10 +135,14 @@ public:
         setOutput("out_active_traffic_control_lanelet_id", lanelet.id);
         setOutput("out_active_traffic_control_element", elem);
         setOutput("out_active_traffic_control_element_id", elem->id);
+        setOutput(
+          "out_distance_to_intersection_m",
+          getDistanceToIntersection(*lane_ctx, *search_lanelets));
         return BT::NodeStatus::SUCCESS;
       }
     }
 
+    setOutput("out_distance_to_intersection_m", -1.0);
     RCLCPP_DEBUG_STREAM(logger(), "No control element found"
               << " (search_count=" << search_lanelets->size() << ")" );
     return BT::NodeStatus::SUCCESS;
@@ -196,6 +204,46 @@ private:
     if (type == types::TrafficControlElementType::STOP_SIGN) return 1;
     if (type == types::TrafficControlElementType::YIELD) return 2;
     return 999;
+  }
+
+  /**
+   * @brief Computes ego-relative distance to the first upcoming intersection lanelet.
+   *
+   * The search order is defined by `search_lanelets`, which is already filtered and ordered
+   * by the intersection subtree. The returned distance is:
+   * - `0.0` if ego is already inside an intersection lanelet.
+   * - the distance from `lane_ctx.upcoming_lanelet_distances_m` to the first intersection lanelet ahead.
+   * - `-1.0` if no intersection lanelet is found in the current search window.
+   */
+  static double getDistanceToIntersection(
+    const lanelet_msgs::msg::CurrentLaneContext & lane_ctx,
+    const std::vector<lanelet_msgs::msg::Lanelet> & search_lanelets)
+  {
+    if (lane_ctx.current_lanelet.is_intersection) {
+      return 0.0;
+    }
+
+    int64_t first_intersection_lanelet_id = 0;
+    for (const auto & lanelet : search_lanelets) {
+      if (lanelet.is_intersection) {
+        first_intersection_lanelet_id = lanelet.id;
+        break;
+      }
+    }
+
+    if (first_intersection_lanelet_id == 0) {
+      return -1.0;
+    }
+
+    const std::size_t n = std::min(
+      lane_ctx.upcoming_lanelet_ids.size(), lane_ctx.upcoming_lanelet_distances_m.size());
+    for (std::size_t i = 0; i < n; ++i) {
+      if (lane_ctx.upcoming_lanelet_ids[i] == first_intersection_lanelet_id) {
+        return lane_ctx.upcoming_lanelet_distances_m[i];
+      }
+    }
+
+    return -1.0;
   }
 
   // find the best candidate that represents the primary regulatory element on the lanelet
