@@ -45,6 +45,8 @@ find_package(OpenCV REQUIRED)
 # ---- Core library (image-based attribute logic) ----
 add_library(${PROJECT_NAME}_core SHARED
   src/attribute_assigner_core.cpp
+  src/traffic_light_classifier.cpp
+  src/car_behavior_classifier.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_core

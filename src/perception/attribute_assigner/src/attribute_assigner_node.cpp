@@ -37,6 +37,9 @@
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include "attribute_assigner/car_behavior_classifier.hpp"
+#include "attribute_assigner/traffic_light_classifier.hpp"
+
 namespace wato::perception::attribute_assigner
 {
 
@@ -50,24 +53,17 @@ AttributeAssignerNode::AttributeAssignerNode(const rclcpp::NodeOptions & options
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
 }
 
-void AttributeAssignerNode::declareParameters(Params & params)
+void AttributeAssignerNode::declareParameters()
 {
-  // Class ID mappings (YOLOv8 COCO: 9=traffic_light, 2=car, 7=truck, 5=bus)
+  // Minimum detection confidence (core-level)
+  this->declare_parameter<double>("min_detection_confidence", 0.3);
+  const double min_confidence = this->get_parameter("min_detection_confidence").as_double();
+
+  core_ = std::make_unique<AttributeAssignerCore>(min_confidence);
+
+  // --- Traffic light classifier params ---
   this->declare_parameter<std::vector<std::string>>(
     "traffic_light_class_ids", std::vector<std::string>{"traffic light", "9"});
-  this->declare_parameter<std::vector<std::string>>(
-    "car_class_ids", std::vector<std::string>{"car", "2", "truck", "7", "bus", "5"});
-  this->declare_parameter<std::vector<std::string>>("truck_class_ids", std::vector<std::string>{"truck", "7"});
-  this->declare_parameter<std::vector<std::string>>("bus_class_ids", std::vector<std::string>{"bus", "5"});
-  this->declare_parameter<double>("min_detection_confidence", 0.3);
-
-  params.traffic_light_class_ids = this->get_parameter("traffic_light_class_ids").as_string_array();
-  params.car_class_ids = this->get_parameter("car_class_ids").as_string_array();
-  params.truck_class_ids = this->get_parameter("truck_class_ids").as_string_array();
-  params.bus_class_ids = this->get_parameter("bus_class_ids").as_string_array();
-  params.min_detection_confidence = this->get_parameter("min_detection_confidence").as_double();
-
-  // Traffic light color detection thresholds
   this->declare_parameter<double>("traffic_light_min_saturation", 60.0);
   this->declare_parameter<double>("traffic_light_min_value", 80.0);
   this->declare_parameter<double>("traffic_light_red_hue_lo", 10.0);
@@ -75,15 +71,25 @@ void AttributeAssignerNode::declareParameters(Params & params)
   this->declare_parameter<double>("traffic_light_yellow_hue_hi", 35.0);
   this->declare_parameter<double>("traffic_light_green_hue_hi", 85.0);
   this->declare_parameter<double>("traffic_light_strip_margin", 0.20);
-  params.traffic_light_min_saturation = this->get_parameter("traffic_light_min_saturation").as_double();
-  params.traffic_light_min_value = this->get_parameter("traffic_light_min_value").as_double();
-  params.traffic_light_red_hue_lo = this->get_parameter("traffic_light_red_hue_lo").as_double();
-  params.traffic_light_red_hue_hi = this->get_parameter("traffic_light_red_hue_hi").as_double();
-  params.traffic_light_yellow_hue_hi = this->get_parameter("traffic_light_yellow_hue_hi").as_double();
-  params.traffic_light_green_hue_hi = this->get_parameter("traffic_light_green_hue_hi").as_double();
-  params.traffic_light_strip_margin = this->get_parameter("traffic_light_strip_margin").as_double();
 
-  // Car signal detection thresholds (HSV-based)
+  this->declare_parameter<double>("traffic_light_assumed_depth", 30.0);
+
+  TrafficLightClassifier::Params tl_params;
+  tl_params.class_ids = this->get_parameter("traffic_light_class_ids").as_string_array();
+  tl_params.min_saturation = this->get_parameter("traffic_light_min_saturation").as_double();
+  tl_params.min_value = this->get_parameter("traffic_light_min_value").as_double();
+  tl_params.red_hue_lo = this->get_parameter("traffic_light_red_hue_lo").as_double();
+  tl_params.red_hue_hi = this->get_parameter("traffic_light_red_hue_hi").as_double();
+  tl_params.yellow_hue_hi = this->get_parameter("traffic_light_yellow_hue_hi").as_double();
+  tl_params.green_hue_hi = this->get_parameter("traffic_light_green_hue_hi").as_double();
+  tl_params.strip_margin = this->get_parameter("traffic_light_strip_margin").as_double();
+  tl_params.assumed_depth = this->get_parameter("traffic_light_assumed_depth").as_double();
+
+  core_->addClassifier(std::make_unique<TrafficLightClassifier>(tl_params));
+
+  // --- Car behavior classifier params ---
+  this->declare_parameter<std::vector<std::string>>(
+    "car_class_ids", std::vector<std::string>{"car", "2", "truck", "7", "bus", "5"});
   this->declare_parameter<double>("car_brake_min_brightness", 90.0);
   this->declare_parameter<double>("car_brake_min_saturation", 40.0);
   this->declare_parameter<double>("car_red_hue_lo", 10.0);
@@ -92,14 +98,45 @@ void AttributeAssignerNode::declareParameters(Params & params)
   this->declare_parameter<double>("car_amber_hue_hi", 35.0);
   this->declare_parameter<double>("car_amber_min_saturation", 80.0);
   this->declare_parameter<double>("car_amber_min_value", 100.0);
-  params.car_brake_min_brightness = this->get_parameter("car_brake_min_brightness").as_double();
-  params.car_brake_min_saturation = this->get_parameter("car_brake_min_saturation").as_double();
-  params.car_red_hue_lo = this->get_parameter("car_red_hue_lo").as_double();
-  params.car_red_hue_hi = this->get_parameter("car_red_hue_hi").as_double();
-  params.car_amber_hue_lo = this->get_parameter("car_amber_hue_lo").as_double();
-  params.car_amber_hue_hi = this->get_parameter("car_amber_hue_hi").as_double();
-  params.car_amber_min_saturation = this->get_parameter("car_amber_min_saturation").as_double();
-  params.car_amber_min_value = this->get_parameter("car_amber_min_value").as_double();
+
+  // Vehicle subtype IDs and 3D dimensions (owned by car classifier)
+  this->declare_parameter<std::vector<std::string>>("truck_class_ids", std::vector<std::string>{"truck", "7"});
+  this->declare_parameter<std::vector<std::string>>("bus_class_ids", std::vector<std::string>{"bus", "5"});
+  this->declare_parameter<double>("car_real_width", 1.8);
+  this->declare_parameter<double>("car_real_height", 1.5);
+  this->declare_parameter<double>("car_real_length", 4.5);
+  this->declare_parameter<double>("truck_real_width", 2.5);
+  this->declare_parameter<double>("truck_real_height", 3.5);
+  this->declare_parameter<double>("truck_real_length", 8.0);
+  this->declare_parameter<double>("bus_real_width", 2.5);
+  this->declare_parameter<double>("bus_real_height", 3.2);
+  this->declare_parameter<double>("bus_real_length", 12.0);
+  this->declare_parameter<double>("car_assumed_depth", 20.0);
+
+  CarBehaviorClassifier::Params car_params;
+  car_params.class_ids = this->get_parameter("car_class_ids").as_string_array();
+  car_params.brake_min_brightness = this->get_parameter("car_brake_min_brightness").as_double();
+  car_params.brake_min_saturation = this->get_parameter("car_brake_min_saturation").as_double();
+  car_params.red_hue_lo = this->get_parameter("car_red_hue_lo").as_double();
+  car_params.red_hue_hi = this->get_parameter("car_red_hue_hi").as_double();
+  car_params.amber_hue_lo = this->get_parameter("car_amber_hue_lo").as_double();
+  car_params.amber_hue_hi = this->get_parameter("car_amber_hue_hi").as_double();
+  car_params.amber_min_saturation = this->get_parameter("car_amber_min_saturation").as_double();
+  car_params.amber_min_value = this->get_parameter("car_amber_min_value").as_double();
+  car_params.truck_class_ids = this->get_parameter("truck_class_ids").as_string_array();
+  car_params.bus_class_ids = this->get_parameter("bus_class_ids").as_string_array();
+  car_params.car_width = this->get_parameter("car_real_width").as_double();
+  car_params.car_height = this->get_parameter("car_real_height").as_double();
+  car_params.car_length = this->get_parameter("car_real_length").as_double();
+  car_params.truck_width = this->get_parameter("truck_real_width").as_double();
+  car_params.truck_height = this->get_parameter("truck_real_height").as_double();
+  car_params.truck_length = this->get_parameter("truck_real_length").as_double();
+  car_params.bus_width = this->get_parameter("bus_real_width").as_double();
+  car_params.bus_height = this->get_parameter("bus_real_height").as_double();
+  car_params.bus_length = this->get_parameter("bus_real_length").as_double();
+  car_params.assumed_depth = this->get_parameter("car_assumed_depth").as_double();
+
+  core_->addClassifier(std::make_unique<CarBehaviorClassifier>(car_params));
 }
 
 void AttributeAssignerNode::syncedCallback(
@@ -111,16 +148,14 @@ void AttributeAssignerNode::syncedCallback(
   synced_msg_count_++;
 
   if (!core_) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Core not initialized; skipping");
+    RCLCPP_WARN(this->get_logger(), "[SYNC] Core not initialized; skipping");
     return;
   }
 
   if (!multi_image_msg || multi_image_msg->images.empty()) {
-    RCLCPP_WARN_THROTTLE(
+    RCLCPP_WARN(
       this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Received empty MultiImage; passing %zu camera detection arrays through",
+      "[SYNC] Received empty MultiImage; passing %zu camera detection arrays through",
       detections_msg->camera_detections.size());
     if (detections_pub_ && detections_pub_->is_activated()) {
       detections_pub_->publish(*detections_msg);
@@ -137,20 +172,23 @@ void AttributeAssignerNode::syncedCallback(
     frame_id_to_index[frame_id] = i;
   }
 
-  // First pass: collect unique frame_ids that have traffic lights or cars
+  // First pass: collect unique frame_ids that have classifiable detections
   std::unordered_set<std::string> frames_to_decompress;
+
+  size_t total_dets = 0;
+  size_t classifiable_dets = 0;
 
   for (const auto & camera_det : detections_msg->camera_detections) {
     const std::string & camera_frame_id = camera_det.header.frame_id;
+    total_dets += camera_det.detections.size();
     for (const auto & det : camera_det.detections) {
-      const bool is_traffic_light = core_->isTrafficLight(det);
-      const bool is_car = core_->isCar(det);
-
-      if (!is_traffic_light && !is_car) {
+      const auto * classifier = core_->findClassifier(det);
+      if (classifier == nullptr) {
         continue;
       }
+      classifiable_dets++;
       const double score = core_->getBestScore(det);
-      if (score < core_->getParams().min_detection_confidence) {
+      if (score < core_->getMinDetectionConfidence()) {
         continue;
       }
       // Use the camera detection array's frame_id to identify which camera this came from
@@ -200,43 +238,32 @@ void AttributeAssignerNode::syncedCallback(
     for (const auto & det : camera_det.detections) {
       vision_msgs::msg::Detection2D enriched_det = det;
 
-      // Check if this detection is a traffic light or car
-      const bool is_traffic_light = core_->isTrafficLight(det);
-      const bool is_car = core_->isCar(det);
-      if (!is_traffic_light && !is_car) {
+      // Find a classifier that handles this detection
+      const auto * classifier = core_->findClassifier(det);
+      if (classifier == nullptr) {
         enriched_camera.detections.push_back(enriched_det);
         continue;
       }
 
       const double score = core_->getBestScore(det);
-      if (score < core_->getParams().min_detection_confidence) {
+      if (score < core_->getMinDetectionConfidence()) {
         enriched_camera.detections.push_back(enriched_det);
         continue;
       }
 
-      // Look up the decompressed image by camera's frame_id
       if (img_it == decompressed_images.end() || img_it->second.empty()) {
         enriched_camera.detections.push_back(enriched_det);
         continue;
       }
 
-      // Crop to detection bbox
       cv::Mat crop = core_->cropToBbox(img_it->second, det);
       if (crop.empty()) {
         enriched_camera.detections.push_back(enriched_det);
         continue;
       }
 
-      // Classify and append attributes
-      if (is_traffic_light) {
-        auto attrs = core_->classifyTrafficLightState(crop);
-        core_->appendTrafficLightHypotheses(enriched_det, attrs);
-        enriched_count++;
-      } else if (is_car) {
-        auto attrs = core_->classifyCarBehavior(crop);
-        core_->appendCarHypotheses(enriched_det, attrs);
-        enriched_count++;
-      }
+      classifier->classify(crop, enriched_det);
+      enriched_count++;
 
       enriched_camera.detections.push_back(enriched_det);
     }
@@ -352,15 +379,12 @@ std::vector<visualization_msgs::msg::ImageMarker> AttributeAssignerNode::createD
     const int image_height = image.rows;
 
     for (const auto & det : camera_det.detections) {
-      const bool is_traffic_light = core_->isTrafficLight(det);
-      const bool is_car = core_->isCar(det);
-
-      if (!is_traffic_light && !is_car) {
+      const auto * classifier = core_->findClassifier(det);
+      if (classifier == nullptr) {
         continue;
       }
 
-      const double score = core_->getBestScore(det);
-      if (score < core_->getParams().min_detection_confidence) {
+      if (core_->getBestScore(det) < core_->getMinDetectionConfidence()) {
         continue;
       }
 
@@ -370,11 +394,9 @@ std::vector<visualization_msgs::msg::ImageMarker> AttributeAssignerNode::createD
       const double w = det.bbox.size_x;
       const double h = det.bbox.size_y;
 
-      // Validate bbox coordinates
       if (!std::isfinite(cx) || !std::isfinite(cy) || !std::isfinite(w) || !std::isfinite(h)) {
         continue;
       }
-
       if (w <= 0 || h <= 0) {
         continue;
       }
@@ -393,67 +415,8 @@ std::vector<visualization_msgs::msg::ImageMarker> AttributeAssignerNode::createD
         continue;
       }
 
-      // Determine bbox color based on classified state for traffic lights
-      float box_r = 1.0f, box_g = 1.0f, box_b = 1.0f;  // default white
-
-      if (is_traffic_light) {
-        // Color bbox by the highest-scoring state hypothesis from enrichment
-        double best_score = -1.0;
-        std::string best_state;
-        for (const auto & result : det.results) {
-          const std::string & cid = result.hypothesis.class_id;
-          if (
-            (cid == "state:red" || cid == "state:yellow" || cid == "state:green") &&
-            result.hypothesis.score > best_score)
-          {
-            best_score = result.hypothesis.score;
-            best_state = cid;
-          }
-        }
-        if (best_state == "state:red") {
-          box_r = 1.0f;
-          box_g = 0.0f;
-          box_b = 0.0f;
-        } else if (best_state == "state:yellow") {
-          box_r = 1.0f;
-          box_g = 1.0f;
-          box_b = 0.0f;
-        } else if (best_state == "state:green") {
-          box_r = 0.0f;
-          box_g = 1.0f;
-          box_b = 0.0f;
-        }
-      } else if (is_car) {
-        // Color bbox by the highest-scoring behavior hypothesis from enrichment
-        double best_score = 0.0;
-        std::string best_behavior;
-        for (const auto & result : det.results) {
-          const std::string & cid = result.hypothesis.class_id;
-          if (
-            (cid == "behavior:braking" || cid == "behavior:turning_left" || cid == "behavior:turning_right" ||
-             cid == "behavior:hazard_lights") &&
-            result.hypothesis.score > best_score)
-          {
-            best_score = result.hypothesis.score;
-            best_behavior = cid;
-          }
-        }
-        if (best_score > 0.15) {
-          if (best_behavior == "behavior:braking") {
-            box_r = 1.0f;
-            box_g = 0.0f;
-            box_b = 0.0f;
-          } else if (best_behavior == "behavior:turning_left" || best_behavior == "behavior:turning_right") {
-            box_r = 1.0f;
-            box_g = 1.0f;
-            box_b = 0.0f;
-          } else if (best_behavior == "behavior:hazard_lights") {
-            box_r = 1.0f;
-            box_g = 0.65f;
-            box_b = 0.0f;
-          }
-        }
-      }
+      // Get color from the classifier based on enriched attributes
+      MarkerColor color = classifier->getMarkerColor(det);
 
       // === BOUNDING BOX (LINE_STRIP for rectangle) ===
       {
@@ -465,9 +428,9 @@ std::vector<visualization_msgs::msg::ImageMarker> AttributeAssignerNode::createD
         bbox_marker.type = visualization_msgs::msg::ImageMarker::LINE_STRIP;
         bbox_marker.action = visualization_msgs::msg::ImageMarker::ADD;
         bbox_marker.lifetime = rclcpp::Duration::from_seconds(0.1);
-        bbox_marker.outline_color.r = box_r;
-        bbox_marker.outline_color.g = box_g;
-        bbox_marker.outline_color.b = box_b;
+        bbox_marker.outline_color.r = color.r;
+        bbox_marker.outline_color.g = color.g;
+        bbox_marker.outline_color.b = color.b;
         bbox_marker.outline_color.a = 1.0;
         bbox_marker.scale = 3.0;
 
@@ -517,105 +480,35 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::create3DDetections(
       continue;
     }
 
-    const double fx = cam_info.k[0];
-    const double fy = cam_info.k[4];
-    const double cx = cam_info.k[2];
-    const double cy = cam_info.k[5];
+    CameraIntrinsics intrinsics;
+    intrinsics.fx = cam_info.k[0];
+    intrinsics.fy = cam_info.k[4];
+    intrinsics.cx = cam_info.k[2];
+    intrinsics.cy = cam_info.k[5];
 
     for (const auto & det : camera_det.detections) {
-      const bool is_traffic_light = core_->isTrafficLight(det);
-      const bool is_car = core_->isCar(det);
-
-      if (!is_traffic_light && !is_car) {
+      const auto * classifier = core_->findClassifier(det);
+      if (classifier == nullptr) {
         continue;
       }
 
-      const double score = core_->getBestScore(det);
-      if (score < core_->getParams().min_detection_confidence) {
+      if (core_->getBestScore(det) < core_->getMinDetectionConfidence()) {
         continue;
       }
 
-      const double u = det.bbox.center.position.x;
-      const double v = det.bbox.center.position.y;
-      const double bbox_w_pixels = det.bbox.size_x;
-      const double bbox_h_pixels = det.bbox.size_y;
+      // Get 3D box params from the classifier (handles subtype resolution)
+      BoxParams3D box_params = classifier->get3DBoxParams(det);
 
-      // Estimate depth from known physical size and pixel size
-      double estimated_depth;
-      double size_x, size_y, size_z;  // 3D bbox dimensions
-      double assumed_depth;
+      // Pure math: project 2D detection to 3D in camera frame
+      Projection3D proj = AttributeAssignerCore::projectTo3D(intrinsics, det, box_params);
 
-      if (is_traffic_light) {
-        const double traffic_light_real_height = 1.0;  // meters
-        estimated_depth = (traffic_light_real_height * fy) / bbox_h_pixels;
-        assumed_depth = traffic_light_assumed_depth_;
-        size_x = 0.3;
-        size_y = 0.3;
-        size_z = traffic_light_real_height;
-      } else {
-        // Determine vehicle subtype for appropriate dimensions
-        bool is_truck = false;
-        bool is_bus = false;
-        for (const auto & result : det.results) {
-          if (core_->isTruckClassId(result.hypothesis.class_id)) {
-            is_truck = true;
-            break;
-          }
-          if (core_->isBusClassId(result.hypothesis.class_id)) {
-            is_bus = true;
-            break;
-          }
-        }
-
-        double ref_width;
-        if (is_bus) {
-          ref_width = bus_real_width_;
-          size_x = bus_real_width_;
-          size_y = bus_real_length_;
-          size_z = bus_real_height_;
-        } else if (is_truck) {
-          ref_width = truck_real_width_;
-          size_x = truck_real_width_;
-          size_y = truck_real_length_;
-          size_z = truck_real_height_;
-        } else {
-          ref_width = car_real_width_;
-          size_x = car_real_width_;
-          size_y = car_real_length_;
-          size_z = car_real_height_;
-        }
-
-        // Use width for depth estimation (more stable than height due to ground occlusion)
-        estimated_depth = (ref_width * fy) / bbox_w_pixels;
-        assumed_depth = car_assumed_depth_;
-      }
-
-      const double depth = (estimated_depth > 3.0 && estimated_depth < 150.0) ? estimated_depth : assumed_depth;
-
-      // Clamp 3D dimensions so their projection doesn't exceed the 2D bbox
-      // Projected size in pixels = (real_size * focal_length) / depth
-      const double max_real_width = (bbox_w_pixels * depth) / fx;
-      const double max_real_height = (bbox_h_pixels * depth) / fy;
-      size_x = std::min(size_x, max_real_width);
-      size_y = std::min(size_y, max_real_width);  // length projects along width axis from camera's view
-      size_z = std::min(size_z, max_real_height);
-
-      // Unproject to 3D ray in camera frame
-      const double x_cam = (u - cx) / fx;
-      const double y_cam = (v - cy) / fy;
-      const double z_cam = 1.0;
-
-      const double ray_length = std::sqrt(x_cam * x_cam + y_cam * y_cam + z_cam * z_cam);
-      const double x_cam_scaled = (x_cam / ray_length) * depth;
-      const double y_cam_scaled = (y_cam / ray_length) * depth;
-      const double z_cam_scaled = (z_cam / ray_length) * depth;
-
+      // ROS: transform from camera frame to target frame
       geometry_msgs::msg::PointStamped point_camera;
       point_camera.header.frame_id = frame_id;
       point_camera.header.stamp = stamp;
-      point_camera.point.x = x_cam_scaled;
-      point_camera.point.y = y_cam_scaled;
-      point_camera.point.z = z_cam_scaled;
+      point_camera.point.x = proj.x;
+      point_camera.point.y = proj.y;
+      point_camera.point.z = proj.z;
 
       geometry_msgs::msg::PointStamped point_target;
       try {
@@ -625,6 +518,7 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::create3DDetections(
         continue;
       }
 
+      // Build Detection3D message
       vision_msgs::msg::Detection3D det_3d;
       det_3d.header.frame_id = target_frame_;
       det_3d.header.stamp = stamp;
@@ -634,16 +528,15 @@ vision_msgs::msg::Detection3DArray AttributeAssignerNode::create3DDetections(
       det_3d.bbox.center.position.y = point_target.point.y;
       det_3d.bbox.center.position.z = point_target.point.z;
 
-      // Orient bbox to face the ego vehicle (yaw from origin to detection position)
       const double yaw = std::atan2(point_target.point.y, point_target.point.x);
       det_3d.bbox.center.orientation.w = std::cos(yaw / 2.0);
       det_3d.bbox.center.orientation.x = 0.0;
       det_3d.bbox.center.orientation.y = 0.0;
       det_3d.bbox.center.orientation.z = std::sin(yaw / 2.0);
 
-      det_3d.bbox.size.x = size_x;
-      det_3d.bbox.size.y = size_y;
-      det_3d.bbox.size.z = size_z;
+      det_3d.bbox.size.x = proj.size_x;
+      det_3d.bbox.size.y = proj.size_y;
+      det_3d.bbox.size.z = proj.size_z;
 
       detections_3d.detections.push_back(det_3d);
     }
@@ -681,91 +574,23 @@ visualization_msgs::msg::MarkerArray AttributeAssignerNode::create3DMarkers(
     marker.scale.y = det.bbox.size.y;
     marker.scale.z = det.bbox.size.z;
 
-    // Default color: white with transparency
-    marker.color.r = 1.0f;
-    marker.color.g = 1.0f;
-    marker.color.b = 1.0f;
-    marker.color.a = 0.5f;
+    // Build a Detection2D with the same results to query the classifier
+    vision_msgs::msg::Detection2D det_2d;
+    det_2d.results = det.results;
 
-    // Determine type from results and color accordingly
-    bool is_traffic_light = false;
-    bool is_car = false;
-    double best_state_score = -1.0;
-    std::string best_state;
-    double best_behavior_score = 0.0;
-    std::string best_behavior;
-
-    for (const auto & result : det.results) {
-      const std::string & cid = result.hypothesis.class_id;
-
-      if (core_->isTrafficLightClassId(cid)) {
-        is_traffic_light = true;
-      } else if (core_->isCarClassId(cid)) {
-        is_car = true;
-      }
-
-      // Traffic light state
-      if (
-        (cid == "state:red" || cid == "state:yellow" || cid == "state:green") &&
-        result.hypothesis.score > best_state_score)
-      {
-        best_state_score = result.hypothesis.score;
-        best_state = cid;
-      }
-
-      // Car behavior
-      if (
-        (cid == "behavior:braking" || cid == "behavior:turning_left" || cid == "behavior:turning_right" ||
-         cid == "behavior:hazard_lights") &&
-        result.hypothesis.score > best_behavior_score)
-      {
-        best_behavior_score = result.hypothesis.score;
-        best_behavior = cid;
+    // Get color from the matching classifier
+    MarkerColor color{1.0f, 1.0f, 1.0f, 0.5f};  // default white
+    if (core_) {
+      const auto * classifier = core_->findClassifier(det_2d);
+      if (classifier != nullptr) {
+        color = classifier->getMarkerColor(det_2d);
       }
     }
 
-    if (is_traffic_light) {
-      if (best_state == "state:red") {
-        marker.color.r = 1.0f;
-        marker.color.g = 0.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 0.8f;
-      } else if (best_state == "state:yellow") {
-        marker.color.r = 1.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 0.8f;
-      } else if (best_state == "state:green") {
-        marker.color.r = 0.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 0.8f;
-      }
-    } else if (is_car) {
-      // Default car color: cyan
-      marker.color.r = 0.0f;
-      marker.color.g = 0.8f;
-      marker.color.b = 1.0f;
-      marker.color.a = 0.4f;
-      if (best_behavior_score > 0.15) {
-        if (best_behavior == "behavior:braking") {
-          marker.color.r = 1.0f;
-          marker.color.g = 0.0f;
-          marker.color.b = 0.0f;
-          marker.color.a = 0.6f;
-        } else if (best_behavior == "behavior:turning_left" || best_behavior == "behavior:turning_right") {
-          marker.color.r = 1.0f;
-          marker.color.g = 1.0f;
-          marker.color.b = 0.0f;
-          marker.color.a = 0.6f;
-        } else if (best_behavior == "behavior:hazard_lights") {
-          marker.color.r = 1.0f;
-          marker.color.g = 0.65f;
-          marker.color.b = 0.0f;
-          marker.color.a = 0.6f;
-        }
-      }
-    }
+    marker.color.r = color.r;
+    marker.color.g = color.g;
+    marker.color.b = color.b;
+    marker.color.a = color.a;
 
     marker.lifetime = rclcpp::Duration::from_seconds(0.5);
 
@@ -903,16 +728,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
   RCLCPP_INFO(this->get_logger(), "Configuring Attribute Assigner node");
 
   try {
-    Params params;
-    declareParameters(params);
-    core_ = std::make_unique<AttributeAssignerCore>(params);
+    declareParameters();
 
-    // Log configured class IDs
+    // Log configured classifiers
     RCLCPP_INFO(this->get_logger(), "Configuration summary:");
-    RCLCPP_INFO(
-      this->get_logger(), "  - Traffic light class IDs: %zu configured", params.traffic_light_class_ids.size());
-    RCLCPP_INFO(this->get_logger(), "  - Car/vehicle class IDs: %zu configured", params.car_class_ids.size());
-    RCLCPP_INFO(this->get_logger(), "  - Min detection confidence: %.2f", params.min_detection_confidence);
+    RCLCPP_INFO(this->get_logger(), "  - Registered classifiers: %zu", core_->getClassifiers().size());
+    RCLCPP_INFO(this->get_logger(), "  - Min detection confidence: %.2f", core_->getMinDetectionConfidence());
 
     // Declare topic name parameters (for message_filters - remapping doesn't work automatically)
     this->declare_parameter<std::string>("input_multi_image_topic", std::string(kMultiImageTopic));
@@ -937,55 +758,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Attrib
     enable_image_markers_ = this->get_parameter("enable_image_markers").as_bool();
     enable_3d_markers_ = this->get_parameter("enable_3d_markers").as_bool();
 
-    // Declare 3D detection parameters
+    // 3D detection: only target_frame is node-level (sizing is in classifiers)
     this->declare_parameter<std::string>("target_frame", "base_link");
-    this->declare_parameter<double>("traffic_light_assumed_depth", 30.0);
-    this->declare_parameter<double>("car_assumed_depth", 20.0);
-    this->declare_parameter<double>("car_real_width", 1.8);
-    this->declare_parameter<double>("car_real_height", 1.5);
-    this->declare_parameter<double>("car_real_length", 4.5);
-    this->declare_parameter<double>("truck_real_width", 2.5);
-    this->declare_parameter<double>("truck_real_height", 3.5);
-    this->declare_parameter<double>("truck_real_length", 8.0);
-    this->declare_parameter<double>("bus_real_width", 2.5);
-    this->declare_parameter<double>("bus_real_height", 3.2);
-    this->declare_parameter<double>("bus_real_length", 12.0);
-
     target_frame_ = this->get_parameter("target_frame").as_string();
-    traffic_light_assumed_depth_ = this->get_parameter("traffic_light_assumed_depth").as_double();
-    car_assumed_depth_ = this->get_parameter("car_assumed_depth").as_double();
-    car_real_width_ = this->get_parameter("car_real_width").as_double();
-    car_real_height_ = this->get_parameter("car_real_height").as_double();
-    car_real_length_ = this->get_parameter("car_real_length").as_double();
-    truck_real_width_ = this->get_parameter("truck_real_width").as_double();
-    truck_real_height_ = this->get_parameter("truck_real_height").as_double();
-    truck_real_length_ = this->get_parameter("truck_real_length").as_double();
-    bus_real_width_ = this->get_parameter("bus_real_width").as_double();
-    bus_real_height_ = this->get_parameter("bus_real_height").as_double();
-    bus_real_length_ = this->get_parameter("bus_real_length").as_double();
 
     RCLCPP_INFO(this->get_logger(), "3D detection settings:");
     RCLCPP_INFO(this->get_logger(), "  - Target frame: '%s'", target_frame_.c_str());
-    RCLCPP_INFO(this->get_logger(), "  - Traffic light assumed depth: %.1f m", traffic_light_assumed_depth_);
-    RCLCPP_INFO(this->get_logger(), "  - Car assumed depth: %.1f m", car_assumed_depth_);
-    RCLCPP_INFO(
-      this->get_logger(),
-      "  - Car dimensions (WxHxL): %.1f x %.1f x %.1f m",
-      car_real_width_,
-      car_real_height_,
-      car_real_length_);
-    RCLCPP_INFO(
-      this->get_logger(),
-      "  - Truck dimensions (WxHxL): %.1f x %.1f x %.1f m",
-      truck_real_width_,
-      truck_real_height_,
-      truck_real_length_);
-    RCLCPP_INFO(
-      this->get_logger(),
-      "  - Bus dimensions (WxHxL): %.1f x %.1f x %.1f m",
-      bus_real_width_,
-      bus_real_height_,
-      bus_real_length_);
 
     // Initialize TF2 buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());

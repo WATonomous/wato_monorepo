@@ -78,14 +78,13 @@ public:
    */
   explicit AttributeAssignerNode(const rclcpp::NodeOptions & options);
 
-  static constexpr auto kMultiImageTopic = "input_multi_image";  ///< Input MultiImage topic
-  static constexpr auto kMultiCameraInfoTopic = "input_multi_camera_info";  ///< Input MultiCameraInfo topic
-  static constexpr auto kInputTopic = "input_detections";  ///< Input detections topic name
-  static constexpr auto kOutputTopic = "output_detections";  ///< Output enriched detections topic name
-  static constexpr auto kImageMarkersTopic = "/perception/enriched_detection_markers";  ///< Image markers topic
-  static constexpr auto kDetections3DTopic = "/perception/detections_3d";  ///< 3D detections topic
-  static constexpr auto kDetections3DMarkersTopic =
-    "/perception/detections_3d_markers";  ///< 3D detection markers topic
+  static constexpr auto kMultiImageTopic = "input_multi_image";  // Input MultiImage topic
+  static constexpr auto kMultiCameraInfoTopic = "input_multi_camera_info";  // Input MultiCameraInfo topic
+  static constexpr auto kInputTopic = "input_detections";  // Input detections topic name
+  static constexpr auto kOutputTopic = "output_detections";  // Output enriched detections topic name
+  static constexpr auto kImageMarkersTopic = "/perception/enriched_detection_markers";  // Image markers topic
+  static constexpr auto kDetections3DTopic = "/perception/detections_3d";  // 3D detections topic
+  static constexpr auto kDetections3DMarkersTopic = "/perception/detections_3d_markers";  // 3D detection markers topic
 
   /**
    * @brief Lifecycle: configure parameters, core, QoS, and diagnostics.
@@ -130,9 +129,11 @@ public:
 private:
   /**
    * @brief Declare and populate core parameters from the parameter server.
-   * @param params Output parameter struct
+   *
+   * Builds classifier-specific params, constructs classifiers, and registers
+   * them with the core. Also populates node-owned truck/bus ID sets for 3D sizing.
    */
-  void declareParameters(Params & params);
+  void declareParameters();
 
   /**
    * @brief Synced callback: MultiImage + detections via ApproximateTime sync.
@@ -237,69 +238,64 @@ private:
   using SyncPolicy = message_filters::sync_policies::ApproximateTime<MultiImageMsg, DetectionsMsg>;
   using Synchronizer = message_filters::Synchronizer<SyncPolicy>;
 
+  // Core logic
+  std::unique_ptr<AttributeAssignerCore> core_;
+
+  // ROS subscribers and synchronization
   std::shared_ptr<ImageSub> multi_image_sub_;
   std::shared_ptr<DetSub> detections_sub_;
   std::shared_ptr<Synchronizer> sync_;
-
-  // CameraInfo is cached separately (changes infrequently)
   rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
   std::mutex sync_mutex_;
   MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
 
-  // TF2 for camera transforms
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
+  // ROS publishers
   rclcpp_lifecycle::LifecyclePublisher<deep_msgs::msg::MultiDetection2DArray>::SharedPtr detections_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::ImageMarker>::SharedPtr image_markers_pub_;
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detections_3d_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr detections_3d_markers_pub_;
 
-  std::unique_ptr<AttributeAssignerCore> core_;
+  // TF2 for camera-to-base_link transforms
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  rclcpp::QoS subscriber_qos_;  ///< QoS profile for detection subscriber (configured in on_configure)
-  rclcpp::QoS publisher_qos_;  ///< QoS profile for publisher (configured in on_configure)
+  // QoS profiles
+  rclcpp::QoS subscriber_qos_;
+  rclcpp::QoS publisher_qos_;
 
-  std::string multi_image_topic_;  ///< Configured multi-image topic name
-  std::string multi_camera_info_topic_;  ///< Configured multi-camera-info topic name
-  std::string input_detections_topic_;  ///< Configured input detections topic name
-  std::string output_detections_topic_;  ///< Configured output detections topic name
-  double sync_max_time_diff_sec_;  ///< Maximum time difference for synchronization (seconds)
-  std::string target_frame_;  ///< Target frame for 3D detections (e.g., "base_link")
-  double traffic_light_assumed_depth_;  ///< Assumed depth for traffic lights in meters
-  double car_assumed_depth_;  ///< Assumed depth for cars in meters
-  double car_real_width_;  ///< Assumed car width in meters
-  double car_real_height_;  ///< Assumed car height in meters
-  double car_real_length_;  ///< Assumed car length in meters
+  // Topic configuration
+  std::string multi_image_topic_;
+  std::string multi_camera_info_topic_;
+  std::string input_detections_topic_;
+  std::string output_detections_topic_;
 
-  double truck_real_width_;  ///< Assumed truck width in meters
-  double truck_real_height_;  ///< Assumed truck height in meters
-  double truck_real_length_;  ///< Assumed truck length in meters
+  // Synchronization parameters
+  int sync_queue_size_{10};
+  double sync_max_time_diff_ms_{200.0};
+  double sync_max_time_diff_sec_;
 
-  double bus_real_width_;  ///< Assumed bus width in meters
-  double bus_real_height_;  ///< Assumed bus height in meters
-  double bus_real_length_;  ///< Assumed bus length in meters
+  // 3D detection: TF target frame
+  std::string target_frame_;
 
-  bool enable_image_markers_{true};  ///< Enable 2D image marker overlays
-  bool enable_3d_markers_{true};  ///< Enable 3D visualization markers
+  // Feature toggles
+  bool enable_image_markers_{true};
+  bool enable_3d_markers_{true};
 
-  std::atomic<uint64_t> multi_image_msg_count_{0};  ///< Count of multi-image messages received
-  std::atomic<uint64_t> detections_msg_count_{0};  ///< Count of detection messages received
-  std::atomic<uint64_t> synced_msg_count_{0};  ///< Count of synchronized message pairs
+  // Statistics
+  std::atomic<uint64_t> multi_image_msg_count_{0};
+  std::atomic<uint64_t> detections_msg_count_{0};
+  std::atomic<uint64_t> synced_msg_count_{0};
+  std::atomic<uint64_t> total_processed_{0};
+  std::atomic<double> total_processing_time_ms_{0.0};
+  std::atomic<double> last_processing_time_ms_{0.0};
+  std::chrono::steady_clock::time_point last_stats_log_time_;
+  static constexpr std::chrono::seconds kStatsLogInterval{30};
 
-  std::atomic<uint64_t> total_processed_{0};  ///< Total detection arrays processed
-  std::atomic<double> total_processing_time_ms_{0.0};  ///< Cumulative processing time (ms)
-  std::atomic<double> last_processing_time_ms_{0.0};  ///< Processing time for last array (ms)
-  std::chrono::steady_clock::time_point last_stats_log_time_;  ///< Last statistics log time
-  static constexpr std::chrono::seconds kStatsLogInterval{30};  ///< Statistics logging interval
-
-  std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_;  ///< Diagnostic updater
-  std::unique_ptr<diagnostic_updater::TopicDiagnostic> pub_diagnostic_;  ///< Topic diagnostics for publisher
-  double min_freq_{0.0};  ///< Minimum expected publishing frequency (Hz)
-  double max_freq_{100.0};  ///< Maximum expected publishing frequency (Hz)
-
-  int sync_queue_size_{10};  ///< Message filters sync queue size
-  double sync_max_time_diff_ms_{200.0};  ///< Max time difference for message sync (ms)
+  // Diagnostics
+  std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_;
+  std::unique_ptr<diagnostic_updater::TopicDiagnostic> pub_diagnostic_;
+  double min_freq_{0.0};
+  double max_freq_{100.0};
 };
 
 }  // namespace wato::perception::attribute_assigner

@@ -14,259 +14,143 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include <opencv2/core/mat.hpp>
 #include <vision_msgs/msg/detection2_d.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
-#include <vision_msgs/msg/object_hypothesis_with_pose.hpp>
+
+#include "attribute_assigner/attribute_classifier.hpp"
 
 namespace wato::perception::attribute_assigner
 {
 
 /**
- * @brief Parameters for the attribute assigner core.
+ * @brief Camera intrinsics needed for 3D projection (no ROS dependencies).
  */
-struct Params
+struct CameraIntrinsics
 {
-  /// Class IDs recognized as traffic lights (e.g., "traffic_light", "9")
-  std::vector<std::string> traffic_light_class_ids;
-
-  /// Class IDs recognized as cars/vehicles (e.g., "car", "2", "truck", "7")
-  std::vector<std::string> car_class_ids;
-
-  /// Class IDs recognized specifically as trucks (subset of car_class_ids)
-  std::vector<std::string> truck_class_ids;
-
-  /// Class IDs recognized specifically as buses (subset of car_class_ids)
-  std::vector<std::string> bus_class_ids;
-
-  /// Minimum detection confidence to process a detection
-  double min_detection_confidence{0.3};
-
-  /// Traffic light: min saturation and value (0-255) to consider a region "lit"
-  double traffic_light_min_saturation{60.0};
-  double traffic_light_min_value{80.0};
-
-  /// Traffic light: fraction of width/height to ignore on each side (0.0-0.5)
-  /// e.g. 0.20 = ignore 20% on each side, analyze center 60%
-  double traffic_light_strip_margin{0.20};
-
-  /// Traffic light hue boundaries (OpenCV H 0-180)
-  /// Red wraps around: H <= red_hue_lo OR H >= red_hue_hi
-  double traffic_light_red_hue_lo{10.0};
-  double traffic_light_red_hue_hi{170.0};
-  /// Yellow: red_hue_lo < H <= yellow_hue_hi
-  double traffic_light_yellow_hue_hi{35.0};
-  /// Green: yellow_hue_hi < H < green_hue_hi
-  double traffic_light_green_hue_hi{85.0};
-
-  /// Car: min brightness and saturation (HSV) for brake light detection
-  double car_brake_min_brightness{90.0};
-  double car_brake_min_saturation{40.0};
-  /// Car: red hue range for brake lights (same wrapping as traffic lights)
-  double car_red_hue_lo{10.0};
-  double car_red_hue_hi{170.0};
-  /// Car: amber hue range (OpenCV H 0-180) and min saturation/value for turn/hazard
-  double car_amber_hue_lo{12.0};
-  double car_amber_hue_hi{35.0};
-  double car_amber_min_saturation{80.0};
-  double car_amber_min_value{100.0};
+  double fx{0.0};  // Focal length x (pixels)
+  double fy{0.0};  // Focal length y (pixels)
+  double cx{0.0};  // Principal point x (pixels)
+  double cy{0.0};  // Principal point y (pixels)
 };
 
 /**
- * @brief Traffic light state attribute confidences.
- *
- * Represents the confidence scores for each possible traffic light state.
- * Downstream consumers can inspect these to determine the most likely state.
+ * @brief Result of projecting a 2D detection to 3D (in camera frame).
  */
-struct TrafficLightAttributes
+struct Projection3D
 {
-  double green{0.0};  ///< Confidence that the light is green
-  double yellow{0.0};  ///< Confidence that the light is yellow
-  double red{0.0};  ///< Confidence that the light is red
-};
-
-/**
- * @brief Car behavior attribute confidences.
- *
- * Represents the confidence scores for each possible car behavior.
- * Downstream consumers can inspect these to determine detected behaviors.
- */
-struct CarAttributes
-{
-  double turning_left{0.0};  ///< Confidence the car is turning left
-  double turning_right{0.0};  ///< Confidence the car is turning right
-  double braking{0.0};  ///< Confidence the car is braking
-  double hazard_lights{0.0};  ///< Confidence the car has hazard lights on
+  double x{0.0};  // X position in camera frame (meters)
+  double y{0.0};  // Y position in camera frame (meters)
+  double z{0.0};  // Z position in camera frame (meters)
+  double size_x{0.0};  // Clamped width (meters)
+  double size_y{0.0};  // Clamped length (meters)
+  double size_z{0.0};  // Clamped height (meters)
 };
 
 /**
  * @brief Core logic for assigning semantic attributes to 2D detections.
  *
- * Processes a Detection2DArray, identifies traffic lights and cars by their
- * class IDs, and assigns each detection's ObjectHypothesisWithPose results
- * array with attribute hypotheses. The original detection hypothesis is
- * preserved; attributes are appended with a namespaced class_id prefix.
+ * Uses a plugin-based classifier system: each registered AttributeClassifier
+ * checks if it handles a detection and, if so, classifies the crop and appends
+ * attribute hypotheses. New classifiers can be added by implementing
+ * AttributeClassifier and registering them via addClassifier().
  *
- * Traffic light attributes use the prefix "state:" (e.g., "state:green").
- * Car behavior attributes use the prefix "behavior:" (e.g., "behavior:braking").
- *
- * @note The current implementation uses heuristic-based attribute assignment.
- *       In production, these methods should be replaced with ML-based classifiers
- *       operating on cropped image regions.
+ * Built-in classifiers:
+ * - TrafficLightClassifier: HSV-based state detection (state:red, state:yellow, state:green)
+ * - CarBehaviorClassifier: blob-based signal detection (behavior:braking, behavior:turning_*, behavior:hazard_lights)
  */
 class AttributeAssignerCore
 {
 public:
-  AttributeAssignerCore() = delete;
+  /**
+   * @brief Construct the core with a minimum detection confidence threshold.
+   * @param min_detection_confidence Detections below this score are passed through unmodified
+   */
+  explicit AttributeAssignerCore(double min_detection_confidence);
 
   /**
-   * @brief Construct the core with the given parameters.
-   * @param params Configuration parameters (class IDs, thresholds)
+   * @brief Register an attribute classifier.
+   *
+   * Classifiers are evaluated in registration order; first match wins.
+   *
+   * @param classifier The classifier to register (ownership transferred)
    */
-  explicit AttributeAssignerCore(const Params & params);
+  void addClassifier(std::unique_ptr<AttributeClassifier> classifier);
 
   /**
    * @brief Process an entire Detection2DArray using the image and enrich with attributes.
    *
-   * Crops the image to each detection bbox, runs color-based traffic light state
-   * detection and car signal detection (braking, turn, hazard), and appends
-   * attribute hypotheses to each matching detection.
+   * For each detection, iterates registered classifiers. The first matching classifier
+   * crops the image and appends attribute hypotheses.
    *
-   * @param image The image (e.g. from the camera) in BGR; must match the frame of the detections
-   * @param input The input detection array (YOLOv8 COCO-style class IDs: 9=traffic_light, 2=car, 7=truck, 5=bus)
+   * @param image The image in BGR; must match the frame of the detections
+   * @param input The input detection array
    * @return Enriched Detection2DArray with attribute hypotheses added
    */
   vision_msgs::msg::Detection2DArray process(const cv::Mat & image, const vision_msgs::msg::Detection2DArray & input);
 
-  /**
-   * @brief Total detections processed across all calls.
-   * @return Total detection count
-   */
   uint64_t getProcessedCount() const;
-
-  /**
-   * @brief Processing time (ms) for the most recent call.
-   * @return Processing time in milliseconds
-   */
   double getLastProcessingTimeMs() const;
 
-  /**
-   * @brief Get the parameters used by this core instance.
-   * @return Reference to the parameters struct
-   */
-  const Params & getParams() const
+  double getMinDetectionConfidence() const
   {
-    return params_;
+    return min_detection_confidence_;
   }
 
   /**
-   * @brief Check if a detection's best hypothesis matches a traffic light class.
-   * @param det The detection to check
-   * @return true if the detection is a traffic light
+   * @brief Get the registered classifiers (read-only).
    */
-  bool isTrafficLight(const vision_msgs::msg::Detection2D & det) const;
+  const std::vector<std::unique_ptr<AttributeClassifier>> & getClassifiers() const
+  {
+    return classifiers_;
+  }
 
   /**
-   * @brief Check if a detection's best hypothesis matches a car/vehicle class.
+   * @brief Find the first classifier that matches a detection.
    * @param det The detection to check
-   * @return true if the detection is a car or vehicle
+   * @return Pointer to the matching classifier, or nullptr if none match
    */
-  bool isCar(const vision_msgs::msg::Detection2D & det) const;
-
-  /// Check if a class_id string matches a traffic light class.
-  bool isTrafficLightClassId(const std::string & class_id) const;
-
-  /// Check if a class_id string matches a car/vehicle class.
-  bool isCarClassId(const std::string & class_id) const;
-
-  /// Check if a class_id string matches a truck class.
-  bool isTruckClassId(const std::string & class_id) const;
-
-  /// Check if a class_id string matches a bus class.
-  bool isBusClassId(const std::string & class_id) const;
+  const AttributeClassifier * findClassifier(const vision_msgs::msg::Detection2D & det) const;
 
   /**
-   * @brief Get the class_id of the highest-scoring hypothesis.
-   * @param det The detection to inspect
-   * @return The class_id string, or empty string if no hypotheses exist
+   * @brief Find the first classifier that matches a class_id string.
+   * @param class_id The class identifier to check
+   * @return Pointer to the matching classifier, or nullptr if none match
    */
+  const AttributeClassifier * findClassifierByClassId(const std::string & class_id) const;
+
   static std::string getBestClassId(const vision_msgs::msg::Detection2D & det);
-
-  /**
-   * @brief Get the score of the highest-scoring hypothesis.
-   * @param det The detection to inspect
-   * @return The score, or 0.0 if no hypotheses exist
-   */
   static double getBestScore(const vision_msgs::msg::Detection2D & det);
 
-  /**
-   * @brief Crop image to detection bbox with clamping; returns empty Mat if invalid.
-   */
   cv::Mat cropToBbox(const cv::Mat & image, const vision_msgs::msg::Detection2D & det) const;
 
   /**
-   * @brief Classify traffic light state from the cropped image using HSV color detection.
+   * @brief Project a 2D detection to 3D using camera intrinsics and box parameters.
    *
-   * Splits the crop into regions (vertical: top/middle/bottom = red/yellow/green).
-   * Determines which region is "lit" (high saturation and value), then maps hue to color.
-   * Uses integral images for O(1) region mean calculations.
+   * Pure math: estimates depth from known physical size and pixel footprint,
+   * clamps 3D dimensions to not exceed the 2D bbox projection, and unprojects
+   * the bbox center to a 3D ray scaled to the estimated depth.
    *
-   * @param crop Cropped image (traffic light bbox)
-   * @return Attribute confidences for each traffic light state
+   * @param intrinsics Camera intrinsics (fx, fy, cx, cy)
+   * @param det The 2D detection (bbox center and size in pixels)
+   * @param box_params Physical 3D box parameters from the classifier
+   * @return Projection3D with 3D position (in camera frame) and clamped dimensions
    */
-  TrafficLightAttributes classifyTrafficLightState(const cv::Mat & crop) const;
-
-  /**
-   * @brief Classify car behavior from the cropped image: brake lights and turn/hazard signals.
-   *
-   * Converts crop to HSV once and uses integral images for O(1) region mean calculations.
-   * Bottom region: red hue + high S/V -> braking. Left/right regions: amber hue -> turn or hazard.
-   *
-   * @param crop Cropped image (car/vehicle bbox)
-   * @return Attribute confidences for each car behavior
-   */
-  CarAttributes classifyCarBehavior(const cv::Mat & crop) const;
-
-  /**
-   * @brief Append traffic light attribute hypotheses to a detection.
-   * @param det The detection to enrich (modified in place)
-   * @param attrs The attribute confidences to add
-   */
-  static void appendTrafficLightHypotheses(vision_msgs::msg::Detection2D & det, const TrafficLightAttributes & attrs);
-
-  /**
-   * @brief Append car behavior attribute hypotheses to a detection.
-   * @param det The detection to enrich (modified in place)
-   * @param attrs The attribute confidences to add
-   */
-  static void appendCarHypotheses(vision_msgs::msg::Detection2D & det, const CarAttributes & attrs);
-
-  /**
-   * @brief Create and return an ObjectHypothesisWithPose.
-   * @param class_id The class identifier string
-   * @param score The confidence score
-   * @return A populated ObjectHypothesisWithPose message
-   */
-  static vision_msgs::msg::ObjectHypothesisWithPose makeHypothesis(const std::string & class_id, double score);
-
-  /// Attribute class_id prefix for traffic light states
-  static constexpr auto kStatePrefix = "state:";
-  /// Attribute class_id prefix for car behaviors
-  static constexpr auto kBehaviorPrefix = "behavior:";
+  static Projection3D projectTo3D(
+    const CameraIntrinsics & intrinsics, const vision_msgs::msg::Detection2D & det, const BoxParams3D & box_params);
 
 private:
-  Params params_;
-  std::unordered_set<std::string> traffic_light_ids_;  ///< Fast lookup for traffic light class IDs
-  std::unordered_set<std::string> car_ids_;  ///< Fast lookup for car class IDs
-  std::unordered_set<std::string> truck_ids_;  ///< Fast lookup for truck class IDs
-  std::unordered_set<std::string> bus_ids_;  ///< Fast lookup for bus class IDs
+  double min_detection_confidence_;
 
-  uint64_t processed_count_{0};  ///< Total detections processed
-  double last_processing_time_ms_{0.0};  ///< Processing time for last call (ms)
+  /// Registered attribute classifiers (processed in order; first match wins)
+  std::vector<std::unique_ptr<AttributeClassifier>> classifiers_;
+
+  uint64_t processed_count_{0};
+  double last_processing_time_ms_{0.0};
 };
 
 }  // namespace wato::perception::attribute_assigner

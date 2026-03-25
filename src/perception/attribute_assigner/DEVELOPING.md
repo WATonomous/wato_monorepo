@@ -11,6 +11,24 @@ Given a stream of 2D detections (from YOLOv8 or similar) and synchronized camera
 3. **Estimates 3D bounding boxes** for traffic lights and vehicles using monocular depth estimation
 4. **Publishes visualization markers** for debugging in Foxglove
 
+## Parameters
+
+All parameters are set in `perception_bringup/config/perception_bringup.yaml` under `/**/attribute_assigner_node`. The node's own `config/params.yaml` contains defaults.
+
+### Quick Reference
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_detection_confidence` | 0.3 | Minimum YOLO score to process a detection |
+| `traffic_light_strip_margin` | 0.25 | Fraction to ignore on each side of TL crop |
+| `car_real_width/height/length` | 1.8/1.8/6.0 | Car dimensions for depth estimation (m) |
+| `truck_real_width/height/length` | 2.5/3.5/8.0 | Truck dimensions (m) |
+| `bus_real_width/height/length` | 2.5/3.2/12.0 | Bus dimensions (m) |
+| `enable_image_markers` | true | Toggle 2D overlay markers |
+| `enable_3d_markers` | true | Toggle 3D visualization markers |
+| `sync_max_time_diff_ms` | 400.0 | Max time difference for ApproximateTime sync (ms) |
+| `target_frame` | "base_link" | TF frame for 3D detections |
+
 ## Architecture
 
 ```
@@ -28,7 +46,32 @@ Given a stream of 2D detections (from YOLOv8 or similar) and synchronized camera
 ### Node / Core Separation
 
 - **`AttributeAssignerNode`** — ROS 2 lifecycle node handling subscriptions, message synchronization, TF lookups, 3D projection, and marker publishing. Contains no CV logic.
-- **`AttributeAssignerCore`** — Pure C++ class with no ROS dependencies. Owns all OpenCV-based classification logic (HSV analysis, blob detection). Testable in isolation.
+- **`AttributeAssignerCore`** — Pure C++ class with no ROS dependencies. Iterates registered classifiers for each detection. Testable in isolation.
+
+### Classifier Plugin System
+
+Attribute classification uses a plugin architecture defined by the `AttributeClassifier` abstract interface. Each classifier is a self-contained class that:
+
+1. **`matches(det)`** — checks if the detection's class IDs are relevant
+2. **`matchesClassId(id)`** — checks a single class_id string
+3. **`classify(crop, det)`** — analyzes the cropped image and appends hypotheses to the detection
+
+Built-in classifiers:
+
+| Classifier | Prefix | File | Description |
+|------------|--------|------|-------------|
+| `TrafficLightClassifier` | `state:` | `traffic_light_classifier.cpp` | HSV center-strip analysis for red/yellow/green |
+| `CarBehaviorClassifier` | `behavior:` | `car_behavior_classifier.cpp` | Red/amber blob detection for braking/turning/hazard |
+
+#### Adding a New Classifier
+
+1. Create `include/attribute_assigner/my_classifier.hpp` inheriting from `AttributeClassifier`
+2. Implement `matches()`, `matchesClassId()`, and `classify()`
+3. Create `src/my_classifier.cpp` with the implementation
+4. Add the `.cpp` to `CMakeLists.txt` under `${PROJECT_NAME}_core`
+5. Define a `Params` struct inside the classifier with its class IDs and threshold fields
+6. Declare the ROS parameters in `AttributeAssignerNode::declareParameters()`, build the `Params`, and register via `core_->addClassifier(std::make_unique<MyClassifier>(params))`
+7. Add the parameter values to the bringup yaml
 
 ## Topics
 
@@ -68,20 +111,13 @@ Attributes are appended as additional `ObjectHypothesisWithPose` entries in each
 
 ## 3D Detection Pipeline
 
-Monocular depth estimation using known physical dimensions:
-
-1. **Depth estimation**: `depth = (real_width * focal_length) / bbox_width_pixels`
-   - Traffic lights use height instead of width
-   - Per-class dimensions for car, truck, and bus
-2. **Projection clamping**: 3D box dimensions are clamped so their projection does not exceed the 2D bbox
-3. **TF transform**: 3D point is transformed from camera frame to `target_frame` (default: `base_link`)
-4. **Orientation**: Vehicle boxes are oriented to face the ego vehicle (yaw from origin to detection position)
+Monocular depth estimation using extrinsics and intrinsics of cameras is for estimating 3D bounding box positions
 
 ### Accuracy: Traffic Lights vs Vehicles
 
-Traffic light 3D positions are significantly more accurate than vehicle positions because traffic lights are a **standardized physical size** — their real-world dimensions are known and consistent. This means the monocular depth estimate (`depth = real_height * fy / bbox_height_pixels`) is reliable.
+Traffic light 3D positions are significantly more accurate than vehicle positions because traffic lights are a **standardized physical size** meaning their real-world dimensions are known and consistent.
 
-Vehicles, on the other hand, vary widely in size. A compact car and a full-size SUV both map to class `car` but differ by over a meter in every dimension. The configurable per-class sizes (car/truck/bus) are averages, so depth estimates will be over- or under-estimated for vehicles that deviate from the assumed dimensions.
+Vehicles, on the other hand, vary widely in size. A compact car and a full-size SUV both map to class `car` but differ by over a meter in every dimension. The configurable per-class sizes (car/truck/bus) are averages, so depth estimates will be over or under estimated for vehicles that deviate from the assumed dimensions.
 
 ### Known Limitations
 
@@ -119,24 +155,6 @@ Uses a single-pass HSV scan of the detection crop:
 - **Hazard lights**: amber pixels on both sides simultaneously
 
 Key params: `car_brake_min_brightness`, `car_brake_min_saturation`, `car_red_hue_lo/hi`, `car_amber_*`
-
-## Parameters
-
-All parameters are set in `perception_bringup/config/perception_bringup.yaml` under `/**/attribute_assigner_node`. The node's own `config/params.yaml` contains defaults.
-
-### Quick Reference
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `min_detection_confidence` | 0.3 | Minimum YOLO score to process a detection |
-| `traffic_light_strip_margin` | 0.25 | Fraction to ignore on each side of TL crop |
-| `car_real_width/height/length` | 1.8/1.8/6.0 | Car dimensions for depth estimation (m) |
-| `truck_real_width/height/length` | 2.5/3.5/8.0 | Truck dimensions (m) |
-| `bus_real_width/height/length` | 2.5/3.2/12.0 | Bus dimensions (m) |
-| `enable_image_markers` | true | Toggle 2D overlay markers |
-| `enable_3d_markers` | true | Toggle 3D visualization markers |
-| `sync_max_time_diff_ms` | 2000.0 | Max time difference for ApproximateTime sync (ms) |
-| `target_frame` | "base_link" | TF frame for 3D detections |
 
 ## Common Issues
 
