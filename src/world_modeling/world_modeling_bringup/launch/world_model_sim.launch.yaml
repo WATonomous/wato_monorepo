@@ -40,7 +40,7 @@ launch:
       name: use_sim_time
       default: "true"
       description: Use simulation time from /clock topic
-      
+
   - arg:
       name: log_behaviour_node
       default: "info"
