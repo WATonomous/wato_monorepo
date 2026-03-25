@@ -1,0 +1,9 @@
+# Output file path for the map (e.g. "/tmp/my_map.map")
+# If empty, uses the default save path from config.
+string filepath
+---
+# Whether the save operation succeeded
+bool success
+
+# Human-readable status message
+string message

@@ -1,0 +1,418 @@
+{
+  "configById": {
+    "CallService!36vhq2p": {
+      "requestPayload": "{\n  \"directory\": \"/ws/src/world_modeling/test_track_map\",\n  \"resolution\": 0.4\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/slam/save_map"
+    },
+    "Plot!3lzp51a": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.w",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.x",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.y",
+          "enabled": true,
+          "color": "#f7df71"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.orientation.z",
+          "enabled": true,
+          "color": "#5cd6a9"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!3veuhss": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.w",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.x",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.y",
+          "enabled": true,
+          "color": "#f7df71"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.z",
+          "enabled": true,
+          "color": "#5cd6a9"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!4ayfaqz": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/odom.pose.pose.position.x",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/odom.pose.pose.orientation.y",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/odom.pose.pose.orientation.z",
+          "enabled": true,
+          "color": "#f7df71"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/odom.pose.pose.orientation.z",
+          "enabled": true,
+          "color": "#5cd6a9"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!9kkrml": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.position.x",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.position.y",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry.pose.pose.position.z",
+          "enabled": true,
+          "color": "#f7df71"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!1o6hnri": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.position.x",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.position.y",
+          "enabled": true,
+          "color": "#f5774d"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.pose.pose.position.z",
+          "enabled": true,
+          "color": "#f7df71"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Image!3apg1a1": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_nn/image_rect_compressed",
+        "calibrationTopic": "/camera_pano_nn/camera_info"
+      }
+    },
+    "Image!x2bmzq": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_ss/image_rect_compressed",
+        "calibrationTopic": "/camera_pano_ss/camera_info"
+      }
+    },
+    "3D!3iebfs2": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 654.3721929205641,
+        "phi": 36.16197633881282,
+        "thetaOffset": -13.983358678133591,
+        "targetOffset": [
+          60.67333489392988,
+          -10.843622397953316,
+          0.00012855214343187547
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "scene": {
+        "transforms": {
+          "labelSize": 0.07
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/slam/visualization/map": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.528
+        },
+        "/slam/path": {
+          "visible": true
+        },
+        "/slam/visualization/factor_graph": {
+          "visible": true
+        },
+        "/lidar_cc/velodyne_points": {
+          "visible": true,
+          "colorField": "ring",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.51
+        },
+        "/liso/submap": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/world_modeling/slam/visualization/map": {
+          "visible": true,
+          "colorMode": "colormap",
+          "colorField": "z",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.206
+        },
+        "/world_modeling/slam/visualization/factor_graph": {
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "b2241ef7-06c8-4b6f-861e-62e3472986f1",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "map"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "CallService!36vhq2p",
+    "second": {
+      "direction": "row",
+      "first": {
+        "first": {
+          "first": "Plot!3lzp51a",
+          "second": {
+            "first": "Plot!3veuhss",
+            "second": "Plot!4ayfaqz",
+            "direction": "row"
+          },
+          "direction": "row",
+          "splitPercentage": 33.496332518337404
+        },
+        "second": {
+          "first": "Plot!9kkrml",
+          "second": "Plot!1o6hnri",
+          "direction": "row"
+        },
+        "direction": "column"
+      },
+      "second": {
+        "direction": "row",
+        "first": {
+          "first": "Image!3apg1a1",
+          "second": "Image!x2bmzq",
+          "direction": "column",
+          "splitPercentage": 50
+        },
+        "second": "3D!3iebfs2",
+        "splitPercentage": 15.353121801432968
+      },
+      "splitPercentage": 45.74944071588368
+    },
+    "splitPercentage": 11.83046110852352
+  }
+}

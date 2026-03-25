@@ -53,21 +53,4 @@ def generate_launch_description():
         output="screen",
     )
 
-    navsat_transform = Node(
-        package="robot_localization",
-        executable="navsat_transform_node",
-        name="navsat_transform",
-        parameters=[config_file],
-        output="screen",
-        remappings=[
-            ("imu", "/imu"),
-            ("gps/fix", "/gnss"),
-            # ("gps/filtered", "/localization/gps/filtered"),
-            ("odometry/gps", "/localization/odometry/gps"),
-            ("odometry/filtered", "/localization/odometry/filtered/global"),
-        ],
-    )
-
-    return LaunchDescription(
-        [localization_param, ekf_local, ekf_global, navsat_transform]
-    )
+    return LaunchDescription([localization_param, ekf_local, ekf_global])

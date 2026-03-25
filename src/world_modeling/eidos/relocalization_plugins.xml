@@ -1,0 +1,5 @@
+<library path="eidos_plugins">
+  <class name="eidos::GpsIcpRelocalization" type="eidos::GpsIcpRelocalization" base_class_type="eidos::RelocalizationPlugin">
+    <description>GPS + ICP relocalization against prior map</description>
+  </class>
+</library>

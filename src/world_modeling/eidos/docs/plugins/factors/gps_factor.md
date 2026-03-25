@@ -1,0 +1,38 @@
+# GpsFactor
+
+**Class:** `eidos::GpsFactor`
+**Type:** Factor (latching via `latchFactor`)
+**XML:** `factor_plugins.xml`
+
+Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated rotation and offset to produce map-frame coordinates, then attaches unary `gtsam::GPSFactor` entries to states created by other plugins. Owns a `StaticTransformBroadcaster` for the `utm -> map` static TF. On first accepted fix, the UTM-to-map offset is computed from the current estimator pose and the IMU heading, then persisted via MapManager. Registers `gps_factor/position`, `gps_factor/utm_position`, and global `gps_factor/utm_to_map` for persistence.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `gps_topic` | string | `"gps/fix"` | Input NavSatFix topic. |
+| `imu_topic` | string | `"imu/data"` | IMU topic for heading (yaw) used to initialize the UTM-to-map rotation. |
+| `add_factors` | bool | `true` | Whether to add GPS factors to the graph. When false, GPS data is still tracked and persisted but no factors are created. |
+| `max_cov` | double | `2.0` | Maximum accepted position covariance from the GPS sensor. Fixes with higher covariance are rejected. |
+| `use_elevation` | bool | `false` | Whether to use GPS elevation in the factor. When false, z noise is set very high so the factor has no z influence. |
+| `min_radius` | double | `5.0` | Minimum distance (meters) between consecutive GPS factors (distance gate). |
+| `gps_cov` | double[3] | `[1.0, 1.0, 1.0]` | Minimum noise floor variances [x, y, z] for the GPS factor. Actual noise is `max(sensor_cov, gps_cov)`. |
+| `pose_cov_threshold` | double | `25.0` | Pose covariance threshold. |
+
+## Notes
+
+- GPS never creates its own states in the graph; it only latches onto states created by other plugins (e.g. LISO).
+- The UTM-to-map offset is persisted as a global entry in MapManager and is reloaded on `activate()` when a prior map is loaded.
+- This is the only plugin that broadcasts TF directly (`utm -> map` static TF). All other TF is handled by TransformManager.
+- A time window of 0.2 seconds is used to match GPS fixes to state timestamps.
+
+## Mapping vs Localization
+
+| Parameter | Mapping | Localization |
+|---|---|---|
+| `add_factors` | `true` | `false` |
+| `min_radius` | `5.0` | `200.0` |
+
+In **mapping**, GPS adds unary position constraints to the graph at regular intervals (every `min_radius` meters of travel). These constraints prevent drift over long distances and anchor the map to a global coordinate frame.
+
+In **localization**, GPS does not add factors. It still loads the saved `utm_to_map` offset from the prior map and broadcasts the `utm -> map` static TF, which is needed by downstream consumers (e.g. the world model for lanelet map loading). The `min_radius` is set high since no factors are produced anyway.
