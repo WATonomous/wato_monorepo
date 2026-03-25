@@ -33,6 +33,7 @@
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_pedestrians_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
+#include "behaviour/nodes/intersection/actions/get_yielding_right_of_way_lanelet_id_action.hpp"
 #include "behaviour/nodes/intersection/actions/reset_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_reg_elem_ego_priority_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
@@ -75,6 +76,8 @@ public:
       "GetStopSignPedestrians", logger_.get_child("GetStopSignPedestrians"));
     factory.registerNodeType<behaviour::GetTrafficLightStateAction>(
       "GetTrafficLightState", logger_.get_child("GetTrafficLightState"));
+    factory.registerNodeType<behaviour::GetYieldingRightOfWayLaneletIdAction>(
+      "GetYieldingRightOfWayLaneletId", logger_.get_child("GetYieldingRightOfWayLaneletId"));
     factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose", logger_.get_child("GetStopLinePose"));
     factory.registerNodeType<behaviour::ResetIntersectionContextAction>(
       "ResetIntersectionContext", logger_.get_child("ResetIntersectionContext"));

@@ -58,6 +58,34 @@ inline bool isPedestrian(const world_model_msgs::msg::WorldObject & object, std:
   return class_id == "person" || class_id == "pedestrian" || class_id == "human";
 }
 
+inline bool isCyclist(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
+{
+  if (hypothesis_index >= object.detection.results.size()) {
+    return false;
+  }
+
+  const auto & class_id = object.detection.results[hypothesis_index].hypothesis.class_id;
+  return class_id == "bicycle" || class_id == "cyclist";
+}
+
+inline bool isMotorcyclist(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
+{
+  if (hypothesis_index >= object.detection.results.size()) {
+    return false;
+  }
+
+  const auto & class_id = object.detection.results[hypothesis_index].hypothesis.class_id;
+  return class_id == "motorcycle" || class_id == "motorbike";
+}
+
+inline bool isRoadUser(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
+{
+  return isVehicle(object, hypothesis_index) ||
+         isPedestrian(object, hypothesis_index) ||
+         isCyclist(object, hypothesis_index) ||
+         isMotorcyclist(object, hypothesis_index);
+}
+
 inline std::vector<const world_model_msgs::msg::WorldObject *> getPedestriansByLanelet(
   const std::vector<world_model_msgs::msg::WorldObject> & objects, std::size_t hypothesis_index, int64_t lanelet_id)
 {
