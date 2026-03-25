@@ -39,6 +39,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("front_axle_frame", "front_axle");
   declare_parameter("lookahead_distance", 5.0);
   declare_parameter("min_lookahead_distance", 2.0);
+  declare_parameter("steering_angle_gain", 1.0);
   declare_parameter("max_speed", 5.0);
   declare_parameter("min_speed", 0.5);
   declare_parameter("control_rate_hz", 20.0);
@@ -58,6 +59,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   front_axle_frame_ = get_parameter("front_axle_frame").as_string();
   lookahead_distance_ = get_parameter("lookahead_distance").as_double();
   min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
+  steering_angle_gain = get_parameter("steering_angle_gain").as_double();
   max_speed_ = get_parameter("max_speed").as_double();
   min_speed_ = get_parameter("min_speed").as_double();
   control_rate_hz_ = get_parameter("control_rate_hz").as_double();
@@ -229,7 +231,7 @@ void PurePursuitNode::controlCallback()
   // Pure pursuit math
   double ld_sq = lookahead_x * lookahead_x + lookahead_y * lookahead_y;
   double curvature = 2.0 * lookahead_y / ld_sq;
-  double steering_angle = std::atan(wheelbase * curvature);
+  double steering_angle = steering_angle_gain * std::atan(wheelbase * curvature);
 
   // Clamp steering
   steering_angle = std::clamp(steering_angle, -max_steering_angle_, max_steering_angle_);
