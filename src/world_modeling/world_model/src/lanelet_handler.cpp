@@ -487,8 +487,7 @@ lanelet_msgs::msg::RouteAhead LaneletHandler::getRouteAhead(
 }
 
 double LaneletHandler::getRemainingDistanceToLaneletEnd(
-  const lanelet::ConstLanelet & lanelet,
-  const geometry_msgs::msg::Point & point) const
+  const lanelet::ConstLanelet & lanelet, const geometry_msgs::msg::Point & point) const
 {
   const auto & centerline = lanelet.centerline();
   if (centerline.size() < 2) {
@@ -893,7 +892,8 @@ bool LaneletHandler::isIntersectionLanelet(const lanelet::ConstLanelet & ll) con
     return true;
   }
 
-  if (ll.hasAttribute(lanelet::AttributeName::Subtype) &&
+  if (
+    ll.hasAttribute(lanelet::AttributeName::Subtype) &&
     ll.attribute(lanelet::AttributeName::Subtype).value() == "intersection")
   {
     return true;

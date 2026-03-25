@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <chrono>
 #include <optional>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/types.hpp"
 
@@ -31,11 +30,10 @@ namespace behaviour
 class OvertakeStageElapsedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  OvertakeStageElapsedCondition(
-    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
-  : BT::ConditionNode(name, config), BTLoggerBase(logger)
-  {
-  }
+  OvertakeStageElapsedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
+  {}
 
   static BT::PortsList providedPorts()
   {
@@ -81,8 +79,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-      now - *stage_start_time_);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *stage_start_time_);
     if (elapsed.count() < *duration_msec) {
       return BT::NodeStatus::FAILURE;
     }

@@ -16,8 +16,6 @@
 #define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_LANELET_END_POSE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
-
-#include "behaviour/nodes/bt_logger_base.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <cmath>
@@ -27,6 +25,7 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -70,8 +69,7 @@ public:
 
     const auto & lanelet = lane_ctx->current_lanelet;
     if (lanelet.centerline.size() < 2) {
-      RCLCPP_DEBUG_STREAM(
-        logger(), "invalid_lanelet_centerline point_count=" << lanelet.centerline.size());
+      RCLCPP_DEBUG_STREAM(logger(), "invalid_lanelet_centerline point_count=" << lanelet.centerline.size());
       setOutput("error_message", "invalid_lanelet_centerline");
       return BT::NodeStatus::FAILURE;
     }

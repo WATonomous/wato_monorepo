@@ -75,9 +75,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const auto missing = [this](const char * port) {
-      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port);
-    };
+    const auto missing = [this](const char * port) { RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port); };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");
     if (!ports::require(lane_ctx, "lane_ctx", missing)) return BT::NodeStatus::FAILURE;
@@ -180,9 +178,9 @@ public:
     setOutput("search_lanelet_index_map", index_map);
 
     RCLCPP_DEBUG_STREAM(
-      logger(), "search_lanelets_ready source="
-                << (used_route ? "route" : "lanelets_ahead")
-                << " count=" << search_lanelets.size());
+      logger(),
+      "search_lanelets_ready source=" << (used_route ? "route" : "lanelets_ahead")
+                                      << " count=" << search_lanelets.size());
 
     return BT::NodeStatus::SUCCESS;
   }

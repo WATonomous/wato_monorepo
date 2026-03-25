@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour

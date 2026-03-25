@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <algorithm>
 #include <cctype>
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
 namespace behaviour

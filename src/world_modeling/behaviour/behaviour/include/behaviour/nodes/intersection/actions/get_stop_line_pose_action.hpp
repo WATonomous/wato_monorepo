@@ -16,8 +16,6 @@
 #define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_STOP_LINE_POSE_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
-
-#include "behaviour/nodes/bt_logger_base.hpp"
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
@@ -30,6 +28,7 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -82,8 +81,7 @@ public:
         first_way_without_lanelet_ids = &lanelet_way.way;
       }
 
-      const auto lanelet_id_it =
-        std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), lanelet_id);
+      const auto lanelet_id_it = std::find(lanelet_way.lanelet_ids.begin(), lanelet_way.lanelet_ids.end(), lanelet_id);
       if (lanelet_id_it != lanelet_way.lanelet_ids.end()) {
         return &lanelet_way.way;
       }
@@ -132,8 +130,7 @@ public:
     const int64_t current_lanelet_id = lane_ctx->current_lanelet.id;
     const lanelet_msgs::msg::Way * stop_line_way = findStopLineWayForLanelet(*reg_elem, current_lanelet_id);
     if (!stop_line_way) {
-      RCLCPP_DEBUG_STREAM(
-        logger(), "missing_stop_line lanelet_id=" << current_lanelet_id);
+      RCLCPP_DEBUG_STREAM(logger(), "missing_stop_line lanelet_id=" << current_lanelet_id);
       setOutput("error_message", "missing_stop_line_for_lanelet");
       return BT::NodeStatus::FAILURE;
     }
@@ -149,8 +146,7 @@ public:
     const auto & pts = stop_line_way->points;
 
     if (pts.size() < 2) {
-      RCLCPP_DEBUG_STREAM(
-        logger(), "invalid_stop_line reason=insufficient_points point_count=" << pts.size());
+      RCLCPP_DEBUG_STREAM(logger(), "invalid_stop_line reason=insufficient_points point_count=" << pts.size());
       setOutput("error_message", "invalid_stop_line");
       return BT::NodeStatus::FAILURE;
     }

@@ -17,13 +17,11 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
+#include <chrono>
 #include <stdexcept>
 
 #include <behaviortree_ros2/ros_node_params.hpp>
-
-#include <chrono>
 #include <rclcpp/rclcpp.hpp>
-#include <stdexcept>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 
@@ -38,8 +36,8 @@
 #include "behaviour/nodes/common/actions/get_world_objects_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_subscriber.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
-#include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
+#include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
 
 // conditions
 #include "behaviour/nodes/common/conditions/ego_on_lanelet_condition.hpp"
@@ -61,7 +59,8 @@ class CommonNodeRegistrar : public NodeRegistrarBase
 {
 public:
   explicit CommonNodeRegistrar(const rclcpp::Node::SharedPtr & node)
-  : NodeRegistrarBase(node) {}
+  : NodeRegistrarBase(node)
+  {}
 
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {

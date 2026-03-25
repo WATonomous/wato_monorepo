@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -29,6 +27,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "lanelet_msgs/msg/way.hpp"

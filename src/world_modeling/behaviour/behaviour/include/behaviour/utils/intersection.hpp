@@ -15,10 +15,10 @@
 #ifndef BEHAVIOUR__UTILS__INTERSECTION_UTILS_HPP_
 #define BEHAVIOUR__UTILS__INTERSECTION_UTILS_HPP_
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <algorithm>
 #include <vector>
 
 #include "behaviour/utils/geometry.hpp"
@@ -64,8 +64,7 @@ inline bool hasPassedActiveTrafficControlElement(
   return true;
 }
 
-inline bool isPassingActiveTrafficControlElement(
-  const lanelet_msgs::msg::CurrentLaneContext & lane_ctx)
+inline bool isPassingActiveTrafficControlElement(const lanelet_msgs::msg::CurrentLaneContext & lane_ctx)
 {
   return lane_ctx.current_lanelet.is_intersection;
 }
@@ -97,16 +96,15 @@ inline ActiveTrafficControlContext makeActiveTrafficControlContext(
   int64_t lanelet_id,
   const lanelet_msgs::msg::RegulatoryElement::SharedPtr & element)
 {
-  const bool is_passing_active_traffic_control_element =
-    isPassingActiveTrafficControlElement(lane_ctx);
+  const bool is_passing_active_traffic_control_element = isPassingActiveTrafficControlElement(lane_ctx);
 
   ActiveTrafficControlContext context;
   context.lanelet_id = lanelet_id;
   context.element = element;
   context.element_id = element ? element->id : 0;
   context.passing_active_traffic_control_element = is_passing_active_traffic_control_element;
-  context.distance_to_intersection_m = getDistanceToUpcomingIntersection(
-    lane_ctx, search_lanelets, is_passing_active_traffic_control_element);
+  context.distance_to_intersection_m =
+    getDistanceToUpcomingIntersection(lane_ctx, search_lanelets, is_passing_active_traffic_control_element);
   return context;
 }
 

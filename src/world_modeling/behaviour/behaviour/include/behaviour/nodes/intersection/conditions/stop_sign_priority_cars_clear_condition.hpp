@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <unordered_set>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
 namespace behaviour
@@ -35,7 +34,8 @@ namespace behaviour
 class StopSignPriorityCarsClearCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  StopSignPriorityCarsClearCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  StopSignPriorityCarsClearCondition(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}

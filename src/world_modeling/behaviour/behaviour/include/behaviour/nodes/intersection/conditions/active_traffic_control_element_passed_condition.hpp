@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/intersection.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -49,7 +48,8 @@ namespace behaviour
 class ActiveTrafficControlElementPassedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  ActiveTrafficControlElementPassedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  ActiveTrafficControlElementPassedCondition(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}

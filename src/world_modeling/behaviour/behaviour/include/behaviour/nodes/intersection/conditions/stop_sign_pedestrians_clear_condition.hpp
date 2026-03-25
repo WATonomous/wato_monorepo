@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
 namespace behaviour
@@ -34,7 +33,8 @@ namespace behaviour
 class StopSignPedestriansClearCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  StopSignPedestriansClearCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  StopSignPedestriansClearCondition(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}
@@ -53,8 +53,7 @@ public:
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(
-      logger(), "pedestrian_blocked count=" << pedestrian_ids->size());
+    RCLCPP_DEBUG_STREAM(logger(), "pedestrian_blocked count=" << pedestrian_ids->size());
     return BT::NodeStatus::FAILURE;
   }
 };

@@ -221,8 +221,7 @@ public:
    *         of the lanelet centerline. Returns 0.0 for degenerate centerlines.
    */
   double getRemainingDistanceToLaneletEnd(
-    const lanelet::ConstLanelet & lanelet,
-    const geometry_msgs::msg::Point & point) const;
+    const lanelet::ConstLanelet & lanelet, const geometry_msgs::msg::Point & point) const;
 
   /**
    * @brief Get legally reachable lanelets ahead of ego within a radius.

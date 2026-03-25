@@ -52,7 +52,8 @@ class IntersectionNodeRegistrar : public NodeRegistrarBase
 {
 public:
   explicit IntersectionNodeRegistrar(const rclcpp::Node::SharedPtr & node)
-  : NodeRegistrarBase(node) {}
+  : NodeRegistrarBase(node)
+  {}
 
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {

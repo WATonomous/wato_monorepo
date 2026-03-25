@@ -17,14 +17,13 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
@@ -98,8 +97,7 @@ public:
     }
 
     if (role != utils::lanelet::RightOfWayRole::YIELD) {
-      RCLCPP_DEBUG_STREAM(
-        logger(), "yield_fail_safe reason=role_not_applicable lanelet_id=" << *active_lanelet_id);
+      RCLCPP_DEBUG_STREAM(logger(), "yield_fail_safe reason=role_not_applicable lanelet_id=" << *active_lanelet_id);
       return BT::NodeStatus::FAILURE;
     }
 
@@ -112,8 +110,7 @@ public:
     for (const auto lanelet_id : elem->right_of_way_lanelet_ids) {
       const auto cars = utils::world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
       if (!cars.empty()) {
-        RCLCPP_DEBUG_STREAM(
-          logger(), "yield_blocked priority_lanelet_id=" << lanelet_id);
+        RCLCPP_DEBUG_STREAM(logger(), "yield_blocked priority_lanelet_id=" << lanelet_id);
         return BT::NodeStatus::FAILURE;
       }
     }

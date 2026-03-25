@@ -103,14 +103,16 @@ public:
 
     for (const auto & area_name : configured_areas) {
       if (utils::area_occupancy::isAreaOccupiedByLaneTrackedObject(*area_infos, area_name)) {
-        RCLCPP_DEBUG_STREAM(logger(), "Not safe (lane-tracked object in area=" << area_name
-                  << ", transition=" << types::toString(*transition) << ")" );
+        RCLCPP_DEBUG_STREAM(
+          logger(),
+          "Not safe (lane-tracked object in area=" << area_name << ", transition=" << types::toString(*transition)
+                                                   << ")");
         return BT::NodeStatus::FAILURE;
       }
     }
 
     RCLCPP_DEBUG_STREAM(
-      logger(), "Safe (no lane-tracked object in configured areas, transition=" << types::toString(*transition) << ")" );
+      logger(), "Safe (no lane-tracked object in configured areas, transition=" << types::toString(*transition) << ")");
     return BT::NodeStatus::SUCCESS;
   }
 };

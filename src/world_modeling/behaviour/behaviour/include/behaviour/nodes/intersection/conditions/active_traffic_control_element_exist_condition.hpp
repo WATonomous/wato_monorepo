@@ -17,11 +17,10 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
@@ -33,7 +32,8 @@ namespace behaviour
 class ActiveTrafficControlElementExistCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  ActiveTrafficControlElementExistCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  ActiveTrafficControlElementExistCondition(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}

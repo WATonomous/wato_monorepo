@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <string>
+
 #include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
@@ -43,8 +45,7 @@ public:
 
   BT::NodeStatus tick() override
   {
-    const bool is_passing =
-      ports::tryGet<bool>(*this, "passing_active_traffic_control_element").value_or(false);
+    const bool is_passing = ports::tryGet<bool>(*this, "passing_active_traffic_control_element").value_or(false);
     return is_passing ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

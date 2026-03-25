@@ -17,9 +17,9 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
-#include <behaviortree_ros2/ros_node_params.hpp>
-
 #include <stdexcept>
+
+#include <behaviortree_ros2/ros_node_params.hpp>
 
 #include "behaviour/nodes/node_registrar_base.hpp"
 #include "behaviour/utils/types.hpp"
@@ -46,7 +46,8 @@ class LaneNavigationNodeRegistrar : public NodeRegistrarBase
 {
 public:
   explicit LaneNavigationNodeRegistrar(const rclcpp::Node::SharedPtr & node)
-  : NodeRegistrarBase(node) {}
+  : NodeRegistrarBase(node)
+  {}
 
   void register_nodes(BT::BehaviorTreeFactory & factory, const BT::RosNodeParams & params) override
   {
@@ -76,13 +77,13 @@ public:
       "EgoStoppedForDuration", logger_.get_child("EgoStoppedForDuration"));
     factory.registerNodeType<behaviour::IsLaneTransitionCondition>(
       "IsLaneTransition", logger_.get_child("IsLaneTransition"));
-    factory.registerNodeType<behaviour::OvertakeValidCondition>(
-      "OvertakeValid", logger_.get_child("OvertakeValid"));
+    factory.registerNodeType<behaviour::OvertakeValidCondition>("OvertakeValid", logger_.get_child("OvertakeValid"));
     factory.registerNodeType<behaviour::IsOvertakeStateCondition>(
       "IsOvertakeStage", logger_.get_child("IsOvertakeStage"));
     factory.registerNodeType<behaviour::OvertakeStageElapsedCondition>(
       "OvertakeStageElapsed", logger_.get_child("OvertakeStageElapsed"));
-    factory.registerNodeType<behaviour::ValidLaneChangeCondition>("ValidLaneChange", logger_.get_child("ValidLaneChange"));
+    factory.registerNodeType<behaviour::ValidLaneChangeCondition>(
+      "ValidLaneChange", logger_.get_child("ValidLaneChange"));
     factory.registerNodeType<behaviour::SafeLaneChangeCondition>("SafeLaneChange", logger_.get_child("SafeLaneChange"));
   }
 };
