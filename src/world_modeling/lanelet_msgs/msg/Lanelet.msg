@@ -42,6 +42,9 @@ float64 speed_limit_mps
 # True if mandatory (legal limit), false if advisory
 bool speed_limit_is_mandatory
 
+# Turn direction: "left", "right", "straight", none if not in intersection
+string turn_direction
+
 # Intersection flag
 bool is_intersection
 

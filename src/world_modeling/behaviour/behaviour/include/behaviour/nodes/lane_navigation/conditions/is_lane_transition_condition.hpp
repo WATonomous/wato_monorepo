@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
@@ -29,11 +30,12 @@ namespace behaviour
    * @class IsLaneTransitionCondition
    * @brief ConditionNode to compare lane transition with expected value.
    */
-class IsLaneTransitionCondition : public BT::ConditionNode
+class IsLaneTransitionCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsLaneTransitionCondition(const std::string & name, const BT::NodeConfig & config)
+  IsLaneTransitionCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -46,7 +48,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsLaneTransitionCondition]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lane_transition = ports::tryGet<types::LaneTransition>(*this, "lane_transition");
@@ -59,8 +61,10 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    std::cout << "[IsLaneTransitionCondition]: Comparing transition=" << types::toString(lane_transition.value())
-              << ", expected=" << types::toString(expected.value()) << std::endl;
+    RCLCPP_DEBUG_STREAM(
+      logger(),
+      "Comparing transition=" << types::toString(lane_transition.value())
+                              << ", expected=" << types::toString(expected.value()));
     return lane_transition.value() == expected.value() ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };

@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
@@ -30,11 +31,12 @@ namespace behaviour
    * @class EgoOnRouteCondition
    * @brief ConditionNode to check whether ego lanelet exists on the route.
    */
-class EgoOnRouteCondition : public BT::ConditionNode
+class EgoOnRouteCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  EgoOnRouteCondition(const std::string & name, const BT::NodeConfig & config)
+  EgoOnRouteCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -48,7 +50,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[EgoOnRoute]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
       setOutput("error_message", std::string("missing_port:") + port_name);
     };
 
@@ -68,10 +70,11 @@ public:
     // Check if current lanelet ID exists in the route index map
     auto it = route_index_map->find(ctx->current_lanelet.id);
 
-    // log for debugging
-    (it != route_index_map->end())
-      ? std::cout << "[EgoOnRoute]: Current lanelet " << ctx->current_lanelet.id << " is on the route" << std::endl
-      : std::cout << "[EgoOnRoute]: Current lanelet " << ctx->current_lanelet.id << " is not on the route" << std::endl;
+    if (it != route_index_map->end()) {
+      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet " << ctx->current_lanelet.id << " is on the route");
+    } else {
+      RCLCPP_DEBUG_STREAM(logger(), "Current lanelet " << ctx->current_lanelet.id << " is not on the route");
+    }
 
     return (it != route_index_map->end()) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }

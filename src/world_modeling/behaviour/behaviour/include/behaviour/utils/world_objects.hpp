@@ -23,8 +23,21 @@
 
 #include "world_model_msgs/msg/world_object.hpp"
 
-namespace behaviour::world_objects
+namespace behaviour::utils::world_objects
 {
+inline bool containsType(
+  const std::vector<world_model_msgs::msg::WorldObject> & objects, const std::string & object_type)
+{
+  for (const auto & object : objects) {
+    for (const auto & result : object.detection.results) {
+      if (result.hypothesis.class_id == object_type) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 inline bool isVehicle(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
 {
   if (hypothesis_index >= object.detection.results.size()) {
@@ -33,6 +46,34 @@ inline bool isVehicle(const world_model_msgs::msg::WorldObject & object, std::si
 
   const auto & class_id = object.detection.results[hypothesis_index].hypothesis.class_id;
   return class_id == "car" || class_id == "vehicle" || class_id == "truck";
+}
+
+inline bool isPedestrian(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
+{
+  if (hypothesis_index >= object.detection.results.size()) {
+    return false;
+  }
+
+  const auto & class_id = object.detection.results[hypothesis_index].hypothesis.class_id;
+  return class_id == "person" || class_id == "pedestrian" || class_id == "human";
+}
+
+inline std::vector<const world_model_msgs::msg::WorldObject *> getPedestriansByLanelet(
+  const std::vector<world_model_msgs::msg::WorldObject> & objects, std::size_t hypothesis_index, int64_t lanelet_id)
+{
+  std::vector<const world_model_msgs::msg::WorldObject *> pedestrians;
+
+  for (const auto & object : objects) {
+    if (object.lanelet_ahead.current_lanelet_id != lanelet_id) {
+      continue;
+    }
+    if (!isPedestrian(object, hypothesis_index)) {
+      continue;
+    }
+    pedestrians.push_back(&object);
+  }
+
+  return pedestrians;
 }
 
 inline std::vector<const world_model_msgs::msg::WorldObject *> getCarsByLanelet(
@@ -81,6 +122,6 @@ inline std::optional<std::string> getTrafficLightState(
 
   return traffic_light->detection.results[state_hypothesis_index].hypothesis.class_id;
 }
-}  // namespace behaviour::world_objects
+}  // namespace behaviour::utils::world_objects
 
 #endif  // BEHAVIOUR__UTILS__OBJECT_UTILS_HPP_

@@ -69,6 +69,8 @@ inline bool require(const T & value, const char * port_name, Callback && on_miss
   return false;
 }
 
+int32_t null_wall_id = 0;
+int64_t null_id = 0;
 }  // namespace behaviour::ports
 
 #endif  // BEHAVIOUR__UTILS__PORTS_HPP_
