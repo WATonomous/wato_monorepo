@@ -44,6 +44,8 @@ launch:
           to: "/action/trajectory_planning/trajectory"
         - from: "lane_context"
           to: "/world_modeling/lanelet/lane_context"
+        - from: "odom"
+          to: "/ego/odom"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 

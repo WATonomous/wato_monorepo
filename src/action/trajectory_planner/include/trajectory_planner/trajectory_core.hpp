@@ -29,6 +29,8 @@ struct TrajectoryConfig
   double safe_distance;
   double stop_distance;
   double max_speed;
+  double max_tangential_accel;
+  double max_lateral_accel;
   double interpolation_resolution;
   double footprint_x_min;  // rear extent (m)
   double footprint_y_min;  // right extent (m)
