@@ -357,6 +357,19 @@ void EidosNode::handleTracking(double timestamp)
       new_values.insert(ns.key, current_pose);
     }
 
+    // Cross-plugin bridge: if the previous state was created by a different
+    // plugin, ask the motion model to produce a BetweenFactor spanning the gap.
+    // When consecutive states come from the same plugin, that plugin already
+    // provides its own between-factor.
+    if (has_last_state_ && ns.owner != last_state_owner_ && registry_.motion_model) {
+      auto bridge = registry_.motion_model->getBetweenFactor(
+        last_state_key_, last_state_ts_, ns.key, ns.ts);
+      if (bridge) {
+        new_factors.add(bridge);
+        new_factor_owners.push_back(registry_.motion_model->getName());
+      }
+    }
+
     // Factors from the state creator
     for (auto & f : ns.result.factors) {
       new_factors.add(f);
@@ -429,6 +442,13 @@ void EidosNode::handleTracking(double timestamp)
   for (auto & plugin : registry_.factor_plugins) {
     plugin->onOptimizationComplete(optimized, loop_closure_detected);
   }
+
+  // 10. Update cross-plugin bridge tracking
+  auto & last = new_states.back();
+  last_state_key_ = last.key;
+  last_state_ts_ = last.ts;
+  last_state_owner_ = last.owner;
+  has_last_state_ = true;
 
   // Estimator already wrote optimized pose + values to lock-free slots.
   // TransformManager and vis plugins read them autonomously.

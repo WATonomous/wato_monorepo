@@ -10,7 +10,7 @@
     transforms:
       odom_source: "liso_factor"   # fuse LISO odom with motion model via EKF
       map_source: "slam_core"      # Estimator optimized pose (graph-corrected)
-      rate: 500.0                  # TransformManager timer rate (Hz)
+      rate: 50.0                  # TransformManager timer rate (Hz)
       fusion:
         # EKF noise params [roll, pitch, yaw, x, y, z]
         # process_noise: per-tick MM prediction uncertainty. Higher = trust MM less.
@@ -61,29 +61,13 @@
       - "factor_graph_visualization"
 
     # ==========================================================================
-    # Motion Model (pure odom filler — no factor graph involvement)
+    # Motion Model (kinematic state transition model)
     # ==========================================================================
     motion_model:
-      plugin: "eidos::ImuMotionModel"
-
-      imu_topic: "/novatel/oem7/imu/data"
-      odom_topic: "motion_model/odometry/imu_incremental"
-      imu_frame: "imu_link"
-
-      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]
-      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]
-      gravity: 0.0
-      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
-      default_imu_dt: 0.002
-
-      initialization:
-        stationary_acc_threshold: 0.05
-        stationary_gyr_threshold: 0.005
-        stationary_samples: 200
-        quaternion_norm_threshold: 0.1
-
-      odom_pose_cov: [0.3, 0.3, 0.3, 0.1, 0.1, 0.1]
-      odom_twist_cov: [0.1, 0.1, 0.1, 0.15, 0.15, 0.15]
+      plugin: "eidos::HolonomicMotionModel"
+      # plugin: "eidos::AckermannMotionModel"
+      # ackermann_topic: "/interfacing/can_state_estimator/ackermann"
+      # wheelbase: 2.57
 
     # ==========================================================================
     # GPS Factor

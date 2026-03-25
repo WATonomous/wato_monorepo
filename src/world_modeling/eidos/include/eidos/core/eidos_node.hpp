@@ -134,6 +134,12 @@ private:
   rclcpp::Service<eidos_msgs::srv::SaveMap>::SharedPtr save_map_srv_;
   rclcpp::Service<eidos_msgs::srv::LoadMap>::SharedPtr load_map_srv_;
 
+  // ---- Cross-plugin state bridging ----
+  gtsam::Key last_state_key_{0};
+  double last_state_ts_{0.0};
+  std::string last_state_owner_;
+  bool has_last_state_{false};
+
   // ---- Parameters (all set from config in on_configure, no header defaults) ----
   double slam_rate_;
   std::string map_frame_;

@@ -87,8 +87,9 @@ add_library(eidos_plugins SHARED
   src/plugins/factors/liso_factor.cpp
   src/plugins/factors/gps_factor.cpp
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
-  src/plugins/motion_models/imu_motion_model.cpp
   src/plugins/motion_models/holonomic_motion_model.cpp
+  src/plugins/motion_models/ackermann_motion_model.cpp
+  src/plugins/factors/imu_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
@@ -132,7 +133,7 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY config
+install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
 

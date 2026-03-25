@@ -1,8 +1,8 @@
 <library path="eidos_plugins">
-  <class name="eidos::ImuMotionModel" type="eidos::ImuMotionModel" base_class_type="eidos::MotionModelPlugin">
-    <description>IMU-based high-rate odom filler</description>
-  </class>
   <class name="eidos::HolonomicMotionModel" type="eidos::HolonomicMotionModel" base_class_type="eidos::MotionModelPlugin">
-    <description>No-op motion model (no IMU)</description>
+    <description>Holonomic constant-velocity state transition model</description>
+  </class>
+  <class name="eidos::AckermannMotionModel" type="eidos::AckermannMotionModel" base_class_type="eidos::MotionModelPlugin">
+    <description>Ackermann kinematic state transition model (steering + velocity)</description>
   </class>
 </library>

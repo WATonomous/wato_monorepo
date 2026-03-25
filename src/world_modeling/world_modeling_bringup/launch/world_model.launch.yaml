@@ -1,8 +1,8 @@
 # Full world modeling stack with eidos SLAM/localization.
 #
 # Usage:
-#   Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/wrestrc.map
-#   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/wrestrc.map use_sim_time:=true
+#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map
+#   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map use_sim_time:=true
 #   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
 ---
 launch:
@@ -38,19 +38,22 @@ launch:
 
   # ---- Autonomy stack (localization mode only) ----
 
-  # Simple Prediction
+  # Prediction - generates trajectory hypotheses for tracked objects
   - node:
-      unless: "$(var mapping)"
-      pkg: simple_prediction
-      exec: simple_prediction_node
-      name: simple_prediction_node
+      pkg: prediction
+      exec: prediction_node
+      name: prediction_node
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share simple_prediction)/config/params.yaml
+        - from: $(find-pkg-share prediction)/config/params.yaml
       remap:
         - from: tracks_3d
           to: /perception/tracked_detections_3d
+        - from: ego_pose
+          to: /localization/pose
+        - from: lanelet_ahead
+          to: lanelet/lanelet_ahead
 
   # World Model
   - node:
@@ -316,7 +319,7 @@ launch:
       param:
         - name: node_names
           value:
-            - /world_modeling/simple_prediction_node
+            - /world_modeling/prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node

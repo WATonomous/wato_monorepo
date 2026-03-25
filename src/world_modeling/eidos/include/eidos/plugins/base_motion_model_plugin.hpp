@@ -15,17 +15,16 @@
 #pragma once
 
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/nonlinear/NonlinearFactor.h>
 #include <tf2_ros/buffer.h>
 
 #include <atomic>
 #include <memory>
-#include <optional>
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
-#include "eidos/utils/lock_free_pose.hpp"
 #include "eidos/utils/types.hpp"
 
 namespace eidos
@@ -34,21 +33,25 @@ namespace eidos
 /**
  * @brief Base class for motion model plugins.
  *
- * The motion model is purely a high-rate odom filler. It reads a high-rate
- * sensor (e.g. IMU), integrates, and writes its odom-frame pose via
- * setOdomPose(). TransformManager reads this for smooth odom→base TF.
+ * A motion model is a kinematic state transition model. It predicts the next
+ * pose given the current pose and a time step. TransformManager calls predict()
+ * at 500Hz for smooth odom->base_link TF broadcasting.
  *
- * The motion model does NOT contribute factors to the SLAM graph.
+ * The motion model does NOT subscribe to raw sensor data — sensor measurements
+ * come from factor plugins (LISO, GPS, ImuFactor). The motion model's job is
+ * to provide the prediction step of the EKF: "given where I am now, where will
+ * I be in dt seconds?"
+ *
+ * After each measurement correction, TransformManager calls
+ * onMeasurementUpdate() so the model can update its internal velocity estimate
+ * from the corrected pose.
  */
 class MotionModelPlugin
 {
 public:
   virtual ~MotionModelPlugin() = default;
 
-  const std::string & getName() const
-  {
-    return name_;
-  }
+  const std::string & getName() const { return name_; }
 
   void initialize(
     const std::string & name,
@@ -70,40 +73,43 @@ public:
   virtual void activate() = 0;
   virtual void deactivate() = 0;
 
-  /// Whether the motion model has enough data to begin (e.g. IMU warmup).
-  virtual bool isReady() const
+  /// Predict the next pose from the current pose after dt seconds.
+  /// Called by TransformManager at high rate for smooth odom->base TF.
+  virtual gtsam::Pose3 predict(const gtsam::Pose3 & current, double dt) = 0;
+
+  /// Called after each measurement correction so the model can update its
+  /// internal velocity estimate from consecutive corrected poses.
+  virtual void onMeasurementUpdate(const gtsam::Pose3 & corrected, double timestamp)
   {
-    return true;
+    (void)corrected;
+    (void)timestamp;
   }
 
-  virtual std::string getReadyStatus() const
+  /// Produce a BetweenFactor bridging two temporally consecutive states
+  /// created by different factor plugins. Integrates the kinematic model
+  /// over [ts_from, ts_to]. Returns nullptr if unable.
+  virtual gtsam::NonlinearFactor::shared_ptr getBetweenFactor(
+    gtsam::Key key_from, double ts_from,
+    gtsam::Key key_to, double ts_to)
   {
-    return "";
+    (void)key_from;
+    (void)ts_from;
+    (void)key_to;
+    (void)ts_to;
+    return nullptr;
   }
 
-  // ---- Lock-free pose output (base class enforced) ----
+  /// Whether the motion model is ready. Default: true.
+  virtual bool isReady() const { return true; }
 
-  /// Odom-frame pose. Always non-blocking.
-  std::optional<gtsam::Pose3> getOdomPose() const
-  {
-    return odom_pose_.load();
-  }
+  virtual std::string getReadyStatus() const { return ""; }
 
 protected:
-  /// Write odom-frame pose from sensor callback. Single writer only.
-  void setOdomPose(const gtsam::Pose3 & pose)
-  {
-    odom_pose_.store(pose);
-  }
-
   std::string name_;
   rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
   tf2_ros::Buffer * tf_ = nullptr;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   const std::atomic<SlamState> * state_ = nullptr;
-
-private:
-  LockFreePose odom_pose_;
 };
 
 }  // namespace eidos

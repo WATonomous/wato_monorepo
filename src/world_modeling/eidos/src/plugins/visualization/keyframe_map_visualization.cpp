@@ -96,7 +96,6 @@ void KeyframeMapVisualization::render(const gtsam::Values & optimized_values)
       accepted_keys_.insert(k);
     }
 
-    // Rebuild from body-frame clouds using current optimized poses
     for (gtsam::Key k : accepted_keys_) {
       auto cloud = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(k, pointcloud_from_);
       if (!cloud || (*cloud)->empty()) continue;

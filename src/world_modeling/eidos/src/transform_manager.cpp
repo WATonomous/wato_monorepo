@@ -81,7 +81,19 @@ void TransformManager::tick()
   auto now = node_->now();
 
   // 1. Compute and broadcast odom → base_link
-  cached_odom_to_base_ = computeOdomToBase();
+  auto odom_candidate = computeOdomToBase();
+  // Guard: don't broadcast NaN poses
+  auto t = odom_candidate.translation();
+  auto q_check = odom_candidate.rotation().toQuaternion();
+  bool sane = std::isfinite(t.x()) && std::isfinite(t.y()) && std::isfinite(t.z()) &&
+              std::isfinite(q_check.w()) && t.norm() < 1e6;
+  if (sane) {
+    cached_odom_to_base_ = odom_candidate;
+  } else {
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
+      "[TM] Bad odom->base (norm=%.2e), resetting EKF", t.norm());
+    odom_ekf_.reset(gtsam::Pose3());
+  }
   broadcastTf(now, odom_frame_, base_link_frame_, cached_odom_to_base_);
 
   // 1b. Publish unified fused odometry
@@ -121,12 +133,22 @@ void TransformManager::tick()
     //    Between optimizations, map→odom is constant — odom→base carries all motion.
     if (map_pose) {
       if (!has_last_map_pose_ || !map_pose->equals(last_map_pose_, 1e-12)) {
-        cached_map_to_odom_ = map_pose->compose(cached_odom_to_base_.inverse());
+        auto candidate = map_pose->compose(cached_odom_to_base_.inverse());
+        auto t_m = candidate.translation();
+        auto q_m = candidate.rotation().toQuaternion();
+        if (std::isfinite(t_m.x()) && std::isfinite(t_m.y()) && std::isfinite(t_m.z()) &&
+            std::isfinite(q_m.w()) && t_m.norm() < 1e6) {
+          cached_map_to_odom_ = candidate;
+        } else {
+          RCLCPP_ERROR_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
+            "[TM] Bad map->odom (norm=%.2e), ignoring", t_m.norm());
+        }
         last_map_pose_ = *map_pose;
         has_last_map_pose_ = true;
       }
     }
   }
+
 
   broadcastTf(now, map_frame_, odom_frame_, cached_map_to_odom_);
 
@@ -136,42 +158,50 @@ void TransformManager::tick()
 
 gtsam::Pose3 TransformManager::computeOdomToBase()
 {
-  if (!registry_->motion_model) return cached_odom_to_base_;
-  auto mm_pose = registry_->motion_model->getOdomPose();
-  if (!mm_pose) return cached_odom_to_base_;
+  // Compute dt since last tick
+  auto now = std::chrono::steady_clock::now();
+  double dt = 0.0;
+  if (has_last_tick_time_) {
+    dt = std::chrono::duration<double>(now - last_tick_time_).count();
+  }
+  last_tick_time_ = now;
+  has_last_tick_time_ = true;
 
-  // No odom_source — motion model IS the odom source (no EKF)
+  // No odom_source — motion model IS the only source (no EKF)
   if (odom_source_name_.empty()) {
-    return *mm_pose;
+    if (registry_->motion_model) {
+      return registry_->motion_model->predict(cached_odom_to_base_, dt);
+    }
+    return cached_odom_to_base_;
   }
 
-  // ---- EKF fusion: MM prediction + odom_source correction ----
+  // ---- Fused odom: motion model prediction + odom_source correction ----
 
-  // Prediction step: compute MM delta since last tick
-  if (has_last_mm_) {
-    gtsam::Pose3 mm_delta = last_mm_pose_.between(*mm_pose);
-    odom_ekf_.predict(mm_delta);
-  } else {
-    // First MM reading — initialize EKF from MM pose
-    odom_ekf_.reset(*mm_pose);
-  }
-  last_mm_pose_ = *mm_pose;
-  has_last_mm_ = true;
-
-  // Measurement update: check if odom_source has new data
+  // Read odom_source measurement
   auto src = registry_->findFactor(odom_source_name_);
   if (src) {
     auto odom_reading = src->getOdomPose();
     if (odom_reading) {
       if (!has_odom_source_reading_ || !odom_reading->equals(last_odom_source_pose_, 1e-12)) {
-        odom_ekf_.update(*odom_reading);
         last_odom_source_pose_ = *odom_reading;
+        cached_odom_to_base_ = *odom_reading;  // snap to measurement
         has_odom_source_reading_ = true;
+
+        // Feed corrected pose to motion model for velocity estimation
+        if (registry_->motion_model) {
+          double ts = node_->now().seconds();
+          registry_->motion_model->onMeasurementUpdate(*odom_reading, ts);
+        }
       }
     }
   }
 
-  return odom_ekf_.pose();
+  // Predict forward from current odom pose using motion model
+  if (has_odom_source_reading_ && registry_->motion_model && dt > 0.0) {
+    return registry_->motion_model->predict(cached_odom_to_base_, dt);
+  }
+
+  return has_odom_source_reading_ ? last_odom_source_pose_ : cached_odom_to_base_;
 }
 
 void TransformManager::broadcastTf(

@@ -14,6 +14,8 @@
 
 #include "eidos/utils/pose_ekf.hpp"
 
+#include <cmath>
+
 #include <gtsam/base/Lie.h>
 
 namespace eidos
@@ -41,8 +43,6 @@ void PoseEKF::predict(const gtsam::Pose3 & delta)
   state_ = state_.compose(delta);
 
   // Covariance prediction: P = P + Q
-  // (simplified — assumes identity state transition Jacobian,
-  //  valid for small deltas at high rate)
   P_ += Q_;
 }
 

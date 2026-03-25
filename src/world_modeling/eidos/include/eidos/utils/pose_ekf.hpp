@@ -26,8 +26,8 @@ namespace eidos
  * with lower-rate odometry corrections (e.g. LISO scan matching).
  *
  * State: Pose3 in the odom frame.
- * Prediction: relative pose delta from motion model at IMU rate.
- * Measurement: absolute odom-frame pose from a factor plugin at LiDAR rate.
+ * Prediction: relative pose delta from motion model at high rate (500 Hz).
+ * Measurement: absolute odom-frame pose from a factor plugin (e.g. LISO at ~20 Hz).
  *
  * Uses Lie algebra (se(3)) for the error state. Corrections are applied
  * smoothly via the Kalman gain — no discontinuities in the output.

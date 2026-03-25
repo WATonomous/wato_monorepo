@@ -24,6 +24,7 @@
 #include <Eigen/Geometry>
 #include <mutex>
 #include <shared_mutex>
+#include <thread>
 #include <vector>
 
 #include <nav_msgs/msg/odometry.hpp>
@@ -142,6 +143,8 @@ private:
   // ---- Localization submap ----
   Eigen::Vector3f submap_center_{0, 0, 0};
   bool prior_map_submap_initialized_ = false;
+  std::thread submap_rebuild_thread_;
+  std::atomic<bool> submap_rebuilding_{false};
 
   // ---- Extrinsics ----
   Eigen::Isometry3d T_base_lidar_ = Eigen::Isometry3d::Identity();

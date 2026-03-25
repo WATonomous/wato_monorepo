@@ -14,13 +14,22 @@
 
 #pragma once
 
+#include <gtsam/base/Vector.h>
+
 #include "eidos/plugins/base_motion_model_plugin.hpp"
 
 namespace eidos
 {
 
 /**
- * @brief No-op motion model. Produces no odom — for systems without IMU.
+ * @brief Holonomic constant-velocity state transition model.
+ *
+ * Maintains a velocity estimate (6-DOF: vx, vy, vz, wx, wy, wz in body frame)
+ * updated from consecutive measurement-corrected poses. Prediction propagates
+ * the current pose forward at the last known velocity.
+ *
+ * Between measurement corrections (~20Hz from LISO), the model coasts at
+ * constant velocity for smooth 500Hz TF output.
  */
 class HolonomicMotionModel : public MotionModelPlugin
 {
@@ -28,20 +37,18 @@ public:
   HolonomicMotionModel() = default;
   ~HolonomicMotionModel() override = default;
 
-  void onInitialize() override
-  {
-    RCLCPP_INFO(node_->get_logger(), "[%s] initialized (no-op)", name_.c_str());
-  }
+  void onInitialize() override;
+  void activate() override;
+  void deactivate() override;
 
-  void activate() override
-  {
-    RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
-  }
+  gtsam::Pose3 predict(const gtsam::Pose3 & current, double dt) override;
+  void onMeasurementUpdate(const gtsam::Pose3 & corrected, double timestamp) override;
 
-  void deactivate() override
-  {
-    RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
-  }
+private:
+  gtsam::Vector6 velocity_ = gtsam::Vector6::Zero();
+  gtsam::Pose3 last_corrected_;
+  double last_corrected_time_ = 0.0;
+  bool has_last_corrected_ = false;
 };
 
 }  // namespace eidos

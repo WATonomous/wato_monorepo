@@ -241,7 +241,6 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
   // GICP to just confirm the current estimate instead of finding drift.
   const auto & map_manager = (*map_manager_);
 
-  // Try gicp_pointcloud_from first, fall back to pointcloud_from (PCL → convert)
   small_gicp::PointCloud::Ptr source_body;
   if (!gicp_pointcloud_from_.empty()) {
     auto opt = map_manager.retrieve<small_gicp::PointCloud::Ptr>(source_key, gicp_pointcloud_from_);

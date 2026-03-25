@@ -132,6 +132,7 @@ void LisoFactor::activate()
 void LisoFactor::deactivate()
 {
   active_ = false;
+  if (submap_rebuild_thread_.joinable()) submap_rebuild_thread_.join();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
@@ -407,9 +408,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
 
   RCLCPP_INFO_THROTTLE(
-    node_->get_logger(),
-    *node_->get_clock(),
-    2000,
+    node_->get_logger(), *node_->get_clock(), 2000,
     "\033[36m[%s] GICP match: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
     "guess: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | inliers=%zu\033[0m",
     name_.c_str(),
@@ -531,15 +530,21 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   // No TF broadcasting — TransformManager reads setMapPose/setOdomPose lock-free
 
-  // Prior map: distance-based submap rebuild
+  // Prior map: async distance-based submap rebuild
   if (submap_source_ == "prior_map" && prior_map_submap_initialized_) {
     Eigen::Vector3f pos(
       static_cast<float>(matched_pose.translation().x()),
       static_cast<float>(matched_pose.translation().y()),
       static_cast<float>(matched_pose.translation().z()));
-    if ((pos - submap_center_).norm() > submap_radius_ * kSubmapRebuildFraction) {
+    if (!submap_rebuilding_.load() &&
+        (pos - submap_center_).norm() > submap_radius_ * kSubmapRebuildFraction) {
       submap_center_ = pos;
-      rebuildSubmapAtPosition(pos);
+      submap_rebuilding_ = true;
+      if (submap_rebuild_thread_.joinable()) submap_rebuild_thread_.join();
+      submap_rebuild_thread_ = std::thread([this, pos]() {
+        rebuildSubmapAtPosition(pos);
+        submap_rebuilding_ = false;
+      });
     }
   }
 }
@@ -673,6 +678,25 @@ void LisoFactor::rebuildSubmap()
     cached_submap_tree_ = submap_tree;
   }
   submap_stale_ = false;
+
+  // Publish submap for visualization
+  if (submap_pub_->is_activated()) {
+    pcl::PointCloud<PointType> pcl_submap;
+    pcl_submap.reserve(submap->size());
+    for (size_t i = 0; i < submap->size(); i++) {
+      PointType pt;
+      pt.x = static_cast<float>(submap->point(i).x());
+      pt.y = static_cast<float>(submap->point(i).y());
+      pt.z = static_cast<float>(submap->point(i).z());
+      pt.intensity = 0.0f;
+      pcl_submap.push_back(pt);
+    }
+    sensor_msgs::msg::PointCloud2 submap_msg;
+    pcl::toROSMsg(pcl_submap, submap_msg);
+    submap_msg.header.stamp = node_->now();
+    submap_msg.header.frame_id = map_frame_;
+    submap_pub_->publish(submap_msg);
+  }
 }
 
 void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f & position)

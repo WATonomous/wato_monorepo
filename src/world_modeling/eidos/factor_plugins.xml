@@ -8,4 +8,7 @@
   <class name="eidos::EuclideanDistanceLoopClosureFactor" type="eidos::EuclideanDistanceLoopClosureFactor" base_class_type="eidos::FactorPlugin">
     <description>Euclidean distance loop closure (GICP between keyframes)</description>
   </class>
+  <class name="eidos::ImuFactor" type="eidos::ImuFactor" base_class_type="eidos::FactorPlugin">
+    <description>IMU preintegration factor (ImuFactor + bias BetweenFactor)</description>
+  </class>
 </library>

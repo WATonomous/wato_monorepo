@@ -8,18 +8,25 @@
 
     # ---- TransformManager ----
     transforms:
-      odom_source: "liso_factor"   # EKF fuses LISO odom + motion model for smooth odom→base
-      map_source: ""               # map→odom is fixed from relocalization
-      rate: 50.0
+      odom_source: "liso_factor"   # fuse LISO odom with motion model via EKF
+      map_source: "slam_core"      # Estimator optimized pose (graph-corrected)
+      rate: 500.0                  # TransformManager timer rate (Hz)
       fusion:
-        process_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-2, 1.0e-2]
-        measurement_noise: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]
+        # EKF noise params [roll, pitch, yaw, x, y, z]
+        # process_noise: per-tick MM prediction uncertainty. Higher = trust MM less.
+        process_noise: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]
+        # measurement_noise: LISO odom correction uncertainty. Lower = trust LISO more.
+        measurement_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-2, 1.0e-2]
 
     # ---- Core ----
     slam_rate: 10.0
     relocalization_timeout: 30.0
 
+    # ---- ISAM2 optimizer ----
     isam2:
+      update_iterations: 2
+      correction_iterations: 5
+      loop_closure_iterations: 5
       relinearize_threshold: 0.01
       relinearize_skip: 1
 
@@ -27,8 +34,8 @@
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
     map:
-      load_path: "/opt/watonomous/maps/wrestrc.map"
-      save_path: ""
+      load_path: ""
+      save_path: "/opt/watonomous/maps/wrestrc.map"
 
     # ---- Core topics / services ----
     topics:
@@ -44,42 +51,47 @@
     factor_plugins:
       - "gps_factor"
       - "liso_factor"
+      - "euclidean_distance_loop_closure_factor"
 
     relocalization_plugins:
       - "gps_icp_relocalization"
 
     visualization_plugins:
       - "keyframe_map_visualization"
+      - "factor_graph_visualization"
 
     # ==========================================================================
     # Motion Model (kinematic state transition model)
     # ==========================================================================
     motion_model:
       plugin: "eidos::HolonomicMotionModel"
+      # plugin: "eidos::AckermannMotionModel"
+      # ackermann_topic: "/interfacing/can_state_estimator/ackermann"
+      # wheelbase: 2.57
 
     # ==========================================================================
-    # GPS Factor (loads utm_to_map offset from prior map, no factors injected)
+    # GPS Factor
     # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
-      add_factors: false
 
       gps_topic: "/novatel/oem7/fix"
       imu_topic: "/novatel/oem7/imu/data"
 
+      add_factors: true
       max_cov: 5.0
       use_elevation: true
-      min_radius: 200.0
+      min_radius: 150.0
       pose_cov_threshold: 1.0
       gps_cov: [2.0, 2.0, 4.0]
 
     # ==========================================================================
-    # LISO Factor (scan-to-submap matching against prior map)
+    # LISO Factor
     # ==========================================================================
     liso_factor:
       plugin: "eidos::LisoFactor"
-      add_factors: false
-      submap_source: "prior_map"
+      add_factors: true
+      submap_source: "recent_keyframes"
 
       lidar_topic: "/lidar_cc/velodyne_points"
       odom_topic: "liso/odometry"
@@ -96,8 +108,8 @@
       scan_ds_resolution: 0.5
       submap_ds_resolution: 0.5
       num_neighbors: 10
-      submap_radius: 30.0
-      max_submap_states: 15
+      submap_radius: 20.0
+      max_submap_states: 10
 
       max_correspondence_distance: 2.0
       max_iterations: 20
@@ -109,6 +121,28 @@
 
       odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+    # ==========================================================================
+    # Euclidean Distance Loop Closure Factor
+    # ==========================================================================
+    euclidean_distance_loop_closure_factor:
+      plugin: "eidos::EuclideanDistanceLoopClosureFactor"
+      frequency: 1.0
+      search_radius: 20.0
+      search_time_diff: 80.0
+      search_num: 15
+      min_inlier_ratio: 0.3
+
+      submap_radius: 25.0
+      submap_leaf_size: 0.4
+      max_correspondence_distance: 2.0
+      max_iterations: 100
+      num_threads: 16
+
+      num_neighbors: 10
+      loop_closure_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+      gicp_pointcloud_from: "liso_factor/gicp_cloud"
 
     # ==========================================================================
     # GPS + ICP Relocalization
@@ -152,3 +186,15 @@
 
       windowed:
         radius: 50.0
+
+    # ==========================================================================
+    # Factor Graph Visualization
+    # ==========================================================================
+    factor_graph_visualization:
+      plugin: "eidos::FactorGraphVisualization"
+      topic: "slam/visualization/factor_graph"
+      state_scale: 1.0
+      line_width: 0.5
+      publish_rate: 1.0
+      mode: "full"
+      window_radius: 50.0

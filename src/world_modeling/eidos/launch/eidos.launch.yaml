@@ -1,0 +1,60 @@
+# Standalone eidos launch file.
+#
+# Usage:
+#   Mapping:      ros2 launch eidos eidos.launch.yaml
+#   Localization: ros2 launch eidos eidos.launch.yaml eidos_config_file:=$(ros2 pkg prefix eidos)/share/eidos/config/example_localization.yaml eidos_map_path:=/path/to/map.map
+---
+launch:
+  - arg:
+      name: eidos_config_file
+      default: $(find-pkg-share eidos)/config/example_slam.yaml
+      description: Path to the eidos configuration file
+
+  - arg:
+      name: eidos_map_path
+      default: ""
+      description: Path to the .map file for localization. Empty string skips loading.
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  # Eidos Node
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: map.load_path
+          value: $(var eidos_map_path)
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/eidos_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

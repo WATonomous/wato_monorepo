@@ -10,7 +10,7 @@
     transforms:
       odom_source: "liso_factor"   # EKF fuses LISO odom + motion model for smooth odom→base
       map_source: ""               # map→odom is fixed from relocalization
-      rate: 50.0
+      rate: 500.0
       fusion:
         process_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-2, 1.0e-2]
         measurement_noise: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]

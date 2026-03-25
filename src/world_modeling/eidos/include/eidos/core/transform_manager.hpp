@@ -17,6 +17,7 @@
 #include <gtsam/geometry/Pose3.h>
 #include <tf2_ros/transform_broadcaster.h>
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -119,10 +120,12 @@ private:
 
   // ---- EKF fusion (when odom_source is set) ----
   PoseEKF odom_ekf_;  ///< Fuses MM prediction + odom_source corrections
-  gtsam::Pose3 last_mm_pose_;  ///< MM pose at last tick (for computing delta)
-  bool has_last_mm_ = false;
   gtsam::Pose3 last_odom_source_pose_;  ///< For detecting new odom_source readings
   bool has_odom_source_reading_ = false;
+
+  // ---- Tick timing ----
+  std::chrono::steady_clock::time_point last_tick_time_;
+  bool has_last_tick_time_ = false;
 
   std::string odom_source_name_;
   std::string map_source_name_;

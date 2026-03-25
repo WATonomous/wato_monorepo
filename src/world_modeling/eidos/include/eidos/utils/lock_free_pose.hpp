@@ -41,7 +41,7 @@ public:
   {
     seq_.fetch_add(1, std::memory_order_release);  // odd = writing
     pose_ = p;
-    has_value_ = true;
+    has_value_.store(true, std::memory_order_relaxed);
     seq_.fetch_add(1, std::memory_order_release);  // even = done
   }
 
@@ -54,7 +54,7 @@ public:
       s = seq_.load(std::memory_order_acquire);
       if (s & 1) continue;  // writer active, retry
       result = pose_;
-      valid = has_value_;
+      valid = has_value_.load(std::memory_order_relaxed);
     } while (seq_.load(std::memory_order_acquire) != s);
     return valid ? std::optional(result) : std::nullopt;
   }
@@ -62,7 +62,7 @@ public:
 private:
   std::atomic<uint64_t> seq_{0};
   gtsam::Pose3 pose_;
-  bool has_value_ = false;
+  std::atomic<bool> has_value_{false};
 };
 
 }  // namespace eidos
