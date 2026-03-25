@@ -9,6 +9,8 @@ trajectory_planner_node:
     path_sub_topic: "input_path"
     costmap_sub_topic: "costmap"
     lane_context_sub_topic: "lane_context"
+    odom_sub_topic: "odom"
+    bt_sub_topic: "execute_behaviour"
 
     # Safety distances
     safe_distance: 10.0  # Distance (m) where slowing down begins
