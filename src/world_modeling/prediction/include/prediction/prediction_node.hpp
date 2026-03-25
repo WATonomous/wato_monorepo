@@ -24,7 +24,6 @@
 #include <vector>  // For collections of hypotheses and objects
 
 // ROS2 message types
-#include "geometry_msgs/msg/pose_stamped.hpp"  // For ego vehicle pose
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"  // For reachable lanelets
 #include "lanelet_msgs/srv/get_lanelet_ahead.hpp"  // For querying lanelets around vehicles
 #include "lanelet_msgs/srv/get_nearby_lanelets.hpp"
@@ -60,7 +59,6 @@ protected:
 
 private:
   void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
-  void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   /**
@@ -94,7 +92,6 @@ private:
 
   // Subscribers
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
 
   // Publishers
@@ -116,7 +113,6 @@ private:
   rclcpp::CallbackGroup::SharedPtr subscription_cb_group_;
 
   // State
-  geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
 
   // Vehicle IDs with in-flight async lanelet requests (prevents duplicates).
   // Accessed from subscription callbacks AND async service-response callbacks,

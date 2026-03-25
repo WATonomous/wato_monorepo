@@ -29,7 +29,5 @@ launch:
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked
-        - from: ego_pose
-          to: /localization/pose
         - from: world_object_seeds
           to: /world_modeling/world_object_seeds

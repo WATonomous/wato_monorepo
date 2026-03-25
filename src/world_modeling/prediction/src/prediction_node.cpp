@@ -528,9 +528,6 @@ PredictionNode::CallbackReturn PredictionNode::on_activate(const rclcpp_lifecycl
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
     "tracks_3d", 10, std::bind(&PredictionNode::trackedObjectsCallback, this, std::placeholders::_1), sub_opts);
 
-  ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "ego_pose", 10, std::bind(&PredictionNode::egoPoseCallback, this, std::placeholders::_1), sub_opts);
-
   lanelet_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
     "lanelet_ahead", 10, std::bind(&PredictionNode::laneletAheadCallback, this, std::placeholders::_1), sub_opts);
 
@@ -545,7 +542,6 @@ PredictionNode::CallbackReturn PredictionNode::on_deactivate(const rclcpp_lifecy
   RCLCPP_INFO(this->get_logger(), "Deactivating...");
 
   tracked_objects_sub_.reset();
-  ego_pose_sub_.reset();
   lanelet_ahead_sub_.reset();
   world_objects_pub_->on_deactivate();
 
@@ -558,14 +554,12 @@ PredictionNode::CallbackReturn PredictionNode::on_cleanup(const rclcpp_lifecycle
   RCLCPP_INFO(this->get_logger(), "Cleaning up...");
 
   tracked_objects_sub_.reset();
-  ego_pose_sub_.reset();
   lanelet_ahead_sub_.reset();
   world_objects_pub_.reset();
 
   trajectory_predictor_.reset();
   intent_classifier_.reset();
 
-  ego_pose_.reset();
   {
     std::lock_guard<std::mutex> lock(pending_requests_mutex_);
     pending_vehicle_requests_.clear();
@@ -581,14 +575,12 @@ PredictionNode::CallbackReturn PredictionNode::on_shutdown(const rclcpp_lifecycl
   RCLCPP_INFO(this->get_logger(), "Shutting down...");
 
   tracked_objects_sub_.reset();
-  ego_pose_sub_.reset();
   lanelet_ahead_sub_.reset();
   world_objects_pub_.reset();
 
   trajectory_predictor_.reset();
   intent_classifier_.reset();
 
-  ego_pose_.reset();
   {
     std::lock_guard<std::mutex> lock(pending_requests_mutex_);
     pending_vehicle_requests_.clear();
@@ -792,11 +784,6 @@ void PredictionNode::pruneConfidenceHistory(const rclcpp::Time & now)
       ++it;
     }
   }
-}
-
-void PredictionNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-{
-  ego_pose_ = msg;
 }
 
 std::optional<world_model_msgs::msg::WorldObject> PredictionNode::processObject(

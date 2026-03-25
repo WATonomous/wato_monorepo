@@ -19,7 +19,6 @@ Predicts future trajectories for tracked objects by:
 | Topic | Type | Description |
 |-------|------|-------------|
 | `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked objects from perception |
-| `/localization/pose` | `geometry_msgs/PoseStamped` | Ego vehicle pose for reference frame |
 | `/world_modeling/lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Ego-relative reachable lanelets |
 
 ### Published Topics
@@ -39,7 +38,7 @@ Predicts future trajectories for tracked objects by:
 **Modular component design**:
 
 - **PredictionNode**: Lifecycle management, ROS communication, temporal smoothing
-  - Subscribes to detections, ego pose, ego-relative lanelets
+  - Subscribes to detections, ego-relative lanelets
   - Manages async per-vehicle lanelet service requests
   - Applies confidence smoothing to reduce frame-to-frame flicker
   - Publishes world objects with trajectory hypotheses
