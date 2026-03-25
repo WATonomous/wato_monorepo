@@ -58,6 +58,7 @@ private:
   std::string front_axle_frame_;
   double lookahead_distance_;
   double min_lookahead_distance_;
+  double steering_angle_gain;
   double max_speed_;
   double min_speed_;
   double control_rate_hz_;
