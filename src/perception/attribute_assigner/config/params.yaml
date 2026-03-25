@@ -4,8 +4,10 @@ attribute_assigner_node:
     sync_queue_size: 10   # ApproximateTime sync queue size for image + detections
 
     # Class ID mappings (YOLOv8 COCO: 9=traffic_light, 2=car, 7=truck, 5=bus)
-    traffic_light_class_ids: ["traffic_light", "9"]
-    car_class_ids: ["car", "2", "truck", "7", "bus", "5"]
+    traffic_light_class_ids: ["traffic light"]
+    car_class_ids: ["car"]
+    truck_class_ids: ["truck"]
+    bus_class_ids: ["bus"]
 
     # Minimum detection confidence to process (detections below this are passed through unchanged)
     min_detection_confidence: 0.3
