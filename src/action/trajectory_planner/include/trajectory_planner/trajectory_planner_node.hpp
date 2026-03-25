@@ -92,7 +92,7 @@ private:
   bool has_speed_limit_{false};
 
   // Current speed of car
-  double current_speed_mps2{-1.0};
+  double current_speed_mps{-1.0};
 };
 
 }  // namespace trajectory_planner

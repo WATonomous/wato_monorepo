@@ -182,7 +182,7 @@ void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::Curre
 
 void TrajectoryPlannerNode::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
 {
-  current_speed_mps2 = msg->twist.twist.linear.x;
+  current_speed_mps = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
 }
 
 void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
@@ -193,7 +193,7 @@ void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehavi
 void TrajectoryPlannerNode::update_trajectory()
 {
   // Wait until all inputs are ready before computing
-  if (!latest_path_ || !latest_costmap_ || !core_ || current_speed_mps2 < 0.0 || bt_requested_behaviour.empty()) {
+  if (!latest_path_ || !latest_costmap_ || !core_ || current_speed_mps < 0.0 || bt_requested_behaviour.empty()) {
     return;
   }
 
@@ -236,7 +236,7 @@ void TrajectoryPlannerNode::update_trajectory()
   // Use lane speed limit if available, otherwise fall back to config max_speed
   double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
-  auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps2);
+  auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
   // Publish trajectory
   traj_pub_->publish(traj);
