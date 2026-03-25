@@ -66,11 +66,18 @@ public:
    * @param osm_path Path to the .osm file
    * @param utm_origin_x X offset from UTM origin to map frame origin (meters)
    * @param utm_origin_y Y offset from UTM origin to map frame origin (meters)
+   * @param origin_lat Reference latitude for UTM zone/origin selection
+   * @param origin_lon Reference longitude for UTM zone/origin selection
    * @param projector_type Projector type: "utm" or "local_cartesian"
    * @return true if map loaded successfully
    */
   bool loadMap(
-    const std::string & osm_path, double utm_origin_x, double utm_origin_y, const std::string & projector_type = "utm");
+    const std::string & osm_path,
+    double utm_origin_x,
+    double utm_origin_y,
+    double origin_lat = 0.0,
+    double origin_lon = 0.0,
+    const std::string & projector_type = "utm");
 
   /**
    * @brief Check if the map is loaded.
@@ -141,6 +148,11 @@ public:
    * @return Vector of lanelets whose 2D distance to center is within the radius.
    */
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
+
+  /**
+   * @brief Return all lanelets in the loaded map.
+   */
+  std::vector<lanelet::ConstLanelet> getAllLanelets() const;
 
   // Route Caching (for SetRoute/GetShortestRoute workflow)
 

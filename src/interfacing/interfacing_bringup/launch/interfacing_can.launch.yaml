@@ -25,13 +25,50 @@ launch:
 
   - arg:
       name: "config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
-      description: "Path to the joystick configuration file"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
+      description: "Path to the CAN/control configuration file"
 
-  # Eve Robot Description
-  - include:
-      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+  - arg:
+      name: "test_steering"
+      default: "false"
+      description: "Launch steering square-wave dummy node for testing"
 
+  - arg:
+      name: "test_velocity"
+      default: "false"
+      description: "Launch velocity trapezoid dummy node for testing"
+
+  # --- Test dummy nodes (conditional) ---
+
+  # Steering square-wave dummy (publishes through ackermann mux via dummy/ackermann)
+  - node:
+      if: "$(var test_steering)"
+      pkg: dummy_ackermann
+      exec: ackermann_square_wave_node
+      name: ackermann_square_wave
+      namespace: interfacing
+      output: screen
+      remap:
+        - from: "ackermann"
+          to: "dummy/ackermann"
+      param:
+        - from: "$(var config_file)"
+
+  # Velocity trapezoid dummy (publishes through ackermann mux via dummy/ackermann)
+  - node:
+      if: "$(var test_velocity)"
+      pkg: dummy_ackermann
+      exec: ackermann_velocity_trapezoid_node
+      name: ackermann_velocity_trapezoid
+      namespace: interfacing
+      output: screen
+      remap:
+        - from: "ackermann"
+          to: "dummy/ackermann"
+      param:
+        - from: "$(var config_file)"
+
+  # --- Common CAN / control nodes ---
 
   # Joystick hardware node (publishes joy messages from physical joystick)
   - node:
@@ -42,7 +79,7 @@ launch:
       param:
         - from: "$(var config_file)"
 
-  # Joystick interfacing node (converts joy to joystick/ackermann)
+  # Joystick interfacing node (converts joy to joystick/ackermann + joystick/roscco)
   - node:
       pkg: "joystick_interfacing"
       exec: "joystick_interfacing_node"
@@ -50,6 +87,9 @@ launch:
       namespace: "interfacing"
       output: "screen"
       ros_args: "--log-level warn"
+      remap:
+        - from: "roscco"
+          to: "joystick/roscco"
       param:
         - from: "$(var config_file)"
 
@@ -64,17 +104,49 @@ launch:
       param:
         - from: "$(var config_file)"
 
+  # Ackermann Smoother (rate-limits setpoint changes before PID)
   - node:
       pkg: "pid_control"
-      exec: "pid_control_node"
-      name: "pid_control_node"
+      exec: "ackermann_smoother_node"
+      name: "ackermann_smoother_node"
       namespace: "interfacing"
       output: "screen"
       remap:
+        - from: "ackermann_in"
+          to: "ackermann"
+        - from: "ackermann_out"
+          to: "smoothed/ackermann"
+      param:
+        - from: "$(var config_file)"
+
+  # Feedforward PID
+  - node:
+      pkg: "pid_control"
+      exec: "vel_driven_feedforward_pid_node"
+      name: "vel_driven_feedforward_pid_node"
+      namespace: "interfacing"
+      output: "screen"
+      remap:
+        - from: "ackermann"
+          to: "smoothed/ackermann"
         - from: "steering_feedback"
           to: "can_state_estimator/steering_angle"
-        - from: "velocity_feedback"
-          to: "can_state_estimator/body_velocity"
+        - from: "odom_feedback"
+          to: "/novatel/oem7/odom"
+        - from: "roscco"
+          to: "pid/roscco"
+        - from: "feedforward"
+          to: "pid/feedforward"
+      param:
+        - from: "$(var config_file)"
+
+  # OSCC Mux (joystick roscco takes priority over PID roscco)
+  - node:
+      pkg: "oscc_mux"
+      exec: "oscc_mux_node"
+      name: "oscc_mux"
+      namespace: "interfacing"
+      output: "screen"
       param:
         - from: "$(var config_file)"
 
@@ -108,8 +180,10 @@ launch:
           value:
             - /interfacing/joystick_node
             - /interfacing/ackermann_mux
+            - /interfacing/ackermann_smoother_node
+            - /interfacing/oscc_mux
             - /interfacing/can_state_estimator_node
-            - /interfacing/pid_control_node
+            - /interfacing/vel_driven_feedforward_pid_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

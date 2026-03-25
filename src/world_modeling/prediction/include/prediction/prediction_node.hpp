@@ -62,6 +62,15 @@ private:
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
+  /**
+   * @brief Process a single tracked object and generate a seed WorldObject
+   * @param detection The tracked object to predict
+   * @param frame_id Coordinate frame for the predictions
+   * @param timestamp Current timestamp in seconds
+   * @return WorldObject with predictions, or nullopt if generation failed
+   */
+  std::optional<world_model_msgs::msg::WorldObject> processObject(
+    const vision_msgs::msg::Detection3D & detection, const std::string & frame_id, double timestamp);
   // Temporal confidence smoothing to reduce frame-to-frame flicker.
   void applyConfidenceSmoothing(
     const vision_msgs::msg::Detection3D & detection, std::vector<TrajectoryHypothesis> & hypotheses);
