@@ -48,7 +48,7 @@ launch:
             - from: $(var config_file)
           remap:
             - from: input_cloud
-              to: /lidar_cc/velodyne_points
+              to: /lidar/all/points_merged
             - from: ground_cloud
               to: /perception/ground_cloud
             - from: non_ground_cloud
