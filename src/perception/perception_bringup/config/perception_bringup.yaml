@@ -168,11 +168,11 @@ multi_camera_sync:
     input_detections_topic: "/perception/detections"
     output_detections_topic: "/perception/detections_enriched"
 
-    # Class ID mappings (COCO dataset: traffic_light=9, car=2, truck=7, bus=5)
-    traffic_light_class_ids: ["traffic light", "9"]
-    car_class_ids: ["car", "2", "truck", "7", "bus", "5"]
-    truck_class_ids: ["truck", "7"]
-    bus_class_ids: ["bus", "5"]
+    # Class ID names
+    traffic_light_class_ids: ["traffic light"]
+    car_class_ids: ["car"]
+    truck_class_ids: ["truck"]
+    bus_class_ids: ["bus"]
     min_detection_confidence: 0.3
 
     # Traffic light color detection thresholds (HSV-based, OpenCV H: 0-180)

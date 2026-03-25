@@ -63,7 +63,7 @@ void AttributeAssignerNode::declareParameters()
 
   // --- Traffic light classifier params ---
   this->declare_parameter<std::vector<std::string>>(
-    "traffic_light_class_ids", std::vector<std::string>{"traffic light", "9"});
+    "traffic_light_class_ids", std::vector<std::string>{"traffic light"});
   this->declare_parameter<double>("traffic_light_min_saturation", 60.0);
   this->declare_parameter<double>("traffic_light_min_value", 80.0);
   this->declare_parameter<double>("traffic_light_red_hue_lo", 10.0);
@@ -88,8 +88,7 @@ void AttributeAssignerNode::declareParameters()
   core_->addClassifier(std::make_unique<TrafficLightClassifier>(tl_params));
 
   // --- Car behavior classifier params ---
-  this->declare_parameter<std::vector<std::string>>(
-    "car_class_ids", std::vector<std::string>{"car", "2", "truck", "7", "bus", "5"});
+  this->declare_parameter<std::vector<std::string>>("car_class_ids", std::vector<std::string>{"car"});
   this->declare_parameter<double>("car_brake_min_brightness", 90.0);
   this->declare_parameter<double>("car_brake_min_saturation", 40.0);
   this->declare_parameter<double>("car_red_hue_lo", 10.0);
@@ -100,8 +99,8 @@ void AttributeAssignerNode::declareParameters()
   this->declare_parameter<double>("car_amber_min_value", 100.0);
 
   // Vehicle subtype IDs and 3D dimensions (owned by car classifier)
-  this->declare_parameter<std::vector<std::string>>("truck_class_ids", std::vector<std::string>{"truck", "7"});
-  this->declare_parameter<std::vector<std::string>>("bus_class_ids", std::vector<std::string>{"bus", "5"});
+  this->declare_parameter<std::vector<std::string>>("truck_class_ids", std::vector<std::string>{"truck"});
+  this->declare_parameter<std::vector<std::string>>("bus_class_ids", std::vector<std::string>{"bus"});
   this->declare_parameter<double>("car_real_width", 1.8);
   this->declare_parameter<double>("car_real_height", 1.5);
   this->declare_parameter<double>("car_real_length", 4.5);

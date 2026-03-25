@@ -26,10 +26,14 @@ namespace wato::perception::attribute_assigner
 
 CarBehaviorClassifier::CarBehaviorClassifier(const Params & params)
 : params_(params)
-, ids_(params.class_ids.begin(), params.class_ids.end())
 , truck_ids_(params.truck_class_ids.begin(), params.truck_class_ids.end())
 , bus_ids_(params.bus_class_ids.begin(), params.bus_class_ids.end())
-{}
+{
+  // Build match set as union of car + truck + bus class IDs
+  ids_.insert(params.class_ids.begin(), params.class_ids.end());
+  ids_.insert(params.truck_class_ids.begin(), params.truck_class_ids.end());
+  ids_.insert(params.bus_class_ids.begin(), params.bus_class_ids.end());
+}
 
 bool CarBehaviorClassifier::matches(const vision_msgs::msg::Detection2D & det) const
 {
