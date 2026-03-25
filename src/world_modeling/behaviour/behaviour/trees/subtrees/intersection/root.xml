@@ -48,7 +48,7 @@
           <PassingActiveTrafficControlElement
             passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}" />
           <SpeedBehaviour
-            speed_behaviour="passing active traffic control element"
+            speed_behaviour="passing intersection"
             dist_to_stop="-1.0"
             topic_name="speed_behaviour" />
         </Sequence>
