@@ -89,11 +89,11 @@ multi_camera_sync:
 
     # Maximum time difference in milliseconds for message synchronization
     # Larger values allow more tolerance but may reduce temporal accuracy
-    sync_tolerance_ms: 2000.0
+    sync_tolerance_ms: 500.0
 
     # Queue size for message filters
     # Larger values can handle more variable frame rates but use more memory
-    queue_size: 20
+    queue_size: 10
 
     # Whether to publish synchronization information and statistics
     publish_sync_info: true
@@ -161,15 +161,16 @@ multi_camera_sync:
 # =============================================================================
 /**/tracking_node:
   ros__parameters:
-    frame_rate: 2
-    track_buffer: 30
-    track_thresh: 0.5
-    high_thresh: 0.6
-    match_thresh: 1.0
+    frame_rate: 12
+    track_buffer: 120
+    track_thresh: 0.1
+    high_thresh: 0.15
+    match_thresh: 0.9
     use_maj_cls: true
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
     output_frame: "lidar_cc"
+    publish_visualization: true
 
 # =============================================================================
 # Spatial Association Node
@@ -246,7 +247,7 @@ detection_lifecycle_manager:
 
 perception_lifecycle_manager:
   ros__parameters:
-    node_names: ["/perception/patchworkpp_node", "/spatial_association_node"]
+    node_names: ["/perception/patchworkpp_node", "/spatial_association_node", "/perception/tracking_node"]
     autostart: true
     autostart_delay_s: 15.0
     transition_timeout_s: 15.0

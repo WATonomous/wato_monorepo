@@ -97,20 +97,22 @@ launch:
             - from: $(var config_file)
 
   # Load 3D tracking into the shared container
-  # - load_composable_node:
-  #     target: perception_container
-  #     composable_node:
-  #       - pkg: tracking
-  #         plugin: TrackingNode
-  #         name: tracking_node
-  #         namespace: "perception"
-  #         param:
-  #           - from: $(var config_file)
-  #         remap:
-  #           - from: input_detections
-  #             to: /perception/detections_3D
-  #           - from: output_tracks
-  #             to: /perception/detections_3D_tracked
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: tracking
+          plugin: TrackingNode
+          name: tracking_node
+          namespace: "perception"
+          param:
+            - from: $(var config_file)
+          remap:
+            - from: input_detections
+              to: /perception/detections_3D
+            - from: output_tracks
+              to: /perception/detections_3D_tracked
+            - from: output_markers
+              to: /perception/tracked_markers
 
   # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)
   # Subscribes: multi_camera_info, detections, non_ground_cloud; optional multi_image (compressed) for viz
