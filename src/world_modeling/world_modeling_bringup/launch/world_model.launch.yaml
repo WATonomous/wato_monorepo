@@ -1,7 +1,7 @@
 # Full world modeling stack with eidos SLAM/localization.
 #
 # Usage:
-#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map
+#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml
 #   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map use_sim_time:=true
 #   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
 ---
@@ -18,7 +18,7 @@ launch:
 
   - arg:
       name: eidos_map_path
-      default: ""
+      default: "/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map"
       description: Path to the .map file for localization. Empty string skips loading.
 
   - arg:
