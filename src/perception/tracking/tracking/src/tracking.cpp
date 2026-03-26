@@ -269,8 +269,7 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
     RCLCPP_WARN(
       static_logger_,
       "Received unexpected mean shape for %d tracks, velocity hypothesis score is set to 0.0",
-      skip_count
-    );
+      skip_count);
   }
 
   return trks;
