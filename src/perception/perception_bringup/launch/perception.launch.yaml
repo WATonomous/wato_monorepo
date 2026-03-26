@@ -96,6 +96,20 @@ launch:
           param:
             - from: $(var config_file)
 
+  # Load attribute assigner into the shared container
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: attribute_assigner
+          plugin: wato::perception::attribute_assigner::AttributeAssignerNode
+          name: attribute_assigner_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var config_file)
+
   # Load 3D tracking into the shared container
   - load_composable_node:
       target: perception_container
@@ -112,7 +126,7 @@ launch:
             - from: output_tracks
               to: /perception/detections_3D_tracked
 
-  # Lifecycle Manager for detection node (params from perception_bringup.yaml)
+  # Lifecycle Manager for detection and attribute_assigner nodes (params from perception_bringup.yaml)
   - node:
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node

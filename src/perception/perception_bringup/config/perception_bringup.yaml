@@ -159,11 +159,85 @@ multi_camera_sync:
     output_frame: "map"
 
 # =============================================================================
+# Attribute Assigner Node
+# =============================================================================
+/**/attribute_assigner_node:
+  ros__parameters:
+    # Topic names (message_filters doesn't respect launch remapping)
+    input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"
+    input_detections_topic: "/perception/detections"
+    output_detections_topic: "/perception/detections_enriched"
+
+    # Class ID names
+    traffic_light_class_ids: ["traffic light"]
+    car_class_ids: ["car"]
+    truck_class_ids: ["truck"]
+    bus_class_ids: ["bus"]
+    min_detection_confidence: 0.3
+
+    # Traffic light color detection thresholds (HSV-based, OpenCV H: 0-180)
+    traffic_light_min_saturation: 30.0
+    traffic_light_min_value: 100.0
+    traffic_light_red_hue_lo: 23.0      # Red: H <= this OR H >= red_hue_hi
+    traffic_light_red_hue_hi: 160.0     # Red: H >= this OR H <= red_hue_lo
+    traffic_light_yellow_hue_hi: 55.0   # Yellow: red_hue_lo < H <= this
+    traffic_light_green_hue_hi: 85.0    # Green: yellow_hue_hi < H < this
+    traffic_light_strip_margin: 0.25    # Fraction of width/height to ignore on each side (0.0-0.45)
+
+    # Car signal detection thresholds (HSV-based)
+    car_brake_min_brightness: 250.0
+    car_brake_min_saturation: 130.0     # Lower than amber — brake lights on white cars appear washed out
+    car_red_hue_lo: 23.0                # Brake light red: H <= this
+    car_red_hue_hi: 160.0               # Brake light red: H >= this
+    car_amber_hue_lo: 24.0
+    car_amber_hue_hi: 35.0
+    car_amber_min_saturation: 80.0
+    car_amber_min_value: 110.0
+
+    # QoS Configuration for subscribers
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 10
+
+    # QoS Configuration for publishers
+    qos_publisher_reliability: "best_effort"      # Options: "reliable", "best_effort"
+    qos_publisher_durability: "volatile"  # Options: "transient_local", "volatile"
+    qos_publisher_depth: 10
+
+    # Message synchronization
+    sync_queue_size: 10
+    sync_max_time_diff_ms: 400.0  # Max time difference for syncing multi-image and detections (ms)
+                                    # Detections are typically 50-150ms after images due to processing time
+
+    # Visualization toggles
+    enable_image_markers: true       # Publish 2D image marker overlays (enriched_detection_markers)
+    enable_3d_markers: true          # Publish 3D MarkerArray for Foxglove
+
+    # 3D Detection settings
+    # These parameters control the 3D localization of detections using camera intrinsics and TF
+    input_multi_camera_info_topic: "/multi_camera_sync/multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
+    target_frame: "base_link"                                               # Target coordinate frame for 3D detections
+    traffic_light_assumed_depth: 30.0                                       # Fallback depth for traffic lights (meters)
+    car_assumed_depth: 20.0                                                 # Fallback depth for all vehicles (meters)
+
+    # Vehicle 3D dimensions (width used for depth estimation, all in meters)
+    car_real_width: 1.8
+    car_real_height: 1.8
+    car_real_length: 6.0
+
+    truck_real_width: 2.5
+    truck_real_height: 3.5
+    truck_real_length: 8.0
+
+    bus_real_width: 2.5
+    bus_real_height: 3.2
+    bus_real_length: 12.0
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
   ros__parameters:
-    node_names: ["deep_object_detection_node"]
+    node_names: ["deep_object_detection_node", "attribute_assigner_node"]
     autostart: true
     transition_timeout_s: 10.0
     bond_timeout_s: 4.0
