@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
+#include "behaviour_msgs/msg/speed_behaviour.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -46,11 +47,13 @@ public:
 
 private:
   void executeBehaviourCallback(const behaviour_msgs::msg::ExecuteBehaviour::SharedPtr msg);
+  void speedBehaviourCallback(const behaviour_msgs::msg::SpeedBehaviour::SharedPtr msg);
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
   void publishMarkers();
 
   // Subscribers
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr execute_behaviour_sub_;
+  rclcpp::Subscription<behaviour_msgs::msg::SpeedBehaviour>::SharedPtr speed_behaviour_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
 
   // Publisher
@@ -66,6 +69,8 @@ private:
   // Latest behaviour message
   behaviour_msgs::msg::ExecuteBehaviour latest_behaviour_;
   bool has_behaviour_{false};
+  behaviour_msgs::msg::SpeedBehaviour latest_speed_behaviour_;
+  bool has_speed_behaviour_{false};
 
   // Parameters
   std::string map_frame_;

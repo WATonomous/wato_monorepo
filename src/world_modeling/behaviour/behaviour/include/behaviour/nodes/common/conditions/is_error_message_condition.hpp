@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 
 namespace behaviour
@@ -28,11 +29,12 @@ namespace behaviour
  * @class IsErrorMessageCondition
  * @brief ConditionNode to compare an error message with an expected value.
  */
-class IsErrorMessageCondition : public BT::ConditionNode
+class IsErrorMessageCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsErrorMessageCondition(const std::string & name, const BT::NodeConfig & config)
+  IsErrorMessageCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -47,7 +49,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsErrorMessageCondition]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto msg = ports::tryGet<std::string>(*this, "msg");
@@ -60,8 +62,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    std::cout << "[IsErrorMessageCondition]: Comparing msg='" << *msg << "' to expected='" << *expected << "'"
-              << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "Comparing msg='" << *msg << "' to expected='" << *expected << "'");
 
     if (msg == expected) {
       return BT::NodeStatus::SUCCESS;

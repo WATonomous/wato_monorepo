@@ -49,9 +49,9 @@ void BehaviourTree::registerNodes()
   params.nh = node_;
 
   // load all the node registrars
-  CommonNodeRegistrar common_registrar;
-  IntersectionNodeRegistrar intersection_registrar;
-  LaneNavigationNodeRegistrar lane_navigation_registrar;
+  CommonNodeRegistrar common_registrar(node_);
+  IntersectionNodeRegistrar intersection_registrar(node_);
+  LaneNavigationNodeRegistrar lane_navigation_registrar(node_);
 
   common_registrar.register_nodes(factory_, params);
   intersection_registrar.register_nodes(factory_, params);

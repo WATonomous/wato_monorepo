@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 
@@ -29,11 +30,12 @@ namespace behaviour
  * @class GoalLaneletExistCondition
  * @brief ConditionNode to check whether a goal lanelet is available.
  */
-class GoalLaneletExistCondition : public BT::ConditionNode
+class GoalLaneletExistCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  GoalLaneletExistCondition(const std::string & name, const BT::NodeConfig & config)
+  GoalLaneletExistCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -44,7 +46,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GoalLaneletExist]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto goal_lanelet = ports::tryGetPtr<lanelet_msgs::msg::Lanelet>(*this, "goal_lanelet");

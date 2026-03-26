@@ -20,6 +20,8 @@ Basic dual PID controller for steering and velocity. Subscribes to an Ackermann 
 
 ### 2. `vel_driven_feedforward_pid_node`
 
+![alt text](image.png)
+
 Feedforward + PID controller for steering and velocity. Adds a velocity-dependent feedforward torque model on top of the steering PID to improve tracking at speed. Also supports D-on-measurement to avoid derivative kick, an EMA filter on velocity, and configurable throttle/brake scaling.
 
 The feedforward model is:
