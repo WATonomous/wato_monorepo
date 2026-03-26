@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
@@ -32,11 +33,12 @@ namespace behaviour
  * @brief ConditionNode to check whether ego speed is below a threshold.
  */
 
-class EgoStoppedCondition : public BT::ConditionNode
+class EgoStoppedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  EgoStoppedCondition(const std::string & name, const BT::NodeConfig & config)
+  EgoStoppedCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -50,7 +52,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[EgoStopped]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
@@ -66,11 +68,11 @@ public:
     const double thresh = *threshold_velocity;
 
     if (v <= thresh) {
-      std::cout << "[EgoStopped]: speed " << v << " <= threshold_velocity " << thresh << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " <= threshold_velocity " << thresh);
       return BT::NodeStatus::SUCCESS;
     }
 
-    std::cout << "[EgoStopped]: speed " << v << " > threshold_velocity " << thresh << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " > threshold_velocity " << thresh);
     return BT::NodeStatus::FAILURE;
   }
 };

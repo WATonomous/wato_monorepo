@@ -93,7 +93,6 @@ In XML, reference those BT-only values with `{@bt.*}`.
    | `SetRoute`             | `service_name` | `/world_modeling/set_route`                |
    | `GetAreaOccupancy`     | `service_name` | `/world_modeling/get_area_occupancy`       |
    | `GetWorldObjects`      | `service_name` | `/world_modeling/get_world_objects_enriched` |
-   | `GetLaneletsByRegElem` | `service_name` | `/world_modeling/get_lanelets_by_reg_elem` |
    | `SpawnWall`            | `service_name` | `/world_modeling/spawn_wall`               |
    | `DespawnWall`          | `service_name` | `/world_modeling/despawn_wall`             |
    | `ExecuteBehaviour`     | `topic_name`   | `execute_behaviour` (relative, remapped)   |
@@ -102,6 +101,12 @@ In XML, reference those BT-only values with `{@bt.*}`.
    - build: `colcon build --packages-up-to behaviour`
    - launch: `ros2 launch world_modeling_bringup world_modeling.launch.yaml`
    - verify no BT runtime errors (port/type/registration mismatches are common).
+
+### Intersection behavior notes
+
+- `traffic_sign` map elements are normalized into BT traffic-control types in `behaviour/utils/lanelet.hpp`.
+- Stop sign and yield should latch ego priority once the gate condition succeeds; do not immediately reset on "clear" if `ActiveTrafficControlElementPassed` is still false.
+- `GetLaneletEndPose` is only a fallback when no stop line is available, and it should use the lanelet midpoint with lane-aligned heading.
 
 Refer to docs https://www.behaviortree.dev/docs/intro.
 
