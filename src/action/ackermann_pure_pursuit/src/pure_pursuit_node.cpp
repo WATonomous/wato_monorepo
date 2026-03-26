@@ -193,19 +193,15 @@ void PurePursuitNode::controlCallback()
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
                  (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour.empty();
 
-  if (is_idle) {
+  if (is_idle || (!disable_standby_ && bt_requested_behaviour == standby_msg_)) {
     idle_msg.data = true;
     idle_pub_->publish(idle_msg);
+    publishAckermannMsg(base_frame_, standby_speed_, standby_steering_, invert_steering_);
     return;
   }
 
   idle_msg.data = false;
   idle_pub_->publish(idle_msg);
-
-  if (!disable_standby_ && bt_requested_behaviour == standby_msg_) {
-    publishAckermannMsg(base_frame_, standby_speed_, standby_steering_, invert_steering_);
-    return;
-  }
 
   const auto & traj = *latest_trajectory_;
   double wheelbase = getWheelbase();
