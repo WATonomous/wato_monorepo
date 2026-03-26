@@ -91,6 +91,10 @@ rclcpp_components_register_nodes(${PROJECT_NAME}_node
   "wato::perception::patchworkpp::GroundRemovalNode"
 )
 
+rclcpp_components_register_nodes(${PROJECT_NAME}_node
+  "wato::perception::patchworkpp::GroundRemovalNode"
+)
+
 add_executable(${PROJECT_NAME}_exe
   src/main.cpp
 )

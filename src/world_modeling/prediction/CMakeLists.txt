@@ -34,6 +34,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
+
 find_package(visualization_msgs REQUIRED)
 
 find_package(Eigen3 REQUIRED)

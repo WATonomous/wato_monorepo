@@ -12,6 +12,7 @@ services:
         USERNAME: "${USERNAME}"
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
+        CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${INFRASTRUCTURE_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -30,6 +31,7 @@ services:
         USERNAME: "${USERNAME}"
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
+        CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${INTERFACING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -48,6 +50,7 @@ services:
         USERNAME: "${USERNAME}"
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
+        CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${PERCEPTION_IMAGE:?}:dep_${TAG}"
     runtime: nvidia
     command: sleep infinity
@@ -77,6 +80,7 @@ services:
         USERNAME: "${USERNAME}"
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
+        CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -95,6 +99,7 @@ services:
         USERNAME: "${USERNAME}"
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
+        CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${ACTION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:
@@ -125,6 +130,7 @@ services:
         USERNAME: "${USERNAME}"
         USER_UID: "${SETUID}"
         USER_GID: "${SETGID}"
+        CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${SIMULATION_IMAGE:?}:dep_${TAG}"
     command: sleep infinity
     volumes:

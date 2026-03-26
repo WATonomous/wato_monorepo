@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/regulatory_element.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
@@ -33,11 +34,12 @@ namespace behaviour
    * @class GetTrafficLightStateAction
    * @brief SyncActionNode to read traffic light state from world-object snapshots.
    */
-class GetTrafficLightStateAction : public BT::SyncActionNode
+class GetTrafficLightStateAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetTrafficLightStateAction(const std::string & name, const BT::NodeConfig & config)
+  GetTrafficLightStateAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -54,7 +56,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetTrafficLightState] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto reg_elem = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "traffic_light");
@@ -73,15 +75,15 @@ public:
     }
 
     const int64_t reg_elem_id = reg_elem->id;
-    const auto state = world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
+    const auto state = utils::world_objects::getTrafficLightState(reg_elem_id, *state_hypothesis_index, *objects);
     if (!state) {
       setOutput("error_message", "traffic_light_state_not_found");
-      std::cout << "[GetTrafficLightState] failed to get state for reg_elem_id=" << reg_elem_id << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "traffic_light_state_not_found reg_elem_id=" << reg_elem_id);
       return BT::NodeStatus::FAILURE;
     }
 
     setOutput("out_traffic_light_state", *state);
-    std::cout << "[GetTrafficLightState] state=" << *state << " reg_elem_id=" << reg_elem_id << std::endl;
+    RCLCPP_DEBUG_STREAM(logger(), "traffic_light_state reg_elem_id=" << reg_elem_id << " state=" << *state);
 
     return BT::NodeStatus::SUCCESS;
   }

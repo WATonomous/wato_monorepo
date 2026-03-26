@@ -35,13 +35,8 @@ launch:
 
   - arg:
       name: "can_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/joystick.yaml"
-      description: "Path to the joystick configuration file"
-
-  - arg:
-      name: "healthchecker_config_file"
-      default: "$(find-pkg-share interfacing_bringup)/config/topic_healthchecker.yaml"
-      description: "Path to the topic healthchecker configuration file"
+      default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
+      description: "Path to the CAN/control configuration file"
 
   # GPS Configs
   - arg:
@@ -116,7 +111,7 @@ launch:
       namespace: interfacing
       output: screen
       param:
-        - from: "$(var healthchecker_config_file)"
+        - from: "$(var can_config_file)"
         - name: http_port
           value: $(env TOPIC_HEALTHCHECKER__PORT)
 
