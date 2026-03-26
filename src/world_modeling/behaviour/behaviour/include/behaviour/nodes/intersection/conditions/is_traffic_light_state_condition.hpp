@@ -22,6 +22,7 @@
 #include <iostream>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 
 namespace behaviour
@@ -30,11 +31,12 @@ namespace behaviour
    * @class IsTrafficLightStateCondition
    * @brief ConditionNode to compare traffic light state with expected state.
    */
-class IsTrafficLightStateCondition : public BT::ConditionNode
+class IsTrafficLightStateCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  IsTrafficLightStateCondition(const std::string & name, const BT::NodeConfig & config)
+  IsTrafficLightStateCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -48,7 +50,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[IsTrafficLightState] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
     auto state = ports::tryGet<std::string>(*this, "traffic_light_state");
@@ -60,9 +62,6 @@ public:
     if (!ports::require(expected, "expected", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
-
-    std::cout << "[IsTrafficLightState]: Comparing msg='" << *state << "' to expected='" << *expected << "'"
-              << std::endl;
 
     return (*state == *expected) ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
