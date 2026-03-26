@@ -690,10 +690,7 @@ std::optional<cv::Rect2d> projectAABBRect(
 }
 
 std::optional<cv::Rect2d> projectOrientedBoxImageRect(
-  const Box3D & box,
-  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
-  double image_w,
-  double image_h)
+  const Box3D & box, const Eigen::Matrix<double, 3, 4> & lidar_to_image, double image_w, double image_h)
 {
   if (box.size.x() <= 1e-6f || box.size.y() <= 1e-6f || box.size.z() <= 1e-6f) {
     return std::nullopt;
@@ -811,6 +808,7 @@ void assignCandidatesToDetectionsByIOU(
       std::optional<cv::Rect2d> point_rect;
       std::optional<cv::Rect2d> aabb_rect;
     };
+
     std::vector<CandGeom> geoms(candidates.size());
     for (size_t c = 0; c < candidates.size(); ++c) {
       CandGeom & g = geoms[c];
@@ -883,8 +881,9 @@ void assignCandidatesToDetectionsByIOU(
         for (const auto & uv : g.uvs) {
           if (pointInRectClosed(uv, det_rect)) ++inside;
         }
-        if (static_cast<double>(inside) <
-            params.association_min_inside_point_fraction * static_cast<double>(g.uvs.size()))
+        if (
+          static_cast<double>(inside) <
+          params.association_min_inside_point_fraction * static_cast<double>(g.uvs.size()))
         {
           continue;
         }
@@ -906,8 +905,8 @@ void assignCandidatesToDetectionsByIOU(
         const double centroid_score = std::exp(-dist_c / det_scale);
         const double point_score =
           std::min(1.0, std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + 120.0));
-        const double combined_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac +
-          kAssocWAr * ar_score + kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
+        const double combined_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac + kAssocWAr * ar_score +
+                                      kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
 
         pairs.push_back({c, d, iou, combined_score});
       }
@@ -962,8 +961,7 @@ void assignCandidatesToDetectionsByIOU(
     }
   }
 
-  std::sort(pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b)
-  {
+  std::sort(pairs.begin(), pairs.end(), [](const Pair & a, const Pair & b) {
     if (a.combined_score != b.combined_score) {
       return a.combined_score > b.combined_score;
     }
@@ -980,7 +978,8 @@ void assignCandidatesToDetectionsByIOU(
     assignments.push_back(p);
   }
 
-  const bool allow_second_pass = params.enable_second_pass_fallback &&
+  const bool allow_second_pass =
+    params.enable_second_pass_fallback &&
     !(params.association_strict_matching && params.association_suppress_second_pass_under_strict);
   // Second pass: for unassigned detections, try relaxed IoU or centroid-in-box
   if (allow_second_pass && params.second_pass_min_iou > 0.0) {
@@ -990,6 +989,7 @@ void assignCandidatesToDetectionsByIOU(
       if (unassigned_dets.size() >= static_cast<size_t>(params.max_unassigned_detections_second_pass)) break;
       unassigned_dets.push_back(static_cast<int>(d));
     }
+
     struct CandidateProjInfo
     {
       bool centroid_valid{false};
@@ -1004,16 +1004,14 @@ void assignCandidatesToDetectionsByIOU(
     std::vector<std::optional<cv::Rect2d>> cand_aabb_rects(candidates.size());
     std::vector<std::optional<cv::Rect2d>> second_pass_iou_rects(candidates.size());
 
-    auto pointInRect = [](const cv::Point2d & uv, const cv::Rect2d & r) -> bool
-    {
+    auto pointInRect = [](const cv::Point2d & uv, const cv::Rect2d & r) -> bool {
       if (r.width <= 0.0 || r.height <= 0.0) return false;
       const double x1 = r.x + r.width;
       const double y1 = r.y + r.height;
       return uv.x >= r.x && uv.x <= x1 && uv.y >= r.y && uv.y <= y1;
     };
 
-    auto expandRectToImage = [&](const cv::Rect2d & r, double expand_fraction) -> cv::Rect2d
-    {
+    auto expandRectToImage = [&](const cv::Rect2d & r, double expand_fraction) -> cv::Rect2d {
       if (r.width <= 0.0 || r.height <= 0.0) return cv::Rect2d();
       if (expand_fraction <= 0.0) return r;
 
@@ -1080,8 +1078,7 @@ void assignCandidatesToDetectionsByIOU(
         if (info.projected_point_count >= 2u && info.projected_rect.width > 0.0 && info.projected_rect.height > 0.0) {
           iou_rect = info.projected_rect;
         } else if (info.projected_point_count == 1u) {
-          iou_rect = cv::Rect2d(
-            info.projected_pts[0].x - 3.0, info.projected_pts[0].y - 3.0, 6.0, 6.0);
+          iou_rect = cv::Rect2d(info.projected_pts[0].x - 3.0, info.projected_pts[0].y - 3.0, 6.0, 6.0);
         }
       }
       if (!iou_rect && cloud && !candidates[c].indices.indices.empty()) {
@@ -1146,8 +1143,8 @@ void assignCandidatesToDetectionsByIOU(
 
         // Range tiering (for minimum support points and support AND/OR).
         const auto & sc = candidates[c].stats;
-        const double range =
-          std::sqrt(sc.centroid.x() * sc.centroid.x() + sc.centroid.y() * sc.centroid.y() + sc.centroid.z() * sc.centroid.z());
+        const double range = std::sqrt(
+          sc.centroid.x() * sc.centroid.x() + sc.centroid.y() * sc.centroid.y() + sc.centroid.z() * sc.centroid.z());
 
         // Optional tiny-far rejection (tightens priors rather than lowering IoU aggressively).
         if (params.second_pass_min_det_area_far_px2 > 0.0 && range > params.quality_distance_threshold_far) {
@@ -1156,15 +1153,19 @@ void assignCandidatesToDetectionsByIOU(
 
         int min_inside_points = params.second_pass_min_inside_points;
         if (range > params.quality_distance_threshold_far) {
-          min_inside_points = static_cast<int>(std::floor(min_inside_points * params.second_pass_inside_points_far_scale));
+          min_inside_points =
+            static_cast<int>(std::floor(min_inside_points * params.second_pass_inside_points_far_scale));
         } else if (range > params.quality_distance_threshold_medium) {
-          min_inside_points = static_cast<int>(std::floor(min_inside_points * params.second_pass_inside_points_medium_scale));
+          min_inside_points =
+            static_cast<int>(std::floor(min_inside_points * params.second_pass_inside_points_medium_scale));
         }
 
         if (is_person) {
-          min_inside_points = static_cast<int>(std::floor(min_inside_points * params.second_pass_person_inside_points_scale));
+          min_inside_points =
+            static_cast<int>(std::floor(min_inside_points * params.second_pass_person_inside_points_scale));
         } else if (is_vehicle) {
-          min_inside_points = static_cast<int>(std::floor(min_inside_points * params.second_pass_vehicle_inside_points_scale));
+          min_inside_points =
+            static_cast<int>(std::floor(min_inside_points * params.second_pass_vehicle_inside_points_scale));
         }
         min_inside_points = std::max(1, min_inside_points);
 
@@ -1190,10 +1191,12 @@ void assignCandidatesToDetectionsByIOU(
         }
 
         const bool is_far_range = range > params.quality_distance_threshold_far;
-        const bool support_ok = !can_compute_point_support ? true :
-          (is_far_range ?
-            (inside_count >= static_cast<size_t>(min_inside_points) || inside_fraction >= min_inside_fraction) :
-            (inside_count >= static_cast<size_t>(min_inside_points) && inside_fraction >= min_inside_fraction));
+        const bool support_ok =
+          !can_compute_point_support
+            ? true
+            : (is_far_range
+                 ? (inside_count >= static_cast<size_t>(min_inside_points) || inside_fraction >= min_inside_fraction)
+                 : (inside_count >= static_cast<size_t>(min_inside_points) && inside_fraction >= min_inside_fraction));
         if (!support_ok) continue;
 
         // Size plausibility (2D footprint match between projected candidate and detection bbox).
@@ -1229,8 +1232,7 @@ void assignCandidatesToDetectionsByIOU(
         const double dist_norm = det_diag_px > 1e-6 ? dist_px / det_diag_px : dist_px;
         const double center_score = std::max(0.0, std::min(1.0, 1.0 - dist_norm));
 
-        const double combined_score =
-          0.35 * iou_val + 0.30 * inside_fraction + 0.20 * center_score + 0.15 * size_score;
+        const double combined_score = 0.35 * iou_val + 0.30 * inside_fraction + 0.20 * center_score + 0.15 * size_score;
 
         if (combined_score <= -1e9) continue;
         if (combined_score > best_score) {
@@ -1244,7 +1246,8 @@ void assignCandidatesToDetectionsByIOU(
 
       if (best.cand_idx != static_cast<size_t>(-1)) {
         const double second_for_margin = (second_best_score >= 0.0) ? second_best_score : 0.0;
-        if (best_score >= params.second_pass_min_combined_score &&
+        if (
+          best_score >= params.second_pass_min_combined_score &&
           (best_score - second_for_margin) >= params.second_pass_best_second_margin)
         {
           used_candidates.insert(best.cand_idx);

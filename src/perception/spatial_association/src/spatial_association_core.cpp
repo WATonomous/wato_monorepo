@@ -60,8 +60,8 @@ void SpatialAssociationCore::processPointCloud(
     ranged_holder.reset(new pcl::PointCloud<pcl::PointXYZ>);
     ranged_holder->reserve(cleaned->size());
     for (const auto & p : cleaned->points) {
-      const double d2 = static_cast<double>(p.x) * p.x + static_cast<double>(p.y) * p.y +
-        static_cast<double>(p.z) * p.z;
+      const double d2 =
+        static_cast<double>(p.x) * p.x + static_cast<double>(p.y) * p.y + static_cast<double>(p.z) * p.z;
       if (d2 <= r2 && std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z)) {
         ranged_holder->points.push_back(p);
       }

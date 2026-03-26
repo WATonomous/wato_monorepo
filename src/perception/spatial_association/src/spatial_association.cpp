@@ -15,9 +15,13 @@
 #include "spatial_association/spatial_association.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -28,13 +32,8 @@
 #include <rclcpp/time.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
-#include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-
-#include <cstdint>
-#include <limits>
 
 namespace
 {
@@ -72,8 +71,7 @@ rclcpp::Time representativeMultiDetectionStamp(
   }
   std::sort(cam_secs.begin(), cam_secs.end());
   const size_t n = cam_secs.size();
-  const double med_s =
-    (n % 2 == 1) ? cam_secs[n / 2] : 0.5 * (cam_secs[n / 2 - 1] + cam_secs[n / 2]);
+  const double med_s = (n % 2 == 1) ? cam_secs[n / 2] : 0.5 * (cam_secs[n / 2 - 1] + cam_secs[n / 2]);
   return rclcpp::Time(0, 0, clock_type) + rclcpp::Duration::from_seconds(med_s);
 }
 
@@ -669,10 +667,10 @@ void SpatialAssociationNode::initializeParams()
   lidar_frame_ = this->get_parameter("lidar_frame").as_string();
   max_detection_cloud_stamp_delta_ = this->get_parameter("max_detection_cloud_stamp_delta").as_double();
   detection_stamp_fallback_policy_ = this->get_parameter("detection_stamp_fallback_policy").as_string();
-  clustered_cloud_cache_size_ = static_cast<size_t>(std::max<int64_t>(
-    static_cast<int64_t>(1), this->get_parameter("clustered_cloud_cache_size").as_int()));
-  pending_cloud_queue_max_ = static_cast<size_t>(std::max<int64_t>(
-    static_cast<int64_t>(1), this->get_parameter("raw_cloud_pending_queue_size").as_int()));
+  clustered_cloud_cache_size_ = static_cast<size_t>(
+    std::max<int64_t>(static_cast<int64_t>(1), this->get_parameter("clustered_cloud_cache_size").as_int()));
+  pending_cloud_queue_max_ = static_cast<size_t>(
+    std::max<int64_t>(static_cast<int64_t>(1), this->get_parameter("raw_cloud_pending_queue_size").as_int()));
   raw_cloud_latest_only_ = this->get_parameter("raw_cloud_latest_only").as_bool();
   bbox_markers_use_detection_stamp_ = this->get_parameter("bbox_markers_use_detection_stamp").as_bool();
   skip_repeat_association_publish_ = this->get_parameter("skip_repeat_association_publish").as_bool();
@@ -729,10 +727,8 @@ void SpatialAssociationNode::initializeParams()
   proj_params.second_pass_min_det_area_px2 = this->get_parameter(pu + "second_pass_min_det_area_px2").as_double();
   proj_params.second_pass_min_det_area_far_px2 =
     this->get_parameter(pu + "second_pass_min_det_area_far_px2").as_double();
-  proj_params.second_pass_min_inside_points =
-    this->get_parameter(pu + "second_pass_min_inside_points").as_int();
-  proj_params.second_pass_min_inside_fraction =
-    this->get_parameter(pu + "second_pass_min_inside_fraction").as_double();
+  proj_params.second_pass_min_inside_points = this->get_parameter(pu + "second_pass_min_inside_points").as_int();
+  proj_params.second_pass_min_inside_fraction = this->get_parameter(pu + "second_pass_min_inside_fraction").as_double();
   proj_params.second_pass_inside_points_far_scale =
     this->get_parameter(pu + "second_pass_inside_points_far_scale").as_double();
   proj_params.second_pass_inside_points_medium_scale =
@@ -745,16 +741,13 @@ void SpatialAssociationNode::initializeParams()
     this->get_parameter(pu + "second_pass_vehicle_inside_fraction_scale").as_double();
   proj_params.second_pass_vehicle_inside_points_scale =
     this->get_parameter(pu + "second_pass_vehicle_inside_points_scale").as_double();
-  proj_params.second_pass_min_size_score =
-    this->get_parameter(pu + "second_pass_min_size_score").as_double();
+  proj_params.second_pass_min_size_score = this->get_parameter(pu + "second_pass_min_size_score").as_double();
   proj_params.second_pass_person_min_size_score =
     this->get_parameter(pu + "second_pass_person_min_size_score").as_double();
   proj_params.second_pass_vehicle_min_size_score =
     this->get_parameter(pu + "second_pass_vehicle_min_size_score").as_double();
-  proj_params.second_pass_min_combined_score =
-    this->get_parameter(pu + "second_pass_min_combined_score").as_double();
-  proj_params.second_pass_best_second_margin =
-    this->get_parameter(pu + "second_pass_best_second_margin").as_double();
+  proj_params.second_pass_min_combined_score = this->get_parameter(pu + "second_pass_min_combined_score").as_double();
+  proj_params.second_pass_best_second_margin = this->get_parameter(pu + "second_pass_best_second_margin").as_double();
 
   proj_params.association_strict_matching = this->get_parameter(pu + "association_strict_matching").as_bool();
   proj_params.association_centroid_inner_box_fraction =
@@ -769,8 +762,7 @@ void SpatialAssociationNode::initializeParams()
     this->get_parameter(pu + "association_allow_aabb_centroid_fallback").as_bool();
   proj_params.association_suppress_second_pass_under_strict =
     this->get_parameter(pu + "association_suppress_second_pass_under_strict").as_bool();
-  proj_params.association_roi_expand_fraction =
-    this->get_parameter(pu + "association_roi_expand_fraction").as_double();
+  proj_params.association_roi_expand_fraction = this->get_parameter(pu + "association_roi_expand_fraction").as_double();
   proj_params.quality_person_max_height_m =
     static_cast<float>(this->get_parameter(pu + "quality_person_max_height_m").as_double());
   proj_params.quality_person_max_footprint_xy_m =
@@ -888,8 +880,7 @@ void SpatialAssociationNode::workerLoop()
       my_seq = job.seq;
     }
     const auto is_stale_latest_only = [this, my_seq]() {
-      return raw_cloud_latest_only_ &&
-             my_seq != latest_raw_cloud_seq_.load(std::memory_order_acquire);
+      return raw_cloud_latest_only_ && my_seq != latest_raw_cloud_seq_.load(std::memory_order_acquire);
     };
     if (is_stale_latest_only()) {
       continue;
@@ -996,8 +987,8 @@ void SpatialAssociationNode::nonGroundCloudCallback(const sensor_msgs::msg::Poin
   }
 }
 
-std::shared_ptr<SpatialAssociationNode::ClusteredCloudSnapshot>
-SpatialAssociationNode::pickNearestClusteredCloudLocked(const rclcpp::Time & det_time)
+std::shared_ptr<SpatialAssociationNode::ClusteredCloudSnapshot> SpatialAssociationNode::pickNearestClusteredCloudLocked(
+  const rclcpp::Time & det_time)
 {
   std::shared_ptr<ClusteredCloudSnapshot> best;
   double best_abs_s = std::numeric_limits<double>::infinity();
@@ -1119,8 +1110,7 @@ void SpatialAssociationNode::runAssociationFromDetections(
         "batch (increase delta or clustered_cloud_cache_size if LiDAR lags)",
         max_detection_cloud_stamp_delta_);
     } else {
-      RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 5000, "No non-ground cloud data, skipping detection processing");
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No non-ground cloud data, skipping detection processing");
     }
     return;
   }
@@ -1300,8 +1290,7 @@ void SpatialAssociationNode::runAssociationFromDetections(
     for (size_t k = 0; k < nd; ++k) {
       CrossCameraWorkItem w;
       w.det3d = std::move(detection_results.detections3d.detections[k]);
-      w.score =
-        w.det3d.results.empty() ? 0.0 : static_cast<double>(w.det3d.results[0].hypothesis.score);
+      w.score = w.det3d.results.empty() ? 0.0 : static_cast<double>(w.det3d.results[0].hypothesis.score);
       if (k < ni) {
         w.sorted_indices = detection_results.lidar_indices_per_detection[k].indices;
         sortUniqueIndicesInPlace(w.sorted_indices);
@@ -1340,11 +1329,7 @@ void SpatialAssociationNode::runAssociationFromDetections(
       cross_camera_min_bev_box_iou_,
       cross_camera_min_bev_box_iou_no_class_);
     if (debug_logging_ && before != accumulated.size()) {
-      RCLCPP_INFO(
-        get_logger(),
-        "Cross-camera dedup: %zu -> %zu 3D detection(s)",
-        before,
-        accumulated.size());
+      RCLCPP_INFO(get_logger(), "Cross-camera dedup: %zu -> %zu 3D detection(s)", before, accumulated.size());
     }
   }
 
@@ -1394,20 +1379,18 @@ void SpatialAssociationNode::runAssociationFromDetections(
   if (association_detection_seq != latest_detection_seq_.load(std::memory_order_acquire)) {
     return;
   }
-  if (association_clustered_seq <
-      latest_clustered_cloud_seq_.load(std::memory_order_acquire))
-  {
+  if (association_clustered_seq < latest_clustered_cloud_seq_.load(std::memory_order_acquire)) {
     return;
   }
   {
     std::lock_guard<std::mutex> lock(publish_freshness_mutex_);
-    const bool not_newer =
-      (association_detection_seq < last_published_detection_seq_) ||
-      (association_detection_seq == last_published_detection_seq_ &&
-       association_clustered_seq <= last_published_clustered_seq_);
+    const bool not_newer = (association_detection_seq < last_published_detection_seq_) ||
+                           (association_detection_seq == last_published_detection_seq_ &&
+                            association_clustered_seq <= last_published_clustered_seq_);
     if (not_newer) {
-      if (skip_repeat_association_publish_ && last_association_publish_pair_valid_ &&
-          pair_det_ns == last_association_publish_det_ns_ && pair_cloud_ns == last_association_publish_cloud_ns_)
+      if (
+        skip_repeat_association_publish_ && last_association_publish_pair_valid_ &&
+        pair_det_ns == last_association_publish_det_ns_ && pair_cloud_ns == last_association_publish_cloud_ns_)
       {
         RCLCPP_DEBUG_THROTTLE(
           get_logger(),
@@ -1489,12 +1472,19 @@ DetectionOutputs SpatialAssociationNode::processDetections(
 
   if (!skip_iou_assignment) {
     projection_utils::assignCandidatesToDetectionsByIOU(
-      cloud, candidates, detection, transform, projection_matrix, object_detection_confidence_, image_width,
+      cloud,
+      candidates,
+      detection,
+      transform,
+      projection_matrix,
+      object_detection_confidence_,
+      image_width,
       image_height);
   } else {
     candidates.erase(
       std::remove_if(
-        candidates.begin(), candidates.end(),
+        candidates.begin(),
+        candidates.end(),
         [](const projection_utils::ClusterCandidate & c) { return !c.match.has_value(); }),
       candidates.end());
   }
