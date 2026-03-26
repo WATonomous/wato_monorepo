@@ -296,8 +296,7 @@ std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(double /
     Eigen::Isometry3d T;
     T.matrix() = world_T.matrix().cast<double>();
     for (size_t i = 0; i < (*cloud)->size(); i++) {
-      Eigen::Vector3d p =
-        T * Eigen::Vector3d((*cloud)->points[i].x, (*cloud)->points[i].y, (*cloud)->points[i].z);
+      Eigen::Vector3d p = T * Eigen::Vector3d((*cloud)->points[i].x, (*cloud)->points[i].y, (*cloud)->points[i].z);
       submap_merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
     }
   }

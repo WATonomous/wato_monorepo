@@ -21,6 +21,7 @@
   <exec_depend>behaviour</exec_depend>
   <exec_depend>behaviour_markers</exec_depend>
   <exec_depend>eidos</exec_depend>
+  <exec_depend>eidos_transform</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

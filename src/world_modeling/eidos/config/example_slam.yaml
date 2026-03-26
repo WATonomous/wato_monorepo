@@ -6,18 +6,6 @@
       odometry: "odom"
       map: "map"
 
-    # ---- TransformManager ----
-    transforms:
-      odom_source: "liso_factor"   # fuse LISO odom with motion model via EKF
-      map_source: "slam_core"      # Estimator optimized pose (graph-corrected)
-      rate: 500.0                  # TransformManager timer rate (Hz)
-      fusion:
-        # EKF noise params [roll, pitch, yaw, x, y, z]
-        # process_noise: per-tick MM prediction uncertainty. Higher = trust MM less.
-        process_noise: [1.0e-6, 1.0e-6, 1.0e-6, 1.0e-4, 1.0e-4, 1.0e-4]
-        # measurement_noise: LISO odom correction uncertainty. Lower = trust LISO more.
-        measurement_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-2, 1.0e-2]
-
     # ---- Core ----
     slam_rate: 10.0
     relocalization_timeout: 30.0
@@ -59,15 +47,6 @@
     visualization_plugins:
       - "keyframe_map_visualization"
       - "factor_graph_visualization"
-
-    # ==========================================================================
-    # Motion Model (kinematic state transition model)
-    # ==========================================================================
-    motion_model:
-      plugin: "eidos::HolonomicMotionModel"
-      # plugin: "eidos::AckermannMotionModel"
-      # ackermann_topic: "/interfacing/can_state_estimator/ackermann"
-      # wheelbase: 2.57
 
     # ==========================================================================
     # GPS Factor

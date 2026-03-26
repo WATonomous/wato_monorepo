@@ -37,12 +37,21 @@ void ImuFactor::onInitialize()
 
   node_->declare_parameter(prefix + ".imu_topic", std::string("/imu/data"));
   node_->declare_parameter(prefix + ".imu_frame", std::string("imu_link"));
+  node_->declare_parameter(prefix + ".add_factors", true);
+  node_->declare_parameter(prefix + ".odom_topic", std::string(name_ + "/odometry"));
   node_->declare_parameter(prefix + ".acc_cov", std::vector<double>{9e-6, 9e-6, 9e-6});
   node_->declare_parameter(prefix + ".gyr_cov", std::vector<double>{1e-6, 1e-6, 1e-6});
   node_->declare_parameter(prefix + ".integration_cov", std::vector<double>{1e-4, 1e-4, 1e-4});
   node_->declare_parameter(prefix + ".gravity", gravity_);
   node_->declare_parameter(prefix + ".default_imu_dt", default_imu_dt_);
+  node_->declare_parameter(prefix + ".initialization.warmup_samples", warmup_samples_);
+  node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", stationary_gyr_threshold_);
 
+  bool add_factors_param = true;
+  std::string odom_topic;
+  node_->get_parameter(prefix + ".add_factors", add_factors_param);
+  node_->get_parameter(prefix + ".odom_topic", odom_topic);
+  add_factors_ = add_factors_param;
   node_->get_parameter(prefix + ".imu_topic", imu_topic_);
   node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".acc_cov", acc_cov_);
@@ -50,14 +59,15 @@ void ImuFactor::onInitialize()
   node_->get_parameter(prefix + ".integration_cov", integration_cov_);
   node_->get_parameter(prefix + ".gravity", gravity_);
   node_->get_parameter(prefix + ".default_imu_dt", default_imu_dt_);
+  node_->get_parameter(prefix + ".initialization.warmup_samples", warmup_samples_);
+  node_->get_parameter(prefix + ".initialization.stationary_gyr_threshold", stationary_gyr_threshold_);
   node_->get_parameter("frames.odometry", odom_frame_);
   node_->get_parameter("frames.base_link", base_link_frame_);
 
   // Set up GTSAM preintegration params
   auto p = gtsam::PreintegrationParams::MakeSharedU(gravity_);  // returns boost::shared_ptr
   if (acc_cov_.size() >= 3) {
-    p->accelerometerCovariance =
-      Eigen::Vector3d(acc_cov_[0], acc_cov_[1], acc_cov_[2]).asDiagonal();
+    p->accelerometerCovariance = Eigen::Vector3d(acc_cov_[0], acc_cov_[1], acc_cov_[2]).asDiagonal();
   }
   if (gyr_cov_.size() >= 3) {
     p->gyroscopeCovariance = Eigen::Vector3d(gyr_cov_[0], gyr_cov_[1], gyr_cov_[2]).asDiagonal();
@@ -73,12 +83,16 @@ void ImuFactor::onInitialize()
   rclcpp::SubscriptionOptions sub_opts;
   sub_opts.callback_group = callback_group_;
   imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
-    imu_topic_, rclcpp::SensorDataQoS(),
-    std::bind(&ImuFactor::imuCallback, this, std::placeholders::_1), sub_opts);
+    imu_topic_, rclcpp::SensorDataQoS(), std::bind(&ImuFactor::imuCallback, this, std::placeholders::_1), sub_opts);
 
-  odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(name_ + "/odometry", 10);
+  odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odom_topic, 10);
 
-  RCLCPP_INFO(node_->get_logger(), "[%s] initialized (IMU preintegration factor)", name_.c_str());
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "[%s] initialized (IMU factor, add_factors=%d, odom=%s)",
+    name_.c_str(),
+    add_factors_,
+    odom_topic.c_str());
 }
 
 void ImuFactor::activate()
@@ -101,7 +115,8 @@ void ImuFactor::deactivate()
 StampedFactorResult ImuFactor::latchFactor(gtsam::Key key, double timestamp)
 {
   StampedFactorResult result;
-  if (!active_ || !has_last_key_) {
+  if (!active_ || !add_factors_) return result;
+  if (!has_last_key_) {
     // First state — just record, can't produce a between-factor yet
     last_key_ = key;
     last_key_time_ = timestamp;
@@ -119,15 +134,11 @@ StampedFactorResult ImuFactor::latchFactor(gtsam::Key key, double timestamp)
       if (t > timestamp) break;
       if (t > last_key_time_) {
         auto converted = convertToBaseFrame(imu_buffer_.front());
-        double dt =
-          (last_imu_time_ > 0.0) ? (t - last_imu_time_) : default_imu_dt_;
+        double dt = (last_imu_time_ > 0.0) ? (t - last_imu_time_) : default_imu_dt_;
         if (dt > 0.0 && dt < kMaxImuDt) {
           Eigen::Vector3d acc(
-            converted.linear_acceleration.x, converted.linear_acceleration.y,
-            converted.linear_acceleration.z);
-          Eigen::Vector3d gyr(
-            converted.angular_velocity.x, converted.angular_velocity.y,
-            converted.angular_velocity.z);
+            converted.linear_acceleration.x, converted.linear_acceleration.y, converted.linear_acceleration.z);
+          Eigen::Vector3d gyr(converted.angular_velocity.x, converted.angular_velocity.y, converted.angular_velocity.z);
           integrator_->integrateMeasurement(acc, gyr, dt);
         }
         last_imu_time_ = t;
@@ -145,15 +156,17 @@ StampedFactorResult ImuFactor::latchFactor(gtsam::Key key, double timestamp)
   gtsam::NavState predicted = integrator_->predict(reference_state_, current_bias_);
   gtsam::Pose3 preint_delta = reference_state_.pose().between(predicted.pose());
 
-  auto noise = gtsam::noiseModel::Gaussian::Covariance(
-    integrator_->preintMeasCov().block<6, 6>(0, 0));
-  result.factors.push_back(
-    gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(last_key_, key, preint_delta, noise));
+  auto noise = gtsam::noiseModel::Gaussian::Covariance(integrator_->preintMeasCov().block<6, 6>(0, 0));
+  result.factors.push_back(gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(last_key_, key, preint_delta, noise));
 
   RCLCPP_INFO(
     node_->get_logger(),
     "\033[34m[%s] ImuBetween (%c,%lu)->(%c,%lu) dt=%.3f\033[0m",
-    name_.c_str(), prev_x.chr(), prev_x.index(), curr_x.chr(), curr_x.index(),
+    name_.c_str(),
+    prev_x.chr(),
+    prev_x.index(),
+    curr_x.chr(),
+    curr_x.index(),
     timestamp - last_key_time_);
 
   // Update tracking
@@ -168,8 +181,7 @@ StampedFactorResult ImuFactor::latchFactor(gtsam::Key key, double timestamp)
 // onOptimizationComplete
 // ==========================================================================
 
-void ImuFactor::onOptimizationComplete(
-  const gtsam::Values & optimized_values, bool /*loop_closure_detected*/)
+void ImuFactor::onOptimizationComplete(const gtsam::Values & optimized_values, bool /*loop_closure_detected*/)
 {
   // Update reference state from latest optimized pose
   if (has_last_key_ && optimized_values.exists(last_key_)) {
@@ -207,6 +219,59 @@ void ImuFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
     while (imu_buffer_.size() > kMaxImuBuffer) imu_buffer_.pop_front();
   }
 
+  // Warmup: stationary detection + gravity alignment
+  if (!warmup_complete_) {
+    auto converted = convertToBaseFrame(*msg);
+    bool has_orientation = msg->orientation_covariance[0] >= 0.0;
+    double gyr_mag = std::sqrt(
+      converted.angular_velocity.x * converted.angular_velocity.x +
+      converted.angular_velocity.y * converted.angular_velocity.y +
+      converted.angular_velocity.z * converted.angular_velocity.z);
+
+    if (gyr_mag < stationary_gyr_threshold_ && has_orientation) {
+      Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
+      if (q.squaredNorm() > 0.5) {
+        q.normalize();
+        if (!warmup_quat_hemisphere_set_) {
+          warmup_quat_reference_ = q;
+          warmup_quat_hemisphere_set_ = true;
+        } else if (q.dot(warmup_quat_reference_) < 0.0) {
+          q.coeffs() = -q.coeffs();
+        }
+        warmup_quat_sum_ += Eigen::Vector4d(q.w(), q.x(), q.y(), q.z());
+        warmup_count_++;
+      }
+    } else {
+      warmup_count_ = 0;
+      warmup_quat_sum_ = Eigen::Vector4d::Zero();
+      warmup_quat_hemisphere_set_ = false;
+    }
+
+    if (warmup_count_ >= warmup_samples_) {
+      Eigen::Vector4d avg = warmup_quat_sum_ / warmup_count_;
+      Eigen::Quaterniond q_avg(avg(0), avg(1), avg(2), avg(3));
+      q_avg.normalize();
+      Eigen::Matrix3d R_world_base = q_avg.toRotationMatrix() * R_base_imu_.transpose();
+      gtsam::Rot3 full_rot(R_world_base);
+      initial_gravity_orientation_ = gtsam::Rot3::RzRyRx(0.0, full_rot.pitch(), full_rot.roll());
+
+      // Initialize reference state with gravity-aligned orientation
+      reference_state_ =
+        gtsam::NavState(gtsam::Pose3(initial_gravity_orientation_, gtsam::Point3(0, 0, 0)), gtsam::Vector3::Zero());
+      integrator_->resetIntegrationAndSetBias(current_bias_);
+
+      warmup_complete_ = true;
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "[%s] IMU warmup complete (roll: %.4f, pitch: %.4f)",
+        name_.c_str(),
+        initial_gravity_orientation_.roll(),
+        initial_gravity_orientation_.pitch());
+    }
+    last_imu_time_ = rclcpp::Time(msg->header.stamp).seconds();
+    return;
+  }
+
   // Live preintegration for odom output
   if (state_->load(std::memory_order_acquire) != SlamState::TRACKING) return;
 
@@ -216,15 +281,40 @@ void ImuFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 
   if (dt > 0.0 && dt < kMaxImuDt) {
     Eigen::Vector3d acc(
-      converted.linear_acceleration.x, converted.linear_acceleration.y,
-      converted.linear_acceleration.z);
-    Eigen::Vector3d gyr(
-      converted.angular_velocity.x, converted.angular_velocity.y, converted.angular_velocity.z);
+      converted.linear_acceleration.x, converted.linear_acceleration.y, converted.linear_acceleration.z);
+    Eigen::Vector3d gyr(converted.angular_velocity.x, converted.angular_velocity.y, converted.angular_velocity.z);
 
-    // Live prediction for odom output
+    // Integrate this measurement, then predict
+    integrator_->integrateMeasurement(acc, gyr, dt);
     auto state = integrator_->predict(reference_state_, current_bias_);
     gtsam::Pose3 base_pose(state.pose().rotation(), state.pose().translation());
     setOdomPose(base_pose);
+
+    // Publish odometry with pose + body-frame twist
+    if (odom_pub_->is_activated()) {
+      auto q = base_pose.rotation().toQuaternion();
+      Eigen::Vector3d v_body = base_pose.rotation().matrix().transpose() *
+                               Eigen::Vector3d(state.velocity().x(), state.velocity().y(), state.velocity().z());
+
+      nav_msgs::msg::Odometry odom_msg;
+      odom_msg.header.stamp = msg->header.stamp;
+      odom_msg.header.frame_id = odom_frame_;
+      odom_msg.child_frame_id = base_link_frame_;
+      odom_msg.pose.pose.position.x = base_pose.translation().x();
+      odom_msg.pose.pose.position.y = base_pose.translation().y();
+      odom_msg.pose.pose.position.z = base_pose.translation().z();
+      odom_msg.pose.pose.orientation.x = q.x();
+      odom_msg.pose.pose.orientation.y = q.y();
+      odom_msg.pose.pose.orientation.z = q.z();
+      odom_msg.pose.pose.orientation.w = q.w();
+      odom_msg.twist.twist.linear.x = v_body.x();
+      odom_msg.twist.twist.linear.y = v_body.y();
+      odom_msg.twist.twist.linear.z = v_body.z();
+      odom_msg.twist.twist.angular.x = gyr.x();
+      odom_msg.twist.twist.angular.y = gyr.y();
+      odom_msg.twist.twist.angular.z = gyr.z();
+      odom_pub_->publish(odom_msg);
+    }
   }
   last_imu_time_ = t;
 }
@@ -237,10 +327,8 @@ sensor_msgs::msg::Imu ImuFactor::convertToBaseFrame(const sensor_msgs::msg::Imu 
 {
   sensor_msgs::msg::Imu converted = imu_msg;
 
-  Eigen::Vector3d acc(
-    imu_msg.linear_acceleration.x, imu_msg.linear_acceleration.y, imu_msg.linear_acceleration.z);
-  Eigen::Vector3d gyr(
-    imu_msg.angular_velocity.x, imu_msg.angular_velocity.y, imu_msg.angular_velocity.z);
+  Eigen::Vector3d acc(imu_msg.linear_acceleration.x, imu_msg.linear_acceleration.y, imu_msg.linear_acceleration.z);
+  Eigen::Vector3d gyr(imu_msg.angular_velocity.x, imu_msg.angular_velocity.y, imu_msg.angular_velocity.z);
 
   Eigen::Vector3d acc_base = R_base_imu_ * acc;
   Eigen::Vector3d gyr_base = R_base_imu_ * gyr;

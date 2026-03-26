@@ -35,7 +35,7 @@ namespace eidos
  * when to optimize.
  *
  * After each optimization, writes the latest pose to a LockFreePose that
- * TransformManager can read without blocking.
+ * eidos_transform can read without blocking.
  *
  * Only called from the SLAM loop thread — not thread-safe on its own.
  */
@@ -132,7 +132,7 @@ public:
 
 private:
   PoseGraph pose_graph_;
-  LockFreePose optimized_pose_;  ///< Written after optimize, read by TransformManager
+  LockFreePose optimized_pose_;  ///< Written after optimize, read by eidos_transform
   AtomicSlot<gtsam::Values> optimized_values_;  ///< Written after optimize, read by VisualizationRunner
 
   int update_iterations_ = 2;  ///< Normal ISAM2 iterations per update

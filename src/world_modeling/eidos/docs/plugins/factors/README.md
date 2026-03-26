@@ -38,26 +38,28 @@ virtual void onOptimizationComplete(const gtsam::Values& values, bool loop_closu
 void setMapPose(const gtsam::Pose3& pose);
 void setOdomPose(const gtsam::Pose3& pose);
 
-// Public (read by TransformManager, non-blocking):
+// Public (lock-free read, non-blocking):
 std::optional<gtsam::Pose3> getMapPose() const;
 std::optional<gtsam::Pose3> getOdomPose() const;
 ```
 
-TransformManager reads these at 500 Hz. Not every factor plugin needs to set these -- only plugins that produce pose estimates (e.g. LISO).
+These are used for lock-free pose sharing within eidos. Not every factor plugin needs to set these -- only plugins that produce pose estimates (e.g. LISO).
 
 ## Registering a New Factor Plugin
 
 1. Create a class inheriting `eidos::FactorPlugin`
 2. Add the class to `factor_plugins.xml`:
-   ```xml
+
+```xml
    <library path="eidos_plugins">
      <class type="your_ns::YourPlugin" base_class_type="eidos::FactorPlugin">
        <description>Your plugin description</description>
      </class>
    </library>
    ```
-3. Add `PLUGINLIB_EXPORT_CLASS(your_ns::YourPlugin, eidos::FactorPlugin)` at the bottom of the `.cpp`
-4. List the plugin name in your config YAML under `factor_plugins`
+
+1. Add `PLUGINLIB_EXPORT_CLASS(your_ns::YourPlugin, eidos::FactorPlugin)` at the bottom of the `.cpp`
+2. List the plugin name in your config YAML under `factor_plugins`
 
 ## Registering Data Formats for Persistence
 
@@ -76,3 +78,4 @@ Then store data per-keyframe via `map_manager_->store(key, "my_plugin/cloud", cl
 - [GpsFactor](gps_factor.md) -- Unary GPS position constraints
 - [EuclideanDistanceLoopClosureFactor](loop_closure_factor.md) -- KD-tree + GICP loop closure detection
 - [ImuFactor](imu_factor.md) -- IMU preintegration factor
+- [MotionModelFactor](motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform predict service

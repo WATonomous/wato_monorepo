@@ -28,7 +28,6 @@ void PluginRegistry::loadAll(
   const AtomicSlot<gtsam::Values> * estimator_values)
 {
   loadFactorPlugins(node, tf, map_manager, estimator_pose, state);
-  loadMotionModel(node, tf, state);
   loadRelocalizationPlugins(node, tf, map_manager);
   loadVisualizationPlugins(node, tf, map_manager, estimator_values);
 }
@@ -36,7 +35,6 @@ void PluginRegistry::loadAll(
 void PluginRegistry::activateAll()
 {
   for (auto & p : factor_plugins) p->activate();
-  if (motion_model) motion_model->activate();
   for (auto & p : reloc_plugins) p->activate();
   for (auto & p : vis_plugins) p->activate();
 }
@@ -44,7 +42,6 @@ void PluginRegistry::activateAll()
 void PluginRegistry::deactivateAll()
 {
   for (auto & p : factor_plugins) p->deactivate();
-  if (motion_model) motion_model->deactivate();
   for (auto & p : reloc_plugins) p->deactivate();
   for (auto & p : vis_plugins) p->deactivate();
 }
@@ -78,27 +75,6 @@ void PluginRegistry::loadFactorPlugins(
 
     RCLCPP_INFO(node->get_logger(), "Loaded factor plugin: %s (%s)", name.c_str(), plugin_type.c_str());
   }
-}
-
-void PluginRegistry::loadMotionModel(
-  rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer * tf, const std::atomic<SlamState> * state)
-{
-  motion_model_loader_ =
-    std::make_unique<pluginlib::ClassLoader<MotionModelPlugin>>("eidos", "eidos::MotionModelPlugin");
-
-  std::string plugin_type;
-  node->get_parameter("motion_model.plugin", plugin_type);
-
-  if (plugin_type.empty()) {
-    RCLCPP_WARN(node->get_logger(), "No motion model configured");
-    return;
-  }
-
-  auto cb_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  motion_model = motion_model_loader_->createSharedInstance(plugin_type);
-  motion_model->initialize("motion_model", node, tf, cb_group, state);
-
-  RCLCPP_INFO(node->get_logger(), "Loaded motion model: %s", plugin_type.c_str());
 }
 
 void PluginRegistry::loadRelocalizationPlugins(

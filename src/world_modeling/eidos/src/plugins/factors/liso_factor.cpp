@@ -167,7 +167,7 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3 & initial_pose)
   last_matched_pose_ = initial_pose;
   has_last_match_ = true;
 
-  // Seed the lock-free pose outputs so TransformManager has data immediately
+  // Seed the lock-free pose outputs so eidos_transform has data immediately
   // Map pose is in map frame (the relocalized position).
   // Odom pose starts at identity — map→odom absorbs the global offset.
   setMapPose(initial_pose);
@@ -408,7 +408,9 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
 
   RCLCPP_INFO_THROTTLE(
-    node_->get_logger(), *node_->get_clock(), 2000,
+    node_->get_logger(),
+    *node_->get_clock(),
+    2000,
     "\033[36m[%s] GICP match: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | "
     "guess: pos=(%.2f,%.2f,%.2f) yaw=%.2f° | inliers=%zu\033[0m",
     name_.c_str(),
@@ -422,7 +424,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     gtsam::Rot3(init_guess.rotation()).yaw() * 180.0 / M_PI,
     result.num_inliers);
 
-  // Lock-free pose outputs — TransformManager reads these
+  // Lock-free pose outputs — eidos_transform reads these
   setMapPose(matched_pose);
 
   // Cache for produceFactor (when add_factors is enabled)
@@ -528,7 +530,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_incremental_pub_->publish(odom_inc_msg);
   }
 
-  // No TF broadcasting — TransformManager reads setMapPose/setOdomPose lock-free
+  // No TF broadcasting — eidos_transform reads setMapPose/setOdomPose lock-free
 
   // Prior map: async distance-based submap rebuild
   if (submap_source_ == "prior_map" && prior_map_submap_initialized_) {
@@ -536,8 +538,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
       static_cast<float>(matched_pose.translation().x()),
       static_cast<float>(matched_pose.translation().y()),
       static_cast<float>(matched_pose.translation().z()));
-    if (!submap_rebuilding_.load() &&
-        (pos - submap_center_).norm() > submap_radius_ * kSubmapRebuildFraction) {
+    if (!submap_rebuilding_.load() && (pos - submap_center_).norm() > submap_radius_ * kSubmapRebuildFraction) {
       submap_center_ = pos;
       submap_rebuilding_ = true;
       if (submap_rebuild_thread_.joinable()) submap_rebuild_thread_.join();

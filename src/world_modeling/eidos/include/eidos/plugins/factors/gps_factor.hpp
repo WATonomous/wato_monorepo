@@ -45,7 +45,7 @@ namespace eidos
  *
  * Owns its own StaticTransformBroadcaster for the utm→map TF.
  * This is the only plugin that broadcasts TF directly — all other TF
- * is handled by TransformManager.
+ * is handled by eidos_transform.
  *
  * GPS never creates its own states in the graph.
  */

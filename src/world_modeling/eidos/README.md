@@ -1,14 +1,17 @@
 # Eidos
 
-Eidos is a plugin-based LiDAR-Inertial SLAM and localization system for ROS 2. It builds maps from sensor data (mapping mode) and localizes against previously built maps (localization mode). The plugin architecture lets you swap sensors and add constraints -- factor plugins, relocalization plugins, visualization plugins, and motion models -- without modifying core code. Under the hood, Eidos uses GTSAM's ISAM2 incremental optimizer to maintain a factor graph of vehicle poses, with each plugin contributing factors, latching to existing factors, or consuming the optimized state.
+Eidos is a plugin-based LiDAR-Inertial SLAM and localization system for ROS 2. It builds maps from sensor data (mapping mode) and localizes against previously built maps (localization mode). The plugin architecture lets you swap sensors and add constraints -- factor plugins, relocalization plugins, and visualization plugins -- without modifying core code. Under the hood, Eidos uses GTSAM's ISAM2 incremental optimizer to maintain a factor graph of vehicle poses, with each plugin contributing factors, latching to existing factors, or consuming the optimized state.
+
+Eidos is pure SLAM: factor graph, ISAM2 optimization, plugin management, and map persistence. It does not broadcast TF or run an EKF. TF broadcasting (`map->odom`, `odom->base_link`, `utm->map`) and EKF-based odometry fusion are handled by the separate `eidos_transform` package. Eidos publishes `slam/pose` for `eidos_transform` to consume.
 
 ## Quick Start
 
-Eidos ships example configs and a standalone launch file. Copy and modify for your deployment.
+Eidos ships example configs and a standalone launch file. In a typical deployment, both `eidos` and `eidos_transform` are launched together via `world_model.launch.yaml`, which handles this automatically.
 
 **Mapping (live)**
 
 ```bash
+# world_model.launch.yaml launches both eidos and eidos_transform
 ros2 launch eidos eidos.launch.yaml
 ```
 
@@ -50,13 +53,13 @@ The example configs are in `config/example_slam.yaml` and `config/example_locali
 
 Eidos does not have a global "mode" switch. Mapping and localization are different **configurations** of the same plugin set. Each plugin has its own parameters that control whether it adds factors to the graph, where it sources its submap from, and so on. The two example configs (`example_slam.yaml` and `example_localization.yaml`) set these per-plugin parameters to achieve the desired behavior.
 
-**Mapping** configures plugins to build a new map. Factor plugins add constraints to the graph (`add_factors: true`), the optimizer runs each tick, loop closures are set to occur, and the result is saved to a `.map` file. The `map->odom` transform updates after each optimization (`map_source: "slam_core"`).
+**Mapping** configures plugins to build a new map. Factor plugins add constraints to the graph (`add_factors: true`), the optimizer runs each tick, loop closures are set to occur, and the result is saved to a `.map` file. Eidos publishes the optimized `slam/pose` each tick; `eidos_transform` subscribes to this and updates the `map->odom` transform accordingly.
 
-**Localization** reconfigures the same plugins to track against a prior map. Factor plugins produce odometry only (`add_factors: false`) and match against stored data from the prior map rather than building new submaps. The `map->odom` transform is set once from relocalization and stays fixed (`map_source: ""`). We chose this behaviour because huge jumps only occur during loop closures, which only occur when the robot is actively mapping.
+**Localization** reconfigures the same plugins to track against a prior map. Factor plugins produce odometry only (`add_factors: false`) and match against stored data from the prior map rather than building new submaps. The `map->odom` transform is set once from relocalization by `eidos_transform` and stays fixed. We chose this behavior because large jumps only occur during loop closures, which only occur during active mapping.
 
 ## Configuration
 
-All parameters live under the `/**/eidos_node/ros__parameters` namespace. The two config files (`eidos_slam.yaml` and `eidos_localization.yaml`) share the same parameter schema but differ in values.
+All parameters live under the `/**/eidos_node/ros__parameters` namespace. The two config files (`example_slam.yaml` and `example_localization.yaml`) share the same parameter schema but differ in values.
 
 ### Frames
 
@@ -65,23 +68,6 @@ All parameters live under the `/**/eidos_node/ros__parameters` namespace. The tw
 | `frames.base_link` | `"base_footprint"` | `"base_footprint"` | Robot body frame |
 | `frames.odometry` | `"odom"` | `"odom"` | Odometry frame |
 | `frames.map` | `"map"` | `"map"` | Map frame (global) |
-
-### TransformManager
-
-| Parameter | SLAM Default | Localization Default | Description |
-|---|---|---|---|
-| `transforms.odom_source` | `"liso_factor"` | `"liso_factor"` | Plugin providing `odom->base_link`. EKF fuses this with the motion model. |
-| `transforms.map_source` | `"slam_core"` | `""` | Source for `map->odom`. `"slam_core"` = updated from optimizer each tick. `""` = fixed at relocalization. |
-| `transforms.rate` | `500.0` | `500.0` | TF broadcast rate (Hz) |
-
-### EKF Fusion (SLAM only)
-
-These parameters tune the EKF that fuses the odom source plugin with the motion model. Only present in the SLAM config.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `transforms.fusion.process_noise` | `[1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4]` | Per-tick motion model prediction uncertainty [roll, pitch, yaw, x, y, z]. Higher = trust motion model less. |
-| `transforms.fusion.measurement_noise` | `[1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2]` | LISO odom correction uncertainty [roll, pitch, yaw, x, y, z]. Lower = trust LISO more. |
 
 ### Core
 
@@ -113,21 +99,6 @@ These parameters tune the EKF that fuses the odom source plugin with the motion 
 |---|---|---|---|
 | `map.load_path` | `""` | `"/opt/watonomous/maps/wrestrc.map"` | Path to load a prior map on activation. Empty = no load. Overridden by `eidos_map_path` launch arg in localization mode. |
 | `map.save_path` | `"/opt/watonomous/maps/wrestrc.map"` | `""` | Default save path used by `save_map` service when no path is specified in the request. |
-
-### Motion Model (`motion_model`)
-
-The motion model is a kinematic state transition model. It predicts the next pose given the current state and a time step. TransformManager calls `predict()` at 500Hz for smooth TF. It does not subscribe to raw sensor data or add factors to the graph.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `motion_model.plugin` | `"eidos::HolonomicMotionModel"` | Plugin class name (`HolonomicMotionModel` or `AckermannMotionModel`) |
-
-For `AckermannMotionModel` additional params:
-
-| Parameter | Default | Description |
-|---|---|---|
-| `motion_model.twist_topic` | `"ackermann_twist"` | Input TwistStamped topic (linear.x = speed, angular.z = steering angle) |
-| `motion_model.wheelbase` | `2.57` | Vehicle wheelbase (meters) |
 
 ### GPS Factor (`gps_factor`)
 
@@ -173,6 +144,16 @@ LiDAR-Inertial Scan-to-submap Odometry. Matches incoming scans against a local s
 | `liso_factor.min_scan_distance` | `5.0` | `5.0` | Minimum travel distance between keyframes (m) |
 | `liso_factor.odom_pose_cov` | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | Pose covariance on published odometry |
 | `liso_factor.odom_twist_cov` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | Twist covariance on published odometry |
+
+### Motion Model Factor (`motion_model_factor`)
+
+Bridges temporally consecutive states created by different factor plugins. Calls `eidos_transform`'s `PredictRelativeTransform` service and produces a `BetweenFactor<Pose3>`. See [MotionModelFactor docs](docs/plugins/factors/motion_model_factor.md).
+
+| Parameter | Default | Description |
+|---|---|---|
+| `motion_model_factor.plugin` | `"eidos::MotionModelFactor"` | Plugin class name |
+| `motion_model_factor.predict_service` | `"predict_relative_transform"` | Service name for `eidos_transform`'s PredictRelativeTransform |
+| `motion_model_factor.noise_cov` | `[1e-2, 1e-2, 1e-2, 1e-4, 1e-4, 1e-4]` | Base noise covariance [rot3, trans3], scaled by dt |
 
 ### Euclidean Distance Loop Closure Factor (SLAM only)
 
@@ -273,44 +254,6 @@ ros2 service call /world_modeling/eidos_node/slam/load_map eidos_msgs/srv/LoadMa
 
 **SQLite WAL artifacts:** When a `.map` file is open, SQLite may create `-shm` (shared memory) and `-wal` (write-ahead log) companion files next to it. These are normal and will be merged back into the main file when the database is closed cleanly. Do not delete them while the node is running. If they persist after a crash, opening the map file again will replay the WAL and recover the data.
 
-## TF Tree
-
-Eidos manages two transforms:
-
-- `map -> odom` -- Corrects accumulated odometry drift. In mapping mode, this is updated by the ISAM2 optimizer after each optimization step (`map_source: "slam_core"`). In localization mode, this is set once during relocalization and stays fixed (`map_source: ""`).
-- `odom -> base_link` -- Smooth, high-rate odometry. Produced by an EKF where the motion model provides the prediction step and the odom source plugin (LISO) provides measurement corrections. Broadcast at the `transforms.rate` frequency (default 500 Hz).
-
-The GPS factor also establishes a `utm -> map` offset internally for converting GPS coordinates into the map frame. This is stored in the map file metadata so localization mode can recover it.
-
-```
-utm
- |
- |  (static offset, stored in .map metadata)
- v
-map
- |
- |  map -> odom  (corrects drift; updated by optimizer or fixed at relocalization)
- v
-odom
- |
- |  odom -> base_link  (EKF fusion of motion model + LISO, 500 Hz)
- v
-base_link (base_footprint)
- |
- |  (static, from URDF)
- +---> lidar_cc
- +---> imu_link
-```
-
-**Frame summary:**
-
-| Frame | Description |
-|---|---|
-| `utm` | Universal Transverse Mercator. Global geodetic frame used by GPS. |
-| `map` | Local map-fixed frame. Origin defined by the first keyframe or prior map. |
-| `odom` | Continuous odometry frame. Smooth but drifts over time. |
-| `base_link` (`base_footprint`) | Vehicle body frame. |
-
 ## Topics and Services
 
 All topics and services are published under the node namespace (default: `/world_modeling/eidos_node/`). Topic names are configurable via the `topics.*` parameters.
@@ -319,14 +262,13 @@ All topics and services are published under the node namespace (default: `/world
 
 | Topic | Type | Description |
 |---|---|---|
-| `slam/pose` | `geometry_msgs/msg/PoseStamped` | Current pose in the map frame. Published each SLAM tick. |
+| `slam/pose` | `geometry_msgs/msg/PoseStamped` | Current optimized pose in the map frame. Published each SLAM tick. Consumed by `eidos_transform` for TF broadcasting. |
 | `slam/odometry` | `nav_msgs/msg/Odometry` | Current pose as odometry (map frame, base_link child). Includes covariance from `odom_pose_cov`. Published each SLAM tick. |
 | `slam/status` | `eidos_msgs/msg/SlamStatus` | System status: current state (INITIALIZING, WARMUP, RELOCALIZING, TRACKING), state index, keyframe count, factor count, active plugins. Published every tick. |
 | `slam/visualization/map` | `sensor_msgs/msg/PointCloud2` | Keyframe map point cloud for RViz (from `keyframe_map_visualization` plugin). |
 | `slam/visualization/factor_graph` | `visualization_msgs/msg/MarkerArray` | Factor graph structure for RViz (from `factor_graph_visualization` plugin, SLAM only). |
 | `liso/odometry` | `nav_msgs/msg/Odometry` | LISO scan-matching odometry (from `liso_factor` plugin). |
 | `liso/odometry_incremental` | `nav_msgs/msg/Odometry` | LISO incremental odometry (from `liso_factor` plugin). |
-| `motion_model/odometry/imu_incremental` | `nav_msgs/msg/Odometry` | IMU-integrated incremental odometry (from motion model plugin). |
 
 ### Services
 
@@ -340,6 +282,6 @@ All topics and services are published under the node namespace (default: `/world
 The node progresses through these states (visible in the `slam/status` topic):
 
 1. **INITIALIZING** -- Waiting for plugins to be loaded and configured.
-2. **WARMUP** -- Waiting for sensor plugins to collect enough data (e.g., IMU stationary samples).
-3. **RELOCALIZING** -- Attempting to determine initial pose via relocalization plugins. Times out after `relocalization_timeout` seconds.
+2. **WARMUP** -- Plugins loaded. If no prior map, transitions immediately to TRACKING.
+3. **RELOCALIZING** -- Prior map loaded. Attempting to determine initial pose via relocalization plugins. Times out after `relocalization_timeout` seconds.
 4. **TRACKING** -- Normal operation. Factor plugins produce constraints, the optimizer runs, and poses are published.

@@ -67,17 +67,8 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
   declare_parameter("isam2.loop_closure_iterations", 20);
   declare_parameter("prior.pose_cov", std::vector<double>{1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
 
-  // TransformManager params (no defaults — must be in config)
-  declare_parameter("transforms.odom_source", rclcpp::PARAMETER_STRING);
-  declare_parameter("transforms.map_source", rclcpp::PARAMETER_STRING);
-  declare_parameter("transforms.rate", rclcpp::PARAMETER_DOUBLE);
-  // EKF fusion noise (only needed when odom_source is set)
-  declare_parameter("transforms.fusion.process_noise", std::vector<double>{1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4});
-  declare_parameter("transforms.fusion.measurement_noise", std::vector<double>{1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2});
-
   // Plugin list params (read by PluginRegistry)
   declare_parameter("factor_plugins", std::vector<std::string>{});
-  declare_parameter("motion_model.plugin", std::string{});
   declare_parameter("relocalization_plugins", std::vector<std::string>{});
   declare_parameter("visualization_plugins", std::vector<std::string>{});
 
@@ -130,24 +121,6 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
       beginTracking(pose);
     });
 
-  // Configure TransformManager
-  std::string odom_source, map_source;
-  double tf_rate;
-  get_parameter("transforms.odom_source", odom_source);
-  get_parameter("transforms.map_source", map_source);
-  get_parameter("transforms.rate", tf_rate);
-
-  transform_manager_.configure(
-    shared_from_this(),
-    &registry_,
-    &estimator_.getOptimizedPose(),
-    map_frame_,
-    odom_frame_,
-    base_link_frame_,
-    odom_source,
-    map_source,
-    tf_rate);
-
   // Publishers
   std::string status_topic, odom_topic, pose_topic;
   get_parameter("topics.status", status_topic);
@@ -194,9 +167,6 @@ EidosNode::CallbackReturn EidosNode::on_activate(const rclcpp_lifecycle::State &
   // Activate all plugins
   registry_.activateAll();
 
-  // Activate autonomous components
-  transform_manager_.activate();
-
   // Start SLAM timer
   slam_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto period = std::chrono::duration<double>(1.0 / slam_rate_);
@@ -212,7 +182,6 @@ EidosNode::CallbackReturn EidosNode::on_activate(const rclcpp_lifecycle::State &
 EidosNode::CallbackReturn EidosNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
   slam_timer_->cancel();
-  transform_manager_.deactivate();
   registry_.deactivateAll();
 
   status_pub_->on_deactivate();
@@ -275,10 +244,6 @@ void EidosNode::beginTracking(const gtsam::Pose3 & initial_pose)
 
   estimator_.reset();
   state_.store(SlamState::TRACKING, std::memory_order_release);
-
-  // Set map→odom from the relocalized pose. In localization mode (map_source
-  // empty), this stays fixed. In SLAM mode, it gets overwritten by map_source.
-  transform_manager_.setMapToOdom(initial_pose);
 
   for (auto & plugin : registry_.factor_plugins) {
     plugin->onTrackingBegin(initial_pose);
@@ -355,19 +320,6 @@ void EidosNode::handleTracking(double timestamp)
       new_values.insert(ns.key, ns.result.values.at<gtsam::Pose3>(ns.key));
     } else {
       new_values.insert(ns.key, current_pose);
-    }
-
-    // Cross-plugin bridge: if the previous state was created by a different
-    // plugin, ask the motion model to produce a BetweenFactor spanning the gap.
-    // When consecutive states come from the same plugin, that plugin already
-    // provides its own between-factor.
-    if (has_last_state_ && ns.owner != last_state_owner_ && registry_.motion_model) {
-      auto bridge = registry_.motion_model->getBetweenFactor(
-        last_state_key_, last_state_ts_, ns.key, ns.ts);
-      if (bridge) {
-        new_factors.add(bridge);
-        new_factor_owners.push_back(registry_.motion_model->getName());
-      }
     }
 
     // Factors from the state creator
@@ -451,7 +403,7 @@ void EidosNode::handleTracking(double timestamp)
   has_last_state_ = true;
 
   // Estimator already wrote optimized pose + values to lock-free slots.
-  // TransformManager and vis plugins read them autonomously.
+  // Vis plugins read optimized values autonomously via AtomicSlot.
 
   RCLCPP_INFO(
     get_logger(),
@@ -491,9 +443,20 @@ void EidosNode::publishPose()
 {
   if (!pose_pub_->is_activated()) return;
 
-  // Read current map-frame pose from TransformManager (lock-free)
-  auto pose = transform_manager_.getMapPose().load();
-  if (!pose) return;
+  // Read current optimized pose from Estimator, or fall back to
+  // first factor plugin's map-frame pose (for localization mode where
+  // ISAM2 has no states but LISO provides map-frame matches).
+  auto pose = estimator_.getOptimizedPose().load();
+  if (!pose) {
+    for (auto & p : registry_.factor_plugins) {
+      auto map_pose = p->getMapPose();
+      if (map_pose) {
+        pose = map_pose;
+        break;
+      }
+    }
+    if (!pose) return;
+  }
 
   geometry_msgs::msg::PoseStamped msg;
   msg.header.stamp = now();
@@ -515,8 +478,17 @@ void EidosNode::publishOdometry()
 {
   if (!odom_pub_->is_activated()) return;
 
-  auto pose = transform_manager_.getMapPose().load();
-  if (!pose) return;
+  auto pose = estimator_.getOptimizedPose().load();
+  if (!pose) {
+    for (auto & p : registry_.factor_plugins) {
+      auto map_pose = p->getMapPose();
+      if (map_pose) {
+        pose = map_pose;
+        break;
+      }
+    }
+    if (!pose) return;
+  }
 
   nav_msgs::msg::Odometry msg;
   msg.header.stamp = now();

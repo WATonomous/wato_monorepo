@@ -50,7 +50,7 @@ namespace eidos
  * - Map-frame and odom-frame poses (via setMapPose / setOdomPose, lock-free)
  * - Odometry topics (map-frame absolute + odom-frame incremental)
  *
- * Does NOT broadcast TF — TransformManager reads poses lock-free.
+ * Does NOT broadcast TF — eidos_transform reads poses lock-free.
  *
  * Threading:
  * - LiDAR callback: GICP matching, writes lock-free poses, caches factors.

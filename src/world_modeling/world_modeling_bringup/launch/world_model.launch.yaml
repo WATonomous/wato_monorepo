@@ -276,6 +276,19 @@ launch:
         - from: markers
           to: behaviour_markers
 
+  # ---- Eidos Transform (always launched, activated first for TF) ----
+
+  - node:
+      pkg: eidos_transform
+      exec: eidos_transform_node
+      name: eidos_transform_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share eidos_transform)/config/params.yaml
+        - name: use_sim_time
+          value: $(var use_sim_time)
+
   # ---- Eidos (mapping mode) ----
 
   - node:
@@ -309,6 +322,7 @@ launch:
   # ---- Lifecycle Manager ----
 
   # Full stack lifecycle (localization mode)
+  # eidos_transform activates first (broadcasts identity TF), then eidos
   - node:
       unless: "$(var mapping)"
       pkg: wato_lifecycle_manager
@@ -319,6 +333,7 @@ launch:
       param:
         - name: node_names
           value:
+            - /world_modeling/eidos_transform_node
             - /world_modeling/prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
@@ -332,7 +347,7 @@ launch:
         - name: bond_enabled
           value: $(var bond_enabled)
 
-  # Eidos-only lifecycle (mapping mode)
+  # Mapping lifecycle (eidos_transform first, then eidos)
   - node:
       if: "$(var mapping)"
       pkg: wato_lifecycle_manager
@@ -343,6 +358,7 @@ launch:
       param:
         - name: node_names
           value:
+            - /world_modeling/eidos_transform_node
             - /world_modeling/eidos_node
         - name: autostart
           value: $(var autostart)

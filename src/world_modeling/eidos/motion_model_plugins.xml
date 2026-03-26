@@ -1,8 +1,0 @@
-<library path="eidos_plugins">
-  <class name="eidos::HolonomicMotionModel" type="eidos::HolonomicMotionModel" base_class_type="eidos::MotionModelPlugin">
-    <description>Holonomic constant-velocity state transition model</description>
-  </class>
-  <class name="eidos::AckermannMotionModel" type="eidos::AckermannMotionModel" base_class_type="eidos::MotionModelPlugin">
-    <description>Ackermann kinematic state transition model (steering + velocity)</description>
-  </class>
-</library>

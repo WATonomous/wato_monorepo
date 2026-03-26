@@ -18,17 +18,16 @@
 #include <gtsam/navigation/PreintegratedRotation.h>
 
 #include <deque>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
-#include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
@@ -45,7 +44,7 @@ namespace eidos
  * Can create its own states (produceFactor) or latch onto states created by
  * other plugins (latchFactor).
  *
- * Also writes an odom-frame pose via setOdomPose() for TransformManager
+ * Also writes an odom-frame pose via setOdomPose() for eidos_transform
  * measurement correction — this is how IMU data reaches the TF chain.
  */
 class ImuFactor : public FactorPlugin
@@ -59,8 +58,13 @@ public:
   void deactivate() override;
 
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
-  void onOptimizationComplete(
-    const gtsam::Values & optimized_values, bool loop_closure_detected) override;
+
+  bool isReady() const override
+  {
+    return warmup_complete_;
+  }
+
+  void onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected) override;
 
 private:
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
@@ -94,6 +98,16 @@ private:
   Eigen::Vector3d t_base_imu_ = Eigen::Vector3d::Zero();
   bool has_imu_tf_ = false;
 
+  // ---- Warmup ----
+  bool warmup_complete_ = false;
+  int warmup_count_ = 0;
+  int warmup_samples_ = 200;
+  double stationary_gyr_threshold_ = 0.005;
+  Eigen::Vector4d warmup_quat_sum_{0, 0, 0, 0};
+  bool warmup_quat_hemisphere_set_ = false;
+  Eigen::Quaterniond warmup_quat_reference_;
+  gtsam::Rot3 initial_gravity_orientation_;
+
   // ---- Parameters ----
   std::string imu_topic_;
   std::string imu_frame_;
@@ -105,6 +119,7 @@ private:
   double gravity_ = 9.80511;
   double default_imu_dt_ = 0.002;
   bool active_ = false;
+  bool add_factors_ = true;
 
   static constexpr size_t kMaxImuBuffer = 5000;
 };

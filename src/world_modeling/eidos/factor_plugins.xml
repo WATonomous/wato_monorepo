@@ -11,4 +11,7 @@
   <class name="eidos::ImuFactor" type="eidos::ImuFactor" base_class_type="eidos::FactorPlugin">
     <description>IMU preintegration factor (ImuFactor + bias BetweenFactor)</description>
   </class>
+  <class name="eidos::MotionModelFactor" type="eidos::MotionModelFactor" base_class_type="eidos::FactorPlugin">
+    <description>Motion model between-factor via eidos_transform predict service</description>
+  </class>
 </library>

@@ -70,5 +70,5 @@ TOPICS=(
   /tf_static
 )
 
-# ros2 bag play "$BAG_DIR" --start-offset 20 --clock --topics "${TOPICS[@]}"
-ros2 bag play "$BAG_DIR" --clock --topics "${TOPICS[@]}"
+ros2 bag play "$BAG_DIR" --start-offset 9 --clock --topics "${TOPICS[@]}"
+# ros2 bag play "$BAG_DIR" --clock --topics "${TOPICS[@]}"

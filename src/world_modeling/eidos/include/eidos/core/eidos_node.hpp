@@ -32,7 +32,6 @@
 #include "eidos/core/init_sequencer.hpp"
 #include "eidos/core/map_manager.hpp"
 #include "eidos/core/plugin_registry.hpp"
-#include "eidos/core/transform_manager.hpp"
 #include "eidos/utils/types.hpp"
 #include "eidos_msgs/msg/slam_status.hpp"
 #include "eidos_msgs/srv/load_map.hpp"
@@ -44,23 +43,17 @@ namespace eidos
 /**
  * @brief Top-level SLAM/localization node.
  *
- * Owns all components:
+ * Pure SLAM — handles the factor graph, optimization, and map persistence.
+ * Does NOT broadcast TF or manage transforms (that's eidos_transform's job).
+ *
+ * Owns:
  * - InitSequencer: state machine (INIT → WARMUP → RELOCALIZING → TRACKING)
  * - Estimator: ISAM2 optimization engine
- * - TransformManager: autonomous TF broadcaster (own timer)
  * - MapManager: keyframe + data store
- * - PluginRegistry: owns all plugins + ClassLoaders
- *
- * The main tick dispatches to InitSequencer until TRACKING is reached,
- * then runs handleTracking which polls plugins for factors and optimizes if any.
- *
- * Autonomous components (EidosNode never calls them at runtime):
- * - TransformManager: own timer, reads poses lock-free, broadcasts TF.
- * - Visualization plugins: each has own timer, reads values lock-free.
+ * - PluginRegistry: owns all factor/relocalization/visualization plugins
  *
  * Threading:
  * - SLAM loop: own callback group, slam_rate_ Hz. All plugin reads lock-free.
- * - TransformManager: own callback group + timer.
  * - Each vis plugin: own callback group + timer.
  * - Plugin sensor callbacks: each plugin has its own callback group.
  */
@@ -81,17 +74,8 @@ protected:
 
 private:
   // ---- SLAM loop ----
-
-  /// Main tick at slam_rate_ Hz. Delegates to InitSequencer until TRACKING,
-  /// then runs the appropriate tracking handler.
   void tick();
-
-  /// Polls factor plugins for factors, feeds to Estimator if available.
-  /// If no factors produced, just publishes pose/odom.
   void handleTracking(double timestamp);
-
-  /// Called by InitSequencer when TRACKING is reached. Resets Estimator
-  /// and notifies all factor plugins via onTrackingBegin().
   void beginTracking(const gtsam::Pose3 & initial_pose);
 
   // ---- Publishing ----
@@ -108,18 +92,17 @@ private:
     std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response);
 
   // ---- Core components ----
-  Estimator estimator_;  ///< ISAM2 optimization engine
-  InitSequencer init_sequencer_;  ///< State machine (INIT → TRACKING)
-  TransformManager transform_manager_;  ///< Autonomous TF broadcaster (own timer)
-  MapManager map_manager_;  ///< Keyframe + global data store
-  PluginRegistry registry_;  ///< Owns all plugins + ClassLoaders
+  Estimator estimator_;
+  InitSequencer init_sequencer_;
+  MapManager map_manager_;
+  PluginRegistry registry_;
 
   // ---- TF buffer (shared with plugins for extrinsic lookups) ----
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // ---- State ----
-  std::atomic<SlamState> state_{SlamState::INITIALIZING};  ///< Lock-free, read by plugins
+  std::atomic<SlamState> state_{SlamState::INITIALIZING};
 
   // ---- SLAM timer ----
   rclcpp::TimerBase::SharedPtr slam_timer_;
@@ -140,14 +123,14 @@ private:
   std::string last_state_owner_;
   bool has_last_state_{false};
 
-  // ---- Parameters (all set from config in on_configure, no header defaults) ----
+  // ---- Parameters ----
   double slam_rate_;
   std::string map_frame_;
   std::string odom_frame_;
   std::string base_link_frame_;
   std::string map_load_directory_;
   std::string map_save_directory_;
-  std::vector<double> odom_pose_cov_;  ///< Published odometry covariance diagonal
+  std::vector<double> odom_pose_cov_;
 };
 
 }  // namespace eidos

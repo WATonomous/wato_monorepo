@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.8)
-project(eidos)
+project(eidos_transform)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,103 +25,72 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(pcl_conversions REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(eidos_msgs REQUIRED)
-find_package(visualization_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 
-find_package(PCL REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(SQLite3 REQUIRED)
-find_package(OpenMP REQUIRED)
-find_package(small_gicp_vendor REQUIRED)
-find_package(small_gicp REQUIRED)
 
 # ---- Core library ----
-add_library(eidos_core SHARED
-  src/eidos_node.cpp
-  src/estimator.cpp
-  src/pose_graph.cpp
-  src/map_manager.cpp
-  src/plugin_registry.cpp
-  src/init_sequencer.cpp
-  src/format_registry.cpp
+add_library(eidos_transform_core SHARED
+  src/eidos_transform_node.cpp
+  src/holonomic_ekf.cpp
 )
-target_include_directories(eidos_core PUBLIC
+target_include_directories(eidos_transform_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
-  ${PCL_INCLUDE_DIRS}
   ${GTSAM_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
-  ${pcl_conversions_INCLUDE_DIRS}
 )
-target_link_libraries(eidos_core PUBLIC
+target_link_libraries(eidos_transform_core PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
-  ${sensor_msgs_TARGETS}
   ${nav_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
   tf2::tf2
   tf2_ros::tf2_ros
   ${tf2_geometry_msgs_TARGETS}
-  ${geometry_msgs_TARGETS}
   ${eidos_msgs_TARGETS}
   pluginlib::pluginlib
-  ${PCL_LIBRARIES}
   gtsam
-  OpenMP::OpenMP_CXX
-  SQLite::SQLite3
-  small_gicp::small_gicp
 )
 
 # ---- Plugin library ----
-add_library(eidos_plugins SHARED
-  src/plugins/factors/liso_factor.cpp
-  src/plugins/factors/gps_factor.cpp
-  src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
-  src/plugins/factors/imu_factor.cpp
-  src/plugins/factors/motion_model_factor.cpp
-  src/plugins/relocalization/gps_icp_relocalization.cpp
-  src/plugins/visualization/keyframe_map_visualization.cpp
-  src/plugins/visualization/factor_graph_visualization.cpp
+add_library(eidos_transform_plugins SHARED
+  src/holonomic_ekf.cpp
 )
-target_include_directories(eidos_plugins PUBLIC
+target_include_directories(eidos_transform_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
-  ${PCL_INCLUDE_DIRS}
   ${GTSAM_INCLUDE_DIR}
   ${EIGEN3_INCLUDE_DIR}
 )
-target_link_libraries(eidos_plugins PUBLIC
-  eidos_core
-  small_gicp::small_gicp
-  ${visualization_msgs_TARGETS}
-  ${tf2_geometry_msgs_TARGETS}
+target_link_libraries(eidos_transform_plugins PUBLIC
+  eidos_transform_core
 )
 
 # ---- Node executable ----
-add_executable(eidos_node src/main.cpp)
-target_link_libraries(eidos_node PRIVATE eidos_core)
+add_executable(eidos_transform_node src/main.cpp)
+target_link_libraries(eidos_transform_node PRIVATE eidos_transform_core)
 
 # ---- Plugin descriptions ----
-pluginlib_export_plugin_description_file(eidos factor_plugins.xml)
-pluginlib_export_plugin_description_file(eidos relocalization_plugins.xml)
-pluginlib_export_plugin_description_file(eidos visualization_plugins.xml)
+pluginlib_export_plugin_description_file(eidos_transform ekf_plugins.xml)
 
 # ---- Install ----
-install(TARGETS eidos_core eidos_plugins
+install(TARGETS eidos_transform_core eidos_transform_plugins
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
-install(TARGETS eidos_node
+install(TARGETS eidos_transform_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -134,17 +103,16 @@ install(DIRECTORY config launch
 )
 
 install(FILES
-  factor_plugins.xml
-  relocalization_plugins.xml visualization_plugins.xml
+  ekf_plugins.xml
   DESTINATION share/${PROJECT_NAME}
 )
 
 # ---- Export ----
 ament_export_include_directories(include)
-ament_export_libraries(eidos_core eidos_plugins)
+ament_export_libraries(eidos_transform_core eidos_transform_plugins)
 ament_export_dependencies(
-  rclcpp rclcpp_lifecycle sensor_msgs nav_msgs geometry_msgs visualization_msgs
-  tf2 tf2_ros tf2_geometry_msgs pcl_conversions eidos_msgs pluginlib
+  rclcpp rclcpp_lifecycle nav_msgs geometry_msgs sensor_msgs
+  tf2 tf2_ros tf2_geometry_msgs eidos_msgs pluginlib
 )
 
 ament_package()

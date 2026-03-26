@@ -1,0 +1,411 @@
+[INFO] [launch]: All log files can be found below /home/eddy/.ros/log/2026-03-26-21-27-00-693706-perseverance-2149474
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [prediction_node-1]: process started with pid [2149478]
+[INFO] [world_model_node-2]: process started with pid [2149479]
+[INFO] [map_viz_markers_node-3]: process started with pid [2149480]
+[INFO] [lane_context_markers_node-4]: process started with pid [2149481]
+[INFO] [route_ahead_markers_node-5]: process started with pid [2149482]
+[INFO] [area_occupancy_markers_node-6]: process started with pid [2149483]
+[INFO] [lanelet_ahead_markers_node-7]: process started with pid [2149484]
+[INFO] [world_objects_markers_node-8]: process started with pid [2149485]
+[INFO] [world_objects_markers_node-9]: process started with pid [2149486]
+[INFO] [costmap_node-10]: process started with pid [2149487]
+[INFO] [costmap_markers_node-11]: process started with pid [2149488]
+[INFO] [bash-12]: process started with pid [2149489]
+[INFO] [behaviour_markers_node-13]: process started with pid [2149491]
+[INFO] [eidos_transform_node-14]: process started with pid [2149492]
+[INFO] [eidos_node-15]: process started with pid [2149493]
+[INFO] [wato_lifecycle_manager_node-16]: process started with pid [2149494]
+[world_objects_markers_node-8] [0m[INFO] [1774560421.009954881] [world_modeling.world_objects_markers_seed_node]: WorldObjectsMarkersNode initialized[0m
+[map_viz_markers_node-3] [0m[INFO] [1774560421.010074350] [world_modeling.map_viz_markers_node]: MapVizMarkersNode started[0m
+[area_occupancy_markers_node-6] [0m[INFO] [1774560421.024802950] [world_modeling.area_occupancy_markers_node]: AreaOccupancyMarkersNode started[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560421.029023757] [world_modeling.world_modeling_lifecycle_manager]: Lifecycle manager initialized with 5 nodes[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560421.029071186] [world_modeling.world_modeling_lifecycle_manager]: Autostart enabled, starting managed nodes...[0m
+[eidos_transform_node-14] [0m[INFO] [1774560421.043177313] [world_modeling.eidos_transform_node]: EidosTransformNode created.[0m
+[eidos_transform_node-14] [0m[INFO] [1774560421.043256662] [eidos_transform]: EidosTransform node started[0m
+[prediction_node-1] [0m[INFO] [1774560421.043951535] [world_modeling.prediction_node]: PredictionNode created (unconfigured)[0m
+[lane_context_markers_node-4] [0m[INFO] [1774560421.054840044] [world_modeling.lane_context_markers_node]: LaneContextMarkersNode started[0m
+[eidos_node-15] [0m[INFO] [1774560421.071049549] [world_modeling.eidos_node]: EidosNode created (unconfigured)[0m
+[eidos_node-15] [0m[INFO] [1774560421.071130578] [eidos]: Eidos node started[0m
+[lanelet_ahead_markers_node-7] [0m[INFO] [1774560421.086401083] [world_modeling.lanelet_ahead_markers_node]: LaneletAheadMarkersNode started[0m
+[world_model_node-2] [0m[INFO] [1774560421.096603749] [world_modeling.world_model]: WorldModelNode created (unconfigured)[0m
+[costmap_markers_node-11] [0m[INFO] [1774560421.100101253] [world_modeling.costmap_markers_node]: CostmapMarkersNode initialized[0m
+[route_ahead_markers_node-5] [0m[INFO] [1774560421.100240972] [world_modeling.route_ahead_markers_node]: RouteAheadMarkersNode started[0m
+[world_objects_markers_node-9] [0m[INFO] [1774560421.109087082] [world_modeling.world_objects_markers_node]: WorldObjectsMarkersNode initialized[0m
+[behaviour_markers_node-13] [0m[INFO] [1774560421.119075180] [world_modeling.behaviour_markers_node]: BehaviourMarkersNode initialized[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.029243995] [world_modeling.world_modeling_lifecycle_manager]: Starting up managed nodes...[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.029285265] [world_modeling.world_modeling_lifecycle_manager]: Bringing up node: /world_modeling/eidos_transform_node[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.029878389] [world_modeling.world_modeling_lifecycle_manager]: Configuring node: /world_modeling/eidos_transform_node[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.030110627] [world_modeling.eidos_transform_node]: Configuring...[0m
+[eidos_transform_node-14] Warning: class_loader.impl: SEVERE WARNING!!! A namespace collision has occurred with plugin factory for class eidos_transform::HolonomicEKF. New factory will OVERWRITE existing one. This situation occurs when libraries containing plugins are directly linked against an executable (the one running right now generating this message). Please separate plugins out into their own library or just don't link against the library and use either class_loader::ClassLoader/MultiLibraryClassLoader to open.
+[eidos_transform_node-14]          at line 321 in /opt/ros/jazzy/include/class_loader/class_loader/class_loader_core.hpp
+[eidos_transform_node-14] [0m[INFO] [1774560422.031859569] [world_modeling.eidos_transform_node]: [holonomic_ekf] HolonomicEKF initialized.[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.031880089] [world_modeling.eidos_transform_node]: Loaded EKF plugin: eidos_transform::HolonomicEKF[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.033528882] [world_modeling.eidos_transform_node]: Odom source 'liso' on topic 'liso/odometry_incremental'[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.033848789] [world_modeling.eidos_transform_node]: Odom source 'imu' on topic 'imu_factor/odometry'[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.035964447] [world_modeling.eidos_transform_node]: Map source on topic 'slam/pose'[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.036777239] [world_modeling.eidos_transform_node]: Configuration complete.[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.037048886] [world_modeling.world_modeling_lifecycle_manager]: Activating node: /world_modeling/eidos_transform_node[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.037158035] [world_modeling.eidos_transform_node]: Activating...[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.037175515] [world_modeling.eidos_transform_node]: [holonomic_ekf] HolonomicEKF activated.[0m
+[eidos_transform_node-14] [0m[INFO] [1774560422.037246324] [world_modeling.eidos_transform_node]: Active. Tick rate: 200.0 Hz[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.037338243] [world_modeling.world_modeling_lifecycle_manager]: Node /world_modeling/eidos_transform_node is now active[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.037351283] [world_modeling.world_modeling_lifecycle_manager]: Bringing up node: /world_modeling/prediction_node[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.037594221] [world_modeling.world_modeling_lifecycle_manager]: Configuring node: /world_modeling/prediction_node[0m
+[prediction_node-1] [0m[INFO] [1774560422.037731999] [world_modeling.prediction_node]: Configuring...[0m
+[prediction_node-1] [0m[INFO] [1774560422.037767439] [world_modeling.prediction_node]: Prediction horizon: 3.00 seconds[0m
+[prediction_node-1] [0m[INFO] [1774560422.037773979] [world_modeling.prediction_node]: Prediction time step: 0.20 seconds[0m
+[prediction_node-1] [0m[INFO] [1774560422.037778799] [world_modeling.prediction_node]: Vehicle params: default_speed=5.0 m/s, max_speed=30.0 m/s[0m
+[prediction_node-1] [0m[INFO] [1774560422.037785849] [world_modeling.prediction_node]: Pedestrian params: default_speed=1.4 m/s, max_speed=3.0 m/s[0m
+[prediction_node-1] [0m[INFO] [1774560422.037791469] [world_modeling.prediction_node]: Cyclist params: speed=[0.0, 8.0] m/s, lanelet_threshold=5.0 m, max_depth=3, conf=[0.70 lanelet, 0.30 cv], straight_boost=1.50, turn_thresh=0.26 rad[0m
+[prediction_node-1] [0m[INFO] [1774560422.037799209] [world_modeling.prediction_node]: Confidence smoothing alpha: 0.35, match distance: 6.0m[0m
+[prediction_node-1] [0m[INFO] [1774560422.038938177] [world_modeling.prediction_node]: TrajectoryPredictor initialized[0m
+[prediction_node-1] [0m[INFO] [1774560422.038955907] [world_modeling.prediction_node]: IntentClassifier initialized[0m
+[prediction_node-1] [0m[INFO] [1774560422.039267214] [world_modeling.prediction_node]: Configured successfully[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.039428872] [world_modeling.world_modeling_lifecycle_manager]: Activating node: /world_modeling/prediction_node[0m
+[prediction_node-1] [0m[INFO] [1774560422.039519071] [world_modeling.prediction_node]: Activating...[0m
+[prediction_node-1] [0m[INFO] [1774560422.040178104] [world_modeling.prediction_node]: Activated successfully[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.040388092] [world_modeling.world_modeling_lifecycle_manager]: Node /world_modeling/prediction_node is now active[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.040401572] [world_modeling.world_modeling_lifecycle_manager]: Bringing up node: /world_modeling/world_model[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.040620660] [world_modeling.world_modeling_lifecycle_manager]: Configuring node: /world_modeling/world_model[0m
+[world_model_node-2] [0m[INFO] [1774560422.040735799] [world_modeling.world_model]: Configuring...[0m
+[world_model_node-2] [0m[INFO] [1774560422.045947656] [world_modeling.world_model]: Loaded occupancy area 'front_near' (type: circle, center: [0.0, 0.0])[0m
+[world_model_node-2] [0m[INFO] [1774560422.046065204] [world_modeling.world_model]: Loaded occupancy area 'front_far' (type: circle, center: [15.0, 0.0])[0m
+[world_model_node-2] [0m[INFO] [1774560422.046188023] [world_modeling.world_model]: Loaded occupancy area 'left_blind_spot' (type: partial_circle, center: [-2.0, 2.0])[0m
+[world_model_node-2] [0m[INFO] [1774560422.046310502] [world_modeling.world_model]: Loaded occupancy area 'right_blind_spot' (type: partial_circle, center: [-2.0, -2.0])[0m
+[world_model_node-2] [0m[INFO] [1774560422.046420741] [world_modeling.world_model]: Loaded occupancy area 'left_lane_change_corridor' (type: rectangle, center: [3.0, 3.0])[0m
+[world_model_node-2] [0m[INFO] [1774560422.046534880] [world_modeling.world_model]: Loaded occupancy area 'right_lane_change_corridor' (type: rectangle, center: [3.0, -3.0])[0m
+[world_model_node-2] [0m[INFO] [1774560422.048752697] [world_modeling.world_model]: Configured successfully[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.049289792] [world_modeling.world_modeling_lifecycle_manager]: Activating node: /world_modeling/world_model[0m
+[world_model_node-2] [0m[INFO] [1774560422.049391301] [world_modeling.world_model]: Activating...[0m
+[world_model_node-2] [0m[INFO] [1774560422.049432920] [world_modeling.world_model]: Waiting for utm -> map transform to load map...[0m
+[world_model_node-2] [0m[INFO] [1774560422.049440730] [world_modeling.world_model]: Activated successfully[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.049619918] [world_modeling.world_modeling_lifecycle_manager]: Node /world_modeling/world_model is now active[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.049634058] [world_modeling.world_modeling_lifecycle_manager]: Bringing up node: /world_modeling/costmap_node[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.049943715] [world_modeling.world_modeling_lifecycle_manager]: Configuring node: /world_modeling/costmap_node[0m
+[costmap_node-10] [0m[INFO] [1774560422.057918294] [world_modeling.costmap_node]: Configured with 3 layers, 30.00 Hz, 100.0 x 100.0 m @ 0.10 m/cell[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.058349829] [world_modeling.world_modeling_lifecycle_manager]: Activating node: /world_modeling/costmap_node[0m
+[costmap_node-10] [0m[INFO] [1774560422.061617976] [world_modeling.costmap_node]: Activated[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.061708415] [world_modeling.world_modeling_lifecycle_manager]: Node /world_modeling/costmap_node is now active[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.061721875] [world_modeling.world_modeling_lifecycle_manager]: Bringing up node: /world_modeling/eidos_node[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.062015582] [world_modeling.world_modeling_lifecycle_manager]: Configuring node: /world_modeling/eidos_node[0m
+[eidos_node-15] [0m[INFO] [1774560422.062165791] [world_modeling.eidos_node]: [36m[CONFIGURING][0m ...[0m
+[eidos_node-15] [0m[INFO] [1774560422.072650934] [world_modeling.eidos_node]: [gps_factor] initialized (unary GPSFactor)[0m
+[eidos_node-15] [0m[INFO] [1774560422.072692423] [world_modeling.eidos_node]: Loaded factor plugin: gps_factor (eidos::GpsFactor)[0m
+[eidos_node-15] [0m[INFO] [1774560422.075437915] [world_modeling.eidos_node]: [liso_factor] initialized (GICP scan-to-submap)[0m
+[eidos_node-15] [0m[INFO] [1774560422.075463915] [world_modeling.eidos_node]: Loaded factor plugin: liso_factor (eidos::LisoFactor)[0m
+[eidos_node-15] [0m[INFO] [1774560422.076296367] [world_modeling.eidos_node]: [imu_factor] initialized (IMU factor, add_factors=0, odom=imu_factor/odometry)[0m
+[eidos_node-15] [0m[INFO] [1774560422.076317207] [world_modeling.eidos_node]: Loaded factor plugin: imu_factor (eidos::ImuFactor)[0m
+[eidos_node-15] [0m[INFO] [1774560422.078190687] [world_modeling.eidos_node]: [gps_icp_relocalization] initialized (GPS+GICP, lidar=/lidar_cc/velodyne_points)[0m
+[eidos_node-15] [0m[INFO] [1774560422.078224177] [world_modeling.eidos_node]: Loaded relocalization plugin: gps_icp_relocalization (eidos::GpsIcpRelocalization)[0m
+[eidos_node-15] [0m[INFO] [1774560422.079327426] [world_modeling.eidos_node]: [keyframe_map_visualization] initialized (mode=accumulate)[0m
+[eidos_node-15] [0m[INFO] [1774560422.079351646] [world_modeling.eidos_node]: Loaded visualization plugin: keyframe_map_visualization (eidos::KeyframeMapVisualization)[0m
+[eidos_node-15] [0m[INFO] [1774560422.080758221] [world_modeling.eidos_node]: [36m[CONFIGURED][0m[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.081065738] [world_modeling.world_modeling_lifecycle_manager]: Activating node: /world_modeling/eidos_node[0m
+[eidos_node-15] [0m[INFO] [1774560422.081193867] [world_modeling.eidos_node]: [36m[ACTIVATING][0m ...[0m
+[costmap_node-10] [33m[WARN] [1774560422.095182025] [world_modeling.costmap_node]: TF lookup failed: Could not find a connection between 'base_footprint' and 'map' because they are not part of the same tree.Tf has two or more unconnected trees.[0m
+[world_objects_markers_node-9] [2m2026-03-26T21:27:02.101238Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(18) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[world_objects_markers_node-9] [2m2026-03-26T21:27:02.103812Z[0m [33m WARN[0m   Watchdog Validator ThreadId(19) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_node-15] [0m[INFO] [1774560422.611984535] [world_modeling.eidos_node]: [36m[ACTIVATING][0m Loaded prior map from: /opt/watonomous/maps/test/wrestrc.map[0m
+[eidos_node-15] [0m[INFO] [1774560422.612019585] [world_modeling.eidos_node]: [33m[WARMING_UP][0m Waiting for plugins...[0m
+[eidos_node-15] [0m[INFO] [1774560422.612651158] [world_modeling.eidos_node]: [gps_factor] loaded prior offset (zone 17N, yaw=0.079): [912628.6, 4751946.9, 343.6][0m
+[eidos_node-15] [0m[INFO] [1774560422.612666488] [world_modeling.eidos_node]: [gps_factor] activated[0m
+[eidos_node-15] [0m[INFO] [1774560422.612679048] [world_modeling.eidos_node]: [liso_factor] activated[0m
+[eidos_node-15] [0m[INFO] [1774560422.612684008] [world_modeling.eidos_node]: [imu_factor] activated[0m
+[eidos_node-15] [0m[INFO] [1774560422.612691228] [world_modeling.eidos_node]: [gps_icp_relocalization] activated[0m
+[eidos_node-15] [0m[INFO] [1774560422.612763807] [world_modeling.eidos_node]: [36m[ACTIVATED][0m[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.612956185] [world_modeling.world_modeling_lifecycle_manager]: Node /world_modeling/eidos_node is now active[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.612986225] [world_modeling.world_modeling_lifecycle_manager]: All managed nodes are now active[0m
+[wato_lifecycle_manager_node-16] [0m[INFO] [1774560422.612992415] [world_modeling.world_modeling_lifecycle_manager]: Autostart completed successfully[0m
+[world_model_node-2] [0m[INFO] [1774560423.049513013] [world_modeling.world_model]: Got utm -> map transform. UTM origin offset: (912628.58, 4751946.89)[0m
+[world_model_node-2] [0m[INFO] [1774560423.049547612] [world_modeling.world_model]: Loading map from: /opt/watonomous/maps/test_track_map/lanelet/test_track.osm (projector: utm)[0m
+[world_model_node-2] [0m[INFO] [1774560423.064929216] [world_modeling.world_model]: Map loaded successfully[0m
+[world_model_node-2] [2m2026-03-26T21:27:03.068030Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(12) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[world_model_node-2] [2m2026-03-26T21:27:03.070566Z[0m [33m WARN[0m   Watchdog Validator ThreadId(13) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[map_viz_markers_node-3] [2m2026-03-26T21:27:03.071046Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(15) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[map_viz_markers_node-3] [2m2026-03-26T21:27:03.082192Z[0m [33m WARN[0m   Watchdog Validator ThreadId(16) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[costmap_node-10] [2m2026-03-26T21:27:03.567893Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(13) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_node-15] [2m2026-03-26T21:27:03.567896Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(27) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[behaviour_markers_node-13] [2m2026-03-26T21:27:03.567927Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(16) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_node-15] [0m[INFO] [1774560423.576454302] [world_modeling.eidos_node]: [liso_factor] first LiDAR scan received (29184 points)[0m
+[eidos_transform_node-14] [2m2026-03-26T21:27:03.589536Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(12) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_transform_node-14] [2m2026-03-26T21:27:03.592023Z[0m [33m WARN[0m   Watchdog Validator ThreadId(13) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_node-15] [2m2026-03-26T21:27:03.674782Z[0m [33m WARN[0m   Watchdog Validator ThreadId(28) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[costmap_node-10] [33m[WARN] [1774560424.128367917] [world_modeling.costmap_node]: TF lookup failed: Could not find a connection between 'base_footprint' and 'map' because they are not part of the same tree.Tf has two or more unconnected trees.[0m
+[eidos_node-15] [0m[INFO] [1774560425.532977491] [world_modeling.eidos_node]: [liso_factor] IMU warmup complete (roll: 0.0000, pitch: -0.0194)[0m
+[eidos_node-15] [0m[INFO] [1774560425.533024400] [world_modeling.eidos_node]: [imu_factor] IMU warmup complete (roll: 0.0000, pitch: -0.0194)[0m
+[eidos_node-15] [0m[INFO] [1774560425.612768849] [world_modeling.eidos_node]: [35m[RELOCALIZING][0m Prior map loaded, entering relocalization[0m
+[eidos_node-15] [0m[INFO] [1774560425.713122129] [world_modeling.eidos_node]: [gps_icp_relocalization] GPS map_guess=(-0.0,-0.0,0.0) | 14 candidates within 30m | scan=9956 pts[0m
+[eidos_node-15] [0m[INFO] [1774560426.090156675] [world_modeling.eidos_node]: [gps_icp_relocalization] submap: 272861 raw -> 85019 preprocessed pts[0m
+[eidos_node-15] [0m[INFO] [1774560426.101612599] [world_modeling.eidos_node]: [gps_icp_relocalization] GICP: converged, inliers=9949/9956 (99.9%), error=2242.8119 (threshold=0.300)[0m
+[eidos_node-15] [0m[INFO] [1774560426.101814837] [world_modeling.eidos_node]: [32m[gps_icp_relocalization] RELOCALIZED: pos=(0.1,0.0,0.0) rpy=(0.8,1.4,0.5) inliers=9949 (100%)[0m[0m
+[eidos_node-15] [0m[INFO] [1774560426.102670138] [world_modeling.eidos_node]: [35m[RELOCALIZING][0m Succeeded (fitness: 2242.812, keyframe: 0)[0m
+[eidos_node-15] [0m[INFO] [1774560426.102698607] [world_modeling.eidos_node]: [32m[TRACKING][0m Beginning at pos=(0.05,0.02,0.01) rpy=(0.77,1.37,0.50)°[0m
+[eidos_node-15] [0m[INFO] [1774560426.102735327] [world_modeling.eidos_node]: [33m[liso_factor] onTrackingBegin called: pos=(0.05,0.02,0.01) rpy=(0.77,1.37,0.50) submap_source=prior_map add_factors=0[0m[0m
+[costmap_node-10] [33m[WARN] [1774560426.129156249] [world_modeling.costmap_node]: TF lookup failed: Could not find a connection between 'base_footprint' and 'map' because they are not part of the same tree.Tf has two or more unconnected trees.[0m
+[eidos_node-15] [0m[INFO] [1774560426.181174170] [world_modeling.eidos_node]: [33m[liso_factor] first scan: using gravity-aligned origin (0.00,0.00,0.00) rpy=(0.00,-1.11,1.15)[0m[0m
+[eidos_node-15] [0m[INFO] [1774560426.312261487] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (0.1,0.0,0.0): 64263 points[0m
+[eidos_node-15] [0m[INFO] [1774560426.312330716] [world_modeling.eidos_node]: [liso_factor] onTrackingBegin: built initial prior map submap at (0.05, 0.02, 0.01)[0m
+[eidos_node-15] [0m[INFO] [1774560426.348120252] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.06,0.02,0.01) yaw=0.49° | guess: pos=(0.05,0.02,0.01) yaw=0.50° | inliers=10001[0m[0m
+[area_occupancy_markers_node-6] [2m2026-03-26T21:27:06.350534Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(18) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[lanelet_ahead_markers_node-7] [2m2026-03-26T21:27:06.351861Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(12) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[prediction_node-1] [2m2026-03-26T21:27:06.351901Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(15) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[route_ahead_markers_node-5] [2m2026-03-26T21:27:06.353910Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(15) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[lane_context_markers_node-4] [2m2026-03-26T21:27:06.355000Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(14) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[route_ahead_markers_node-5] [2m2026-03-26T21:27:06.357620Z[0m [33m WARN[0m   Watchdog Validator ThreadId(16) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[area_occupancy_markers_node-6] [2m2026-03-26T21:27:06.360773Z[0m [33m WARN[0m   Watchdog Validator ThreadId(19) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[lane_context_markers_node-4] [2m2026-03-26T21:27:06.363835Z[0m [33m WARN[0m   Watchdog Validator ThreadId(15) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[lanelet_ahead_markers_node-7] [2m2026-03-26T21:27:06.367093Z[0m [33m WARN[0m   Watchdog Validator ThreadId(13) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[costmap_node-10] [2m2026-03-26T21:27:06.367891Z[0m [33m WARN[0m   Watchdog Validator ThreadId(14) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_node-15] [0m[INFO] [1774560428.405876027] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.04,0.02,0.01) yaw=0.52° | guess: pos=(0.04,0.02,0.01) yaw=0.50° | inliers=9929[0m[0m
+[eidos_node-15] [0m[INFO] [1774560430.422878935] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.05,0.02,0.01) yaw=0.46° | guess: pos=(0.04,0.02,0.01) yaw=0.46° | inliers=9956[0m[0m
+[eidos_node-15] [0m[INFO] [1774560432.492564859] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.04,0.02,0.01) yaw=0.49° | guess: pos=(0.04,0.01,0.01) yaw=0.52° | inliers=9939[0m[0m
+[eidos_node-15] [0m[INFO] [1774560434.509216052] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.04,0.02,0.01) yaw=0.53° | guess: pos=(0.03,0.02,0.01) yaw=0.53° | inliers=9936[0m[0m
+[bash-12] [2m2026-03-26T21:27:15.884374Z[0m [33m WARN[0m Watchdog Confirmator ThreadId(14) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Confirmator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[bash-12] [0m[INFO] [1774560435.963924794] [world_modeling.behaviour_node]: Loading Behavior Tree from: /ws/install/behaviour/share/behaviour/trees/main_tree.xml[0m
+[bash-12] [0m[INFO] [1774560435.968305280] [world_modeling.behaviour_node]: Node [GetShortestRoute] created service client [/world_modeling/get_shortest_route][0m
+[bash-12] [0m[INFO] [1774560435.968884154] [world_modeling.behaviour_node]: Node [SetRoute] created service client [/world_modeling/set_route][0m
+[bash-12] [0m[INFO] [1774560435.970847274] [world_modeling.behaviour_node]: Node [GetAreaOccupancySub] created Subscriber to topic [/world_modeling/area_occupancy][0m
+[bash-12] [0m[INFO] [1774560435.972566617] [world_modeling.behaviour_node]: Node [DespawnWall] created service client [/world_modeling/despawn_wall][0m
+[bash-12] [0m[INFO] [1774560435.973093221] [world_modeling.behaviour_node]: Node [SpawnWall] created service client [/world_modeling/spawn_wall][0m
+[bash-12] [0m[INFO] [1774560435.973483897] [world_modeling.behaviour_node]: Node [GetLaneletsByRegElem] created service client [/world_modeling/get_lanelets_by_reg_elem][0m
+[bash-12] [0m[INFO] [1774560435.974343529] [world_modeling.behaviour_node]: Node [GetWorldObjectsSub] created Subscriber to topic [/world_modeling/world_objects_enriched][0m
+[bash-12] [0m[INFO] [1774560435.976169910] [world_modeling.behaviour_node]: BehaviourNode has been fully initialized.[0m
+[bash-12] [GoalExist]: Missing goal_point input
+[behaviour_markers_node-13] [2m2026-03-26T21:27:16.080307Z[0m [33m WARN[0m   Watchdog Validator ThreadId(18) [2mzenoh_shm::watchdog::periodic_task[0m[2m:[0m Some("Watchdog Validator"): error setting scheduling priority for thread: OS(1), will run with priority 48. This is not an hard error and it can be safely ignored under normal operating conditions. Though the SHM subsystem may experience some timeouts in case of an heavy congested system where this watchdog thread may not be scheduled at the required frequency.
+[eidos_node-15] [0m[INFO] [1774560436.521609748] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.05,0.02,0.01) yaw=0.49° | guess: pos=(0.05,0.03,0.01) yaw=0.49° | inliers=10071[0m[0m
+[eidos_node-15] [0m[INFO] [1774560438.545420089] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.03,0.01,0.01) yaw=0.53° | guess: pos=(0.05,0.03,0.01) yaw=0.48° | inliers=9960[0m[0m
+[eidos_node-15] [0m[INFO] [1774560440.563407888] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.06,0.03,0.01) yaw=0.48° | guess: pos=(0.04,0.02,0.01) yaw=0.50° | inliers=9966[0m[0m
+[eidos_node-15] [0m[INFO] [1774560442.629925836] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.05,0.02,0.01) yaw=0.50° | guess: pos=(0.04,0.02,0.01) yaw=0.51° | inliers=10007[0m[0m
+[eidos_node-15] [0m[INFO] [1774560444.645767018] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.05,0.02,0.01) yaw=0.50° | guess: pos=(0.04,0.02,0.01) yaw=0.50° | inliers=10013[0m[0m
+[eidos_node-15] [0m[INFO] [1774560446.661523340] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(0.30,0.06,0.02) yaw=0.47° | guess: pos=(0.27,0.05,0.02) yaw=0.44° | inliers=9846[0m[0m
+[eidos_node-15] [0m[INFO] [1774560448.728853801] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(3.69,0.11,-0.03) yaw=1.06° | guess: pos=(3.52,0.08,-0.03) yaw=1.06° | inliers=9440[0m[0m
+[eidos_node-15] [0m[INFO] [1774560450.748544151] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(11.94,0.41,-0.07) yaw=2.13° | guess: pos=(11.68,0.41,-0.07) yaw=2.16° | inliers=8812[0m[0m
+[eidos_node-15] [0m[INFO] [1774560451.595172225] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (15.1,0.5,-0.1): 59531 points[0m
+[eidos_node-15] [0m[INFO] [1774560452.768877496] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(22.80,0.86,-0.08) yaw=2.09° | guess: pos=(22.53,0.85,-0.08) yaw=2.10° | inliers=8788[0m[0m
+[eidos_node-15] [0m[INFO] [1774560454.793156172] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(29.70,1.14,-0.05) yaw=2.01° | guess: pos=(29.62,1.14,-0.04) yaw=2.01° | inliers=9234[0m[0m
+[eidos_node-15] [0m[INFO] [1774560455.365720681] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (30.1,1.2,-0.1): 55023 points[0m
+[eidos_node-15] [0m[INFO] [1774560456.806160931] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(31.82,1.25,-0.05) yaw=2.04° | guess: pos=(31.75,1.24,-0.05) yaw=2.03° | inliers=9201[0m[0m
+[eidos_node-15] [0m[INFO] [1774560458.822606985] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(37.34,2.64,0.10) yaw=24.81° | guess: pos=(37.16,2.54,0.10) yaw=23.90° | inliers=9630[0m[0m
+[eidos_node-15] [0m[INFO] [1774560460.839581693] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(43.43,10.05,0.62) yaw=66.76° | guess: pos=(43.33,9.78,0.60) yaw=66.60° | inliers=10292[0m[0m
+[eidos_node-15] [0m[INFO] [1774560460.917968433] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (43.0,9.0,0.6): 55628 points[0m
+[eidos_node-15] [0m[INFO] [1774560462.902306800] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(45.15,23.26,1.30) yaw=90.65° | guess: pos=(45.17,22.90,1.29) yaw=90.65° | inliers=10117[0m[0m
+[eidos_node-15] [0m[INFO] [1774560463.275956075] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (45.1,24.0,1.3): 54650 points[0m
+[eidos_node-15] [0m[INFO] [1774560464.918486276] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(44.55,39.79,2.20) yaw=92.11° | guess: pos=(44.57,39.34,2.17) yaw=92.09° | inliers=9065[0m[0m
+[eidos_node-15] [0m[INFO] [1774560465.088451604] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (44.6,39.3,2.2): 48696 points[0m
+[eidos_node-15] [0m[INFO] [1774560466.722073962] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (43.9,54.5,3.0): 50986 points[0m
+[eidos_node-15] [0m[INFO] [1774560466.940191915] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(43.70,59.02,3.18) yaw=92.22° | guess: pos=(43.72,58.51,3.15) yaw=92.19° | inliers=9580[0m[0m
+[eidos_node-15] [0m[INFO] [1774560468.244972060] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (43.3,69.5,3.7): 57572 points[0m
+[eidos_node-15] [0m[INFO] [1774560468.998926722] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(42.98,79.74,4.20) yaw=91.28° | guess: pos=(42.98,79.22,4.19) yaw=91.29° | inliers=10881[0m[0m
+[eidos_node-15] [0m[INFO] [1774560469.735450570] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (42.9,84.6,4.5): 63364 points[0m
+[eidos_node-15] [0m[INFO] [1774560471.020134675] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(42.61,100.17,5.24) yaw=90.36° | guess: pos=(42.62,99.70,5.21) yaw=90.36° | inliers=11035[0m[0m
+[eidos_node-15] [0m[INFO] [1774560471.265352779] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (42.6,99.7,5.2): 65486 points[0m
+[eidos_node-15] [0m[INFO] [1774560472.962795519] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (42.4,114.8,5.9): 68397 points[0m
+[eidos_node-15] [0m[INFO] [1774560473.037454828] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(42.33,117.66,5.97) yaw=91.01° | guess: pos=(42.33,117.26,5.96) yaw=91.01° | inliers=10638[0m[0m
+[eidos_node-15] [0m[INFO] [1774560475.059522202] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(42.10,130.18,6.38) yaw=89.65° | guess: pos=(42.10,129.95,6.37) yaw=89.68° | inliers=10287[0m[0m
+[eidos_node-15] [0m[INFO] [1774560475.302545270] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (42.1,129.9,6.4): 69382 points[0m
+[eidos_node-15] [0m[INFO] [1774560477.072073851] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(43.04,136.74,6.48) yaw=72.62° | guess: pos=(42.99,136.59,6.47) yaw=72.75° | inliers=11167[0m[0m
+[eidos_node-15] [0m[INFO] [1774560479.093255932] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(47.44,141.63,6.59) yaw=24.17° | guess: pos=(47.28,141.56,6.58) yaw=24.29° | inliers=11185[0m[0m
+[eidos_node-15] [0m[INFO] [1774560480.490084900] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (51.6,141.6,6.6): 69232 points[0m
+[eidos_node-15] [0m[INFO] [1774560481.117703710] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(55.19,139.89,6.62) yaw=-29.37° | guess: pos=(54.98,140.02,6.62) yaw=-29.34° | inliers=11776[0m[0m
+[eidos_node-15] [0m[INFO] [1774560483.182629782] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (64.1,133.1,6.5): 71175 points[0m
+[eidos_node-15] [0m[INFO] [1774560483.184001748] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(65.86,131.37,6.47) yaw=-44.30° | guess: pos=(65.57,131.68,6.48) yaw=-44.29° | inliers=11798[0m[0m
+[eidos_node-15] [0m[INFO] [1774560484.850575983] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (74.7,122.0,6.3): 67542 points[0m
+[eidos_node-15] [0m[INFO] [1774560485.197140088] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(78.49,117.18,6.25) yaw=-52.64° | guess: pos=(78.18,117.59,6.26) yaw=-52.62° | inliers=12474[0m[0m
+[eidos_node-15] [0m[INFO] [1774560486.307518226] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (83.7,109.9,6.1): 65917 points[0m
+[eidos_node-15] [0m[INFO] [1774560487.261182397] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(90.90,99.33,5.71) yaw=-56.38° | guess: pos=(90.60,99.77,5.72) yaw=-56.38° | inliers=12502[0m[0m
+[eidos_node-15] [0m[INFO] [1774560487.762041768] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (92.4,97.1,5.6): 68624 points[0m
+[eidos_node-15] [0m[INFO] [1774560489.200356846] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (100.9,84.3,5.0): 69850 points[0m
+[eidos_node-15] [0m[INFO] [1774560489.287205646] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(103.19,81.06,4.86) yaw=-56.30° | guess: pos=(102.87,81.54,4.88) yaw=-56.30° | inliers=12405[0m[0m
+[eidos_node-15] [0m[INFO] [1774560490.548103287] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (109.5,71.7,4.4): 70767 points[0m
+[eidos_node-15] [0m[INFO] [1774560491.346360413] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(115.96,62.33,3.96) yaw=-55.34° | guess: pos=(115.64,62.78,3.98) yaw=-55.35° | inliers=12830[0m[0m
+[eidos_node-15] [0m[INFO] [1774560491.954568423] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (118.2,59.2,3.8): 68907 points[0m
+[eidos_node-15] [0m[INFO] [1774560493.295889287] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (127.1,46.7,3.2): 65191 points[0m
+[eidos_node-15] [0m[INFO] [1774560493.413370731] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(129.53,43.34,2.98) yaw=-54.67° | guess: pos=(129.17,43.80,2.97) yaw=-54.66° | inliers=11903[0m[0m
+[eidos_node-15] [0m[INFO] [1774560494.576821468] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (136.1,34.0,2.5): 61527 points[0m
+[eidos_node-15] [0m[INFO] [1774560495.479208370] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(143.75,22.75,1.96) yaw=-56.33° | guess: pos=(143.41,23.24,1.99) yaw=-56.36° | inliers=10575[0m[0m
+[eidos_node-15] [0m[INFO] [1774560495.839534835] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (144.8,21.2,1.9): 56680 points[0m
+[eidos_node-15] [0m[INFO] [1774560497.113748481] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (153.5,8.4,1.2): 57343 points[0m
+[eidos_node-15] [0m[INFO] [1774560497.494064998] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(157.69,2.17,0.92) yaw=-56.19° | guess: pos=(157.34,2.69,0.95) yaw=-56.16° | inliers=10694[0m[0m
+[eidos_node-15] [0m[INFO] [1774560498.388595224] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (162.2,-4.5,0.6): 53978 points[0m
+[eidos_node-15] [0m[INFO] [1774560499.515908785] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(171.54,-18.16,-0.08) yaw=-55.82° | guess: pos=(171.19,-17.64,-0.05) yaw=-55.82° | inliers=10513[0m[0m
+[eidos_node-15] [0m[INFO] [1774560499.638196803] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (170.8,-17.2,-0.0): 56903 points[0m
+[eidos_node-15] [0m[INFO] [1774560500.915050092] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (179.4,-29.6,-0.7): 60143 points[0m
+[eidos_node-15] [0m[INFO] [1774560501.536307165] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(185.22,-37.90,-1.08) yaw=-55.71° | guess: pos=(184.89,-37.42,-1.06) yaw=-55.70° | inliers=12102[0m[0m
+[eidos_node-15] [0m[INFO] [1774560502.224787318] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (188.3,-42.4,-1.3): 66232 points[0m
+[eidos_node-15] [0m[INFO] [1774560503.586891203] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(198.03,-56.70,-2.04) yaw=-55.52° | guess: pos=(197.77,-56.27,-2.01) yaw=-55.50° | inliers=12096[0m[0m
+[eidos_node-15] [0m[INFO] [1774560503.601890504] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (196.8,-54.9,-2.0): 72028 points[0m
+[eidos_node-15] [0m[INFO] [1774560505.165926937] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (205.6,-67.4,-2.6): 80005 points[0m
+[eidos_node-15] [0m[INFO] [1774560505.630916916] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(209.39,-72.74,-2.89) yaw=-55.11° | guess: pos=(209.13,-72.42,-2.87) yaw=-55.12° | inliers=13393[0m[0m
+[eidos_node-15] [0m[INFO] [1774560506.913720363] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (214.3,-79.8,-3.3): 81399 points[0m
+[eidos_node-15] [0m[INFO] [1774560507.653336023] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(219.26,-87.01,-3.65) yaw=-55.43° | guess: pos=(218.95,-86.61,-3.60) yaw=-55.44° | inliers=13531[0m[0m
+[eidos_node-15] [0m[INFO] [1774560508.749154841] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (223.1,-92.4,-3.9): 78505 points[0m
+[eidos_node-15] [0m[INFO] [1774560509.655441042] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(228.13,-99.61,-4.28) yaw=-54.80° | guess: pos=(227.93,-99.36,-4.29) yaw=-54.69° | inliers=12099[0m[0m
+[eidos_node-15] [0m[INFO] [1774560510.701600309] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (231.7,-104.6,-4.5): 72211 points[0m
+[eidos_node-15] [0m[INFO] [1774560511.694990125] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(236.98,-112.03,-4.86) yaw=-55.55° | guess: pos=(236.79,-111.77,-4.86) yaw=-55.66° | inliers=9902[0m[0m
+[eidos_node-15] [0m[INFO] [1774560512.839175091] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (240.5,-117.1,-5.2): 61782 points[0m
+[eidos_node-15] [0m[INFO] [1774560513.730409019] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(244.20,-122.25,-5.32) yaw=-54.43° | guess: pos=(244.07,-122.09,-5.31) yaw=-54.47° | inliers=9789[0m[0m
+[eidos_node-15] [0m[INFO] [1774560515.748134698] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(248.75,-128.65,-5.45) yaw=-55.10° | guess: pos=(248.65,-128.52,-5.45) yaw=-55.11° | inliers=9739[0m[0m
+[eidos_node-15] [0m[INFO] [1774560516.319747415] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (249.3,-129.4,-5.5): 64830 points[0m
+[eidos_node-15] [0m[INFO] [1774560517.767325741] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(252.79,-135.23,-5.63) yaw=-63.95° | guess: pos=(252.69,-135.02,-5.63) yaw=-63.91° | inliers=10850[0m[0m
+[eidos_node-15] [0m[INFO] [1774560519.759754409] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (255.0,-143.5,-5.8): 66957 points[0m
+[eidos_node-15] [0m[INFO] [1774560519.798362974] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(255.08,-145.12,-5.79) yaw=-87.05° | guess: pos=(255.11,-144.83,-5.78) yaw=-87.04° | inliers=12282[0m[0m
+[eidos_node-15] [0m[INFO] [1774560521.818714543] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(253.03,-156.77,-6.07) yaw=-110.62° | guess: pos=(253.13,-156.50,-6.07) yaw=-110.63° | inliers=12417[0m[0m
+[eidos_node-15] [0m[INFO] [1774560522.410061141] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (252.3,-158.5,-6.1): 72783 points[0m
+[eidos_node-15] [0m[INFO] [1774560523.876540987] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(246.01,-167.10,-6.03) yaw=-138.11° | guess: pos=(246.26,-166.94,-6.04) yaw=-138.01° | inliers=12117[0m[0m
+[eidos_node-15] [0m[INFO] [1774560524.986405933] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (241.9,-169.6,-6.0): 71146 points[0m
+[eidos_node-15] [0m[INFO] [1774560525.894047601] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(235.68,-171.25,-5.99) yaw=-177.76° | guess: pos=(235.94,-171.25,-5.99) yaw=-177.68° | inliers=12171[0m[0m
+[eidos_node-15] [0m[INFO] [1774560527.715517522] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (226.9,-169.2,-6.0): 70151 points[0m
+[eidos_node-15] [0m[INFO] [1774560527.922133669] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(224.14,-168.18,-6.02) yaw=157.46° | guess: pos=(224.46,-168.28,-6.02) yaw=157.41° | inliers=12142[0m[0m
+[eidos_node-15] [0m[INFO] [1774560529.850300677] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (213.0,-163.2,-6.0): 68930 points[0m
+[eidos_node-15] [0m[INFO] [1774560529.976297296] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(209.94,-161.88,-6.04) yaw=156.41° | guess: pos=(210.34,-162.08,-6.05) yaw=156.43° | inliers=11880[0m[0m
+[eidos_node-15] [0m[INFO] [1774560531.704473157] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (198.8,-157.3,-6.1): 66152 points[0m
+[eidos_node-15] [0m[INFO] [1774560531.990119412] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(193.77,-155.22,-6.11) yaw=158.35° | guess: pos=(194.19,-155.41,-6.11) yaw=158.34° | inliers=11653[0m[0m
+[eidos_node-15] [0m[INFO] [1774560533.323002793] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (184.7,-151.8,-6.1): 63957 points[0m
+[eidos_node-15] [0m[INFO] [1774560534.011560830] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(176.21,-148.59,-6.13) yaw=158.91° | guess: pos=(176.65,-148.76,-6.13) yaw=158.90° | inliers=11644[0m[0m
+[eidos_node-15] [0m[INFO] [1774560534.881349641] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (170.7,-146.5,-6.1): 62245 points[0m
+[eidos_node-15] [0m[INFO] [1774560536.081260179] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(156.89,-141.28,-6.17) yaw=158.88° | guess: pos=(157.35,-141.42,-6.18) yaw=158.89° | inliers=11967[0m[0m
+[eidos_node-15] [0m[INFO] [1774560536.391898918] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (156.4,-141.1,-6.2): 61290 points[0m
+[eidos_node-15] [0m[INFO] [1774560537.861197119] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (141.9,-135.6,-6.2): 61243 points[0m
+[eidos_node-15] [0m[INFO] [1774560538.096289748] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(136.74,-133.63,-6.22) yaw=159.03° | guess: pos=(137.27,-133.83,-6.23) yaw=159.03° | inliers=11920[0m[0m
+[eidos_node-15] [0m[INFO] [1774560539.204038947] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (127.8,-130.2,-6.2): 58325 points[0m
+[eidos_node-15] [0m[INFO] [1774560540.121103379] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(115.32,-125.49,-6.19) yaw=158.65° | guess: pos=(115.89,-125.71,-6.18) yaw=158.68° | inliers=12054[0m[0m
+[eidos_node-15] [0m[INFO] [1774560540.511639489] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (113.7,-124.9,-6.2): 57863 points[0m
+[eidos_node-15] [0m[INFO] [1774560541.807682398] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (99.3,-119.3,-6.1): 57534 points[0m
+[eidos_node-15] [0m[INFO] [1774560542.141951197] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(93.08,-116.98,-6.15) yaw=158.86° | guess: pos=(93.67,-117.21,-6.16) yaw=158.85° | inliers=11725[0m[0m
+[eidos_node-15] [0m[INFO] [1774560543.076330230] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (85.0,-113.8,-6.2): 57258 points[0m
+[eidos_node-15] [0m[INFO] [1774560544.211698005] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(69.24,-107.45,-6.10) yaw=156.93° | guess: pos=(69.87,-107.69,-6.10) yaw=156.96° | inliers=11595[0m[0m
+[eidos_node-15] [0m[INFO] [1774560544.288866531] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (71.0,-108.2,-6.1): 55672 points[0m
+[eidos_node-15] [0m[INFO] [1774560545.566037367] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (57.0,-102.2,-6.0): 53942 points[0m
+[eidos_node-15] [0m[INFO] [1774560546.285434307] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(46.96,-97.33,-5.82) yaw=152.72° | guess: pos=(47.49,-97.59,-5.83) yaw=152.75° | inliers=11228[0m[0m
+[eidos_node-15] [0m[INFO] [1774560546.853936830] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (43.3,-95.4,-5.8): 51584 points[0m
+[eidos_node-15] [0m[INFO] [1774560548.147211733] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (30.2,-87.7,-5.5): 51262 points[0m
+[eidos_node-15] [0m[INFO] [1774560548.300566046] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(26.73,-85.48,-5.40) yaw=146.45° | guess: pos=(27.25,-85.82,-5.42) yaw=146.49° | inliers=10076[0m[0m
+[eidos_node-15] [0m[INFO] [1774560549.451253273] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (17.3,-79.0,-5.1): 51506 points[0m
+[eidos_node-15] [0m[INFO] [1774560550.318523576] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(7.42,-71.61,-4.82) yaw=141.75° | guess: pos=(7.91,-71.98,-4.83) yaw=141.59° | inliers=10813[0m[0m
+[eidos_node-15] [0m[INFO] [1774560550.836654542] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (4.9,-69.6,-4.7): 51880 points[0m
+[eidos_node-15] [0m[INFO] [1774560552.125385550] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-6.8,-59.6,-4.4): 51299 points[0m
+[eidos_node-15] [0m[INFO] [1774560552.345231337] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-10.63,-55.97,-4.25) yaw=135.63° | guess: pos=(-10.14,-56.45,-4.26) yaw=135.72° | inliers=11263[0m[0m
+[eidos_node-15] [0m[INFO] [1774560553.328037373] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-17.6,-48.9,-4.0): 50133 points[0m
+[eidos_node-15] [0m[INFO] [1774560554.371542030] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-28.95,-36.64,-3.63) yaw=131.83° | guess: pos=(-28.51,-37.11,-3.63) yaw=131.81° | inliers=10576[0m[0m
+[eidos_node-15] [0m[INFO] [1774560554.487317906] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-28.1,-37.6,-3.6): 47756 points[0m
+[eidos_node-15] [0m[INFO] [1774560555.649523544] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-38.2,-26.3,-3.2): 45179 points[0m
+[eidos_node-15] [0m[INFO] [1774560556.378022018] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-46.14,-16.98,-2.89) yaw=129.90° | guess: pos=(-45.73,-17.48,-2.91) yaw=129.90° | inliers=10867[0m[0m
+[eidos_node-15] [0m[INFO] [1774560556.884611404] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-48.2,-14.5,-2.8): 46151 points[0m
+[eidos_node-15] [0m[INFO] [1774560558.056145725] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-57.9,-2.6,-2.3): 45548 points[0m
+[eidos_node-15] [0m[INFO] [1774560558.386740751] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-62.28,2.92,-2.14) yaw=127.86° | guess: pos=(-61.88,2.41,-2.17) yaw=127.88° | inliers=10038[0m[0m
+[eidos_node-15] [0m[INFO] [1774560559.243071546] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-67.4,9.5,-1.9): 42795 points[0m
+[eidos_node-15] [0m[INFO] [1774560560.475451642] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-78.31,23.93,-1.39) yaw=126.43° | guess: pos=(-77.51,22.88,-1.43) yaw=126.47° | inliers=10244[0m[0m
+[eidos_node-15] [0m[INFO] [1774560560.485226845] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-76.8,21.9,-1.5): 42377 points[0m
+[eidos_node-15] [0m[INFO] [1774560561.687534451] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-85.9,34.2,-1.0): 43193 points[0m
+[eidos_node-15] [0m[INFO] [1774560562.521941188] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-93.75,44.88,-0.64) yaw=125.73° | guess: pos=(-93.39,44.38,-0.66) yaw=125.75° | inliers=9925[0m[0m
+[eidos_node-15] [0m[INFO] [1774560562.881179914] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-94.8,46.4,-0.6): 45698 points[0m
+[eidos_node-15] [0m[INFO] [1774560564.090012561] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-103.6,58.6,-0.2): 49550 points[0m
+[eidos_node-15] [0m[INFO] [1774560564.579749131] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-108.61,65.70,0.04) yaw=124.62° | guess: pos=(-108.26,65.22,0.02) yaw=124.61° | inliers=11147[0m[0m
+[eidos_node-15] [0m[INFO] [1774560565.369131327] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-112.3,71.0,0.2): 55620 points[0m
+[eidos_node-15] [0m[INFO] [1774560566.600398958] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-120.86,85.21,0.66) yaw=116.95° | guess: pos=(-120.61,84.74,0.65) yaw=116.95° | inliers=11826[0m[0m
+[eidos_node-15] [0m[INFO] [1774560566.772471552] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-120.4,84.2,0.6): 64978 points[0m
+[eidos_node-15] [0m[INFO] [1774560568.268932283] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-126.0,98.3,1.1): 70332 points[0m
+[eidos_node-15] [0m[INFO] [1774560568.620848176] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-127.27,104.80,1.26) yaw=99.06° | guess: pos=(-127.20,104.29,1.24) yaw=99.17° | inliers=13440[0m[0m
+[eidos_node-15] [0m[INFO] [1774560569.769053173] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-128.2,113.5,1.5): 72497 points[0m
+[eidos_node-15] [0m[INFO] [1774560570.611825771] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-127.67,124.61,1.85) yaw=82.33° | guess: pos=(-127.79,123.61,1.80) yaw=83.30° | inliers=14257[0m[0m
+[eidos_node-15] [0m[INFO] [1774560571.328589721] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-127.0,128.6,2.0): 73388 points[0m
+[eidos_node-15] [0m[INFO] [1774560572.659283367] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-121.79,144.41,2.53) yaw=64.74° | guess: pos=(-122.00,143.96,2.51) yaw=64.83° | inliers=13494[0m[0m
+[eidos_node-15] [0m[INFO] [1774560572.795750383] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-122.4,143.0,2.5): 70207 points[0m
+[eidos_node-15] [0m[INFO] [1774560574.253502553] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-114.8,156.1,3.0): 63189 points[0m
+[eidos_node-15] [0m[INFO] [1774560574.646870321] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-110.58,161.04,3.23) yaw=47.11° | guess: pos=(-110.93,160.69,3.23) yaw=47.23° | inliers=11158[0m[0m
+[eidos_node-15] [0m[INFO] [1774560575.725477346] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-104.4,167.0,3.5): 55938 points[0m
+[eidos_node-15] [0m[INFO] [1774560576.705115067] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-95.71,173.62,3.78) yaw=33.75° | guess: pos=(-96.02,173.40,3.77) yaw=33.35° | inliers=8616[0m[0m
+[eidos_node-15] [0m[INFO] [1774560577.440219895] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-92.1,175.9,3.9): 53363 points[0m
+[eidos_node-15] [0m[INFO] [1774560578.687392368] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-84.39,179.61,4.22) yaw=22.76° | guess: pos=(-84.65,179.52,4.23) yaw=22.80° | inliers=8570[0m[0m
+[eidos_node-15] [0m[INFO] [1774560580.404760361] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-78.1,182.0,4.5): 48372 points[0m
+[eidos_node-15] [0m[INFO] [1774560580.756742281] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-75.86,182.62,4.51) yaw=14.75° | guess: pos=(-76.08,182.57,4.53) yaw=14.78° | inliers=10594[0m[0m
+[eidos_node-15] [0m[INFO] [1774560582.786522100] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-65.28,184.31,4.88) yaw=4.08° | guess: pos=(-65.58,184.29,4.88) yaw=4.14° | inliers=11630[0m[0m
+[eidos_node-15] [0m[INFO] [1774560583.340141800] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-63.0,184.4,5.0): 50828 points[0m
+[eidos_node-15] [0m[INFO] [1774560584.844618799] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-50.54,183.57,5.32) yaw=-8.74° | guess: pos=(-50.95,183.64,5.31) yaw=-8.72° | inliers=10901[0m[0m
+[eidos_node-15] [0m[INFO] [1774560585.465617469] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-47.7,183.1,5.4): 55359 points[0m
+[eidos_node-15] [0m[INFO] [1774560586.917653409] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-33.32,179.03,5.83) yaw=-20.14° | guess: pos=(-33.77,179.19,5.83) yaw=-20.08° | inliers=10880[0m[0m
+[eidos_node-15] [0m[INFO] [1774560587.176911003] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-32.9,178.9,5.8): 57774 points[0m
+[eidos_node-15] [0m[INFO] [1774560588.836765718] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-18.9,172.7,6.1): 59521 points[0m
+[eidos_node-15] [0m[INFO] [1774560588.980607736] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-15.35,171.06,6.18) yaw=-25.81° | guess: pos=(-15.81,171.27,6.17) yaw=-25.81° | inliers=11613[0m[0m
+[eidos_node-15] [0m[INFO] [1774560590.443491129] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-5.2,166.3,6.3): 59972 points[0m
+[eidos_node-15] [0m[INFO] [1774560591.021271439] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(1.60,163.08,6.33) yaw=-25.02° | guess: pos=(1.19,163.28,6.34) yaw=-24.95° | inliers=11699[0m[0m
+[eidos_node-15] [0m[INFO] [1774560592.101688839] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (8.7,160.0,6.4): 59693 points[0m
+[eidos_node-15] [0m[INFO] [1774560593.020495366] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(16.58,156.56,6.45) yaw=-24.03° | guess: pos=(16.27,156.71,6.46) yaw=-24.01° | inliers=11220[0m[0m
+[eidos_node-15] [0m[INFO] [1774560594.397079876] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (22.4,153.9,6.5): 73828 points[0m
+[eidos_node-15] [0m[INFO] [1774560595.035708164] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(26.30,151.78,6.50) yaw=-31.28° | guess: pos=(26.12,151.88,6.50) yaw=-31.18° | inliers=11285[0m[0m
+[eidos_node-15] [0m[INFO] [1774560597.097240566] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(31.55,147.07,6.48) yaw=-49.32° | guess: pos=(31.46,147.18,6.49) yaw=-49.18° | inliers=11459[0m[0m
+[eidos_node-15] [0m[INFO] [1774560598.763238950] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (34.2,144.5,6.5): 71927 points[0m
+[eidos_node-15] [0m[INFO] [1774560599.135418314] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(35.37,143.03,6.50) yaw=-52.78° | guess: pos=(35.29,143.15,6.50) yaw=-52.98° | inliers=10908[0m[0m
+[eidos_node-15] [0m[INFO] [1774560601.185414083] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(37.57,135.72,6.46) yaw=-82.54° | guess: pos=(37.54,135.96,6.46) yaw=-82.86° | inliers=10582[0m[0m
+[eidos_node-15] [0m[INFO] [1774560602.528402322] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (38.1,130.0,6.4): 69779 points[0m
+[eidos_node-15] [0m[INFO] [1774560603.225631186] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(38.26,123.63,6.22) yaw=-88.67° | guess: pos=(38.25,123.95,6.23) yaw=-88.67° | inliers=10071[0m[0m
+[eidos_node-15] [0m[INFO] [1774560604.971898933] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (38.5,114.8,5.9): 68421 points[0m
+[eidos_node-15] [0m[INFO] [1774560605.280197236] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(38.60,110.65,5.72) yaw=-88.92° | guess: pos=(38.59,110.98,5.73) yaw=-88.92° | inliers=10169[0m[0m
+[eidos_node-15] [0m[INFO] [1774560607.313863428] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(38.18,101.26,5.30) yaw=-102.37° | guess: pos=(38.20,101.42,5.30) yaw=-102.30° | inliers=11090[0m[0m
+[eidos_node-15] [0m[INFO] [1774560608.109269537] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (37.8,99.8,5.2): 65005 points[0m
+[eidos_node-15] [0m[INFO] [1774560609.364622209] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(33.14,96.77,5.16) yaw=-167.79° | guess: pos=(33.30,96.82,5.15) yaw=-167.90° | inliers=9930[0m[0m
+[eidos_node-15] [0m[INFO] [1774560611.414355639] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(25.68,98.44,5.60) yaw=156.49° | guess: pos=(25.87,98.35,5.60) yaw=156.49° | inliers=9258[0m[0m
+[eidos_node-15] [0m[INFO] [1774560612.378594474] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (22.7,99.9,5.7): 57124 points[0m
+[eidos_node-15] [0m[INFO] [1774560613.429458594] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(17.16,102.83,5.83) yaw=154.00° | guess: pos=(17.34,102.74,5.83) yaw=153.89° | inliers=7186[0m[0m
+[eidos_node-15] [0m[INFO] [1774560615.447467078] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(12.33,103.32,5.93) yaw=-164.12° | guess: pos=(12.38,103.36,5.93) yaw=-164.35° | inliers=6434[0m[0m
+[eidos_node-15] [0m[INFO] [1774560617.462883434] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(10.32,100.75,5.92) yaw=-115.67° | guess: pos=(10.34,100.83,5.92) yaw=-115.82° | inliers=6694[0m[0m
+[eidos_node-15] [0m[INFO] [1774560619.481680004] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(10.15,99.45,5.91) yaw=-98.36° | guess: pos=(10.15,99.45,5.91) yaw=-98.36° | inliers=6762[0m[0m
+[eidos_node-15] [0m[INFO] [1774560621.495980146] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(10.30,100.20,5.90) yaw=-91.15° | guess: pos=(10.30,100.15,5.90) yaw=-91.11° | inliers=6490[0m[0m
+[eidos_node-15] [0m[INFO] [1774560623.517605223] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(10.41,101.43,5.94) yaw=-74.73° | guess: pos=(10.40,101.42,5.93) yaw=-74.74° | inliers=6390[0m[0m
+[eidos_node-15] [0m[INFO] [1774560625.531819109] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(10.99,100.39,5.90) yaw=-60.67° | guess: pos=(10.96,100.45,5.91) yaw=-60.74° | inliers=6533[0m[0m
+[eidos_node-15] [0m[INFO] [1774560627.556249972] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(15.45,98.26,5.84) yaw=-15.32° | guess: pos=(15.29,98.30,5.84) yaw=-15.34° | inliers=7321[0m[0m
+[eidos_node-15] [0m[INFO] [1774560629.570259754] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(24.01,96.77,5.65) yaw=-9.22° | guess: pos=(23.79,96.80,5.66) yaw=-9.23° | inliers=8470[0m[0m
+[eidos_node-15] [0m[INFO] [1774560631.586421312] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(32.40,95.77,5.18) yaw=-8.68° | guess: pos=(32.25,95.80,5.20) yaw=-8.63° | inliers=9073[0m[0m
+[eidos_node-15] [0m[INFO] [1774560633.293636985] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (36.6,94.3,4.9): 63049 points[0m
+[eidos_node-15] [0m[INFO] [1774560633.620532391] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(38.09,92.80,4.85) yaw=-47.94° | guess: pos=(37.98,92.93,4.86) yaw=-47.88° | inliers=11145[0m[0m
+[eidos_node-15] [0m[INFO] [1774560635.672929050] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(38.63,87.47,4.59) yaw=-104.34° | guess: pos=(38.67,87.55,4.60) yaw=-104.03° | inliers=11011[0m[0m
+[eidos_node-15] [0m[INFO] [1774560637.689914731] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(35.49,84.56,4.38) yaw=-153.76° | guess: pos=(35.60,84.60,4.37) yaw=-153.61° | inliers=10224[0m[0m
+[eidos_node-15] [0m[INFO] [1774560639.754399080] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(30.71,83.30,4.21) yaw=-168.59° | guess: pos=(30.82,83.31,4.22) yaw=-168.59° | inliers=8814[0m[0m
+[eidos_node-15] [0m[INFO] [1774560641.429668847] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (27.1,82.6,4.1): 55932 points[0m
+[eidos_node-15] [0m[INFO] [1774560641.781550965] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(24.97,82.39,4.01) yaw=-173.93° | guess: pos=(25.16,82.41,4.01) yaw=-173.90° | inliers=7673[0m[0m
+[eidos_node-15] [0m[INFO] [1774560643.791557834] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(14.82,82.07,3.85) yaw=-179.43° | guess: pos=(15.12,82.06,3.85) yaw=-179.46° | inliers=6931[0m[0m
+[eidos_node-15] [0m[INFO] [1774560644.515416529] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (11.8,82.0,3.8): 49157 points[0m
+[eidos_node-15] [0m[INFO] [1774560645.867741347] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(2.34,81.02,3.75) yaw=-171.13° | guess: pos=(2.63,81.08,3.76) yaw=-171.19° | inliers=6512[0m[0m
+[eidos_node-15] [0m[INFO] [1774560647.064535219] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-3.2,79.4,3.7): 48481 points[0m
+[eidos_node-15] [0m[INFO] [1774560647.931179450] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-8.18,76.30,3.63) yaw=-141.69° | guess: pos=(-7.99,76.47,3.63) yaw=-141.73° | inliers=7700[0m[0m
+[eidos_node-15] [0m[INFO] [1774560649.941032671] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-13.34,67.15,3.44) yaw=-102.18° | guess: pos=(-13.28,67.44,3.45) yaw=-102.23° | inliers=7780[0m[0m
+[eidos_node-15] [0m[INFO] [1774560649.983661657] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-13.2,68.0,3.5): 40371 points[0m
+[eidos_node-15] [0m[INFO] [1774560651.964336357] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-13.40,55.15,3.23) yaw=-88.83° | guess: pos=(-13.40,55.46,3.24) yaw=-88.80° | inliers=8264[0m[0m
+[eidos_node-15] [0m[INFO] [1774560652.537014419] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-13.4,52.9,3.2): 49266 points[0m
+[eidos_node-15] [0m[INFO] [1774560654.025911939] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-12.96,41.72,2.99) yaw=-86.47° | guess: pos=(-12.99,42.05,2.99) yaw=-86.50° | inliers=9592[0m[0m
+[eidos_node-15] [0m[INFO] [1774560654.902184597] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-12.5,37.7,2.9): 56933 points[0m
+[eidos_node-15] [0m[INFO] [1774560656.042885251] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-11.16,30.92,2.76) yaw=-75.82° | guess: pos=(-11.22,31.14,2.77) yaw=-75.85° | inliers=10194[0m[0m
+[eidos_node-15] [0m[INFO] [1774560658.068753852] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-8.15,24.68,2.57) yaw=-53.66° | guess: pos=(-8.25,24.79,2.57) yaw=-53.65° | inliers=11213[0m[0m
+[eidos_node-15] [0m[INFO] [1774560658.896749654] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (-7.1,23.7,2.5): 69905 points[0m
+[eidos_node-15] [0m[INFO] [1774560660.077889883] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(-3.65,22.00,2.55) yaw=-16.85° | guess: pos=(-3.75,22.01,2.54) yaw=-16.93° | inliers=10641[0m[0m
+[eidos_node-15] [0m[INFO] [1774560662.097086822] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(1.91,21.47,2.72) yaw=-1.65° | guess: pos=(1.72,21.48,2.72) yaw=-1.66° | inliers=9987[0m[0m
+[eidos_node-15] [0m[INFO] [1774560663.826562265] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (7.8,21.8,2.9): 70879 points[0m
+[eidos_node-15] [0m[INFO] [1774560664.109031718] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(10.19,22.21,2.91) yaw=9.06° | guess: pos=(9.96,22.16,2.90) yaw=9.05° | inliers=8549[0m[0m
+[eidos_node-15] [0m[INFO] [1774560666.128063232] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(18.11,23.99,2.82) yaw=15.07° | guess: pos=(17.92,23.94,2.82) yaw=15.07° | inliers=8589[0m[0m
+[eidos_node-15] [0m[INFO] [1774560667.627616912] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (22.4,25.6,2.7): 60060 points[0m
+[eidos_node-15] [0m[INFO] [1774560668.155439492] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(24.47,26.74,2.69) yaw=30.98° | guess: pos=(24.36,26.66,2.68) yaw=30.90° | inliers=8684[0m[0m
+[eidos_node-15] [0m[INFO] [1774560670.168033651] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(27.96,31.08,2.68) yaw=61.94° | guess: pos=(27.90,30.94,2.67) yaw=61.30° | inliers=8422[0m[0m
+[eidos_node-15] [0m[INFO] [1774560672.187869547] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(29.61,37.88,2.84) yaw=82.72° | guess: pos=(29.59,37.70,2.84) yaw=82.71° | inliers=6354[0m[0m
+[eidos_node-15] [0m[INFO] [1774560672.649913827] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (29.7,38.9,2.9): 46829 points[0m
+[eidos_node-15] [0m[INFO] [1774560674.252832962] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(29.46,46.42,3.05) yaw=96.47° | guess: pos=(29.49,46.21,3.06) yaw=96.41° | inliers=3178[0m[0m
+[eidos_node-15] [0m[INFO] [1774560676.219875021] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (28.2,53.9,3.1): 46553 points[0m
+[eidos_node-15] [0m[INFO] [1774560676.275687101] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(28.05,55.05,3.21) yaw=97.91° | guess: pos=(28.08,54.82,3.20) yaw=97.89° | inliers=4816[0m[0m
+[eidos_node-15] [0m[INFO] [1774560678.283589211] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(27.70,63.67,3.48) yaw=84.92° | guess: pos=(27.67,63.48,3.47) yaw=84.95° | inliers=6015[0m[0m
+[eidos_node-15] [0m[INFO] [1774560680.215886317] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (29.8,69.0,3.6): 53365 points[0m
+[eidos_node-15] [0m[INFO] [1774560680.301907016] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(30.60,69.86,3.67) yaw=44.79° | guess: pos=(30.50,69.77,3.66) yaw=44.79° | inliers=8290[0m[0m
+[eidos_node-15] [0m[INFO] [1774560682.326210100] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(36.22,71.39,3.76) yaw=-0.52° | guess: pos=(36.04,71.40,3.76) yaw=-0.57° | inliers=9813[0m[0m
+[eidos_node-15] [0m[INFO] [1774560684.339969552] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(41.33,66.82,3.57) yaw=-71.02° | guess: pos=(41.26,67.05,3.58) yaw=-70.89° | inliers=9881[0m[0m
+[eidos_node-15] [0m[INFO] [1774560685.872131769] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (41.9,59.9,3.2): 51705 points[0m
+[eidos_node-15] [0m[INFO] [1774560686.357064818] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(41.94,54.89,2.97) yaw=-89.95° | guess: pos=(41.94,55.24,2.99) yaw=-89.95° | inliers=9195[0m[0m
+[eidos_node-15] [0m[INFO] [1774560687.810472170] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (41.9,44.9,2.5): 46385 points[0m
+[eidos_node-15] [0m[INFO] [1774560688.371727924] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(41.87,38.41,2.10) yaw=-90.90° | guess: pos=(41.87,38.83,2.12) yaw=-90.90° | inliers=8827[0m[0m
+[eidos_node-15] [0m[INFO] [1774560689.628584776] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (41.8,29.7,1.6): 51451 points[0m
+[eidos_node-15] [0m[INFO] [1774560690.393530036] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(41.60,21.61,1.21) yaw=-92.73° | guess: pos=(41.63,21.98,1.23) yaw=-92.71° | inliers=10094[0m[0m
+[eidos_node-15] [0m[INFO] [1774560691.701822997] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (41.0,14.8,0.9): 55472 points[0m
+[eidos_node-15] [0m[INFO] [1774560692.410107766] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(39.08,9.58,0.54) yaw=-117.78° | guess: pos=(39.20,9.79,0.56) yaw=-117.71° | inliers=9858[0m[0m
+[eidos_node-15] [0m[INFO] [1774560694.421629760] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(32.01,4.48,0.08) yaw=-163.59° | guess: pos=(32.22,4.53,0.09) yaw=-163.62° | inliers=8839[0m[0m
+[eidos_node-15] [0m[INFO] [1774560695.083992515] [world_modeling.eidos_node]: [liso_factor] prior map submap rebuilt at (30.3,4.1,0.0): 55023 points[0m
+[eidos_node-15] [0m[INFO] [1774560696.441401071] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(23.64,3.91,-0.04) yaw=179.39° | guess: pos=(23.83,3.90,-0.03) yaw=179.38° | inliers=8004[0m[0m
+[eidos_node-15] [0m[INFO] [1774560698.505344452] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(18.58,3.93,-0.04) yaw=179.55° | guess: pos=(18.62,3.93,-0.04) yaw=179.53° | inliers=7745[0m[0m
+[eidos_node-15] [0m[INFO] [1774560700.522573690] [world_modeling.eidos_node]: [36m[liso_factor] GICP match: pos=(18.20,3.93,-0.03) yaw=179.63° | guess: pos=(18.20,3.94,-0.03) yaw=179.61° | inliers=7827[0m[0m

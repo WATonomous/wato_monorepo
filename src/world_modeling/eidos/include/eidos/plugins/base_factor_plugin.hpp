@@ -112,6 +112,14 @@ public:
     return {};
   }
 
+  /// Whether the plugin has warmed up and is ready for tracking.
+  /// Default: true (no warmup needed). Plugins with sensor warmup
+  /// (e.g. IMU stationarity detection) override this.
+  virtual bool isReady() const
+  {
+    return true;
+  }
+
   /**
    * @brief Called when EidosNode transitions to TRACKING after relocalization.
    * Use to initialize against a prior map (e.g. build initial submap).

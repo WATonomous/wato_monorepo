@@ -4,7 +4,7 @@
 **Type:** Factor (latching via `latchFactor`)
 **XML:** `factor_plugins.xml`
 
-Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated rotation and offset to produce map-frame coordinates, then attaches unary `gtsam::GPSFactor` entries to states created by other plugins. Owns a `StaticTransformBroadcaster` for the `utm -> map` static TF. On first accepted fix, the UTM-to-map offset is computed from the current estimator pose and the IMU heading, then persisted via MapManager. Registers `gps_factor/position`, `gps_factor/utm_position`, and global `gps_factor/utm_to_map` for persistence.
+Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated rotation and offset to produce map-frame coordinates, then attaches unary `gtsam::GPSFactor` entries to states created by other plugins. On first accepted fix, the UTM-to-map offset is computed from the current estimator pose and the IMU heading, then persisted via MapManager. Registers `gps_factor/position`, `gps_factor/utm_position`, and global `gps_factor/utm_to_map` for persistence. The `utm -> map` TF is broadcast by `eidos_transform`, not by this plugin.
 
 ## Parameters
 
@@ -23,7 +23,7 @@ Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated 
 
 - GPS never creates its own states in the graph; it only latches onto states created by other plugins (e.g. LISO).
 - The UTM-to-map offset is persisted as a global entry in MapManager and is reloaded on `activate()` when a prior map is loaded.
-- This is the only plugin that broadcasts TF directly (`utm -> map` static TF). All other TF is handled by TransformManager.
+- This plugin does not broadcast TF. The `utm -> map` transform is broadcast by `eidos_transform`, which reads the persisted offset from the map file.
 - A time window of 0.2 seconds is used to match GPS fixes to state timestamps.
 
 ## Mapping vs Localization
@@ -35,4 +35,4 @@ Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated 
 
 In **mapping**, GPS adds unary position constraints to the graph at regular intervals (every `min_radius` meters of travel). These constraints prevent drift over long distances and anchor the map to a global coordinate frame.
 
-In **localization**, GPS does not add factors. It still loads the saved `utm_to_map` offset from the prior map and broadcasts the `utm -> map` static TF, which is needed by downstream consumers (e.g. the world model for lanelet map loading). The `min_radius` is set high since no factors are produced anyway.
+In **localization**, GPS does not add factors. It still loads the saved `utm_to_map` offset from the prior map so the data is available for `eidos_transform` to broadcast the `utm -> map` static TF (needed by downstream consumers such as the world model for lanelet map loading). The `min_radius` is set high since no factors are produced anyway.

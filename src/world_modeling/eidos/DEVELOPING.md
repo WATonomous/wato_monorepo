@@ -4,7 +4,9 @@
 
 Eidos is a plugin-based SLAM and localization system built as a ROS 2 lifecycle node.
 It uses GTSAM's ISAM2 for incremental factor graph optimization. Plugins provide
-sensor-specific factors, motion models, relocalization strategies, and visualization.
+sensor-specific factors, relocalization strategies, and visualization. Eidos is
+pure SLAM -- it does not broadcast TF or run an EKF. TF broadcasting and odometry
+fusion are handled by the separate `eidos_transform` package.
 
 ```
                          EidosNode (LifecycleNode)
@@ -18,21 +20,20 @@ sensor-specific factors, motion models, relocalization strategies, and visualiza
     (state machine)  (ISAM2 engine) (owns all plugins + ClassLoaders)
           |              |                |
           |              |     +----------+----------+-----------+
-          |              |     |          |          |           |
-          |              |   Factor    MotionModel  Reloc    Visualization
-          |              |   Plugins   Plugin       Plugins  Plugins
+          |              |     |          |                      |
+          |              |   Factor    Relocalization      Visualization
+          |              |   Plugins   Plugins             Plugins
           |              |
-    TransformManager   MapManager
-    (TF broadcast,     (keyframe poses + data,
-     own timer)         SQLite persistence)
+          |            MapManager
+          |            (keyframe poses + data,
+          |             SQLite persistence)
 
 Data flow (per SLAM tick):
   Sensor callbacks --> FactorPlugin buffers (lock-free)
   SLAM tick        --> poll plugins for factors --> Estimator.optimize()
-  Estimator        --[LockFreePose]--> TransformManager (reads lock-free)
+  Estimator        --[LockFreePose]--> published slam/pose topic
   Estimator        --[AtomicSlot<Values>]--> VisualizationPlugins (reads lock-free)
   Estimator        --> MapManager.updatePoses()
-  TransformManager --> TF broadcast (map->odom, odom->base_link)
 ```
 
 ## 2. Core Components
@@ -40,31 +41,24 @@ Data flow (per SLAM tick):
 ### EidosNode
 
 Top-level lifecycle node that owns all core components: `Estimator`, `InitSequencer`,
-`TransformManager`, `MapManager`, and `PluginRegistry`. It drives the SLAM loop via a
-timer at `slam_rate_` Hz. Each tick delegates to `InitSequencer` until `TRACKING` is
-reached, then calls `handleTracking()` which polls factor plugins, feeds factors to
-`Estimator`, and publishes pose/odometry. Exposes `save_map` and `load_map` ROS services.
-Shares a `tf2_ros::Buffer` with plugins for extrinsic lookups.
+`MapManager`, and `PluginRegistry`. It drives the SLAM loop via a timer at `slam_rate_`
+Hz. Each tick delegates to `InitSequencer` until `TRACKING` is reached, then calls
+`handleTracking()` which polls factor plugins, feeds factors to `Estimator`, and
+publishes pose/odometry. Exposes `save_map` and `load_map` ROS services. Shares a
+`tf2_ros::Buffer` with plugins for extrinsic lookups (static transforms from URDF).
+
+Does not broadcast TF. Publishes `slam/pose` which `eidos_transform` subscribes to
+for TF updates.
 
 ### Estimator
 
 ISAM2 optimization engine. Has no orchestration logic -- `EidosNode` tells it when to
 optimize. Maintains a monotonic state timeline (`Symbol('x', N)`). After each
-`optimize()` call, it writes the latest optimized pose to a `LockFreePose` (read by
-`TransformManager`) and the full optimized `Values` to an `AtomicSlot` (read by
-visualization plugins). Provides `optimizeExtra()` for additional iterations after loop
-closure or GPS corrections. Key methods: `configure()`, `reset()`, `optimize()`,
-`optimizeExtra()`, `createState()`, `getPose()`, `getCovariance()`.
-
-### TransformManager
-
-Single authority on TF broadcasting. Runs its own timer (configurable, typically 500 Hz)
-in its own callback group. On each tick it: (1) computes `odom->base_link` by fusing
-motion model predictions with an odom source via a `PoseEKF`, (2) reads the map-frame
-pose from the configured `map_source` (either `"slam_core"` for Estimator or a named
-factor plugin) via lock-free reads, (3) computes `map->odom` with change-gating, and
-(4) broadcasts both TFs. Also publishes a fused odometry message. If `odom_source` is
-empty, the EKF is bypassed and the motion model drives `odom->base_link` directly.
+`optimize()` call, it writes the latest optimized pose to a `LockFreePose` and the
+full optimized `Values` to an `AtomicSlot` (read by visualization plugins). Provides
+`optimizeExtra()` for additional iterations after loop closure or GPS corrections. Key
+methods: `configure()`, `reset()`, `optimize()`, `optimizeExtra()`, `createState()`,
+`getPose()`, `getCovariance()`.
 
 ### MapManager
 
@@ -80,22 +74,21 @@ linking data keys to named format handlers from the shared format registry. Key 
 ### PluginRegistry
 
 Loads, owns, and provides lookup for all plugins. Uses `pluginlib::ClassLoader` for
-each plugin category: factor plugins, a single motion model plugin, relocalization
-plugins, and visualization plugins. Loading happens once during `EidosNode::on_configure()`.
-After loading, the registry is read-only. Other components hold `const` pointers for
-lock-free plugin lookups. Plugin collections are public for read access:
-`factor_plugins`, `motion_model`, `reloc_plugins`, `vis_plugins`. Provides
-`findFactor(name)` for named lookup.
+each plugin category: factor plugins, relocalization plugins, and visualization plugins.
+Loading happens once during `EidosNode::on_configure()`. After loading, the registry
+is read-only. Other components hold `const` pointers for lock-free plugin lookups.
+Plugin collections are public for read access: `factor_plugins`, `reloc_plugins`,
+`vis_plugins`. Provides `findFactor(name)` for named lookup.
 
 ### InitSequencer
 
 Manages the `INIT -> WARMING_UP -> RELOCALIZING -> TRACKING` state machine, separated
 from `EidosNode` so orchestration logic stays clean. `EidosNode` calls `step()` each
-SLAM tick. In `WARMING_UP`, it waits for the motion model to report ready. If a prior
-map is loaded, it transitions to `RELOCALIZING` and polls relocalization plugins. Once
-a relocalization result is obtained (or the timeout expires), it invokes the
-`on_tracking` callback which triggers `EidosNode::beginTracking()`. Only called from
-the SLAM loop thread.
+SLAM tick. In `WARMING_UP`, if a prior map is loaded it transitions to `RELOCALIZING`
+and polls relocalization plugins. If no prior map, it transitions directly to `TRACKING`
+with an identity pose. Once a relocalization result is obtained (or the timeout expires),
+it invokes the `on_tracking` callback which triggers `EidosNode::beginTracking()`. Only
+called from the SLAM loop thread.
 
 ## 3. Threading Model
 
@@ -110,14 +103,7 @@ allow concurrent execution where safe.
   feeds to Estimator, runs ISAM2 optimization).
 - Writes to `LockFreePose` and `AtomicSlot<Values>` after optimization.
 - Calls `MapManager::updatePoses()` and `MapManager::addKeyframe()`.
-
-### TransformManager (configurable, typically 500 Hz)
-
-- Own `MutuallyExclusive` callback group (`callback_group_`).
-- Own wall timer at configured rate.
-- Reads `LockFreePose` from Estimator (lock-free seqlock read).
-- Reads `LockFreePose` from motion model and odom source plugins (lock-free).
-- Never blocks the SLAM loop.
+- Publishes `slam/pose` and `slam/odometry`.
 
 ### Visualization Plugins (typically 1 Hz each)
 
@@ -137,23 +123,19 @@ allow concurrent execution where safe.
 ```
 Thread 1 (SLAM loop @ 10 Hz):
   tick() -> poll plugins -> Estimator::optimize()
-         -> LockFreePose.store()        --> [read by Thread 2]
-         -> AtomicSlot<Values>.store()   --> [read by Thread 3..N]
+         -> LockFreePose.store()
+         -> AtomicSlot<Values>.store()   --> [read by Thread 2..N]
          -> MapManager::updatePoses()
+         -> publish slam/pose, slam/odometry
 
-Thread 2 (TransformManager @ 500 Hz):
-  tick() -> LockFreePose.load() [seqlock, no block]
-         -> plugin.getOdomPose() [seqlock, no block]
-         -> broadcastTf()
-
-Thread 3..N (Visualization plugins @ 1 Hz each):
+Thread 2..N (Visualization plugins @ 1 Hz each):
   timer -> AtomicSlot<Values>.load() [pointer swap]
         -> MapManager reads [mutex]
         -> publish
 
 Thread M..Z (Plugin sensor callbacks):
   subscription callback -> buffer data internally
-                        -> LockFreePose.store() for odom pose
+                        -> LockFreePose.store() for odom/map pose
 ```
 
 ## 4. Lock-Free Data Flow
@@ -166,21 +148,12 @@ writing and back to even after. A reader that observes an odd counter (writer ac
 retries. Since the copy takes nanoseconds, readers effectively never block.
 
 Usage points:
-- **Estimator -> TransformManager**: Estimator writes `optimized_pose_` after each
-  `optimize()` call. TransformManager reads it every tick via `estimator_pose_->load()`.
-- **Plugin -> TransformManager**: Factor plugins write their odom-frame pose from
-  sensor callbacks. TransformManager reads via `plugin->getOdomPose()`.
-- **MotionModel -> TransformManager**: TransformManager calls `motion_model->predict(current_pose, dt)`
-  at 500Hz to propagate the EKF state forward. After each measurement correction, TM calls
-  `motion_model->onMeasurementUpdate(corrected_pose, timestamp)` so the model can update
-  its internal velocity estimate.
-- **MotionModel -> EidosNode (cross-plugin bridge)**: When two consecutive states are
-  created by different factor plugins, EidosNode calls
-  `motion_model->getBetweenFactor(key_from, ts_from, key_to, ts_to)` to produce a
-  relative constraint from the motion model's kinematic prediction. When consecutive
-  states come from the same plugin, that plugin handles its own between-factor.
-- **TransformManager -> anyone**: TransformManager writes `current_map_pose_` every
-  tick (the composed `map->odom * odom->base`). Readable via `getMapPose()`.
+- **Estimator -> EidosNode**: Estimator writes `optimized_pose_` after each
+  `optimize()` call. EidosNode reads it to publish `slam/pose`.
+- **Plugin -> EidosNode**: Factor plugins write their odom-frame and map-frame poses
+  from sensor callbacks via `setOdomPose()`/`setMapPose()`. These are available for
+  internal pose sharing between plugins within eidos (e.g., for cross-plugin state
+  bridging via `MotionModelFactor`).
 
 ### AtomicSlot (pointer swap)
 
@@ -197,8 +170,9 @@ Usage points:
 
 Factor plugins expose `getOdomPose()` and `getMapPose()` returning
 `std::optional<gtsam::Pose3>` via their own `LockFreePose` instances. The plugin's
-sensor callback thread writes, and TransformManager reads from its own timer thread.
-No mutex contention on the hot path.
+sensor callback thread writes. No mutex contention on the hot path. These are used
+for lock-free pose sharing within eidos -- not for TF broadcasting (which is handled
+by `eidos_transform`).
 
 ## 5. State Machine
 
@@ -210,12 +184,12 @@ No mutex contention on the hot path.
           |  on_activate() -> InitSequencer::reset()
           v
   +----------------+
-  | WARMING_UP     |  Waiting for motion model isReady().
+  | WARMING_UP     |  Checking for prior map.
   +-------+--------+
           |
-          +--- motion model ready, no prior map ---> on_tracking(Identity)
+          +--- no prior map ---> on_tracking(Identity)
           |
-          +--- motion model ready, prior map loaded:
+          +--- prior map loaded:
           v
   +----------------+
   | RELOCALIZING   |  Polling relocalization plugins each tick.
@@ -233,10 +207,9 @@ No mutex contention on the hot path.
 **Transition triggers:**
 
 - `INITIALIZING -> WARMING_UP`: `EidosNode::on_activate()` calls `InitSequencer::reset()`.
-- `WARMING_UP -> TRACKING`: Motion model reports `isReady()` and no prior map is loaded.
-  `on_tracking` callback is invoked with `Pose3::Identity()`.
-- `WARMING_UP -> RELOCALIZING`: Motion model reports `isReady()` and a prior map is
-  loaded (`map_manager_->hasPriorMap()`).
+- `WARMING_UP -> TRACKING`: No prior map is loaded. `on_tracking` callback is invoked
+  with `Pose3::Identity()`.
+- `WARMING_UP -> RELOCALIZING`: A prior map is loaded (`map_manager_->hasPriorMap()`).
 - `RELOCALIZING -> TRACKING`: A relocalization plugin returns a valid pose via
   `tryRelocalize()`, or the relocalization timeout expires (falls back to identity pose).
   `on_tracking` callback is invoked with the resulting pose.
@@ -244,50 +217,7 @@ No mutex contention on the hot path.
 The `on_tracking` callback triggers `EidosNode::beginTracking()`, which resets the
 Estimator and notifies all factor plugins via `onTrackingBegin()`.
 
-## 6. TF Architecture
-
-Eidos broadcasts two transforms:
-
-```
-  map ----[map->odom]----> odom ----[odom->base_link]----> base_link
-```
-
-Both are broadcast by `TransformManager` at its timer rate (typically 500 Hz).
-
-### odom -> base_link
-
-Computed every `TransformManager` tick via `computeOdomToBase()`:
-
-- **With `odom_source` configured**: A `PoseEKF` fuses high-rate motion model
-  predictions (MM delta each tick) with lower-rate odom source corrections (e.g., LISO
-  scan matching at LiDAR rate). The EKF uses Lie algebra (se(3)) error state with
-  diagonal 6x6 covariance `[rot3, trans3]`. This produces smooth odometry without
-  discontinuities -- corrections are applied via Kalman gain.
-- **Without `odom_source` (empty string)**: The EKF is bypassed. The motion model pose
-  drives `odom->base_link` directly (pure dead-reckoning). Corrections only come via
-  `map->odom`.
-
-### map -> odom
-
-Change-gated: only recomputed when `map_source` produces a new pose that differs from
-the previous one (checked via `Pose3::equals()` with 1e-12 tolerance). Between SLAM
-optimizations, `map->odom` is constant -- `odom->base_link` carries all motion.
-
-- **In SLAM mode** (`map_source` = `"slam_core"` or a factor plugin name): `map->odom`
-  is computed as `map_pose * inv(odom->base)` whenever the map source pose changes
-  (after ISAM2 optimization).
-- **In localization mode** (`map_source` is empty): `map->odom` is fixed from
-  relocalization via `setMapToOdom()` and never recomputed. The robot's position in
-  the map frame comes entirely from the composition `map->odom * odom->base_link`.
-
-### Published Topics
-
-- `TransformManager` publishes a fused odometry message (`nav_msgs/Odometry`) on the
-  `odom` topic each tick, representing the `odom->base_link` transform.
-- `EidosNode` publishes pose (`geometry_msgs/PoseStamped`) and odometry
-  (`nav_msgs/Odometry`) from the SLAM loop.
-
-## 7. Map Persistence
+## 6. Map Persistence
 
 Maps are stored as single SQLite `.map` files. The file is self-describing: a
 `data_formats` table records which serialization format each data key uses, so external

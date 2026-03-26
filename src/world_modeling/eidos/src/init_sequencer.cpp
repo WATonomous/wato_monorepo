@@ -62,9 +62,9 @@ bool InitSequencer::step(double timestamp)
 
 void InitSequencer::handleWarmingUp(double timestamp)
 {
-  // Check if motion model is ready
-  if (registry_->motion_model && !registry_->motion_model->isReady()) {
-    return;
+  // Wait for all factor plugins to report ready (e.g. IMU warmup complete).
+  for (const auto & p : registry_->factor_plugins) {
+    if (!p->isReady()) return;
   }
 
   // If prior map loaded, enter relocalization

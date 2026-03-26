@@ -6,7 +6,7 @@
 
 IMU preintegration factor plugin. Subscribes to IMU, performs GTSAM preintegration, and produces `BetweenFactor<Pose3>` constraints between consecutive states. When another plugin (e.g. LISO) creates a state, `latchFactor()` drains the IMU buffer over the time interval and attaches an IMU-derived relative pose constraint.
 
-Also writes an odom-frame pose via `setOdomPose()` for TransformManager measurement correction — this is how IMU data reaches the TF chain as a correction source.
+Also writes an odom-frame pose via `setOdomPose()` for lock-free pose sharing within eidos.
 
 ## Parameters
 

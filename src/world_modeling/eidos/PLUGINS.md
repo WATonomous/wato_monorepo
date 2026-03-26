@@ -9,7 +9,6 @@ descriptors and instantiated at runtime based on YAML configuration.
 | Type | Base Class | Purpose |
 |---|---|---|
 | Factor | `eidos::FactorPlugin` | Produce GTSAM factors from sensor data for the SLAM graph. |
-| Motion Model | `eidos::MotionModelPlugin` | Kinematic state transition model for smooth TF prediction. |
 | Relocalization | `eidos::RelocalizationPlugin` | Determine initial pose against a prior map. First plugin to succeed wins. |
 | Visualization | `eidos::VisualizationPlugin` | Read-only rendering of optimized state to RViz topics on an independent timer. |
 
@@ -21,11 +20,7 @@ descriptors and instantiated at runtime based on YAML configuration.
 - [GpsFactor](docs/plugins/factors/gps_factor.md) -- Unary GPS position constraints
 - [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure detection
 - [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration factor
-
-### [Motion Model Plugins](docs/plugins/motion_models/README.md)
-
-- [HolonomicMotionModel](docs/plugins/motion_models/holonomic_motion_model.md) -- Constant-velocity state transition
-- [AckermannMotionModel](docs/plugins/motion_models/ackermann_motion_model.md) -- Ackermann kinematics (steering + velocity)
+- [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform predict service
 
 ### [Relocalization Plugins](docs/plugins/relocalization/README.md)
 

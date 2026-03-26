@@ -52,4 +52,4 @@ LiDAR-Inertial Submap Odometry. Subscribes to LiDAR and IMU, performs GICP scan-
 
 In **mapping**, LISO builds submaps from recent keyframes in the current session and produces `BetweenFactor` constraints that grow the pose graph.
 
-In **localization**, LISO matches scans against point clouds stored in the prior `.map` file. It does not produce factors — it only provides odom-frame and map-frame pose estimates for TransformManager to read. The submap radius and state count are larger to provide a broader matching context against the prior map. On `onTrackingBegin()`, an initial submap is built at the relocalized position from the prior map's stored clouds.
+In **localization**, LISO matches scans against point clouds stored in the prior `.map` file. It does not produce factors -- it only provides odom-frame and map-frame pose estimates via lock-free pose slots. The submap radius and state count are larger to provide a broader matching context against the prior map. On `onTrackingBegin()`, an initial submap is built at the relocalized position from the prior map's stored clouds.
