@@ -218,12 +218,14 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
   trks.header.frame_id = header.frame_id;
   trks.header.stamp = header.stamp;
 
+  int skip_count = 0;
   for (const auto & strk_ptr : strk_ptrs) {
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
     auto score = strk_ptr->getScore();
     auto trk_id = strk_ptr->getTrackId();
     auto class_id = strk_ptr->getClassId();
+    auto state_mean = strk_ptr->getMean();
 
     vision_msgs::msg::Detection3D trk;
     trk.header.frame_id = header.frame_id;
@@ -233,6 +235,19 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
     hyp.hypothesis.score = score;
     hyp.hypothesis.class_id = reverseClassLookup(class_id);
     trk.results.push_back(hyp);
+
+    vision_msgs::msg::ObjectHypothesisWithPose vel;
+    vel.hypothesis.class_id = "linear_velocity";
+    if (state_mean.size() > 9) {
+      vel.hypothesis.score = 1.0;
+      vel.pose.pose.position.x = state_mean[7];
+      vel.pose.pose.position.y = state_mean[8];
+      vel.pose.pose.position.z = state_mean[9];
+    } else {
+      vel.hypothesis.score = 0.0;
+      ++skip_count;
+    }
+    trk.results.push_back(vel);
 
     tf2::Quaternion q;
     q.setRPY(0, 0, rect.yaw());
@@ -248,6 +263,14 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
     trk.id = std::to_string(trk_id);
 
     trks.detections.push_back(trk);
+  }
+
+  if (skip_count > 0) {
+    RCLCPP_WARN(
+      static_logger_,
+      "Received unexpected mean shape for %d tracks, velocity hypothesis score is set to 0.0",
+      skip_count
+    );
   }
 
   return trks;
