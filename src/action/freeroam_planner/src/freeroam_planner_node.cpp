@@ -40,6 +40,7 @@ FreeroamPlannerNode::FreeroamPlannerNode(const rclcpp::NodeOptions & options)
   declare_parameter("costmap_topic", "/world_modeling/costmap");
   declare_parameter("trajectory_topic", "trajectory");
   declare_parameter("base_frame", "base_footprint");
+  declare_parameter("trajectory_frame", "map");
   declare_parameter("max_speed", 5.0);
   declare_parameter("goal_tolerance", 1.0);
   declare_parameter("obstacle_threshold", 50);
@@ -54,6 +55,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_configure(const rclc
   costmap_topic_ = get_parameter("costmap_topic").as_string();
   trajectory_topic_ = get_parameter("trajectory_topic").as_string();
   base_frame_ = get_parameter("base_frame").as_string();
+  trajectory_frame_ = get_parameter("trajectory_frame").as_string();
   max_speed_ = get_parameter("max_speed").as_double();
   goal_tolerance_ = get_parameter("goal_tolerance").as_double();
   obstacle_threshold_ = static_cast<int>(get_parameter("obstacle_threshold").as_int());
@@ -200,12 +202,11 @@ void FreeroamPlannerNode::planCallback()
     return;
   }
 
-  // Transform path points from costmap frame back to the goal's original frame (e.g. map)
-  const std::string & goal_frame = latest_goal_->header.frame_id;
+  // Transform path points from costmap frame back to the desired trajectory frame
 
   geometry_msgs::msg::TransformStamped costmap_to_goal_frame;
   try {
-    costmap_to_goal_frame = tf_buffer_->lookupTransform(goal_frame, costmap_frame, tf2::TimePointZero);
+    costmap_to_goal_frame = tf_buffer_->lookupTransform(trajectory_frame_, costmap_frame, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Cannot transform path to goal frame: %s", ex.what());
     return;
@@ -215,7 +216,7 @@ void FreeroamPlannerNode::planCallback()
     get_logger(),
     "DEBUG: costmap_frame='%s' goal_frame='%s' tf=[%.2f, %.2f] path_end_bf=[%.2f, %.2f] goal_map=[%.2f, %.2f]",
     costmap_frame.c_str(),
-    goal_frame.c_str(),
+    latest_goal_->header.frame_id.c_str(),
     costmap_to_goal_frame.transform.translation.x,
     costmap_to_goal_frame.transform.translation.y,
     path.back().first,
@@ -223,7 +224,7 @@ void FreeroamPlannerNode::planCallback()
     latest_goal_->point.x,
     latest_goal_->point.y);
 
-  // Transform all path points from costmap frame to goal frame
+  // Transform all path points from costmap frame to trajectory frame
   std::vector<std::pair<double, double>> transformed_path;
   transformed_path.reserve(path.size());
   for (const auto & [px, py] : path) {
@@ -242,12 +243,12 @@ void FreeroamPlannerNode::planCallback()
   // Build trajectory in goal frame
   wato_trajectory_msgs::msg::Trajectory trajectory;
   trajectory.header.stamp = now();
-  trajectory.header.frame_id = goal_frame;
+  trajectory.header.frame_id = trajectory_frame_;
 
   // REMOVE - for path vis
   nav_msgs::msg::Path vis_path;
   vis_path.header.stamp = now();
-  vis_path.header.frame_id = goal_frame;
+  vis_path.header.frame_id = trajectory_frame_;
 
   for (size_t i = 0; i < transformed_path.size(); ++i) {
     wato_trajectory_msgs::msg::TrajectoryPoint pt;
@@ -258,7 +259,7 @@ void FreeroamPlannerNode::planCallback()
     // REMOVE - for path vis
     geometry_msgs::msg::PoseStamped geo_pt;
     geo_pt.header.stamp = now();
-    geo_pt.header.frame_id = goal_frame;
+    geo_pt.header.frame_id = trajectory_frame_;
     geo_pt.pose.position.x = transformed_path[i].first;
     geo_pt.pose.position.y = transformed_path[i].second;
     geo_pt.pose.position.z = 0.0;
