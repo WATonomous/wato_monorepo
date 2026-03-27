@@ -86,6 +86,15 @@ class PPSSyncTest(Node):
                     f"PPS SYNC FAIL: {label} delta {delta:.1f}ms > 50ms!"
                 )
 
+        # Check absolute time: wall-to-lidar drift > 1s means timestamps aren't real UTC
+        for label, sensor_t in [("cc", cc), ("ne", ne), ("nw", nw)]:
+            drift_s = abs(wall - sensor_t)
+            if drift_s > 1.0:
+                self.get_logger().warn(
+                    f"ABS TIME DRIFT: {label} is {drift_s:+.1f}s from wall clock "
+                    f"(sensors not on real UTC)"
+                )
+
 
 def main():
     rclpy.init()

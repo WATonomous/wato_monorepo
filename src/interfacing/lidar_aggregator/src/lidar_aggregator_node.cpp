@@ -243,9 +243,11 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
 {
   Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
 
-  // Correct IMU timestamp from system clock to GPS time
+  // Correct IMU timestamp from system clock to GPS time when the GPS clock offset
+  // is valid and significant (>1s), indicating lidars are using hardware GPS timestamps
+  // that differ from system clock.
   rclcpp::Time imu_stamp(msg->header.stamp);
-  if (clock_offset_valid_.load()) {
+  if (clock_offset_valid_.load() && std::abs(clock_offset_sec_.load()) > 1.0) {
     imu_stamp = imu_stamp + rclcpp::Duration::from_seconds(clock_offset_sec_.load());
   }
 
