@@ -32,39 +32,49 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
 , last_trajectory_time_(0, 0, RCL_ROS_TIME)
 {
   declare_parameter("trajectory_topic", "trajectory");
+  declare_parameter("bt_topic", "execute_behaviour");
   declare_parameter("ackermann_topic", "/action/ackermann");
   declare_parameter("idle_topic", "/action/is_idle");
   declare_parameter("base_frame", "base_footprint");
   declare_parameter("rear_axle_frame", "rear_axle");
   declare_parameter("front_axle_frame", "front_axle");
+  declare_parameter("standby_msg", "standby");
   declare_parameter("lookahead_distance", 5.0);
   declare_parameter("min_lookahead_distance", 2.0);
   declare_parameter("max_speed", 5.0);
   declare_parameter("min_speed", 0.5);
+  declare_parameter("standby_speed", 0.0);
+  declare_parameter("standby_steering", 0.0);
   declare_parameter("control_rate_hz", 20.0);
   declare_parameter("wheelbase_fallback", 2.5667);
   declare_parameter("max_steering_angle", 0.5);
   declare_parameter("idle_timeout_sec", 2.0);
-  declare_parameter("invert_steering_", false);
+  declare_parameter("invert_steering", false);
+  declare_parameter("disable_standby", false);
 }
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   trajectory_topic_ = get_parameter("trajectory_topic").as_string();
+  bt_topic_ = get_parameter("bt_topic").as_string();
   ackermann_topic_ = get_parameter("ackermann_topic").as_string();
   idle_topic_ = get_parameter("idle_topic").as_string();
   base_frame_ = get_parameter("base_frame").as_string();
   rear_axle_frame_ = get_parameter("rear_axle_frame").as_string();
   front_axle_frame_ = get_parameter("front_axle_frame").as_string();
+  standby_msg_ = get_parameter("standby_msg").as_string();
   lookahead_distance_ = get_parameter("lookahead_distance").as_double();
   min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
   max_speed_ = get_parameter("max_speed").as_double();
   min_speed_ = get_parameter("min_speed").as_double();
+  standby_speed_ = get_parameter("standby_speed").as_double();
+  standby_steering_ = get_parameter("standby_steering").as_double();
   control_rate_hz_ = get_parameter("control_rate_hz").as_double();
   wheelbase_fallback_ = get_parameter("wheelbase_fallback").as_double();
   max_steering_angle_ = get_parameter("max_steering_angle").as_double();
   idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
-  invert_steering_ = get_parameter("invert_steering_").as_bool();
+  invert_steering_ = get_parameter("invert_steering").as_bool();
+  disable_standby_ = get_parameter("disable_standby").as_bool();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -75,6 +85,8 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
 
   trajectory_sub_ = create_subscription<wato_trajectory_msgs::msg::Trajectory>(
     trajectory_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::trajectoryCallback, this, std::placeholders::_1));
+  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
+    bt_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::bt_callback, this, std::placeholders::_1));
 
   RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz", control_rate_hz_);
   return CallbackReturn::SUCCESS;
@@ -108,6 +120,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_cleanup(const rclcpp_lifecyc
   ackermann_pub_.reset();
   idle_pub_.reset();
   trajectory_sub_.reset();
+  bt_sub_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
   latest_trajectory_.reset();
@@ -123,6 +136,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(const rclcpp_lifecy
   ackermann_pub_.reset();
   idle_pub_.reset();
   trajectory_sub_.reset();
+  bt_sub_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
 
@@ -166,17 +180,23 @@ double PurePursuitNode::getWheelbase()
   return wheelbase_fallback_;
 }
 
+void PurePursuitNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
+{
+  bt_requested_behaviour = msg->behaviour;
+}
+
 void PurePursuitNode::controlCallback()
 {
   std_msgs::msg::Bool idle_msg;
 
   // Check for stale or missing trajectory
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
-                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_;
+                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour.empty();
 
-  if (is_idle) {
+  if (is_idle || (!disable_standby_ && bt_requested_behaviour == standby_msg_)) {
     idle_msg.data = true;
     idle_pub_->publish(idle_msg);
+    publishAckermannMsg(base_frame_, standby_speed_, standby_steering_, invert_steering_);
     return;
   }
 
@@ -244,10 +264,16 @@ void PurePursuitNode::controlCallback()
     speed = 0.0;
   }
 
+  publishAckermannMsg(base_frame_, speed, steering_angle, invert_steering_);
+}
+
+void PurePursuitNode::publishAckermannMsg(
+  std::string frame_id, double speed, double steering_angle, bool invert_steering)
+{
   ackermann_msgs::msg::AckermannDriveStamped cmd;
   cmd.header.stamp = now();
-  cmd.header.frame_id = base_frame_;
-  cmd.drive.steering_angle = invert_steering_ ? -steering_angle : steering_angle;
+  cmd.header.frame_id = frame_id;
+  cmd.drive.steering_angle = invert_steering ? -steering_angle : steering_angle;
   cmd.drive.speed = speed;
 
   ackermann_pub_->publish(cmd);

@@ -19,6 +19,7 @@
 #include <string>
 
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
+#include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -47,24 +48,31 @@ public:
 private:
   void controlCallback();
   void trajectoryCallback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg);
+  void bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg);
   double getWheelbase();
+  void publishAckermannMsg(std::string frame_id, double speed, double steering_angle, bool invert_steering = false);
 
   // Parameters
   std::string trajectory_topic_;
+  std::string bt_topic_;
   std::string ackermann_topic_;
   std::string idle_topic_;
   std::string base_frame_;
   std::string rear_axle_frame_;
   std::string front_axle_frame_;
+  std::string standby_msg_;
   double lookahead_distance_;
   double min_lookahead_distance_;
   double max_speed_;
   double min_speed_;
+  double standby_speed_;
+  double standby_steering_;
   double control_rate_hz_;
   double wheelbase_fallback_;
   double max_steering_angle_;
   double idle_timeout_sec_;
   bool invert_steering_;
+  bool disable_standby_;
 
   // Cached wheelbase from TF (0.0 = not yet resolved)
   double wheelbase_cached_{0.0};
@@ -77,11 +85,13 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_pub_;
   rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr idle_pub_;
   rclcpp::Subscription<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_sub_;
+  rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
   rclcpp::TimerBase::SharedPtr control_timer_;
 
   // State
   wato_trajectory_msgs::msg::Trajectory::SharedPtr latest_trajectory_;
   rclcpp::Time last_trajectory_time_;
+  std::string bt_requested_behaviour;
 };
 
 }  // namespace ackermann_pure_pursuit

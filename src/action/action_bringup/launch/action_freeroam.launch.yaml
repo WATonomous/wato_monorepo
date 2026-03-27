@@ -57,6 +57,8 @@ launch:
         # Subscribers
         - from: "trajectory"
           to: "/action/trajectory"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
         # Publishers
         - from: "ackermann"
           to: "/action/ackermann"
