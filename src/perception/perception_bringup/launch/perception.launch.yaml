@@ -48,20 +48,20 @@ launch:
             - from: $(var config_file)
           remap:
             - from: input_cloud
-              to: /lidar/all/points_merged
+              to: /lidar_cc/velodyne_points
             - from: ground_cloud
               to: /perception/ground_cloud
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
 
   # Load all 12 camera pipelines into the shared container (temporarily disabled)
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "perception_container"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      arg:
+        - name: "container_name"
+          value: "perception_container"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
 
   # Load multi-camera sync into the shared container
   - load_composable_node:
@@ -141,6 +141,9 @@ launch:
             - name: use_intra_process_comms
               value: "true"
           param:
+            # Parameter files are applied in-order; keep bringup last so it overrides
+            # both the node's hardcoded declareIfMissing defaults and package defaults.
+            - from: $(find-pkg-share spatial_association)/config/params.yaml
             - from: $(var config_file)
           remap:
             - from: multi_camera_info

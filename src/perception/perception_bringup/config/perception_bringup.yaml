@@ -177,24 +177,42 @@ multi_camera_sync:
 # =============================================================================
 /**/spatial_association_node:
   ros__parameters:
+    # This block mirrors spatial_association/config/params.yaml so every node parameter
+    # can be tuned directly from perception bringup. The package config remains the
+    # default layer; these values are the bringup-level overrides.
     lidar_frame: lidar_cc
+    max_detection_cloud_stamp_delta: 0.0
+    detection_stamp_fallback_policy: "median_camera_stamp"
+    clustered_cloud_cache_size: 24
+    raw_cloud_pending_queue_size: 1
+    raw_cloud_latest_only: true
+    bbox_markers_use_detection_stamp: false
+    skip_repeat_association_publish: true
+
     euclid_params:
-      cluster_tolerance: 0.4
+      cluster_tolerance: 0.40
       min_cluster_size: 30
       max_cluster_size: 1200
       use_adaptive_clustering: true
       close_threshold: 10.0
       close_tolerance_mult: 1.5
-    density_filter_params:
-      density_weight: 0.6
-      size_weight: 0.8
-      distance_weight: 0.4
-      score_threshold: 0.40
+
     merge_threshold: 0.55
-    object_detection_confidence: 0.45   # Accept slightly weaker 2D detections
-    voxel_size: 0.1
+    use_roi_first_clustering: false
+
+    cross_camera_dedup:
+      enabled: false
+      min_lidar_index_overlap: 0.5
+      weak_lidar_index_overlap: 0.22
+      max_center_dist_m: 1.8
+      min_bev_box_iou: 0.16
+      min_bev_box_iou_no_class: 0.30
+
+    object_detection_confidence: 0.55   # Accept slightly weaker 2D detections
+    voxel_size: 0.25
+
     quality_filter_params:
-      max_distance: 80.0
+      max_distance: 50.0
       min_points: 3
       min_height: 0.08
       min_points_default: 5
@@ -208,11 +226,10 @@ multi_camera_sync:
       max_density: 1000.0
       max_dimension: 15.0
       max_aspect_ratio: 15.0
-    # Batched 2D detections are stamped with the image sync time; the voxel cloud uses the last *completed*
-    # worker job stamp and often lags by >1 s. A positive threshold here skips every camera and produces
-    # no 3D output despite valid TF and clusters. Use 0 to disable (recommended for this pipeline).
-    max_detection_cloud_stamp_delta: 0.0
-    publish_visualization: false  # Disable for production; enable for debugging
+
+    publish_bounding_box: true
+    publish_visualization: false
+    publish_image_visualization: false
     debug_logging: false
 
     # Projection/utils: association, orientation, merge (see projection_utils.cpp). Filtering: quality_filter_params.
@@ -221,18 +238,53 @@ multi_camera_sync:
       marker_alpha: 0.2
       min_iou_threshold: 0.08   # Lower = more permissive association (was 0.15)
       min_camera_z_distance: 0.6
-      # Strict gates (inner box, in-box point fraction, aspect) need accurate projection; disable for bringup
-      # until camera–lidar calibration is verified, otherwise 3D output can be empty despite 2D detections.
-      association_strict_matching: false
-      association_allow_aabb_centroid_fallback: true
+      detection_score_weight: 0.6
+      iou_score_weight: 0.4
       ar_front_view_threshold: 1.2
-      # Orientation search (coarse/fine derived from step)
       min_points_for_fit: 3
       default_sample_point_count: 64
       orientation_search_step_degrees: 2.0
-      # Outlier rejection for small clusters
       outlier_rejection_point_count: 30
       outlier_sigma_multiplier: 4.5
+      xy_extent_percentile_low: 5.0
+      xy_extent_percentile_high: 95.0
+      z_extent_percentile_low: 2.0
+      z_extent_percentile_high: 98.0
+      image_width: 1280
+      image_height: 1024
+      enable_second_pass_fallback: false
+      second_pass_min_iou: 0.05
+      max_unassigned_detections_second_pass: 10
+      second_pass_min_det_conf: -1.0
+      second_pass_bbox_expand_fraction: 0.15
+      second_pass_min_det_area_px2: 0.0
+      second_pass_min_det_area_far_px2: 0.0
+      second_pass_min_inside_points: 3
+      second_pass_min_inside_fraction: 0.20
+      second_pass_inside_points_far_scale: 0.75
+      second_pass_inside_points_medium_scale: 0.90
+      second_pass_person_inside_fraction_scale: 1.20
+      second_pass_person_inside_points_scale: 1.20
+      second_pass_vehicle_inside_fraction_scale: 0.90
+      second_pass_vehicle_inside_points_scale: 0.90
+      second_pass_min_size_score: 0.40
+      second_pass_person_min_size_score: 0.50
+      second_pass_vehicle_min_size_score: 0.35
+      second_pass_min_combined_score: 0.45
+      second_pass_best_second_margin: 0.10
+      # Strict gates (inner box, in-box point fraction, aspect) need accurate projection; disable for bringup
+      # until camera–lidar calibration is verified, otherwise 3D output can be empty despite 2D detections.
+      association_strict_matching: false
+      association_centroid_inner_box_fraction: 0.75
+      association_min_inside_point_fraction: 0.45
+      association_min_ar_consistency_score: 0.30
+      association_use_point_projection_rect_for_iou: true
+      association_allow_aabb_centroid_fallback: false
+      association_suppress_second_pass_under_strict: true
+      association_roi_expand_fraction: 0.12
+      quality_person_max_height_m: 4.5
+      quality_person_max_footprint_xy_m: 3.0
+      quality_vehicle_max_height_m: 4.8
 
 # =============================================================================
 # Attribute Assigner Node
