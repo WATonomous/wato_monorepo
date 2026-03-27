@@ -15,7 +15,6 @@
 #pragma once
 
 #include <gtsam/geometry/Point3.h>
-#include <tf2_ros/static_transform_broadcaster.h>
 
 #include <atomic>
 #include <deque>
@@ -45,9 +44,8 @@ namespace eidos
  * Subscribes to NavSatFix, converts to UTM, and attaches unary GPS factors
  * to states created by other plugins (e.g. LISO) via latchFactor().
  *
- * Owns its own StaticTransformBroadcaster for the utm→map TF.
- * This is the only plugin that broadcasts TF directly — all other TF
- * is handled by eidos_transform.
+ * Publishes the utm→map transform on a topic for eidos_transform to
+ * consume and broadcast as a static TF.
  *
  * GPS never creates its own states in the graph.
  */
@@ -91,8 +89,8 @@ private:
    */
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
-  /// @brief Broadcast the static utm->map transform via StaticTransformBroadcaster.
-  void broadcastUtmToMap();
+  /// @brief Publish the utm->map transform on a topic for eidos_transform to consume.
+  void publishUtmToMap();
 
   /**
    * @brief Convert a UTM coordinate to the map frame using the stored offset.
@@ -105,7 +103,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr gps_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr utm_pub_;
-  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::TransformStamped>::SharedPtr utm_to_map_pub_;
 
   // GPS queue
   std::deque<sensor_msgs::msg::NavSatFix> gps_queue_;

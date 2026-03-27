@@ -275,27 +275,32 @@ void EidosTransformNode::tick()
     return;
   }
 
-  // Compute dt.
+  // Compute dt from sim time. Skip if time hasn't advanced (bag clock slower than tick rate).
   double dt = 0.0;
   if (first_tick_) {
     first_tick_ = false;
     last_tick_time_ = now;
-    // Broadcast identity TF on first valid tick so the tree is connected
+    RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First tick, broadcasting identity TF");
     broadcastOdomToBaseTF(now);
     broadcastMapToOdomTF(now);
     return;
   }
   dt = (now - last_tick_time_).seconds();
+
+  if (dt <= 0.0) {
+    return;  // Sim time hasn't advanced, nothing to do
+  }
+  if (dt > 1.0) {
+    RCLCPP_WARN(get_logger(), "\033[34m[Transform]\033[0m Large dt=%.4f, clamping to skip", dt);
+    last_tick_time_ = now;
+    return;
+  }
   last_tick_time_ = now;
 
-  if (dt <= 0.0 || dt > 1.0) {
-    return;  // Skip bad dt (clock jump, etc.)
-  }
-
-  // 1. Predict.
+  // Predict
   ekf_model_->predict(dt);
 
-  // 2. Fuse each measurement source.
+  // Fuse each measurement source
   {
     std::lock_guard<std::mutex> lock(sources_mutex_);
     for (auto & src : sources_) {
@@ -304,11 +309,9 @@ void EidosTransformNode::tick()
       }
       src.has_new_data = false;
 
-      // Extract pose and twist from the odom message.
       gtsam::Pose3 meas_pose = odomMsgToPose3(*src.latest_msg);
       gtsam::Vector6 meas_twist = odomMsgToTwist(*src.latest_msg);
 
-      // Check if any pose DOF is enabled.
       bool any_pose = false;
       for (int i = 0; i < 6; ++i) {
         if (src.pose_mask[static_cast<size_t>(i)]) {
@@ -320,7 +323,6 @@ void EidosTransformNode::tick()
         ekf_model_->updatePose(meas_pose, src.pose_mask, src.pose_noise);
       }
 
-      // Check if any twist DOF is enabled.
       bool any_twist = false;
       for (int i = 0; i < 6; ++i) {
         if (src.twist_mask[static_cast<size_t>(i)]) {
@@ -331,13 +333,67 @@ void EidosTransformNode::tick()
       if (any_twist) {
         ekf_model_->updateTwist(meas_twist, src.twist_mask, src.twist_noise);
       }
+
+      auto mt = meas_pose.translation();
+      RCLCPP_INFO(
+        get_logger(),
+        "\033[34m[Transform]\033[0m Source '%s': input pos=(%.2f,%.2f,%.2f)",
+        src.name.c_str(), mt.x(), mt.y(), mt.z());
+
+      if (!src.logged_first_msg) {
+        RCLCPP_INFO(
+          get_logger(),
+          "\033[34m[Transform]\033[0m First message from source '%s' on topic '%s'",
+          src.name.c_str(), src.odom_topic.c_str());
+        src.logged_first_msg = true;
+      }
     }
   }
 
-  // 3. Broadcast TF and publish odom.
+  // Store timestamped EKF pose for precise map->odom lookup
+  {
+    std::lock_guard lock(map_to_odom_mtx_);
+    ekf_pose_history_.push_back({now.seconds(), ekf_model_->pose()});
+    while (ekf_pose_history_.size() > kMaxPoseHistory) {
+      ekf_pose_history_.pop_front();
+    }
+  }
+
+  // Broadcast TF and publish odom
   broadcastOdomToBaseTF(now);
   broadcastMapToOdomTF(now);
   publishOdometry(now);
+
+  // Cross-reference log: EKF state, odom->base, map->odom
+  gtsam::Pose3 ekf_pose = ekf_model_->pose();
+  auto et = ekf_pose.translation();
+
+  if (has_map_to_odom_.load(std::memory_order_acquire)) {
+    gtsam::Pose3 m2o;
+    {
+      std::lock_guard lock(map_to_odom_mtx_);
+      m2o = cached_map_to_odom_;
+    }
+    auto m2ot = m2o.translation();
+    auto m2or = m2o.rotation().yaw();
+    auto er = ekf_pose.rotation().yaw();
+    // map->base = map->odom * odom->base
+    gtsam::Pose3 map_to_base = m2o.compose(ekf_pose);
+    auto mbt = map_to_base.translation();
+    auto mbr = map_to_base.rotation().yaw();
+    RCLCPP_INFO(
+      get_logger(),
+      "\033[34m[Transform]\033[0m dt=%.4f odom->base=(%.2f,%.2f,%.2f yaw=%.2f°) "
+      "map->odom=(%.2f,%.2f,%.2f yaw=%.2f°) map->base=(%.2f,%.2f,%.2f yaw=%.2f°)",
+      dt, et.x(), et.y(), et.z(), er * 180.0 / M_PI,
+      m2ot.x(), m2ot.y(), m2ot.z(), m2or * 180.0 / M_PI,
+      mbt.x(), mbt.y(), mbt.z(), mbr * 180.0 / M_PI);
+  } else {
+    RCLCPP_INFO(
+      get_logger(),
+      "\033[34m[Transform]\033[0m dt=%.4f odom->base=(%.2f,%.2f,%.2f) map->odom=NOT SET",
+      dt, et.x(), et.y(), et.z());
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -440,15 +496,47 @@ void EidosTransformNode::publishOdometry(const rclcpp::Time & stamp)
 
 void EidosTransformNode::mapSourceCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-  // map_source gives us the robot pose in the map frame.
-  // map_to_odom = map_to_base * inv(odom_to_base)
   gtsam::Pose3 map_to_base = poseStampedToPose3(*msg);
-  gtsam::Pose3 odom_to_base = ekf_model_->pose();
+
+  last_map_to_base_ = map_to_base;
+
+  // Look up the EKF pose at the SLAM timestamp for precise correction
+  double slam_time = rclcpp::Time(msg->header.stamp).seconds();
+  gtsam::Pose3 odom_to_base;
+  double matched_time = 0.0;
   {
     std::lock_guard lock(map_to_odom_mtx_);
+
+    // Find the EKF pose with the largest timestamp <= slam_time
+    odom_to_base = ekf_model_->pose();  // fallback to current
+    for (auto it = ekf_pose_history_.rbegin(); it != ekf_pose_history_.rend(); ++it) {
+      if (it->time <= slam_time) {
+        odom_to_base = it->pose;
+        matched_time = it->time;
+        break;
+      }
+    }
+
     cached_map_to_odom_ = map_to_base.compose(odom_to_base.inverse());
   }
   has_map_to_odom_.store(true, std::memory_order_release);
+
+  auto ct = cached_map_to_odom_.translation();
+  auto cr = cached_map_to_odom_.rotation().rpy();
+  auto mt = map_to_base.translation();
+  auto mr = map_to_base.rotation().rpy();
+  auto ot = odom_to_base.translation();
+  auto or_ = odom_to_base.rotation().rpy();
+  RCLCPP_INFO(
+    get_logger(),
+    "\033[34m[Transform]\033[0m map->odom updated: "
+    "slam_pose=(%.2f,%.2f,%.2f rpy=%.2f,%.2f,%.2f) "
+    "odom_at_t=(%.2f,%.2f,%.2f rpy=%.2f,%.2f,%.2f) "
+    "correction=(%.2f,%.2f,%.2f rpy=%.2f,%.2f,%.2f) slam_t=%.3f matched_t=%.3f dt=%.4f",
+    mt.x(), mt.y(), mt.z(), mr.x(), mr.y(), mr.z(),
+    ot.x(), ot.y(), ot.z(), or_.x(), or_.y(), or_.z(),
+    ct.x(), ct.y(), ct.z(), cr.x(), cr.y(), cr.z(),
+    slam_time, matched_time, slam_time - matched_time);
 }
 
 void EidosTransformNode::utmToMapCallback(const geometry_msgs::msg::TransformStamped::SharedPtr msg)

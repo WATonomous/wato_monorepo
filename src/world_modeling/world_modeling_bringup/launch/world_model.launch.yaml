@@ -276,20 +276,19 @@ launch:
         - from: markers
           to: behaviour_markers
 
-  # ---- Eidos Transform (always launched, activated first for TF) ----
+  # ---- Eidos Transform + Eidos (mapping mode) ----
 
   - node:
+      if: "$(var mapping)"
       pkg: eidos_transform
       exec: eidos_transform_node
       name: eidos_transform_node
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share eidos_transform)/config/params.yaml
+        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_slam.yaml
         - name: use_sim_time
           value: $(var use_sim_time)
-
-  # ---- Eidos (mapping mode) ----
 
   - node:
       if: "$(var mapping)"
@@ -303,7 +302,19 @@ launch:
         - name: use_sim_time
           value: $(var use_sim_time)
 
-  # ---- Eidos (localization mode) ----
+  # ---- Eidos Transform + Eidos (localization mode) ----
+
+  - node:
+      unless: "$(var mapping)"
+      pkg: eidos_transform
+      exec: eidos_transform_node
+      name: eidos_transform_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - name: use_sim_time
+          value: $(var use_sim_time)
 
   - node:
       unless: "$(var mapping)"

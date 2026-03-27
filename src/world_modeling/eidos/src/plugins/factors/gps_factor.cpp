@@ -78,10 +78,9 @@ void GpsFactor::onInitialize()
   imu_sub_ = node_->create_subscription<sensor_msgs::msg::Imu>(
     imu_topic, rclcpp::SensorDataQoS(), std::bind(&GpsFactor::imuCallback, this, std::placeholders::_1), sub_opts);
 
-  // GPS factor owns its own static TF broadcaster for utm→map
-  static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(node_);
-
   utm_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(name_ + "/utm_pose", 10);
+  utm_to_map_pub_ = node_->create_publisher<geometry_msgs::msg::TransformStamped>(
+    name_ + "/utm_to_map_tf", rclcpp::QoS(1).transient_local());
 
   // Register data formats with MapManager for persistence
   map_manager_->registerGlobalFormat("gps_factor/utm_to_map", "raw_double5");
@@ -95,6 +94,7 @@ void GpsFactor::activate()
 {
   active_ = true;
   utm_pub_->on_activate();
+  utm_to_map_pub_->on_activate();
 
   // Check if a prior offset was loaded from a saved map
   auto offset_opt = map_manager_->retrieveGlobal<std::array<double, 5>>("gps_factor/utm_to_map");
@@ -109,7 +109,7 @@ void GpsFactor::activate()
     double sy = std::sin(-initial_yaw_);
     R_map_enu_ << cy, -sy, 0, sy, cy, 0, 0, 0, 1;
     offset_initialized_ = true;
-    broadcastUtmToMap();
+    publishUtmToMap();
     RCLCPP_INFO(
       node_->get_logger(),
       "[%s] loaded prior offset (zone %d%c, yaw=%.3f): [%.1f, %.1f, %.1f]",
@@ -199,7 +199,7 @@ StampedFactorResult GpsFactor::latchFactor(gtsam::Key key, double timestamp)
       use_elevation_ ? (utm_rotated.z() - map_pos.z()) : 0.0);
 
     offset_initialized_ = true;
-    broadcastUtmToMap();
+    publishUtmToMap();
 
     double zone_encoded = static_cast<double>(utm.zone * 10 + (utm.is_north ? 1 : 0));
     std::array<double, 5> global_offset = {
@@ -273,9 +273,9 @@ StampedFactorResult GpsFactor::latchFactor(gtsam::Key key, double timestamp)
 // TF + Callbacks
 // ==========================================================================
 
-void GpsFactor::broadcastUtmToMap()
+void GpsFactor::publishUtmToMap()
 {
-  if (!static_tf_broadcaster_) return;
+  if (!utm_to_map_pub_ || !utm_to_map_pub_->is_activated()) return;
 
   Eigen::Matrix3d R_enu_map = R_map_enu_.transpose();
   Eigen::Vector3d offset_vec(utm_to_map_offset_.x(), utm_to_map_offset_.y(), utm_to_map_offset_.z());
@@ -294,7 +294,7 @@ void GpsFactor::broadcastUtmToMap()
   tf.transform.rotation.z = q_enu_map.z();
   tf.transform.rotation.w = q_enu_map.w();
 
-  static_tf_broadcaster_->sendTransform(tf);
+  utm_to_map_pub_->publish(tf);
 }
 
 void GpsFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)

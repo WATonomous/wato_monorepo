@@ -19,7 +19,7 @@
     topics:
       odom: "transform/odometry"               # Fused odometry output (odom frame)
       map_source: "slam/pose"                   # PoseStamped for map->odom correction (from eidos SLAM)
-      utm_to_map: ""                            # TransformStamped for static utm->map TF (empty = disabled)
+      utm_to_map: "gps_factor/utm_to_map_tf"                            # TransformStamped for static utm->map TF (empty = disabled)
       predict_service: "transform/predict_relative"  # PredictRelativeTransform service
 
     # EKF model plugin selection

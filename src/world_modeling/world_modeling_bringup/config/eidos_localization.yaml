@@ -144,3 +144,57 @@
 
       windowed:
         radius: 50.0
+
+/**/eidos_transform_node:
+  ros__parameters:
+    tick_rate: 200.0
+
+    frames:
+      odom: "odom"
+      base_link: "base_footprint"
+      map: "map"
+      utm: "utm"
+
+    topics:
+      odom: "transform/odometry"
+      map_source: "slam/pose"
+      utm_to_map: "gps_factor/utm_to_map_tf"
+      predict_service: "transform/predict_relative"
+
+    ekf:
+      plugin: "eidos_transform::HolonomicEKF"
+      name: "holonomic_ekf"
+
+    holonomic_ekf:
+      process_noise:
+        - 1.0e-4  # rx
+        - 1.0e-4  # ry
+        - 1.0e-4  # rz
+        - 1.0e-4  # tx
+        - 1.0e-4  # ty
+        - 1.0e-4  # tz
+        - 1.0e-2  # vel angular_x
+        - 1.0e-2  # vel angular_y
+        - 1.0e-2  # vel angular_z
+        - 1.0e-2  # vel linear_x
+        - 1.0e-2  # vel linear_y
+        - 1.0e-2  # vel linear_z
+
+    # LISO (pose) + IMU (angular velocity)
+    odom_sources:
+      - "liso"
+      - "imu"
+
+    liso:
+      odom_topic: "liso/odometry_incremental"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    imu:
+      odom_topic: "imu_factor/odometry"
+      pose_mask: [false, false, false, false, false, false]
+      twist_mask: [true, true, true, false, false, false]  # angular velocity only
+      pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+      twist_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]

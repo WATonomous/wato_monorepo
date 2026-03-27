@@ -20,6 +20,7 @@
 
 #include <array>
 #include <atomic>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -64,6 +65,9 @@ struct MeasurementSource
   // Previous pose for change detection.
   gtsam::Pose3 last_pose;
   bool has_last_pose = false;
+
+  // Logging.
+  bool logged_first_msg = false;
 };
 
 /**
@@ -198,8 +202,18 @@ private:
 
   // ---- Cached transforms ----
   gtsam::Pose3 cached_map_to_odom_;
+  gtsam::Pose3 last_map_to_base_;  ///< Previous slam/pose value for change detection
   std::atomic<bool> has_map_to_odom_{false};
   std::mutex map_to_odom_mtx_;
+
+  // ---- EKF pose history for precise map->odom computation ----
+  struct StampedPose
+  {
+    double time;
+    gtsam::Pose3 pose;
+  };
+  std::deque<StampedPose> ekf_pose_history_;  ///< Ring buffer of recent EKF poses
+  static constexpr size_t kMaxPoseHistory = 200;
 
   geometry_msgs::msg::TransformStamped cached_utm_to_map_;
   bool has_utm_to_map_ = false;

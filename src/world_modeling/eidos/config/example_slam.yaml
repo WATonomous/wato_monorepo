@@ -155,3 +155,33 @@
       publish_rate: 1.0                        # Publish rate (Hz)
       mode: "full"                             # "full" or windowed
       window_radius: 50.0                      # Radius for windowed mode (m)
+
+# eidos_transform config for mapping mode (LISO only, no IMU)
+/**/eidos_transform_node:
+  ros__parameters:
+    tick_rate: 200.0
+    frames:
+      odom: "odom"
+      base_link: "base_footprint"
+      map: "map"
+      utm: "utm"
+    topics:
+      odom: "transform/odometry"
+      map_source: "slam/pose"
+      utm_to_map: "gps_factor/utm_to_map_tf"
+      predict_service: "transform/predict_relative"
+    ekf:
+      plugin: "eidos_transform::HolonomicEKF"
+      name: "holonomic_ekf"
+    holonomic_ekf:
+      process_noise:
+        [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+    odom_sources:
+      - "liso"
+    liso:
+      odom_topic: "liso/odometry_incremental"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
