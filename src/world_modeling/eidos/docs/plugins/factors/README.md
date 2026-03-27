@@ -18,7 +18,7 @@ virtual void deactivate() = 0;
 virtual StampedFactorResult produceFactor(gtsam::Key key, double timestamp);
 virtual StampedFactorResult latchFactor(gtsam::Key key, double timestamp);
 virtual void onTrackingBegin(const gtsam::Pose3& pose);
-virtual void onOptimizationComplete(const gtsam::Values& values, bool loop_closure);
+virtual void onOptimizationComplete(const gtsam::Values& values, bool graph_corrected);
 ```
 
 ## Lifecycle
@@ -29,7 +29,7 @@ virtual void onOptimizationComplete(const gtsam::Values& values, bool loop_closu
 4. **`produceFactor(key, timestamp)`** -- Called every SLAM tick. Only state-creating plugins (e.g. LISO) override this. Set `result.timestamp` to signal a new state; return empty if no data.
 5. **`latchFactor(key, timestamp)`** -- Called after a new state is created. Latching plugins (e.g. GPS, loop closure) attach constraints to states created by others.
 6. **`onTrackingBegin(pose)`** -- Called once when TRACKING begins with the initial pose.
-7. **`onOptimizationComplete(values, loop_closure)`** -- Called after each ISAM2 optimization with the full optimized values and a flag indicating whether a loop closure was detected.
+7. **`onOptimizationComplete(values, graph_corrected)`** -- Called after each ISAM2 optimization with the full optimized values and a flag indicating whether a significant graph correction occurred (loop closure or GPS correction).
 
 ## Lock-Free Pose Outputs
 

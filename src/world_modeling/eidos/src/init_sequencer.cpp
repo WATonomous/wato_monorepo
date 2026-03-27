@@ -64,7 +64,9 @@ void InitSequencer::handleWarmingUp(double timestamp)
   for (const auto & p : registry_->factor_plugins) {
     if (!p->isReady()) {
       RCLCPP_INFO_THROTTLE(
-        logger_, *rclcpp::Clock::make_shared(), 3000,
+        logger_,
+        *rclcpp::Clock::make_shared(),
+        3000,
         "\033[33m[WARMING_UP]\033[0m Waiting for plugin '%s' to be ready",
         p->getName().c_str());
       return;

@@ -14,6 +14,7 @@
 
 #include "eidos/core/graph_optimizer.hpp"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -27,10 +28,7 @@ GraphOptimizer::GraphOptimizer()
 }
 
 void GraphOptimizer::configure(
-  rclcpp::Logger logger,
-  double relinearize_threshold,
-  int relinearize_skip,
-  const std::vector<double> & prior_pose_cov)
+  rclcpp::Logger logger, double relinearize_threshold, int relinearize_skip, const std::vector<double> & prior_pose_cov)
 {
   logger_ = logger;
   relinearize_threshold_ = relinearize_threshold;
@@ -91,8 +89,7 @@ gtsam::Values GraphOptimizer::optimize(
 
   if (extra_iterations > 0) {
     RCLCPP_INFO(
-      logger_, "\033[36m[GraphOptimizer]\033[0m Running %d extra iterations for convergence",
-      extra_iterations);
+      logger_, "\033[36m[GraphOptimizer]\033[0m Running %d extra iterations for convergence", extra_iterations);
     for (int i = 0; i < extra_iterations; i++) {
       isam_->update();
     }
@@ -124,14 +121,10 @@ std::optional<Eigen::MatrixXd> GraphOptimizer::getCovariance(gtsam::Key key) con
     return isam_->marginalCovariance(key);
   } catch (const std::exception & e) {
     RCLCPP_WARN(
-      logger_,
-      "\033[36m[GraphOptimizer]\033[0m Failed to compute marginal covariance for key %lu: %s",
-      key,
-      e.what());
+      logger_, "\033[36m[GraphOptimizer]\033[0m Failed to compute marginal covariance for key %lu: %s", key, e.what());
     return std::nullopt;
   } catch (...) {
-    RCLCPP_WARN(
-      logger_, "\033[36m[GraphOptimizer]\033[0m Failed to compute marginal covariance for key %lu", key);
+    RCLCPP_WARN(logger_, "\033[36m[GraphOptimizer]\033[0m Failed to compute marginal covariance for key %lu", key);
     return std::nullopt;
   }
 }

@@ -18,8 +18,6 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
-#include <rclcpp/rclcpp.hpp>
-
 #include <any>
 #include <functional>
 #include <map>
@@ -31,6 +29,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <rclcpp/rclcpp.hpp>
 
 #include "eidos/utils/types.hpp"
 
@@ -63,7 +63,10 @@ public:
 
   /// @brief Configure the MapManager with a logger for diagnostics.
   /// @param logger ROS logger from the parent node.
-  void configure(rclcpp::Logger logger) { logger_ = logger; }
+  void configure(rclcpp::Logger logger)
+  {
+    logger_ = logger;
+  }
 
   // ---- Format registration ----
 

@@ -408,8 +408,11 @@ bool MapManager::saveMap(const std::string & path)
   execSql(db, "COMMIT;");
   sqlite3_close(db);
   RCLCPP_INFO(
-    logger_, "\033[33m[MapManager]\033[0m Saved map: %s (%zu keyframes, %zu edges)",
-    path.c_str(), key_list_.size(), edge_owners_.size());
+    logger_,
+    "\033[33m[MapManager]\033[0m Saved map: %s (%zu keyframes, %zu edges)",
+    path.c_str(),
+    key_list_.size(),
+    edge_owners_.size());
   return true;
 }
 
@@ -590,8 +593,11 @@ bool MapManager::loadMap(const std::string & path)
 
   sqlite3_close(db);
   RCLCPP_INFO(
-    logger_, "\033[33m[MapManager]\033[0m Loaded map: %s (%zu keyframes, %zu edges)",
-    path.c_str(), key_list_.size(), edge_owners_.size());
+    logger_,
+    "\033[33m[MapManager]\033[0m Loaded map: %s (%zu keyframes, %zu edges)",
+    path.c_str(),
+    key_list_.size(),
+    edge_owners_.size());
   return true;
 }
 

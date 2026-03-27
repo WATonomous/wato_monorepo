@@ -43,10 +43,10 @@ namespace eidos
 /// @brief A pending new state collected from a produceFactor() call.
 struct NewState
 {
-  gtsam::Key key;                ///< GTSAM key allocated for this state.
-  double ts;                     ///< Sensor timestamp of the new state.
-  StampedFactorResult result;    ///< Factors and initial values from the plugin.
-  std::string owner;             ///< Name of the plugin that created this state.
+  gtsam::Key key;  ///< GTSAM key allocated for this state.
+  double ts;  ///< Sensor timestamp of the new state.
+  StampedFactorResult result;  ///< Factors and initial values from the plugin.
+  std::string owner;  ///< Name of the plugin that created this state.
 };
 
 /**

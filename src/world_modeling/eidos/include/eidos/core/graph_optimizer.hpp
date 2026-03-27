@@ -20,12 +20,12 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
-#include <rclcpp/rclcpp.hpp>
-
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include <rclcpp/rclcpp.hpp>
 
 #include "eidos/utils/atomic_slot.hpp"
 #include "eidos/utils/lock_free_pose.hpp"
@@ -95,11 +95,17 @@ public:
 
   /// @brief Get the lock-free slot holding the latest optimized pose.
   /// @return Reference to the LockFreePose, readable from any thread.
-  const LockFreePose & getOptimizedPose() const { return optimized_pose_; }
+  const LockFreePose & getOptimizedPose() const
+  {
+    return optimized_pose_;
+  }
 
   /// @brief Get the lock-free slot holding the latest optimized values.
   /// @return Reference to the AtomicSlot, readable from any thread.
-  const AtomicSlot<gtsam::Values> & getOptimizedValues() const { return optimized_values_; }
+  const AtomicSlot<gtsam::Values> & getOptimizedValues() const
+  {
+    return optimized_values_;
+  }
 
   /// @brief Get the optimized pose for a specific GTSAM key.
   /// @param key The GTSAM key to look up.
@@ -121,13 +127,22 @@ public:
   // ---- State timeline ----
 
   /// @brief Get the GTSAM key of the most recently created state.
-  gtsam::Key getLastStateKey() const { return last_state_key_; }
+  gtsam::Key getLastStateKey() const
+  {
+    return last_state_key_;
+  }
 
   /// @brief Get the index that will be used for the next Symbol('x', N).
-  uint64_t getNextStateIndex() const { return next_state_index_; }
+  uint64_t getNextStateIndex() const
+  {
+    return next_state_index_;
+  }
 
   /// @brief Check whether at least one state has been created.
-  bool hasState() const { return has_last_state_; }
+  bool hasState() const
+  {
+    return has_last_state_;
+  }
 
   /// @brief Allocate the next GTSAM key Symbol('x', N) and record it.
   /// @param timestamp The timestamp associated with this state.
@@ -136,7 +151,10 @@ public:
   gtsam::Key createState(double timestamp, const std::string & owner);
 
   /// @brief Get the diagonal prior pose covariance [x, y, z, roll, pitch, yaw].
-  const std::vector<double> & getPriorPoseCov() const { return prior_pose_cov_; }
+  const std::vector<double> & getPriorPoseCov() const
+  {
+    return prior_pose_cov_;
+  }
 
 private:
   // ---- ISAM2 ----

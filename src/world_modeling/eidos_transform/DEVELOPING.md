@@ -166,11 +166,11 @@ struct MeasurementSource {
   gtsam::Vector6 pose_noise;        // std devs for pose
   gtsam::Vector6 twist_noise;       // std devs for twist
 
-  Subscription<Odometry>::SharedPtr subscriber;
-  Odometry::SharedPtr latest_msg;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subscriber;
+  nav_msgs::msg::Odometry::SharedPtr latest_msg;
   bool has_new_data = false;
 
-  gtsam::Pose3 last_pose;           // for change detection (currently unused in tick)
+  gtsam::Pose3 last_pose;           // for change detection
   bool has_last_pose = false;
 };
 ```
@@ -183,8 +183,8 @@ The node uses a `MultiThreadedExecutor` (or however the launch file provides one
 
 - **Tick timer** runs in its own `MutuallyExclusive` callback group (`tick_callback_group_`). This guarantees the tick loop never runs concurrently with itself.
 - **Odometry subscriber callbacks** run in the default callback group. They acquire `sources_mutex_` to write `latest_msg` and `has_new_data`.
-- **Map source and UTM callbacks** run in the default callback group. They write to `cached_map_to_odom_` / `cached_utm_to_map_` and their corresponding boolean flags.
-- **Tick loop** acquires `sources_mutex_` while reading source data. Reads of `cached_map_to_odom_` and `has_map_to_odom_` are not mutex-guarded (single-writer pattern; the bool flag is set after the pose is written).
+- **Map source and UTM callbacks** run in the default callback group. The map source callback acquires `map_to_odom_mtx_` to write `cached_map_to_odom_`, then sets `has_map_to_odom_` atomically. The UTM callback writes `cached_utm_to_map_` and its boolean flag.
+- **Tick loop** acquires `sources_mutex_` while reading source data. Reads of `cached_map_to_odom_` are guarded by `map_to_odom_mtx_`. The `has_map_to_odom_` flag is an `std::atomic<bool>` set with release ordering after the pose is written, so it can be checked without the mutex.
 
 The predict-then-update cycle and all TF broadcasting happen inside the tick callback, so they are serialized.
 

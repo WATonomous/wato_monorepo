@@ -361,11 +361,8 @@ void EidosNode::handleTracking(double timestamp)
 
   // Optimize. Use the latest new state key if available, otherwise the last known key.
   gtsam::Key latest_key = new_states.empty() ? last_state_key_ : new_states.back().key;
-  int extra = loop_closure_detected  ? loop_closure_iterations_
-              : correction_detected  ? correction_iterations_
-                                     : 0;
-  auto optimized = graph_optimizer_.optimize(
-    new_factors, new_values, latest_key, update_iterations_, extra);
+  int extra = loop_closure_detected ? loop_closure_iterations_ : correction_detected ? correction_iterations_ : 0;
+  auto optimized = graph_optimizer_.optimize(new_factors, new_values, latest_key, update_iterations_, extra);
 
   // Update existing keyframe poses from optimized values, store new keyframes
   map_manager_.updatePoses(optimized);

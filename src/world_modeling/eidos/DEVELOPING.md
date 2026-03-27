@@ -67,8 +67,10 @@ lives in memory as `std::any`, accessed via typed `store<T>()`/`retrieve<T>()` t
 Manages keyframe 3D/6D point clouds and a KD-tree for spatial queries. Tracks graph
 adjacency (edges between keyframes). For persistence, uses a single SQLite `.map` file.
 Plugins register data formats via `registerKeyframeFormat()` and `registerGlobalFormat()`,
-linking data keys to named format handlers from the shared format registry. Key methods:
-`addKeyframe()`, `updatePoses()`, `store<T>()`/`retrieve<T>()`,
+linking data keys to named format handlers from the shared format registry. Has a
+`configure(logger)` method that must be called once to provide the ROS logger.
+`addKeyframe()` requires an `owner` plugin name (no default). Key methods:
+`configure()`, `addKeyframe()`, `updatePoses()`, `store<T>()`/`retrieve<T>()`,
 `storeGlobal<T>()`/`retrieveGlobal<T>()`, `saveMap()`, `loadMap()`.
 
 ### PluginRegistry
@@ -83,7 +85,8 @@ Plugin collections are public for read access: `factor_plugins`, `reloc_plugins`
 ### InitSequencer
 
 Manages the `INIT -> WARMING_UP -> RELOCALIZING -> TRACKING` state machine, separated
-from `EidosNode` so orchestration logic stays clean. `EidosNode` calls `step()` each
+from `EidosNode` so orchestration logic stays clean. Receives an rclcpp logger via
+`configure()` for status messages. `EidosNode` calls `step()` each
 SLAM tick. In `WARMING_UP`, the sequencer polls all factor plugins' `isReady()` each
 tick and will not proceed until every plugin reports ready (e.g. ImuFactor blocks until
 stationary detection and gravity alignment are complete). Once all plugins are ready:
