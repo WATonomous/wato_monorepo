@@ -92,6 +92,9 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
     imu_topic_, qos, std::bind(&LidarAggregatorNode::imu_callback, this, std::placeholders::_1));
 
+  sub_gps_ = create_subscription<novatel_oem7_msgs::msg::BESTPOS>(
+    gps_topic_, qos, std::bind(&LidarAggregatorNode::gps_callback, this, std::placeholders::_1));
+
   // message_filters synchronized subscriptions for the three lidars
   sub_cc_.subscribe(this, center_topic_, qos.get_rmw_qos_profile());
   sub_ne_.subscribe(this, ne_topic_, qos.get_rmw_qos_profile());
@@ -118,6 +121,7 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
 
 void LidarAggregatorNode::declare_and_load_parameters()
 {
+  declare_parameter<std::string>("topics.gps", "/novatel/oem7/bestpos");
   declare_parameter<std::string>("topics.imu", "/novatel/oem7/imu/data");
   declare_parameter<std::string>("topics.center", "/lidar_cc/velodyne_points");
   declare_parameter<std::string>("topics.ne", "/lidar_ne/velodyne_points");
@@ -153,6 +157,7 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("estimation.min_offset_sec", -0.1);
   declare_parameter<double>("estimation.max_offset_sec", 0.1);
 
+  get_parameter("topics.gps", gps_topic_);
   get_parameter("topics.imu", imu_topic_);
   get_parameter("topics.center", center_topic_);
   get_parameter("topics.ne", ne_topic_);
@@ -212,9 +217,37 @@ bool LidarAggregatorNode::load_extrinsics_from_tf()
   }
 }
 
+void LidarAggregatorNode::gps_callback(const novatel_oem7_msgs::msg::BESTPOS::SharedPtr msg)
+{
+  const uint16_t week = msg->nov_header.gps_week_number;
+  const uint32_t ms = msg->nov_header.gps_week_milliseconds;
+  if (week == 0 && ms == 0) {
+    return;
+  }
+
+  // GPS epoch: January 6, 1980 00:00:00 UTC; 18 leap seconds as of 2025
+  constexpr double GPS_EPOCH_UNIX = 315964800.0;
+  constexpr double GPS_LEAP_SECONDS = 18.0;
+  const double gps_unix = GPS_EPOCH_UNIX + week * 604800.0 + ms / 1000.0 - GPS_LEAP_SECONDS;
+  const double sys_time = rclcpp::Time(msg->header.stamp).seconds();
+  const double offset = gps_unix - sys_time;
+
+  if (!clock_offset_valid_.load()) {
+    RCLCPP_INFO(get_logger(), "GPS clock offset computed: %.3f s (system is %.1f ms off GPS)", offset, offset * 1000.0);
+  }
+  clock_offset_sec_.store(offset);
+  clock_offset_valid_.store(true);
+}
+
 void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
+
+  // Correct IMU timestamp from system clock to GPS time
+  rclcpp::Time imu_stamp(msg->header.stamp);
+  if (clock_offset_valid_.load()) {
+    imu_stamp = imu_stamp + rclcpp::Duration::from_seconds(clock_offset_sec_.load());
+  }
 
   std::lock_guard<std::mutex> lock(imu_mutex_);
 
@@ -223,7 +256,7 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
     if (imu_buffer_.empty()) {
       q = Eigen::Quaterniond::Identity();
     } else {
-      const double dt = (rclcpp::Time(msg->header.stamp) - imu_buffer_.back().stamp).seconds();
+      const double dt = (imu_stamp - imu_buffer_.back().stamp).seconds();
       const Eigen::Vector3d omega(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
       const double angle = omega.norm() * dt;
       if (dt > 0.0 && dt < 1.0 && angle > 1e-10) {
@@ -238,7 +271,7 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
   }
 
   imu_buffer_.push_back(ImuSample{
-    rclcpp::Time(msg->header.stamp),
+    imu_stamp,
     q,
     msg->angular_velocity.z,
     Eigen::Vector3d(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z)});

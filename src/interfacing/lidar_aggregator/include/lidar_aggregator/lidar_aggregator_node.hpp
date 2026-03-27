@@ -20,6 +20,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include <atomic>
 #include <deque>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -30,6 +31,7 @@
 #include <geometry_msgs/msg/transform.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <novatel_oem7_msgs/msg/bestpos.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/buffer.hpp>
@@ -98,6 +100,9 @@ private:
 
   /// @brief Callback for incoming IMU messages. Buffers orientation and gyro data.
   void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  /// @brief Callback for GPS messages. Computes system-to-GPS clock offset.
+  void gps_callback(const novatel_oem7_msgs::msg::BESTPOS::SharedPtr msg);
 
   /// @brief Synchronized callback for all three lidar streams.
   void synced_lidar_callback(
@@ -188,6 +193,7 @@ private:
   std::deque<ImuSample> imu_buffer_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
+  rclcpp::Subscription<novatel_oem7_msgs::msg::BESTPOS>::SharedPtr sub_gps_;
 
   message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_cc_;
   message_filters::Subscriber<sensor_msgs::msg::PointCloud2> sub_ne_;
@@ -203,6 +209,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_estimated_offsets_;
   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_offset_scores_;
 
+  std::string gps_topic_;
   std::string imu_topic_;
   std::string center_topic_;
   std::string ne_topic_;
@@ -225,6 +232,11 @@ private:
 
   double ne_time_offset_sec_ = 0.0;
   double nw_time_offset_sec_ = 0.0;
+
+  /// @brief Offset (seconds) to add to system-clock timestamps to get GPS time.
+  /// Computed from Novatel BESTPOS: gps_unix_time - header.stamp.
+  std::atomic<double> clock_offset_sec_{0.0};
+  std::atomic<bool> clock_offset_valid_{false};
 
   OffsetEstimatorConfig estimator_cfg_;
   OffsetEstimatorRuntime estimator_runtime_;

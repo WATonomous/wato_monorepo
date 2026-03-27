@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
     topics:
+      gps: "/novatel/oem7/bestpos"
       imu: "/novatel/oem7/imu/data_raw"
       center: "/lidar_cc/velodyne_points"
       ne: "/lidar_ne/velodyne_points"
