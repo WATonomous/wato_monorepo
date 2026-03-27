@@ -1,10 +1,10 @@
 {
   "configById": {
     "CallService!36vhq2p": {
-      "requestPayload": "{\n  \"directory\": \"/ws/src/world_modeling/test_track_map\",\n  \"resolution\": 0.4\n}",
+      "requestPayload": "{\n  \"filepath\": \"/opt/watonomous/maps/test/wrestrc.map\"\n}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/slam/save_map"
+      "serviceName": "/world_modeling/slam/save_map"
     },
     "Plot!3lzp51a": {
       "paths": [
@@ -46,27 +46,33 @@
       "paths": [
         {
           "timestampMethod": "receiveTime",
-          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.w",
+          "value": "/world_modeling/liso/odometry_incremental.twist.twist.linear.x",
           "enabled": true,
-          "color": "#4e98e2"
+          "color": "#4e98e2",
+          "label": "liso twist x",
+          "showLine": false
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.x",
+          "value": "/world_modeling/motion_model/odometry/imu_incremental.twist.twist.linear.x",
           "enabled": true,
-          "color": "#f5774d"
+          "color": "#f5774d",
+          "label": "IMU twist x"
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.y",
+          "value": "/world_modeling/liso/odometry_incremental.twist.twist.linear.y",
           "enabled": true,
-          "color": "#f7df71"
+          "color": "#f7df71",
+          "label": "liso twist y",
+          "showLine": false
         },
         {
           "timestampMethod": "receiveTime",
-          "value": "/world_modeling/liso/odometry_incremental.pose.pose.orientation.z",
+          "value": "/world_modeling/motion_model/odometry/imu_incremental.twist.twist.linear.y",
           "enabled": true,
-          "color": "#5cd6a9"
+          "color": "#5cd6a9",
+          "label": "IMU twist y"
         }
       ],
       "showXAxisLabels": true,
@@ -174,106 +180,32 @@
       "xAxisVal": "timestamp",
       "sidebarDimension": 240
     },
-    "Image!3apg1a1": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 45,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "imageMode": {
-        "imageTopic": "/camera_pano_nn/image_rect_compressed",
-        "calibrationTopic": "/camera_pano_nn/camera_info"
-      }
+    "RawMessages!2ka49yk": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "",
+      "fontSize": 12
     },
-    "Image!x2bmzq": {
-      "cameraState": {
-        "distance": 20,
-        "perspective": true,
-        "phi": 60,
-        "target": [
-          0,
-          0,
-          0
-        ],
-        "targetOffset": [
-          0,
-          0,
-          0
-        ],
-        "targetOrientation": [
-          0,
-          0,
-          0,
-          1
-        ],
-        "thetaOffset": 45,
-        "fovy": 45,
-        "near": 0.5,
-        "far": 5000
-      },
-      "followMode": "follow-pose",
-      "scene": {},
-      "transforms": {},
-      "topics": {},
-      "layers": {},
-      "publish": {
-        "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
-        "poseEstimateXDeviation": 0.5,
-        "poseEstimateYDeviation": 0.5,
-        "poseEstimateThetaDeviation": 0.26179939
-      },
-      "imageMode": {
-        "imageTopic": "/camera_pano_ss/image_rect_compressed",
-        "calibrationTopic": "/camera_pano_ss/camera_info"
-      }
+    "RawMessages!2evrrrc": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/world_modeling/liso/odometry_incremental",
+      "fontSize": 12
     },
     "3D!3iebfs2": {
       "cameraState": {
         "perspective": true,
-        "distance": 654.3721929205641,
-        "phi": 36.16197633881282,
-        "thetaOffset": -13.983358678133591,
+        "distance": 335.9167847509376,
+        "phi": 18.8906120209762,
+        "thetaOffset": -36.57301050594767,
         "targetOffset": [
-          60.67333489392988,
-          -10.843622397953316,
-          0.00012855214343187547
+          14.715437901172724,
+          60.51903361153974,
+          1.668393798612566e-15
         ],
         "target": [
           0,
@@ -290,7 +222,7 @@
         "near": 0.5,
         "far": 5000
       },
-      "followMode": "follow-none",
+      "followMode": "follow-pose",
       "scene": {
         "transforms": {
           "labelSize": 0.07
@@ -333,6 +265,26 @@
         },
         "/world_modeling/slam/visualization/factor_graph": {
           "visible": true
+        },
+        "/world_modeling/lanelet/lane_context_markers": {
+          "visible": false
+        },
+        "/world_modeling/lanelet/map_viz_markers": {
+          "visible": true
+        },
+        "/world_modeling/liso/submap": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar/all/points_merged": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 1.88,
+          "flatColor": "#9480ed82"
         }
       },
       "layers": {
@@ -403,13 +355,13 @@
       "second": {
         "direction": "row",
         "first": {
-          "first": "Image!3apg1a1",
-          "second": "Image!x2bmzq",
+          "first": "RawMessages!2ka49yk",
+          "second": "RawMessages!2evrrrc",
           "direction": "column",
           "splitPercentage": 50
         },
         "second": "3D!3iebfs2",
-        "splitPercentage": 15.353121801432968
+        "splitPercentage": 15.976178850887004
       },
       "splitPercentage": 45.74944071588368
     },
