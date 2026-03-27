@@ -7,10 +7,10 @@ action:
       base_frame: "base_footprint"
       rear_axle_frame: "rear_axle"
       front_axle_frame: "front_axle"
-      lookahead_distance: 3.5
+      lookahead_distance: 4.5
       min_lookahead_distance: 2.0
-      steering_angle_gain: 4.5
-      max_speed: 5.0
+      steering_angle_gain: 1.0
+      max_speed: 2.0
       min_speed: 0.5
       control_rate_hz: 20.0
       wheelbase_fallback: 2.5667

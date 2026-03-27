@@ -23,7 +23,7 @@ launch:
         - from: "lanelet_ahead"
           to: "/world_modeling/lanelet/lanelet_ahead"
         - from: "odom"
-          to: "/ego/odom"
+          to: "/world_modeling/slam/odometry"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 
@@ -45,7 +45,7 @@ launch:
         - from: "lane_context"
           to: "/world_modeling/lanelet/lane_context"
         - from: "odom"
-          to: "/ego/odom"
+          to: "/world_modeling/slam/odometry"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 
@@ -77,7 +77,7 @@ launch:
           to: "/action/trajectory_planning/trajectory"
         # Publishers
         - from: "ackermann"
-          to: "/carla/ackermann_control/command"
+          to: "/action/ackermann"
 
   # Lifecycle Manager
   - node:
