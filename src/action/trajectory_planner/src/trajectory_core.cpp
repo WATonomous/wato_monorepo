@@ -161,10 +161,14 @@ std::optional<double> TrajectoryCore::find_first_collision(
         return get_cost(wx, wy) >= LETHAL_COST;
       };
 
+      // Sweep the full front edge of the vehicle footprint
+      for (double ly = config_.footprint_y_min; ly <= config_.footprint_y_max + 1e-9; ly += resolution) {
+        double clamped_ly = std::min(ly, config_.footprint_y_max);
+        if (check_corner(config_.footprint_x_max, clamped_ly)) return total_dist + (s * segment_len);
+      }
+      // Keep rear corners for side / rear obstacle coverage.
       if (check_corner(config_.footprint_x_min, config_.footprint_y_min)) return total_dist + (s * segment_len);
       if (check_corner(config_.footprint_x_min, config_.footprint_y_max)) return total_dist + (s * segment_len);
-      if (check_corner(config_.footprint_x_max, config_.footprint_y_min)) return total_dist + (s * segment_len);
-      if (check_corner(config_.footprint_x_max, config_.footprint_y_max)) return total_dist + (s * segment_len);
     }
 
     total_dist += segment_len;
