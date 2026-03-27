@@ -34,9 +34,9 @@ class MapManager;
  */
 struct RelocalizationResult
 {
-  gtsam::Pose3 pose;              ///< Relocalized pose in map frame.
-  double fitness_score;            ///< GICP fitness score (lower is better).
-  int matched_keyframe_index;      ///< Index of the best-matching prior map keyframe.
+  gtsam::Pose3 pose;  ///< Relocalized pose in map frame.
+  double fitness_score;  ///< GICP fitness score (lower is better).
+  int matched_keyframe_index;  ///< Index of the best-matching prior map keyframe.
 };
 
 /**
@@ -117,11 +117,11 @@ public:
   virtual std::optional<RelocalizationResult> tryRelocalize(double timestamp) = 0;
 
 protected:
-  std::string name_;                                   ///< Plugin instance name (from YAML).
-  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;    ///< ROS2 node handle.
-  tf2_ros::Buffer * tf_ = nullptr;                     ///< TF lookup buffer (non-owning).
-  rclcpp::CallbackGroup::SharedPtr callback_group_;    ///< Dedicated callback group.
-  MapManager * map_manager_ = nullptr;                 ///< Keyframe/map data store (non-owning).
+  std::string name_;  ///< Plugin instance name (from YAML).
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;  ///< ROS2 node handle.
+  tf2_ros::Buffer * tf_ = nullptr;  ///< TF lookup buffer (non-owning).
+  rclcpp::CallbackGroup::SharedPtr callback_group_;  ///< Dedicated callback group.
+  MapManager * map_manager_ = nullptr;  ///< Keyframe/map data store (non-owning).
 };
 
 }  // namespace eidos

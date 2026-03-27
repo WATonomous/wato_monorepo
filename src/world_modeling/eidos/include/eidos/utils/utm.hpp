@@ -22,11 +22,11 @@ namespace eidos
 /// @brief UTM coordinate produced by WGS84-to-UTM conversion.
 struct UtmCoordinate
 {
-  double easting;   ///< UTM easting in meters.
+  double easting;  ///< UTM easting in meters.
   double northing;  ///< UTM northing in meters (includes 10,000,000 m offset for southern hemisphere).
   double altitude;  ///< Altitude in meters (pass-through from input).
-  int zone;         ///< UTM zone number (1--60).
-  bool is_north;    ///< True if the coordinate is in the northern hemisphere.
+  int zone;  ///< UTM zone number (1--60).
+  bool is_north;  ///< True if the coordinate is in the northern hemisphere.
 };
 
 /**

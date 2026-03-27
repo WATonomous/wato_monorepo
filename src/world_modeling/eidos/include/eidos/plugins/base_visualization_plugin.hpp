@@ -145,11 +145,11 @@ protected:
    */
   virtual void render(const gtsam::Values & optimized_values) = 0;
 
-  std::string name_;                                   ///< Plugin instance name (from YAML).
-  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;    ///< ROS2 node handle.
-  tf2_ros::Buffer * tf_ = nullptr;                     ///< TF lookup buffer (non-owning).
-  rclcpp::CallbackGroup::SharedPtr callback_group_;    ///< Dedicated callback group for render timer.
-  MapManager * map_manager_ = nullptr;                 ///< Keyframe/map data store (non-owning).
+  std::string name_;  ///< Plugin instance name (from YAML).
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;  ///< ROS2 node handle.
+  tf2_ros::Buffer * tf_ = nullptr;  ///< TF lookup buffer (non-owning).
+  rclcpp::CallbackGroup::SharedPtr callback_group_;  ///< Dedicated callback group for render timer.
+  MapManager * map_manager_ = nullptr;  ///< Keyframe/map data store (non-owning).
 
 private:
   void tick()
