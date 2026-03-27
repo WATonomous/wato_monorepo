@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eidos_transform/holonomic_ekf.hpp"
+#include "eidos_transform/plugins/holonomic_ekf.hpp"
 
 #include <vector>
+
+#include <pluginlib/class_list_macros.hpp>
 
 namespace eidos_transform
 {
@@ -199,3 +201,5 @@ void HolonomicEKF::reset(const gtsam::Pose3 & initial)
 }
 
 }  // namespace eidos_transform
+
+PLUGINLIB_EXPORT_CLASS(eidos_transform::HolonomicEKF, eidos_transform::EKFModelPlugin)

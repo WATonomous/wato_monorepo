@@ -40,7 +40,6 @@ find_package(Eigen3 REQUIRED)
 # ---- Core library ----
 add_library(eidos_transform_core SHARED
   src/eidos_transform_node.cpp
-  src/holonomic_ekf.cpp
 )
 target_include_directories(eidos_transform_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -62,9 +61,9 @@ target_link_libraries(eidos_transform_core PUBLIC
   gtsam
 )
 
-# ---- Plugin library (re-exports core; plugin macros are in holonomic_ekf.cpp which is already in core) ----
+# ---- Plugin library ----
 add_library(eidos_transform_plugins SHARED
-  src/holonomic_ekf_plugin.cpp
+  src/holonomic_ekf.cpp
 )
 target_include_directories(eidos_transform_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

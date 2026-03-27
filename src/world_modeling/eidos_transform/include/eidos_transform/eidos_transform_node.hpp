@@ -76,11 +76,6 @@ struct MeasurementSource
  * - Accept map->odom corrections from a pose topic (e.g. SLAM output).
  * - Accept a static utm->map transform from a topic.
  * - Provide a PredictRelativeTransform service for dead-reckoning queries.
- *
- * Threading:
- * - Tick loop runs in its own callback group.
- * - Odom subscriber callbacks run in the default callback group.
- * - All shared state is guarded by a mutex.
  */
 class EidosTransformNode : public rclcpp_lifecycle::LifecycleNode
 {
