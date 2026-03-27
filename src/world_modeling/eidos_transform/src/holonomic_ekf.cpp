@@ -14,7 +14,7 @@
 
 #include "eidos_transform/holonomic_ekf.hpp"
 
-#include <pluginlib/class_list_macros.hpp>
+#include <vector>
 
 namespace eidos_transform
 {
@@ -29,18 +29,16 @@ void HolonomicEKF::onInitialize()
   // Default: small noise for pose, moderate for velocity.
   std::vector<double> process_noise;
   node_->declare_parameter<std::vector<double>>(
-    name_ + ".process_noise",
-    {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4,
-     1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+    name_ + ".process_noise", {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
   node_->get_parameter(name_ + ".process_noise", process_noise);
 
   if (process_noise.size() != 12) {
     RCLCPP_WARN(
       node_->get_logger(),
       "[%s] process_noise should have 12 entries, got %zu. Using defaults.",
-      name_.c_str(), process_noise.size());
-    process_noise = {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4,
-                     1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2};
+      name_.c_str(),
+      process_noise.size());
+    process_noise = {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2};
   }
 
   Q_ = Eigen::Matrix<double, 12, 12>::Zero();
@@ -93,10 +91,7 @@ void HolonomicEKF::predict(double dt)
 // Update Pose
 // ---------------------------------------------------------------------------
 
-void HolonomicEKF::updatePose(
-  const gtsam::Pose3 & meas,
-  const std::array<bool, 6> & mask,
-  const gtsam::Vector6 & noise)
+void HolonomicEKF::updatePose(const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise)
 {
   // Compute innovation in Lie algebra: error = Logmap(pose^{-1} * meas)
   // This gives the 6-DOF error as [rx, ry, rz, tx, ty, tz].
@@ -153,9 +148,7 @@ void HolonomicEKF::updatePose(
 // ---------------------------------------------------------------------------
 
 void HolonomicEKF::updateTwist(
-  const gtsam::Vector6 & meas,
-  const std::array<bool, 6> & mask,
-  const gtsam::Vector6 & noise)
+  const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise)
 {
   // Innovation is simply (measurement - current velocity).
   gtsam::Vector6 innovation = meas - velocity_;
@@ -206,5 +199,3 @@ void HolonomicEKF::reset(const gtsam::Pose3 & initial)
 }
 
 }  // namespace eidos_transform
-
-PLUGINLIB_EXPORT_CLASS(eidos_transform::HolonomicEKF, eidos_transform::EKFModelPlugin)

@@ -14,6 +14,9 @@
 
 #include "eidos/core/estimator.hpp"
 
+#include <string>
+#include <vector>
+
 namespace eidos
 {
 
@@ -75,6 +78,11 @@ void Estimator::optimizeExtra(int num_iterations, gtsam::Key latest_key)
     optimized_pose_.store(values.at<gtsam::Pose3>(latest_key));
   }
   optimized_values_.store(values);
+}
+
+void Estimator::addFactorsOnly(const gtsam::NonlinearFactorGraph & factors, const gtsam::Values & values)
+{
+  pose_graph_.update(factors, values, 1);
 }
 
 gtsam::Pose3 Estimator::getPose(gtsam::Key key) const

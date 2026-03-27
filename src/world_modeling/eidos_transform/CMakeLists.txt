@@ -62,9 +62,9 @@ target_link_libraries(eidos_transform_core PUBLIC
   gtsam
 )
 
-# ---- Plugin library ----
+# ---- Plugin library (re-exports core; plugin macros are in holonomic_ekf.cpp which is already in core) ----
 add_library(eidos_transform_plugins SHARED
-  src/holonomic_ekf.cpp
+  src/holonomic_ekf_plugin.cpp
 )
 target_include_directories(eidos_transform_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

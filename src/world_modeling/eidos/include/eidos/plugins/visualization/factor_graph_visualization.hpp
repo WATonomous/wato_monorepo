@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <string>
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>

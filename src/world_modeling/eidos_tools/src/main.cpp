@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_cloud.h>
 #include <sqlite3.h>
 
 #include <algorithm>
@@ -20,20 +24,17 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <pcl/common/transforms.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_cloud.h>
 #include <small_gicp/points/point_cloud.hpp>
 
 #include "eidos/formats/registry.hpp"
@@ -52,6 +53,7 @@ struct sqlite3_deleter
     if (db) sqlite3_close(db);
   }
 };
+
 using SqlitePtr = std::unique_ptr<sqlite3, sqlite3_deleter>;
 
 static SqlitePtr openMap(const std::string & path)
@@ -75,6 +77,7 @@ struct stmt_deleter
     if (s) sqlite3_finalize(s);
   }
 };
+
 using StmtPtr = std::unique_ptr<sqlite3_stmt, stmt_deleter>;
 
 static StmtPtr prepare(sqlite3 * db, const char * sql)
@@ -120,18 +123,15 @@ static int cmdInfo(const std::string & path)
 
   // Keyframe count + bounds
   {
-    auto stmt = prepare(
-      db.get(),
-      "SELECT COUNT(*), MIN(x), MAX(x), MIN(y), MAX(y), MIN(z), MAX(z) FROM keyframes");
+    auto stmt = prepare(db.get(), "SELECT COUNT(*), MIN(x), MAX(x), MIN(y), MAX(y), MIN(z), MAX(z) FROM keyframes");
     if (sqlite3_step(stmt.get()) == SQLITE_ROW) {
       int count = sqlite3_column_int(stmt.get(), 0);
       std::cout << "Keyframes: " << count << "\n";
       if (count > 0) {
-        std::cout << std::fixed << std::setprecision(1) << "Bounds: x=["
-                  << sqlite3_column_double(stmt.get(), 1) << ", " << sqlite3_column_double(stmt.get(), 2)
-                  << "]  y=[" << sqlite3_column_double(stmt.get(), 3) << ", "
-                  << sqlite3_column_double(stmt.get(), 4) << "]  z=[" << sqlite3_column_double(stmt.get(), 5)
-                  << ", " << sqlite3_column_double(stmt.get(), 6) << "]\n";
+        std::cout << std::fixed << std::setprecision(1) << "Bounds: x=[" << sqlite3_column_double(stmt.get(), 1) << ", "
+                  << sqlite3_column_double(stmt.get(), 2) << "]  y=[" << sqlite3_column_double(stmt.get(), 3) << ", "
+                  << sqlite3_column_double(stmt.get(), 4) << "]  z=[" << sqlite3_column_double(stmt.get(), 5) << ", "
+                  << sqlite3_column_double(stmt.get(), 6) << "]\n";
       }
     }
   }
@@ -194,8 +194,7 @@ static int cmdInfo(const std::string & path)
       auto reg_it = reg.find(fmt_it->second);
       if (reg_it == reg.end()) {
         int sz = sqlite3_column_bytes(stmt.get(), 1);
-        std::cout << "  " << data_key << ": (" << sz << " bytes, format '" << fmt_it->second
-                  << "' not in registry)\n";
+        std::cout << "  " << data_key << ": (" << sz << " bytes, format '" << fmt_it->second << "' not in registry)\n";
         continue;
       }
 
@@ -203,8 +202,7 @@ static int cmdInfo(const std::string & path)
       int blob_size = sqlite3_column_bytes(stmt.get(), 1);
       if (!blob || blob_size <= 0) continue;
 
-      std::vector<uint8_t> bytes(
-        static_cast<const uint8_t *>(blob), static_cast<const uint8_t *>(blob) + blob_size);
+      std::vector<uint8_t> bytes(static_cast<const uint8_t *>(blob), static_cast<const uint8_t *>(blob) + blob_size);
 
       try {
         auto data = reg_it->second->deserialize(bytes);
@@ -212,19 +210,18 @@ static int cmdInfo(const std::string & path)
         // Print based on format type
         if (fmt_it->second == "raw_double3") {
           auto pt = std::any_cast<gtsam::Point3>(data);
-          std::cout << std::fixed << std::setprecision(6) << "  " << data_key << ": [" << pt.x() << ", "
-                    << pt.y() << ", " << pt.z() << "]\n";
+          std::cout << std::fixed << std::setprecision(6) << "  " << data_key << ": [" << pt.x() << ", " << pt.y()
+                    << ", " << pt.z() << "]\n";
         } else if (fmt_it->second == "raw_double5") {
           auto arr = std::any_cast<std::array<double, 5>>(data);
-          std::cout << std::fixed << std::setprecision(6) << "  " << data_key << ": [" << arr[0] << ", "
-                    << arr[1] << ", " << arr[2] << ", " << arr[3] << ", " << arr[4] << "]\n";
+          std::cout << std::fixed << std::setprecision(6) << "  " << data_key << ": [" << arr[0] << ", " << arr[1]
+                    << ", " << arr[2] << ", " << arr[3] << ", " << arr[4] << "]\n";
         } else if (fmt_it->second == "raw_double4_eigen") {
           auto v = std::any_cast<Eigen::Vector4d>(data);
-          std::cout << std::fixed << std::setprecision(6) << "  " << data_key << ": [" << v[0] << ", "
-                    << v[1] << ", " << v[2] << ", " << v[3] << "]\n";
+          std::cout << std::fixed << std::setprecision(6) << "  " << data_key << ": [" << v[0] << ", " << v[1] << ", "
+                    << v[2] << ", " << v[3] << "]\n";
         } else {
-          std::cout << "  " << data_key << ": (" << blob_size << " bytes, format '" << fmt_it->second
-                    << "')\n";
+          std::cout << "  " << data_key << ": (" << blob_size << " bytes, format '" << fmt_it->second << "')\n";
         }
       } catch (const std::exception & e) {
         std::cout << "  " << data_key << ": (decode error: " << e.what() << ")\n";
@@ -264,9 +261,8 @@ static int cmdPoses(const std::string & path)
     auto owner_col = sqlite3_column_text(stmt.get(), 9);
     std::string owner = owner_col ? reinterpret_cast<const char *>(owner_col) : "";
 
-    std::cout << std::fixed << std::setprecision(6) << id << "," << gk << "," << x << "," << y << ","
-              << z << "," << roll << "," << pitch << "," << yaw << "," << std::setprecision(3) << time
-              << "," << owner << "\n";
+    std::cout << std::fixed << std::setprecision(6) << id << "," << gk << "," << x << "," << y << "," << z << ","
+              << roll << "," << pitch << "," << yaw << "," << std::setprecision(3) << time << "," << owner << "\n";
   }
 
   return 0;
@@ -320,10 +316,9 @@ static Eigen::Affine3f poseToTransform(float x, float y, float z, float roll, fl
 {
   Eigen::Affine3f t = Eigen::Affine3f::Identity();
   t.translation() = Eigen::Vector3f(x, y, z);
-  t.linear() =
-    (Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()) * Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()) *
-     Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()))
-      .toRotationMatrix();
+  t.linear() = (Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitZ()) * Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitY()) *
+                Eigen::AngleAxisf(roll, Eigen::Vector3f::UnitX()))
+                 .toRotationMatrix();
   return t;
 }
 
@@ -381,10 +376,10 @@ static int cmdMap(int argc, char ** argv)
     int id;
     float x, y, z, roll, pitch, yaw;
   };
+
   std::unordered_map<int64_t, KfPose> poses;
   {
-    auto stmt =
-      prepare(db.get(), "SELECT id, gtsam_key, x, y, z, roll, pitch, yaw FROM keyframes ORDER BY id");
+    auto stmt = prepare(db.get(), "SELECT id, gtsam_key, x, y, z, roll, pitch, yaw FROM keyframes ORDER BY id");
     while (sqlite3_step(stmt.get()) == SQLITE_ROW) {
       KfPose p;
       p.id = sqlite3_column_int(stmt.get(), 0);
@@ -424,8 +419,7 @@ static int cmdMap(int argc, char ** argv)
       int blob_size = sqlite3_column_bytes(stmt.get(), 1);
       if (!blob || blob_size <= 0) continue;
 
-      std::vector<uint8_t> bytes(
-        static_cast<const uint8_t *>(blob), static_cast<const uint8_t *>(blob) + blob_size);
+      std::vector<uint8_t> bytes(static_cast<const uint8_t *>(blob), static_cast<const uint8_t *>(blob) + blob_size);
 
       try {
         auto data = reg_it->second->deserialize(bytes);
@@ -456,8 +450,7 @@ static int cmdMap(int argc, char ** argv)
           processed++;
         }
       } catch (const std::exception & e) {
-        std::cerr << "Warning: failed to deserialize keyframe " << pose_it->second.id << ": " << e.what()
-                  << "\n";
+        std::cerr << "Warning: failed to deserialize keyframe " << pose_it->second.id << ": " << e.what() << "\n";
       }
     }
   }

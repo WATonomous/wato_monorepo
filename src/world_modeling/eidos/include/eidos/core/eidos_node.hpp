@@ -79,6 +79,7 @@ private:
   void beginTracking(const gtsam::Pose3 & initial_pose);
 
   // ---- Publishing ----
+  std::optional<gtsam::Pose3> getCurrentPose() const;
   void publishStatus();
   void publishPose();
   void publishOdometry();

@@ -18,8 +18,13 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "eidos/formats/registry.hpp"
 
@@ -106,12 +111,14 @@ void MapManager::updatePoses(const gtsam::Values & optimized)
 
 pcl::PointCloud<PointType>::Ptr MapManager::getKeyPoses3D() const
 {
-  return key_poses_3d_;
+  std::lock_guard<std::mutex> lock(mtx_);
+  return pcl::make_shared<pcl::PointCloud<PointType>>(*key_poses_3d_);
 }
 
 pcl::PointCloud<PoseType>::Ptr MapManager::getKeyPoses6D() const
 {
-  return key_poses_6d_;
+  std::lock_guard<std::mutex> lock(mtx_);
+  return pcl::make_shared<pcl::PointCloud<PoseType>>(*key_poses_6d_);
 }
 
 pcl::KdTreeFLANN<PointType>::Ptr MapManager::getKdTree()
@@ -188,8 +195,9 @@ void MapManager::addEdges(
   }
 }
 
-const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> & MapManager::getAdjacency() const
+std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> MapManager::getAdjacency() const
 {
+  std::lock_guard<std::mutex> lock(mtx_);
   return adjacency_;
 }
 
@@ -205,11 +213,15 @@ std::string MapManager::getEdgeOwner(gtsam::Key key_a, gtsam::Key key_b) const
 // SQLite Persistence
 // ==========================================================================
 
-static void execSql(sqlite3 * db, const char * sql)
+static bool execSql(sqlite3 * db, const char * sql)
 {
   char * err = nullptr;
-  sqlite3_exec(db, sql, nullptr, nullptr, &err);
-  if (err) sqlite3_free(err);
+  int rc = sqlite3_exec(db, sql, nullptr, nullptr, &err);
+  if (err) {
+    std::fprintf(stderr, "[MapManager] SQL error: %s\n", err);
+    sqlite3_free(err);
+  }
+  return rc == SQLITE_OK;
 }
 
 bool MapManager::saveMap(const std::string & path)

@@ -21,7 +21,9 @@
 #include <deque>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -101,8 +103,8 @@ private:
   std::string utm_frame_ = "utm";
 
   // Parameters
-  float max_cov_;
-  float min_radius_;
+  double max_cov_;
+  double min_radius_;
   bool use_elevation_;
   std::vector<double> gps_cov_;
   double pose_cov_threshold_;

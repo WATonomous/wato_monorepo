@@ -14,6 +14,8 @@
 
 #include "eidos/core/pose_graph.hpp"
 
+#include <memory>
+
 namespace eidos
 {
 

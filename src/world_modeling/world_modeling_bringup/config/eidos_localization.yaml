@@ -1,37 +1,38 @@
 /**/eidos_node:
   ros__parameters:
-    # ---- Frames ----
     frames:
       base_link: "base_footprint"
       odometry: "odom"
       map: "map"
 
-    # ---- Core ----
+    # Main SLAM loop frequency (Hz)
     slam_rate: 10.0
+    # Seconds to wait for relocalization before falling back to identity
     relocalization_timeout: 30.0
 
     isam2:
       relinearize_threshold: 0.01
       relinearize_skip: 1
 
+    # Prior factor on the first state (anchors the graph origin)
+    # [x, y, z, roll, pitch, yaw] covariance diagonal
     prior:
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
     map:
-      load_path: "/opt/watonomous/maps/wrestrc.map"
+      load_path: "/opt/watonomous/maps/wrestrc.map"   # Prior map for localization
       save_path: ""
 
-    # ---- Core topics / services ----
+    # Published topics and services
     topics:
       pose: "slam/pose"
       status: "slam/status"
       odom: "slam/odometry"
+      odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]  # Diagonal pose covariance on odom topic [x,y,z,roll,pitch,yaw]
       save_map_service: "slam/save_map"
       load_map_service: "slam/load_map"
 
-    odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]
-
-    # ---- Plugin lists ----
+    # Plugin lists
     factor_plugins:
       - "gps_factor"
       - "liso_factor"
@@ -43,9 +44,7 @@
     visualization_plugins:
       - "keyframe_map_visualization"
 
-    # ==========================================================================
     # IMU Factor (publishes odom for eidos_transform, no factors injected)
-    # ==========================================================================
     imu_factor:
       plugin: "eidos::ImuFactor"
       add_factors: false
@@ -58,9 +57,7 @@
       integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
       default_imu_dt: 0.002
 
-    # ==========================================================================
     # GPS Factor (loads utm_to_map offset from prior map, no factors injected)
-    # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
       add_factors: false
@@ -74,9 +71,7 @@
       pose_cov_threshold: 1.0
       gps_cov: [2.0, 2.0, 4.0]
 
-    # ==========================================================================
     # LISO Factor (scan-to-submap matching against prior map)
-    # ==========================================================================
     liso_factor:
       plugin: "eidos::LisoFactor"
       add_factors: false
@@ -111,9 +106,7 @@
       odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
-    # ==========================================================================
     # GPS + ICP Relocalization
-    # ==========================================================================
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"
 
@@ -137,9 +130,7 @@
 
       fitness_threshold: 0.3
 
-    # ==========================================================================
     # Keyframe Map Visualization
-    # ==========================================================================
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"

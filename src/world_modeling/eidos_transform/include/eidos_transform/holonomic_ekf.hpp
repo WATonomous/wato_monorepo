@@ -14,9 +14,10 @@
 
 #pragma once
 
-#include <Eigen/Dense>
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Pose3.h>
+
+#include <Eigen/Dense>
 
 #include "eidos_transform/ekf_model_plugin.hpp"
 
@@ -52,15 +53,10 @@ public:
   // ---- EKF interface ----
   void predict(double dt) override;
 
-  void updatePose(
-    const gtsam::Pose3 & meas,
-    const std::array<bool, 6> & mask,
-    const gtsam::Vector6 & noise) override;
+  void updatePose(const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
 
   void updateTwist(
-    const gtsam::Vector6 & meas,
-    const std::array<bool, 6> & mask,
-    const gtsam::Vector6 & noise) override;
+    const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
 
   gtsam::Pose3 pose() const override;
   gtsam::Vector6 velocity() const override;

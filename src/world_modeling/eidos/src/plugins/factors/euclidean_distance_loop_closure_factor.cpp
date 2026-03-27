@@ -17,8 +17,13 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
 
+#include <limits>
+#include <memory>
 #include <queue>
+#include <string>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>

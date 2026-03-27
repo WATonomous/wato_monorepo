@@ -40,9 +40,7 @@ public:
   /**
    * @brief Framework calls this once, then calls onInitialize().
    */
-  void initialize(
-    const std::string & name,
-    rclcpp_lifecycle::LifecycleNode::SharedPtr node)
+  void initialize(const std::string & name, rclcpp_lifecycle::LifecycleNode::SharedPtr node)
   {
     name_ = name;
     node_ = node;
@@ -68,9 +66,7 @@ public:
    * @param noise Standard deviation for each DOF.
    */
   virtual void updatePose(
-    const gtsam::Pose3 & meas,
-    const std::array<bool, 6> & mask,
-    const gtsam::Vector6 & noise) = 0;
+    const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) = 0;
 
   /**
    * @brief Fuse a twist measurement (6-DOF body-frame velocity, masked).
@@ -79,9 +75,7 @@ public:
    * @param noise Standard deviation for each DOF.
    */
   virtual void updateTwist(
-    const gtsam::Vector6 & meas,
-    const std::array<bool, 6> & mask,
-    const gtsam::Vector6 & noise) = 0;
+    const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) = 0;
 
   /**
    * @brief Current estimated pose.

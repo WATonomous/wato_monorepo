@@ -27,6 +27,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "eidos/utils/types.hpp"
@@ -143,7 +144,7 @@ public:
   // ---- Graph adjacency ----
 
   void addEdges(const gtsam::NonlinearFactorGraph & new_factors, const std::vector<std::string> & factor_owners = {});
-  const std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> & getAdjacency() const;
+  std::unordered_map<gtsam::Key, std::vector<gtsam::Key>> getAdjacency() const;
   std::string getEdgeOwner(gtsam::Key key_a, gtsam::Key key_b) const;
 
   // ---- Persistence (single .map SQLite file) ----

@@ -22,8 +22,10 @@
 #include <deque>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -114,6 +116,7 @@ private:
   std::deque<sensor_msgs::msg::Imu> imu_buffer_;
   std::mutex imu_mtx_;
   Eigen::Vector3d gyro_delta_rpy_{0, 0, 0};
+  std::mutex gyro_mtx_;
   double last_gyro_time_ = 0.0;
   bool gyro_tracking_active_ = false;
   Eigen::Matrix3d R_base_imu_ = Eigen::Matrix3d::Identity();

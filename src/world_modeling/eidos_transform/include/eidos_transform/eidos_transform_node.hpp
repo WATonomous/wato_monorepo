@@ -14,10 +14,12 @@
 
 #pragma once
 
+#include <gtsam/geometry/Pose3.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -31,10 +33,8 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
-#include <gtsam/geometry/Pose3.h>
-
-#include "eidos_transform/ekf_model_plugin.hpp"
 #include "eidos_msgs/srv/predict_relative_transform.hpp"
+#include "eidos_transform/ekf_model_plugin.hpp"
 
 namespace eidos_transform
 {
@@ -89,8 +89,7 @@ public:
   ~EidosTransformNode() override;
 
 protected:
-  using CallbackReturn =
-    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
@@ -153,7 +152,8 @@ private:
 
   // ---- Cached transforms ----
   gtsam::Pose3 cached_map_to_odom_;
-  bool has_map_to_odom_ = false;
+  std::atomic<bool> has_map_to_odom_{false};
+  std::mutex map_to_odom_mtx_;
 
   geometry_msgs::msg::TransformStamped cached_utm_to_map_;
   bool has_utm_to_map_ = false;

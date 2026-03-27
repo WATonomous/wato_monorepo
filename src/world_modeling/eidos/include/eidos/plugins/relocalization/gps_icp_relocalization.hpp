@@ -17,6 +17,7 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <string>
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>

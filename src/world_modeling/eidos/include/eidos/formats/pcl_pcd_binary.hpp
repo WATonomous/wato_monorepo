@@ -17,6 +17,7 @@
 #include <pcl/point_cloud.h>
 
 #include <cstring>
+#include <vector>
 
 #include "eidos/formats/format.hpp"
 #include "eidos/utils/types.hpp"

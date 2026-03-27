@@ -19,6 +19,10 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <tf2_ros/buffer.h>
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <pluginlib/class_list_macros.hpp>
 
 namespace eidos
@@ -78,6 +82,7 @@ void ImuFactor::onInitialize()
   }
   preint_params_ = p;
   integrator_ = std::make_unique<gtsam::PreintegratedImuMeasurements>(p, current_bias_);
+  odom_integrator_ = std::make_unique<gtsam::PreintegratedImuMeasurements>(p, current_bias_);
 
   // IMU subscription
   rclcpp::SubscriptionOptions sub_opts;
@@ -187,6 +192,7 @@ void ImuFactor::onOptimizationComplete(const gtsam::Values & optimized_values, b
   if (has_last_key_ && optimized_values.exists(last_key_)) {
     auto corrected = optimized_values.at<gtsam::Pose3>(last_key_);
     reference_state_ = gtsam::NavState(corrected, gtsam::Vector3::Zero());
+    odom_integrator_->resetIntegrationAndSetBias(current_bias_);
   }
 }
 
@@ -259,6 +265,7 @@ void ImuFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
       reference_state_ =
         gtsam::NavState(gtsam::Pose3(initial_gravity_orientation_, gtsam::Point3(0, 0, 0)), gtsam::Vector3::Zero());
       integrator_->resetIntegrationAndSetBias(current_bias_);
+      odom_integrator_->resetIntegrationAndSetBias(current_bias_);
 
       warmup_complete_ = true;
       RCLCPP_INFO(
@@ -284,9 +291,9 @@ void ImuFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
       converted.linear_acceleration.x, converted.linear_acceleration.y, converted.linear_acceleration.z);
     Eigen::Vector3d gyr(converted.angular_velocity.x, converted.angular_velocity.y, converted.angular_velocity.z);
 
-    // Integrate this measurement, then predict
-    integrator_->integrateMeasurement(acc, gyr, dt);
-    auto state = integrator_->predict(reference_state_, current_bias_);
+    // Integrate on the odom integrator (separate from latchFactor's integrator)
+    odom_integrator_->integrateMeasurement(acc, gyr, dt);
+    auto state = odom_integrator_->predict(reference_state_, current_bias_);
     gtsam::Pose3 base_pose(state.pose().rotation(), state.pose().translation());
     setOdomPose(base_pose);
 

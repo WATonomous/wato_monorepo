@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <memory>
+#include <string>
+#include <unordered_map>
+
 #include "eidos/formats/pcl_pcd_binary.hpp"
 #include "eidos/formats/raw_double3.hpp"
 #include "eidos/formats/raw_double4_eigen.hpp"

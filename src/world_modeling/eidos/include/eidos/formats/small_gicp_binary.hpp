@@ -15,6 +15,8 @@
 #pragma once
 
 #include <cstring>
+#include <memory>
+#include <vector>
 
 #include <small_gicp/points/point_cloud.hpp>
 

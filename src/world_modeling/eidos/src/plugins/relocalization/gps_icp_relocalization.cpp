@@ -19,6 +19,9 @@
 
 #include <array>
 #include <cmath>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
@@ -183,7 +186,8 @@ void GpsIcpRelocalization::imuCallback(const sensor_msgs::msg::Imu::SharedPtr ms
 // ---------------------------------------------------------------------------
 // tryRelocalize — match live scan against prior map submap
 // ---------------------------------------------------------------------------
-std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(double /*timestamp*/)
+std::optional<RelocalizationResult> GpsIcpRelocalization::tryRelocalize(  // NOLINT(readability/casting)
+  double /*timestamp*/)
 {
   if (!active_) return std::nullopt;
 

@@ -14,6 +14,10 @@
 
 #include "eidos/core/plugin_registry.hpp"
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "eidos/core/map_manager.hpp"
 
 namespace eidos

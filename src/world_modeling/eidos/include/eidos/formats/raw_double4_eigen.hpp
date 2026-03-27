@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <Eigen/Core>
+#include <vector>
 
 #include "eidos/formats/format.hpp"
 

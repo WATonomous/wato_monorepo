@@ -17,6 +17,11 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
 
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <pluginlib/class_list_macros.hpp>
 
 namespace eidos
@@ -27,8 +32,7 @@ void MotionModelFactor::onInitialize()
   std::string prefix = name_;
 
   node_->declare_parameter(prefix + ".predict_service", std::string("predict_relative_transform"));
-  node_->declare_parameter(
-    prefix + ".noise_cov", std::vector<double>{1e-2, 1e-2, 1e-2, 1e-4, 1e-4, 1e-4});
+  node_->declare_parameter(prefix + ".noise_cov", std::vector<double>{1e-2, 1e-2, 1e-2, 1e-4, 1e-4, 1e-4});
 
   std::string service_name;
   node_->get_parameter(prefix + ".predict_service", service_name);
@@ -37,8 +41,7 @@ void MotionModelFactor::onInitialize()
   predict_client_ = node_->create_client<eidos_msgs::srv::PredictRelativeTransform>(service_name);
 
   RCLCPP_INFO(
-    node_->get_logger(), "[%s] initialized (motion model factor, service=%s)", name_.c_str(),
-    service_name.c_str());
+    node_->get_logger(), "[%s] initialized (motion model factor, service=%s)", name_.c_str(), service_name.c_str());
 }
 
 void MotionModelFactor::activate()
@@ -82,8 +85,7 @@ StampedFactorResult MotionModelFactor::latchFactor(gtsam::Key key, double timest
   // Call eidos_transform's predict service
   if (!predict_client_->service_is_ready()) {
     RCLCPP_WARN_THROTTLE(
-      node_->get_logger(), *node_->get_clock(), 5000,
-      "[%s] predict service not available", name_.c_str());
+      node_->get_logger(), *node_->get_clock(), 5000, "[%s] predict service not available", name_.c_str());
     last_key_ = key;
     last_timestamp_ = timestamp;
     return result;
@@ -96,7 +98,7 @@ StampedFactorResult MotionModelFactor::latchFactor(gtsam::Key key, double timest
   auto future = predict_client_->async_send_request(request);
 
   // Wait briefly for the response (service is on the same machine, <1ms expected)
-  if (future.wait_for(std::chrono::milliseconds(50)) != std::future_status::ready) {
+  if (future.wait_for(std::chrono::milliseconds(5)) != std::future_status::ready) {
     RCLCPP_WARN(node_->get_logger(), "[%s] predict service timeout", name_.c_str());
     last_key_ = key;
     last_timestamp_ = timestamp;
@@ -112,8 +114,7 @@ StampedFactorResult MotionModelFactor::latchFactor(gtsam::Key key, double timest
 
   // Convert response pose to gtsam::Pose3
   auto & p = response->relative_pose;
-  gtsam::Rot3 rot = gtsam::Rot3::Quaternion(
-    p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z);
+  gtsam::Rot3 rot = gtsam::Rot3::Quaternion(p.orientation.w, p.orientation.x, p.orientation.y, p.orientation.z);
   gtsam::Point3 trans(p.position.x, p.position.y, p.position.z);
   gtsam::Pose3 relative_pose(rot, trans);
 
@@ -134,7 +135,12 @@ StampedFactorResult MotionModelFactor::latchFactor(gtsam::Key key, double timest
   RCLCPP_INFO(
     node_->get_logger(),
     "\033[34m[%s] MotionModelBetween (%c,%lu)->(%c,%lu) dt=%.3f\033[0m",
-    name_.c_str(), prev_sym.chr(), prev_sym.index(), curr_sym.chr(), curr_sym.index(), dt);
+    name_.c_str(),
+    prev_sym.chr(),
+    prev_sym.index(),
+    curr_sym.chr(),
+    curr_sym.index(),
+    dt);
 
   last_key_ = key;
   last_timestamp_ = timestamp;

@@ -16,6 +16,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>

@@ -14,9 +14,13 @@
 
 #include "eidos_transform/eidos_transform_node.hpp"
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-
 #include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 namespace eidos_transform
 {
@@ -26,8 +30,8 @@ namespace eidos_transform
 // ---------------------------------------------------------------------------
 
 EidosTransformNode::EidosTransformNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("eidos_transform_node", options),
-  ekf_loader_("eidos_transform", "eidos_transform::EKFModelPlugin")
+: rclcpp_lifecycle::LifecycleNode("eidos_transform_node", options)
+, ekf_loader_("eidos_transform", "eidos_transform::EKFModelPlugin")
 {
   RCLCPP_INFO(get_logger(), "EidosTransformNode created.");
 }
@@ -38,8 +42,7 @@ EidosTransformNode::~EidosTransformNode() = default;
 // Lifecycle: on_configure
 // ---------------------------------------------------------------------------
 
-EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
-  const rclcpp_lifecycle::State & /*state*/)
+EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Configuring...");
 
@@ -78,8 +81,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
     ekf_model_->initialize(ekf_name, shared_from_this());
     RCLCPP_INFO(get_logger(), "Loaded EKF plugin: %s", ekf_plugin_name_.c_str());
   } catch (const pluginlib::PluginlibException & ex) {
-    RCLCPP_ERROR(get_logger(), "Failed to load EKF plugin '%s': %s",
-      ekf_plugin_name_.c_str(), ex.what());
+    RCLCPP_ERROR(get_logger(), "Failed to load EKF plugin '%s': %s", ekf_plugin_name_.c_str(), ex.what());
     return CallbackReturn::FAILURE;
   }
 
@@ -101,8 +103,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
     }
 
     // Pose mask: 6 bools [rx, ry, rz, tx, ty, tz]
-    declare_parameter<std::vector<bool>>(
-      src_name + ".pose_mask", {false, false, false, false, false, false});
+    declare_parameter<std::vector<bool>>(src_name + ".pose_mask", {false, false, false, false, false, false});
     std::vector<bool> pm;
     get_parameter(src_name + ".pose_mask", pm);
     for (size_t i = 0; i < 6 && i < pm.size(); ++i) {
@@ -110,8 +111,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
     }
 
     // Twist mask
-    declare_parameter<std::vector<bool>>(
-      src_name + ".twist_mask", {false, false, false, false, false, false});
+    declare_parameter<std::vector<bool>>(src_name + ".twist_mask", {false, false, false, false, false, false});
     std::vector<bool> tm;
     get_parameter(src_name + ".twist_mask", tm);
     for (size_t i = 0; i < 6 && i < tm.size(); ++i) {
@@ -119,8 +119,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
     }
 
     // Pose noise (std devs)
-    declare_parameter<std::vector<double>>(
-      src_name + ".pose_noise", {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+    declare_parameter<std::vector<double>>(src_name + ".pose_noise", {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
     std::vector<double> pn;
     get_parameter(src_name + ".pose_noise", pn);
     for (size_t i = 0; i < 6 && i < pn.size(); ++i) {
@@ -128,8 +127,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
     }
 
     // Twist noise (std devs)
-    declare_parameter<std::vector<double>>(
-      src_name + ".twist_noise", {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+    declare_parameter<std::vector<double>>(src_name + ".twist_noise", {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
     std::vector<double> tn;
     get_parameter(src_name + ".twist_noise", tn);
     for (size_t i = 0; i < 6 && i < tn.size(); ++i) {
@@ -138,7 +136,8 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
 
     // Create subscriber
     src.subscriber = create_subscription<nav_msgs::msg::Odometry>(
-      src.odom_topic, rclcpp::SensorDataQoS(),
+      src.odom_topic,
+      rclcpp::SensorDataQoS(),
       [this, idx = sources_.size()](const nav_msgs::msg::Odometry::SharedPtr msg) {
         std::lock_guard<std::mutex> lock(sources_mutex_);
         if (idx < sources_.size()) {
@@ -147,8 +146,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
         }
       });
 
-    RCLCPP_INFO(get_logger(), "Odom source '%s' on topic '%s'",
-      src_name.c_str(), src.odom_topic.c_str());
+    RCLCPP_INFO(get_logger(), "Odom source '%s' on topic '%s'", src_name.c_str(), src.odom_topic.c_str());
 
     sources_.push_back(std::move(src));
   }
@@ -163,7 +161,8 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
   // ---- Map source subscriber ----
   if (!map_source_topic_.empty()) {
     map_source_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-      map_source_topic_, rclcpp::SensorDataQoS(),
+      map_source_topic_,
+      rclcpp::SensorDataQoS(),
       std::bind(&EidosTransformNode::mapSourceCallback, this, std::placeholders::_1));
     RCLCPP_INFO(get_logger(), "Map source on topic '%s'", map_source_topic_.c_str());
   }
@@ -171,7 +170,8 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
   // ---- UTM to map subscriber ----
   if (!utm_to_map_topic_.empty()) {
     utm_to_map_sub_ = create_subscription<geometry_msgs::msg::TransformStamped>(
-      utm_to_map_topic_, rclcpp::QoS(1).transient_local(),
+      utm_to_map_topic_,
+      rclcpp::QoS(1).transient_local(),
       std::bind(&EidosTransformNode::utmToMapCallback, this, std::placeholders::_1));
     RCLCPP_INFO(get_logger(), "UTM-to-map on topic '%s'", utm_to_map_topic_.c_str());
   }
@@ -180,8 +180,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
   predict_srv_ = create_service<eidos_msgs::srv::PredictRelativeTransform>(
     predict_service_topic,
     std::bind(
-      &EidosTransformNode::predictRelativeTransformCallback, this,
-      std::placeholders::_1, std::placeholders::_2));
+      &EidosTransformNode::predictRelativeTransformCallback, this, std::placeholders::_1, std::placeholders::_2));
 
   // ---- Tick callback group + timer (created but not started until activate) ----
   tick_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -194,8 +193,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(
 // Lifecycle: on_activate
 // ---------------------------------------------------------------------------
 
-EidosTransformNode::CallbackReturn EidosTransformNode::on_activate(
-  const rclcpp_lifecycle::State & /*state*/)
+EidosTransformNode::CallbackReturn EidosTransformNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Activating...");
 
@@ -218,8 +216,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_activate(
 // Lifecycle: on_deactivate
 // ---------------------------------------------------------------------------
 
-EidosTransformNode::CallbackReturn EidosTransformNode::on_deactivate(
-  const rclcpp_lifecycle::State & /*state*/)
+EidosTransformNode::CallbackReturn EidosTransformNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Deactivating...");
 
@@ -238,8 +235,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_deactivate(
 // Lifecycle: on_cleanup
 // ---------------------------------------------------------------------------
 
-EidosTransformNode::CallbackReturn EidosTransformNode::on_cleanup(
-  const rclcpp_lifecycle::State & /*state*/)
+EidosTransformNode::CallbackReturn EidosTransformNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Cleaning up...");
 
@@ -260,8 +256,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_cleanup(
 // Lifecycle: on_shutdown
 // ---------------------------------------------------------------------------
 
-EidosTransformNode::CallbackReturn EidosTransformNode::on_shutdown(
-  const rclcpp_lifecycle::State & /*state*/)
+EidosTransformNode::CallbackReturn EidosTransformNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Shutting down...");
   return CallbackReturn::SUCCESS;
@@ -372,12 +367,17 @@ void EidosTransformNode::broadcastOdomToBaseTF(const rclcpp::Time & stamp)
 
 void EidosTransformNode::broadcastMapToOdomTF(const rclcpp::Time & stamp)
 {
-  if (!has_map_to_odom_) {
+  if (!has_map_to_odom_.load(std::memory_order_acquire)) {
     return;
   }
 
-  gtsam::Quaternion q = cached_map_to_odom_.rotation().toQuaternion();
-  gtsam::Point3 t = cached_map_to_odom_.translation();
+  gtsam::Pose3 map_to_odom;
+  {
+    std::lock_guard lock(map_to_odom_mtx_);
+    map_to_odom = cached_map_to_odom_;
+  }
+  gtsam::Quaternion q = map_to_odom.rotation().toQuaternion();
+  gtsam::Point3 t = map_to_odom.translation();
 
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = stamp;
@@ -438,19 +438,20 @@ void EidosTransformNode::publishOdometry(const rclcpp::Time & stamp)
 // Callbacks
 // ---------------------------------------------------------------------------
 
-void EidosTransformNode::mapSourceCallback(
-  const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+void EidosTransformNode::mapSourceCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
   // map_source gives us the robot pose in the map frame.
   // map_to_odom = map_to_base * inv(odom_to_base)
   gtsam::Pose3 map_to_base = poseStampedToPose3(*msg);
   gtsam::Pose3 odom_to_base = ekf_model_->pose();
-  cached_map_to_odom_ = map_to_base.compose(odom_to_base.inverse());
-  has_map_to_odom_ = true;
+  {
+    std::lock_guard lock(map_to_odom_mtx_);
+    cached_map_to_odom_ = map_to_base.compose(odom_to_base.inverse());
+  }
+  has_map_to_odom_.store(true, std::memory_order_release);
 }
 
-void EidosTransformNode::utmToMapCallback(
-  const geometry_msgs::msg::TransformStamped::SharedPtr msg)
+void EidosTransformNode::utmToMapCallback(const geometry_msgs::msg::TransformStamped::SharedPtr msg)
 {
   cached_utm_to_map_ = *msg;
   cached_utm_to_map_.header.frame_id = utm_frame_;
@@ -475,7 +476,11 @@ void EidosTransformNode::predictRelativeTransformCallback(
   }
 
   // Integrate the current velocity forward by dt to produce a relative transform.
-  gtsam::Vector6 vel = ekf_model_->velocity();
+  gtsam::Vector6 vel;
+  {
+    std::lock_guard lock(sources_mutex_);
+    vel = ekf_model_->velocity();
+  }
   gtsam::Vector6 delta = vel * dt;
   gtsam::Pose3 relative = gtsam::Pose3::Expmap(delta);
 
@@ -500,9 +505,7 @@ gtsam::Pose3 EidosTransformNode::odomMsgToPose3(const nav_msgs::msg::Odometry & 
 {
   const auto & p = msg.pose.pose.position;
   const auto & q = msg.pose.pose.orientation;
-  return gtsam::Pose3(
-    gtsam::Rot3::Quaternion(q.w, q.x, q.y, q.z),
-    gtsam::Point3(p.x, p.y, p.z));
+  return gtsam::Pose3(gtsam::Rot3::Quaternion(q.w, q.x, q.y, q.z), gtsam::Point3(p.x, p.y, p.z));
 }
 
 gtsam::Vector6 EidosTransformNode::odomMsgToTwist(const nav_msgs::msg::Odometry & msg)
@@ -515,14 +518,11 @@ gtsam::Vector6 EidosTransformNode::odomMsgToTwist(const nav_msgs::msg::Odometry 
   return twist;
 }
 
-gtsam::Pose3 EidosTransformNode::poseStampedToPose3(
-  const geometry_msgs::msg::PoseStamped & msg)
+gtsam::Pose3 EidosTransformNode::poseStampedToPose3(const geometry_msgs::msg::PoseStamped & msg)
 {
   const auto & p = msg.pose.position;
   const auto & q = msg.pose.orientation;
-  return gtsam::Pose3(
-    gtsam::Rot3::Quaternion(q.w, q.x, q.y, q.z),
-    gtsam::Point3(p.x, p.y, p.z));
+  return gtsam::Pose3(gtsam::Rot3::Quaternion(q.w, q.x, q.y, q.z), gtsam::Point3(p.x, p.y, p.z));
 }
 
 }  // namespace eidos_transform

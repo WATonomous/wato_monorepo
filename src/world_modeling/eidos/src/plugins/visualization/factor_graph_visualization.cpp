@@ -17,6 +17,7 @@
 #include <gtsam/inference/Symbol.h>
 
 #include <functional>
+#include <string>
 #include <unordered_set>
 
 #include <pluginlib/class_list_macros.hpp>

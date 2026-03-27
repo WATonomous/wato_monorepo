@@ -16,6 +16,8 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <string>
+
 #include <pluginlib/class_list_macros.hpp>
 
 #include "eidos/core/map_manager.hpp"

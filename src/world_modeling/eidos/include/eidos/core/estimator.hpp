@@ -22,6 +22,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "eidos/core/pose_graph.hpp"
 #include "eidos/utils/atomic_slot.hpp"
@@ -66,6 +67,9 @@ public:
 
   /// Run additional ISAM2 iterations (e.g. after loop closure or GPS correction).
   void optimizeExtra(int num_iterations, gtsam::Key latest_key);
+
+  /// Add factors without creating new states (e.g. standalone loop closure factors).
+  void addFactorsOnly(const gtsam::NonlinearFactorGraph & factors, const gtsam::Values & values);
 
   /// Get the latest optimized pose (thread-safe, lock-free).
   const LockFreePose & getOptimizedPose() const

@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace eidos
 {

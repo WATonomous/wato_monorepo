@@ -47,7 +47,6 @@ def utm_to_latlon(easting: float, northing: float, zone: int, is_north: bool):
     a = 6378137.0
     f = 1 / 298.257223563
     e2 = 2 * f - f * f
-    e = math.sqrt(e2)
     e_prime2 = e2 / (1 - e2)
 
     k0 = 0.9996

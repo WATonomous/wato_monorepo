@@ -18,9 +18,13 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <algorithm>
 #include <filesystem>
+#include <memory>
 #include <queue>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
@@ -371,7 +375,10 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     has_cached_result_ = true;
     first_scan_ = false;
     gyro_tracking_active_ = true;
-    gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+    {
+      std::lock_guard lock(gyro_mtx_);
+      gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+    }
     last_gyro_time_ = scan_time;
     return;
   }
@@ -381,7 +388,12 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   // Initial guess from gyro-integrated rotation
   Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
   if (has_last_match_) {
-    gtsam::Rot3 delta_rot = gtsam::Rot3::RzRyRx(gyro_delta_rpy_);
+    Eigen::Vector3d gyro_delta;
+    {
+      std::lock_guard lock(gyro_mtx_);
+      gyro_delta = gyro_delta_rpy_;
+    }
+    gtsam::Rot3 delta_rot = gtsam::Rot3::RzRyRx(gyro_delta);
     gtsam::Rot3 init_rotation = last_matched_pose_.rotation() * delta_rot;
     gtsam::Pose3 predicted(init_rotation, last_matched_pose_.translation());
     init_guess = Eigen::Isometry3d(predicted.matrix());
@@ -446,7 +458,10 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   last_matched_pose_ = matched_pose;
   has_last_match_ = true;
-  gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+  {
+    std::lock_guard lock(gyro_mtx_);
+    gyro_delta_rpy_ = Eigen::Vector3d::Zero();
+  }
   last_gyro_time_ = scan_time;
 
   // Incremental odometry (odom frame)
@@ -626,6 +641,7 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
     double dt = current_time - last_gyro_time_;
     if (dt > 0.0 && dt < kMaxGyroDt) {
       Eigen::Vector3d omega_imu(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
+      std::lock_guard lock(gyro_mtx_);
       gyro_delta_rpy_ += R_base_imu_ * omega_imu * dt;
     }
   }

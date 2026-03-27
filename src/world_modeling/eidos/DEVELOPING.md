@@ -307,6 +307,88 @@ contain the C++ type that the named format expects (e.g., `"pcl_pcd_binary"` exp
 `pcl::PointCloud<PointType>::Ptr`). A mismatch causes `std::bad_any_cast` at save time,
 which is caught and logged.
 
+### Adding a New Format
+
+To persist a new C++ type through the map file:
+
+1. **Create the format handler** in `include/eidos/formats/`. Inherit `eidos::formats::Format`
+   and implement `serialize` / `deserialize`:
+
+```cpp
+// include/eidos/formats/my_type_binary.hpp
+#pragma once
+#include <cstring>
+#include "eidos/formats/format.hpp"
+
+namespace eidos::formats {
+
+class MyTypeBinary : public Format {
+public:
+  std::vector<uint8_t> serialize(const std::any & data) override {
+    auto val = std::any_cast<MyType>(data);       // throws bad_any_cast on wrong type
+    std::vector<uint8_t> buf(sizeof(MyType));
+    std::memcpy(buf.data(), &val, sizeof(MyType));
+    return buf;
+  }
+
+  std::any deserialize(const std::vector<uint8_t> & bytes) override {
+    if (bytes.size() < sizeof(MyType)) return std::any{};
+    MyType val;
+    std::memcpy(&val, bytes.data(), sizeof(MyType));
+    return val;
+  }
+};
+
+} // namespace eidos::formats
+```
+
+1. **Register the format** in `src/format_registry.cpp`:
+
+```cpp
+#include "eidos/formats/my_type_binary.hpp"
+
+// Inside the registry() lambda:
+r["my_type_binary"] = std::make_unique<MyTypeBinary>();
+```
+
+1. **Use the format in your plugin**. During `onInitialize()`, register the data key
+   with MapManager so save/load knows which format to use:
+
+```cpp
+void MyPlugin::onInitialize() {
+  // For per-keyframe data:
+  map_manager_->registerKeyframeFormat("my_plugin/data", "my_type_binary");
+
+  // For global (non-keyframe) data:
+  map_manager_->registerGlobalFormat("my_plugin/config", "my_type_binary");
+}
+```
+
+1. **Store/retrieve data** at runtime using the typed templates:
+
+```cpp
+// Store (in sensor callback or produceFactor):
+map_manager_->store<MyType>(gtsam_key, "my_plugin/data", value);
+
+// Retrieve (in onTrackingBegin or submap build):
+auto val = map_manager_->retrieve<MyType>(gtsam_key, "my_plugin/data");
+if (val) { /* use *val */ }
+```
+
+The format is now automatically serialized during `saveMap()` and deserialized during
+`loadMap()`. The `data_formats` table records the mapping so `eidos_tools` and any
+future reader can deserialize without knowing about your plugin.
+
+**Existing formats** for reference:
+
+| Format Name | C++ Type | Size | Header |
+|---|---|---|---|
+| `pcl_pcd_binary` | `pcl::PointCloud<PointType>::Ptr` | N *sizeof(PointXYZI) | `pcl_pcd_binary.hpp` |
+| `small_gicp_binary` | `small_gicp::PointCloud::Ptr` | 8 + N* 32 bytes | `small_gicp_binary.hpp` |
+| `raw_double3` | `gtsam::Point3` (Eigen::Vector3d) | 24 bytes | `raw_double3.hpp` |
+| `raw_double4_eigen` | `Eigen::Vector4d` | 32 bytes | `raw_double4_eigen.hpp` |
+| `raw_double5` | `std::array<double, 5>` | 40 bytes | `raw_double5.hpp` |
+
 ### Save / Load Flow
 
 - **Save** (`saveMap(path)`): Opens a new SQLite file. Writes metadata, keyframe poses,

@@ -17,9 +17,14 @@
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "eidos/utils/conversions.hpp"
 
@@ -57,7 +62,7 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
   declare_parameter("frames.base_link", std::string("base_footprint"));
   declare_parameter("map.load_path", std::string(""));
   declare_parameter("map.save_path", std::string(""));
-  declare_parameter("odom_pose_cov", std::vector<double>{1.0, 1.0, 1.0, 0.1, 0.1, 0.1});
+  declare_parameter("topics.odom_pose_cov", std::vector<double>{1.0, 1.0, 1.0, 0.1, 0.1, 0.1});
 
   // ISAM2 + prior params (read as locals, passed to Estimator::configure)
   declare_parameter("isam2.relinearize_threshold", 0.1);
@@ -89,7 +94,7 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
   get_parameter("frames.base_link", base_link_frame_);
   get_parameter("map.load_path", map_load_directory_);
   get_parameter("map.save_path", map_save_directory_);
-  get_parameter("odom_pose_cov", odom_pose_cov_);
+  get_parameter("topics.odom_pose_cov", odom_pose_cov_);
 
   // Configure Estimator with all ISAM2 params
   {
@@ -368,6 +373,15 @@ void EidosNode::handleTracking(double timestamp)
   // 5. Update adjacency
   map_manager_.addEdges(new_factors, new_factor_owners);
 
+  // If no new states were created, just add standalone factors (e.g. loop closure)
+  if (new_states.empty()) {
+    estimator_.addFactorsOnly(new_factors, new_values);
+    publishPose();
+    publishOdometry();
+    publishStatus();
+    return;
+  }
+
   // 6. Optimize
   auto latest_key = new_states.back().key;
   auto optimized = estimator_.optimize(new_factors, new_values, latest_key, estimator_.getUpdateIterations());
@@ -439,24 +453,23 @@ void EidosNode::publishStatus()
   status_pub_->publish(msg);
 }
 
+std::optional<gtsam::Pose3> EidosNode::getCurrentPose() const
+{
+  auto pose = estimator_.getOptimizedPose().load();
+  if (pose) return pose;
+  for (auto & p : registry_.factor_plugins) {
+    auto map_pose = p->getMapPose();
+    if (map_pose) return map_pose;
+  }
+  return std::nullopt;
+}
+
 void EidosNode::publishPose()
 {
   if (!pose_pub_->is_activated()) return;
 
-  // Read current optimized pose from Estimator, or fall back to
-  // first factor plugin's map-frame pose (for localization mode where
-  // ISAM2 has no states but LISO provides map-frame matches).
-  auto pose = estimator_.getOptimizedPose().load();
-  if (!pose) {
-    for (auto & p : registry_.factor_plugins) {
-      auto map_pose = p->getMapPose();
-      if (map_pose) {
-        pose = map_pose;
-        break;
-      }
-    }
-    if (!pose) return;
-  }
+  auto pose = getCurrentPose();
+  if (!pose) return;
 
   geometry_msgs::msg::PoseStamped msg;
   msg.header.stamp = now();
@@ -478,17 +491,8 @@ void EidosNode::publishOdometry()
 {
   if (!odom_pub_->is_activated()) return;
 
-  auto pose = estimator_.getOptimizedPose().load();
-  if (!pose) {
-    for (auto & p : registry_.factor_plugins) {
-      auto map_pose = p->getMapPose();
-      if (map_pose) {
-        pose = map_pose;
-        break;
-      }
-    }
-    if (!pose) return;
-  }
+  auto pose = getCurrentPose();
+  if (!pose) return;
 
   nav_msgs::msg::Odometry msg;
   msg.header.stamp = now();

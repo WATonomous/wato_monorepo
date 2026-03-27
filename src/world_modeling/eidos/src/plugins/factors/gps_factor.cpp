@@ -19,10 +19,14 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <pluginlib/class_list_macros.hpp>
@@ -314,6 +318,7 @@ void GpsFactor::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
 {
   std::lock_guard<std::mutex> lock(gps_lock_);
   gps_queue_.push_back(*msg);
+  while (gps_queue_.size() > 100) gps_queue_.pop_front();
 
   if (active_) {
     UtmCoordinate utm = latLonToUtm(msg->latitude, msg->longitude, msg->altitude);
@@ -332,7 +337,7 @@ void GpsFactor::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
       pose.pose.orientation.z = q.z();
       pose.pose.orientation.w = q.w();
     }
-    utm_pub_->publish(pose);
+    if (utm_pub_->is_activated()) utm_pub_->publish(pose);
   }
 }
 

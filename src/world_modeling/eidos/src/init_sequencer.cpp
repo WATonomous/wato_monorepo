@@ -14,6 +14,8 @@
 
 #include "eidos/core/init_sequencer.hpp"
 
+#include <utility>
+
 namespace eidos
 {
 

@@ -17,6 +17,7 @@
 #include <gtsam/geometry/Point3.h>
 
 #include <cstring>
+#include <vector>
 
 #include "eidos/formats/format.hpp"
 

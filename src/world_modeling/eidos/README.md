@@ -75,7 +75,6 @@ All parameters live under the `/**/eidos_node/ros__parameters` namespace. The tw
 |---|---|---|---|
 | `slam_rate` | `10.0` | `10.0` | Main SLAM loop frequency (Hz) |
 | `relocalization_timeout` | `30.0` | `30.0` | Seconds to wait for relocalization before giving up |
-| `odom_pose_cov` | `[1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4]` | `[1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4]` | Covariance diagonal published on the odometry topic |
 
 ### ISAM2 Optimizer
 
@@ -282,7 +281,7 @@ All topics and services are published under the node namespace (default: `/world
 | Topic | Type | Description |
 |---|---|---|
 | `slam/pose` | `geometry_msgs/msg/PoseStamped` | Current optimized pose in the map frame. Published each SLAM tick. Consumed by `eidos_transform` for TF broadcasting. |
-| `slam/odometry` | `nav_msgs/msg/Odometry` | Current pose as odometry (map frame, base_link child). Includes covariance from `odom_pose_cov`. Published each SLAM tick. |
+| `slam/odometry` | `nav_msgs/msg/Odometry` | Current pose as odometry (map frame, base_link child). Includes covariance from `topics.odom_pose_cov`. Published each SLAM tick. |
 | `slam/status` | `eidos_msgs/msg/SlamStatus` | System status: current state (INITIALIZING, WARMUP, RELOCALIZING, TRACKING), state index, keyframe count, factor count, active plugins. Published every tick. |
 | `slam/visualization/map` | `sensor_msgs/msg/PointCloud2` | Keyframe map point cloud for RViz (from `keyframe_map_visualization` plugin). |
 | `slam/visualization/factor_graph` | `visualization_msgs/msg/MarkerArray` | Factor graph structure for RViz (from `factor_graph_visualization` plugin, SLAM only). |

@@ -15,10 +15,13 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <set>
+#include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>

@@ -16,6 +16,7 @@
 
 #include <array>
 #include <cstring>
+#include <vector>
 
 #include "eidos/formats/format.hpp"
 

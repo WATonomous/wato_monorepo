@@ -78,7 +78,8 @@ private:
 
   // ---- Preintegration ----
   boost::shared_ptr<gtsam::PreintegrationParams> preint_params_;
-  std::unique_ptr<gtsam::PreintegratedImuMeasurements> integrator_;
+  std::unique_ptr<gtsam::PreintegratedImuMeasurements> integrator_;  ///< For latchFactor (graph)
+  std::unique_ptr<gtsam::PreintegratedImuMeasurements> odom_integrator_;  ///< For live odom output
   gtsam::NavState reference_state_;
   gtsam::imuBias::ConstantBias reference_bias_;
   gtsam::imuBias::ConstantBias current_bias_;

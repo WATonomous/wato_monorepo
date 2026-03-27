@@ -1,41 +1,42 @@
 /**/eidos_node:
   ros__parameters:
-    # ---- Frames ----
     frames:
       base_link: "base_footprint"
       odometry: "odom"
       map: "map"
 
-    # ---- Core ----
+    # Main SLAM loop frequency (Hz)
     slam_rate: 10.0
+    # Seconds to wait for relocalization before falling back to identity
     relocalization_timeout: 30.0
 
-    # ---- ISAM2 optimizer ----
+    # ISAM2 incremental optimizer
     isam2:
-      update_iterations: 2
-      correction_iterations: 5
-      loop_closure_iterations: 5
-      relinearize_threshold: 0.01
-      relinearize_skip: 1
+      update_iterations: 2           # ISAM2 iterations per normal optimization step
+      correction_iterations: 5       # Extra iterations when a correction factor (GPS) is added
+      loop_closure_iterations: 5     # Extra iterations when loop closure is detected
+      relinearize_threshold: 0.01    # Variable relinearization threshold
+      relinearize_skip: 1            # Steps between relinearization checks
 
+    # Prior factor on the first state (anchors the graph origin)
+    # [x, y, z, roll, pitch, yaw] covariance diagonal
     prior:
       pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
     map:
-      load_path: ""
-      save_path: "/opt/watonomous/maps/wrestrc.map"
+      load_path: ""                                    # No prior map in SLAM mode
+      save_path: "/opt/watonomous/maps/wrestrc.map"    # Default save path for save_map service
 
-    # ---- Core topics / services ----
+    # Published topics and services
     topics:
-      pose: "slam/pose"
-      status: "slam/status"
-      odom: "slam/odometry"
+      pose: "slam/pose"                    # PoseStamped in map frame (consumed by eidos_transform)
+      status: "slam/status"                # SlamStatus (state machine, keyframe count, etc.)
+      odom: "slam/odometry"                # Odometry in map frame
+      odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]  # Diagonal pose covariance on odom topic [x,y,z,roll,pitch,yaw]
       save_map_service: "slam/save_map"
       load_map_service: "slam/load_map"
 
-    odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]
-
-    # ---- Plugin lists ----
+    # Plugin lists
     factor_plugins:
       - "gps_factor"
       - "liso_factor"
@@ -48,9 +49,7 @@
       - "keyframe_map_visualization"
       - "factor_graph_visualization"
 
-    # ==========================================================================
     # GPS Factor
-    # ==========================================================================
     gps_factor:
       plugin: "eidos::GpsFactor"
 
@@ -64,9 +63,7 @@
       pose_cov_threshold: 1.0
       gps_cov: [2.0, 2.0, 4.0]
 
-    # ==========================================================================
-    # LISO Factor
-    # ==========================================================================
+    # LISO Factor (LiDAR-Inertial Submap Odometry)
     liso_factor:
       plugin: "eidos::LisoFactor"
       add_factors: true
@@ -101,9 +98,7 @@
       odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
 
-    # ==========================================================================
     # Euclidean Distance Loop Closure Factor
-    # ==========================================================================
     euclidean_distance_loop_closure_factor:
       plugin: "eidos::EuclideanDistanceLoopClosureFactor"
       frequency: 1.0
@@ -123,9 +118,7 @@
 
       gicp_pointcloud_from: "liso_factor/gicp_cloud"
 
-    # ==========================================================================
     # GPS + ICP Relocalization
-    # ==========================================================================
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"
 
@@ -149,9 +142,7 @@
 
       fitness_threshold: 0.3
 
-    # ==========================================================================
     # Keyframe Map Visualization
-    # ==========================================================================
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"
       topic: "slam/visualization/map"
@@ -166,9 +157,7 @@
       windowed:
         radius: 50.0
 
-    # ==========================================================================
     # Factor Graph Visualization
-    # ==========================================================================
     factor_graph_visualization:
       plugin: "eidos::FactorGraphVisualization"
       topic: "slam/visualization/factor_graph"

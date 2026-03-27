@@ -72,9 +72,9 @@ Rotation first (Lie algebra), then translation.
 PLUGINLIB_EXPORT_CLASS(eidos_transform::AckermannEKF, eidos_transform::EKFModelPlugin)
 ```
 
-3. Add the `.cpp` file to the `eidos_transform_plugins` library in `CMakeLists.txt`.
+1. Add the `.cpp` file to the `eidos_transform_plugins` library in `CMakeLists.txt`.
 
-4. Add a `<class>` entry in `ekf_plugins.xml`:
+2. Add a `<class>` entry in `ekf_plugins.xml`:
 
 ```xml
 <class name="eidos_transform::AckermannEKF"
@@ -84,7 +84,7 @@ PLUGINLIB_EXPORT_CLASS(eidos_transform::AckermannEKF, eidos_transform::EKFModelP
 </class>
 ```
 
-5. Set `ekf.plugin` and `ekf.name` in the config YAML to use the new plugin.
+1. Set `ekf.plugin` and `ekf.name` in the config YAML to use the new plugin.
 
 The node calls `initialize(name, node)` once during `on_configure`, then `activate()`/`deactivate()` on lifecycle transitions. The tick loop calls `predict(dt)` then `updatePose`/`updateTwist` for each source with new data, every tick.
 
