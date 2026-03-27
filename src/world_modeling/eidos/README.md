@@ -1,5 +1,7 @@
 # Eidos
 
+![alt text](.img/EIDOS.gif)
+
 Eidos is a plugin-based LiDAR-Inertial SLAM and localization system for ROS 2. It builds maps from sensor data (mapping mode) and localizes against previously built maps (localization mode). The plugin architecture lets you swap sensors and add constraints -- factor plugins, relocalization plugins, and visualization plugins -- without modifying core code. Under the hood, Eidos uses GTSAM's ISAM2 incremental optimizer to maintain a factor graph of vehicle poses, with each plugin contributing factors, latching to existing factors, or consuming the optimized state.
 
 Eidos is pure SLAM: factor graph, ISAM2 optimization, plugin management, and map persistence. It does not broadcast TF or run an EKF. TF broadcasting (`map->odom`, `odom->base_link`, `utm->map`) and EKF-based odometry fusion are handled by the separate `eidos_transform` package. Eidos publishes `slam/pose` for `eidos_transform` to consume.
@@ -99,152 +101,23 @@ All parameters live under the `/**/eidos_node/ros__parameters` namespace. The tw
 | `map.load_path` | `""` | `"/opt/watonomous/maps/wrestrc.map"` | Path to load a prior map on activation. Empty = no load. Overridden by `eidos_map_path` launch arg in localization mode. |
 | `map.save_path` | `"/opt/watonomous/maps/wrestrc.map"` | `""` | Default save path used by `save_map` service when no path is specified in the request. |
 
-### GPS Factor (`gps_factor`)
+### Plugins
 
-| Parameter | SLAM Default | Localization Default | Description |
-|---|---|---|---|
-| `gps_factor.plugin` | `"eidos::GpsFactor"` | `"eidos::GpsFactor"` | Plugin class name |
-| `gps_factor.add_factors` | `true` | `false` | Whether to inject GPS factors into the graph |
-| `gps_factor.gps_topic` | `"/novatel/oem7/fix"` | `"/novatel/oem7/fix"` | GPS NavSatFix input topic |
-| `gps_factor.imu_topic` | `"/novatel/oem7/imu/data"` | `"/novatel/oem7/imu/data"` | IMU topic (for heading initialization) |
-| `gps_factor.max_cov` | `5.0` | `5.0` | Maximum acceptable GPS covariance; fixes above this are rejected |
-| `gps_factor.use_elevation` | `true` | `true` | Use GPS elevation in the factor |
-| `gps_factor.min_radius` | `150.0` | `200.0` | Minimum distance from origin before adding GPS factors |
-| `gps_factor.pose_cov_threshold` | `1.0` | `1.0` | Graph pose covariance threshold for GPS factor injection |
-| `gps_factor.gps_cov` | `[2.0, 2.0, 4.0]` | `[2.0, 2.0, 4.0]` | GPS factor noise covariance [x, y, z] |
+Each plugin is configured under its own YAML namespace. Full parameter documentation lives in each plugin's doc page:
 
-### LISO Factor (`liso_factor`)
+**Factor Plugins:**
+- [LisoFactor](docs/plugins/factors/liso_factor.md) -- LiDAR-Inertial Submap Odometry (GICP scan-to-submap matching)
+- [GpsFactor](docs/plugins/factors/gps_factor.md) -- Unary GPS position constraints
+- [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration with warmup gating
+- [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure (SLAM only)
+- [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform
 
-LiDAR-Inertial Scan-to-submap Odometry. Matches incoming scans against a local submap using GICP.
+**Relocalization Plugins:**
+- [GpsIcpRelocalization](docs/plugins/relocalization/gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
 
-| Parameter | SLAM Default | Localization Default | Description |
-|---|---|---|---|
-| `liso_factor.plugin` | `"eidos::LisoFactor"` | `"eidos::LisoFactor"` | Plugin class name |
-| `liso_factor.add_factors` | `true` | `false` | Whether to inject odometry factors into the graph |
-| `liso_factor.submap_source` | `"recent_keyframes"` | `"prior_map"` | Where to build the submap from. `"recent_keyframes"` = live keyframes. `"prior_map"` = loaded map. |
-| `liso_factor.lidar_topic` | `"/lidar_cc/velodyne_points"` | `"/lidar_cc/velodyne_points"` | LiDAR point cloud input topic |
-| `liso_factor.odom_topic` | `"liso/odometry"` | `"liso/odometry"` | Published LISO odometry topic |
-| `liso_factor.odometry_incremental_topic` | `"liso/odometry_incremental"` | `"liso/odometry_incremental"` | Published incremental odometry topic |
-| `liso_factor.imu_topic` | `"/novatel/oem7/imu/data"` | `"/novatel/oem7/imu/data"` | IMU input topic |
-| `liso_factor.lidar_frame` | `"lidar_cc"` | `"lidar_cc"` | LiDAR frame for extrinsic lookup |
-| `liso_factor.imu_frame` | `"imu_link"` | `"imu_link"` | IMU frame for extrinsic lookup |
-| `liso_factor.initialization.warmup_samples` | `200` | `200` | IMU samples before LISO can produce factors |
-| `liso_factor.initialization.stationary_gyr_threshold` | `0.005` | `0.005` | Gyroscope threshold for stationary detection |
-| `liso_factor.scan_ds_resolution` | `0.5` | `0.5` | Voxel downsampling resolution for incoming scans (m) |
-| `liso_factor.submap_ds_resolution` | `0.5` | `0.5` | Voxel downsampling resolution for the submap (m) |
-| `liso_factor.num_neighbors` | `10` | `10` | KNN neighbors for GICP covariance estimation |
-| `liso_factor.submap_radius` | `20.0` | `30.0` | Radius around the current pose to build the submap (m) |
-| `liso_factor.max_submap_states` | `10` | `15` | Maximum number of keyframe states in the submap |
-| `liso_factor.max_correspondence_distance` | `2.0` | `2.0` | Maximum GICP correspondence distance (m) |
-| `liso_factor.max_iterations` | `20` | `20` | Maximum GICP iterations |
-| `liso_factor.num_threads` | `16` | `16` | Threads for GICP |
-| `liso_factor.min_inliers` | `50` | `50` | Minimum inlier correspondences for a valid match |
-| `liso_factor.min_noise` | `0.01` | `0.01` | Minimum noise floor for the odometry factor |
-| `liso_factor.min_scan_distance` | `5.0` | `5.0` | Minimum travel distance between keyframes (m) |
-| `liso_factor.odom_pose_cov` | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | Pose covariance on published odometry |
-| `liso_factor.odom_twist_cov` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | Twist covariance on published odometry |
-
-### IMU Factor (`imu_factor`)
-
-IMU preintegration factor. Subscribes to IMU, performs gravity-aligned warmup, publishes odometry, and optionally produces `BetweenFactor<Pose3>` constraints. Overrides `isReady()` to gate the state machine until warmup is complete. See [ImuFactor docs](docs/plugins/factors/imu_factor.md).
-
-| Parameter | SLAM Default | Localization Default | Description |
-|---|---|---|---|
-| `imu_factor.plugin` | `"eidos::ImuFactor"` | `"eidos::ImuFactor"` | Plugin class name |
-| `imu_factor.add_factors` | `true` | `false` | Whether to inject IMU BetweenFactors into the graph |
-| `imu_factor.imu_topic` | `"/novatel/oem7/imu/data"` | `"/novatel/oem7/imu/data"` | IMU input topic |
-| `imu_factor.imu_frame` | `"imu_link"` | `"imu_link"` | TF frame of the IMU sensor |
-| `imu_factor.odom_topic` | `"imu_factor/odometry"` | `"imu_factor/odometry"` | Published odometry topic |
-| `imu_factor.acc_cov` | `[6.9e-7, 6.9e-7, 6.9e-7]` | `[6.9e-7, 6.9e-7, 6.9e-7]` | Accelerometer noise covariance |
-| `imu_factor.gyr_cov` | `[8.5e-10, 8.5e-10, 8.5e-10]` | `[8.5e-10, 8.5e-10, 8.5e-10]` | Gyroscope noise covariance |
-| `imu_factor.integration_cov` | `[1e-8, 1e-8, 1e-8]` | `[1e-8, 1e-8, 1e-8]` | Integration uncertainty covariance |
-| `imu_factor.gravity` | `9.80511` | `9.80511` | Gravity magnitude (m/s^2) |
-| `imu_factor.default_imu_dt` | `0.002` | `0.002` | Default IMU dt (seconds) |
-| `imu_factor.initialization.warmup_samples` | `200` | `200` | Consecutive stationary IMU samples for warmup |
-| `imu_factor.initialization.stationary_gyr_threshold` | `0.005` | `0.005` | Gyroscope threshold for stationary detection (rad/s) |
-
-### Motion Model Factor (`motion_model_factor`)
-
-Bridges temporally consecutive states created by different factor plugins. Calls `eidos_transform`'s `PredictRelativeTransform` service and produces a `BetweenFactor<Pose3>`. See [MotionModelFactor docs](docs/plugins/factors/motion_model_factor.md).
-
-| Parameter | Default | Description |
-|---|---|---|
-| `motion_model_factor.plugin` | `"eidos::MotionModelFactor"` | Plugin class name |
-| `motion_model_factor.predict_service` | `"predict_relative_transform"` | Service name for `eidos_transform`'s PredictRelativeTransform |
-| `motion_model_factor.noise_cov` | `[1e-2, 1e-2, 1e-2, 1e-4, 1e-4, 1e-4]` | Base noise covariance [rot3, trans3], scaled by dt |
-
-### Euclidean Distance Loop Closure Factor (SLAM only)
-
-Detects loop closures by searching for nearby keyframes that are far apart in time, then verifies with ICP.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `euclidean_distance_loop_closure_factor.plugin` | `"eidos::EuclideanDistanceLoopClosureFactor"` | Plugin class name |
-| `euclidean_distance_loop_closure_factor.frequency` | `1.0` | Loop closure search frequency (Hz) |
-| `euclidean_distance_loop_closure_factor.search_radius` | `20.0` | Spatial search radius around current pose (m) |
-| `euclidean_distance_loop_closure_factor.search_time_diff` | `80.0` | Minimum time difference between candidate keyframes (s) |
-| `euclidean_distance_loop_closure_factor.search_num` | `15` | Maximum number of candidates to evaluate |
-| `euclidean_distance_loop_closure_factor.min_inlier_ratio` | `0.3` | Minimum ICP inlier ratio to accept a loop closure |
-| `euclidean_distance_loop_closure_factor.submap_radius` | `25.0` | Radius for building the candidate submap (m) |
-| `euclidean_distance_loop_closure_factor.submap_leaf_size` | `0.4` | Voxel leaf size for candidate submap downsampling (m) |
-| `euclidean_distance_loop_closure_factor.max_correspondence_distance` | `2.0` | Maximum ICP correspondence distance (m) |
-| `euclidean_distance_loop_closure_factor.max_iterations` | `100` | Maximum ICP iterations |
-| `euclidean_distance_loop_closure_factor.num_threads` | `16` | Threads for ICP |
-| `euclidean_distance_loop_closure_factor.num_neighbors` | `10` | KNN neighbors for GICP covariance estimation |
-| `euclidean_distance_loop_closure_factor.loop_closure_cov` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | BetweenFactor covariance for accepted loop closures |
-| `euclidean_distance_loop_closure_factor.gicp_pointcloud_from` | `"liso_factor/gicp_cloud"` | Source for the pre-processed GICP point cloud |
-
-### GPS + ICP Relocalization (`gps_icp_relocalization`)
-
-Used on startup to determine the initial pose. Matches GPS position candidates against the prior map with ICP.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `gps_icp_relocalization.plugin` | `"eidos::GpsIcpRelocalization"` | Plugin class name |
-| `gps_icp_relocalization.gps_topic` | `"/novatel/oem7/fix"` | GPS NavSatFix input topic |
-| `gps_icp_relocalization.lidar_topic` | `"/lidar_cc/velodyne_points"` | LiDAR input topic |
-| `gps_icp_relocalization.imu_topic` | `"/novatel/oem7/imu/data"` | IMU input topic |
-| `gps_icp_relocalization.lidar_frame` | `"lidar_cc"` | LiDAR frame |
-| `gps_icp_relocalization.imu_frame` | `"imu_link"` | IMU frame |
-| `gps_icp_relocalization.gps_candidate_radius` | `30.0` | Search radius around GPS position for map candidates (m) |
-| `gps_icp_relocalization.pointcloud_from` | `"liso_factor/cloud"` | Source plugin for the current LiDAR cloud |
-| `gps_icp_relocalization.gps_from` | `"gps_factor"` | Source plugin for GPS UTM coordinates |
-| `gps_icp_relocalization.scan_ds_resolution` | `0.5` | Voxel downsampling for the scan (m) |
-| `gps_icp_relocalization.submap_leaf_size` | `0.4` | Voxel leaf size for the candidate submap (m) |
-| `gps_icp_relocalization.max_correspondence_distance` | `2.0` | Maximum ICP correspondence distance (m) |
-| `gps_icp_relocalization.max_icp_iterations` | `100` | Maximum ICP iterations |
-| `gps_icp_relocalization.num_threads` | `16` | Threads for ICP |
-| `gps_icp_relocalization.num_neighbors` | `10` | KNN neighbors for covariance estimation |
-| `gps_icp_relocalization.fitness_threshold` | `0.3` | Maximum ICP fitness score to accept a relocalization |
-
-### Keyframe Map Visualization (`keyframe_map_visualization`)
-
-Publishes the accumulated or windowed keyframe point cloud map for visualization in RViz.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `keyframe_map_visualization.plugin` | `"eidos::KeyframeMapVisualization"` | Plugin class name |
-| `keyframe_map_visualization.topic` | `"slam/visualization/map"` | Published point cloud topic |
-| `keyframe_map_visualization.pointcloud_from` | `"liso_factor/cloud"` | Source plugin for keyframe point clouds |
-| `keyframe_map_visualization.voxel_leaf_size` | `0.4` | Voxel downsampling leaf size (m) |
-| `keyframe_map_visualization.publish_rate` | `1.0` | Publish rate (Hz) |
-| `keyframe_map_visualization.mode` | `"accumulate"` | Visualization mode: `"accumulate"` or `"windowed"` |
-| `keyframe_map_visualization.accumulate.skip_factor` | `20` | Only include every Nth keyframe in accumulate mode |
-| `keyframe_map_visualization.windowed.radius` | `50.0` | Radius around current pose for windowed mode (m) |
-
-### Factor Graph Visualization (SLAM only)
-
-Publishes the factor graph structure as RViz markers.
-
-| Parameter | Default | Description |
-|---|---|---|
-| `factor_graph_visualization.plugin` | `"eidos::FactorGraphVisualization"` | Plugin class name |
-| `factor_graph_visualization.topic` | `"slam/visualization/factor_graph"` | Published marker topic |
-| `factor_graph_visualization.state_scale` | `1.0` | Scale of state (node) markers |
-| `factor_graph_visualization.line_width` | `0.5` | Width of factor (edge) lines |
-| `factor_graph_visualization.publish_rate` | `1.0` | Publish rate (Hz) |
-| `factor_graph_visualization.mode` | `"full"` | Visualization mode: `"full"` or windowed |
-| `factor_graph_visualization.window_radius` | `50.0` | Radius for windowed mode (m) |
+**Visualization Plugins:**
+- [KeyframeMapVisualization](docs/plugins/visualization/keyframe_map_visualization.md) -- Accumulated/windowed point cloud map
+- [FactorGraphVisualization](docs/plugins/visualization/factor_graph_visualization.md) -- RViz MarkerArray of the pose graph (SLAM only)
 
 ## Map Files
 
