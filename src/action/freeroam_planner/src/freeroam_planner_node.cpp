@@ -40,6 +40,7 @@ FreeroamPlannerNode::FreeroamPlannerNode(const rclcpp::NodeOptions & options)
   declare_parameter("costmap_topic", "/world_modeling/costmap");
   declare_parameter("trajectory_topic", "trajectory");
   declare_parameter("base_frame", "base_footprint");
+  declare_parameter("trajectory_frame", "map");
   declare_parameter("max_speed", 5.0);
   declare_parameter("goal_tolerance", 1.0);
   declare_parameter("obstacle_threshold", 50);
@@ -54,6 +55,7 @@ FreeroamPlannerNode::CallbackReturn FreeroamPlannerNode::on_configure(const rclc
   costmap_topic_ = get_parameter("costmap_topic").as_string();
   trajectory_topic_ = get_parameter("trajectory_topic").as_string();
   base_frame_ = get_parameter("base_frame").as_string();
+  trajectory_frame_ = get_parameter("trajectory_frame").as_string();
   max_speed_ = get_parameter("max_speed").as_double();
   goal_tolerance_ = get_parameter("goal_tolerance").as_double();
   obstacle_threshold_ = static_cast<int>(get_parameter("obstacle_threshold").as_int());
@@ -155,10 +157,12 @@ void FreeroamPlannerNode::planCallback()
   const auto & costmap = *latest_costmap_;
   const std::string & costmap_frame = costmap.header.frame_id;
 
-  // Transform goal into costmap frame
+  // Transform goal into costmap frame (use latest TF, not the goal's original stamp)
+  geometry_msgs::msg::PointStamped goal_for_transform = *latest_goal_;
+  goal_for_transform.header.stamp = rclcpp::Time(0, 0, get_clock()->get_clock_type());
   geometry_msgs::msg::PointStamped goal_in_costmap;
   try {
-    goal_in_costmap = tf_buffer_->transform(*latest_goal_, costmap_frame);
+    goal_in_costmap = tf_buffer_->transform(goal_for_transform, costmap_frame);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Cannot transform goal to costmap frame: %s", ex.what());
     return;
@@ -198,43 +202,85 @@ void FreeroamPlannerNode::planCallback()
     return;
   }
 
-  // Build trajectory
+  // Transform path points from costmap frame back to the desired trajectory frame
+
+  geometry_msgs::msg::TransformStamped costmap_to_goal_frame;
+  try {
+    costmap_to_goal_frame = tf_buffer_->lookupTransform(trajectory_frame_, costmap_frame, tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Cannot transform path to goal frame: %s", ex.what());
+    return;
+  }
+
+  RCLCPP_INFO(
+    get_logger(),
+    "DEBUG: costmap_frame='%s' goal_frame='%s' tf=[%.2f, %.2f] path_end_bf=[%.2f, %.2f] goal_map=[%.2f, %.2f]",
+    costmap_frame.c_str(),
+    latest_goal_->header.frame_id.c_str(),
+    costmap_to_goal_frame.transform.translation.x,
+    costmap_to_goal_frame.transform.translation.y,
+    path.back().first,
+    path.back().second,
+    latest_goal_->point.x,
+    latest_goal_->point.y);
+
+  // Transform all path points from costmap frame to trajectory frame
+  std::vector<std::pair<double, double>> transformed_path;
+  transformed_path.reserve(path.size());
+  for (const auto & [px, py] : path) {
+    geometry_msgs::msg::PointStamped pt_in_costmap;
+    pt_in_costmap.header.frame_id = costmap_frame;
+    pt_in_costmap.header.stamp = costmap.header.stamp;
+    pt_in_costmap.point.x = px;
+    pt_in_costmap.point.y = py;
+    pt_in_costmap.point.z = 0.0;
+
+    geometry_msgs::msg::PointStamped pt_in_goal_frame;
+    tf2::doTransform(pt_in_costmap, pt_in_goal_frame, costmap_to_goal_frame);
+    transformed_path.emplace_back(pt_in_goal_frame.point.x, pt_in_goal_frame.point.y);
+  }
+
+  // Build trajectory in goal frame
   wato_trajectory_msgs::msg::Trajectory trajectory;
   trajectory.header.stamp = now();
-  trajectory.header.frame_id = costmap_frame;
+  trajectory.header.frame_id = trajectory_frame_;
 
   // REMOVE - for path vis
   nav_msgs::msg::Path vis_path;
   vis_path.header.stamp = now();
-  vis_path.header.frame_id = costmap_frame;
+  vis_path.header.frame_id = trajectory_frame_;
 
-  for (size_t i = 0; i < path.size(); ++i) {
+  for (size_t i = 0; i < transformed_path.size(); ++i) {
     wato_trajectory_msgs::msg::TrajectoryPoint pt;
-    pt.pose.position.x = path[i].first;
-    pt.pose.position.y = path[i].second;
+    pt.pose.position.x = transformed_path[i].first;
+    pt.pose.position.y = transformed_path[i].second;
     pt.pose.position.z = 0.0;
 
     // REMOVE - for path vis
     geometry_msgs::msg::PoseStamped geo_pt;
     geo_pt.header.stamp = now();
-    geo_pt.header.frame_id = costmap_frame;
-    geo_pt.pose.position.x = path[i].first;
-    geo_pt.pose.position.y = path[i].second;
+    geo_pt.header.frame_id = trajectory_frame_;
+    geo_pt.pose.position.x = transformed_path[i].first;
+    geo_pt.pose.position.y = transformed_path[i].second;
     geo_pt.pose.position.z = 0.0;
     vis_path.poses.push_back(geo_pt);
 
-    // Compute yaw from consecutive points
+    // Compute yaw from consecutive transformed points
     double yaw = 0.0;
-    if (i + 1 < path.size()) {
-      yaw = std::atan2(path[i + 1].second - path[i].second, path[i + 1].first - path[i].first);
+    if (i + 1 < transformed_path.size()) {
+      yaw = std::atan2(
+        transformed_path[i + 1].second - transformed_path[i].second,
+        transformed_path[i + 1].first - transformed_path[i].first);
     } else if (i > 0) {
-      yaw = std::atan2(path[i].second - path[i - 1].second, path[i].first - path[i - 1].first);
+      yaw = std::atan2(
+        transformed_path[i].second - transformed_path[i - 1].second,
+        transformed_path[i].first - transformed_path[i - 1].first);
     }
     pt.pose.orientation.z = std::sin(yaw / 2.0);
     pt.pose.orientation.w = std::cos(yaw / 2.0);
 
     // Speed: max_speed for most points, 0 at goal
-    pt.max_speed = (i + 1 < path.size()) ? max_speed_ : 0.0;
+    pt.max_speed = (i + 1 < transformed_path.size()) ? max_speed_ : 0.0;
 
     trajectory.points.push_back(pt);
   }
