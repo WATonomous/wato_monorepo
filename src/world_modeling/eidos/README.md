@@ -145,6 +145,25 @@ LiDAR-Inertial Scan-to-submap Odometry. Matches incoming scans against a local s
 | `liso_factor.odom_pose_cov` | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | Pose covariance on published odometry |
 | `liso_factor.odom_twist_cov` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | Twist covariance on published odometry |
 
+### IMU Factor (`imu_factor`)
+
+IMU preintegration factor. Subscribes to IMU, performs gravity-aligned warmup, publishes odometry, and optionally produces `BetweenFactor<Pose3>` constraints. Overrides `isReady()` to gate the state machine until warmup is complete. See [ImuFactor docs](docs/plugins/factors/imu_factor.md).
+
+| Parameter | SLAM Default | Localization Default | Description |
+|---|---|---|---|
+| `imu_factor.plugin` | `"eidos::ImuFactor"` | `"eidos::ImuFactor"` | Plugin class name |
+| `imu_factor.add_factors` | `true` | `false` | Whether to inject IMU BetweenFactors into the graph |
+| `imu_factor.imu_topic` | `"/novatel/oem7/imu/data"` | `"/novatel/oem7/imu/data"` | IMU input topic |
+| `imu_factor.imu_frame` | `"imu_link"` | `"imu_link"` | TF frame of the IMU sensor |
+| `imu_factor.odom_topic` | `"imu_factor/odometry"` | `"imu_factor/odometry"` | Published odometry topic |
+| `imu_factor.acc_cov` | `[6.9e-7, 6.9e-7, 6.9e-7]` | `[6.9e-7, 6.9e-7, 6.9e-7]` | Accelerometer noise covariance |
+| `imu_factor.gyr_cov` | `[8.5e-10, 8.5e-10, 8.5e-10]` | `[8.5e-10, 8.5e-10, 8.5e-10]` | Gyroscope noise covariance |
+| `imu_factor.integration_cov` | `[1e-8, 1e-8, 1e-8]` | `[1e-8, 1e-8, 1e-8]` | Integration uncertainty covariance |
+| `imu_factor.gravity` | `9.80511` | `9.80511` | Gravity magnitude (m/s^2) |
+| `imu_factor.default_imu_dt` | `0.002` | `0.002` | Default IMU dt (seconds) |
+| `imu_factor.initialization.warmup_samples` | `200` | `200` | Consecutive stationary IMU samples for warmup |
+| `imu_factor.initialization.stationary_gyr_threshold` | `0.005` | `0.005` | Gyroscope threshold for stationary detection (rad/s) |
+
 ### Motion Model Factor (`motion_model_factor`)
 
 Bridges temporally consecutive states created by different factor plugins. Calls `eidos_transform`'s `PredictRelativeTransform` service and produces a `BetweenFactor<Pose3>`. See [MotionModelFactor docs](docs/plugins/factors/motion_model_factor.md).
@@ -269,6 +288,7 @@ All topics and services are published under the node namespace (default: `/world
 | `slam/visualization/factor_graph` | `visualization_msgs/msg/MarkerArray` | Factor graph structure for RViz (from `factor_graph_visualization` plugin, SLAM only). |
 | `liso/odometry` | `nav_msgs/msg/Odometry` | LISO scan-matching odometry (from `liso_factor` plugin). |
 | `liso/odometry_incremental` | `nav_msgs/msg/Odometry` | LISO incremental odometry (from `liso_factor` plugin). |
+| `imu_factor/odometry` | `nav_msgs/msg/Odometry` | IMU preintegrated odometry with body-frame twist (from `imu_factor` plugin, if loaded). |
 
 ### Services
 
@@ -282,6 +302,12 @@ All topics and services are published under the node namespace (default: `/world
 The node progresses through these states (visible in the `slam/status` topic):
 
 1. **INITIALIZING** -- Waiting for plugins to be loaded and configured.
-2. **WARMUP** -- Plugins loaded. If no prior map, transitions immediately to TRACKING.
+2. **WARMUP** -- Plugins loaded. The InitSequencer polls all factor plugins' `isReady()` each tick. It will not proceed until **every** factor plugin reports ready (e.g. ImuFactor requires stationary detection and gravity alignment to complete). Once all plugins are ready: if no prior map is loaded, transitions immediately to TRACKING; if a prior map is loaded, transitions to RELOCALIZING.
 3. **RELOCALIZING** -- Prior map loaded. Attempting to determine initial pose via relocalization plugins. Times out after `relocalization_timeout` seconds.
 4. **TRACKING** -- Normal operation. Factor plugins produce constraints, the optimizer runs, and poses are published.
+
+## Related Packages
+
+- **[eidos_transform](../eidos_transform/README.md)** -- EKF-based multi-source odometry fusion and TF broadcasting. Subscribes to eidos's `slam/pose` and factor plugin odometry topics. Owns the `map->odom->base_link` TF tree.
+- **[eidos_msgs](../eidos_msgs/)** -- Shared message/service definitions (`SlamStatus`, `SaveMap`, `LoadMap`, `PredictRelativeTransform`).
+- **[eidos_tools](../eidos_tools/README.md)** -- CLI (`eidos`) for inspecting and exporting `.map` files. Inspect metadata, dump poses, build combined PCD maps, view graph edges.

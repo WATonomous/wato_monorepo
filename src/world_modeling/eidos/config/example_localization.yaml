@@ -35,6 +35,7 @@
     factor_plugins:
       - "gps_factor"
       - "liso_factor"
+      - "imu_factor"
 
     relocalization_plugins:
       - "gps_icp_relocalization"
@@ -94,6 +95,21 @@
 
       odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+    # ==========================================================================
+    # IMU Factor (publishes odom for eidos_transform, no factors injected)
+    # ==========================================================================
+    imu_factor:
+      plugin: "eidos::ImuFactor"
+      add_factors: false
+      odom_topic: "imu_factor/odometry"
+      imu_topic: "/novatel/oem7/imu/data"
+      imu_frame: "imu_link"
+      gravity: 9.80511
+      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]
+      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]
+      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
+      default_imu_dt: 0.002
 
     # ==========================================================================
     # GPS + ICP Relocalization

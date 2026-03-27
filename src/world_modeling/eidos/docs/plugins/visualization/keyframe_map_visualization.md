@@ -24,4 +24,4 @@ Publishes a composite point cloud map by transforming stored keyframe body-frame
 
 ## Mapping vs Localization
 
-Loaded in both modes. In mapping mode, it visualizes the growing map. In localization mode (with `map_source: ""`), there are no optimized values from ISAM2, so `render()` receives empty values — the map visualization may be empty unless the prior map's poses are fed through.
+Loaded in both modes. In **mapping** mode, it visualizes the growing map using optimized keyframe poses from ISAM2. In **localization** mode, factor plugins typically have `add_factors: false`, so no new keyframes are added to the graph and no ISAM2 optimization runs. The visualization uses the prior map's stored keyframe poses to render the loaded map. If the prior map has keyframes with stored point clouds, the full map is visible from activation.

@@ -84,11 +84,14 @@ Plugin collections are public for read access: `factor_plugins`, `reloc_plugins`
 
 Manages the `INIT -> WARMING_UP -> RELOCALIZING -> TRACKING` state machine, separated
 from `EidosNode` so orchestration logic stays clean. `EidosNode` calls `step()` each
-SLAM tick. In `WARMING_UP`, if a prior map is loaded it transitions to `RELOCALIZING`
-and polls relocalization plugins. If no prior map, it transitions directly to `TRACKING`
-with an identity pose. Once a relocalization result is obtained (or the timeout expires),
-it invokes the `on_tracking` callback which triggers `EidosNode::beginTracking()`. Only
-called from the SLAM loop thread.
+SLAM tick. In `WARMING_UP`, the sequencer polls all factor plugins' `isReady()` each
+tick and will not proceed until every plugin reports ready (e.g. ImuFactor blocks until
+stationary detection and gravity alignment are complete). Once all plugins are ready:
+if a prior map is loaded, it transitions to `RELOCALIZING` and polls relocalization
+plugins; if no prior map, it transitions directly to `TRACKING` with an identity pose.
+Once a relocalization result is obtained (or the timeout expires), it invokes the
+`on_tracking` callback which triggers `EidosNode::beginTracking()`. Only called from
+the SLAM loop thread.
 
 ## 3. Threading Model
 
@@ -184,12 +187,14 @@ by `eidos_transform`).
           |  on_activate() -> InitSequencer::reset()
           v
   +----------------+
-  | WARMING_UP     |  Checking for prior map.
+  | WARMING_UP     |  Polling isReady() on all factor plugins each tick.
   +-------+--------+
           |
-          +--- no prior map ---> on_tracking(Identity)
+          +--- any plugin !isReady() ---> stay in WARMING_UP
           |
-          +--- prior map loaded:
+          +--- all plugins ready, no prior map ---> on_tracking(Identity)
+          |
+          +--- all plugins ready, prior map loaded:
           v
   +----------------+
   | RELOCALIZING   |  Polling relocalization plugins each tick.
@@ -207,9 +212,10 @@ by `eidos_transform`).
 **Transition triggers:**
 
 - `INITIALIZING -> WARMING_UP`: `EidosNode::on_activate()` calls `InitSequencer::reset()`.
-- `WARMING_UP -> TRACKING`: No prior map is loaded. `on_tracking` callback is invoked
-  with `Pose3::Identity()`.
-- `WARMING_UP -> RELOCALIZING`: A prior map is loaded (`map_manager_->hasPriorMap()`).
+- `WARMING_UP -> TRACKING`: All factor plugins report `isReady() == true` and no prior
+  map is loaded. `on_tracking` callback is invoked with `Pose3::Identity()`.
+- `WARMING_UP -> RELOCALIZING`: All factor plugins report `isReady() == true` and a
+  prior map is loaded (`map_manager_->hasPriorMap()`).
 - `RELOCALIZING -> TRACKING`: A relocalization plugin returns a valid pose via
   `tryRelocalize()`, or the relocalization timeout expires (falls back to identity pose).
   `on_tracking` callback is invoked with the resulting pose.
@@ -221,7 +227,9 @@ Estimator and notifies all factor plugins via `onTrackingBegin()`.
 
 Maps are stored as single SQLite `.map` files. The file is self-describing: a
 `data_formats` table records which serialization format each data key uses, so external
-tools (e.g., `eidos_tools` CLI) can deserialize without external knowledge.
+tools can deserialize without external knowledge. The [`eidos_tools`](../eidos_tools/README.md)
+package provides the `eidos` CLI for inspecting maps, dumping poses, building PCD exports,
+and viewing graph structure.
 
 ### SQLite Schema
 
