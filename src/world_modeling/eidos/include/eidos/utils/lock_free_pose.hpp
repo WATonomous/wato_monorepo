@@ -37,6 +37,11 @@ namespace eidos
 class LockFreePose
 {
 public:
+  /**
+   * @brief Store a pose into the slot (single-writer only).
+   * @param p The gtsam::Pose3 to store.
+   * @note Must be called from exactly one thread. Concurrent stores are undefined behavior.
+   */
   void store(const gtsam::Pose3 & p)
   {
     seq_.fetch_add(1, std::memory_order_release);  // odd = writing
@@ -45,6 +50,12 @@ public:
     seq_.fetch_add(1, std::memory_order_release);  // even = done
   }
 
+  /**
+   * @brief Load the latest pose snapshot.
+   * @return The stored pose, or std::nullopt if no pose has been stored yet.
+   * @note Safe to call concurrently from multiple reader threads. Retries
+   *       internally if a write is in progress.
+   */
   std::optional<gtsam::Pose3> load() const
   {
     gtsam::Pose3 result;

@@ -38,7 +38,10 @@ public:
   virtual ~EKFModelPlugin() = default;
 
   /**
-   * @brief Framework calls this once, then calls onInitialize().
+   * @brief Framework entry point: store name and node handle, then call onInitialize().
+   * @param name Plugin instance name (used for parameter namespacing).
+   * @param node Shared pointer to the parent lifecycle node.
+   * @note Called exactly once by EidosTransformNode after pluginlib construction.
    */
   void initialize(const std::string & name, rclcpp_lifecycle::LifecycleNode::SharedPtr node)
   {
@@ -48,14 +51,19 @@ public:
   }
 
   // ---- Lifecycle (pure virtual) ----
+
+  /// @brief Plugin-specific initialization (declare parameters, allocate state).
   virtual void onInitialize() = 0;
+  /// @brief Activate the plugin (start accepting measurements).
   virtual void activate() = 0;
+  /// @brief Deactivate the plugin (stop accepting measurements).
   virtual void deactivate() = 0;
 
   // ---- EKF interface ----
 
   /**
    * @brief Propagate state forward by dt seconds using constant-velocity model.
+   * @param dt Time step in seconds.
    */
   virtual void predict(double dt) = 0;
 
@@ -78,17 +86,20 @@ public:
     const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) = 0;
 
   /**
-   * @brief Current estimated pose.
+   * @brief Get the current estimated pose.
+   * @return The EKF's current pose estimate in the odom frame.
    */
   virtual gtsam::Pose3 pose() const = 0;
 
   /**
-   * @brief Current estimated body-frame velocity (6-DOF).
+   * @brief Get the current estimated body-frame velocity (6-DOF).
+   * @return gtsam::Vector6 [angular_x, angular_y, angular_z, linear_x, linear_y, linear_z].
    */
   virtual gtsam::Vector6 velocity() const = 0;
 
   /**
    * @brief Hard-reset the filter to a known pose, zero velocity, and default covariance.
+   * @param initial The pose to reset to.
    */
   virtual void reset(const gtsam::Pose3 & initial) = 0;
 

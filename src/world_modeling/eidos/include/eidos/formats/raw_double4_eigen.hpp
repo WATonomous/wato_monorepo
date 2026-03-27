@@ -30,6 +30,11 @@ namespace eidos::formats
 class RawDouble4Eigen : public Format
 {
 public:
+  /**
+   * @brief Serialize an Eigen::Vector4d to 32 bytes (4 packed doubles).
+   * @param data std::any containing an Eigen::Vector4d.
+   * @return 32-byte buffer with packed doubles.
+   */
   std::vector<uint8_t> serialize(const std::any & data) override
   {
     auto vec = std::any_cast<Eigen::Vector4d>(data);
@@ -39,6 +44,11 @@ public:
     return buf;
   }
 
+  /**
+   * @brief Deserialize 32 bytes into an Eigen::Vector4d.
+   * @param bytes Buffer of at least 32 bytes (4 packed doubles).
+   * @return std::any containing Eigen::Vector4d, or empty std::any if undersized.
+   */
   std::any deserialize(const std::vector<uint8_t> & bytes) override
   {
     if (bytes.size() < 4 * sizeof(double)) return std::any{};

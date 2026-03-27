@@ -46,11 +46,27 @@ class VisualizationPlugin
 public:
   virtual ~VisualizationPlugin() = default;
 
+  /// @brief Get the plugin instance name (as configured in YAML).
+  /// @return Reference to the plugin name string.
   const std::string & getName() const
   {
     return name_;
   }
 
+  /**
+   * @brief Framework entry point: stores shared resources, creates the render timer,
+   *        then calls onInitialize().
+   *
+   * Called exactly once by EidosNode during plugin loading. The timer starts
+   * cancelled; activate() enables it. Subclasses must NOT override this.
+   *
+   * @param name Plugin instance name from YAML configuration.
+   * @param node Shared pointer to the lifecycle node (for creating pubs/params).
+   * @param tf TF buffer for extrinsic lookups. Non-owning pointer, must outlive plugin.
+   * @param map_manager Pointer to the shared keyframe/map data store. Non-owning.
+   * @param values_slot Lock-free slot for reading Estimator's latest optimized GTSAM Values.
+   * @param rate_hz Desired render frequency in Hz.
+   */
   void initialize(
     const std::string & name,
     rclcpp_lifecycle::LifecycleNode::SharedPtr node,
@@ -76,14 +92,31 @@ public:
     onInitialize();
   }
 
+  /**
+   * @brief Called once after initialize() stores shared resources and creates the timer.
+   *
+   * Implementations MUST declare ROS parameters and create publishers here.
+   */
   virtual void onInitialize() = 0;
 
+  /**
+   * @brief Enable the render timer and transition to the active state.
+   *
+   * Resets the wall timer so tick() begins firing at the configured rate,
+   * then calls onActivate() for subclass-specific activation logic.
+   */
   void activate()
   {
     timer_->reset();
     onActivate();
   }
 
+  /**
+   * @brief Cancel the render timer and transition to the inactive state.
+   *
+   * Stops the wall timer so tick() no longer fires, then calls onDeactivate()
+   * for subclass-specific cleanup.
+   */
   void deactivate()
   {
     timer_->cancel();
@@ -91,23 +124,32 @@ public:
   }
 
 protected:
-  /// Subclass lifecycle hooks.
+  /// @brief Optional hook called after the render timer is enabled.
   virtual void onActivate()
   {}
 
+  /// @brief Optional hook called after the render timer is cancelled.
   virtual void onDeactivate()
   {}
 
-  /// Subclass implements this to publish visualization messages.
-  /// Called at the configured rate with the latest optimized values.
-  /// Only called when new values are available.
+  /**
+   * @brief Publish visualization messages to RViz.
+   *
+   * Called at the configured rate by the internal timer. Subclasses MUST
+   * implement this to convert optimized values and/or MapManager data into
+   * publishable ROS messages.
+   *
+   * @param optimized_values Latest optimized GTSAM Values from ISAM2, or
+   *        empty Values in localization mode (where no ISAM2 exists).
+   * @note In localization mode, use MapManager directly for pose data.
+   */
   virtual void render(const gtsam::Values & optimized_values) = 0;
 
-  std::string name_;
-  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;
-  tf2_ros::Buffer * tf_ = nullptr;
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
-  MapManager * map_manager_ = nullptr;
+  std::string name_;                                   ///< Plugin instance name (from YAML).
+  rclcpp_lifecycle::LifecycleNode::SharedPtr node_;    ///< ROS2 node handle.
+  tf2_ros::Buffer * tf_ = nullptr;                     ///< TF lookup buffer (non-owning).
+  rclcpp::CallbackGroup::SharedPtr callback_group_;    ///< Dedicated callback group for render timer.
+  MapManager * map_manager_ = nullptr;                 ///< Keyframe/map data store (non-owning).
 
 private:
   void tick()

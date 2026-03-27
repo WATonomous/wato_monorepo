@@ -34,29 +34,61 @@ namespace eidos
 class PoseGraph
 {
 public:
+  /// @brief Construct the PoseGraph with default ISAM2 parameters.
   PoseGraph();
 
-  /// Add factors and initial values, then optimize.
-  /// @return Updated optimized values.
+  /**
+   * @brief Add factors and initial values to the ISAM2 graph, then optimize.
+   * @param factors        New factors to incorporate.
+   * @param initial_values Initial value estimates for new variables.
+   * @param num_iterations Number of ISAM2 update iterations.
+   * @return All optimized values after the update.
+   * @note Not thread-safe -- only call from the SLAM loop thread.
+   */
   gtsam::Values update(
     const gtsam::NonlinearFactorGraph & factors, const gtsam::Values & initial_values, int num_iterations = 2);
 
-  /// Run extra ISAM2 update iterations (e.g. after loop closure).
+  /**
+   * @brief Run additional ISAM2 update iterations without adding new factors.
+   *
+   * Useful for improving convergence after loop closures or corrections.
+   * @param num_iterations Number of extra iterations to run.
+   */
   void updateExtra(int num_iterations);
 
-  /// Get all current optimized values.
+  /**
+   * @brief Get all current optimized values from the ISAM2 estimate.
+   * @return A copy of all optimized Values.
+   */
   gtsam::Values getOptimizedValues() const;
 
-  /// Get the optimized pose for a given GTSAM key.
+  /**
+   * @brief Get the optimized Pose3 for a given GTSAM key.
+   * @param key The GTSAM key to look up.
+   * @return The optimized Pose3 for that key.
+   */
   gtsam::Pose3 getOptimizedPose(gtsam::Key key) const;
 
-  /// Get the marginal covariance for a given GTSAM key.
+  /**
+   * @brief Compute the 6x6 marginal covariance for a given GTSAM key.
+   * @param key The GTSAM key to compute covariance for.
+   * @return The marginal covariance matrix.
+   */
   Eigen::MatrixXd getMarginalCovariance(gtsam::Key key) const;
 
-  /// Get the total number of factors.
+  /**
+   * @brief Get the total number of factors in the ISAM2 graph.
+   * @return Number of factors.
+   */
   int numFactors() const;
 
-  /// Reset the optimizer with new ISAM2 parameters.
+  /**
+   * @brief Reset the ISAM2 optimizer with new parameters.
+   *
+   * Clears all factors and values, creating a fresh ISAM2 instance.
+   * @param relinearize_threshold ISAM2 relinearization threshold (default 0.1).
+   * @param relinearize_skip      Number of updates between relinearizations (default 1).
+   */
   void reset(double relinearize_threshold = 0.1, int relinearize_skip = 1);
 
 private:

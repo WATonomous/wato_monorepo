@@ -53,23 +53,56 @@ public:
   ImuFactor() = default;
   ~ImuFactor() override = default;
 
+  /// @brief Declare ROS parameters, create IMU subscription and odometry publisher.
   void onInitialize() override;
+
+  /// @brief Enable IMU subscription and begin preintegration.
   void activate() override;
+
+  /// @brief Disable IMU subscription and stop processing.
   void deactivate() override;
 
+  /**
+   * @brief Attach preintegrated IMU factors to an existing state.
+   *
+   * Integrates buffered IMU measurements between the previous key's timestamp
+   * and the new state's timestamp, then produces an ImuFactor and a bias
+   * BetweenFactor connecting the two states.
+   *
+   * @param key GTSAM key of the newly created state.
+   * @param timestamp Timestamp of the new state (seconds).
+   * @return StampedFactorResult with IMU + bias factors, or empty if insufficient data.
+   */
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
+  /**
+   * @brief Whether IMU warmup (stationarity detection) is complete.
+   * @return true once enough stationary IMU samples have been collected.
+   */
   bool isReady() const override
   {
     return warmup_complete_;
   }
 
+  /**
+   * @brief Update IMU bias estimate and reference state after ISAM2 optimization.
+   * @param optimized_values Full optimized GTSAM values after ISAM2 update.
+   * @param loop_closure_detected Whether a loop closure was included in this cycle.
+   */
   void onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected) override;
 
 private:
+  /**
+   * @brief Process incoming IMU message: warmup detection, preintegration, and odom output.
+   * @param msg Incoming IMU message.
+   */
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
-  /// Convert IMU message from IMU frame to base_link frame.
+  /**
+   * @brief Convert an IMU message from the IMU frame to the base_link frame.
+   * @param imu_msg The IMU message in the sensor frame.
+   * @return The same message with accelerations and angular velocities rotated to base_link.
+   */
   sensor_msgs::msg::Imu convertToBaseFrame(const sensor_msgs::msg::Imu & imu_msg);
 
   // ---- Subscriptions + publishers ----

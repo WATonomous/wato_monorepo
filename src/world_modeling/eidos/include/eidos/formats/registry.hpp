@@ -24,12 +24,16 @@ namespace eidos::formats
 {
 
 /**
- * @brief Global registry of data formats.
+ * @brief Get the global registry of data formats.
  *
  * Maps format names (e.g. "pcl_pcd_binary") to Format instances.
  * Used by MapManager for persistence and by eidos_tools for export.
  *
  * Both eidos and eidos_tools link the same registry.
+ *
+ * @return Const reference to the singleton map of format name to Format instance.
+ * @note The registry is lazily initialized on first call and lives for the
+ *       duration of the process.
  */
 const std::unordered_map<std::string, std::unique_ptr<Format>> & registry();
 

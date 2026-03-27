@@ -35,6 +35,17 @@ namespace eidos::formats
 class SmallGicpBinary : public Format
 {
 public:
+  /**
+   * @brief Serialize a small_gicp point cloud to bytes.
+   *
+   * Wire format: uint64_t point count, followed by packed Eigen::Vector4d
+   * (32 bytes per point: x, y, z, w).
+   *
+   * @param data std::any containing a small_gicp::PointCloud::Ptr.
+   * @return Byte buffer, or empty if the cloud is null/empty.
+   * @note Only positions are serialized. Normals and covariances must be
+   *       recomputed after deserialization if needed.
+   */
   std::vector<uint8_t> serialize(const std::any & data) override
   {
     auto cloud = std::any_cast<small_gicp::PointCloud::Ptr>(data);
@@ -51,6 +62,12 @@ public:
     return buf;
   }
 
+  /**
+   * @brief Deserialize bytes into a small_gicp point cloud.
+   * @param bytes Buffer previously produced by serialize().
+   * @return std::any containing small_gicp::PointCloud::Ptr, or empty
+   *         std::any if the buffer is too small or malformed.
+   */
   std::any deserialize(const std::vector<uint8_t> & bytes) override
   {
     if (bytes.size() < sizeof(uint64_t)) return std::any{};

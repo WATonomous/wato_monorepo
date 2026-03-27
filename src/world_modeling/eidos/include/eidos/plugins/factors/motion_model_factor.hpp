@@ -39,10 +39,27 @@ public:
   MotionModelFactor() = default;
   ~MotionModelFactor() override = default;
 
+  /// @brief Declare ROS parameters and create the PredictRelativeTransform service client.
   void onInitialize() override;
+
+  /// @brief Enable the plugin for latching.
   void activate() override;
+
+  /// @brief Disable the plugin.
   void deactivate() override;
 
+  /**
+   * @brief Bridge consecutive states with a BetweenFactor from the motion model.
+   *
+   * Calls the eidos_transform PredictRelativeTransform service to obtain the
+   * predicted relative pose between the previous state's timestamp and the
+   * current state's timestamp. Produces a BetweenFactor<Pose3> connecting them.
+   *
+   * @param key GTSAM key of the newly created state.
+   * @param timestamp Timestamp of the new state (seconds).
+   * @return StampedFactorResult with the motion model factor, or empty on first call
+   *         or if the service call fails.
+   */
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
 private:

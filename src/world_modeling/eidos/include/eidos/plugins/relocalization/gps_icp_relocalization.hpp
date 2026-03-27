@@ -47,15 +47,45 @@ public:
   GpsIcpRelocalization() = default;
   ~GpsIcpRelocalization() override = default;
 
+  /// @brief Declare ROS parameters, create GPS/LiDAR/IMU subscriptions.
   void onInitialize() override;
+
+  /// @brief Enable sensor subscriptions for relocalization.
   void activate() override;
+
+  /// @brief Disable sensor subscriptions.
   void deactivate() override;
 
+  /**
+   * @brief Attempt GPS + ICP relocalization against the prior map.
+   *
+   * Uses the latest GPS fix to find candidate keyframes in the prior map,
+   * assembles a world-frame submap from their clouds, then aligns the latest
+   * live LiDAR scan against it via GICP. The initial guess combines GPS
+   * position, IMU gravity alignment, and nearest keyframe yaw.
+   *
+   * @param timestamp Current SLAM cycle timestamp (seconds).
+   * @return RelocalizationResult if GICP converges with acceptable fitness, std::nullopt otherwise.
+   */
   std::optional<RelocalizationResult> tryRelocalize(double timestamp) override;
 
 private:
+  /**
+   * @brief Buffer incoming GPS fixes for candidate keyframe lookup.
+   * @param msg Incoming NavSatFix message.
+   */
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+
+  /**
+   * @brief Downsample and buffer the latest LiDAR scan for GICP alignment.
+   * @param msg Incoming PointCloud2 message.
+   */
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+  /**
+   * @brief Extract roll/pitch from IMU orientation for gravity-aligned initial guess.
+   * @param msg Incoming IMU message.
+   */
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
   // Subscriptions

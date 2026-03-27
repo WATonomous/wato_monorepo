@@ -31,6 +31,11 @@ namespace eidos::formats
 class RawDouble3 : public Format
 {
 public:
+  /**
+   * @brief Serialize a gtsam::Point3 to 24 bytes (3 packed doubles: x, y, z).
+   * @param data std::any containing a gtsam::Point3.
+   * @return 24-byte buffer with packed doubles.
+   */
   std::vector<uint8_t> serialize(const std::any & data) override
   {
     auto pt = std::any_cast<gtsam::Point3>(data);
@@ -40,6 +45,11 @@ public:
     return buf;
   }
 
+  /**
+   * @brief Deserialize 24 bytes into a gtsam::Point3.
+   * @param bytes Buffer of at least 24 bytes (3 packed doubles).
+   * @return std::any containing gtsam::Point3, or empty std::any if undersized.
+   */
   std::any deserialize(const std::vector<uint8_t> & bytes) override
   {
     if (bytes.size() < 3 * sizeof(double)) return std::any{};

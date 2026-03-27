@@ -39,11 +39,21 @@ class Format
 public:
   virtual ~Format() = default;
 
-  /// Serialize data from std::any to byte buffer.
-  /// Throws std::bad_any_cast if the std::any contains the wrong type.
+  /**
+   * @brief Serialize data from std::any to a byte buffer.
+   * @param data The data to serialize, wrapped in std::any. Must contain the
+   *             concrete C++ type expected by this format.
+   * @return Byte vector suitable for SQLite BLOB storage.
+   * @note Throws std::bad_any_cast if the std::any contains the wrong type.
+   */
   virtual std::vector<uint8_t> serialize(const std::any & data) = 0;
 
-  /// Deserialize byte buffer to std::any containing the correct C++ type.
+  /**
+   * @brief Deserialize a byte buffer to std::any containing the correct C++ type.
+   * @param bytes Raw bytes previously produced by serialize().
+   * @return std::any wrapping the deserialized object, or an empty std::any
+   *         if bytes is empty or too small.
+   */
   virtual std::any deserialize(const std::vector<uint8_t> & bytes) = 0;
 };
 

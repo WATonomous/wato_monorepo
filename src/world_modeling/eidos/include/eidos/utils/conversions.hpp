@@ -26,7 +26,12 @@
 namespace eidos
 {
 
-/// Convert gtsam::Pose3 to PoseType for PCL storage.
+/**
+ * @brief Convert a gtsam::Pose3 to PoseType for PCL storage.
+ * @param pose The gtsam::Pose3 to convert.
+ * @param time Timestamp to embed in the PoseType (default 0.0).
+ * @return PoseType with position, RPY angles, and timestamp fields populated.
+ */
 inline PoseType gtsamPose3ToPoseType(const gtsam::Pose3 & pose, double time = 0.0)
 {
   PoseType p;
@@ -41,7 +46,11 @@ inline PoseType gtsamPose3ToPoseType(const gtsam::Pose3 & pose, double time = 0.
   return p;
 }
 
-/// Convert PoseType to gtsam::Pose3.
+/**
+ * @brief Convert a PoseType to gtsam::Pose3.
+ * @param p The PoseType (x, y, z, roll, pitch, yaw) to convert.
+ * @return Equivalent gtsam::Pose3 with Rot3::RzRyRx rotation.
+ */
 inline gtsam::Pose3 poseTypeToGtsamPose3(const PoseType & p)
 {
   return gtsam::Pose3(
@@ -49,13 +58,22 @@ inline gtsam::Pose3 poseTypeToGtsamPose3(const PoseType & p)
     gtsam::Point3(static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z)));
 }
 
-/// Convert PoseType to Eigen Affine3f transform.
+/**
+ * @brief Convert a PoseType to an Eigen Affine3f transform.
+ * @param p The PoseType (x, y, z, roll, pitch, yaw) to convert.
+ * @return Eigen::Affine3f representing the same 6-DOF transform.
+ */
 inline Eigen::Affine3f poseTypeToAffine3f(const PoseType & p)
 {
   return pcl::getTransformation(p.x, p.y, p.z, p.roll, p.pitch, p.yaw);
 }
 
-/// Convert ROS timestamp to seconds.
+/**
+ * @brief Convert a ROS timestamp to seconds as a double.
+ * @tparam T Any type convertible to rclcpp::Time (e.g. builtin_interfaces::msg::Time).
+ * @param stamp The timestamp to convert.
+ * @return Time in seconds (including fractional nanoseconds).
+ */
 template <typename T>
 inline double stamp2Sec(const T & stamp)
 {

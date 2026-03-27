@@ -51,23 +51,63 @@ class EuclideanDistanceLoopClosureFactor : public FactorPlugin
 {
 public:
   EuclideanDistanceLoopClosureFactor() = default;
+
+  /// @brief Join the background GICP thread if running.
   ~EuclideanDistanceLoopClosureFactor() override;
 
+  /// @brief Declare ROS parameters for search radius, GICP settings, etc.
   void onInitialize() override;
+
+  /// @brief Enable loop closure detection.
   void activate() override;
+
+  /// @brief Disable loop closure detection and join any background thread.
   void deactivate() override;
-  /// Latching plugin: delivers pending loop closure results + dispatches new GICP searches.
+
+  /**
+   * @brief Deliver pending loop closure results and dispatch new GICP searches.
+   *
+   * On each call: (1) if a background GICP has completed, returns its
+   * BetweenFactor as a loop closure constraint; (2) searches for new
+   * candidate keyframes by Euclidean distance and dispatches GICP on a
+   * background thread if a candidate is found.
+   *
+   * @param key GTSAM key of the newly created state.
+   * @param timestamp Timestamp of the new state (seconds).
+   * @return StampedFactorResult with a loop closure factor if one is ready, or empty.
+   */
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
 private:
-  // BFS over adjacency graph, bounded by radius and max states
+  /**
+   * @brief Collect keys reachable from start via BFS on the adjacency graph.
+   * @param start Starting key for BFS.
+   * @param radius Maximum Euclidean distance from the start key's position.
+   * @param max_states Maximum number of keys to collect.
+   * @return Vector of collected keys (up to max_states).
+   */
   std::vector<gtsam::Key> bfsCollectStates(gtsam::Key start, double radius, int max_states);
 
-  // Assemble submap in center_key's body frame from neighbor keys' clouds
+  /**
+   * @brief Assemble a submap in the center key's body frame from neighboring keyframe clouds.
+   * @param center_key The key whose body frame defines the submap coordinate origin.
+   * @param keys Neighboring keys whose point clouds are included.
+   * @return Pair of (merged point cloud, KD-tree) in center_key's body frame.
+   */
   std::pair<small_gicp::PointCloud::Ptr, std::shared_ptr<small_gicp::KdTree<small_gicp::PointCloud>>>
   assembleBodyFrameSubmap(gtsam::Key center_key, const std::vector<gtsam::Key> & keys);
 
-  // Async GICP worker
+  /**
+   * @brief Run GICP alignment between source and candidate submaps on a background thread.
+   *
+   * Assembles body-frame submaps for both keys, aligns them using the ISAM2-estimated
+   * relative pose as initial guess, and stores the result in pending_result_.
+   *
+   * @param source_key GTSAM key of the current (source) keyframe.
+   * @param source_idx Integer index of the source keyframe in MapManager.
+   * @param candidate_key GTSAM key of the candidate (target) keyframe.
+   * @param candidate_idx Integer index of the candidate keyframe in MapManager.
+   */
   void runGICP(gtsam::Key source_key, int source_idx, gtsam::Key candidate_key, int candidate_idx);
 
   // Pending result from background GICP

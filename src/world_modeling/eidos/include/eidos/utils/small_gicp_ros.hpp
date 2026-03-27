@@ -25,9 +25,19 @@
 namespace eidos
 {
 
-/// @brief Convert a ROS PointCloud2 message to a small_gicp::PointCloud.
-/// Extracts XYZ from the message fields, skips NaN/Inf points.
-/// No PCL dependency.
+/**
+ * @brief Convert a ROS PointCloud2 message to a small_gicp::PointCloud.
+ *
+ * Extracts XYZ from the message fields, skips NaN/Inf points.
+ * No PCL dependency.
+ *
+ * @param msg The sensor_msgs::msg::PointCloud2 to convert.
+ * @return Shared pointer to the converted point cloud. Returns an empty cloud
+ *         if the message lacks x, y, or z fields.
+ * @note Points are stored as Eigen::Vector4d with w=1.0. Normals and
+ *       covariances are not computed; call small_gicp::preprocess_points
+ *       if needed.
+ */
 inline small_gicp::PointCloud::Ptr fromRosMsg(const sensor_msgs::msg::PointCloud2 & msg)
 {
   auto cloud = std::make_shared<small_gicp::PointCloud>();

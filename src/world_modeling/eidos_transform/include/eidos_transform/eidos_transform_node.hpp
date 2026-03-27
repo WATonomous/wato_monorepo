@@ -85,41 +85,92 @@ struct MeasurementSource
 class EidosTransformNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
+  /**
+   * @brief Construct the EidosTransformNode.
+   * @param options ROS 2 node options (composable node support).
+   */
   explicit EidosTransformNode(const rclcpp::NodeOptions & options);
   ~EidosTransformNode() override;
 
 protected:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  /// @brief Declare parameters, load EKF plugin, create measurement sources.
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  /// @brief Activate publishers, start tick timer.
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  /// @brief Stop tick timer, deactivate publishers.
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  /// @brief Release all resources and reset state.
   CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  /// @brief Shutdown hook; delegates to on_cleanup.
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // ---- Tick loop ----
+  /**
+   * @brief Main EKF tick: predict, fuse all available measurements, broadcast TF, publish odom.
+   * @note Runs in its own callback group at tick_rate_ Hz.
+   */
   void tick();
 
-  // ---- TF broadcasting ----
+  /**
+   * @brief Broadcast the odom->base_link TF from the current EKF state.
+   * @param stamp Timestamp for the published transform.
+   */
   void broadcastOdomToBaseTF(const rclcpp::Time & stamp);
+
+  /**
+   * @brief Broadcast the map->odom TF from the cached correction.
+   * @param stamp Timestamp for the published transform.
+   */
   void broadcastMapToOdomTF(const rclcpp::Time & stamp);
 
-  // ---- Publishing ----
+  /**
+   * @brief Publish the fused odometry message on the odom topic.
+   * @param stamp Timestamp for the published message.
+   */
   void publishOdometry(const rclcpp::Time & stamp);
 
-  // ---- Callbacks ----
+  /**
+   * @brief Callback for map->odom correction poses (e.g. from SLAM).
+   * @param msg PoseStamped representing the robot pose in the map frame.
+   */
   void mapSourceCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+
+  /**
+   * @brief Callback for static utm->map transform updates.
+   * @param msg The TransformStamped defining the utm->map relationship.
+   */
   void utmToMapCallback(const geometry_msgs::msg::TransformStamped::SharedPtr msg);
 
-  // ---- Service ----
+  /**
+   * @brief Service callback for dead-reckoning relative transform predictions.
+   * @param request Contains the two timestamps to predict between.
+   * @param response Filled with the predicted relative transform.
+   */
   void predictRelativeTransformCallback(
     const std::shared_ptr<eidos_msgs::srv::PredictRelativeTransform::Request> request,
     std::shared_ptr<eidos_msgs::srv::PredictRelativeTransform::Response> response);
 
-  // ---- Helpers ----
+  /**
+   * @brief Extract a gtsam::Pose3 from an Odometry message's pose field.
+   * @param msg The Odometry message.
+   * @return Equivalent gtsam::Pose3.
+   */
   static gtsam::Pose3 odomMsgToPose3(const nav_msgs::msg::Odometry & msg);
+
+  /**
+   * @brief Extract a 6-DOF twist vector from an Odometry message.
+   * @param msg The Odometry message.
+   * @return gtsam::Vector6 [angular_x, angular_y, angular_z, linear_x, linear_y, linear_z].
+   */
   static gtsam::Vector6 odomMsgToTwist(const nav_msgs::msg::Odometry & msg);
+
+  /**
+   * @brief Extract a gtsam::Pose3 from a PoseStamped message.
+   * @param msg The PoseStamped message.
+   * @return Equivalent gtsam::Pose3.
+   */
   static gtsam::Pose3 poseStampedToPose3(const geometry_msgs::msg::PoseStamped & msg);
 
   // ---- EKF model (loaded via pluginlib) ----

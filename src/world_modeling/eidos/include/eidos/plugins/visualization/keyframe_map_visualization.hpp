@@ -39,11 +39,25 @@ public:
   KeyframeMapVisualization() = default;
   ~KeyframeMapVisualization() override = default;
 
+  /// @brief Declare ROS parameters (mode, voxel size, etc.) and create the point cloud publisher.
   void onInitialize() override;
 
 protected:
+  /// @brief Reset the accumulated cloud and seen/accepted key sets on activation.
   void onActivate() override;
+
+  /// @brief Clear accumulated visualization state on deactivation.
   void onDeactivate() override;
+
+  /**
+   * @brief Render accumulated or windowed keyframe point cloud map.
+   *
+   * In "accumulated" mode, incrementally adds new keyframe clouds (with optional
+   * skip factor) and publishes the full voxel-filtered result. In "windowed" mode,
+   * assembles clouds from keyframes within a spatial radius of the latest pose.
+   *
+   * @param optimized_values Latest optimized GTSAM Values (used for pose lookups in SLAM mode).
+   */
   void render(const gtsam::Values & optimized_values) override;
 
 private:

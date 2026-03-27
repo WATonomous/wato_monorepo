@@ -47,6 +47,22 @@ class MapManager;
 class PluginRegistry
 {
 public:
+  /**
+   * @brief Load and initialize all configured plugins (factor, relocalization,
+   *        visualization) via pluginlib.
+   *
+   * Reads plugin lists from the node's parameters and instantiates each
+   * plugin through the corresponding ClassLoader. Each plugin is configured
+   * with shared dependencies (TF buffer, MapManager, etc.).
+   * @param node             Shared pointer to the parent lifecycle node.
+   * @param tf               Pointer to the TF2 buffer for extrinsic lookups.
+   * @param map_manager      Pointer to the shared MapManager.
+   * @param estimator_pose   Pointer to the lock-free optimized pose slot.
+   * @param state            Pointer to the atomic SLAM state.
+   * @param estimator_values Pointer to the lock-free optimized values slot.
+   * @note Called once during EidosNode::on_configure(). After this, the
+   *       registry is effectively read-only.
+   */
   void loadAll(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node,
     tf2_ros::Buffer * tf,
@@ -55,9 +71,17 @@ public:
     const std::atomic<SlamState> * state,
     const AtomicSlot<gtsam::Values> * estimator_values);
 
+  /// @brief Activate all loaded plugins (called during on_activate).
   void activateAll();
+
+  /// @brief Deactivate all loaded plugins (called during on_deactivate).
   void deactivateAll();
 
+  /**
+   * @brief Find a factor plugin by name.
+   * @param name The plugin name to search for.
+   * @return Shared pointer to the plugin, or nullptr if not found.
+   */
   std::shared_ptr<FactorPlugin> findFactor(const std::string & name) const
   {
     for (const auto & p : factor_plugins) {
@@ -72,14 +96,37 @@ public:
   std::vector<std::shared_ptr<VisualizationPlugin>> vis_plugins;
 
 private:
+  /**
+   * @brief Load and configure all factor plugins listed in parameters.
+   * @param node           Shared pointer to the parent lifecycle node.
+   * @param tf             Pointer to the TF2 buffer.
+   * @param map_manager    Pointer to the shared MapManager.
+   * @param estimator_pose Pointer to the lock-free optimized pose slot.
+   * @param state          Pointer to the atomic SLAM state.
+   */
   void loadFactorPlugins(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node,
     tf2_ros::Buffer * tf,
     MapManager * map_manager,
     const LockFreePose * estimator_pose,
     const std::atomic<SlamState> * state);
+
+  /**
+   * @brief Load and configure all relocalization plugins listed in parameters.
+   * @param node        Shared pointer to the parent lifecycle node.
+   * @param tf          Pointer to the TF2 buffer.
+   * @param map_manager Pointer to the shared MapManager.
+   */
   void loadRelocalizationPlugins(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node, tf2_ros::Buffer * tf, MapManager * map_manager);
+
+  /**
+   * @brief Load and configure all visualization plugins listed in parameters.
+   * @param node             Shared pointer to the parent lifecycle node.
+   * @param tf               Pointer to the TF2 buffer.
+   * @param map_manager      Pointer to the shared MapManager.
+   * @param estimator_values Pointer to the lock-free optimized values slot.
+   */
   void loadVisualizationPlugins(
     rclcpp_lifecycle::LifecycleNode::SharedPtr node,
     tf2_ros::Buffer * tf,

@@ -30,6 +30,11 @@ namespace eidos::formats
 class RawDouble5 : public Format
 {
 public:
+  /**
+   * @brief Serialize a std::array<double, 5> to 40 bytes (5 packed doubles).
+   * @param data std::any containing a std::array<double, 5>.
+   * @return 40-byte buffer with packed doubles.
+   */
   std::vector<uint8_t> serialize(const std::any & data) override
   {
     auto arr = std::any_cast<std::array<double, 5>>(data);
@@ -38,6 +43,11 @@ public:
     return buf;
   }
 
+  /**
+   * @brief Deserialize 40 bytes into a std::array<double, 5>.
+   * @param bytes Buffer of at least 40 bytes (5 packed doubles).
+   * @return std::any containing std::array<double, 5>, or empty std::any if undersized.
+   */
   std::any deserialize(const std::vector<uint8_t> & bytes) override
   {
     if (bytes.size() < 5 * sizeof(double)) return std::any{};

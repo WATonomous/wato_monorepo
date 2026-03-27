@@ -46,21 +46,48 @@ public:
   ~HolonomicEKF() override = default;
 
   // ---- Lifecycle ----
+
+  /// @brief Declare process noise parameters and initialize covariance matrices.
   void onInitialize() override;
+  /// @brief Activate the filter (no-op for this implementation).
   void activate() override;
+  /// @brief Deactivate the filter (no-op for this implementation).
   void deactivate() override;
 
   // ---- EKF interface ----
+
+  /**
+   * @brief Propagate the state forward using the constant-velocity motion model.
+   * @param dt Time step in seconds.
+   */
   void predict(double dt) override;
 
+  /**
+   * @brief Fuse a 6-DOF pose measurement via masked scalar Kalman updates.
+   * @param meas Measured pose in the odom frame.
+   * @param mask Which of the 6 DOF (rx, ry, rz, tx, ty, tz) to fuse.
+   * @param noise Per-DOF standard deviations.
+   */
   void updatePose(const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
 
+  /**
+   * @brief Fuse a 6-DOF body-frame twist measurement via masked scalar Kalman updates.
+   * @param meas Twist vector [angular_x, angular_y, angular_z, linear_x, linear_y, linear_z].
+   * @param mask Which of the 6 DOF to fuse.
+   * @param noise Per-DOF standard deviations.
+   */
   void updateTwist(
     const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
 
+  /// @brief Get the current estimated pose.
   gtsam::Pose3 pose() const override;
+  /// @brief Get the current estimated 6-DOF body-frame velocity.
   gtsam::Vector6 velocity() const override;
 
+  /**
+   * @brief Hard-reset the filter to a known pose with zero velocity and default covariance.
+   * @param initial The pose to reset to.
+   */
   void reset(const gtsam::Pose3 & initial) override;
 
 private:

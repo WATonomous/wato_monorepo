@@ -46,6 +46,19 @@ public:
   /// Callback invoked when the sequencer transitions to TRACKING.
   using TrackingCallback = std::function<void(const gtsam::Pose3 & initial_pose)>;
 
+  /**
+   * @brief Configure the sequencer with external dependencies.
+   *
+   * Must be called once (during EidosNode::on_configure) before step().
+   * @param logger                 ROS logger for status messages.
+   * @param state                  Pointer to the shared atomic SLAM state.
+   * @param registry               Pointer to the plugin registry (read-only).
+   * @param map_manager            Pointer to the map manager (read-only, for
+   *                               checking prior map availability).
+   * @param relocalization_timeout Maximum seconds to attempt relocalization
+   *                               before falling back to starting from origin.
+   * @param on_tracking            Callback invoked when transitioning to TRACKING.
+   */
   void configure(
     rclcpp::Logger logger,
     std::atomic<SlamState> * state,
@@ -54,15 +67,39 @@ public:
     double relocalization_timeout,
     TrackingCallback on_tracking);
 
-  /// Called each SLAM tick while state is not TRACKING.
-  /// Returns true once TRACKING is reached (caller should switch to tracking handlers).
+  /**
+   * @brief Advance the state machine by one tick.
+   *
+   * Handles the INITIALIZING -> WARMING_UP -> RELOCALIZING -> TRACKING
+   * progression. While in WARMING_UP, waits for all factor plugins to
+   * report ready. In RELOCALIZING, polls relocalization plugins and
+   * enforces the timeout.
+   * @param timestamp Current wall-clock time in seconds.
+   * @return True if the state is now TRACKING (caller should switch to
+   *         tracking handlers), false otherwise.
+   */
   bool step(double timestamp);
 
-  /// Reset back to WARMING_UP (e.g. after beginTracking resets Estimator).
+  /**
+   * @brief Reset the state machine back to WARMING_UP.
+   *
+   * Typically called from on_activate() to restart the init sequence.
+   */
   void reset();
 
 private:
+  /**
+   * @brief Handle the WARMING_UP state: wait for all factor plugins to
+   *        report ready, then transition to RELOCALIZING or TRACKING.
+   * @param timestamp Current wall-clock time in seconds.
+   */
   void handleWarmingUp(double timestamp);
+
+  /**
+   * @brief Handle the RELOCALIZING state: poll relocalization plugins for
+   *        a match and enforce the relocalization timeout.
+   * @param timestamp Current wall-clock time in seconds.
+   */
   void handleRelocalizing(double timestamp);
 
   rclcpp::Logger logger_{rclcpp::get_logger("init_sequencer")};

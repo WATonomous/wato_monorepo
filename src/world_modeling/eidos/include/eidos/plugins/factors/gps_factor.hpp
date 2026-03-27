@@ -57,17 +57,48 @@ public:
   GpsFactor() = default;
   ~GpsFactor() override = default;
 
+  /// @brief Declare ROS parameters, create GPS/IMU subscriptions and UTM publisher.
   void onInitialize() override;
+
+  /// @brief Enable GPS/IMU subscriptions and static TF broadcaster.
   void activate() override;
+
+  /// @brief Disable subscriptions and stop processing.
   void deactivate() override;
 
-  /// GPS latches onto existing states — never creates new ones.
+  /**
+   * @brief Attach a unary GPSFactor to an existing state if a GPS fix is available.
+   *
+   * Dequeues buffered GPS fixes, converts to the map frame via UTM, and applies
+   * distance gating. GPS never creates its own states in the graph.
+   *
+   * @param key GTSAM key of the newly created state to attach to.
+   * @param timestamp Timestamp of the new state (seconds).
+   * @return StampedFactorResult with the GPS factor, or empty if no fix available.
+   */
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
 private:
+  /**
+   * @brief Buffer incoming GPS fixes for later consumption by latchFactor().
+   * @param msg Incoming NavSatFix message.
+   */
   void gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
+
+  /**
+   * @brief Track IMU heading for initial GPS-to-map orientation alignment.
+   * @param msg Incoming IMU message.
+   */
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  /// @brief Broadcast the static utm->map transform via StaticTransformBroadcaster.
   void broadcastUtmToMap();
+
+  /**
+   * @brief Convert a UTM coordinate to the map frame using the stored offset.
+   * @param utm_pos 3D position in UTM coordinates (easting, northing, altitude).
+   * @return Corresponding 3D position in the map frame.
+   */
   Eigen::Vector3d utmToMap(const Eigen::Vector3d & utm_pos) const;
 
   // Subscriptions + publishers

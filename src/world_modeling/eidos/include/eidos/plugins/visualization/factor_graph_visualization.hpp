@@ -36,11 +36,25 @@ public:
   FactorGraphVisualization() = default;
   ~FactorGraphVisualization() override = default;
 
+  /// @brief Declare ROS parameters (scale, line width, mode) and create the marker publisher.
   void onInitialize() override;
 
 protected:
+  /// @brief Reset publish timer state on activation.
   void onActivate() override;
+
+  /// @brief Clean up on deactivation.
   void onDeactivate() override;
+
+  /**
+   * @brief Render factor graph state as RViz markers.
+   *
+   * Publishes optimized poses as sphere markers and factor connections
+   * (between-factors, loop closures) as line markers. Supports "full" and
+   * "windowed" modes.
+   *
+   * @param optimized_values Latest optimized GTSAM Values for pose lookups.
+   */
   void render(const gtsam::Values & optimized_values) override;
 
 private:

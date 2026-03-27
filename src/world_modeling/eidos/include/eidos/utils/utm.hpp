@@ -19,13 +19,14 @@
 namespace eidos
 {
 
+/// @brief UTM coordinate produced by WGS84-to-UTM conversion.
 struct UtmCoordinate
 {
-  double easting;
-  double northing;
-  double altitude;
-  int zone;
-  bool is_north;
+  double easting;   ///< UTM easting in meters.
+  double northing;  ///< UTM northing in meters (includes 10,000,000 m offset for southern hemisphere).
+  double altitude;  ///< Altitude in meters (pass-through from input).
+  int zone;         ///< UTM zone number (1--60).
+  bool is_north;    ///< True if the coordinate is in the northern hemisphere.
 };
 
 /**
@@ -33,6 +34,12 @@ struct UtmCoordinate
  *
  * Standard Transverse Mercator projection using WGS84 ellipsoid constants.
  * Zone is auto-determined from longitude.
+ *
+ * @param lat_deg Latitude in degrees (positive = north, negative = south).
+ * @param lon_deg Longitude in degrees (positive = east, negative = west).
+ * @param alt Altitude in meters (passed through unchanged).
+ * @return UtmCoordinate with easting, northing, altitude, zone, and hemisphere.
+ * @note Southern hemisphere northing values include the 10,000,000 m offset.
  */
 inline UtmCoordinate latLonToUtm(double lat_deg, double lon_deg, double alt)
 {

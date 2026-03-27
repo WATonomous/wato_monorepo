@@ -50,13 +50,26 @@ class FactorPlugin
 public:
   virtual ~FactorPlugin() = default;
 
+  /// @brief Get the plugin instance name (as configured in YAML).
+  /// @return Reference to the plugin name string.
   const std::string & getName() const
   {
     return name_;
   }
 
   /**
-   * @brief Framework calls this once, then calls onInitialize().
+   * @brief Framework entry point: stores shared resources, then calls onInitialize().
+   *
+   * Called exactly once by EidosNode during plugin loading. Subclasses must NOT
+   * override this — use onInitialize() for plugin-specific setup.
+   *
+   * @param name Plugin instance name from YAML configuration.
+   * @param node Shared pointer to the lifecycle node (for creating subs/pubs/params).
+   * @param tf TF buffer for extrinsic lookups. Non-owning pointer, must outlive plugin.
+   * @param callback_group Dedicated callback group for this plugin's subscriptions.
+   * @param map_manager Pointer to the shared keyframe/map data store. Non-owning.
+   * @param estimator_pose Lock-free read handle for Estimator's latest optimized pose.
+   * @param state Lock-free read handle for EidosNode's current SlamState.
    */
   void initialize(
     const std::string & name,
@@ -78,8 +91,30 @@ public:
   }
 
   // ---- Lifecycle (pure virtual) ----
+
+  /**
+   * @brief Called once after initialize() stores shared resources.
+   *
+   * Implementations MUST declare ROS parameters, create subscriptions and
+   * publishers, and perform any one-time setup here. The node, tf, and
+   * map_manager pointers are valid by the time this is called.
+   */
   virtual void onInitialize() = 0;
+
+  /**
+   * @brief Transition the plugin to the active state.
+   *
+   * Implementations MUST enable their subscriptions and any internal processing.
+   * Called when the lifecycle node transitions to ACTIVE.
+   */
   virtual void activate() = 0;
+
+  /**
+   * @brief Transition the plugin to the inactive state.
+   *
+   * Implementations MUST stop publishing and disable internal processing.
+   * Called when the lifecycle node transitions to INACTIVE.
+   */
   virtual void deactivate() = 0;
 
   /**
@@ -112,9 +147,15 @@ public:
     return {};
   }
 
-  /// Whether the plugin has warmed up and is ready for tracking.
-  /// Default: true (no warmup needed). Plugins with sensor warmup
-  /// (e.g. IMU stationarity detection) override this.
+  /**
+   * @brief Whether the plugin has warmed up and is ready for tracking.
+   *
+   * Default: true (no warmup needed). Plugins with sensor warmup requirements
+   * (e.g. IMU stationarity detection) override this to return false until
+   * sufficient data has been collected.
+   *
+   * @return true if the plugin is ready for SLAM tracking, false otherwise.
+   */
   virtual bool isReady() const
   {
     return true;
@@ -122,41 +163,65 @@ public:
 
   /**
    * @brief Called when EidosNode transitions to TRACKING after relocalization.
-   * Use to initialize against a prior map (e.g. build initial submap).
+   *
+   * Use to initialize against a prior map (e.g. build initial submap around
+   * the relocalized pose). Only relevant in localization mode.
+   *
+   * @param pose The relocalized pose in map frame to begin tracking from.
    */
   virtual void onTrackingBegin(const gtsam::Pose3 & /*pose*/)
   {}
 
   /**
    * @brief Called after ISAM2 optimization with corrected values.
+   *
    * Use to update internal state to match corrected poses (e.g. LISO
    * re-anchors its GICP initial guess and triggers submap rebuild).
+   *
+   * @param values The full set of optimized GTSAM values after ISAM2 update.
+   * @param loop_closure Whether a loop closure factor was included in this optimization cycle.
    */
   virtual void onOptimizationComplete(const gtsam::Values & /*values*/, bool /*loop_closure*/)
   {}
 
   // ---- Lock-free pose outputs (base class enforced) ----
 
-  /// Map-frame pose (e.g. GICP match result). Always non-blocking.
+  /**
+   * @brief Read the latest map-frame pose (e.g. GICP match result).
+   * @return The pose if one has been written, or std::nullopt if no pose is available yet.
+   * @note Always non-blocking. Safe to call from any thread.
+   */
   std::optional<gtsam::Pose3> getMapPose() const
   {
     return map_pose_.load();
   }
 
-  /// Odom-frame pose (e.g. incremental scan-to-scan odometry). Always non-blocking.
+  /**
+   * @brief Read the latest odom-frame pose (e.g. incremental scan-to-scan odometry).
+   * @return The pose if one has been written, or std::nullopt if no pose is available yet.
+   * @note Always non-blocking. Safe to call from any thread.
+   */
   std::optional<gtsam::Pose3> getOdomPose() const
   {
     return odom_pose_.load();
   }
 
 protected:
-  /// Write map-frame pose from sensor callback. Single writer only.
+  /**
+   * @brief Write the map-frame pose from a sensor callback.
+   * @param pose The new map-frame pose to publish.
+   * @note Single writer only — must be called from one thread (typically the sensor callback).
+   */
   void setMapPose(const gtsam::Pose3 & pose)
   {
     map_pose_.store(pose);
   }
 
-  /// Write odom-frame pose from sensor callback. Single writer only.
+  /**
+   * @brief Write the odom-frame pose from a sensor callback.
+   * @param pose The new odom-frame pose to publish.
+   * @note Single writer only — must be called from one thread (typically the sensor callback).
+   */
   void setOdomPose(const gtsam::Pose3 & pose)
   {
     odom_pose_.store(pose);

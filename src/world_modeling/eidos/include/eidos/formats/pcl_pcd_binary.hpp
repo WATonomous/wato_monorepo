@@ -34,6 +34,11 @@ namespace eidos::formats
 class PclPcdBinary : public Format
 {
 public:
+  /**
+   * @brief Serialize a PCL point cloud to a raw byte buffer.
+   * @param data std::any containing a pcl::PointCloud<PointType>::Ptr.
+   * @return Packed PointType array as bytes, or empty if the cloud is null/empty.
+   */
   std::vector<uint8_t> serialize(const std::any & data) override
   {
     auto cloud = std::any_cast<pcl::PointCloud<PointType>::Ptr>(data);
@@ -44,6 +49,12 @@ public:
     return buf;
   }
 
+  /**
+   * @brief Deserialize a raw byte buffer into a PCL point cloud.
+   * @param bytes Packed PointType array previously produced by serialize().
+   * @return std::any containing pcl::PointCloud<PointType>::Ptr, or empty
+   *         std::any if bytes is empty.
+   */
   std::any deserialize(const std::vector<uint8_t> & bytes) override
   {
     if (bytes.empty()) return std::any{};

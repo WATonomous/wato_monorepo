@@ -66,19 +66,68 @@ public:
   LisoFactor() = default;
   ~LisoFactor() override = default;
 
+  /// @brief Declare ROS parameters, create LiDAR/IMU subscriptions and odometry publishers.
   void onInitialize() override;
+
+  /// @brief Enable subscriptions and begin processing LiDAR/IMU data.
   void activate() override;
+
+  /// @brief Disable subscriptions and stop processing.
   void deactivate() override;
 
+  /**
+   * @brief Produce a BetweenFactor<Pose3> from the latest GICP scan-to-submap match.
+   *
+   * Returns the cached GICP result if a new scan has been matched since the last call.
+   * This is the primary state-creating plugin: each returned factor defines a new keyframe.
+   *
+   * @param key GTSAM key allocated for this potential new state.
+   * @param timestamp Current SLAM cycle timestamp (seconds).
+   * @return StampedFactorResult with factors and timestamp, or empty if no new match.
+   */
   StampedFactorResult produceFactor(gtsam::Key key, double timestamp) override;
+
+  /**
+   * @brief Initialize submap against the prior map at the given relocalized pose.
+   * @param initial_pose The relocalized pose in map frame to seed the submap around.
+   */
   void onTrackingBegin(const gtsam::Pose3 & initial_pose) override;
+
+  /**
+   * @brief Re-anchor GICP initial guess and optionally rebuild submap after ISAM2 correction.
+   * @param optimized_values Full optimized GTSAM values after ISAM2 update.
+   * @param loop_closure_detected Whether a loop closure was included in this cycle.
+   */
   void onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected) override;
 
 private:
+  /**
+   * @brief Process incoming LiDAR scan: downsample, GICP match, cache result.
+   * @param msg Incoming PointCloud2 message.
+   */
   void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+
+  /**
+   * @brief Process incoming IMU: warmup stationarity detection and gyro integration.
+   * @param msg Incoming IMU message.
+   */
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  /// @brief Rebuild the submap from recent keyframes (SLAM mode).
   void rebuildSubmap();
+
+  /**
+   * @brief Rebuild the submap from prior map keyframes near the given position (localization mode).
+   * @param position Center position for prior map submap assembly.
+   */
   void rebuildSubmapAtPosition(const Eigen::Vector3f & position);
+
+  /**
+   * @brief Collect GTSAM keys of recent states within a spatial radius via BFS.
+   * @param start Starting key for the BFS search.
+   * @param radius Maximum Euclidean distance from the start key's position.
+   * @return Vector of keys within the radius.
+   */
   std::vector<gtsam::Key> collectRecentStates(gtsam::Key start, double radius);
 
   // ---- State flags ----
