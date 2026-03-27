@@ -90,7 +90,7 @@ The node calls `initialize(name, node)` once during `on_configure`, then `activa
 
 ## HolonomicEKF
 
-Located in `holonomic_ekf.hpp` / `holonomic_ekf.cpp`.
+Located in `plugins/holonomic_ekf.hpp` / `src/holonomic_ekf.cpp`.
 
 ### State representation
 
