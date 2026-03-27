@@ -244,7 +244,7 @@ launch:
         - from: goal_point
           to: /goal_point
         - from: ego/odom
-          to: /ego/odom
+          to: /world_modeling/slam/odometry
 
   # Behaviour Tree visualization markers
   - node:
