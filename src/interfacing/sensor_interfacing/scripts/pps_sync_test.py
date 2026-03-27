@@ -20,8 +20,7 @@ Usage (inside the interfacing container):
 
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import PointCloud2
-from novatel_oem7_msgs.msg import BESTPOS
+from sensor_msgs.msg import Imu, PointCloud2
 
 
 class PPSSyncTest(Node):
@@ -38,7 +37,7 @@ class PPSSyncTest(Node):
                 PointCloud2, topic, lambda msg, t=topic: self._on_lidar(msg, t), 10
             )
 
-        self.create_subscription(BESTPOS, "/novatel/oem7/bestpos", self._on_gps, 10)
+        self.create_subscription(Imu, "/novatel/oem7/imu/data_raw", self._on_gps, 10)
 
     def _stamp_to_sec(self, stamp):
         return stamp.sec + stamp.nanosec * 1e-9
@@ -60,14 +59,20 @@ class PPSSyncTest(Node):
         if not (cc and ne and nw):
             return
 
+        wall = self.get_clock().now().nanoseconds * 1e-9
         cc_ne_ms = (cc - ne) * 1000
         cc_nw_ms = (cc - nw) * 1000
         ne_nw_ms = (ne - nw) * 1000
-        gps_str = f"  cc-gps: {(cc - gps) * 1000:+.1f}ms" if gps else ""
+        gps_str = f"  cc-imu: {(cc - gps) * 1000:+.1f}ms" if gps else ""
+        wall_str = (
+            f"  wall-cc: {(wall - cc):+.3f}s"
+            f"  wall-ne: {(wall - ne):+.3f}s"
+            f"  wall-nw: {(wall - nw):+.3f}s"
+        )
 
         self.get_logger().info(
             f"cc-ne: {cc_ne_ms:+.1f}ms | cc-nw: {cc_nw_ms:+.1f}ms | "
-            f"ne-nw: {ne_nw_ms:+.1f}ms{gps_str}"
+            f"ne-nw: {ne_nw_ms:+.1f}ms{gps_str}{wall_str}"
         )
 
         for label, delta in [("cc-ne", cc_ne_ms), ("cc-nw", cc_nw_ms)]:
