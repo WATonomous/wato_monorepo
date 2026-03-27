@@ -18,6 +18,8 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
+#include <rclcpp/rclcpp.hpp>
+
 #include <any>
 #include <functional>
 #include <map>
@@ -41,14 +43,14 @@ namespace eidos
 /**
  * @brief Centralized keyframe pose + data store with SQLite persistence.
  *
- * At runtime, all data lives in memory as std::any (unchanged from v1).
+ * At runtime, all data lives in memory as std::any.
  * Persistence uses a single SQLite .map file. Plugins register their
  * data formats via registerKeyframeFormat/registerGlobalFormat — the
  * shared format registry handles serialization.
  *
- * The .map file is self-describing: a data_formats table stores which
- * format each data_key uses, so any reader (eidos_tools CLI) can
- * deserialize without external knowledge.
+ * The .map file is self-describing: a data_formats table records which
+ * format handler each data_key uses, so a reader only needs the shared
+ * format registry (linked via eidos_core) — not any plugin-specific code.
  */
 class MapManager
 {
@@ -58,6 +60,10 @@ public:
 
   /// @brief Destructor. Closes any open SQLite handle used for lazy loading.
   ~MapManager();
+
+  /// @brief Configure the MapManager with a logger for diagnostics.
+  /// @param logger ROS logger from the parent node.
+  void configure(rclcpp::Logger logger) { logger_ = logger; }
 
   // ---- Format registration ----
 
@@ -90,9 +96,9 @@ public:
    * @brief Add a new keyframe with its 6-DOF pose.
    * @param gtsam_key The GTSAM key identifying this keyframe.
    * @param pose      The 6-DOF pose (PointXYZIRPYT) for the keyframe.
-   * @param owner     Name of the plugin that created this keyframe (empty if unowned).
+   * @param owner     Name of the plugin that created this keyframe. Must not be empty.
    */
-  void addKeyframe(gtsam::Key gtsam_key, const PoseType & pose, const std::string & owner = "");
+  void addKeyframe(gtsam::Key gtsam_key, const PoseType & pose, const std::string & owner);
 
   /**
    * @brief Get the name of the plugin that created a given keyframe.
@@ -111,11 +117,11 @@ public:
   void updatePoses(const gtsam::Values & optimized);
 
   /// @brief Get the 3D keyframe positions (XYZ only).
-  /// @return Shared pointer to the 3D key poses point cloud.
+  /// @return Copy of the 3D key poses point cloud.
   pcl::PointCloud<PointType>::Ptr getKeyPoses3D() const;
 
-  /// @brief Get the 6-DOF keyframe poses (XYZ + intensity + RPY + time).
-  /// @return Shared pointer to the 6D key poses point cloud.
+  /// @brief Get the full 6-DOF keyframe poses (XYZ + RPY + time).
+  /// @return Copy of the 6D key poses point cloud.
   pcl::PointCloud<PoseType>::Ptr getKeyPoses6D() const;
 
   /**
@@ -318,6 +324,7 @@ private:
   // ---- SQLite handle for lazy loading ----
   sqlite3 * load_db_ = nullptr;
 
+  rclcpp::Logger logger_{rclcpp::get_logger("map_manager")};
   mutable std::mutex mtx_;
 };
 

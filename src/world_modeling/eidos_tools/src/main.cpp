@@ -37,7 +37,7 @@
 
 #include <small_gicp/points/point_cloud.hpp>
 
-#include "eidos/formats/registry.hpp"
+#include "eidos/map/registry.hpp"
 #include "eidos/utils/types.hpp"
 
 // ============================================================================

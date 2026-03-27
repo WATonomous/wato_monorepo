@@ -26,7 +26,7 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 #include "eidos/utils/conversions.hpp"
 #include "eidos/utils/small_gicp_ros.hpp"
 

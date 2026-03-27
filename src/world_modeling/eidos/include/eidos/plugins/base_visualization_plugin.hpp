@@ -35,7 +35,7 @@ class MapManager;
  * @brief Base class for read-only visualization plugins.
  *
  * Each visualization plugin runs on its own timer and callback group,
- * reading optimized values from an AtomicSlot on the Estimator (lock-free).
+ * reading optimized values from an AtomicSlot on the GraphOptimizer (lock-free).
  * Plugins never block each other — each ticks independently.
  *
  * Subclasses implement render() to publish RViz messages.
@@ -64,7 +64,7 @@ public:
    * @param node Shared pointer to the lifecycle node (for creating pubs/params).
    * @param tf TF buffer for extrinsic lookups. Non-owning pointer, must outlive plugin.
    * @param map_manager Pointer to the shared keyframe/map data store. Non-owning.
-   * @param values_slot Lock-free slot for reading Estimator's latest optimized GTSAM Values.
+   * @param values_slot Lock-free slot for reading GraphOptimizer's latest optimized GTSAM Values.
    * @param rate_hz Desired render frequency in Hz.
    */
   void initialize(

@@ -16,7 +16,7 @@ fusion are handled by the separate `eidos_transform` package.
                          |
           +--------------+----------------+
           |              |                |
-    InitSequencer    Estimator      PluginRegistry
+    InitSequencer    GraphOptimizer      PluginRegistry
     (state machine)  (ISAM2 engine) (owns all plugins + ClassLoaders)
           |              |                |
           |              |     +----------+----------+-----------+
@@ -30,34 +30,34 @@ fusion are handled by the separate `eidos_transform` package.
 
 Data flow (per SLAM tick):
   Sensor callbacks --> FactorPlugin buffers (lock-free)
-  SLAM tick        --> poll plugins for factors --> Estimator.optimize()
-  Estimator        --[LockFreePose]--> published slam/pose topic
-  Estimator        --[AtomicSlot<Values>]--> VisualizationPlugins (reads lock-free)
-  Estimator        --> MapManager.updatePoses()
+  SLAM tick        --> poll plugins for factors --> GraphOptimizer.optimize()
+  GraphOptimizer        --[LockFreePose]--> published slam/pose topic
+  GraphOptimizer        --[AtomicSlot<Values>]--> VisualizationPlugins (reads lock-free)
+  GraphOptimizer        --> MapManager.updatePoses()
 ```
 
 ## 2. Core Components
 
 ### EidosNode
 
-Top-level lifecycle node that owns all core components: `Estimator`, `InitSequencer`,
+Top-level lifecycle node that owns all core components: `GraphOptimizer`, `InitSequencer`,
 `MapManager`, and `PluginRegistry`. It drives the SLAM loop via a timer at `slam_rate_`
 Hz. Each tick delegates to `InitSequencer` until `TRACKING` is reached, then calls
-`handleTracking()` which polls factor plugins, feeds factors to `Estimator`, and
+`handleTracking()` which polls factor plugins, feeds factors to `GraphOptimizer`, and
 publishes pose/odometry. Exposes `save_map` and `load_map` ROS services. Shares a
 `tf2_ros::Buffer` with plugins for extrinsic lookups (static transforms from URDF).
 
 Does not broadcast TF. Publishes `slam/pose` which `eidos_transform` subscribes to
 for TF updates.
 
-### Estimator
+### GraphOptimizer
 
 ISAM2 optimization engine. Has no orchestration logic -- `EidosNode` tells it when to
 optimize. Maintains a monotonic state timeline (`Symbol('x', N)`). After each
 `optimize()` call, it writes the latest optimized pose to a `LockFreePose` and the
 full optimized `Values` to an `AtomicSlot` (read by visualization plugins). Provides
-`optimizeExtra()` for additional iterations after loop closure or GPS corrections. Key
-methods: `configure()`, `reset()`, `optimize()`, `optimizeExtra()`, `createState()`,
+extra convergence iterations after loop closure or GPS corrections (via the
+`extra_iterations` parameter). Key methods: `configure()`, `reset()`, `optimize()`, `createState()`,
 `getPose()`, `getCovariance()`.
 
 ### MapManager
@@ -103,7 +103,7 @@ allow concurrent execution where safe.
 - Own `MutuallyExclusive` callback group (`slam_callback_group_`).
 - The `tick()` timer fires at `slam_rate_` Hz.
 - Processes all factor plugins synchronously in a single tick (polls each for factors,
-  feeds to Estimator, runs ISAM2 optimization).
+  feeds to GraphOptimizer, runs ISAM2 optimization).
 - Writes to `LockFreePose` and `AtomicSlot<Values>` after optimization.
 - Calls `MapManager::updatePoses()` and `MapManager::addKeyframe()`.
 - Publishes `slam/pose` and `slam/odometry`.
@@ -111,7 +111,7 @@ allow concurrent execution where safe.
 ### Visualization Plugins (typically 1 Hz each)
 
 - Each visualization plugin has its own callback group and timer.
-- Reads `AtomicSlot<Values>` from Estimator (pointer-swap read).
+- Reads `AtomicSlot<Values>` from GraphOptimizer (pointer-swap read).
 - Reads from `MapManager` (mutex-protected).
 - Independent of SLAM loop timing.
 
@@ -125,7 +125,7 @@ allow concurrent execution where safe.
 
 ```
 Thread 1 (SLAM loop @ 10 Hz):
-  tick() -> poll plugins -> Estimator::optimize()
+  tick() -> poll plugins -> GraphOptimizer::optimize()
          -> LockFreePose.store()
          -> AtomicSlot<Values>.store()   --> [read by Thread 2..N]
          -> MapManager::updatePoses()
@@ -151,7 +151,7 @@ writing and back to even after. A reader that observes an odd counter (writer ac
 retries. Since the copy takes nanoseconds, readers effectively never block.
 
 Usage points:
-- **Estimator -> EidosNode**: Estimator writes `optimized_pose_` after each
+- **GraphOptimizer -> EidosNode**: GraphOptimizer writes `optimized_pose_` after each
   `optimize()` call. EidosNode reads it to publish `slam/pose`.
 - **Plugin -> EidosNode**: Factor plugins write their odom-frame and map-frame poses
   from sensor callbacks via `setOdomPose()`/`setMapPose()`. These are available for
@@ -165,7 +165,7 @@ Single-writer, multi-reader slot for large payloads. The writer creates a new
 snapshot as a `shared_ptr<const T>`.
 
 Usage points:
-- **Estimator -> VisualizationPlugins**: Estimator writes `optimized_values_`
+- **GraphOptimizer -> VisualizationPlugins**: GraphOptimizer writes `optimized_values_`
   (full `gtsam::Values`) after each optimization. Visualization plugins read via
   `load()` to render the pose graph.
 
@@ -205,7 +205,7 @@ by `eidos_transform`).
           +--- timeout (configurable) -------> on_tracking(Identity)
           v
   +----------------+
-  | TRACKING       |  SLAM loop active. Estimator running.
+  | TRACKING       |  SLAM loop active. GraphOptimizer running.
   +----------------+
 ```
 
@@ -221,7 +221,7 @@ by `eidos_transform`).
   `on_tracking` callback is invoked with the resulting pose.
 
 The `on_tracking` callback triggers `EidosNode::beginTracking()`, which resets the
-Estimator and notifies all factor plugins via `onTrackingBegin()`.
+GraphOptimizer and notifies all factor plugins via `onTrackingBegin()`.
 
 ## 6. Map Persistence
 
@@ -311,14 +311,14 @@ which is caught and logged.
 
 To persist a new C++ type through the map file:
 
-1. **Create the format handler** in `include/eidos/formats/`. Inherit `eidos::formats::Format`
+1. **Create the format handler** in `include/eidos/map/`. Inherit `eidos::formats::Format`
    and implement `serialize` / `deserialize`:
 
 ```cpp
-// include/eidos/formats/my_type_binary.hpp
+// include/eidos/map/my_type_binary.hpp
 #pragma once
 #include <cstring>
-#include "eidos/formats/format.hpp"
+#include "eidos/map/format.hpp"
 
 namespace eidos::formats {
 
@@ -345,7 +345,7 @@ public:
 1. **Register the format** in `src/format_registry.cpp`:
 
 ```cpp
-#include "eidos/formats/my_type_binary.hpp"
+#include "eidos/map/my_type_binary.hpp"
 
 // Inside the registry() lambda:
 r["my_type_binary"] = std::make_unique<MyTypeBinary>();

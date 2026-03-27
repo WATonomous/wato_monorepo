@@ -16,12 +16,12 @@
 #include <string>
 #include <unordered_map>
 
-#include "eidos/formats/pcl_pcd_binary.hpp"
-#include "eidos/formats/raw_double3.hpp"
-#include "eidos/formats/raw_double4_eigen.hpp"
-#include "eidos/formats/raw_double5.hpp"
-#include "eidos/formats/registry.hpp"
-#include "eidos/formats/small_gicp_binary.hpp"
+#include "eidos/map/pcl_pcd_binary.hpp"
+#include "eidos/map/raw_double3.hpp"
+#include "eidos/map/raw_double4_eigen.hpp"
+#include "eidos/map/raw_double5.hpp"
+#include "eidos/map/registry.hpp"
+#include "eidos/map/small_gicp_binary.hpp"
 
 namespace eidos::formats
 {

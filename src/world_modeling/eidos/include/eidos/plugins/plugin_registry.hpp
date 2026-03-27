@@ -41,8 +41,7 @@ class MapManager;
  * @brief Loads, owns, and provides lookup for all plugins.
  *
  * Owns the pluginlib ClassLoaders and the plugin instances.
- * Loading is done once during EidosNode::on_configure(). After that,
- * the registry is read-only.
+ * Loading is done once during EidosNode::on_configure().
  */
 class PluginRegistry
 {

@@ -31,7 +31,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <pluginlib/class_list_macros.hpp>
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 #include "eidos/utils/conversions.hpp"
 
 namespace eidos
@@ -243,6 +243,7 @@ StampedFactorResult GpsFactor::latchFactor(gtsam::Key key, double timestamp)
   gtsam::Point3 gps_measurement(gps_x, gps_y, gps_z);
   if (add_factors_) {
     result.factors.push_back(gtsam::make_shared<gtsam::GPSFactor>(key, gps_measurement, gps_noise));
+    result.correction = true;
   }
 
   map_manager_->store(key, "gps_factor/position", gps_measurement);

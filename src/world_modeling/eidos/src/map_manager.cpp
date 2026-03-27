@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 
 #include <gtsam/inference/Symbol.h>
 #include <sqlite3.h>
@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "eidos/formats/registry.hpp"
+#include "eidos/map/registry.hpp"
 
 namespace eidos
 {
@@ -66,6 +66,10 @@ void MapManager::registerGlobalFormat(const std::string & data_key, const std::s
 
 void MapManager::addKeyframe(gtsam::Key gtsam_key, const PoseType & pose, const std::string & owner)
 {
+  if (owner.empty()) {
+    RCLCPP_ERROR(logger_, "\033[33m[MapManager]\033[0m addKeyframe called with empty owner for key %lu", gtsam_key);
+    return;
+  }
   std::lock_guard<std::mutex> lock(mtx_);
   int cloud_index = static_cast<int>(key_poses_3d_->size());
   PointType pose_3d;
@@ -217,10 +221,7 @@ static bool execSql(sqlite3 * db, const char * sql)
 {
   char * err = nullptr;
   int rc = sqlite3_exec(db, sql, nullptr, nullptr, &err);
-  if (err) {
-    std::fprintf(stderr, "[MapManager] SQL error: %s\n", err);
-    sqlite3_free(err);
-  }
+  if (err) sqlite3_free(err);
   return rc == SQLITE_OK;
 }
 
@@ -233,7 +234,10 @@ bool MapManager::saveMap(const std::string & path)
   fs::create_directories(fs::path(path).parent_path());
 
   sqlite3 * db = nullptr;
-  if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) return false;
+  if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) {
+    RCLCPP_ERROR(logger_, "\033[33m[MapManager]\033[0m Failed to open map file for writing: %s", path.c_str());
+    return false;
+  }
 
   // Create tables
   execSql(db, "PRAGMA journal_mode=WAL;");
@@ -403,6 +407,9 @@ bool MapManager::saveMap(const std::string & path)
 
   execSql(db, "COMMIT;");
   sqlite3_close(db);
+  RCLCPP_INFO(
+    logger_, "\033[33m[MapManager]\033[0m Saved map: %s (%zu keyframes, %zu edges)",
+    path.c_str(), key_list_.size(), edge_owners_.size());
   return true;
 }
 
@@ -410,10 +417,16 @@ bool MapManager::loadMap(const std::string & path)
 {
   std::lock_guard<std::mutex> lock(mtx_);
 
-  if (!std::filesystem::exists(path)) return false;
+  if (!std::filesystem::exists(path)) {
+    RCLCPP_ERROR(logger_, "\033[33m[MapManager]\033[0m Map file not found: %s", path.c_str());
+    return false;
+  }
 
   sqlite3 * db = nullptr;
-  if (sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) return false;
+  if (sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
+    RCLCPP_ERROR(logger_, "\033[33m[MapManager]\033[0m Failed to open map file for reading: %s", path.c_str());
+    return false;
+  }
 
   // Clear existing state
   key_poses_3d_->clear();
@@ -576,6 +589,9 @@ bool MapManager::loadMap(const std::string & path)
   prior_map_loaded_ = true;
 
   sqlite3_close(db);
+  RCLCPP_INFO(
+    logger_, "\033[33m[MapManager]\033[0m Loaded map: %s (%zu keyframes, %zu edges)",
+    path.c_str(), key_list_.size(), edge_owners_.size());
   return true;
 }
 

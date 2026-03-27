@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eidos/core/plugin_registry.hpp"
+#include "eidos/plugins/plugin_registry.hpp"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 
 namespace eidos
 {

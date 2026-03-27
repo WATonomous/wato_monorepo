@@ -28,10 +28,10 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 
-#include "eidos/core/estimator.hpp"
+#include "eidos/core/graph_optimizer.hpp"
 #include "eidos/core/init_sequencer.hpp"
-#include "eidos/core/map_manager.hpp"
-#include "eidos/core/plugin_registry.hpp"
+#include "eidos/map/map_manager.hpp"
+#include "eidos/plugins/plugin_registry.hpp"
 #include "eidos/utils/types.hpp"
 #include "eidos_msgs/msg/slam_status.hpp"
 #include "eidos_msgs/srv/load_map.hpp"
@@ -40,22 +40,27 @@
 namespace eidos
 {
 
+/// @brief A pending new state collected from a produceFactor() call.
+struct NewState
+{
+  gtsam::Key key;                ///< GTSAM key allocated for this state.
+  double ts;                     ///< Sensor timestamp of the new state.
+  StampedFactorResult result;    ///< Factors and initial values from the plugin.
+  std::string owner;             ///< Name of the plugin that created this state.
+};
+
 /**
  * @brief Top-level SLAM/localization node.
  *
- * Pure SLAM — handles the factor graph, optimization, and map persistence.
- * Does NOT broadcast TF or manage transforms (that's eidos_transform's job).
- *
  * Owns:
  * - InitSequencer: state machine (INIT → WARMUP → RELOCALIZING → TRACKING)
- * - Estimator: ISAM2 optimization engine
+ * - GraphOptimizer: ISAM2 optimization engine
  * - MapManager: keyframe + data store
  * - PluginRegistry: owns all factor/relocalization/visualization plugins
  *
  * Threading:
  * - SLAM loop: own callback group, slam_rate_ Hz. All plugin reads lock-free.
  * - Each vis plugin: own callback group + timer.
- * - Plugin sensor callbacks: each plugin has its own callback group.
  */
 class EidosNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -73,7 +78,7 @@ protected:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
   /**
-   * @brief Configure the node: declare/read parameters, set up Estimator,
+   * @brief Configure the node: declare/read parameters, set up GraphOptimizer,
    *        load plugins, create publishers and services.
    * @param state Current lifecycle state (unused).
    * @return SUCCESS on successful configuration.
@@ -131,7 +136,7 @@ private:
   /**
    * @brief Transition into the TRACKING state with the given initial pose.
    *
-   * Resets the Estimator, sets state to TRACKING, and notifies all factor
+   * Resets the GraphOptimizer, sets state to TRACKING, and notifies all factor
    * plugins via onTrackingBegin().
    * @param initial_pose The initial pose at which tracking begins.
    */
@@ -142,7 +147,7 @@ private:
   /**
    * @brief Get the current best pose estimate.
    *
-   * Tries the Estimator's optimized pose first; falls back to querying
+   * Tries the GraphOptimizer's optimized pose first; falls back to querying
    * factor plugins for a map pose (e.g. during relocalization).
    * @return The current pose, or std::nullopt if no pose is available yet.
    */
@@ -181,7 +186,7 @@ private:
     std::shared_ptr<eidos_msgs::srv::LoadMap::Response> response);
 
   // ---- Core components ----
-  Estimator estimator_;
+  GraphOptimizer graph_optimizer_;
   InitSequencer init_sequencer_;
   MapManager map_manager_;
   PluginRegistry registry_;
@@ -214,6 +219,9 @@ private:
 
   // ---- Parameters ----
   double slam_rate_;
+  int update_iterations_;
+  int correction_iterations_;
+  int loop_closure_iterations_;
   std::string map_frame_;
   std::string odom_frame_;
   std::string base_link_frame_;

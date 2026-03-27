@@ -20,7 +20,7 @@
 
 #include <pluginlib/class_list_macros.hpp>
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 #include "eidos/utils/conversions.hpp"
 
 namespace eidos

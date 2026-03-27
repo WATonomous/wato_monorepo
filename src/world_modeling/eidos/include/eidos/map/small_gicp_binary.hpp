@@ -20,7 +20,7 @@
 
 #include <small_gicp/points/point_cloud.hpp>
 
-#include "eidos/formats/format.hpp"
+#include "eidos/map/format.hpp"
 
 namespace eidos::formats
 {

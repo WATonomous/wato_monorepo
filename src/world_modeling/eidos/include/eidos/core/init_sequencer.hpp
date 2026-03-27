@@ -23,22 +23,20 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include "eidos/core/map_manager.hpp"
-#include "eidos/core/plugin_registry.hpp"
+#include "eidos/map/map_manager.hpp"
+#include "eidos/plugins/plugin_registry.hpp"
 #include "eidos/utils/types.hpp"
 
 namespace eidos
 {
 
 /**
- * @brief Manages the INIT → WARMUP → RELOCALIZING → TRACKING state machine.
+ * @brief Small state machine that manages the INIT → WARMUP → RELOCALIZING → TRACKING
+ *        sequencing
  *
- * Separated from EidosNode so the orchestrator doesn't mix state machine logic
- * with SLAM tracking logic. EidosNode calls step() each SLAM tick; once
+ * EidosNode calls step() each SLAM tick; once
  * InitSequencer reaches TRACKING, it calls the onTracking callback and
  * EidosNode takes over with handleSlamTracking / handleLocalizationTracking.
- *
- * Threading: only called from the SLAM loop thread.
  */
 class InitSequencer
 {

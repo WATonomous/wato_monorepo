@@ -28,7 +28,7 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 #include "eidos/utils/conversions.hpp"
 
 namespace eidos
@@ -123,6 +123,7 @@ StampedFactorResult EuclideanDistanceLoopClosureFactor::latchFactor(gtsam::Key /
       auto factor =
         gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(lc.from_key, lc.to_key, lc.relative_pose, lc.noise);
       result.factors.push_back(factor);
+      result.loop_closure = true;
 
       gtsam::Symbol from_sym(lc.from_key), to_sym(lc.to_key);
       auto rel_t = lc.relative_pose.translation();

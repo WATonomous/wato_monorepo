@@ -43,30 +43,32 @@ void InitSequencer::reset()
 
 bool InitSequencer::step(double timestamp)
 {
-  auto current = state_->load(std::memory_order_acquire);
-
-  switch (current) {
+  switch (state_->load(std::memory_order_acquire)) {
     case SlamState::INITIALIZING:
-      // No-op — transition to WARMING_UP happens in reset() / on_activate
-      break;
+      return false;
     case SlamState::WARMING_UP:
       handleWarmingUp(timestamp);
-      break;
+      return false;
     case SlamState::RELOCALIZING:
       handleRelocalizing(timestamp);
-      break;
+      return false;
     case SlamState::TRACKING:
-      return true;  // caller takes over
+      return true;
   }
-
-  return state_->load(std::memory_order_acquire) == SlamState::TRACKING;
+  return false;
 }
 
 void InitSequencer::handleWarmingUp(double timestamp)
 {
   // Wait for all factor plugins to report ready (e.g. IMU warmup complete).
   for (const auto & p : registry_->factor_plugins) {
-    if (!p->isReady()) return;
+    if (!p->isReady()) {
+      RCLCPP_INFO_THROTTLE(
+        logger_, *rclcpp::Clock::make_shared(), 3000,
+        "\033[33m[WARMING_UP]\033[0m Waiting for plugin '%s' to be ready",
+        p->getName().c_str());
+      return;
+    }
   }
 
   // If prior map loaded, enter relocalization

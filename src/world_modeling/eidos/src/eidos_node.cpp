@@ -15,7 +15,6 @@
 #include "eidos/core/eidos_node.hpp"
 
 #include <gtsam/inference/Symbol.h>
-#include <gtsam/slam/BetweenFactor.h>
 
 #include <algorithm>
 #include <chrono>
@@ -64,7 +63,7 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
   declare_parameter("map.save_path", std::string(""));
   declare_parameter("topics.odom_pose_cov", std::vector<double>{1.0, 1.0, 1.0, 0.1, 0.1, 0.1});
 
-  // ISAM2 + prior params (read as locals, passed to Estimator::configure)
+  // ISAM2 + prior params (read as locals, passed to GraphOptimizer::configure)
   declare_parameter("isam2.relinearize_threshold", 0.1);
   declare_parameter("isam2.relinearize_skip", 1);
   declare_parameter("isam2.update_iterations", 2);
@@ -96,29 +95,29 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
   get_parameter("map.save_path", map_save_directory_);
   get_parameter("topics.odom_pose_cov", odom_pose_cov_);
 
-  // Configure Estimator with all ISAM2 params
-  {
-    double relinearize_threshold;
-    int relinearize_skip, update_iters, correction_iters, loop_closure_iters;
-    std::vector<double> prior_pose_cov;
-    get_parameter("isam2.relinearize_threshold", relinearize_threshold);
-    get_parameter("isam2.relinearize_skip", relinearize_skip);
-    get_parameter("isam2.update_iterations", update_iters);
-    get_parameter("isam2.correction_iterations", correction_iters);
-    get_parameter("isam2.loop_closure_iterations", loop_closure_iters);
-    get_parameter("prior.pose_cov", prior_pose_cov);
-    estimator_.configure(
-      relinearize_threshold, relinearize_skip, prior_pose_cov, update_iters, correction_iters, loop_closure_iters);
-  }
+  // Configure GraphOptimizer (ISAM2 relinearization + prior)
+  double relinearize_threshold;
+  int relinearize_skip;
+  std::vector<double> prior_pose_cov;
+  get_parameter("isam2.relinearize_threshold", relinearize_threshold);
+  get_parameter("isam2.relinearize_skip", relinearize_skip);
+  get_parameter("prior.pose_cov", prior_pose_cov);
+  graph_optimizer_.configure(get_logger(), relinearize_threshold, relinearize_skip, prior_pose_cov);
+  map_manager_.configure(get_logger());
+
+  // Iteration counts (owned by the node, passed to optimizer per call)
+  get_parameter("isam2.update_iterations", update_iterations_);
+  get_parameter("isam2.correction_iterations", correction_iterations_);
+  get_parameter("isam2.loop_closure_iterations", loop_closure_iterations_);
 
   // Load plugins via PluginRegistry
   registry_.loadAll(
     shared_from_this(),
     tf_buffer_.get(),
     &map_manager_,
-    &estimator_.getOptimizedPose(),
+    &graph_optimizer_.getOptimizedPose(),
     &state_,
-    &estimator_.getOptimizedValues());
+    &graph_optimizer_.getOptimizedValues());
 
   // Configure InitSequencer
   init_sequencer_.configure(
@@ -247,7 +246,7 @@ void EidosNode::beginTracking(const gtsam::Pose3 & initial_pose)
     initial_pose.rotation().pitch() * 180.0 / M_PI,
     initial_pose.rotation().yaw() * 180.0 / M_PI);
 
-  estimator_.reset();
+  graph_optimizer_.reset();
   state_.store(SlamState::TRACKING, std::memory_order_release);
 
   for (auto & plugin : registry_.factor_plugins) {
@@ -257,18 +256,10 @@ void EidosNode::beginTracking(const gtsam::Pose3 & initial_pose)
 
 void EidosNode::handleTracking(double timestamp)
 {
-  // 1. First pass: ask each plugin for state-creating factors.
-  //    produceFactor() with result.timestamp set = new state.
-  //    produceFactor() with result.timestamp nullopt + factors = standalone latch
-  //    (e.g. loop closure BetweenFactor between existing keys).
-  struct NewState
-  {
-    gtsam::Key key;
-    double ts;
-    StampedFactorResult result;
-    std::string owner;
-  };
-
+  // Poll plugins for new factors via produceFactor().
+  //  - result.timestamp set → new state created at that timestamp.
+  //  - result.timestamp nullopt + factors → standalone factors between existing keys
+  //    (e.g. loop closure BetweenFactor).
   std::vector<NewState> new_states;
 
   gtsam::NonlinearFactorGraph new_factors;
@@ -277,47 +268,43 @@ void EidosNode::handleTracking(double timestamp)
   bool loop_closure_detected = false;
   bool correction_detected = false;
 
-  // Pass 1: collect state-creating factors only.
-  // Each plugin is called with the next available key. If it returns
-  // factors with a timestamp, a new state is created at that timestamp.
-  // Plugins that return factors WITHOUT a timestamp are deferred to pass 2
-  // (they need the key of a newly created state to latch onto).
+  // Each plugin is called with the next available key. If it returns factors
+  // with a timestamp, a new state is created. Factors without a timestamp are
+  // added directly (standalone factors between existing keys).
   for (auto & plugin : registry_.factor_plugins) {
-    gtsam::Key next_key = gtsam::Symbol('x', estimator_.getNextStateIndex());
+    gtsam::Key next_key = gtsam::Symbol('x', graph_optimizer_.getNextStateIndex());
     auto result = plugin->produceFactor(next_key, timestamp);
     if (result.factors.empty() && !result.timestamp.has_value()) continue;
 
     if (result.timestamp.has_value()) {
       // State-creating plugin (e.g. LISO)
-      auto key = estimator_.createState(result.timestamp.value(), plugin->getName());
+      auto key = graph_optimizer_.createState(result.timestamp.value(), plugin->getName());
       new_states.push_back({key, result.timestamp.value(), std::move(result), plugin->getName()});
     } else {
       // Standalone factors between existing keys (e.g. loop closure).
-      // These don't need a new state — just add them directly.
       for (auto & f : result.factors) {
         new_factors.add(f);
         new_factor_owners.push_back(plugin->getName());
-        if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f)) {
-          loop_closure_detected = true;
-        }
       }
       for (const auto & kv : result.values) {
         if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
       }
+      if (result.loop_closure) loop_closure_detected = true;
+      if (result.correction) correction_detected = true;
     }
   }
 
-  // 2. Nothing to optimize this tick
+  // Nothing to optimize this tick
   if (new_states.empty() && new_factors.empty()) {
     publishPose();
     publishOdometry();
     return;
   }
 
-  // 3. Sort new states by timestamp, chain factors + initial values
+  // Sort new states by timestamp, assign initial values, add prior, and latch plugins
   std::sort(new_states.begin(), new_states.end(), [](auto & a, auto & b) { return a.ts < b.ts; });
 
-  auto current_pose = estimator_.getOptimizedPose().load().value_or(gtsam::Pose3::Identity());
+  auto current_pose = graph_optimizer_.getOptimizedPose().load().value_or(gtsam::Pose3::Identity());
 
   for (auto & ns : new_states) {
     // Initial value for this state
@@ -339,9 +326,9 @@ void EidosNode::handleTracking(double timestamp)
     }
 
     // First state ever: add PriorFactor
-    if (estimator_.getNextStateIndex() == 1) {
+    if (graph_optimizer_.getNextStateIndex() == 1) {
       gtsam::Pose3 anchor = ns.result.values.exists(ns.key) ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose;
-      auto & cov = estimator_.getPriorPoseCov();
+      auto & cov = graph_optimizer_.getPriorPoseCov();
       if (cov.size() >= 6) {
         auto noise = gtsam::noiseModel::Diagonal::Variances(
           (gtsam::Vector(6) << cov[3], cov[4], cov[5], cov[0], cov[1], cov[2]).finished());
@@ -350,7 +337,7 @@ void EidosNode::handleTracking(double timestamp)
       }
     }
 
-    // Pass 2: let all plugins latch onto this new state via latchFactor().
+    // Let all plugins latch onto this new state (e.g. GPS, IMU, MotionModel).
     for (auto & plugin : registry_.factor_plugins) {
       auto latch = plugin->latchFactor(ns.key, ns.ts);
       if (latch.factors.empty()) continue;
@@ -358,44 +345,29 @@ void EidosNode::handleTracking(double timestamp)
       for (auto & f : latch.factors) {
         new_factors.add(f);
         new_factor_owners.push_back(plugin->getName());
-        if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(f)) {
-          loop_closure_detected = true;
-        } else {
-          correction_detected = true;
-        }
       }
+
+      // Check if a latching factor was a correction or a loop closure
+      if (latch.loop_closure) loop_closure_detected = true;
+      if (latch.correction) correction_detected = true;
       for (const auto & kv : latch.values) {
         if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
       }
     }
   }
 
-  // 5. Update adjacency
+  // Update graph adjacency
   map_manager_.addEdges(new_factors, new_factor_owners);
 
-  // If no new states were created, just add standalone factors (e.g. loop closure)
-  if (new_states.empty()) {
-    estimator_.addFactorsOnly(new_factors, new_values);
-    publishPose();
-    publishOdometry();
-    publishStatus();
-    return;
-  }
+  // Optimize. Use the latest new state key if available, otherwise the last known key.
+  gtsam::Key latest_key = new_states.empty() ? last_state_key_ : new_states.back().key;
+  int extra = loop_closure_detected  ? loop_closure_iterations_
+              : correction_detected  ? correction_iterations_
+                                     : 0;
+  auto optimized = graph_optimizer_.optimize(
+    new_factors, new_values, latest_key, update_iterations_, extra);
 
-  // 6. Optimize
-  auto latest_key = new_states.back().key;
-  auto optimized = estimator_.optimize(new_factors, new_values, latest_key, estimator_.getUpdateIterations());
-
-  // 7. Extra iterations for convergence
-  if (loop_closure_detected) {
-    estimator_.optimizeExtra(estimator_.getLoopClosureIterations(), latest_key);
-    optimized = estimator_.getValues();
-  } else if (correction_detected) {
-    estimator_.optimizeExtra(estimator_.getCorrectionIterations(), latest_key);
-    optimized = estimator_.getValues();
-  }
-
-  // 8. Update keyframe poses + store new keyframes
+  // Update existing keyframe poses from optimized values, store new keyframes
   map_manager_.updatePoses(optimized);
   for (auto & ns : new_states) {
     gtsam::Pose3 pose = optimized.exists(ns.key) ? optimized.at<gtsam::Pose3>(ns.key) : gtsam::Pose3::Identity();
@@ -404,20 +376,17 @@ void EidosNode::handleTracking(double timestamp)
     map_manager_.addKeyframe(ns.key, pose_6d, ns.owner);
   }
 
-  // 9. Notify factor plugins of optimization result
+  // Notify plugins of optimization result (re-anchor GICP guess, rebuild submap, etc.)
   for (auto & plugin : registry_.factor_plugins) {
-    plugin->onOptimizationComplete(optimized, loop_closure_detected);
+    plugin->onOptimizationComplete(optimized, loop_closure_detected || correction_detected);
   }
 
-  // 10. Update cross-plugin bridge tracking
+  // Track latest state for cross-plugin bridging
   auto & last = new_states.back();
   last_state_key_ = last.key;
   last_state_ts_ = last.ts;
   last_state_owner_ = last.owner;
   has_last_state_ = true;
-
-  // Estimator already wrote optimized pose + values to lock-free slots.
-  // Vis plugins read optimized values autonomously via AtomicSlot.
 
   RCLCPP_INFO(
     get_logger(),
@@ -443,9 +412,9 @@ void EidosNode::publishStatus()
   eidos_msgs::msg::SlamStatus msg;
   msg.header.stamp = now();
   msg.state = static_cast<uint8_t>(state_.load(std::memory_order_acquire));
-  msg.current_state_index = static_cast<int>(estimator_.getNextStateIndex());
+  msg.current_state_index = static_cast<int>(graph_optimizer_.getNextStateIndex());
   msg.num_keyframes = map_manager_.numKeyframes();
-  msg.num_factors = estimator_.numFactors();
+  msg.num_factors = graph_optimizer_.numFactors();
 
   for (auto & p : registry_.factor_plugins) msg.active_factor_plugins.push_back(p->getName());
   for (auto & p : registry_.reloc_plugins) msg.active_relocalization_plugins.push_back(p->getName());
@@ -455,7 +424,7 @@ void EidosNode::publishStatus()
 
 std::optional<gtsam::Pose3> EidosNode::getCurrentPose() const
 {
-  auto pose = estimator_.getOptimizedPose().load();
+  auto pose = graph_optimizer_.getOptimizedPose().load();
   if (pose) return pose;
   for (auto & p : registry_.factor_plugins) {
     auto map_pose = p->getMapPose();

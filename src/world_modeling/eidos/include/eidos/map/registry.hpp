@@ -18,7 +18,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "eidos/formats/format.hpp"
+#include "eidos/map/format.hpp"
 
 namespace eidos::formats
 {

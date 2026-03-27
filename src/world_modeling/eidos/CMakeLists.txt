@@ -47,8 +47,7 @@ find_package(small_gicp REQUIRED)
 # ---- Core library ----
 add_library(eidos_core SHARED
   src/eidos_node.cpp
-  src/estimator.cpp
-  src/pose_graph.cpp
+  src/graph_optimizer.cpp
   src/map_manager.cpp
   src/plugin_registry.cpp
   src/init_sequencer.cpp

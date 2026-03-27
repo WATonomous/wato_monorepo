@@ -82,6 +82,14 @@ struct StampedFactorResult
 
   /// Initial values for any new variables introduced.
   gtsam::Values values;
+
+  /// Whether this result contains a loop closure factor. When true, the
+  /// optimizer runs extra iterations for convergence.
+  bool loop_closure = false;
+
+  /// Whether this result contains a correction factor (e.g. GPS unary).
+  /// When true (and loop_closure is false), extra correction iterations run.
+  bool correction = false;
 };
 
 }  // namespace eidos

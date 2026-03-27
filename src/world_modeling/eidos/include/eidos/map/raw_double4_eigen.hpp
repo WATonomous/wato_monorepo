@@ -18,7 +18,7 @@
 #include <Eigen/Core>
 #include <vector>
 
-#include "eidos/formats/format.hpp"
+#include "eidos/map/format.hpp"
 
 namespace eidos::formats
 {

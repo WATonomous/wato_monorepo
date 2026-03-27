@@ -68,7 +68,7 @@ public:
    * @param tf TF buffer for extrinsic lookups. Non-owning pointer, must outlive plugin.
    * @param callback_group Dedicated callback group for this plugin's subscriptions.
    * @param map_manager Pointer to the shared keyframe/map data store. Non-owning.
-   * @param estimator_pose Lock-free read handle for Estimator's latest optimized pose.
+   * @param estimator_pose Lock-free read handle for GraphOptimizer's latest optimized pose.
    * @param state Lock-free read handle for EidosNode's current SlamState.
    */
   void initialize(
@@ -179,9 +179,10 @@ public:
    * re-anchors its GICP initial guess and triggers submap rebuild).
    *
    * @param values The full set of optimized GTSAM values after ISAM2 update.
-   * @param loop_closure Whether a loop closure factor was included in this optimization cycle.
+   * @param graph_corrected Whether a significant correction occurred (loop
+   *        closure or GPS), indicating poses may have shifted substantially.
    */
-  virtual void onOptimizationComplete(const gtsam::Values & /*values*/, bool /*loop_closure*/)
+  virtual void onOptimizationComplete(const gtsam::Values & /*values*/, bool /*graph_corrected*/)
   {}
 
   // ---- Lock-free pose outputs (base class enforced) ----
@@ -232,7 +233,7 @@ protected:
   tf2_ros::Buffer * tf_ = nullptr;  ///< TF lookup buffer (read-only, for extrinsics etc.)
   rclcpp::CallbackGroup::SharedPtr callback_group_;  ///< Dedicated callback group for this plugin's subs
   MapManager * map_manager_ = nullptr;  ///< Keyframe + global data store (direct access)
-  const LockFreePose * estimator_pose_ = nullptr;  ///< Lock-free read of Estimator's latest optimized pose
+  const LockFreePose * estimator_pose_ = nullptr;  ///< Lock-free read of GraphOptimizer's latest optimized pose
   const std::atomic<SlamState> * state_ = nullptr;  ///< Lock-free read of EidosNode's current state
 
 private:

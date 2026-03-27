@@ -19,7 +19,7 @@
 #include <cstring>
 #include <vector>
 
-#include "eidos/formats/format.hpp"
+#include "eidos/map/format.hpp"
 #include "eidos/utils/types.hpp"
 
 namespace eidos::formats

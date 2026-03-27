@@ -29,7 +29,7 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 
-#include "eidos/core/map_manager.hpp"
+#include "eidos/map/map_manager.hpp"
 #include "eidos/utils/conversions.hpp"
 #include "eidos/utils/small_gicp_ros.hpp"
 
@@ -250,7 +250,7 @@ StampedFactorResult LisoFactor::produceFactor(gtsam::Key key, double /*timestamp
 // onOptimizationComplete — re-anchor poses after graph correction
 // ==========================================================================
 
-void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected)
+void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, bool graph_corrected)
 {
   if (has_prev_liso_ && optimized_values.exists(prev_liso_key_)) {
     gtsam::Pose3 corrected = optimized_values.at<gtsam::Pose3>(prev_liso_key_);
@@ -258,7 +258,7 @@ void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, 
     last_matched_pose_ = corrected;
     prev_incremental_pose_ = corrected;
 
-    if (loop_closure_detected) {
+    if (graph_corrected) {
       submap_stale_ = true;
     }
   }

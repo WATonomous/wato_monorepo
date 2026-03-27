@@ -96,9 +96,9 @@ public:
   /**
    * @brief Re-anchor GICP initial guess and optionally rebuild submap after ISAM2 correction.
    * @param optimized_values Full optimized GTSAM values after ISAM2 update.
-   * @param loop_closure_detected Whether a loop closure was included in this cycle.
+   * @param graph_corrected Whether a significant correction (loop closure or GPS) occurred.
    */
-  void onOptimizationComplete(const gtsam::Values & optimized_values, bool loop_closure_detected) override;
+  void onOptimizationComplete(const gtsam::Values & optimized_values, bool graph_corrected) override;
 
 private:
   /**
