@@ -1,0 +1,5 @@
+<library path="eidos_transform_plugins">
+  <class name="eidos_transform::HolonomicEKF" type="eidos_transform::HolonomicEKF" base_class_type="eidos_transform::EKFModelPlugin">
+    <description>12-state holonomic EKF (6-DOF pose + 6-DOF body-frame velocity)</description>
+  </class>
+</library>

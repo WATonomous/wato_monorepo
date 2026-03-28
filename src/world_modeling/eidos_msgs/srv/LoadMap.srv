@@ -1,0 +1,11 @@
+# File path of the map to load (e.g. "/tmp/my_map.map")
+string filepath
+---
+# Whether the load operation succeeded
+bool success
+
+# Number of keyframes loaded
+int32 num_keyframes
+
+# Human-readable status message
+string message

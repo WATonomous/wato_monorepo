@@ -228,4 +228,12 @@ rpy_r = statistics.mean([float(r['urdf_rpy_r']) for r in rows])
 rpy_p = statistics.mean([float(r['urdf_rpy_p']) for r in rows])
 rpy_y = statistics.mean([float(r['urdf_rpy_y']) for r in rows])
 print(f'  <origin xyz=\"{xyz_x:.6f} {xyz_y:.6f} {xyz_z:.6f}\" rpy=\"{rpy_r:.6f} {rpy_p:.6f} {rpy_y:.6f}\"/>')
+
+print()
+print('LiDAR leveling (eve_roof_mount.xacro lidar_cc_mount_yaw joint):')
+print('  The IMU is gravity-calibrated, so its roll/pitch relative to the lidar')
+print('  reveals the lidar tilt. Apply imu_rpy roll/pitch to the lidar joint to level it,')
+print('  then zero out roll/pitch in imu_rpy (eve_kia_soul_ev.xacro).')
+print(f'  lidar joint:  rpy=\"{rpy_r:.6f} {rpy_p:.6f} <CURRENT_LIDAR_YAW>\"')
+print(f'  imu_rpy:      rpy=\"0 0 {rpy_y:.6f}\"')
 "
