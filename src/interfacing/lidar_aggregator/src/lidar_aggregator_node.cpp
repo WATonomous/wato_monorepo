@@ -92,6 +92,9 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
   sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
     imu_topic_, qos, std::bind(&LidarAggregatorNode::imu_callback, this, std::placeholders::_1));
 
+  sub_gps_ = create_subscription<novatel_oem7_msgs::msg::BESTPOS>(
+    gps_topic_, qos, std::bind(&LidarAggregatorNode::gps_callback, this, std::placeholders::_1));
+
   // message_filters synchronized subscriptions for the three lidars
   sub_cc_.subscribe(this, center_topic_, qos.get_rmw_qos_profile());
   sub_ne_.subscribe(this, ne_topic_, qos.get_rmw_qos_profile());
@@ -118,6 +121,7 @@ LidarAggregatorNode::LidarAggregatorNode(const rclcpp::NodeOptions & options)
 
 void LidarAggregatorNode::declare_and_load_parameters()
 {
+  declare_parameter<std::string>("topics.gps", "/novatel/oem7/bestpos");
   declare_parameter<std::string>("topics.imu", "/novatel/oem7/imu/data");
   declare_parameter<std::string>("topics.center", "/lidar_cc/velodyne_points");
   declare_parameter<std::string>("topics.ne", "/lidar_ne/velodyne_points");
@@ -153,6 +157,7 @@ void LidarAggregatorNode::declare_and_load_parameters()
   declare_parameter<double>("estimation.min_offset_sec", -0.1);
   declare_parameter<double>("estimation.max_offset_sec", 0.1);
 
+  get_parameter("topics.gps", gps_topic_);
   get_parameter("topics.imu", imu_topic_);
   get_parameter("topics.center", center_topic_);
   get_parameter("topics.ne", ne_topic_);
@@ -212,9 +217,39 @@ bool LidarAggregatorNode::load_extrinsics_from_tf()
   }
 }
 
+void LidarAggregatorNode::gps_callback(const novatel_oem7_msgs::msg::BESTPOS::SharedPtr msg)
+{
+  const uint16_t week = msg->nov_header.gps_week_number;
+  const uint32_t ms = msg->nov_header.gps_week_milliseconds;
+  if (week == 0 && ms == 0) {
+    return;
+  }
+
+  // GPS epoch: January 6, 1980 00:00:00 UTC; 18 leap seconds as of 2025
+  constexpr double GPS_EPOCH_UNIX = 315964800.0;
+  constexpr double GPS_LEAP_SECONDS = 18.0;
+  const double gps_unix = GPS_EPOCH_UNIX + week * 604800.0 + ms / 1000.0 - GPS_LEAP_SECONDS;
+  const double sys_time = rclcpp::Time(msg->header.stamp).seconds();
+  const double offset = gps_unix - sys_time;
+
+  if (!clock_offset_valid_.load()) {
+    RCLCPP_INFO(get_logger(), "GPS clock offset computed: %.3f s (system is %.1f ms off GPS)", offset, offset * 1000.0);
+  }
+  clock_offset_sec_.store(offset);
+  clock_offset_valid_.store(true);
+}
+
 void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   Eigen::Quaterniond q(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
+
+  // Correct IMU timestamp from system clock to GPS time when the GPS clock offset
+  // is valid and significant (>1s), indicating lidars are using hardware GPS timestamps
+  // that differ from system clock.
+  rclcpp::Time imu_stamp(msg->header.stamp);
+  if (clock_offset_valid_.load() && std::abs(clock_offset_sec_.load()) > 1.0) {
+    imu_stamp = imu_stamp + rclcpp::Duration::from_seconds(clock_offset_sec_.load());
+  }
 
   std::lock_guard<std::mutex> lock(imu_mutex_);
 
@@ -223,7 +258,7 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
     if (imu_buffer_.empty()) {
       q = Eigen::Quaterniond::Identity();
     } else {
-      const double dt = (rclcpp::Time(msg->header.stamp) - imu_buffer_.back().stamp).seconds();
+      const double dt = (imu_stamp - imu_buffer_.back().stamp).seconds();
       const Eigen::Vector3d omega(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
       const double angle = omega.norm() * dt;
       if (dt > 0.0 && dt < 1.0 && angle > 1e-10) {
@@ -238,7 +273,7 @@ void LidarAggregatorNode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr ms
   }
 
   imu_buffer_.push_back(ImuSample{
-    rclcpp::Time(msg->header.stamp),
+    imu_stamp,
     q,
     msg->angular_velocity.z,
     Eigen::Vector3d(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z)});
@@ -380,6 +415,64 @@ bool LidarAggregatorNode::get_abs_gyro_z_at_time(const rclcpp::Time & stamp, dou
     abs_gyro_z_out = std::abs(b.gyro_z);
   }
   return true;
+}
+
+sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::transform_cloud_extrinsic(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg,
+  const rclcpp::Time & stamp,
+  const RigidTransform & t_center_side,
+  const std::string & output_frame) const
+{
+  if (!cloud_msg) {
+    return nullptr;
+  }
+
+  int x_off = -1, y_off = -1, z_off = -1;
+  for (const auto & f : cloud_msg->fields) {
+    if (f.name == "x")
+      x_off = static_cast<int>(f.offset);
+    else if (f.name == "y")
+      y_off = static_cast<int>(f.offset);
+    else if (f.name == "z")
+      z_off = static_cast<int>(f.offset);
+  }
+  if (x_off < 0 || y_off < 0 || z_off < 0) {
+    return nullptr;
+  }
+
+  const uint32_t step = cloud_msg->point_step;
+  const size_t n = cloud_msg->width * cloud_msg->height;
+
+  auto out_msg = std::make_shared<sensor_msgs::msg::PointCloud2>(*cloud_msg);
+  out_msg->header.stamp = stamp;
+  out_msg->header.frame_id = output_frame;
+
+  const uint8_t * in = cloud_msg->data.data();
+  uint8_t * out = out_msg->data.data();
+
+  for (size_t i = 0; i < n; ++i) {
+    const uint8_t * ip = in + i * step;
+    uint8_t * op = out + i * step;
+
+    float x, y, z;
+    memcpy(&x, ip + x_off, sizeof(float));
+    memcpy(&y, ip + y_off, sizeof(float));
+    memcpy(&z, ip + z_off, sizeof(float));
+
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+      continue;
+    }
+
+    const Eigen::Vector3d p = t_center_side.rotation * Eigen::Vector3d(x, y, z) + t_center_side.translation;
+    float ox = static_cast<float>(p.x());
+    float oy = static_cast<float>(p.y());
+    float oz = static_cast<float>(p.z());
+    memcpy(op + x_off, &ox, sizeof(float));
+    memcpy(op + y_off, &oy, sizeof(float));
+    memcpy(op + z_off, &oz, sizeof(float));
+  }
+
+  return out_msg;
 }
 
 sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cloud(
@@ -780,20 +873,23 @@ void LidarAggregatorNode::try_publish_fusion(
   const rclcpp::Time center_stamp(center_msg->header.stamp);
   publish_offset_diagnostics(center_stamp);
 
-  auto ne_corrected = compensate_side_cloud(ne_msg, center_stamp, t_center_ne_, ne_time_offset_sec_, center_frame_);
-  auto nw_corrected = compensate_side_cloud(nw_msg, center_stamp, t_center_nw_, nw_time_offset_sec_, center_frame_);
+  // Apply extrinsic-only transform (no IMU deskewing) for side clouds
+  auto ne_corrected = transform_cloud_extrinsic(ne_msg, center_stamp, t_center_ne_, center_frame_);
+  auto nw_corrected = transform_cloud_extrinsic(nw_msg, center_stamp, t_center_nw_, center_frame_);
 
   if (!ne_corrected || !nw_corrected) {
     return;
   }
 
-  auto cc_deskewed = deskew_center_cloud(center_msg, center_stamp);
-  cc_deskewed->header.frame_id = center_frame_;
+  // Pass center cloud through without deskewing
+  auto cc_out = std::make_shared<sensor_msgs::msg::PointCloud2>(*center_msg);
+  cc_out->header.stamp = center_stamp;
+  cc_out->header.frame_id = center_frame_;
 
   pub_ne_deskewed_cc_->publish(*ne_corrected);
   pub_nw_deskewed_cc_->publish(*nw_corrected);
 
-  auto merged = merge_clouds(cc_deskewed, ne_corrected, nw_corrected, center_stamp, center_frame_);
+  auto merged = merge_clouds(cc_out, ne_corrected, nw_corrected, center_stamp, center_frame_);
   if (merged) {
     pub_merged_->publish(*merged);
   }
