@@ -63,6 +63,7 @@ private:
   std::string standby_msg_;
   double lookahead_distance_;
   double min_lookahead_distance_;
+  double steering_angle_gain;
   double max_speed_;
   double min_speed_;
   double standby_speed_;

@@ -15,9 +15,12 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
+#include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -49,12 +52,20 @@ private:
   void path_callback(const nav_msgs::msg::Path::SharedPtr msg);
   void costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
+  void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
+  void bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg);
 
   // Recomputes and publishes trajectory when new path or costmap arrives
   void update_trajectory();
 
   // Planning core — stateless, holds trajectory config
   std::unique_ptr<TrajectoryCore> core_;
+
+  // Publisher Topic Names
+  std::string traj_pub_topic, marker_pub_topic;
+
+  // Subscriber Topic Names
+  std::string path_sub_topic, costmap_sub_topic, lane_context_sub_topic, odom_sub_topic, bt_sub_topic;
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr traj_pub_;
@@ -64,6 +75,8 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
 
   // TF — used to transform path into costmap frame when frames differ
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -72,10 +85,14 @@ private:
   // Cached latest inputs from upstream nodes
   nav_msgs::msg::Path::SharedPtr latest_path_;
   nav_msgs::msg::OccupancyGrid::SharedPtr latest_costmap_;
+  std::string bt_requested_behaviour;
 
   // Speed limit from lane context; falls back to config max_speed if unavailable
   double current_speed_limit_mps_{0.0};
   bool has_speed_limit_{false};
+
+  // Current speed of car
+  double current_speed_mps{-1.0};
 };
 
 }  // namespace trajectory_planner

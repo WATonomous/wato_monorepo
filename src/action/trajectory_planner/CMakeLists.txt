@@ -23,6 +23,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(behaviour_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
@@ -53,6 +54,7 @@ target_link_libraries(${PROJECT_NAME}_component
     ${rclcpp_components_TARGETS}
     ${geometry_msgs_TARGETS}
     ${visualization_msgs_TARGETS}
+    ${behaviour_msgs_TARGETS}
     ${lanelet_msgs_TARGETS}
     tf2_ros::tf2_ros
     tf2_geometry_msgs::tf2_geometry_msgs
