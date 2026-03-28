@@ -285,6 +285,9 @@ multi_camera_sync:
       quality_person_max_height_m: 4.5
       quality_person_max_footprint_xy_m: 3.0
       quality_vehicle_max_height_m: 4.8
+      # Depth scoring from enriched 3D detections (monocular depth)
+      depth_score_weight: 0.9    # Weight of depth proximity term (0 = disabled)
+      depth_score_scale: 4.0      # Scale (metres) for exp(-|delta| / scale)
 
 # =============================================================================
 # Attribute Assigner Node
@@ -313,14 +316,14 @@ multi_camera_sync:
     traffic_light_strip_margin: 0.25    # Fraction of width/height to ignore on each side (0.0-0.45)
 
     # Car signal detection thresholds (HSV-based)
-    car_brake_min_brightness: 250.0
-    car_brake_min_saturation: 130.0     # Lower than amber — brake lights on white cars appear washed out
+    car_brake_min_brightness: 254.0
+    car_brake_min_saturation: 110.0     # Lower than amber — brake lights on white cars appear washed out
     car_red_hue_lo: 23.0                # Brake light red: H <= this
     car_red_hue_hi: 160.0               # Brake light red: H >= this
     car_amber_hue_lo: 24.0
     car_amber_hue_hi: 35.0
-    car_amber_min_saturation: 80.0
-    car_amber_min_value: 110.0
+    car_amber_min_saturation: 40.0
+    car_amber_min_value: 200.0
 
     # QoS Configuration for subscribers
     qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
@@ -333,11 +336,11 @@ multi_camera_sync:
 
     # Message synchronization
     sync_queue_size: 10
-    sync_max_time_diff_ms: 400.0  # Max time difference for syncing multi-image and detections (ms)
+    sync_max_time_diff_ms: 900.0  # Max time difference for syncing multi-image and detections (ms)
                                     # Detections are typically 50-150ms after images due to processing time
 
     # Visualization toggles
-    enable_image_markers: true       # Publish 2D image marker overlays (enriched_detection_markers)
+    enable_image_markers: false       # Publish 2D image marker overlays (enriched_detection_markers)
     enable_3d_markers: true          # Publish 3D MarkerArray for Foxglove
 
     # 3D Detection settings

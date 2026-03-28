@@ -73,6 +73,7 @@ public:
   static constexpr auto kClusterCentroid = "cluster_centroid";
   static constexpr auto kBoundingBox = "bounding_box";
   static constexpr auto kDetection3d = "detection_3d";
+  static constexpr auto kDetection3DInput = "detections_3d_enriched";
 
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State &) override;
@@ -109,6 +110,7 @@ private:
   void stopAssociationWorker();
   void notifyAssociationWorker(std::shared_ptr<const ClusteredCloudSnapshot> forced_snapshot_hint = nullptr);
   void multiDetectionCallback(const deep_msgs::msg::MultiDetection2DArray::SharedPtr msg);
+  void detection3DCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
   /** Core association + publish; serialized by @c association_mutex_. Forced snapshot is treated as a hint. */
   void runAssociationFromDetections(
     const deep_msgs::msg::MultiDetection2DArray::SharedPtr msg,
@@ -128,7 +130,8 @@ private:
     const std_msgs::msg::Header & lidar_header,
     int image_width = 0,
     int image_height = 0,
-    bool skip_iou_assignment = false);
+    bool skip_iou_assignment = false,
+    const std::vector<std::optional<double>> & detection_depths = {});
 
   /** Filtered + clustered LiDAR for one non-ground message; shared into @c clustered_cloud_cache_. */
   struct ClusteredCloudSnapshot
@@ -173,6 +176,9 @@ private:
 
   std::mutex latest_detections_mutex_;
   deep_msgs::msg::MultiDetection2DArray::SharedPtr latest_detections_;
+
+  std::mutex det3d_mutex_;
+  vision_msgs::msg::Detection3DArray::SharedPtr latest_det3d_;
   std::mutex association_mutex_;
   std::thread association_thread_;
   std::mutex association_trigger_mutex_;
@@ -191,6 +197,7 @@ private:
   rclcpp::Subscription<deep_msgs::msg::MultiImageCompressed>::SharedPtr multi_image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr non_ground_cloud_sub_;
   rclcpp::Subscription<deep_msgs::msg::MultiDetection2DArray>::SharedPtr dets_sub_;
+  rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr det3d_sub_;
 
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

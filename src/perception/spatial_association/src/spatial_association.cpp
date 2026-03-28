@@ -25,6 +25,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <builtin_interfaces/msg/time.hpp>
@@ -396,6 +397,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
       det_qos.best_effort();
       dets_sub_ = this->create_subscription<deep_msgs::msg::MultiDetection2DArray>(
         kDetections, det_qos, std::bind(&SpatialAssociationNode::multiDetectionCallback, this, std::placeholders::_1));
+      det3d_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
+        kDetection3DInput,
+        det_qos,
+        std::bind(&SpatialAssociationNode::detection3DCallback, this, std::placeholders::_1));
     }
 
     detection_3d_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kDetection3d, 10);
@@ -450,6 +455,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   multi_image_sub_.reset();
   multi_camera_info_sub_.reset();
   dets_sub_.reset();
+  det3d_sub_.reset();
+  {
+    std::lock_guard<std::mutex> lock(det3d_mutex_);
+    latest_det3d_.reset();
+  }
   {
     std::lock_guard<std::mutex> lock(image_mutex_);
     latest_multi_image_.reset();
@@ -484,6 +494,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   multi_image_sub_.reset();
   multi_camera_info_sub_.reset();
   dets_sub_.reset();
+  det3d_sub_.reset();
   stopAssociationWorker();
   stopWorker();
   detection_3d_pub_.reset();
@@ -497,6 +508,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
     latest_multi_camera_info_.reset();
     frame_id_to_index_.clear();
+  }
+  {
+    std::lock_guard<std::mutex> lock(det3d_mutex_);
+    latest_det3d_.reset();
   }
   {
     std::lock_guard<std::mutex> lock(image_mutex_);
@@ -518,6 +533,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   multi_image_sub_.reset();
   multi_camera_info_sub_.reset();
   dets_sub_.reset();
+  det3d_sub_.reset();
   stopAssociationWorker();
   stopWorker();
   detection_3d_pub_.reset();
@@ -531,6 +547,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
     latest_multi_camera_info_.reset();
     frame_id_to_index_.clear();
+  }
+  {
+    std::lock_guard<std::mutex> lock(det3d_mutex_);
+    latest_det3d_.reset();
   }
   {
     std::lock_guard<std::mutex> lock(image_mutex_);
@@ -656,6 +676,8 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, pu + "association_allow_aabb_centroid_fallback", false);
   declareIfMissing(this, pu + "association_suppress_second_pass_under_strict", true);
   declareIfMissing(this, pu + "association_roi_expand_fraction", 0.12);
+  declareIfMissing(this, pu + "depth_score_weight", 0.15);
+  declareIfMissing(this, pu + "depth_score_scale", 5.0);
   declareIfMissing(this, pu + "quality_person_max_height_m", 2.5);
   declareIfMissing(this, pu + "quality_person_max_footprint_xy_m", 1.45);
   declareIfMissing(this, pu + "quality_vehicle_max_height_m", 4.8);
@@ -763,6 +785,8 @@ void SpatialAssociationNode::initializeParams()
   proj_params.association_suppress_second_pass_under_strict =
     this->get_parameter(pu + "association_suppress_second_pass_under_strict").as_bool();
   proj_params.association_roi_expand_fraction = this->get_parameter(pu + "association_roi_expand_fraction").as_double();
+  proj_params.depth_score_weight = this->get_parameter(pu + "depth_score_weight").as_double();
+  proj_params.depth_score_scale = this->get_parameter(pu + "depth_score_scale").as_double();
   proj_params.quality_person_max_height_m =
     static_cast<float>(this->get_parameter(pu + "quality_person_max_height_m").as_double());
   proj_params.quality_person_max_footprint_xy_m =
@@ -1042,6 +1066,12 @@ void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiD
   notifyAssociationWorker();
 }
 
+void SpatialAssociationNode::detection3DCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+{
+  std::lock_guard<std::mutex> lock(det3d_mutex_);
+  latest_det3d_ = msg;
+}
+
 void SpatialAssociationNode::runAssociationFromDetections(
   const deep_msgs::msg::MultiDetection2DArray::SharedPtr msg,
   std::shared_ptr<const ClusteredCloudSnapshot> forced_snapshot)
@@ -1136,10 +1166,42 @@ void SpatialAssociationNode::runAssociationFromDetections(
 
   const rclcpp::Time & cloud_time = snap->cloud_stamp;
 
+  // Grab latest enriched 3D detections (flattened across cameras, 1:1 with 2D)
+  vision_msgs::msg::Detection3DArray::SharedPtr det3d_msg;
+  {
+    std::lock_guard<std::mutex> lock(det3d_mutex_);
+    det3d_msg = latest_det3d_;
+  }
+
+  // Transform from the 3D detection frame (global) to LiDAR frame for depth comparison
+  std::optional<geometry_msgs::msg::TransformStamped> tf_det3d_to_lidar;
+  if (det3d_msg && !det3d_msg->detections.empty()) {
+    const std::string & det3d_frame = det3d_msg->header.frame_id;
+    if (!det3d_frame.empty() && det3d_frame != lidar_frame_) {
+      try {
+        tf_det3d_to_lidar = tf_buffer_->lookupTransform(lidar_frame_, det3d_frame, tf2::TimePointZero);
+      } catch (tf2::TransformException & e) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(),
+          *get_clock(),
+          5000,
+          "TF %s -> %s failed for enriched 3D detections: %s — depth scoring disabled this cycle",
+          det3d_frame.c_str(),
+          lidar_frame_.c_str(),
+          e.what());
+        det3d_msg.reset();
+      }
+    }
+    // If det3d_frame == lidar_frame_, no transform needed (tf_det3d_to_lidar stays nullopt)
+  }
+
   vision_msgs::msg::Detection3DArray merged_detections3d;
   // LiDAR snapshot time; if bbox_markers_use_detection_stamp_ is true, MarkerArray headers may differ (viz only).
   merged_detections3d.header = lidar_header;
   visualization_msgs::msg::MarkerArray merged_bboxes;
+
+  // Traffic light 3D detections to append directly (no LiDAR association needed)
+  std::vector<vision_msgs::msg::Detection3D> traffic_light_passthrough;
 
   std::vector<CrossCameraWorkItem> accumulated;
   accumulated.reserve(total_2d);
@@ -1260,8 +1322,74 @@ void SpatialAssociationNode::runAssociationFromDetections(
       candidates = *snap->global_candidates;
     }
 
+    // Separate traffic lights (bypass LiDAR) and build depth vector for remaining detections
+    std::vector<std::optional<double>> cam_depths;
+    const size_t num_cam_dets = camera_detections.detections.size();
+    // filtered_dets excludes traffic lights; cam_depths is indexed to match filtered_dets
+    vision_msgs::msg::Detection2DArray filtered_dets;
+    filtered_dets.header = camera_detections.header;
+    bool has_traffic_lights = false;
+
+    // Match each 2D detection to its enriched 3D detection by comparing primary hypothesis
+    // (class_id + score are identical since the attribute assigner copies results directly)
+    for (size_t i = 0; i < num_cam_dets; ++i) {
+      const auto & det2d = camera_detections.detections[i];
+      const std::string cls2d = det2d.results.empty() ? std::string() : det2d.results[0].hypothesis.class_id;
+      const double score2d = det2d.results.empty() ? 0.0 : det2d.results[0].hypothesis.score;
+
+      // Find matching 3D detection by class_id + score
+      const vision_msgs::msg::Detection3D * matched_3d = nullptr;
+      if (det3d_msg) {
+        for (const auto & det3d : det3d_msg->detections) {
+          if (
+            !det3d.results.empty() && det3d.results[0].hypothesis.class_id == cls2d &&
+            std::abs(det3d.results[0].hypothesis.score - score2d) < 1e-6)
+          {
+            matched_3d = &det3d;
+            break;
+          }
+        }
+      }
+
+      if (matched_3d) {
+        const std::string & cls3d = matched_3d->results[0].hypothesis.class_id;
+        if (cls3d == "traffic light") {
+          has_traffic_lights = true;
+          traffic_light_passthrough.push_back(*matched_3d);
+        } else {
+          filtered_dets.detections.push_back(det2d);
+          // Transform 3D detection position into LiDAR frame, then compute distance from LiDAR origin
+          geometry_msgs::msg::Point pos_lidar;
+          if (tf_det3d_to_lidar.has_value()) {
+            geometry_msgs::msg::PointStamped ps_in, ps_out;
+            ps_in.point = matched_3d->bbox.center.position;
+            tf2::doTransform(ps_in, ps_out, tf_det3d_to_lidar.value());
+            pos_lidar = ps_out.point;
+          } else {
+            pos_lidar = matched_3d->bbox.center.position;
+          }
+          const double depth =
+            std::sqrt(pos_lidar.x * pos_lidar.x + pos_lidar.y * pos_lidar.y + pos_lidar.z * pos_lidar.z);
+          std::optional<double> d;
+          if (depth > 0.1) {
+            d = depth;
+          }
+          cam_depths.push_back(d);
+        }
+      } else {
+        // No matching 3D detection — keep 2D detection for association without depth
+        if (cls2d != "traffic light") {
+          filtered_dets.detections.push_back(det2d);
+          cam_depths.push_back(std::nullopt);
+        }
+      }
+    }
+
+    // Use filtered detections (without traffic lights) when available, otherwise original
+    const auto & dets_for_association = has_traffic_lights ? filtered_dets : camera_detections;
+
     auto detection_results = processDetections(
-      camera_detections,
+      dets_for_association,
       tf_lidar_to_cam,
       projection_matrix,
       cloud,
@@ -1269,7 +1397,8 @@ void SpatialAssociationNode::runAssociationFromDetections(
       lidar_header,
       cam_width,
       cam_height,
-      use_roi_first_clustering_);
+      use_roi_first_clustering_,
+      cam_depths);
 
     const size_t nd = detection_results.detections3d.detections.size();
     if (nd == 0 && !camera_detections.detections.empty()) {
@@ -1340,6 +1469,11 @@ void SpatialAssociationNode::runAssociationFromDetections(
       w.bbox.id = bbox_id++;
       merged_bboxes.markers.push_back(std::move(w.bbox));
     }
+  }
+
+  // Append traffic light detections that bypassed LiDAR association
+  for (auto & tl : traffic_light_passthrough) {
+    merged_detections3d.detections.push_back(std::move(tl));
   }
 
   if (debug_logging_) {
@@ -1448,7 +1582,8 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   const std_msgs::msg::Header & lidar_header,
   int image_width,
   int image_height,
-  bool skip_iou_assignment)
+  bool skip_iou_assignment,
+  const std::vector<std::optional<double>> & detection_depths)
 {
   DetectionOutputs detection_outputs;
 
@@ -1479,7 +1614,8 @@ DetectionOutputs SpatialAssociationNode::processDetections(
       projection_matrix,
       object_detection_confidence_,
       image_width,
-      image_height);
+      image_height,
+      detection_depths);
   } else {
     candidates.erase(
       std::remove_if(

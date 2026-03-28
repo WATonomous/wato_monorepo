@@ -206,6 +206,11 @@ struct ProjectionUtilsParams
   /** If true (default), second-pass rescue is skipped while strict matching is on. */
   bool association_suppress_second_pass_under_strict = true;
 
+  /** Weight of the depth-proximity term when enriched 3D detections are available. */
+  double depth_score_weight = 0.15;
+  /** Scale (metres) for depth score: exp(-|delta| / scale). */
+  double depth_score_scale = 5.0;
+
   /** Expand each 2D box by this fraction (of width/height) when gathering LiDAR for ROI-first clustering. */
   double association_roi_expand_fraction = 0.12;
   /** Class-tight 3D caps after match (meters); applied in @ref filterCandidatesByClassAwareConstraints. */
@@ -392,7 +397,8 @@ void assignCandidatesToDetectionsByIOU(
   const std::array<double, 12> & projection_matrix,
   float object_detection_confidence,
   int image_width = 0,
-  int image_height = 0);
+  int image_height = 0,
+  const std::vector<std::optional<double>> & detection_depths = {});
 
 /**
  * @brief Computes 3D bounding boxes for all clusters

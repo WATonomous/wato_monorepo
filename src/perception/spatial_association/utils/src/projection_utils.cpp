@@ -24,6 +24,7 @@
 #include <limits>
 #include <numeric>
 #include <random>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -751,7 +752,8 @@ void assignCandidatesToDetectionsByIOU(
   const std::array<double, 12> & projection_matrix,
   float object_detection_confidence,
   int image_width,
-  int image_height)
+  int image_height,
+  const std::vector<std::optional<double>> & detection_depths)
 {
   if (candidates.empty()) return;
 
@@ -774,11 +776,14 @@ void assignCandidatesToDetectionsByIOU(
 
   // First-pass greedy assignment sorts by combined_score (not IoU alone) so stronger point/center
   // support can beat a slightly higher-IoU split overlap. Weights sum to 1.
-  constexpr double kAssocWIoU = 0.30;
-  constexpr double kAssocWInsideFrac = 0.28;
-  constexpr double kAssocWAr = 0.18;
-  constexpr double kAssocWCentroid = 0.14;
-  constexpr double kAssocWPoints = 0.10;
+  const bool has_depths = !detection_depths.empty();
+  const double depth_w = has_depths ? params.depth_score_weight : 0.0;
+  const double base_sum = 1.0 - depth_w;
+  const double kAssocWIoU = 0.30 * base_sum;
+  const double kAssocWInsideFrac = 0.28 * base_sum;
+  const double kAssocWAr = 0.18 * base_sum;
+  const double kAssocWCentroid = 0.14 * base_sum;
+  const double kAssocWPoints = 0.10 * base_sum;
 
   struct Pair
   {
@@ -905,8 +910,17 @@ void assignCandidatesToDetectionsByIOU(
         const double centroid_score = std::exp(-dist_c / det_scale);
         const double point_score =
           std::min(1.0, std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + 120.0));
+        double depth_score_term = 0.0;
+        if (
+          has_depths && static_cast<size_t>(d) < detection_depths.size() &&
+          detection_depths[static_cast<size_t>(d)].has_value())
+        {
+          const double det_depth = detection_depths[static_cast<size_t>(d)].value();
+          const double cluster_dist = st.centroid.head<3>().norm();
+          depth_score_term = depth_w * std::exp(-std::abs(cluster_dist - det_depth) / params.depth_score_scale);
+        }
         const double combined_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac + kAssocWAr * ar_score +
-                                      kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
+                                      kAssocWCentroid * centroid_score + kAssocWPoints * point_score + depth_score_term;
 
         pairs.push_back({c, d, iou, combined_score});
       }
@@ -1344,29 +1358,35 @@ vision_msgs::msg::Detection3DArray compute3DDetection(
     vision_msgs::msg::Detection3D det;
     det.header = header;
 
-    vision_msgs::msg::ObjectHypothesisWithPose hypo;
     if (candidates[i].match.has_value()) {
       const auto & m = candidates[i].match.value();
       if (m.det_idx >= 0 && static_cast<size_t>(m.det_idx) < detections.detections.size()) {
         const auto & d = detections.detections[static_cast<size_t>(m.det_idx)];
         if (!d.results.empty()) {
-          hypo.hypothesis.class_id = d.results[0].hypothesis.class_id;
+          // Copy all hypotheses (class + attributes like state:red, behavior:braking)
+          det.results = d.results;
+          // Recalculate score on the primary hypothesis (index 0)
           const double det_score = static_cast<double>(d.results[0].hypothesis.score);
-          hypo.hypothesis.score = params.detection_score_weight * det_score + params.iou_score_weight * m.iou;
-          hypo.hypothesis.score = std::max(0.0, std::min(1.0, hypo.hypothesis.score));
+          det.results[0].hypothesis.score =
+            std::max(0.0, std::min(1.0, params.detection_score_weight * det_score + params.iou_score_weight * m.iou));
         } else {
+          vision_msgs::msg::ObjectHypothesisWithPose hypo;
           hypo.hypothesis.class_id = "cluster";
           hypo.hypothesis.score = kDefaultDetectionScore;
+          det.results.push_back(hypo);
         }
       } else {
+        vision_msgs::msg::ObjectHypothesisWithPose hypo;
         hypo.hypothesis.class_id = "cluster";
         hypo.hypothesis.score = kDefaultDetectionScore;
+        det.results.push_back(hypo);
       }
     } else {
+      vision_msgs::msg::ObjectHypothesisWithPose hypo;
       hypo.hypothesis.class_id = "cluster";
       hypo.hypothesis.score = kDefaultDetectionScore;
+      det.results.push_back(hypo);
     }
-    det.results.push_back(hypo);
 
     geometry_msgs::msg::Pose & pose = det.bbox.center;
     pose.position.x = box.center.x();

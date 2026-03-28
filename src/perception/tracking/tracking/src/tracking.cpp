@@ -156,7 +156,9 @@ int TrackingNode::classLookup(const std::string & class_name)
   if (it != class_map_.end())
     return it->second;
   else {  // Class name key not in map
-    RCLCPP_WARN(static_logger_, "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
+    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
+    RCLCPP_WARN_THROTTLE(
+      static_logger_, steady_clock, 5000, "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
     return -1;
   }
 }
@@ -168,7 +170,9 @@ std::string TrackingNode::reverseClassLookup(int class_id)
   if (it != reverse_class_map_.end())
     return it->second;
   else {  // Class id key not in reverse map
-    RCLCPP_WARN(static_logger_, "Class %d not found, defaulting to '[unknown]' class", class_id);
+    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
+    RCLCPP_WARN_THROTTLE(
+      static_logger_, steady_clock, 5000, "Class %d not found, defaulting to '[unknown]' class", class_id);
     return "[unknown]";
   }
 }
@@ -193,13 +197,15 @@ std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::m
     int label = 0;
     float prob = 1.0;
 
-    // Get highest scored hypothesis
-    auto best_hyp = std::max_element(
-      det.results.begin(),
-      det.results.end(),
-      [](const vision_msgs::msg::ObjectHypothesisWithPose & a, const vision_msgs::msg::ObjectHypothesisWithPose & b) {
-        return a.hypothesis.score < b.hypothesis.score;
-      });
+    // Get highest scored class hypothesis, skipping attribute hypotheses (prefixed with "state:", "behavior:", etc.)
+    decltype(det.results.begin()) best_hyp = det.results.end();
+    for (auto it = det.results.begin(); it != det.results.end(); ++it) {
+      const auto & cid = it->hypothesis.class_id;
+      if (cid.find(':') != std::string::npos) continue;  // Skip attribute hypotheses
+      if (best_hyp == det.results.end() || it->hypothesis.score > best_hyp->hypothesis.score) {
+        best_hyp = it;
+      }
+    }
 
     if (best_hyp == det.results.end()) {
       RCLCPP_WARN(static_logger_, "det.results must be non-empty, falling back to dummy values");
@@ -305,11 +311,12 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
   auto stracks = tracker_->update(objs);
   auto tracked_dets = STracksToTracks(stracks, tf_msg.header);
 
-  // Override ByteTrack's filtered yaw with the nearest input detection's orientation.
-  // ByteTrack's Kalman filter treats yaw as a linear state causing unstable spinning.
+  // Match each tracked detection to the nearest input detection to:
+  // 1. Override ByteTrack's filtered yaw (Kalman filter causes unstable spinning)
+  // 2. Carry forward attribute hypotheses (state:*, behavior:*) from enriched detections
   for (auto & trk : tracked_dets.detections) {
     double best_dist = std::numeric_limits<double>::max();
-    const geometry_msgs::msg::Quaternion * best_orient = nullptr;
+    const vision_msgs::msg::Detection3D * best_det = nullptr;
     for (const auto & det : tf_msg.detections) {
       double dx = trk.bbox.center.position.x - det.bbox.center.position.x;
       double dy = trk.bbox.center.position.y - det.bbox.center.position.y;
@@ -317,11 +324,18 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       double dist = dx * dx + dy * dy + dz * dz;
       if (dist < best_dist) {
         best_dist = dist;
-        best_orient = &det.bbox.center.orientation;
+        best_det = &det;
       }
     }
-    if (best_orient) {
-      trk.bbox.center.orientation = *best_orient;
+    if (best_det) {
+      trk.bbox.center.orientation = best_det->bbox.center.orientation;
+
+      // Append attribute hypotheses (class_id contains ':') from the matched input detection
+      for (const auto & result : best_det->results) {
+        if (result.hypothesis.class_id.find(':') != std::string::npos) {
+          trk.results.push_back(result);
+        }
+      }
     }
   }
 
@@ -356,12 +370,52 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       marker.scale.y = std::max(0.1, det.bbox.size.y);
       marker.scale.z = std::max(0.1, det.bbox.size.z);
 
-      // Deterministic color from track ID
+      // Color from attribute hypotheses, falling back to deterministic track ID color
       int trk_id = std::stoi(det.id);
       marker.color.r = static_cast<float>((trk_id * 67) % 255) / 255.0f;
       marker.color.g = static_cast<float>((trk_id * 123) % 255) / 255.0f;
       marker.color.b = static_cast<float>((trk_id * 200) % 255) / 255.0f;
       marker.color.a = 0.6f;
+
+      // Find best attribute hypothesis to determine marker color (has to be greater than 50%)
+      double best_attr_score = 0.5;
+      std::string best_attr;
+      for (const auto & result : det.results) {
+        const auto & cid = result.hypothesis.class_id;
+        if (cid.find(':') != std::string::npos && result.hypothesis.score > best_attr_score) {
+          best_attr_score = result.hypothesis.score;
+          best_attr = cid;
+        }
+      }
+
+      if (!best_attr.empty()) {
+        if (best_attr == "state:red") {
+          marker.color.r = 1.0f;
+          marker.color.g = 0.0f;
+          marker.color.b = 0.0f;
+        } else if (best_attr == "state:yellow") {
+          marker.color.r = 1.0f;
+          marker.color.g = 1.0f;
+          marker.color.b = 0.0f;
+        } else if (best_attr == "state:green") {
+          marker.color.r = 0.0f;
+          marker.color.g = 1.0f;
+          marker.color.b = 0.0f;
+        } else if (best_attr == "behavior:braking") {
+          marker.color.r = 1.0f;
+          marker.color.g = 0.0f;
+          marker.color.b = 0.0f;
+        } else if (best_attr == "behavior:turning_left" || best_attr == "behavior:turning_right") {
+          marker.color.r = 1.0f;
+          marker.color.g = 0.7f;
+          marker.color.b = 0.0f;
+        } else if (best_attr == "behavior:hazard_lights") {
+          marker.color.r = 1.0f;
+          marker.color.g = 0.5f;
+          marker.color.b = 0.0f;
+        }
+        marker.color.a = 0.8f;
+      }
       marker.lifetime = rclcpp::Duration::from_seconds(0.5);
 
       marker_array.markers.push_back(marker);
@@ -379,7 +433,12 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       text_marker.scale.z = 0.5;
 
       std::string class_name = det.results.empty() ? "?" : det.results[0].hypothesis.class_id;
-      text_marker.text = class_name + " #" + det.id;
+      std::string label = class_name + " #" + det.id;
+      if (!best_attr.empty()) {
+        // Show attribute after the colon (e.g. "car #5 [braking]")
+        label += " [" + best_attr.substr(best_attr.find(':') + 1) + "]";
+      }
+      text_marker.text = label;
 
       text_marker.color.r = 1.0f;
       text_marker.color.g = 1.0f;

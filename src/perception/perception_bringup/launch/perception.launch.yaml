@@ -153,7 +153,9 @@ launch:
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
             - from: detections
-              to: /perception/detections
+              to: /perception/detections_enriched
+            - from: detections_3d_enriched
+              to: /perception/detections_3d_enriched
             - from: detection_3d
               to: /perception/detections_3D
 
