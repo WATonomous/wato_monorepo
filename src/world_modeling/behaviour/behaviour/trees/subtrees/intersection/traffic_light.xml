@@ -53,19 +53,19 @@
 	                        expected="right" />
 	                    <!-- TODO(WATonomous): Restore the right-of-way occupancy gate once
 	                         traffic-light-associated right_of_way lanelets are available in
-	                         the map / regulatory-element path.
+	                         the map / regulatory-element path. -->
 	                    <GetWorldObjectsSub
 	                        objects="{traffic_light.objects}"
 	                        error_message="{traffic_light.get_objects_error_msg}"
 	                        topic_name="/world_modeling/world_objects_enriched" />
-	                    <GetYieldingRightOfWayLaneletId
+	                    <GetRightOfWayLaneletIds
 	                        lane_ctx="{@current_lane_ctx}"
-	                        out_lanelet_id="{traffic_light.right_of_way_lanelet_id}" />
-	                    <EmptyLanelet
-	                        lanelet_id="{traffic_light.right_of_way_lanelet_id}"
+	                        out_lanelet_ids="{traffic_light.right_of_way_lanelet_ids}" />
+	                    <EmptyLanelets
+	                        lanelet_ids="{traffic_light.right_of_way_lanelet_ids}"
 	                        objects="{traffic_light.objects}"
 	                        hypothesis_index="{@world_objects_hypothesis_index}" />
-	                    -->
+
 	                    <Fallback name="DespawnIfNeeded">
 	                        <Inverter>
 	                            <WallIdExist wall_id="{traffic_light.wall_id}" />
