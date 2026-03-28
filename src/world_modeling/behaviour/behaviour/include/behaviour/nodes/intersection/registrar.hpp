@@ -42,6 +42,7 @@
 // conditions
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_exist_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_passed_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/ego_near_stop_line_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/passing_active_traffic_control_element_condition.hpp"
@@ -97,6 +98,8 @@ public:
       "ActiveTrafficControlElementExist", logger_.get_child("ActiveTrafficControlElementExist"));
     factory.registerNodeType<behaviour::ActiveTrafficControlElementPassedCondition>(
       "ActiveTrafficControlElementPassed", logger_.get_child("ActiveTrafficControlElementPassed"));
+    factory.registerNodeType<behaviour::EgoNearStopLineCondition>(
+      "EgoNearStopLine", logger_.get_child("EgoNearStopLine"));
     factory.registerNodeType<behaviour::IsRegulatoryElementTypeCondition>(
       "IsRegulatoryElementType", logger_.get_child("IsRegulatoryElementType"));
     factory.registerNodeType<behaviour::IsTrafficLightStateCondition>(

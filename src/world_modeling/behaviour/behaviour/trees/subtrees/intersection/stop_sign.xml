@@ -48,6 +48,11 @@
           </Sequence>
         </Fallback>
 
+        <EgoNearStopLine
+          ego_odom="{@ego_odom}"
+          stop_line_pose="{stop_sign.stop_line_pose}"
+          threshold_m="{@bt.stop_sign_ego_stop_line_threshold_m}" />
+
         <EgoStoppedForDuration
           ego_odom="{@ego_odom}"
           threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
