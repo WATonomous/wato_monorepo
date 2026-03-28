@@ -17,6 +17,7 @@
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Pose3.h>
 
+#include <Eigen/Core>
 #include <array>
 #include <memory>
 #include <string>
@@ -25,6 +26,16 @@
 
 namespace eidos_transform
 {
+
+/// @brief Opaque snapshot of an EKF's full internal state for rewind-replay.
+struct StateSnapshot
+{
+  double time = 0.0;
+  gtsam::Pose3 pose;
+  gtsam::Vector6 velocity = gtsam::Vector6::Zero();
+  Eigen::Vector3d accel_bias = Eigen::Vector3d::Zero();
+  Eigen::MatrixXd P;  ///< Covariance matrix (size depends on plugin)
+};
 
 /**
  * @brief Base class for EKF motion model plugins.
@@ -86,6 +97,25 @@ public:
     const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) = 0;
 
   /**
+   * @brief Fuse a body-frame linear acceleration measurement.
+   *
+   * The acceleration should have gravity already removed (or the EKF handles
+   * gravity internally using its orientation state). The EKF subtracts its
+   * estimated accelerometer bias and uses the result to update velocity.
+   *
+   * @param accel Body-frame acceleration [ax, ay, az] (gravity-compensated).
+   * @param noise Standard deviation for each axis.
+   * @param dt Time since last acceleration measurement (for integration).
+   */
+  virtual void updateAcceleration(
+    const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt)
+  {
+    (void)accel;
+    (void)noise;
+    (void)dt;
+  }
+
+  /**
    * @brief Get the current estimated pose.
    * @return The EKF's current pose estimate in the odom frame.
    */
@@ -97,11 +127,21 @@ public:
    */
   virtual gtsam::Vector6 velocity() const = 0;
 
+  /// @brief Get the current estimated accelerometer bias.
+  /// @return 3D bias vector [bias_ax, bias_ay, bias_az]. Default: zero (no bias state).
+  virtual Eigen::Vector3d accelBias() const { return Eigen::Vector3d::Zero(); }
+
   /**
    * @brief Hard-reset the filter to a known pose, zero velocity, and default covariance.
    * @param initial The pose to reset to.
    */
   virtual void reset(const gtsam::Pose3 & initial) = 0;
+
+  /// @brief Capture the full internal state for rewind-replay.
+  virtual StateSnapshot snapshot(double time) const = 0;
+
+  /// @brief Restore the full internal state from a previous snapshot.
+  virtual void restore(const StateSnapshot & snap) = 0;
 
 protected:
   std::string name_;

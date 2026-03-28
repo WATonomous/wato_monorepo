@@ -22,14 +22,17 @@
 
 #include <array>
 #include <atomic>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
+#include <Eigen/Core>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
@@ -41,28 +44,46 @@
 namespace eidos_transform
 {
 
-/// @brief Measurement source descriptor for an Odometry topic.
+/// @brief Unified measurement source descriptor.
 ///
-/// Used for both odom_sources (fed to both EKFs) and map_sources (fed to
-/// global EKF only). Each source has per-DOF pose/twist masks and noise.
+/// Supports both nav_msgs/Odometry and sensor_msgs/Imu topics via the
+/// `type` field. Can appear in odom_sources, map_sources, or both.
 struct MeasurementSource
 {
   std::string name;
-  std::string odom_topic;
+  std::string type = "odom";  ///< "odom" or "imu"
+  std::string topic;
 
+  // ---- Common: per-DOF masks and noise ----
   std::array<bool, 6> pose_mask = {false, false, false, false, false, false};
   std::array<bool, 6> twist_mask = {false, false, false, false, false, false};
   gtsam::Vector6 pose_noise = gtsam::Vector6::Ones();
   gtsam::Vector6 twist_noise = gtsam::Vector6::Ones();
 
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subscriber;
+  // ---- Odom-type state ----
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;
+  nav_msgs::msg::Odometry::SharedPtr latest_odom;
 
-  nav_msgs::msg::Odometry::SharedPtr latest_msg;
+  // ---- IMU-type config ----
+  std::string imu_frame = "imu_link";
+  bool use_orientation = true;
+  bool use_angular_velocity = true;
+  bool use_linear_acceleration = false;
+  double gravity = 9.80511;
+  bool gravity_compensated = false;
+  gtsam::Vector6 orientation_noise = gtsam::Vector6::Ones();
+  gtsam::Vector6 angular_velocity_noise = gtsam::Vector6::Ones();
+  gtsam::Vector6 linear_velocity_noise = gtsam::Vector6::Ones();
+
+  // ---- IMU-type state ----
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
+  sensor_msgs::msg::Imu::SharedPtr latest_imu;
+  Eigen::Matrix3d R_base_imu = Eigen::Matrix3d::Identity();
+  bool has_imu_tf = false;
+  double last_imu_time = 0.0;
+
+  // ---- Common state ----
   bool has_new_data = false;
-
-  gtsam::Pose3 last_pose;
-  bool has_last_pose = false;
-
   bool logged_first_msg = false;
 };
 
@@ -93,7 +114,7 @@ private:
   /// @brief Main tick: predict both EKFs, fuse sources, broadcast TF, publish odom.
   void tick();
 
-  /// @brief Fuse a measurement into an EKF using the source's masks and noise.
+  /// @brief Fuse a measurement source into an EKF (handles both odom and imu types).
   void fuseSource(
     std::shared_ptr<EKFModelPlugin> & ekf,
     MeasurementSource & src);
@@ -127,6 +148,51 @@ private:
   std::vector<MeasurementSource> odom_sources_;  ///< Fed to BOTH EKFs
   std::vector<MeasurementSource> map_sources_;   ///< Fed to global EKF ONLY
   std::mutex sources_mutex_;
+
+  // ---- Rewind-replay for delayed measurements (global EKF only) ----
+
+  /// @brief Record of an applied measurement for replay during rewind.
+  struct MeasurementRecord
+  {
+    double time;
+    enum class Target { LOCAL, GLOBAL, BOTH } target;
+
+    // Which source produced this
+    std::string source_name;
+    std::string source_type;  // "odom" or "imu"
+
+    // Odom data
+    gtsam::Pose3 pose;
+    gtsam::Vector6 twist = gtsam::Vector6::Zero();
+    std::array<bool, 6> pose_mask = {};
+    std::array<bool, 6> twist_mask = {};
+    gtsam::Vector6 pose_noise = gtsam::Vector6::Ones();
+    gtsam::Vector6 twist_noise = gtsam::Vector6::Ones();
+
+    // IMU data
+    Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
+    Eigen::Vector3d accel = Eigen::Vector3d::Zero();
+    Eigen::Vector3d orientation_rpy = Eigen::Vector3d::Zero();
+    bool has_orientation = false;
+    bool use_orientation = false;
+    bool use_angular_velocity = false;
+    bool use_linear_acceleration = false;
+    gtsam::Vector6 imu_orientation_noise = gtsam::Vector6::Ones();
+    gtsam::Vector6 imu_angular_velocity_noise = gtsam::Vector6::Ones();
+    Eigen::Vector3d imu_accel_noise = Eigen::Vector3d::Ones();
+    double imu_dt = 0.0;
+  };
+
+  /// @brief Apply a measurement record to an EKF.
+  void applyMeasurement(std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec);
+
+  /// @brief Rewind the global EKF and replay with delayed measurement inserted.
+  void rewindAndReplay(double delayed_time);
+
+  std::deque<StateSnapshot> global_state_history_;
+  std::deque<MeasurementRecord> global_measurement_history_;
+  double global_ekf_time_ = 0.0;
+  static constexpr size_t kMaxHistory = 500;
 
   // ---- TF ----
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;

@@ -25,19 +25,25 @@ namespace eidos_transform
 {
 
 /**
- * @brief 12-state holonomic EKF: pose (6-DOF) + body-frame velocity (6-DOF).
+ * @brief 15-state holonomic EKF: pose (6) + velocity (6) + accel bias (3).
  *
- * State vector layout (conceptual):
- *   x = [pose(6), velocity(6)]
+ * State layout:
+ *   [0..5]  pose: rx, ry, rz, tx, ty, tz (Lie algebra, stored as Pose3)
+ *   [6..11] velocity: angular_x, angular_y, angular_z, linear_x, linear_y, linear_z
+ *   [12..14] accelerometer bias: bias_ax, bias_ay, bias_az
  *
- * The pose is stored as a gtsam::Pose3 (not as a vector) to avoid
- * singularities. The covariance P_ is 12x12 diagonal approximation.
+ * Predict: constant-velocity model with bias-corrected acceleration.
+ *   pose = pose * Expmap(velocity * dt)
+ *   velocity = velocity (unchanged by predict; updated by measurements)
+ *   bias = bias (random walk, grows with process noise)
  *
- * Predict: constant-velocity model.
- *   pose = pose.compose(Pose3::Expmap(velocity * dt))
- *   velocity = velocity  (unchanged)
+ * Update: full Kalman gain with 15x15 covariance. Cross-covariance between
+ * pose, velocity, and bias allows pose corrections to adjust velocity and bias,
+ * and vice versa.
  *
- * Update: masked Kalman update on individual DOFs.
+ * The accel bias is internal — the EKFModelPlugin interface (updatePose,
+ * updateTwist) is unchanged. Bias subtraction happens inside fuseImuSource
+ * in eidos_transform_node.cpp when processing linear acceleration.
  */
 class HolonomicEKF : public EKFModelPlugin
 {
@@ -45,66 +51,48 @@ public:
   HolonomicEKF() = default;
   ~HolonomicEKF() override = default;
 
-  // ---- Lifecycle ----
-
-  /// @brief Declare process noise parameters and initialize covariance matrices.
   void onInitialize() override;
-  /// @brief Activate the filter (no-op for this implementation).
   void activate() override;
-  /// @brief Deactivate the filter (no-op for this implementation).
   void deactivate() override;
 
-  // ---- EKF interface ----
-
-  /**
-   * @brief Propagate the state forward using the constant-velocity motion model.
-   * @param dt Time step in seconds.
-   */
   void predict(double dt) override;
 
-  /**
-   * @brief Fuse a 6-DOF pose measurement via masked scalar Kalman updates.
-   * @param meas Measured pose in the odom frame.
-   * @param mask Which of the 6 DOF (rx, ry, rz, tx, ty, tz) to fuse.
-   * @param noise Per-DOF standard deviations.
-   */
-  void updatePose(const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
+  void updatePose(
+    const gtsam::Pose3 & meas,
+    const std::array<bool, 6> & mask,
+    const gtsam::Vector6 & noise) override;
 
-  /**
-   * @brief Fuse a 6-DOF body-frame twist measurement via masked scalar Kalman updates.
-   * @param meas Twist vector [angular_x, angular_y, angular_z, linear_x, linear_y, linear_z].
-   * @param mask Which of the 6 DOF to fuse.
-   * @param noise Per-DOF standard deviations.
-   */
   void updateTwist(
-    const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
+    const gtsam::Vector6 & meas,
+    const std::array<bool, 6> & mask,
+    const gtsam::Vector6 & noise) override;
 
-  /// @brief Get the current estimated pose.
+  void updateAcceleration(
+    const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt) override;
+
   gtsam::Pose3 pose() const override;
-  /// @brief Get the current estimated 6-DOF body-frame velocity.
   gtsam::Vector6 velocity() const override;
-
-  /**
-   * @brief Hard-reset the filter to a known pose with zero velocity and default covariance.
-   * @param initial The pose to reset to.
-   */
   void reset(const gtsam::Pose3 & initial) override;
+  Eigen::Vector3d accelBias() const override { return accel_bias_; }
+  StateSnapshot snapshot(double time) const override;
+  void restore(const StateSnapshot & snap) override;
+
+  /// @brief State dimension.
+  static constexpr int kStateDim = 15;
 
 private:
   // ---- State ----
   gtsam::Pose3 pose_;
   gtsam::Vector6 velocity_ = gtsam::Vector6::Zero();
+  Eigen::Vector3d accel_bias_ = Eigen::Vector3d::Zero();
 
-  // ---- Velocity inference from pose updates ----
-  gtsam::Pose3 last_pose_at_update_;
-  double last_pose_update_dt_ = 0.0;
-  bool has_last_pose_update_ = false;
+  // ---- Full 15x15 covariance ----
+  Eigen::Matrix<double, kStateDim, kStateDim> P_ =
+    Eigen::Matrix<double, kStateDim, kStateDim>::Identity();
 
-  // ---- Covariance (12x12 diagonal approximation) ----
-  Eigen::Matrix<double, 12, 12> P_ = Eigen::Matrix<double, 12, 12>::Identity();
-
-  // ---- Process noise (12x12 diagonal) ----
-  Eigen::Matrix<double, 12, 12> Q_ = Eigen::Matrix<double, 12, 12>::Identity();
+  // ---- Process noise (15x15 diagonal) ----
+  Eigen::Matrix<double, kStateDim, kStateDim> Q_ =
+    Eigen::Matrix<double, kStateDim, kStateDim>::Identity();
 };
 
 }  // namespace eidos_transform

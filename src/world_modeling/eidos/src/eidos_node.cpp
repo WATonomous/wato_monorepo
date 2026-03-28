@@ -466,7 +466,10 @@ void EidosNode::publishOdometry()
   if (!pose) return;
 
   nav_msgs::msg::Odometry msg;
-  msg.header.stamp = now();
+  msg.header.stamp = has_last_state_ ? rclcpp::Time(
+                                         static_cast<int64_t>(last_state_ts_ * 1e9),
+                                         RCL_ROS_TIME)
+                                     : now();
   msg.header.frame_id = map_frame_;
   msg.child_frame_id = base_link_frame_;
 

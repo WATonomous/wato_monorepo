@@ -41,7 +41,6 @@
       - "gps_factor"
       - "liso_factor"
       - "euclidean_distance_loop_closure_factor"
-      - "imu_factor"
 
     relocalization_plugins:
       - "gps_icp_relocalization"
@@ -119,19 +118,6 @@
 
       gicp_pointcloud_from: "liso_factor/gicp_cloud"
 
-    # IMU Factor (publishes odom for eidos_transform, no factors injected)
-    imu_factor:
-      plugin: "eidos::ImuFactor"
-      add_factors: false
-      odom_topic: "imu_factor/odometry"
-      imu_topic: "/novatel/oem7/imu/data"
-      imu_frame: "imu_link"
-      gravity: 9.80511
-      acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]
-      gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]
-      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
-      default_imu_dt: 0.002
-
     # GPS + ICP Relocalization
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"
@@ -200,52 +186,63 @@
       plugin: "eidos_transform::HolonomicEKF"
       name: "holonomic_ekf"
 
-    # Local EKF process noise (odom frame)
+    # Local EKF process noise: [pose(6), velocity(6), accel_bias(3)]
     holonomic_ekf:
       process_noise:
         [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
-         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2,
+         1.0e-6, 1.0e-6, 1.0e-6]
 
-    # Global EKF process noise (map frame)
+    # Global EKF process noise: [pose(6), velocity(6), accel_bias(3)]
     holonomic_ekf_global:
       process_noise:
-        [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
-         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+        [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3,
+         1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
+         1.0e-6, 1.0e-6, 1.0e-6]
 
-    # Odom sources (fed to BOTH local and global EKFs)
+    # Odom sources (local EKF only, odom frame)
     odom_sources:
       - "liso_odom"
-      - "imu"
+      - "imu_raw"
 
     liso_odom:
-      odom_topic: "liso/odometry_incremental"
+      type: "odom"
+      topic: "liso/odometry_incremental"
       pose_mask: [true, true, true, true, true, true]
       twist_mask: [false, false, false, false, false, false]
       pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
       twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
-    imu:
-      odom_topic: "imu_factor/odometry"
-      pose_mask: [false, false, false, false, false, false]
-      twist_mask: [true, true, true, false, false, false]
-      pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
-      twist_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+    imu_raw:
+      type: "imu"
+      topic: "/novatel/oem7/imu/data"
+      imu_frame: "imu_link"
+      use_orientation: true
+      use_angular_velocity: true
+      use_linear_acceleration: true
+      gravity: 9.80511
+      gravity_compensated: false
+      orientation_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0, 1.0, 1.0]
+      angular_velocity_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0, 1.0, 1.0]
+      linear_velocity_noise: [1.0, 1.0, 1.0, 1.0e-1, 1.0e-1, 1.0e-1]
 
-    # Map sources (fed to global EKF ONLY)
+    # Map sources (global EKF only, map frame)
     map_sources:
       - "liso_map"
-      # - "slam"
+      - "slam"
 
     liso_map:
-      odom_topic: "liso/odometry"
+      type: "odom"
+      topic: "liso/odometry"
       pose_mask: [true, true, true, true, true, true]
-      twist_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
       pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
       twist_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
 
-    # slam:
-    #   odom_topic: "slam/odometry"
-    #   pose_mask: [true, true, true, true, true, true]
-    #   twist_mask: [false, false, false, false, false, false]
-    #   pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
-    #   twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+    slam:
+      type: "odom"
+      topic: "slam/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]

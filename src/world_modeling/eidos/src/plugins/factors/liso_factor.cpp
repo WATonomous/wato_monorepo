@@ -254,11 +254,18 @@ void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, 
 {
   if (has_prev_liso_ && optimized_values.exists(prev_liso_key_)) {
     gtsam::Pose3 corrected = optimized_values.at<gtsam::Pose3>(prev_liso_key_);
+
+    // Store correction delta for the lidar callback to apply to prev_incremental_pose_.
+    // This avoids a data race — the correction is consumed in the same thread that
+    // owns prev_incremental_pose_.
+    {
+      std::lock_guard lock(incremental_correction_mtx_);
+      pending_incremental_correction_ = prev_liso_pose_.between(corrected);
+      has_pending_incremental_correction_.store(true, std::memory_order_release);
+    }
+
     prev_liso_pose_ = corrected;
     last_matched_pose_ = corrected;
-    // NOTE: prev_incremental_pose_ is NOT updated here. It tracks the raw GICP
-    // match chain for odom-frame delta computation. Correcting it would cause
-    // liso/odometry_incremental to jump on SLAM corrections.
 
     if (graph_corrected) {
       submap_stale_ = true;
@@ -467,6 +474,13 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   last_gyro_time_ = scan_time;
 
   // Incremental odometry (odom frame)
+  // Apply any pending correction from SLAM optimization before computing delta.
+  if (has_pending_incremental_correction_.load(std::memory_order_acquire)) {
+    std::lock_guard lock(incremental_correction_mtx_);
+    prev_incremental_pose_ = prev_incremental_pose_.compose(pending_incremental_correction_);
+    has_pending_incremental_correction_.store(false, std::memory_order_release);
+  }
+
   gtsam::Pose3 delta;
   bool has_delta = false;
   double dt = (prev_odom_time_ > 0.0) ? (scan_time - prev_odom_time_) : 0.0;

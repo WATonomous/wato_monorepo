@@ -75,6 +75,9 @@ public:
   /// @brief Disable subscriptions and stop processing.
   void deactivate() override;
 
+  /// @brief Returns true once IMU warmup (stationary detection + gravity alignment) is complete.
+  bool isReady() const override { return imu_warmup_complete_.load(std::memory_order_acquire); }
+
   /**
    * @brief Produce a BetweenFactor<Pose3> from the latest GICP scan-to-submap match.
    *
@@ -179,11 +182,17 @@ private:
   Eigen::Quaterniond warmup_quat_reference_;
   gtsam::Rot3 initial_gravity_orientation_;
 
-  // ---- Incremental odometry (odom frame, never corrected) ----
+  // ---- Incremental odometry (odom frame) ----
   gtsam::Pose3 incremental_pose_;
   gtsam::Pose3 prev_incremental_pose_;
   bool has_prev_incremental_ = false;
   double prev_odom_time_ = 0.0;
+
+  // ---- Pending correction for incremental odometry ----
+  // Written by onOptimizationComplete (SLAM thread), consumed by lidarCallback (sensor thread).
+  gtsam::Pose3 pending_incremental_correction_;
+  std::atomic<bool> has_pending_incremental_correction_{false};
+  std::mutex incremental_correction_mtx_;
 
   // ---- Factor tracking ----
   gtsam::Point3 last_factor_position_ = gtsam::Point3(0, 0, 0);

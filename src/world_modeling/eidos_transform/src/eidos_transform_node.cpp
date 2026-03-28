@@ -14,6 +14,7 @@
 
 #include "eidos_transform/eidos_transform_node.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
@@ -42,6 +43,16 @@ EidosTransformNode::~EidosTransformNode() = default;
 // Helper: parse a list of MeasurementSource entries from parameters
 // ---------------------------------------------------------------------------
 
+static void readNoiseParam(
+  rclcpp_lifecycle::LifecycleNode * node, const std::string & param,
+  gtsam::Vector6 & out, const std::vector<double> & defaults)
+{
+  node->declare_parameter<std::vector<double>>(param, defaults);
+  std::vector<double> v;
+  node->get_parameter(param, v);
+  for (size_t i = 0; i < 6 && i < v.size(); ++i) out(static_cast<int>(i)) = v[i];
+}
+
 static void parseSources(
   rclcpp_lifecycle::LifecycleNode * node,
   const std::string & list_param,
@@ -57,51 +68,86 @@ static void parseSources(
     MeasurementSource src;
     src.name = src_name;
 
-    node->declare_parameter<std::string>(src_name + ".odom_topic", "");
-    node->get_parameter(src_name + ".odom_topic", src.odom_topic);
-    if (src.odom_topic.empty()) {
+    node->declare_parameter<std::string>(src_name + ".type", "odom");
+    node->declare_parameter<std::string>(src_name + ".topic", "");
+    node->get_parameter(src_name + ".type", src.type);
+    node->get_parameter(src_name + ".topic", src.topic);
+
+    if (src.topic.empty()) {
       RCLCPP_WARN(node->get_logger(), "%s source '%s' has no topic, skipping.", label.c_str(), src_name.c_str());
       continue;
     }
 
-    // Pose mask
-    node->declare_parameter<std::vector<bool>>(src_name + ".pose_mask", {false, false, false, false, false, false});
-    std::vector<bool> pm;
-    node->get_parameter(src_name + ".pose_mask", pm);
-    for (size_t i = 0; i < 6 && i < pm.size(); ++i) src.pose_mask[i] = pm[i];
-
-    // Twist mask
-    node->declare_parameter<std::vector<bool>>(src_name + ".twist_mask", {false, false, false, false, false, false});
-    std::vector<bool> tm;
-    node->get_parameter(src_name + ".twist_mask", tm);
-    for (size_t i = 0; i < 6 && i < tm.size(); ++i) src.twist_mask[i] = tm[i];
-
-    // Pose noise
-    node->declare_parameter<std::vector<double>>(src_name + ".pose_noise", {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
-    std::vector<double> pn;
-    node->get_parameter(src_name + ".pose_noise", pn);
-    for (size_t i = 0; i < 6 && i < pn.size(); ++i) src.pose_noise(static_cast<int>(i)) = pn[i];
-
-    // Twist noise
-    node->declare_parameter<std::vector<double>>(src_name + ".twist_noise", {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
-    std::vector<double> tn;
-    node->get_parameter(src_name + ".twist_noise", tn);
-    for (size_t i = 0; i < 6 && i < tn.size(); ++i) src.twist_noise(static_cast<int>(i)) = tn[i];
-
-    // Subscriber
     size_t idx = out.size();
-    src.subscriber = node->create_subscription<nav_msgs::msg::Odometry>(
-      src.odom_topic,
-      rclcpp::SensorDataQoS(),
-      [&out, &mtx, idx](const nav_msgs::msg::Odometry::SharedPtr msg) {
-        std::lock_guard<std::mutex> lock(mtx);
-        if (idx < out.size()) {
-          out[idx].latest_msg = msg;
-          out[idx].has_new_data = true;
-        }
-      });
 
-    RCLCPP_INFO(node->get_logger(), "%s source '%s' on topic '%s'", label.c_str(), src_name.c_str(), src.odom_topic.c_str());
+    if (src.type == "imu") {
+      // IMU-specific params
+      node->declare_parameter<std::string>(src_name + ".imu_frame", "imu_link");
+      node->declare_parameter<bool>(src_name + ".use_orientation", true);
+      node->declare_parameter<bool>(src_name + ".use_angular_velocity", true);
+      node->declare_parameter<bool>(src_name + ".use_linear_acceleration", false);
+      node->declare_parameter<double>(src_name + ".gravity", 9.80511);
+      node->declare_parameter<bool>(src_name + ".gravity_compensated", false);
+
+      node->get_parameter(src_name + ".imu_frame", src.imu_frame);
+      node->get_parameter(src_name + ".use_orientation", src.use_orientation);
+      node->get_parameter(src_name + ".use_angular_velocity", src.use_angular_velocity);
+      node->get_parameter(src_name + ".use_linear_acceleration", src.use_linear_acceleration);
+      node->get_parameter(src_name + ".gravity", src.gravity);
+      node->get_parameter(src_name + ".gravity_compensated", src.gravity_compensated);
+
+      readNoiseParam(node, src_name + ".orientation_noise", src.orientation_noise,
+        {1e-2, 1e-2, 1e-2, 1.0, 1.0, 1.0});
+      readNoiseParam(node, src_name + ".angular_velocity_noise", src.angular_velocity_noise,
+        {1e-4, 1e-4, 1e-4, 1.0, 1.0, 1.0});
+      readNoiseParam(node, src_name + ".linear_velocity_noise", src.linear_velocity_noise,
+        {1.0, 1.0, 1.0, 1e-1, 1e-1, 1e-1});
+
+      src.imu_sub = node->create_subscription<sensor_msgs::msg::Imu>(
+        src.topic, rclcpp::SensorDataQoS(),
+        [&out, &mtx, idx](const sensor_msgs::msg::Imu::SharedPtr msg) {
+          std::lock_guard<std::mutex> lock(mtx);
+          if (idx < out.size()) {
+            out[idx].latest_imu = msg;
+            out[idx].has_new_data = true;
+          }
+        });
+
+      RCLCPP_INFO(node->get_logger(), "%s source '%s' [imu] on '%s' frame '%s'",
+        label.c_str(), src_name.c_str(), src.topic.c_str(), src.imu_frame.c_str());
+
+    } else {
+      // Odom-type params
+      node->declare_parameter<std::vector<bool>>(
+        src_name + ".pose_mask", {false, false, false, false, false, false});
+      node->declare_parameter<std::vector<bool>>(
+        src_name + ".twist_mask", {false, false, false, false, false, false});
+
+      std::vector<bool> pm, tm;
+      node->get_parameter(src_name + ".pose_mask", pm);
+      node->get_parameter(src_name + ".twist_mask", tm);
+      for (size_t i = 0; i < 6 && i < pm.size(); ++i) src.pose_mask[i] = pm[i];
+      for (size_t i = 0; i < 6 && i < tm.size(); ++i) src.twist_mask[i] = tm[i];
+
+      readNoiseParam(node, src_name + ".pose_noise", src.pose_noise,
+        {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+      readNoiseParam(node, src_name + ".twist_noise", src.twist_noise,
+        {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+
+      src.odom_sub = node->create_subscription<nav_msgs::msg::Odometry>(
+        src.topic, rclcpp::SensorDataQoS(),
+        [&out, &mtx, idx](const nav_msgs::msg::Odometry::SharedPtr msg) {
+          std::lock_guard<std::mutex> lock(mtx);
+          if (idx < out.size()) {
+            out[idx].latest_odom = msg;
+            out[idx].has_new_data = true;
+          }
+        });
+
+      RCLCPP_INFO(node->get_logger(), "%s source '%s' [odom] on '%s'",
+        label.c_str(), src_name.c_str(), src.topic.c_str());
+    }
+
     out.push_back(std::move(src));
   }
 }
@@ -160,6 +206,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(const rclcpp
 
   // Parse map_sources (fed to global EKF ONLY)
   parseSources(this, "map_sources", map_sources_, sources_mutex_, "Map");
+
 
   // TF
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -263,6 +310,7 @@ void EidosTransformNode::tick()
   if (first_tick_) {
     first_tick_ = false;
     last_tick_time_ = now;
+    global_ekf_time_ = now.seconds();
     RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First tick, broadcasting identity TF");
     broadcastOdomToBaseTF(now);
     return;
@@ -275,50 +323,105 @@ void EidosTransformNode::tick()
     return;
   }
   last_tick_time_ = now;
+  double now_sec = now.seconds();
 
-  // Predict both EKFs
+  // ---- Local EKF: immediate fusion (no delay handling needed) ----
   local_ekf_->predict(dt);
-  global_ekf_->predict(dt);
 
-  // Fuse odom_sources into local EKF only (odom frame data)
   {
     std::lock_guard<std::mutex> lock(sources_mutex_);
     for (auto & src : odom_sources_) {
-      if (!src.has_new_data || !src.latest_msg) continue;
+      if (!src.has_new_data) continue;
       src.has_new_data = false;
-
       fuseSource(local_ekf_, src);
-
       if (!src.logged_first_msg) {
         RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First odom source '%s' on '%s'",
-          src.name.c_str(), src.odom_topic.c_str());
-        src.logged_first_msg = true;
-      }
-    }
-
-    // Fuse map_sources into global EKF ONLY
-    for (auto & src : map_sources_) {
-      if (!src.has_new_data || !src.latest_msg) continue;
-      src.has_new_data = false;
-      has_map_source_data_ = true;
-
-      fuseSource(global_ekf_, src);
-
-      if (!src.logged_first_msg) {
-        RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First map source '%s' on '%s'",
-          src.name.c_str(), src.odom_topic.c_str());
+          src.name.c_str(), src.topic.c_str());
         src.logged_first_msg = true;
       }
     }
   }
 
-  // Broadcast odom→base_link from local EKF
+  // ---- Global EKF: delayed measurement handling (rewind-replay) ----
+  global_ekf_->predict(dt);
+  global_ekf_time_ = now_sec;
+
+  // Save state snapshot after predict (before any measurements this tick)
+  global_state_history_.push_back(global_ekf_->snapshot(now_sec));
+  while (global_state_history_.size() > kMaxHistory) global_state_history_.pop_front();
+
+  // Collect new map source measurements with their timestamps
+  std::vector<MeasurementRecord> new_measurements;
+  bool needs_rewind = false;
+  {
+    std::lock_guard<std::mutex> lock(sources_mutex_);
+    for (auto & src : map_sources_) {
+      if (!src.has_new_data) continue;
+      src.has_new_data = false;
+      has_map_source_data_ = true;
+
+      MeasurementRecord rec;
+      rec.source_name = src.name;
+      rec.source_type = src.type;
+      rec.target = MeasurementRecord::Target::GLOBAL;
+
+      if (src.type == "odom" && src.latest_odom) {
+        rec.time = rclcpp::Time(src.latest_odom->header.stamp).seconds();
+        rec.pose = odomMsgToPose3(*src.latest_odom);
+        rec.twist = odomMsgToTwist(*src.latest_odom);
+        rec.pose_mask = src.pose_mask;
+        rec.twist_mask = src.twist_mask;
+        rec.pose_noise = src.pose_noise;
+        rec.twist_noise = src.twist_noise;
+      } else if (src.type == "imu" && src.latest_imu) {
+        rec.time = rclcpp::Time(src.latest_imu->header.stamp).seconds();
+      } else {
+        continue;
+      }
+
+      // Check if this measurement is delayed (older than the previous tick time)
+      if (rec.time < global_ekf_time_ - dt - 0.01) {
+        needs_rewind = true;
+      }
+
+      new_measurements.push_back(rec);
+
+      if (!src.logged_first_msg) {
+        RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First map source '%s' on '%s'",
+          src.name.c_str(), src.topic.c_str());
+        src.logged_first_msg = true;
+      }
+    }
+  }
+
+  // Add new measurements to history
+  for (auto & rec : new_measurements) {
+    global_measurement_history_.push_back(rec);
+  }
+  while (global_measurement_history_.size() > kMaxHistory) {
+    global_measurement_history_.pop_front();
+  }
+
+  if (needs_rewind) {
+    // Find the oldest delayed measurement
+    double oldest_delayed = now_sec;
+    for (const auto & rec : new_measurements) {
+      if (rec.time < oldest_delayed) oldest_delayed = rec.time;
+    }
+    RCLCPP_INFO(get_logger(),
+      "\033[34m[Transform]\033[0m Rewind triggered: delayed measurement at %.3f, current=%.3f, lag=%.3f",
+      oldest_delayed, global_ekf_time_, global_ekf_time_ - oldest_delayed);
+    rewindAndReplay(oldest_delayed);
+  } else {
+    // No delayed measurements — fuse new ones immediately at current time
+    for (auto & rec : new_measurements) {
+      applyMeasurement(global_ekf_, rec);
+    }
+  }
+
+  // Broadcast TF and publish odom
   broadcastOdomToBaseTF(now);
-
-  // Broadcast map→odom from global EKF + TF lookup
   broadcastMapToOdomTF(now);
-
-  // Publish fused odom from local EKF
   publishOdometry(now);
 
   // Debug log
@@ -331,6 +434,89 @@ void EidosTransformNode::tick()
 }
 
 // ---------------------------------------------------------------------------
+// Rewind-Replay for delayed measurements
+// ---------------------------------------------------------------------------
+
+void EidosTransformNode::rewindAndReplay(double delayed_time)
+{
+  // Find the latest state snapshot before the delayed measurement
+  StateSnapshot restore_point;
+  bool found = false;
+  for (auto it = global_state_history_.rbegin(); it != global_state_history_.rend(); ++it) {
+    if (it->time <= delayed_time) {
+      restore_point = *it;
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    // No snapshot old enough — can't rewind, just apply at current time
+    return;
+  }
+
+  // Restore EKF to that snapshot
+  global_ekf_->restore(restore_point);
+
+  // Collect all measurements from restore_point time to now, sorted by time
+  std::vector<MeasurementRecord> replay;
+  for (const auto & rec : global_measurement_history_) {
+    if (rec.time > restore_point.time) {
+      replay.push_back(rec);
+    }
+  }
+  std::sort(replay.begin(), replay.end(), [](const auto & a, const auto & b) { return a.time < b.time; });
+
+  // Replay: predict between measurements, apply each one
+  double last_time = restore_point.time;
+  for (const auto & rec : replay) {
+    double replay_dt = rec.time - last_time;
+    if (replay_dt > 0.0 && replay_dt < 1.0) {
+      global_ekf_->predict(replay_dt);
+    }
+    applyMeasurement(global_ekf_, rec);
+    last_time = rec.time;
+  }
+
+  // Predict to current time
+  double final_dt = global_ekf_time_ - last_time;
+  if (final_dt > 0.0 && final_dt < 1.0) {
+    global_ekf_->predict(final_dt);
+  }
+
+  // Clear old state history and re-snapshot
+  global_state_history_.clear();
+  global_state_history_.push_back(global_ekf_->snapshot(global_ekf_time_));
+}
+
+// ---------------------------------------------------------------------------
+// Apply a measurement record to an EKF
+// ---------------------------------------------------------------------------
+
+void EidosTransformNode::applyMeasurement(
+  std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec)
+{
+  if (rec.source_type == "odom") {
+    bool any_pose = false;
+    for (int i = 0; i < 6; ++i) {
+      if (rec.pose_mask[static_cast<size_t>(i)]) { any_pose = true; break; }
+    }
+    if (any_pose) {
+      ekf->updatePose(rec.pose, rec.pose_mask, rec.pose_noise);
+    }
+
+    bool any_twist = false;
+    for (int i = 0; i < 6; ++i) {
+      if (rec.twist_mask[static_cast<size_t>(i)]) { any_twist = true; break; }
+    }
+    if (any_twist) {
+      ekf->updateTwist(rec.twist, rec.twist_mask, rec.twist_noise);
+    }
+  }
+  // IMU measurement replay would go here if map_sources ever include IMU type
+}
+
+// ---------------------------------------------------------------------------
 // Fuse a measurement source into an EKF
 // ---------------------------------------------------------------------------
 
@@ -338,8 +524,82 @@ void EidosTransformNode::fuseSource(
   std::shared_ptr<EKFModelPlugin> & ekf,
   MeasurementSource & src)
 {
-  gtsam::Pose3 meas_pose = odomMsgToPose3(*src.latest_msg);
-  gtsam::Vector6 meas_twist = odomMsgToTwist(*src.latest_msg);
+  if (src.type == "imu") {
+    // IMU source: extract gyro, orientation, acceleration
+    if (!src.latest_imu) return;
+    const auto & msg = *src.latest_imu;
+
+    // Resolve imu_frame → base_link rotation (once)
+    if (!src.has_imu_tf) {
+      try {
+        auto tf = tf_buffer_->lookupTransform(base_link_frame_, src.imu_frame, tf2::TimePointZero);
+        const auto & r = tf.transform.rotation;
+        src.R_base_imu = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
+        src.has_imu_tf = true;
+      } catch (const tf2::TransformException &) {
+        return;
+      }
+    }
+
+    Eigen::Vector3d gyr_imu(msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z);
+    Eigen::Vector3d acc_imu(msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z);
+    Eigen::Vector3d gyr_base = src.R_base_imu * gyr_imu;
+    Eigen::Vector3d acc_base = src.R_base_imu * acc_imu;
+
+    // Angular velocity → twist update
+    if (src.use_angular_velocity) {
+      gtsam::Vector6 twist = gtsam::Vector6::Zero();
+      twist(0) = gyr_base.x();
+      twist(1) = gyr_base.y();
+      twist(2) = gyr_base.z();
+      std::array<bool, 6> mask = {true, true, true, false, false, false};
+      ekf->updateTwist(twist, mask, src.angular_velocity_noise);
+    }
+
+    // Orientation → pose update (rotation only)
+    if (src.use_orientation && msg.orientation_covariance[0] >= 0.0) {
+      Eigen::Quaterniond q_imu(msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z);
+      if (q_imu.squaredNorm() > 0.5) {
+        q_imu.normalize();
+        Eigen::Matrix3d R_world_base = q_imu.toRotationMatrix() * src.R_base_imu.transpose();
+        // Use EKF's current translation so Logmap only sees rotation difference
+        gtsam::Pose3 orientation_pose(gtsam::Rot3(R_world_base), ekf->pose().translation());
+        std::array<bool, 6> mask = {true, true, true, false, false, false};
+        ekf->updatePose(orientation_pose, mask, src.orientation_noise);
+      }
+    }
+
+    // Linear acceleration → gravity compensation, then EKF handles bias + integration
+    if (src.use_linear_acceleration) {
+      double imu_time = rclcpp::Time(msg.header.stamp).seconds();
+      Eigen::Vector3d acc_compensated = acc_base;
+
+      // Remove gravity if not already compensated by the sensor
+      if (!src.gravity_compensated) {
+        Eigen::Matrix3d R_world_body = ekf->pose().rotation().matrix();
+        Eigen::Vector3d g_world(0.0, 0.0, -src.gravity);
+        Eigen::Vector3d g_body = R_world_body.transpose() * g_world;
+        acc_compensated = acc_base - g_body;
+      }
+
+      // Feed directly to EKF — it handles bias subtraction and velocity update internally
+      if (src.last_imu_time > 0.0) {
+        double imu_dt = imu_time - src.last_imu_time;
+        if (imu_dt > 0.0 && imu_dt < 0.1) {
+          Eigen::Vector3d accel_noise(
+            src.linear_velocity_noise(3), src.linear_velocity_noise(4), src.linear_velocity_noise(5));
+          ekf->updateAcceleration(acc_compensated, accel_noise, imu_dt);
+        }
+      }
+      src.last_imu_time = imu_time;
+    }
+    return;
+  }
+
+  // Odom source: extract pose and twist
+  if (!src.latest_odom) return;
+  gtsam::Pose3 meas_pose = odomMsgToPose3(*src.latest_odom);
+  gtsam::Vector6 meas_twist = odomMsgToTwist(*src.latest_odom);
 
   bool any_pose = false;
   for (int i = 0; i < 6; ++i) {
@@ -387,18 +647,9 @@ void EidosTransformNode::broadcastMapToOdomTF(const rclcpp::Time & stamp)
 {
   if (!has_map_source_data_) return;
 
-  // Look up odom→base_link from TF (published by local EKF moments ago)
-  gtsam::Pose3 odom_to_base;
-  try {
-    auto tf = tf_buffer_->lookupTransform(odom_frame_, base_link_frame_, stamp, rclcpp::Duration(0, 0));
-    const auto & t = tf.transform.translation;
-    const auto & r = tf.transform.rotation;
-    odom_to_base = gtsam::Pose3(
-      gtsam::Rot3::Quaternion(r.w, r.x, r.y, r.z), gtsam::Point3(t.x, t.y, t.z));
-  } catch (const tf2::TransformException &) {
-    // TF not available yet (first few ticks), use local EKF directly
-    odom_to_base = local_ekf_->pose();
-  }
+  // Use local EKF pose directly — both EKFs were just updated in the same tick,
+  // so this is exactly the odom→base_link we just broadcast. No TF lookup needed.
+  gtsam::Pose3 odom_to_base = local_ekf_->pose();
 
   // map_to_odom = map_to_base (global EKF) * inv(odom_to_base)
   gtsam::Pose3 map_to_odom = global_ekf_->pose().compose(odom_to_base.inverse());
