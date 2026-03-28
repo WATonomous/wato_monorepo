@@ -29,6 +29,7 @@ There is more comments and info under `/config/param.yaml`
 | `bt.ego_stopped_velocity_threshold`       | double   | 0.1                            | Velocity threshold for "stopped" (m/s)                                         |
 | `bt.intersection_lookahead_m`             | double   | 100.0                          | Intersection detection lookahead (m)                                            |
 | `bt.stop_sign_stop_line_proximity_m`      | double   | 5.0                            | Max distance from stop line for a car to be considered at the intersection (m) |
+| `bt.goal_reached_mode`                    | string   | `lanelet`                      | Goal distance source: `lanelet` endpoint or raw `point`                        |
 | `bt.goal_reached_threshold_m`             | double   | 1.0                            | Distance to goal to consider reached (m)                                       |
 | `service_timeout_ms`                      | int      | 6000                           | Global timeout for behaviour service calls (ms)                                |
 | `wait_for_service_timeout_ms`             | int      | 60000                          | Max time to wait for required services during BT startup (ms)                  |
