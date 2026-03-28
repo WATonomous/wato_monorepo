@@ -37,6 +37,7 @@ find_package(message_filters REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
 find_package(Eigen3 REQUIRED)
+find_package(novatel_oem7_msgs REQUIRED)
 
 add_library(lidar_aggregator SHARED
   src/lidar_aggregator_node.cpp
@@ -57,6 +58,7 @@ ament_target_dependencies(lidar_aggregator
   tf2_ros
   tf2_geometry_msgs
   pcl_conversions
+  novatel_oem7_msgs
 )
 
 # Link libraries
