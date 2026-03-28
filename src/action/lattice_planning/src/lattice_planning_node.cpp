@@ -279,9 +279,11 @@ std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
   const auto & curr_ll = it_curr->second;
   const int64_t first_lanelet_id[3] = {curr_ll.left_lane_id, curr_ll.id, curr_ll.right_lane_id};
 
-  // Initialize starting lanes
+  // Initialize starting lanes, tracking which index is the ego lane
+  size_t ego_lane_idx = 0;
   for (auto id : first_lanelet_id) {
     if (id >= 0) {
+      if (id == curr_id) ego_lane_idx = id_order.size();
       id_order.push_back({id});
     }
   }
@@ -310,7 +312,7 @@ std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
       id_order[lane_idx].push_back(succ_id);
 
       // Handle splits for ego lane only
-      if (succs.size() > 1 && lane_idx == 1) {
+      if (succs.size() > 1 && lane_idx == ego_lane_idx) {
         for (size_t i = 1; i < succs.size(); ++i) {
           if (succs[i] >= 0 && succs[i] != current_id && ll_map.count(succs[i]) > 0) {
             std::vector<int64_t> split_lane = id_order[lane_idx];

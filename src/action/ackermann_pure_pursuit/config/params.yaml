@@ -8,7 +8,7 @@ action:
       base_frame: "base_footprint"
       rear_axle_frame: "rear_axle"
       front_axle_frame: "front_axle"
-      lookahead_distance: 4.5
+      lookahead_distance: 5.0
       min_lookahead_distance: 2.0
       steering_angle_gain: 1.0
       max_speed: 2.0

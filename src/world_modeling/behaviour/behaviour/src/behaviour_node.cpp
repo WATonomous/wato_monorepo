@@ -153,6 +153,18 @@ void BehaviourNode::init()
       tree_->updateBlackboard("ego_odom", msg);
     });
 
+  // Service to force the BT back into standby by clearing the goal
+  standby_srv_ = this->create_service<std_srvs::srv::Trigger>(
+    "~/standby",
+    [this](
+      const std_srvs::srv::Trigger::Request::SharedPtr /*request*/,
+      std_srvs::srv::Trigger::Response::SharedPtr response) {
+      tree_->updateBlackboard<geometry_msgs::msg::PointStamped::SharedPtr>("goal_point", nullptr);
+      response->success = true;
+      response->message = "Goal cleared, BT entering standby";
+      RCLCPP_INFO(this->get_logger(), "Standby requested via service — goal cleared");
+    });
+
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been fully initialized.");
 }
 

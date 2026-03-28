@@ -13,8 +13,8 @@ trajectory_planner_node:
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    safe_distance: 10.0  # Distance (m) where slowing down begins
-    stop_distance: 2.0   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    safe_distance: 3.0  # Distance (m) where slowing down begins
+    stop_distance: 0.5   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
     max_speed: 20.0  # Default maximum speed (m/s) if lanelet limit unavailable
