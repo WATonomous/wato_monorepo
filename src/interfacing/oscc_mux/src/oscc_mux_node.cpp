@@ -47,8 +47,7 @@ OsccMuxNode::CallbackReturn OsccMuxNode::on_configure(const rclcpp_lifecycle::St
   this->get_parameter_or("emergency.steering", emergency_.steering, 0.0f);
   this->get_parameter_or("emergency.forward", emergency_.forward, 0.0f);
 
-  pub_out_ =
-    this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(rclcpp::KeepLast(1)));
+  pub_out_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(rclcpp::KeepLast(1)));
 
   build_inputs_from_params();
 
