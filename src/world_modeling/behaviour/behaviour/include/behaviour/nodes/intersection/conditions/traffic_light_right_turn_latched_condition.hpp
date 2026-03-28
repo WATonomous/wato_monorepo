@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__SET_TRAFFIC_LIGHT_RIGHT_TURN_RELEASE_ACTION_HPP_
-#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__SET_TRAFFIC_LIGHT_RIGHT_TURN_RELEASE_ACTION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__TRAFFIC_LIGHT_RIGHT_TURN_LATCHED_CONDITION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__TRAFFIC_LIGHT_RIGHT_TURN_LATCHED_CONDITION_HPP_
 
-#include <behaviortree_cpp/action_node.h>
+#include <behaviortree_cpp/condition_node.h>
 
 #include <string>
 
@@ -25,35 +25,27 @@
 namespace behaviour
 {
 
-class SetTrafficLightRightTurnReleaseAction : public BT::SyncActionNode, protected BTLoggerBase
+class TrafficLightRightTurnLatchedCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  SetTrafficLightRightTurnReleaseAction(
+  TrafficLightRightTurnLatchedCondition(
     const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
-  : BT::SyncActionNode(name, config)
+  : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
   {
-    return {
-      BT::InputPort<bool>("release_latched"),
-      BT::OutputPort<bool>("out_release_latched"),
-    };
+    return {BT::InputPort<bool>("right_turn_latch")};
   }
 
   BT::NodeStatus tick() override
   {
-    const bool already_latched = ports::tryGet<bool>(*this, "release_latched").value_or(false);
-    if (!already_latched) {
-      RCLCPP_DEBUG(logger(), "latching traffic light right-turn release");
-    }
-
-    setOutput("out_release_latched", true);
-    return BT::NodeStatus::SUCCESS;
+    const bool is_latched = ports::tryGet<bool>(*this, "right_turn_latch").value_or(false);
+    return is_latched ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
   }
 };
 
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__SET_TRAFFIC_LIGHT_RIGHT_TURN_RELEASE_ACTION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__TRAFFIC_LIGHT_RIGHT_TURN_LATCHED_CONDITION_HPP_

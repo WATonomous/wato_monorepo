@@ -35,7 +35,7 @@
 #include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_right_of_way_lanelet_ids_action.hpp"
 #include "behaviour/nodes/intersection/actions/reset_intersection_context_action.hpp"
-#include "behaviour/nodes/intersection/actions/set_traffic_light_right_turn_release_action.hpp"
+#include "behaviour/nodes/intersection/actions/set_traffic_light_right_turn_latch_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_reg_elem_ego_priority_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_pedestrians_action.hpp"
@@ -52,7 +52,7 @@
 #include "behaviour/nodes/intersection/conditions/stop_sign_pedestrians_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_pedestrians_clear_condition.hpp"
-#include "behaviour/nodes/intersection/conditions/traffic_light_right_turn_release_latched_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/traffic_light_right_turn_latched_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/yield_sign_can_proceed_condition.hpp"
 
 class IntersectionNodeRegistrar : public NodeRegistrarBase
@@ -88,8 +88,8 @@ public:
     factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose", logger_.get_child("GetStopLinePose"));
     factory.registerNodeType<behaviour::ResetIntersectionContextAction>(
       "ResetIntersectionContext", logger_.get_child("ResetIntersectionContext"));
-    factory.registerNodeType<behaviour::SetTrafficLightRightTurnReleaseAction>(
-      "SetTrafficLightRightTurnRelease", logger_.get_child("SetTrafficLightRightTurnRelease"));
+    factory.registerNodeType<behaviour::SetTrafficLightRightTurnLatchAction>(
+      "SetTrafficLightRightTurnLatch", logger_.get_child("SetTrafficLightRightTurnLatch"));
     factory.registerNodeType<behaviour::SetRegElemEgoPriorityAction>(
       "SetRegElemEgoPriority", logger_.get_child("SetRegElemEgoPriority"));
     factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>(
@@ -120,8 +120,8 @@ public:
       "RegElemEgoPriority", logger_.get_child("RegElemEgoPriority"));
     factory.registerNodeType<behaviour::StopSignPriorityActorsLatchedCondition>(
       "StopSignPriorityActorsLatched", logger_.get_child("StopSignPriorityActorsLatched"));
-    factory.registerNodeType<behaviour::TrafficLightRightTurnReleaseLatchedCondition>(
-      "TrafficLightRightTurnReleaseLatched", logger_.get_child("TrafficLightRightTurnReleaseLatched"));
+    factory.registerNodeType<behaviour::TrafficLightRightTurnLatchedCondition>(
+      "TrafficLightRightTurnLatched", logger_.get_child("TrafficLightRightTurnLatched"));
     factory.registerNodeType<behaviour::YieldSignCanProceedCondition>(
       "YieldCanProceed", logger_.get_child("YieldCanProceed"));
   }

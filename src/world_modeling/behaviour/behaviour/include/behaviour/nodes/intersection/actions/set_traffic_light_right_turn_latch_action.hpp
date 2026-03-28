@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__TRAFFIC_LIGHT_RIGHT_TURN_RELEASE_LATCHED_CONDITION_HPP_
-#define BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__TRAFFIC_LIGHT_RIGHT_TURN_RELEASE_LATCHED_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__SET_TRAFFIC_LIGHT_RIGHT_TURN_LATCH_ACTION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__SET_TRAFFIC_LIGHT_RIGHT_TURN_LATCH_ACTION_HPP_
 
-#include <behaviortree_cpp/condition_node.h>
+#include <behaviortree_cpp/action_node.h>
 
 #include <string>
 
@@ -25,27 +25,35 @@
 namespace behaviour
 {
 
-class TrafficLightRightTurnReleaseLatchedCondition : public BT::ConditionNode, protected BTLoggerBase
+class SetTrafficLightRightTurnLatchAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  TrafficLightRightTurnReleaseLatchedCondition(
+  SetTrafficLightRightTurnLatchAction(
     const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
-  : BT::ConditionNode(name, config)
+  : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
   {
-    return {BT::InputPort<bool>("release_latched")};
+    return {
+      BT::InputPort<bool>("right_turn_latch"),
+      BT::OutputPort<bool>("out_right_turn_latch"),
+    };
   }
 
   BT::NodeStatus tick() override
   {
-    const bool is_latched = ports::tryGet<bool>(*this, "release_latched").value_or(false);
-    return is_latched ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE;
+    const bool already_latched = ports::tryGet<bool>(*this, "right_turn_latch").value_or(false);
+    if (!already_latched) {
+      RCLCPP_DEBUG(logger(), "latching traffic light right turn");
+    }
+
+    setOutput("out_right_turn_latch", true);
+    return BT::NodeStatus::SUCCESS;
   }
 };
 
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__INTERSECTION__CONDITIONS__TRAFFIC_LIGHT_RIGHT_TURN_RELEASE_LATCHED_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__SET_TRAFFIC_LIGHT_RIGHT_TURN_LATCH_ACTION_HPP_
