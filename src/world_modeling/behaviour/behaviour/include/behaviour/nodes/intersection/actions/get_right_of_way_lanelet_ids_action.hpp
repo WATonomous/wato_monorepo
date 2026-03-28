@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_YIELDING_RIGHT_OF_WAY_LANELET_ID_ACTION_HPP_
-#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_YIELDING_RIGHT_OF_WAY_LANELET_ID_ACTION_HPP_
+#ifndef BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_RIGHT_OF_WAY_LANELET_IDS_ACTION_HPP_
+#define BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_RIGHT_OF_WAY_LANELET_IDS_ACTION_HPP_
 
 #include <behaviortree_cpp/action_node.h>
 
@@ -23,6 +23,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "behaviour/utils/lanelet.hpp"
 #include "behaviour/utils/ports.hpp"
@@ -30,10 +31,10 @@
 
 namespace behaviour
 {
-class GetYieldingRightOfWayLaneletIdAction : public BT::SyncActionNode, protected BTLoggerBase
+class GetRightOfWayLaneletIdsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetYieldingRightOfWayLaneletIdAction(
+  GetRightOfWayLaneletIdsAction(
     const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
@@ -44,7 +45,7 @@ public:
   {
     return {
       BT::InputPort<lanelet_msgs::msg::CurrentLaneContext::SharedPtr>("lane_ctx"),
-      BT::OutputPort<int64_t>("out_lanelet_id"),
+      BT::OutputPort<std::vector<int64_t>>("out_lanelet_ids"),
     };
   }
 
@@ -60,6 +61,7 @@ public:
     }
 
     const auto ego_lanelet_id = lane_ctx->current_lanelet.id;
+    std::vector<int64_t> right_of_way_lanelet_ids;
     for (const auto & reg_elem : lane_ctx->current_lanelet.regulatory_elements) {
       const auto role = utils::lanelet::getRightOfWayRole(reg_elem, ego_lanelet_id);
       if (role != utils::lanelet::RightOfWayRole::YIELD) {
@@ -69,16 +71,22 @@ public:
       if (reg_elem.right_of_way_lanelet_ids.empty()) {
         continue;
       }
-
-      setOutput("out_lanelet_id", reg_elem.right_of_way_lanelet_ids.front());
-      return BT::NodeStatus::SUCCESS;
+      for (const auto lanelet_id : reg_elem.right_of_way_lanelet_ids) {
+        if (!utils::lanelet::containsLaneletId(right_of_way_lanelet_ids, lanelet_id)) {
+          right_of_way_lanelet_ids.push_back(lanelet_id);
+        }
+      }
     }
 
-    RCLCPP_DEBUG_STREAM(
-      logger(), "right_of_way_lanelet_not_found lanelet_id=" << ego_lanelet_id);
-    return BT::NodeStatus::FAILURE;
+    if (right_of_way_lanelet_ids.empty()) {
+          RCLCPP_DEBUG_STREAM(
+      logger(), "empty right of way lanelet_ids for lanelet_id=" << ego_lanelet_id);
+    }
+    
+    setOutput("out_lanelet_ids", right_of_way_lanelet_ids);
+    return BT::NodeStatus::SUCCESS;
   }
 };
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_YIELDING_RIGHT_OF_WAY_LANELET_ID_ACTION_HPP_
+#endif  // BEHAVIOUR__NODES__INTERSECTION__ACTIONS__GET_RIGHT_OF_WAY_LANELET_IDS_ACTION_HPP_

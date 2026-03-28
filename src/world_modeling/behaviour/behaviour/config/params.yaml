@@ -48,10 +48,6 @@
       # Intersection lookahead distance (meters)
       intersection_lookahead_m: 100.0
 
-      # Max distance from a stop line for a car to be considered
-      # part of the intersection (i.e. waiting/stopped at the stop sign)
-      stop_sign_stop_line_proximity_m: 5.0
-
       # Goal reached distance source: "lanelet" uses the last point of the goal lanelet
       # centerline, "point" uses the raw goal point
       goal_reached_mode: "point"

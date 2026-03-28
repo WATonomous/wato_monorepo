@@ -48,7 +48,7 @@
           <PassingActiveTrafficControlElement
             passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}" />
           <SpeedBehaviour
-            speed_behaviour="passing active traffic control element"
+            speed_behaviour="passing intersection"
             dist_to_stop="-1.0"
             topic_name="speed_behaviour" />
         </Sequence>
@@ -80,7 +80,9 @@
             out_active_traffic_control_element_id="{active_traffic_control_element_id}"
             out_stop_sign_wall_id="{stop_sign.wall_id}"
             out_stop_sign_priority_car_ids="{stop_sign.priority_ids}"
+            out_stop_sign_priority_pedestrian_ids="{stop_sign.priority_pedestrian_ids}"
             out_stop_sign_priority_latched="{stop_sign.priority_latched}"
+            out_stop_sign_priority_pedestrian_latched="{stop_sign.priority_pedestrian_latched}"
             out_stop_sign_ego_priority="{stop_sign.ego_priority}"
             out_traffic_light_wall_id="{traffic_light.wall_id}"
             out_yield_wall_id="{yield.wall_id}"
@@ -107,7 +109,9 @@
               stop_sign_id="{active_traffic_control_element_id}"
               stop_sign.wall_id="{stop_sign.wall_id}"
               stop_sign.priority_ids="{stop_sign.priority_ids}"
+              stop_sign.priority_pedestrian_ids="{stop_sign.priority_pedestrian_ids}"
               stop_sign.priority_latched="{stop_sign.priority_latched}"
+              stop_sign.priority_pedestrian_latched="{stop_sign.priority_pedestrian_latched}"
               stop_sign.ego_priority="{stop_sign.ego_priority}"
             />
           </Sequence>

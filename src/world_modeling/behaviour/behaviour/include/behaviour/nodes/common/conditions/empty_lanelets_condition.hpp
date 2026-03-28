@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BEHAVIOUR__NODES__COMMON__CONDITIONS__EMPTY_LANELET_CONDITION_HPP_
-#define BEHAVIOUR__NODES__COMMON__CONDITIONS__EMPTY_LANELET_CONDITION_HPP_
+#ifndef BEHAVIOUR__NODES__COMMON__CONDITIONS__EMPTY_LANELETS_CONDITION_HPP_
+#define BEHAVIOUR__NODES__COMMON__CONDITIONS__EMPTY_LANELETS_CONDITION_HPP_
 
 #include <behaviortree_cpp/condition_node.h>
 
@@ -24,16 +24,17 @@
 #include <string>
 #include <vector>
 
+#include "behaviour/utils/lanelet.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/world_objects.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
 {
-class EmptyLaneletCondition : public BT::ConditionNode, protected BTLoggerBase
+class EmptyLaneletsCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  EmptyLaneletCondition(
+  EmptyLaneletsCondition(
     const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
@@ -43,7 +44,7 @@ public:
   static BT::PortsList providedPorts()
   {
     return {
-      BT::InputPort<int64_t>("lanelet_id"),
+      BT::InputPort<std::vector<int64_t>>("lanelet_ids"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
       BT::InputPort<std::size_t>("hypothesis_index"),
     };
@@ -55,8 +56,13 @@ public:
       RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
-    auto lanelet_id = ports::tryGet<int64_t>(*this, "lanelet_id");
-    if (!ports::require(lanelet_id, "lanelet_id", missing_input_callback)) {
+    auto lanelet_ids = ports::tryGet<std::vector<int64_t>>(*this, "lanelet_ids");
+    if (!ports::require(lanelet_ids, "lanelet_ids", missing_input_callback)) {
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (lanelet_ids->empty()) {
+      RCLCPP_DEBUG_STREAM(logger(), "empty_lanelet_ids");
       return BT::NodeStatus::FAILURE;
     }
 
@@ -71,7 +77,8 @@ public:
     }
 
     for (const auto & object : *objects) {
-      if (object.lanelet_ahead.current_lanelet_id != *lanelet_id) {
+      const auto object_lanelet_id = object.lanelet_ahead.current_lanelet_id;
+      if (!utils::lanelet::containsLaneletId(*lanelet_ids, object_lanelet_id)) {
         continue;
       }
 
@@ -80,7 +87,7 @@ public:
       }
 
       RCLCPP_DEBUG_STREAM(
-        logger(), "lanelet_occupied lanelet_id=" << *lanelet_id
+        logger(), "lanelet_occupied lanelet_id=" << object_lanelet_id
                   << " object_id=" << object.detection.id);
       return BT::NodeStatus::FAILURE;
     }
@@ -90,4 +97,4 @@ public:
 };
 }  // namespace behaviour
 
-#endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__EMPTY_LANELET_CONDITION_HPP_
+#endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__EMPTY_LANELETS_CONDITION_HPP_
