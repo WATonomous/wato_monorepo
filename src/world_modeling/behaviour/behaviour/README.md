@@ -26,6 +26,7 @@ There is more comments and info under `/config/param.yaml`
 | `bt.right_lane_change_areas`              | string[] | `[right_lane_change_corridor]` | Area names for right lane change safety                                        |
 | `bt.intersection_wall_of_doom_width`      | double   | 5.0                            | Virtual wall width at stop lines (m)                                           |
 | `bt.intersection_wall_of_doom_length`     | double   | 1.0                            | Virtual wall length at stop lines (m)                                          |
+| `bt.stop_sign_ego_stop_line_threshold_m`  | double   | 3.0                            | Max ego distance from the stop line to accept the stop at a stop sign (m)      |
 | `bt.ego_stopped_velocity_threshold`       | double   | 0.1                            | Velocity threshold for "stopped" (m/s)                                         |
 | `bt.intersection_lookahead_m`             | double   | 100.0                          | Intersection detection lookahead (m)                                            |
 | `bt.goal_reached_mode`                    | string   | `lanelet`                      | Goal distance source: `lanelet` endpoint or raw `point`                        |
