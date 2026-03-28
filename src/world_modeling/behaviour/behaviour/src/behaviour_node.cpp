@@ -48,6 +48,7 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("bt.ego_stopped_velocity_threshold", 0.1);
   this->declare_parameter("bt.intersection_lookahead_m", 100.0);
   this->declare_parameter("bt.stop_sign_stop_line_proximity_m", 8.0);
+  this->declare_parameter("bt.goal_reached_mode", "lanelet");
   this->declare_parameter("bt.goal_reached_threshold_m", 1.0);
   this->declare_parameter("service_timeout_ms", 6000);
   this->declare_parameter("wait_for_service_timeout_ms", 60000);
@@ -79,6 +80,7 @@ void BehaviourNode::init()
   double ego_stopped_velocity_threshold = this->get_parameter("bt.ego_stopped_velocity_threshold").as_double();
   double intersection_lookahead_m = this->get_parameter("bt.intersection_lookahead_m").as_double();
   double stop_sign_stop_line_proximity_m = this->get_parameter("bt.stop_sign_stop_line_proximity_m").as_double();
+  std::string goal_reached_mode = this->get_parameter("bt.goal_reached_mode").as_string();
   double goal_reached_threshold_m = this->get_parameter("bt.goal_reached_threshold_m").as_double();
 
   // behaviour tree file path
@@ -106,6 +108,7 @@ void BehaviourNode::init()
   tree_->updateBlackboard("bt.ego_stopped_velocity_threshold", ego_stopped_velocity_threshold);
   tree_->updateBlackboard("bt.intersection_lookahead_m", intersection_lookahead_m);
   tree_->updateBlackboard("bt.stop_sign_stop_line_proximity_m", stop_sign_stop_line_proximity_m);
+  tree_->updateBlackboard("bt.goal_reached_mode", goal_reached_mode);
   tree_->updateBlackboard("bt.goal_reached_threshold_m", goal_reached_threshold_m);
 
   auto tick_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / tick_rate_hz));
