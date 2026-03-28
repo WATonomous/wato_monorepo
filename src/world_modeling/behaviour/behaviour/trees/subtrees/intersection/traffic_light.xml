@@ -36,6 +36,20 @@
                     </Fallback>
 	                </Sequence>
 
+	                <Sequence name="Right Turn Yield Release Latched">
+	                    <TrafficLightRightTurnReleaseLatched
+	                        release_latched="{traffic_light.right_turn_release_latched}" />
+	                    <Fallback name="DespawnIfNeeded">
+	                        <Inverter>
+	                            <WallIdExist wall_id="{traffic_light.wall_id}" />
+	                        </Inverter>
+	                        <DespawnWall wall_id="{traffic_light.wall_id}"
+	                            out_wall_id="{traffic_light.wall_id}"
+	                            error_message="{traffic_light.despawn_wall_error_msg}"
+	                            service_name="/world_modeling/despawn_wall" />
+	                    </Fallback>
+	                </Sequence>
+
 	                <Sequence name="Right Turn Yield Release">
 	                    <WallIdExist wall_id="{traffic_light.wall_id}" />
 	                    <EgoStoppedForDuration
@@ -65,6 +79,9 @@
 	                        lanelet_ids="{traffic_light.right_of_way_lanelet_ids}"
 	                        objects="{traffic_light.objects}"
 	                        hypothesis_index="{@world_objects_hypothesis_index}" />
+	                    <SetTrafficLightRightTurnRelease
+	                        release_latched="{traffic_light.right_turn_release_latched}"
+	                        out_release_latched="{traffic_light.right_turn_release_latched}" />
 
 	                    <Fallback name="DespawnIfNeeded">
 	                        <Inverter>
