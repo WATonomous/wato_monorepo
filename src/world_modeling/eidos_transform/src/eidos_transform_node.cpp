@@ -210,7 +210,6 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(const rclcpp
 
   // TF
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-  static_tf_broadcaster_ = std::make_unique<tf2_ros::StaticTransformBroadcaster>(*this);
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -285,7 +284,6 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_cleanup(const rclcpp_l
   utm_to_map_sub_.reset();
   predict_srv_.reset();
   tf_broadcaster_.reset();
-  static_tf_broadcaster_.reset();
   tf_buffer_.reset();
   tf_listener_.reset();
   return CallbackReturn::SUCCESS;
@@ -719,7 +717,7 @@ void EidosTransformNode::utmToMapCallback(const geometry_msgs::msg::TransformSta
   cached_utm_to_map_.child_frame_id = map_frame_;
   has_utm_to_map_ = true;
 
-  static_tf_broadcaster_->sendTransform(cached_utm_to_map_);
+  tf_broadcaster_->sendTransform(cached_utm_to_map_);
   RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m Published static utm->map transform.");
 }
 

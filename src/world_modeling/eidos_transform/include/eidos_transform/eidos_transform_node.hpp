@@ -16,7 +16,6 @@
 
 #include <gtsam/geometry/Pose3.h>
 #include <tf2_ros/buffer.h>
-#include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -196,7 +195,6 @@ private:
 
   // ---- TF ----
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::unique_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   bool has_map_source_data_ = false;  ///< True once any map source has been received
