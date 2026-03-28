@@ -1,65 +1,72 @@
-# Example configuration for eidos_transform.
+# Example configuration for eidos_transform (dual-EKF architecture).
 #
-# Fuses LISO odometry (all 6 pose DOFs) and IMU odometry (angular velocity
-# only) via a HolonomicEKF. Uses slam/pose as the map-frame source for
-# map->odom correction.
+# Local EKF (odom frame): fuses odom_sources, broadcasts odom->base_link
+# Global EKF (map frame): fuses odom_sources + map_sources, derives map->odom
 /**/eidos_transform_node:
   ros__parameters:
-    # Main EKF tick rate (Hz)
     tick_rate: 200.0
 
-    # TF frame names
     frames:
       odom: "odom"
       base_link: "base_footprint"
       map: "map"
       utm: "utm"
 
-    # Published topics and services
     topics:
-      odom: "transform/odometry"               # Fused odometry output (odom frame)
-      map_source: "slam/pose"                   # PoseStamped for map->odom correction (from eidos SLAM)
-      utm_to_map: "gps_factor/utm_to_map_tf"                            # TransformStamped for static utm->map TF (empty = disabled)
-      predict_service: "transform/predict_relative"  # PredictRelativeTransform service
+      odom: "transform/odometry"
+      utm_to_map: "gps_factor/utm_to_map_tf"
+      predict_service: "transform/predict_relative"
 
-    # EKF model plugin selection
     ekf:
-      plugin: "eidos_transform::HolonomicEKF"   # Fully qualified pluginlib class name
-      name: "holonomic_ekf"                      # Instance name (namespaces plugin-specific params below)
+      plugin: "eidos_transform::HolonomicEKF"
+      name: "holonomic_ekf"
 
-    # HolonomicEKF process noise (12 diagonal values: 6 pose + 6 velocity)
+    # Local EKF process noise
     holonomic_ekf:
       process_noise:
-        - 1.0e-4  # rx (pose rotation x)
-        - 1.0e-4  # ry (pose rotation y)
-        - 1.0e-4  # rz (pose rotation z)
-        - 1.0e-4  # tx (pose translation x)
-        - 1.0e-4  # ty (pose translation y)
-        - 1.0e-4  # tz (pose translation z)
-        - 1.0e-2  # vel angular_x
-        - 1.0e-2  # vel angular_y
-        - 1.0e-2  # vel angular_z
-        - 1.0e-2  # vel linear_x
-        - 1.0e-2  # vel linear_y
-        - 1.0e-2  # vel linear_z
+        [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
-    # Odometry sources (each name gets its own parameter block below)
+    # Global EKF process noise
+    holonomic_ekf_global:
+      process_noise:
+        [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    # Odom sources (fed to BOTH local and global EKFs)
     odom_sources:
-      - "liso"
+      - "liso_odom"
       - "imu"
 
-    # LISO source: fuse all 6 pose DOFs, no twist
-    liso:
+    liso_odom:
       odom_topic: "liso/odometry_incremental"
-      pose_mask: [true, true, true, true, true, true]  # [rx, ry, rz, tx, ty, tz]
+      pose_mask: [true, true, true, true, true, true]
       twist_mask: [false, false, false, false, false, false]
-      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]  # Std dev per DOF
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
       twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
 
-    # IMU source: fuse angular velocity only (no pose, no linear velocity)
     imu:
       odom_topic: "imu_factor/odometry"
       pose_mask: [false, false, false, false, false, false]
-      twist_mask: [true, true, true, false, false, false]  # [angular_x, angular_y, angular_z, -, -, -]
+      twist_mask: [true, true, true, false, false, false]
       pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
       twist_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+
+    # Map sources (fed to global EKF ONLY)
+    map_sources:
+      - "liso_map"
+      - "slam"
+
+    liso_map:
+      odom_topic: "liso/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    slam:
+      odom_topic: "slam/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]

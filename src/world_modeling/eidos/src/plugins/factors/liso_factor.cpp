@@ -256,7 +256,9 @@ void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, 
     gtsam::Pose3 corrected = optimized_values.at<gtsam::Pose3>(prev_liso_key_);
     prev_liso_pose_ = corrected;
     last_matched_pose_ = corrected;
-    prev_incremental_pose_ = corrected;
+    // NOTE: prev_incremental_pose_ is NOT updated here. It tracks the raw GICP
+    // match chain for odom-frame delta computation. Correcting it would cause
+    // liso/odometry_incremental to jump on SLAM corrections.
 
     if (graph_corrected) {
       submap_stale_ = true;
