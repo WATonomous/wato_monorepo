@@ -67,18 +67,6 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
 
     double target_speed = effective_max_speed;
 
-    // if (i > 0 && segment_dist > 1e-9) {
-    //   double yaw_curr = yaw_from_pose(path.poses[i].pose);
-    //   double yaw_prev = yaw_from_pose(path.poses[i - 1].pose);
-    //   double delta_theta = std::fabs(std::remainder(yaw_curr - yaw_prev, 2.0 * M_PI));
-    //   if (delta_theta > 1e-6) {
-    //     double radius = segment_dist / delta_theta;
-    //     if ((target_speed * target_speed) / radius > config_.max_lateral_accel) {
-    //       target_speed = std::sqrt(config_.max_lateral_accel * radius);
-    //     }
-    //   }
-    // }
-
     double tang_accel =
       segment_dist > 0.0 ? (target_speed * target_speed - prev_speed * prev_speed) / (2.0 * segment_dist) : 0.0;
 
@@ -86,6 +74,18 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
       double signed_accel = std::copysign(config_.max_tangential_accel, tang_accel);
       double v_sq = prev_speed * prev_speed + 2.0 * signed_accel * segment_dist;
       target_speed = std::sqrt(std::max(0.0, v_sq));
+    }
+
+    if (i > 0 && segment_dist > 1e-9) {
+      double yaw_curr = yaw_from_pose(path.poses[i].pose);
+      double yaw_prev = yaw_from_pose(path.poses[i - 1].pose);
+      double delta_theta = std::fabs(std::remainder(yaw_curr - yaw_prev, 2.0 * M_PI));
+      if (delta_theta > 1e-6) {
+        double radius = segment_dist / delta_theta;
+        if ((target_speed * target_speed) / radius > config_.max_lateral_accel) {
+          target_speed = std::sqrt(config_.max_lateral_accel * radius);
+        }
+      }
     }
 
     if (obstacle_dist.has_value()) {
