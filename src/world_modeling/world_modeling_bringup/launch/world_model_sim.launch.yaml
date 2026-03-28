@@ -1,20 +1,10 @@
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Full autonomy stack for CARLA simulation.
-# Usage: ros2 launch world_modeling_bringup world_model_sim.launch.yaml
-
+# Usage:
+#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml
+#   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map use_sim_time:=true
+#   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
+---
 launch:
   - arg:
       name: config_file
@@ -25,6 +15,16 @@ launch:
       name: eidos_config_file
       default: $(find-pkg-share world_modeling_bringup)/config/eidos_slam.yaml
       description: Path to the eidos SLAM configuration file
+
+  - arg:
+      name: eidos_map_path
+      default: "/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map"
+      description: Path to the .map file for localization. Empty string skips loading.
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: Use simulation time from /clock topic
 
   - arg:
       name: autostart
@@ -254,7 +254,7 @@ launch:
         - from: goal_point
           to: /goal_point
         - from: ego/odom
-          to: /ego/odom
+          to: /world_modeling/slam/odometry
 
   # Behaviour Tree visualization markers
   - node:

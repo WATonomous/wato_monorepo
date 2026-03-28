@@ -41,6 +41,7 @@ Parameters are loaded from `config/params.yaml` under the namespace `action/free
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `base_frame` | string | `"base_footprint"` | Robot base frame for planning |
+| `trajectory_frame`| string | `"map"` | Frame for final trajectory |
 | `max_speed` | double | `5.0` | Maximum speed along the trajectory (m/s) |
 | `goal_tolerance` | double | `1.0` | Distance threshold to consider the goal reached (m) |
 | `obstacle_threshold` | int | `50` | Minimum occupancy grid cost value considered an obstacle |
