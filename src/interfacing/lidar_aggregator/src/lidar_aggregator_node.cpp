@@ -417,6 +417,64 @@ bool LidarAggregatorNode::get_abs_gyro_z_at_time(const rclcpp::Time & stamp, dou
   return true;
 }
 
+sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::transform_cloud_extrinsic(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg,
+  const rclcpp::Time & stamp,
+  const RigidTransform & t_center_side,
+  const std::string & output_frame) const
+{
+  if (!cloud_msg) {
+    return nullptr;
+  }
+
+  int x_off = -1, y_off = -1, z_off = -1;
+  for (const auto & f : cloud_msg->fields) {
+    if (f.name == "x")
+      x_off = static_cast<int>(f.offset);
+    else if (f.name == "y")
+      y_off = static_cast<int>(f.offset);
+    else if (f.name == "z")
+      z_off = static_cast<int>(f.offset);
+  }
+  if (x_off < 0 || y_off < 0 || z_off < 0) {
+    return nullptr;
+  }
+
+  const uint32_t step = cloud_msg->point_step;
+  const size_t n = cloud_msg->width * cloud_msg->height;
+
+  auto out_msg = std::make_shared<sensor_msgs::msg::PointCloud2>(*cloud_msg);
+  out_msg->header.stamp = stamp;
+  out_msg->header.frame_id = output_frame;
+
+  const uint8_t * in = cloud_msg->data.data();
+  uint8_t * out = out_msg->data.data();
+
+  for (size_t i = 0; i < n; ++i) {
+    const uint8_t * ip = in + i * step;
+    uint8_t * op = out + i * step;
+
+    float x, y, z;
+    memcpy(&x, ip + x_off, sizeof(float));
+    memcpy(&y, ip + y_off, sizeof(float));
+    memcpy(&z, ip + z_off, sizeof(float));
+
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+      continue;
+    }
+
+    const Eigen::Vector3d p = t_center_side.rotation * Eigen::Vector3d(x, y, z) + t_center_side.translation;
+    float ox = static_cast<float>(p.x());
+    float oy = static_cast<float>(p.y());
+    float oz = static_cast<float>(p.z());
+    memcpy(op + x_off, &ox, sizeof(float));
+    memcpy(op + y_off, &oy, sizeof(float));
+    memcpy(op + z_off, &oz, sizeof(float));
+  }
+
+  return out_msg;
+}
+
 sensor_msgs::msg::PointCloud2::SharedPtr LidarAggregatorNode::compensate_side_cloud(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & side_msg,
   const rclcpp::Time & center_stamp,
@@ -815,20 +873,23 @@ void LidarAggregatorNode::try_publish_fusion(
   const rclcpp::Time center_stamp(center_msg->header.stamp);
   publish_offset_diagnostics(center_stamp);
 
-  auto ne_corrected = compensate_side_cloud(ne_msg, center_stamp, t_center_ne_, ne_time_offset_sec_, center_frame_);
-  auto nw_corrected = compensate_side_cloud(nw_msg, center_stamp, t_center_nw_, nw_time_offset_sec_, center_frame_);
+  // Apply extrinsic-only transform (no IMU deskewing) for side clouds
+  auto ne_corrected = transform_cloud_extrinsic(ne_msg, center_stamp, t_center_ne_, center_frame_);
+  auto nw_corrected = transform_cloud_extrinsic(nw_msg, center_stamp, t_center_nw_, center_frame_);
 
   if (!ne_corrected || !nw_corrected) {
     return;
   }
 
-  auto cc_deskewed = deskew_center_cloud(center_msg, center_stamp);
-  cc_deskewed->header.frame_id = center_frame_;
+  // Pass center cloud through without deskewing
+  auto cc_out = std::make_shared<sensor_msgs::msg::PointCloud2>(*center_msg);
+  cc_out->header.stamp = center_stamp;
+  cc_out->header.frame_id = center_frame_;
 
   pub_ne_deskewed_cc_->publish(*ne_corrected);
   pub_nw_deskewed_cc_->publish(*nw_corrected);
 
-  auto merged = merge_clouds(cc_deskewed, ne_corrected, nw_corrected, center_stamp, center_frame_);
+  auto merged = merge_clouds(cc_out, ne_corrected, nw_corrected, center_stamp, center_frame_);
   if (merged) {
     pub_merged_->publish(*merged);
   }

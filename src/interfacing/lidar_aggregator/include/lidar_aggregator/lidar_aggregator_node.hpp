@@ -123,6 +123,13 @@ private:
   /// @return false if the IMU buffer is empty.
   bool get_abs_gyro_z_at_time(const rclcpp::Time & stamp, double & abs_gyro_z_out) const;
 
+  /// @brief Apply extrinsic-only transform to a side cloud (no IMU deskewing).
+  sensor_msgs::msg::PointCloud2::SharedPtr transform_cloud_extrinsic(
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & cloud_msg,
+    const rclcpp::Time & stamp,
+    const RigidTransform & t_center_side,
+    const std::string & output_frame) const;
+
   /// @brief Motion-compensate a side cloud into the center lidar frame.
   ///
   /// Applies the side-to-center extrinsic and per-point IMU-derived rotation deltas to
