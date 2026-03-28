@@ -56,9 +56,15 @@ public:
       BT::OutputPort<int64_t>("out_active_traffic_control_element_id", "Cleared element ID"),
       BT::OutputPort<int32_t>("out_stop_sign_wall_id", "Reset stop sign wall ID"),
       BT::OutputPort<std::vector<std::string>>("out_stop_sign_priority_car_ids", "Reset stop sign priority car IDs"),
+      BT::OutputPort<std::vector<std::string>>(
+        "out_stop_sign_priority_pedestrian_ids", "Reset stop sign priority pedestrian IDs"),
       BT::OutputPort<bool>("out_stop_sign_priority_latched", "Reset stop sign priority latch"),
+      BT::OutputPort<bool>(
+        "out_stop_sign_priority_pedestrian_latched", "Reset stop sign priority pedestrian latch"),
       BT::OutputPort<bool>("out_stop_sign_ego_priority", "Reset stop sign ego priority latch"),
       BT::OutputPort<int32_t>("out_traffic_light_wall_id", "Reset traffic light wall ID"),
+      BT::OutputPort<bool>(
+        "out_traffic_light_right_turn_latch", "Reset traffic light right-turn latch"),
       BT::OutputPort<int32_t>("out_yield_wall_id", "Reset yield wall ID"),
       BT::OutputPort<bool>("out_yield_ego_priority", "Reset yield ego priority latch"),
       BT::OutputPort<int32_t>("out_active_wall_id", "Wall ID that needs despawning"),
@@ -79,7 +85,9 @@ public:
         if (wid) active_wall_id = *wid;
         setOutput("out_stop_sign_wall_id", ports::null_id);
         setOutput("out_stop_sign_priority_car_ids", std::vector<std::string>{});
+        setOutput("out_stop_sign_priority_pedestrian_ids", std::vector<std::string>{});
         setOutput("out_stop_sign_priority_latched", false);
+        setOutput("out_stop_sign_priority_pedestrian_latched", false);
         setOutput("out_stop_sign_ego_priority", false);
       } else if (normalized_type && *normalized_type == types::TrafficControlElementType::TRAFFIC_LIGHT) {
         auto wid = ports::tryGet<int32_t>(*this, "traffic_light_wall_id");
@@ -99,6 +107,8 @@ public:
     } else {
       RCLCPP_DEBUG_STREAM(logger(), "no_active_element=true");
     }
+
+    setOutput("out_traffic_light_right_turn_latch", false);
 
     // wall id to despawn
     setOutput("out_active_wall_id", active_wall_id);
