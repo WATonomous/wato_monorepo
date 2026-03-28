@@ -24,34 +24,36 @@ namespace eidos
 {
 
 /**
- * @brief Single-writer, multi-reader lock-free storage for gtsam::Pose3.
+ * @brief Multi-writer, multi-reader lock-free storage for gtsam::Pose3.
  *
- * Uses a seqlock pattern: the writer increments a sequence counter to odd
- * before writing and back to even after. A reader that observes an odd
- * counter (writer active) or a counter change (write happened during read)
- * yields and retries. The copy takes nanoseconds so retries are rare.
+ * Writers serialize via an atomic spinlock, then use a seqlock to publish.
+ * Readers are fully lock-free — they observe the sequence counter and retry
+ * (with yield) if a write is in progress.
  *
- * Constraints:
- * - Exactly one thread may call store() (single writer).
- * - Any number of threads may call load() concurrently (multi reader).
+ * Safe to call store() from any thread. Safe to call load() from any thread.
  */
 class LockFreePose
 {
 public:
   /**
-   * @brief Store a pose into the slot (single-writer only).
+   * @brief Store a pose (safe from any thread).
    * @param p The gtsam::Pose3 to store.
    */
   void store(const gtsam::Pose3 & p)
   {
+    // Serialize writers
+    while (write_lock_.test_and_set(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
     seq_.fetch_add(1, std::memory_order_release);  // odd = writing
     pose_ = p;
     has_value_.store(true, std::memory_order_relaxed);
     seq_.fetch_add(1, std::memory_order_release);  // even = done
+    write_lock_.clear(std::memory_order_release);
   }
 
   /**
-   * @brief Load the latest pose snapshot.
+   * @brief Load the latest pose snapshot (lock-free, any thread).
    * @return The stored pose, or std::nullopt if no pose has been stored yet.
    */
   std::optional<gtsam::Pose3> load() const
@@ -72,6 +74,7 @@ public:
   }
 
 private:
+  std::atomic_flag write_lock_ = ATOMIC_FLAG_INIT;
   std::atomic<uint64_t> seq_{0};
   gtsam::Pose3 pose_;
   std::atomic<bool> has_value_{false};
