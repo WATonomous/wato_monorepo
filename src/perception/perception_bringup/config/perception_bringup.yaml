@@ -245,7 +245,7 @@ detection_lifecycle_manager:
 
 perception_lifecycle_manager:
   ros__parameters:
-    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node"]
     autostart: true
     transition_timeout_s: 10.0
     bond_timeout_s: 4.0

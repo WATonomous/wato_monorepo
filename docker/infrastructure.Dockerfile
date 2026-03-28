@@ -17,11 +17,14 @@ COPY src/wato_test wato_test
 COPY src/world_modeling/lanelet_msgs lanelet_msgs
 COPY src/world_modeling/world_model_msgs world_model_msgs
 COPY src/world_modeling/costmap_msgs costmap_msgs
+COPY src/world_modeling/behaviour_msgs behaviour_msgs
 COPY src/action/wato_trajectory_msgs wato_trajectory_msgs
+COPY src/action/lattice_planning_msgs lattice_planning_msgs
 
 
 COPY src/interfacing/eve_description eve_description
 COPY src/interfacing/roscco_msg roscco_msg
+COPY src/interfacing/pid_msgs pid_msgs
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible
