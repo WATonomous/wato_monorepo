@@ -517,6 +517,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_msg.pose.pose.orientation.w = q.w();
     for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++) odom_msg.pose.covariance[i * 7] = odom_pose_cov_[i];
     if (has_delta && dt > 0.0 && dt < kMaxTwistDt) {
+      // delta = prev.between(current) = prev^{-1} * current
+      // delta.translation() = R_prev^T * (t_current - t_prev) — already in body frame
       gtsam::Point3 t = delta.translation();
       gtsam::Vector3 rpy = delta.rotation().rpy();
       odom_msg.twist.twist.linear.x = t.x() / dt;
@@ -547,6 +549,7 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     odom_inc_msg.pose.pose.orientation.w = q_inc.w();
     for (size_t i = 0; i < odom_pose_cov_.size() && i < 6; i++) odom_inc_msg.pose.covariance[i * 7] = odom_pose_cov_[i];
     if (has_delta && dt > 0.0 && dt < kMaxTwistDt) {
+      // delta = prev.between(current) — translation is already in body frame
       gtsam::Point3 t = delta.translation();
       gtsam::Vector3 rpy = delta.rotation().rpy();
       odom_inc_msg.twist.twist.linear.x = t.x() / dt;

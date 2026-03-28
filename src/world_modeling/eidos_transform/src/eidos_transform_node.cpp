@@ -406,9 +406,6 @@ void EidosTransformNode::tick()
     for (const auto & rec : new_measurements) {
       if (rec.time < oldest_delayed) oldest_delayed = rec.time;
     }
-    RCLCPP_INFO(get_logger(),
-      "\033[34m[Transform]\033[0m Rewind triggered: delayed measurement at %.3f, current=%.3f, lag=%.3f",
-      oldest_delayed, global_ekf_time_, global_ekf_time_ - oldest_delayed);
     rewindAndReplay(oldest_delayed);
   } else {
     // No delayed measurements — fuse new ones immediately at current time
@@ -422,13 +419,6 @@ void EidosTransformNode::tick()
   broadcastMapToOdomTF(now);
   publishOdometry(now);
 
-  // Debug log
-  auto lp = local_ekf_->pose().translation();
-  auto gp = global_ekf_->pose().translation();
-  RCLCPP_INFO(get_logger(),
-    "\033[34m[Transform]\033[0m dt=%.4f local=(%.2f,%.2f,%.2f) global=(%.2f,%.2f,%.2f) map_src=%s",
-    dt, lp.x(), lp.y(), lp.z(), gp.x(), gp.y(), gp.z(),
-    has_map_source_data_ ? "yes" : "no");
 }
 
 // ---------------------------------------------------------------------------
