@@ -63,6 +63,8 @@ public:
         "out_stop_sign_priority_pedestrian_latched", "Reset stop sign priority pedestrian latch"),
       BT::OutputPort<bool>("out_stop_sign_ego_priority", "Reset stop sign ego priority latch"),
       BT::OutputPort<int32_t>("out_traffic_light_wall_id", "Reset traffic light wall ID"),
+      BT::OutputPort<bool>(
+        "out_traffic_light_right_turn_release_latched", "Reset traffic light right-turn release latch"),
       BT::OutputPort<int32_t>("out_yield_wall_id", "Reset yield wall ID"),
       BT::OutputPort<bool>("out_yield_ego_priority", "Reset yield ego priority latch"),
       BT::OutputPort<int32_t>("out_active_wall_id", "Wall ID that needs despawning"),
@@ -105,6 +107,8 @@ public:
     } else {
       RCLCPP_DEBUG_STREAM(logger(), "no_active_element=true");
     }
+
+    setOutput("out_traffic_light_right_turn_release_latched", false);
 
     // wall id to despawn
     setOutput("out_active_wall_id", active_wall_id);

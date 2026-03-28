@@ -85,6 +85,7 @@
             out_stop_sign_priority_pedestrian_latched="{stop_sign.priority_pedestrian_latched}"
             out_stop_sign_ego_priority="{stop_sign.ego_priority}"
             out_traffic_light_wall_id="{traffic_light.wall_id}"
+            out_traffic_light_right_turn_release_latched="{traffic_light.right_turn_release_latched}"
             out_yield_wall_id="{yield.wall_id}"
             out_yield_ego_priority="{yield.ego_priority}"
             out_active_wall_id="{active_wall_id}" />
@@ -124,6 +125,7 @@
               traffic_light="{active_traffic_control_element}"
               traffic_light_id="{active_traffic_control_element_id}"
               traffic_light.wall_id="{traffic_light.wall_id}"
+              traffic_light.right_turn_release_latched="{traffic_light.right_turn_release_latched}"
             />
           </Sequence>
 
