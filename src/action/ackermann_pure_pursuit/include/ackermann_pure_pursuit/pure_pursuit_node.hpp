@@ -27,6 +27,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
+#include "nav_msgs/msg/odometry.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
 namespace ackermann_pure_pursuit
@@ -63,6 +64,7 @@ private:
   std::string standby_msg_;
   double lookahead_distance_;
   double min_lookahead_distance_;
+  double lookahead_gain_;
   double steering_angle_gain;
   double max_speed_;
   double min_speed_;
@@ -87,12 +89,14 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr idle_pub_;
   rclcpp::Subscription<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_sub_;
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::TimerBase::SharedPtr control_timer_;
 
   // State
   wato_trajectory_msgs::msg::Trajectory::SharedPtr latest_trajectory_;
   rclcpp::Time last_trajectory_time_;
   std::string bt_requested_behaviour;
+  double current_speed_{0.0};
 };
 
 }  // namespace ackermann_pure_pursuit

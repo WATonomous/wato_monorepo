@@ -41,6 +41,7 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   // Publishing topics
   final_path_topic = this->declare_parameter("path_topic", "path");
   available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
+  publish_rate_hz_ = this->declare_parameter("publish_rate_hz", 10.0);
 
   // Path generation parameters
   //  - Corridor -
@@ -108,6 +109,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
     bt_topic, 10, std::bind(&LatticePlanningNode::set_preferred_lanes, this, std::placeholders::_1));
   path_pub_->on_activate();
   available_paths_pub_->on_activate();
+  auto period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / publish_rate_hz_));
+  publish_timer_ = this->create_wall_timer(period, std::bind(&LatticePlanningNode::plan_and_publish_path, this));
   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -116,6 +119,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating Lattice Planning node");
+  publish_timer_.reset();
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
@@ -199,8 +203,8 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
 
     int curr_horizon = 0;
     bool closest_found = false;
-    double arc_length = 0.0;
     const geometry_msgs::msg::Point * prev_pt = nullptr;
+    const auto & car_pos = car_pose->pose.position;
 
     for (const int64_t ll_id : lane) {
       const auto & centerline = lanelets.at(ll_id).centerline;
@@ -218,16 +222,29 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
           }
         }
 
-        // Horizon sampling
-        if (arc_length < lookahead_s_m[curr_horizon]) {
+        double euc_dist = core_->get_euc_dist(car_pos.x, car_pos.y, pt.x, pt.y);
+
+        if (euc_dist >= lookahead_s_m[curr_horizon]) {
+          // Interpolate to exact Euclidean lookahead distance
           if (prev_pt) {
-            arc_length += core_->get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
+            double prev_dist = core_->get_euc_dist(car_pos.x, car_pos.y, prev_pt->x, prev_pt->y);
+            double frac = (lookahead_s_m[curr_horizon] - prev_dist) / (euc_dist - prev_dist);
+            frac = std::clamp(frac, 0.0, 1.0);
+
+            geometry_msgs::msg::Point interp_pt;
+            interp_pt.x = prev_pt->x + frac * (pt.x - prev_pt->x);
+            interp_pt.y = prev_pt->y + frac * (pt.y - prev_pt->y);
+            interp_pt.z = prev_pt->z + frac * (pt.z - prev_pt->z);
+
+            PathPoint t_pt = create_terminal_point(interp_pt, pt_idx, centerline, prev_pt);
+            corridor_terminals.push_back({t_pt, ll_id});
+          } else {
+            PathPoint t_pt = create_terminal_point(pt, pt_idx, centerline, nullptr);
+            corridor_terminals.push_back({t_pt, ll_id});
           }
-          prev_pt = &pt;
-        } else {
-          PathPoint t_pt = create_terminal_point(pt, pt_idx, centerline, prev_pt);
-          corridor_terminals.push_back({t_pt, ll_id});
           curr_horizon++;
+        } else {
+          prev_pt = &pt;
         }
       }
       if (curr_horizon >= num_horizons) break;
