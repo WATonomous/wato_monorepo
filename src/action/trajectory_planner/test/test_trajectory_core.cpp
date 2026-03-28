@@ -74,7 +74,7 @@ TEST_CASE_METHOD(
   trajectory_planner::TrajectoryCore core(cfg);
 
   nav_msgs::msg::Path empty_path;
-  auto traj = core.compute_trajectory(empty_path, make_empty_grid(), cfg.max_speed);
+  auto traj = core.compute_trajectory(empty_path, make_empty_grid(), cfg.max_speed, cfg.max_speed);
 
   REQUIRE(traj.points.empty());
 }
@@ -95,7 +95,7 @@ TEST_CASE_METHOD(
   trajectory_planner::TrajectoryCore core(cfg);
 
   auto path = make_straight_path({0.0, 4.0, 8.0, 12.0, 16.0});
-  auto traj = core.compute_trajectory(path, make_empty_grid(), cfg.max_speed);
+  auto traj = core.compute_trajectory(path, make_empty_grid(), cfg.max_speed, cfg.max_speed);
 
   REQUIRE(traj.points.size() == 5);
   for (const auto & pt : traj.points) {
@@ -133,7 +133,7 @@ TEST_CASE_METHOD(
   trajectory_planner::TrajectoryCore core(cfg);
 
   auto path = make_straight_path({0.0, 4.0, 8.0, 12.0, 16.0});
-  auto traj = core.compute_trajectory(path, make_grid_with_obstacle_at_12m(), cfg.max_speed);
+  auto traj = core.compute_trajectory(path, make_grid_with_obstacle_at_12m(), cfg.max_speed, cfg.max_speed);
 
   REQUIRE(traj.points.size() == 5);
 
