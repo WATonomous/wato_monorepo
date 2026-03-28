@@ -83,7 +83,7 @@ public:
   static constexpr auto kInputTopic = "input_detections";  // Input detections topic name
   static constexpr auto kOutputTopic = "output_detections";  // Output enriched detections topic name
   static constexpr auto kImageMarkersTopic = "/perception/enriched_detection_markers";  // Image markers topic
-  static constexpr auto kDetections3DTopic = "/perception/detections_3d";  // 3D detections topic
+  static constexpr auto kDetections3DTopic = "/perception/detections_3d_enriched";  // 3D detections topic
   static constexpr auto kDetections3DMarkersTopic = "/perception/detections_3d_markers";  // 3D detection markers topic
 
   /**

@@ -87,6 +87,9 @@ target_link_libraries(${PROJECT_NAME}_node
     ${diagnostic_msgs_TARGETS}
 )
 
+rclcpp_components_register_nodes(${PROJECT_NAME}_node
+  "wato::perception::patchworkpp::GroundRemovalNode"
+)
 
 rclcpp_components_register_nodes(${PROJECT_NAME}_node
   "wato::perception::patchworkpp::GroundRemovalNode"

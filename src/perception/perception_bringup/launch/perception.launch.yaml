@@ -48,13 +48,13 @@ launch:
             - from: $(var config_file)
           remap:
             - from: input_cloud
-              to: /lidar/all/points_merged
+              to: /lidar_cc/velodyne_points
             - from: ground_cloud
               to: /perception/ground_cloud
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
 
-  # Load all 12 camera pipelines into the shared container
+  # Load all 12 camera pipelines into the shared container (temporarily disabled)
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
       arg:
@@ -125,6 +125,39 @@ launch:
               to: /perception/detections_3D
             - from: output_tracks
               to: /perception/detections_3D_tracked
+            - from: output_markers
+              to: /perception/tracked_markers
+
+  # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)
+  # Subscribes: multi_camera_info, detections, non_ground_cloud; optional multi_image (compressed) for viz
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: spatial_association
+          plugin: SpatialAssociationNode
+          name: spatial_association_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            # Parameter files are applied in-order; keep bringup last so it overrides
+            # both the node's hardcoded declareIfMissing defaults and package defaults.
+            - from: $(find-pkg-share spatial_association)/config/params.yaml
+            - from: $(var config_file)
+          remap:
+            - from: multi_camera_info
+              to: /multi_camera_sync/multi_camera_info
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_compressed
+            - from: non_ground_cloud
+              to: /perception/non_ground_cloud
+            - from: detections
+              to: /perception/detections_enriched
+            - from: detections_3d_enriched
+              to: /perception/detections_3d_enriched
+            - from: detection_3d
+              to: /perception/detections_3D
 
   # Lifecycle Manager for detection and attribute_assigner nodes (params from perception_bringup.yaml)
   - node:

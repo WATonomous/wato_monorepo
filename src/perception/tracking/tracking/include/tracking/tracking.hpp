@@ -29,6 +29,7 @@
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 /**
  * @brief ROS2 Lifecycle Node that manages 3D multi-object tracking.
@@ -44,6 +45,7 @@ public:
 
   static constexpr auto kDetectionsTopic = "input_detections";
   static constexpr auto kTracksTopic = "output_tracks";
+  static constexpr auto kMarkersTopic = "output_markers";
 
   /**
    * @brief Looks up the numerical id corresponding to a class.
@@ -139,6 +141,7 @@ private:
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_dets_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
 
   // ByteTrack parameters
   int frame_rate_;
@@ -148,6 +151,7 @@ private:
   float match_thresh_;
   bool use_maj_cls_;
   std::string output_frame_;
+  bool publish_visualization_;
 
   static std::unordered_map<std::string, int> class_map_;
   static std::unordered_map<int, std::string> reverse_class_map_;

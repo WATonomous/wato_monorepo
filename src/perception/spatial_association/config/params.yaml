@@ -1,0 +1,156 @@
+/**/spatial_association_node:
+  ros__parameters:
+    # Lidar frame for the point cloud (must match sensor_interfacing, e.g. lidar_cc).
+    # Camera<->lidar transforms are read from TF (published by sensor_interfacing).
+    lidar_frame: lidar_cc
+
+    # Max allowed |detection.stamp - cloud.stamp| in seconds; ≤0 disables per-camera rejection (nearest cached cloud
+    # is still used). Batch time = MultiDetection2DArray.header.stamp if set, else median of per-camera stamps.
+    max_detection_cloud_stamp_delta: 0.08
+
+    # When MultiDetection2DArray.header.stamp is zero/unset, fallback batch-time policy:
+    # - median_camera_stamp (default): robust against one delayed camera
+    # - max_camera_stamp: lowest-latency choice using newest valid per-camera stamp
+    detection_stamp_fallback_policy: "median_camera_stamp"
+
+    # Ring buffer of recent clustered LiDAR snapshots (async worker vs detection callback). Order-of-magnitude: keep
+    # enough frames to span max_detection_cloud_stamp_delta at your LiDAR rate (e.g. 0.08 s × 20 Hz ≈ 2 frames min;
+    # use a larger buffer when processing lags).
+    clustered_cloud_cache_size: 24
+
+    # Raw non-ground clouds queued for the worker (used only when raw_cloud_latest_only is false). When full, oldest
+    # pending clouds are dropped. Default 1 favors low latency over queuing intermediate scans.
+    raw_cloud_pending_queue_size: 1
+
+    # If true (default), each new non-ground cloud replaces all pending raw jobs so the worker always processes the
+    # freshest scan; additionally, stale in-flight worker results are dropped when a newer cloud seq is seen before
+    # cache insert/publish. Set false to use a bounded FIFO of size raw_cloud_pending_queue_size (better temporal
+    # coverage, higher latency when the worker falls behind).
+    raw_cloud_latest_only: true
+
+    # If true, /bounding_box marker headers use the detection batch time (RViz looks less “behind” the image).
+    # /detection_3d still uses the LiDAR snapshot stamp — markers and 3D messages can disagree; this does not improve
+    # real temporal matching, only display. Treat as a UI/debug knob.
+    bbox_markers_use_detection_stamp: false
+
+
+    # If true, skip publishing /detection_3d and /bounding_box when the (representative detection time, chosen cloud stamp)
+    # pair matches the last publish — cuts duplicate outputs for repeated det/cloud pairs.
+    skip_repeat_association_publish: true
+
+    # filtering parameters
+
+    euclid_params:
+      cluster_tolerance: 0.40
+      min_cluster_size: 20
+      max_cluster_size: 1000
+      use_adaptive_clustering: true  # Single tolerance for whole cloud; set true for close/far split (two clustering passes)
+      close_threshold: 5.0  # Distance (m) threshold for close objects
+      close_tolerance_mult: 1.25  # Multiplier for close objects (e.g., 1.25x = 0.50m for close objects)
+
+    merge_threshold: 0.5
+
+    # If true: cluster only LiDAR points projecting into each 2D detection ROI (per camera), then skip IoU reassignment.
+    # If false: cluster full voxel cloud, then strict IoU association (default pipeline).
+    use_roi_first_clustering: false
+
+    # After all cameras: merge 3D outputs that share the same LiDAR points (or weak overlap + same class + close BEV center).
+    cross_camera_dedup:
+      enabled: true
+      min_lidar_index_overlap: 0.5       # |A∩B| / min(|A|,|B|) on filtered-cloud indices
+      weak_lidar_index_overlap: 0.22     # needs same class_id and max_center_dist_m
+      max_center_dist_m: 1.8             # BEV XY meters for weak-overlap path only
+      # Footprint IoU (axis-aligned rect of oriented box in lidar XY) — catches same object with disjoint LiDAR clusters
+      min_bev_box_iou: 0.16
+      min_bev_box_iou_no_class: 0.30     # when both lack class_id (stricter)
+
+    object_detection_confidence: 0.52
+
+    # Voxel downsampling parameter
+    voxel_size: 0.2  # Fixed voxel size (meters) for downsampling
+
+    # Quality filtering parameters (improved physics-based filtering)
+    quality_filter_params:
+      max_distance: 60.0  # Maximum detection distance in meters
+      min_points: 5  # Minimum points for viable object
+      min_height: 0.15  # Minimum height in meters
+      min_points_default: 10  # Default minimum points
+      min_points_far: 8  # Minimum points at far distance (> 30m)
+      min_points_medium: 12  # Minimum points at medium distance (> 20m)
+      min_points_large: 30  # Minimum points for large objects
+      distance_threshold_far: 30.0  # Distance threshold for far objects (m)
+      distance_threshold_medium: 20.0  # Distance threshold for medium objects (m)
+      volume_threshold_large: 8.0  # Volume threshold for large objects (m³)
+      min_density: 5.0  # Minimum point density (points per m³)
+      max_density: 1000.0  # Maximum point density (points per m³)
+      max_dimension: 15.0  # Maximum object dimension in meters
+      max_aspect_ratio: 15.0  # Maximum aspect ratio (length/width or length/height)
+
+    # Visualization toggles (independent)
+    publish_bounding_box: true   # 3D bounding box marker visualization (/bounding_box MarkerArray)
+    publish_visualization: false # Debug point-cloud topics (filtered lidar, cluster centroids)
+    publish_image_visualization: false  # Image visualization: subscribe to multi_image and use for image overlays (off by default)
+
+    # Enable verbose point-cloud debug logs
+    debug_logging: false
+
+    # Projection/utils (orientation, ground filter, merge, IoU, visualization)
+    projection_utils_params:
+      marker_lifetime_s: 0.25       # Viz only
+      marker_alpha: 0.2             # Viz only
+      min_iou_threshold: 0.11       # Association: min IoU cluster<->2D; raised from 0.15 to recover more matches
+      min_camera_z_distance: 0.8    # Association: reject points behind camera (m); slightly relaxed from 1.0
+      detection_score_weight: 0.6  # 3D score = detection_score_weight * det_score + iou_score_weight * iou
+      iou_score_weight: 0.4
+      ar_front_view_threshold: 1.2  # Orientation: if box aspect ratio < this use line-of-sight yaw (front view)
+      min_points_for_fit: 3         # Min points to run orientation search; leave default
+      default_sample_point_count: 64 # Points sampled for orientation search; more = slower, more stable
+      orientation_search_step_degrees: 2.0  # Fine step for angle search; smaller = more accurate box, slightly slower
+      outlier_rejection_point_count: 30  # Below this many points, apply sigma clipping in box fit; higher = reject outliers in more clusters
+      outlier_sigma_multiplier: 4.5 # Clamp points beyond mean ± this*sigma in fit; lower = more aggressive outlier rejection
+      # Trimmed extents (percentiles 0–100): use 5th/95th for XY and 2nd/98th for Z to stabilize box size/center vs outliers
+      xy_extent_percentile_low: 5.0
+      xy_extent_percentile_high: 95.0
+      z_extent_percentile_low: 2.0
+      z_extent_percentile_high: 98.0
+      # Image dimensions for projection clipping (from CameraInfo or config). Must match camera resolution.
+      image_width: 1280
+      image_height: 1024
+      # Second-pass fallback for unassigned detections (optional; set true to recover more matches)
+      enable_second_pass_fallback: false
+      second_pass_min_iou: 0.05  # Relaxed IoU or centroid-in-box; only when enable_second_pass_fallback is true
+      max_unassigned_detections_second_pass: 10  # Cap second-pass work to avoid becoming a bottleneck
+
+      # Second-pass rescue policy knobs (gating + scoring)
+      second_pass_min_det_conf: -1.0
+      second_pass_bbox_expand_fraction: 0.15
+      second_pass_min_det_area_px2: 0.0
+      second_pass_min_det_area_far_px2: 0.0
+      second_pass_min_inside_points: 3
+      second_pass_min_inside_fraction: 0.20
+      second_pass_inside_points_far_scale: 0.75
+      second_pass_inside_points_medium_scale: 0.90
+      second_pass_person_inside_fraction_scale: 1.20
+      second_pass_person_inside_points_scale: 1.20
+      second_pass_vehicle_inside_fraction_scale: 0.90
+      second_pass_vehicle_inside_points_scale: 0.90
+      second_pass_min_size_score: 0.40
+      second_pass_person_min_size_score: 0.50
+      second_pass_vehicle_min_size_score: 0.35
+      second_pass_min_combined_score: 0.45
+      second_pass_best_second_margin: 0.10
+
+      # Strict primary association (all must pass when association_strict_matching is true)
+      association_strict_matching: true
+      association_centroid_inner_box_fraction: 0.75   # Centroid inside centered inner box (≈75% of det W×H)
+      association_min_inside_point_fraction: 0.45    # Share of projected cluster points inside det box
+      association_min_ar_consistency_score: 0.30     # 2D projected vs detection aspect ratio similarity
+      association_use_point_projection_rect_for_iou: true
+      association_allow_aabb_centroid_fallback: false  # No synthetic IoU when 8-corner AABB fails
+      association_suppress_second_pass_under_strict: true
+      association_roi_expand_fraction: 0.12          # ROI gather + ROI-first clustering
+
+      # Post-match class caps (3D AABB), used with matched detection class_id
+      quality_person_max_height_m: 2.5
+      quality_person_max_footprint_xy_m: 1.45
+      quality_vehicle_max_height_m: 4.8
