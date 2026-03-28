@@ -89,6 +89,7 @@ private:
 
   // publisher topic names
   std::string final_path_topic, available_paths_topic;
+  double publish_rate_hz_;
 
   // parameter structs
   CostFunctionParams cf_params;
@@ -107,6 +108,9 @@ private:
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
+
+  // timers
+  rclcpp::TimerBase::SharedPtr publish_timer_;
 
   // publishers
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
