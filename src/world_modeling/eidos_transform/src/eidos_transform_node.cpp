@@ -44,8 +44,10 @@ EidosTransformNode::~EidosTransformNode() = default;
 // ---------------------------------------------------------------------------
 
 static void readNoiseParam(
-  rclcpp_lifecycle::LifecycleNode * node, const std::string & param,
-  gtsam::Vector6 & out, const std::vector<double> & defaults)
+  rclcpp_lifecycle::LifecycleNode * node,
+  const std::string & param,
+  gtsam::Vector6 & out,
+  const std::vector<double> & defaults)
 {
   node->declare_parameter<std::vector<double>>(param, defaults);
   std::vector<double> v;
@@ -96,16 +98,14 @@ static void parseSources(
       node->get_parameter(src_name + ".gravity", src.gravity);
       node->get_parameter(src_name + ".gravity_compensated", src.gravity_compensated);
 
-      readNoiseParam(node, src_name + ".orientation_noise", src.orientation_noise,
-        {1e-2, 1e-2, 1e-2, 1.0, 1.0, 1.0});
-      readNoiseParam(node, src_name + ".angular_velocity_noise", src.angular_velocity_noise,
-        {1e-4, 1e-4, 1e-4, 1.0, 1.0, 1.0});
-      readNoiseParam(node, src_name + ".linear_velocity_noise", src.linear_velocity_noise,
-        {1.0, 1.0, 1.0, 1e-1, 1e-1, 1e-1});
+      readNoiseParam(node, src_name + ".orientation_noise", src.orientation_noise, {1e-2, 1e-2, 1e-2, 1.0, 1.0, 1.0});
+      readNoiseParam(
+        node, src_name + ".angular_velocity_noise", src.angular_velocity_noise, {1e-4, 1e-4, 1e-4, 1.0, 1.0, 1.0});
+      readNoiseParam(
+        node, src_name + ".linear_velocity_noise", src.linear_velocity_noise, {1.0, 1.0, 1.0, 1e-1, 1e-1, 1e-1});
 
       src.imu_sub = node->create_subscription<sensor_msgs::msg::Imu>(
-        src.topic, rclcpp::SensorDataQoS(),
-        [&out, &mtx, idx](const sensor_msgs::msg::Imu::SharedPtr msg) {
+        src.topic, rclcpp::SensorDataQoS(), [&out, &mtx, idx](const sensor_msgs::msg::Imu::SharedPtr msg) {
           std::lock_guard<std::mutex> lock(mtx);
           if (idx < out.size()) {
             out[idx].latest_imu = msg;
@@ -113,15 +113,18 @@ static void parseSources(
           }
         });
 
-      RCLCPP_INFO(node->get_logger(), "%s source '%s' [imu] on '%s' frame '%s'",
-        label.c_str(), src_name.c_str(), src.topic.c_str(), src.imu_frame.c_str());
+      RCLCPP_INFO(
+        node->get_logger(),
+        "%s source '%s' [imu] on '%s' frame '%s'",
+        label.c_str(),
+        src_name.c_str(),
+        src.topic.c_str(),
+        src.imu_frame.c_str());
 
     } else {
       // Odom-type params
-      node->declare_parameter<std::vector<bool>>(
-        src_name + ".pose_mask", {false, false, false, false, false, false});
-      node->declare_parameter<std::vector<bool>>(
-        src_name + ".twist_mask", {false, false, false, false, false, false});
+      node->declare_parameter<std::vector<bool>>(src_name + ".pose_mask", {false, false, false, false, false, false});
+      node->declare_parameter<std::vector<bool>>(src_name + ".twist_mask", {false, false, false, false, false, false});
 
       std::vector<bool> pm, tm;
       node->get_parameter(src_name + ".pose_mask", pm);
@@ -129,14 +132,11 @@ static void parseSources(
       for (size_t i = 0; i < 6 && i < pm.size(); ++i) src.pose_mask[i] = pm[i];
       for (size_t i = 0; i < 6 && i < tm.size(); ++i) src.twist_mask[i] = tm[i];
 
-      readNoiseParam(node, src_name + ".pose_noise", src.pose_noise,
-        {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
-      readNoiseParam(node, src_name + ".twist_noise", src.twist_noise,
-        {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+      readNoiseParam(node, src_name + ".pose_noise", src.pose_noise, {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
+      readNoiseParam(node, src_name + ".twist_noise", src.twist_noise, {1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2});
 
       src.odom_sub = node->create_subscription<nav_msgs::msg::Odometry>(
-        src.topic, rclcpp::SensorDataQoS(),
-        [&out, &mtx, idx](const nav_msgs::msg::Odometry::SharedPtr msg) {
+        src.topic, rclcpp::SensorDataQoS(), [&out, &mtx, idx](const nav_msgs::msg::Odometry::SharedPtr msg) {
           std::lock_guard<std::mutex> lock(mtx);
           if (idx < out.size()) {
             out[idx].latest_odom = msg;
@@ -144,8 +144,8 @@ static void parseSources(
           }
         });
 
-      RCLCPP_INFO(node->get_logger(), "%s source '%s' [odom] on '%s'",
-        label.c_str(), src_name.c_str(), src.topic.c_str());
+      RCLCPP_INFO(
+        node->get_logger(), "%s source '%s' [odom] on '%s'", label.c_str(), src_name.c_str(), src.topic.c_str());
     }
 
     out.push_back(std::move(src));
@@ -195,7 +195,8 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(const rclcpp
     global_ekf_ = ekf_loader_.createSharedInstance(ekf_plugin_name_);
     global_ekf_->initialize(ekf_name + "_global", shared_from_this());
 
-    RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m Loaded dual EKF: %s (local + global)", ekf_plugin_name_.c_str());
+    RCLCPP_INFO(
+      get_logger(), "\033[34m[Transform]\033[0m Loaded dual EKF: %s (local + global)", ekf_plugin_name_.c_str());
   } catch (const pluginlib::PluginlibException & ex) {
     RCLCPP_ERROR(get_logger(), "Failed to load EKF plugin '%s': %s", ekf_plugin_name_.c_str(), ex.what());
     return CallbackReturn::FAILURE;
@@ -206,7 +207,6 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(const rclcpp
 
   // Parse map_sources (fed to global EKF ONLY)
   parseSources(this, "map_sources", map_sources_, sources_mutex_, "Map");
-
 
   // TF
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -265,7 +265,10 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_activate(const rclcpp_
 EidosTransformNode::CallbackReturn EidosTransformNode::on_deactivate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(get_logger(), "Deactivating...");
-  if (tick_timer_) { tick_timer_->cancel(); tick_timer_.reset(); }
+  if (tick_timer_) {
+    tick_timer_->cancel();
+    tick_timer_.reset();
+  }
   local_ekf_->deactivate();
   global_ekf_->deactivate();
   odom_pub_->on_deactivate();
@@ -333,8 +336,11 @@ void EidosTransformNode::tick()
       src.has_new_data = false;
       fuseSource(local_ekf_, src);
       if (!src.logged_first_msg) {
-        RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First odom source '%s' on '%s'",
-          src.name.c_str(), src.topic.c_str());
+        RCLCPP_INFO(
+          get_logger(),
+          "\033[34m[Transform]\033[0m First odom source '%s' on '%s'",
+          src.name.c_str(),
+          src.topic.c_str());
         src.logged_first_msg = true;
       }
     }
@@ -385,8 +391,11 @@ void EidosTransformNode::tick()
       new_measurements.push_back(rec);
 
       if (!src.logged_first_msg) {
-        RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m First map source '%s' on '%s'",
-          src.name.c_str(), src.topic.c_str());
+        RCLCPP_INFO(
+          get_logger(),
+          "\033[34m[Transform]\033[0m First map source '%s' on '%s'",
+          src.name.c_str(),
+          src.topic.c_str());
         src.logged_first_msg = true;
       }
     }
@@ -418,7 +427,6 @@ void EidosTransformNode::tick()
   broadcastOdomToBaseTF(now);
   broadcastMapToOdomTF(now);
   publishOdometry(now);
-
 }
 
 // ---------------------------------------------------------------------------
@@ -481,13 +489,15 @@ void EidosTransformNode::rewindAndReplay(double delayed_time)
 // Apply a measurement record to an EKF
 // ---------------------------------------------------------------------------
 
-void EidosTransformNode::applyMeasurement(
-  std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec)
+void EidosTransformNode::applyMeasurement(std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec)
 {
   if (rec.source_type == "odom") {
     bool any_pose = false;
     for (int i = 0; i < 6; ++i) {
-      if (rec.pose_mask[static_cast<size_t>(i)]) { any_pose = true; break; }
+      if (rec.pose_mask[static_cast<size_t>(i)]) {
+        any_pose = true;
+        break;
+      }
     }
     if (any_pose) {
       ekf->updatePose(rec.pose, rec.pose_mask, rec.pose_noise);
@@ -495,7 +505,10 @@ void EidosTransformNode::applyMeasurement(
 
     bool any_twist = false;
     for (int i = 0; i < 6; ++i) {
-      if (rec.twist_mask[static_cast<size_t>(i)]) { any_twist = true; break; }
+      if (rec.twist_mask[static_cast<size_t>(i)]) {
+        any_twist = true;
+        break;
+      }
     }
     if (any_twist) {
       ekf->updateTwist(rec.twist, rec.twist_mask, rec.twist_noise);
@@ -508,9 +521,7 @@ void EidosTransformNode::applyMeasurement(
 // Fuse a measurement source into an EKF
 // ---------------------------------------------------------------------------
 
-void EidosTransformNode::fuseSource(
-  std::shared_ptr<EKFModelPlugin> & ekf,
-  MeasurementSource & src)
+void EidosTransformNode::fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, MeasurementSource & src)
 {
   if (src.type == "imu") {
     // IMU source: extract gyro, orientation, acceleration
@@ -591,7 +602,10 @@ void EidosTransformNode::fuseSource(
 
   bool any_pose = false;
   for (int i = 0; i < 6; ++i) {
-    if (src.pose_mask[static_cast<size_t>(i)]) { any_pose = true; break; }
+    if (src.pose_mask[static_cast<size_t>(i)]) {
+      any_pose = true;
+      break;
+    }
   }
   if (any_pose) {
     ekf->updatePose(meas_pose, src.pose_mask, src.pose_noise);
@@ -599,7 +613,10 @@ void EidosTransformNode::fuseSource(
 
   bool any_twist = false;
   for (int i = 0; i < 6; ++i) {
-    if (src.twist_mask[static_cast<size_t>(i)]) { any_twist = true; break; }
+    if (src.twist_mask[static_cast<size_t>(i)]) {
+      any_twist = true;
+      break;
+    }
   }
   if (any_twist) {
     ekf->updateTwist(meas_twist, src.twist_mask, src.twist_noise);

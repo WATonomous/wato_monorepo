@@ -17,8 +17,8 @@
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Pose3.h>
 
-#include <Eigen/Core>
 #include <array>
+#include <Eigen/Core>
 #include <memory>
 #include <string>
 
@@ -107,8 +107,7 @@ public:
    * @param noise Standard deviation for each axis.
    * @param dt Time since last acceleration measurement (for integration).
    */
-  virtual void updateAcceleration(
-    const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt)
+  virtual void updateAcceleration(const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt)
   {
     (void)accel;
     (void)noise;
@@ -129,7 +128,10 @@ public:
 
   /// @brief Get the current estimated accelerometer bias.
   /// @return 3D bias vector [bias_ax, bias_ay, bias_az]. Default: zero (no bias state).
-  virtual Eigen::Vector3d accelBias() const { return Eigen::Vector3d::Zero(); }
+  virtual Eigen::Vector3d accelBias() const
+  {
+    return Eigen::Vector3d::Zero();
+  }
 
   /**
    * @brief Hard-reset the filter to a known pose, zero velocity, and default covariance.

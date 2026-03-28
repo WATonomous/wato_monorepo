@@ -17,6 +17,7 @@ virtual void deactivate() = 0;
 ```cpp
 virtual StampedFactorResult produceFactor(gtsam::Key key, double timestamp);
 virtual StampedFactorResult latchFactor(gtsam::Key key, double timestamp);
+virtual bool isReady() const;  // default: true
 virtual void onTrackingBegin(const gtsam::Pose3& pose);
 virtual void onOptimizationComplete(const gtsam::Values& values, bool graph_corrected);
 ```
@@ -28,8 +29,21 @@ virtual void onOptimizationComplete(const gtsam::Values& values, bool graph_corr
 3. **`activate()` / `deactivate()`** -- Called on lifecycle transitions.
 4. **`produceFactor(key, timestamp)`** -- Called every SLAM tick. Only state-creating plugins (e.g. LISO) override this. Set `result.timestamp` to signal a new state; return empty if no data.
 5. **`latchFactor(key, timestamp)`** -- Called after a new state is created. Latching plugins (e.g. GPS, loop closure) attach constraints to states created by others.
-6. **`onTrackingBegin(pose)`** -- Called once when TRACKING begins with the initial pose.
-7. **`onOptimizationComplete(values, graph_corrected)`** -- Called after each ISAM2 optimization with the full optimized values and a flag indicating whether a significant graph correction occurred (loop closure or GPS correction).
+6. **`isReady()`** -- Called during WARMING_UP to check if the plugin has completed any required warmup (e.g. IMU stationarity detection). Default returns `true`. The system stays in WARMING_UP until all factor plugins report ready.
+7. **`onTrackingBegin(pose)`** -- Called once when TRACKING begins with the initial pose.
+8. **`onOptimizationComplete(values, graph_corrected)`** -- Called after each ISAM2 optimization with the full optimized values and a flag indicating whether a significant graph correction occurred (loop closure or GPS correction).
+
+## StampedFactorResult
+
+The return type for both `produceFactor()` and `latchFactor()`:
+
+| Field | Type | Description |
+|---|---|---|
+| `timestamp` | `std::optional<double>` | If set, EidosNode creates a new ISAM2 state at this timestamp. If nullopt, factors are latched onto an existing state. |
+| `factors` | `vector<NonlinearFactor::shared_ptr>` | GTSAM factors to add to the graph. |
+| `values` | `gtsam::Values` | Initial values for any new variables introduced (only used by state-creating plugins). |
+| `loop_closure` | `bool` | When `true`, the optimizer runs extra iterations for loop closure convergence. |
+| `correction` | `bool` | When `true` (and `loop_closure` is `false`), extra correction iterations run (e.g. GPS). |
 
 ## Lock-Free Pose Outputs
 

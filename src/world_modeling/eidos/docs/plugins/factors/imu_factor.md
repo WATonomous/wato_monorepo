@@ -46,12 +46,21 @@ After warmup, each IMU callback integrates the measurement and publishes odometr
 
 This odometry is consumed by `eidos_transform` as a measurement source (typically for angular velocity fusion via twist mask).
 
+## Dual Integrators
+
+ImuFactor maintains two separate `PreintegratedImuMeasurements` instances:
+
+- **`integrator_`** -- used by `latchFactor()` to produce graph factors. It is reset after each factor is produced and accumulates measurements between consecutive graph states.
+- **`odom_integrator_`** -- used by the IMU callback for live odometry output. It is reset by `onOptimizationComplete()` when the reference state is re-anchored from optimized values.
+
+This separation prevents double-integration: measurements consumed by `latchFactor()` for graph factors do not corrupt the live odom output, and vice versa.
+
 ## Notes
 
 - IMU extrinsics (`imu_frame` to `base_link`) are resolved from TF on first message. All IMU data is rotated into the base_link frame before processing.
 - Buffers up to 5000 IMU messages for consumption by `latchFactor()`.
 - Currently produces `BetweenFactor<Pose3>` from the preintegrated pose delta. Full `gtsam::ImuFactor` with velocity + bias states is a future enhancement.
-- `onOptimizationComplete()` re-anchors the preintegration reference state from optimized values, keeping the integrator consistent with graph corrections.
+- `onOptimizationComplete(values, graph_corrected)` re-anchors the preintegration reference state from optimized values and resets `odom_integrator_`, keeping both integrators consistent with graph corrections.
 
 ## Mapping vs Localization
 

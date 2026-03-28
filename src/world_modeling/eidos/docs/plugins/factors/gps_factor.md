@@ -4,7 +4,7 @@
 **Type:** Factor (latching via `latchFactor`)
 **XML:** `factor_plugins.xml`
 
-Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated rotation and offset to produce map-frame coordinates, then attaches unary `gtsam::GPSFactor` entries to states created by other plugins. On first accepted fix, the UTM-to-map offset is computed from the current estimator pose and the IMU heading, then persisted via MapManager. Registers `gps_factor/position`, `gps_factor/utm_position`, and global `gps_factor/utm_to_map` for persistence. The `utm -> map` TF is broadcast by `eidos_transform`, not by this plugin.
+Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated rotation and offset to produce map-frame coordinates, then attaches unary `gtsam::GPSFactor` entries to states created by other plugins. On first accepted fix, the UTM-to-map offset is computed from the current estimator pose and the IMU heading, then persisted via MapManager. Registers `gps_factor/position`, `gps_factor/utm_position`, and global `gps_factor/utm_to_map` for persistence. Publishes the utm-to-map transform as a `geometry_msgs/TransformStamped` on the `gps_factor/utm_to_map_tf` topic (transient-local QoS) for `eidos_transform` to consume and broadcast as a static TF. This plugin does not use a `StaticTransformBroadcaster`.
 
 ## Parameters
 
@@ -23,8 +23,9 @@ Subscribes to NavSatFix and IMU. Converts GPS to UTM, applies a yaw-compensated 
 
 - GPS never creates its own states in the graph; it only latches onto states created by other plugins (e.g. LISO).
 - The UTM-to-map offset is persisted as a global entry in MapManager and is reloaded on `activate()` when a prior map is loaded.
-- This plugin does not broadcast TF. The `utm -> map` transform is broadcast by `eidos_transform`, which reads the persisted offset from the map file.
+- The `utm -> map` transform is published on the `gps_factor/utm_to_map_tf` topic as a `TransformStamped` (not via a `StaticTransformBroadcaster`). `eidos_transform` subscribes to this topic and broadcasts it as a static TF.
 - A time window of 0.2 seconds is used to match GPS fixes to state timestamps.
+- The GPS fix queue is capped at 100 messages. When a GPS factor is accepted, `result.correction = true` is set, signaling the optimizer to run extra correction iterations.
 
 ## Mapping vs Localization
 

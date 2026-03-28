@@ -8,6 +8,7 @@ Dockerized monorepo for the WATonomous autonomous vehicle project (dubbed EVE).
   <img src=".img/sensors.gif" height="250"/>
   <img src=".img/world_model.gif" height="250"/>
   <img src="./src/world_modeling/eidos/.img/EIDOS.gif" height="250"/>
+  <img src="./src/world_modeling/eidos/.img/reloc.gif" height="250"/>
 </div>
 
 ## Prerequisite Installation

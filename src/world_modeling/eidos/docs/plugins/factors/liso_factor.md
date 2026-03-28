@@ -34,11 +34,16 @@ LiDAR-Inertial Submap Odometry. Subscribes to LiDAR and IMU, performs GICP scan-
 | `initialization.warmup_samples` | int | `200` | Number of IMU samples required for warmup. |
 | `initialization.stationary_gyr_threshold` | double | `0.005` | Gyroscope RMS threshold for stationary detection during warmup. |
 
+## `isReady()` and IMU Warmup
+
+LisoFactor overrides `isReady()` to return `false` until IMU warmup is complete (`imu_warmup_complete_` is set). This gates the `InitSequencer` state machine alongside any other plugins that require warmup (e.g. ImuFactor). IMU warmup performs stationary detection and gravity alignment identically to ImuFactor's warmup: after `warmup_samples` consecutive stationary IMU samples, a gravity-aligned initial orientation (roll + pitch, yaw = 0) is computed and used to seed the first scan's pose.
+
 ## Notes
 
 - LISO is the only built-in plugin that creates new states via `produceFactor()`.
 - Implements `onTrackingBegin()` to build an initial submap from the prior map at the relocalized position.
-- Implements `onOptimizationComplete()` to re-anchor the GICP initial guess and trigger submap rebuilds after graph corrections (especially loop closures).
+- Implements `onOptimizationComplete(values, graph_corrected)` to re-anchor the GICP initial guess and trigger submap rebuilds when `graph_corrected` is true (loop closure or GPS correction). A pending incremental correction is queued for the sensor thread to apply to `prev_incremental_pose_` on the next LiDAR callback, avoiding a data race between the SLAM and sensor threads.
+- Published twist is in body frame, derived from the `between()` delta of consecutive matched poses divided by dt.
 - IMU is used only for gyro integration (initial guess rotation) and warmup detection, not for preintegration factors.
 
 ## Mapping vs Localization

@@ -57,8 +57,15 @@ optimize. Maintains a monotonic state timeline (`Symbol('x', N)`). After each
 `optimize()` call, it writes the latest optimized pose to a `LockFreePose` and the
 full optimized `Values` to an `AtomicSlot` (read by visualization plugins). Provides
 extra convergence iterations after loop closure or GPS corrections (via the
-`extra_iterations` parameter). Key methods: `configure()`, `reset()`, `optimize()`, `createState()`,
-`getPose()`, `getCovariance()`.
+`extra_iterations` parameter to `optimize()`). Configured via `configure(logger,
+relinearize_threshold, relinearize_skip, prior_pose_cov)`. Key methods: `configure()`,
+`reset()`, `optimize()`, `createState()`, `getPose()`, `getCovariance()`.
+
+After optimization, `EidosNode` calls `onOptimizationComplete(values, graph_corrected)`
+on every factor plugin. The `graph_corrected` bool is true when a loop closure or
+correction factor was present (i.e., `StampedFactorResult::loop_closure ||
+StampedFactorResult::correction`). Plugins use this to decide whether to re-anchor
+internal state (e.g., LISO triggers a submap rebuild when `graph_corrected` is true).
 
 ### MapManager
 
@@ -88,13 +95,29 @@ Manages the `INIT -> WARMING_UP -> RELOCALIZING -> TRACKING` state machine, sepa
 from `EidosNode` so orchestration logic stays clean. Receives an rclcpp logger via
 `configure()` for status messages. `EidosNode` calls `step()` each
 SLAM tick. In `WARMING_UP`, the sequencer polls all factor plugins' `isReady()` each
-tick and will not proceed until every plugin reports ready (e.g. ImuFactor blocks until
-stationary detection and gravity alignment are complete). Once all plugins are ready:
+tick and will not proceed until every plugin reports ready (e.g. LisoFactor and ImuFactor
+both gate on IMU warmup -- stationary detection and gravity alignment). Once all plugins are ready:
 if a prior map is loaded, it transitions to `RELOCALIZING` and polls relocalization
 plugins; if no prior map, it transitions directly to `TRACKING` with an identity pose.
 Once a relocalization result is obtained (or the timeout expires), it invokes the
 `on_tracking` callback which triggers `EidosNode::beginTracking()`. Only called from
 the SLAM loop thread.
+
+### Key Data Types
+
+**`StampedFactorResult`** (`utils/types.hpp`): Return type for `produceFactor()` and
+`latchFactor()`. Fields:
+- `timestamp` (`std::optional<double>`): If set, EidosNode creates a new ISAM2 state at
+  this sensor time. If nullopt, factors are latched onto an existing state.
+- `factors`: Vector of GTSAM factors to add to the graph.
+- `values`: Initial value estimates for any new variables.
+- `loop_closure` (`bool`): When true, the optimizer runs extra loop closure iterations.
+- `correction` (`bool`): When true (and `loop_closure` is false), extra correction
+  iterations run (e.g. GPS unary factor).
+
+**`NewState`** (namespace-level struct in `core/eidos_node.hpp`): Collects the output of
+a `produceFactor()` call that created a new state. Fields: `key`, `ts` (sensor timestamp),
+`result` (the `StampedFactorResult`), and `owner` (plugin name).
 
 ## 3. Threading Model
 

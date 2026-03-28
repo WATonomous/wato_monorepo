@@ -1,6 +1,9 @@
 # Eidos
 
-![alt text](.img/EIDOS.gif)
+<div align="center">
+  <img src=".img/EIDOS.gif" height="250"/>
+  <img src=".img/reloc.gif" height="250"/>
+</div>
 
 Eidos is a plugin-based LiDAR-Inertial SLAM and localization system for ROS 2. It builds maps from sensor data (mapping mode) and localizes against previously built maps (localization mode). The plugin architecture lets you swap sensors and add constraints -- factor plugins, relocalization plugins, and visualization plugins -- without modifying core code. Under the hood, Eidos uses GTSAM's ISAM2 incremental optimizer to maintain a factor graph of vehicle poses, with each plugin contributing factors, latching to existing factors, or consuming the optimized state.
 
@@ -84,7 +87,7 @@ All parameters live under the `/**/eidos_node/ros__parameters` namespace. The tw
 |---|---|---|---|
 | `isam2.update_iterations` | `2` | (not set) | ISAM2 update iterations per optimization step |
 | `isam2.correction_iterations` | `5` | (not set) | Extra iterations when a correction factor (e.g. GPS) is added |
-| `isam2.loop_closure_iterations` | `5` | (not set) | Extra iterations when loop closure is detected |
+| `isam2.loop_closure_iterations` | `20` | (not set) | Extra iterations when loop closure is detected |
 | `isam2.relinearize_threshold` | `0.01` | `0.01` | Variable relinearization threshold |
 | `isam2.relinearize_skip` | `1` | `1` | Steps between relinearization checks |
 
@@ -153,14 +156,15 @@ All topics and services are published under the node namespace (default: `/world
 
 | Topic | Type | Description |
 |---|---|---|
-| `slam/pose` | `geometry_msgs/msg/PoseStamped` | Current optimized pose in the map frame. Published each SLAM tick. Consumed by `eidos_transform` for TF broadcasting. |
-| `slam/odometry` | `nav_msgs/msg/Odometry` | Current pose as odometry (map frame, base_link child). Includes covariance from `topics.odom_pose_cov`. Published each SLAM tick. |
+| `slam/pose` | `geometry_msgs/msg/PoseStamped` | Current optimized pose in the map frame. Stamped with the keyframe sensor time (not wall-clock) so `eidos_transform` can look up the matching `odom->base_link` for a precise `map->odom` correction. Published each SLAM tick. |
+| `slam/odometry` | `nav_msgs/msg/Odometry` | Current pose as odometry (map frame, base_link child). Stamped with keyframe sensor time. Includes covariance from `topics.odom_pose_cov`. Published each SLAM tick. |
 | `slam/status` | `eidos_msgs/msg/SlamStatus` | System status: current state (INITIALIZING, WARMUP, RELOCALIZING, TRACKING), state index, keyframe count, factor count, active plugins. Published every tick. |
 | `slam/visualization/map` | `sensor_msgs/msg/PointCloud2` | Keyframe map point cloud for RViz (from `keyframe_map_visualization` plugin). |
 | `slam/visualization/factor_graph` | `visualization_msgs/msg/MarkerArray` | Factor graph structure for RViz (from `factor_graph_visualization` plugin, SLAM only). |
 | `liso/odometry` | `nav_msgs/msg/Odometry` | LISO scan-matching odometry (from `liso_factor` plugin). |
 | `liso/odometry_incremental` | `nav_msgs/msg/Odometry` | LISO incremental odometry (from `liso_factor` plugin). |
 | `imu_factor/odometry` | `nav_msgs/msg/Odometry` | IMU preintegrated odometry with body-frame twist (from `imu_factor` plugin, if loaded). |
+| `gps_factor/utm_to_map_tf` | `geometry_msgs/msg/TransformStamped` | UTM-to-map transform published on a latched topic by `gps_factor` (no static TF broadcaster). Consumed by `eidos_transform` for `utm->map` TF broadcasting. |
 
 ### Services
 
@@ -174,7 +178,7 @@ All topics and services are published under the node namespace (default: `/world
 The node progresses through these states (visible in the `slam/status` topic):
 
 1. **INITIALIZING** -- Waiting for plugins to be loaded and configured.
-2. **WARMUP** -- Plugins loaded. The InitSequencer polls all factor plugins' `isReady()` each tick. It will not proceed until **every** factor plugin reports ready (e.g. ImuFactor requires stationary detection and gravity alignment to complete). Once all plugins are ready: if no prior map is loaded, transitions immediately to TRACKING; if a prior map is loaded, transitions to RELOCALIZING.
+2. **WARMUP** -- Plugins loaded. The InitSequencer polls all factor plugins' `isReady()` each tick. It will not proceed until **every** factor plugin reports ready (e.g. LisoFactor and ImuFactor both gate on IMU warmup -- stationary detection and gravity alignment). Once all plugins are ready: if no prior map is loaded, transitions immediately to TRACKING; if a prior map is loaded, transitions to RELOCALIZING.
 3. **RELOCALIZING** -- Prior map loaded. Attempting to determine initial pose via relocalization plugins. Times out after `relocalization_timeout` seconds.
 4. **TRACKING** -- Normal operation. Factor plugins produce constraints, the optimizer runs, and poses are published.
 

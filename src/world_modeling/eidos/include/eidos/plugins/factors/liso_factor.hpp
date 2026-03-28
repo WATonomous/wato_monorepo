@@ -76,7 +76,10 @@ public:
   void deactivate() override;
 
   /// @brief Returns true once IMU warmup (stationary detection + gravity alignment) is complete.
-  bool isReady() const override { return imu_warmup_complete_.load(std::memory_order_acquire); }
+  bool isReady() const override
+  {
+    return imu_warmup_complete_.load(std::memory_order_acquire);
+  }
 
   /**
    * @brief Produce a BetweenFactor<Pose3> from the latest GICP scan-to-submap match.

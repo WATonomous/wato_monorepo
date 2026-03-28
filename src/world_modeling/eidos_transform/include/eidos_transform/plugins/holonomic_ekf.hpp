@@ -57,23 +57,22 @@ public:
 
   void predict(double dt) override;
 
-  void updatePose(
-    const gtsam::Pose3 & meas,
-    const std::array<bool, 6> & mask,
-    const gtsam::Vector6 & noise) override;
+  void updatePose(const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
 
   void updateTwist(
-    const gtsam::Vector6 & meas,
-    const std::array<bool, 6> & mask,
-    const gtsam::Vector6 & noise) override;
+    const gtsam::Vector6 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise) override;
 
-  void updateAcceleration(
-    const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt) override;
+  void updateAcceleration(const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt) override;
 
   gtsam::Pose3 pose() const override;
   gtsam::Vector6 velocity() const override;
   void reset(const gtsam::Pose3 & initial) override;
-  Eigen::Vector3d accelBias() const override { return accel_bias_; }
+
+  Eigen::Vector3d accelBias() const override
+  {
+    return accel_bias_;
+  }
+
   StateSnapshot snapshot(double time) const override;
   void restore(const StateSnapshot & snap) override;
 
@@ -87,12 +86,10 @@ private:
   Eigen::Vector3d accel_bias_ = Eigen::Vector3d::Zero();
 
   // ---- Full 15x15 covariance ----
-  Eigen::Matrix<double, kStateDim, kStateDim> P_ =
-    Eigen::Matrix<double, kStateDim, kStateDim>::Identity();
+  Eigen::Matrix<double, kStateDim, kStateDim> P_ = Eigen::Matrix<double, kStateDim, kStateDim>::Identity();
 
   // ---- Process noise (15x15 diagonal) ----
-  Eigen::Matrix<double, kStateDim, kStateDim> Q_ =
-    Eigen::Matrix<double, kStateDim, kStateDim>::Identity();
+  Eigen::Matrix<double, kStateDim, kStateDim> Q_ = Eigen::Matrix<double, kStateDim, kStateDim>::Identity();
 };
 
 }  // namespace eidos_transform

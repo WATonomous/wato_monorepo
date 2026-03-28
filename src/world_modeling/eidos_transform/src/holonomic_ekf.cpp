@@ -36,18 +36,17 @@ void HolonomicEKF::onInitialize()
   std::vector<double> pn;
   node_->declare_parameter<std::vector<double>>(
     name_ + ".process_noise",
-    {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4,
-     1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2,
-     1e-6, 1e-6, 1e-6});
+    {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-6, 1e-6, 1e-6});
   node_->get_parameter(name_ + ".process_noise", pn);
 
   if (pn.size() != static_cast<size_t>(N)) {
     RCLCPP_WARN(
-      node_->get_logger(), "[%s] process_noise should have %d entries, got %zu. Using defaults.",
-      name_.c_str(), N, pn.size());
-    pn = {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4,
-          1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2,
-          1e-6, 1e-6, 1e-6};
+      node_->get_logger(),
+      "[%s] process_noise should have %d entries, got %zu. Using defaults.",
+      name_.c_str(),
+      N,
+      pn.size());
+    pn = {1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-6, 1e-6, 1e-6};
   }
 
   Q_ = Eigen::Matrix<double, N, N>::Zero();
@@ -107,8 +106,7 @@ void HolonomicEKF::predict(double dt)
 // Update Pose — full Kalman gain (15x1)
 // ---------------------------------------------------------------------------
 
-void HolonomicEKF::updatePose(
-  const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise)
+void HolonomicEKF::updatePose(const gtsam::Pose3 & meas, const std::array<bool, 6> & mask, const gtsam::Vector6 & noise)
 {
   gtsam::Vector6 innovation = gtsam::Pose3::Logmap(pose_.inverse().compose(meas));
 
@@ -186,8 +184,7 @@ void HolonomicEKF::updateTwist(
 // Update Acceleration — direct observation of (accel - bias)
 // ---------------------------------------------------------------------------
 
-void HolonomicEKF::updateAcceleration(
-  const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt)
+void HolonomicEKF::updateAcceleration(const Eigen::Vector3d & accel, const Eigen::Vector3d & noise, double dt)
 {
   if (dt <= 0.0) return;
 
@@ -211,7 +208,7 @@ void HolonomicEKF::updateAcceleration(
 
     // Build H row (1x15): maps to linear velocity and bias
     Eigen::Matrix<double, 1, N> H = Eigen::Matrix<double, 1, N>::Zero();
-    int vel_idx = 9 + i;   // linear velocity: states 9, 10, 11
+    int vel_idx = 9 + i;  // linear velocity: states 9, 10, 11
     int bias_idx = 12 + i;  // bias: states 12, 13, 14
     H(0, vel_idx) = 1.0 / dt;
     H(0, bias_idx) = 1.0;
@@ -239,8 +236,15 @@ void HolonomicEKF::updateAcceleration(
 // Accessors
 // ---------------------------------------------------------------------------
 
-gtsam::Pose3 HolonomicEKF::pose() const { return pose_; }
-gtsam::Vector6 HolonomicEKF::velocity() const { return velocity_; }
+gtsam::Pose3 HolonomicEKF::pose() const
+{
+  return pose_;
+}
+
+gtsam::Vector6 HolonomicEKF::velocity() const
+{
+  return velocity_;
+}
 
 // ---------------------------------------------------------------------------
 // Reset

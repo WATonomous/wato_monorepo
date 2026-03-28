@@ -131,7 +131,7 @@
       windowed:
         radius: 50.0
 
-# eidos_transform config for localization mode (LISO + IMU)
+# eidos_transform config for localization mode (dual-EKF)
 /**/eidos_transform_node:
   ros__parameters:
     tick_rate: 200.0
@@ -142,28 +142,51 @@
       utm: "utm"
     topics:
       odom: "transform/odometry"
-      map_source: "slam/pose"
       utm_to_map: "gps_factor/utm_to_map_tf"
       predict_service: "transform/predict_relative"
     ekf:
       plugin: "eidos_transform::HolonomicEKF"
       name: "holonomic_ekf"
+    # [pose(6), velocity(6), accel_bias(3)]
     holonomic_ekf:
       process_noise:
         [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
-         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2,
+         1.0e-6, 1.0e-6, 1.0e-6]
+    holonomic_ekf_global:
+      process_noise:
+        [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3,
+         1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
+         1.0e-6, 1.0e-6, 1.0e-6]
     odom_sources:
-      - "liso"
-      - "imu"
-    liso:
-      odom_topic: "liso/odometry_incremental"
+      - "liso_odom"
+      - "imu_raw"
+    liso_odom:
+      type: "odom"
+      topic: "liso/odometry_incremental"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [true, true, true, true, true, true]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      # [ang_x, ang_y, ang_z, lin_x, lin_y, lin_z]
+      twist_noise: [5.0e-2, 5.0e-2, 5.0e-2, 1.0e-1, 3.0e-2, 3.0e-2]
+    imu_raw:
+      type: "imu"
+      topic: "/novatel/oem7/imu/data"
+      imu_frame: "imu_link"
+      use_orientation: true
+      use_angular_velocity: true
+      use_linear_acceleration: true
+      gravity: 9.80511
+      gravity_compensated: false
+      orientation_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0, 1.0, 1.0]
+      angular_velocity_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0, 1.0, 1.0]
+      linear_velocity_noise: [1.0, 1.0, 1.0, 1.0e-1, 1.0e-1, 1.0e-1]
+    map_sources:
+      - "liso_map"
+    liso_map:
+      type: "odom"
+      topic: "liso/odometry"
       pose_mask: [true, true, true, true, true, true]
       twist_mask: [false, false, false, false, false, false]
       pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
-      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
-    imu:
-      odom_topic: "imu_factor/odometry"
-      pose_mask: [false, false, false, false, false, false]
-      twist_mask: [true, true, true, false, false, false]
-      pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
-      twist_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+      twist_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]

@@ -440,10 +440,7 @@ void EidosNode::publishPose()
   geometry_msgs::msg::PoseStamped msg;
   // Stamp with the keyframe sensor time so eidos_transform can look up
   // the matching odom_to_base for a precise map->odom correction.
-  msg.header.stamp = has_last_state_ ? rclcpp::Time(
-                                         static_cast<int64_t>(last_state_ts_ * 1e9),
-                                         RCL_ROS_TIME)
-                                     : now();
+  msg.header.stamp = has_last_state_ ? rclcpp::Time(static_cast<int64_t>(last_state_ts_ * 1e9), RCL_ROS_TIME) : now();
   msg.header.frame_id = map_frame_;
 
   auto q = pose->rotation().toQuaternion();
@@ -466,10 +463,7 @@ void EidosNode::publishOdometry()
   if (!pose) return;
 
   nav_msgs::msg::Odometry msg;
-  msg.header.stamp = has_last_state_ ? rclcpp::Time(
-                                         static_cast<int64_t>(last_state_ts_ * 1e9),
-                                         RCL_ROS_TIME)
-                                     : now();
+  msg.header.stamp = has_last_state_ ? rclcpp::Time(static_cast<int64_t>(last_state_ts_ * 1e9), RCL_ROS_TIME) : now();
   msg.header.frame_id = map_frame_;
   msg.child_frame_id = base_link_frame_;
 

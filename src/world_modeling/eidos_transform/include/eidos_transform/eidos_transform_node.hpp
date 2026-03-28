@@ -22,20 +22,20 @@
 #include <array>
 #include <atomic>
 #include <deque>
+#include <Eigen/Core>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
-#include <Eigen/Core>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <sensor_msgs/msg/imu.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 
 #include "eidos_msgs/srv/predict_relative_transform.hpp"
 #include "eidos_transform/ekf_model_plugin.hpp"
@@ -114,9 +114,7 @@ private:
   void tick();
 
   /// @brief Fuse a measurement source into an EKF (handles both odom and imu types).
-  void fuseSource(
-    std::shared_ptr<EKFModelPlugin> & ekf,
-    MeasurementSource & src);
+  void fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, MeasurementSource & src);
 
   /// @brief Broadcast odom→base_link from the local EKF.
   void broadcastOdomToBaseTF(const rclcpp::Time & stamp);
@@ -140,12 +138,12 @@ private:
 
   // ---- Dual EKF (loaded via pluginlib) ----
   pluginlib::ClassLoader<EKFModelPlugin> ekf_loader_;
-  std::shared_ptr<EKFModelPlugin> local_ekf_;   ///< Odom frame: odom→base_link
+  std::shared_ptr<EKFModelPlugin> local_ekf_;  ///< Odom frame: odom→base_link
   std::shared_ptr<EKFModelPlugin> global_ekf_;  ///< Map frame: derives map→odom
 
   // ---- Measurement sources ----
   std::vector<MeasurementSource> odom_sources_;  ///< Fed to BOTH EKFs
-  std::vector<MeasurementSource> map_sources_;   ///< Fed to global EKF ONLY
+  std::vector<MeasurementSource> map_sources_;  ///< Fed to global EKF ONLY
   std::mutex sources_mutex_;
 
   // ---- Rewind-replay for delayed measurements (global EKF only) ----
@@ -154,7 +152,12 @@ private:
   struct MeasurementRecord
   {
     double time;
-    enum class Target { LOCAL, GLOBAL, BOTH } target;
+    enum class Target
+    {
+      LOCAL,
+      GLOBAL,
+      BOTH
+    } target;
 
     // Which source produced this
     std::string source_name;
