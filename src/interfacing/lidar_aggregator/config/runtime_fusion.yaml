@@ -1,0 +1,44 @@
+/**:
+  ros__parameters:
+    topics:
+      gps: "/novatel/oem7/bestpos"
+      imu: "/novatel/oem7/imu/data_raw"
+      center: "/lidar_cc/velodyne_points"
+      ne: "/lidar_ne/velodyne_points"
+      nw: "/lidar_nw/velodyne_points"
+
+    outputs:
+      ne_deskewed_cc: "/lidar_ne/points_deskewed_cc"
+      nw_deskewed_cc: "/lidar_nw/points_deskewed_cc"
+      merged: "/lidar/all/points_merged"
+      estimated_offsets: "/lidar/sync/estimated_offsets"
+      offset_scores: "/lidar/sync/offset_scores"
+
+    frames:
+      center: "lidar_cc"
+      ne: "lidar_ne"
+      nw: "lidar_nw"
+
+    runtime:
+      qos_depth: 20
+      max_pair_dt_sec: 0.05
+      max_imu_buffer_sec: 20.0
+      max_imu_interp_gap_sec: 0.5
+      scan_period_sec: 0.1
+
+    timing:
+      ne_time_offset_sec: 0.0
+      nw_time_offset_sec: 0.0
+
+    estimation:
+      enable_online_offset: false
+      write_back_to_params: true
+      search_half_window_sec: 0.03
+      search_step_sec: 0.003
+      ema_alpha: 0.2
+      min_yaw_rate_rad_s: 0.05
+      min_score_gain: 0.005
+      voxel_size_m: 0.5
+      min_points: 300
+      min_offset_sec: -0.1
+      max_offset_sec: 0.1

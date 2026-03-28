@@ -1,0 +1,29 @@
+---
+launch:
+  - arg:
+      name: "config_file"
+      default: "$(find-pkg-share lidar_aggregator)/config/runtime_fusion.yaml"
+      description: "Path to runtime fusion parameters"
+
+  - arg:
+      name: "use_sim_time"
+      default: "false"
+      description: "Use simulation time (set true when playing a rosbag with --clock)"
+
+  - node_container:
+      pkg: rclcpp_components
+      exec: component_container_mt
+      name: lidar_aggregator_container
+      namespace: ""
+
+  - load_composable_node:
+      target: lidar_aggregator_container
+      composable_node:
+        - pkg: lidar_aggregator
+          plugin: lidar_aggregator::LidarAggregatorNode
+          name: lidar_runtime_fusion
+          namespace: ""
+          param:
+            - from: "$(var config_file)"
+            - name: use_sim_time
+              value: "$(var use_sim_time)"

@@ -1,0 +1,143 @@
+<root BTCPP_format="4" main_tree_to_execute="IntersectionSubTree">
+  <include path="yield.xml" />
+  <include path="stop_sign.xml" />
+  <include path="traffic_light.xml" />
+  <BehaviorTree ID="IntersectionSubTree">
+    <Sequence>
+      <GetIntersectionSearchLanelets
+        lane_ctx="{@current_lane_ctx}"
+        route_ahead="{@route_ahead}"
+        route_ahead_index_map="{@route_ahead_index_map}"
+        lanelets_ahead="{@lanelets_ahead}"
+        lanelets_ahead_index_map="{@lanelets_ahead_index_map}"
+        lookahead_m="{@bt.intersection_lookahead_m}"
+        search_lanelets="{intersection.search_lanelets}"
+        search_lanelet_index_map="{intersection.search_lanelet_index_map}"
+      />
+
+      <GetIntersectionContext
+        lane_ctx="{@current_lane_ctx}"
+        search_lanelets="{intersection.search_lanelets}"
+        in_active_traffic_control_element="{active_traffic_control_element}"
+        in_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+        out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+        out_active_traffic_control_element="{active_traffic_control_element}"
+        out_active_traffic_control_element_id="{active_traffic_control_element_id}"
+        out_distance_to_intersection_m="{intersection.distance_to_intersection_m}"
+        out_passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}"
+      />
+
+      <!-- speed behaviour for safer traj planning speed -->
+      <Fallback name="Publish Intersection Speed Behaviour">
+        <Sequence>
+          <ActiveTrafficControlElementExist
+            active_traffic_control_element="{active_traffic_control_element}" />
+          <Inverter>
+            <PassingActiveTrafficControlElement
+              passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}" />
+          </Inverter>
+          <SpeedBehaviour
+            speed_behaviour="upcoming intersection"
+            dist_to_stop="{intersection.distance_to_intersection_m}"
+            topic_name="speed_behaviour" />
+        </Sequence>
+
+        <Sequence>
+          <ActiveTrafficControlElementExist
+            active_traffic_control_element="{active_traffic_control_element}" />
+          <PassingActiveTrafficControlElement
+            passing_active_traffic_control_element="{intersection.passing_active_traffic_control_element}" />
+          <SpeedBehaviour
+            speed_behaviour="passing active traffic control element"
+            dist_to_stop="-1.0"
+            topic_name="speed_behaviour" />
+        </Sequence>
+
+        <SpeedBehaviour
+          speed_behaviour="speed limit"
+          dist_to_stop="-1.0"
+          topic_name="speed_behaviour" />
+      </Fallback>
+
+      <ActiveTrafficControlElementExist
+        active_traffic_control_element="{active_traffic_control_element}" />
+
+      <Fallback>
+
+        <!-- Reset the intersection latch if passed -->
+        <Sequence>
+          <ActiveTrafficControlElementPassed
+            lane_ctx="{@current_lane_ctx}"
+            active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}" />
+
+          <ResetIntersectionContext
+            active_traffic_control_element="{active_traffic_control_element}"
+            stop_sign_wall_id="{stop_sign.wall_id}"
+            traffic_light_wall_id="{traffic_light.wall_id}"
+            yield_wall_id="{yield.wall_id}"
+            out_active_traffic_control_element="{active_traffic_control_element}"
+            out_active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+            out_active_traffic_control_element_id="{active_traffic_control_element_id}"
+            out_stop_sign_wall_id="{stop_sign.wall_id}"
+            out_stop_sign_priority_car_ids="{stop_sign.priority_ids}"
+            out_stop_sign_priority_latched="{stop_sign.priority_latched}"
+            out_stop_sign_ego_priority="{stop_sign.ego_priority}"
+            out_traffic_light_wall_id="{traffic_light.wall_id}"
+            out_yield_wall_id="{yield.wall_id}"
+            out_yield_ego_priority="{yield.ego_priority}"
+            out_active_wall_id="{active_wall_id}" />
+
+          <Fallback name="DespawnIfNeeded">
+            <Inverter>
+              <WallIdExist wall_id="{active_wall_id}" />
+            </Inverter>
+            <DespawnWall wall_id="{active_wall_id}" out_wall_id="{active_wall_id}"
+              error_message="{despawn_wall_error_msg}" service_name="/world_modeling/despawn_wall" />
+          </Fallback>
+        </Sequence>
+
+        <!-- Handle different types of traffic control elements -->
+        <Fallback name="Handle Traffic Control Element">
+          <Sequence name="Handle STOP_SIGN Element">
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
+              expected="STOP_SIGN" />
+            <SubTree
+              ID="StopSignSubTree"
+              stop_sign="{active_traffic_control_element}"
+              stop_sign_id="{active_traffic_control_element_id}"
+              stop_sign.wall_id="{stop_sign.wall_id}"
+              stop_sign.priority_ids="{stop_sign.priority_ids}"
+              stop_sign.priority_latched="{stop_sign.priority_latched}"
+              stop_sign.ego_priority="{stop_sign.ego_priority}"
+            />
+          </Sequence>
+
+          <Sequence name="Handle TRAFFIC_LIGHT Element">
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
+              expected="TRAFFIC_LIGHT" />
+            <SubTree
+              ID="TrafficLightSubTree"
+              traffic_light="{active_traffic_control_element}"
+              traffic_light_id="{active_traffic_control_element_id}"
+              traffic_light.wall_id="{traffic_light.wall_id}"
+            />
+          </Sequence>
+
+          <Sequence name="Handle YIELD Element">
+            <IsRegulatoryElementType reg_elem="{active_traffic_control_element}"
+              expected="YIELD" />
+            <SubTree
+              ID="YieldSubTree"
+              yield_sign="{active_traffic_control_element}"
+              yield_sign_id="{active_traffic_control_element_id}"
+              active_traffic_control_lanelet_id="{active_traffic_control_lanelet_id}"
+              yield.wall_id="{yield.wall_id}"
+              yield.ego_priority="{yield.ego_priority}"
+            />
+          </Sequence>
+        </Fallback>
+
+      </Fallback>
+    </Sequence>
+  </BehaviorTree>
+</root>

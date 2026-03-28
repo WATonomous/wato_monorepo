@@ -66,11 +66,18 @@ public:
    * @param osm_path Path to the .osm file
    * @param utm_origin_x X offset from UTM origin to map frame origin (meters)
    * @param utm_origin_y Y offset from UTM origin to map frame origin (meters)
+   * @param origin_lat Reference latitude for UTM zone/origin selection
+   * @param origin_lon Reference longitude for UTM zone/origin selection
    * @param projector_type Projector type: "utm" or "local_cartesian"
    * @return true if map loaded successfully
    */
   bool loadMap(
-    const std::string & osm_path, double utm_origin_x, double utm_origin_y, const std::string & projector_type = "utm");
+    const std::string & osm_path,
+    double utm_origin_x,
+    double utm_origin_y,
+    double origin_lat = 0.0,
+    double origin_lon = 0.0,
+    const std::string & projector_type = "utm");
 
   /**
    * @brief Check if the map is loaded.
@@ -121,7 +128,7 @@ public:
   std::optional<int64_t> findCurrentLaneletId(
     const geometry_msgs::msg::Point & point,
     double heading_rad,
-    double route_priority_threshold_m = 10.0,
+    double route_priority_threshold_m = 0.1,
     double heading_search_radius_m = 15.0,
     std::optional<int64_t> previous_lanelet_id = std::nullopt) const;
 
@@ -141,6 +148,11 @@ public:
    * @return Vector of lanelets whose 2D distance to center is within the radius.
    */
   std::vector<lanelet::ConstLanelet> getLaneletsInRadius(const geometry_msgs::msg::Point & center, double radius) const;
+
+  /**
+   * @brief Return all lanelets in the loaded map.
+   */
+  std::vector<lanelet::ConstLanelet> getAllLanelets() const;
 
   // Route Caching (for SetRoute/GetShortestRoute workflow)
 
@@ -194,6 +206,22 @@ public:
    */
   lanelet_msgs::msg::RouteAhead getRouteAhead(
     const geometry_msgs::msg::Point & current_pos, double lookahead_distance_m) const;
+
+  /**
+   * @brief Compute the remaining arc-length along a lanelet centerline to its end.
+   *
+   * Projects the query point onto the closest centerline segment, then measures
+   * the arc-length from that projected point to the end of the lanelet.
+   * This is useful when a caller needs a continuously-varying distance to the
+   * end of the current lanelet rather than a coarse nearest-vertex estimate.
+   *
+   * @param lanelet Lanelet whose centerline defines the path to follow.
+   * @param point Query point in the map frame.
+   * @return Remaining distance in meters from the projected point to the end
+   *         of the lanelet centerline. Returns 0.0 for degenerate centerlines.
+   */
+  double getRemainingDistanceToLaneletEnd(
+    const lanelet::ConstLanelet & lanelet, const geometry_msgs::msg::Point & point) const;
 
   /**
    * @brief Get legally reachable lanelets ahead of ego within a radius.
@@ -270,6 +298,14 @@ public:
    * @return Fully populated lanelet message.
    */
   lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & ll) const;
+
+  /**
+   * @brief Determine whether a lanelet should be treated as an intersection lanelet.
+   *
+   * Uses map semantics first (turn direction / subtype) and falls back to routing-graph
+   * conflicts, which are a stronger signal than turn direction alone.
+   */
+  bool isIntersectionLanelet(const lanelet::ConstLanelet & ll) const;
 
   // Accessors
 

@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
@@ -39,11 +40,13 @@ namespace behaviour
  * - Start preferred lanelets with current lanelet.
  * - Append current-lanelet successors in order.
  */
-class GetFollowLanePreferredLaneletsAction : public BT::SyncActionNode
+class GetFollowLanePreferredLaneletsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetFollowLanePreferredLaneletsAction(const std::string & name, const BT::NodeConfig & config)
+  GetFollowLanePreferredLaneletsAction(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -58,7 +61,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetFollowLanePreferredLanelets]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto lane_ctx = ports::tryGetPtr<lanelet_msgs::msg::CurrentLaneContext>(*this, "lane_ctx");

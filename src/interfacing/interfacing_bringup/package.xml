@@ -13,8 +13,10 @@
   <depend>rmw_zenoh_cpp</depend>
 
   <exec_depend>sensor_interfacing</exec_depend>
+  <exec_depend>lidar_aggregator</exec_depend>
   <exec_depend>eve_description</exec_depend>
   <exec_depend>can_state_estimator</exec_depend>
+  <exec_depend>oscc_mux</exec_depend>
   <exec_depend>topic_healthchecker</exec_depend>
 
   <export>

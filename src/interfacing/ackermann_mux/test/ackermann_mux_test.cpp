@@ -84,6 +84,11 @@ TEST_CASE_METHOD(TestExecutorFixture, "Ackermann Mux Operation", "[ackermann_mux
     auto msg1 = output_sub->expect_next_message().get();
     REQUIRE(msg1.drive.speed == Catch::Approx(1.0));
 
+    // Unmask input2 (heartbeat required before it becomes eligible)
+    std_msgs::msg::Bool unmask;
+    unmask.data = false;
+    mask_pub->publish(unmask);
+
     // Publish to high priority input
     AckermannDriveStamped cmd2;
     cmd2.drive.speed = 2.0;
@@ -126,6 +131,11 @@ TEST_CASE_METHOD(TestExecutorFixture, "Ackermann Mux Operation", "[ackermann_mux
 
   SECTION("Priority Masking (Idle)")
   {
+    // Unmask input2 (heartbeat required before it becomes eligible)
+    std_msgs::msg::Bool unmask;
+    unmask.data = false;
+    mask_pub->publish(unmask);
+
     // Publish to low priority input
     AckermannDriveStamped cmd1;
     cmd1.drive.speed = 1.0;

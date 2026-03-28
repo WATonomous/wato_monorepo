@@ -1,54 +1,67 @@
 # pid_control
 
-The `pid_control` package provides a ROS 2 node that implements dual PID control loops for steering and velocity. It is designed to interface with the OSCC (Open Source Car Control) system by outputting combined control commands.
+The `pid_control` package provides ROS 2 lifecycle nodes for low-level vehicle control. It outputs `Roscco` commands for the OSCC (Open Source Car Control) system.
 
-## Overview
+## Nodes
 
-The `pid_control_node` subscribes to desired vehicle states (steering angle and speed) and real-time feedback from sensors. It computes error signals for both steering and velocity independently, applies PID control logic with anti-windup, and publishes a `Roscco` message containing the required steering torque and velocity commands.
+### 1. `pid_control_node`
 
-## Node: `pid_control_node`
+Basic dual PID controller for steering and velocity. Subscribes to an Ackermann setpoint and sensor feedback, runs independent PID loops, and publishes a combined `Roscco` command.
 
-### Subscriptions
+| Subscriptions | Type | Description |
+|:---|:---|:---|
+| `ackermann` | `ackermann_msgs/AckermannDriveStamped` | Desired steering angle and speed |
+| `steering_feedback` | `roscco_msg/SteeringAngle` | Current steering angle |
+| `velocity_feedback` | `std_msgs/Float64` | Current vehicle velocity |
 
-| Internal Name | Message Type | Default Remap Topic | Description |
-| :--- | :--- | :--- | :--- |
-| `ackermann` | `ackermann_msgs/msg/AckermannDriveStamped` | `/joystick/ackermann` | Desired steering angle and speed setpoints. |
-| `steering_feedback` | `roscco_msg/msg/SteeringAngle` | `/steering_feedback` | Current steering angle feedback (in degrees). |
-| `velocity_feedback` | `std_msgs/msg/Float64` | `/velocity_feedback` | Current vehicle velocity feedback. |
+| Publishers | Type | Description |
+|:---|:---|:---|
+| `roscco` | `roscco_msg/Roscco` | Steering torque + velocity command |
 
-### Publishers
+### 2. `vel_driven_feedforward_pid_node`
 
-| Internal Name | Message Type | Default Remap Topic | Description |
-| :--- | :--- | :--- | :--- |
-| `roscco` | `roscco_msg/msg/Roscco` | `/joystick/roscco` | Combined control output (steering torque and forward command). |
+![alt text](image.png)
 
-### Parameters
+Feedforward + PID controller for steering and velocity. Adds a velocity-dependent feedforward torque model on top of the steering PID to improve tracking at speed. Also supports D-on-measurement to avoid derivative kick, an EMA filter on velocity, and configurable throttle/brake scaling.
 
-#### General
-- `update_rate` (double, default: `100.0`): Frequency (Hz) of the PID control loop.
+The feedforward model is:
 
-#### PID Configuration (`steering_pid` and `velocity_pid` namespaces)
-Both steering and velocity controllers share the same parameter structure:
-
-- `p` (double): Proportional gain.
-- `i` (double): Integral gain.
-- `d` (double): Derivative gain.
-- `i_clamp_max` (double): Upper bound for the integrator term (anti-windup).
-- `i_clamp_min` (double): Lower bound for the integrator term.
-- `u_clamp_max` (double): Upper saturation limit for the controller output.
-- `u_clamp_min` (double): Lower saturation limit for the controller output.
-- `saturation` (bool): Whether to enforce output saturation limits.
-- `antiwindup` (bool): Enable anti-windup/integrator correction.
-- `antiwindup_strategy` (string): Strategy for anti-windup (recommended: `conditional_integration`).
-
-## Usage
-
-### Launching the node
-The node can be launched using the provided launch file, which automatically loads the configuration from `pid_control.yaml`:
-
-```bash
-ros2 launch pid_control pid_control.launch.yaml
+```
+T_ff = (c0 + c1*v + c2*v²) * steering_setpoint + friction_offset * sign(steering_setpoint)
 ```
 
-## Anti-Windup Strategy
-This package uses the `conditional_integration` strategy by default. This is a modern anti-windup method provided by `control_toolbox` that silences legacy deprecation warnings while providing robust integrator behavior during actuator saturation.
+Coefficients are fit from bag data using the scripts in `analysis/` (see `analysis/README.md`). Parameters are hot-reloadable at runtime.
+
+| Subscriptions | Type | Description |
+|:---|:---|:---|
+| `ackermann` | `ackermann_msgs/AckermannDriveStamped` | Desired steering angle and speed |
+| `steering_feedback` | `roscco_msg/SteeringAngle` | Current steering angle |
+| `velocity_feedback` | `std_msgs/Float64` | Current velocity (CAN) |
+| `odom_feedback` | `nav_msgs/Odometry` | Current velocity (odometry, alternative source) |
+
+| Publishers | Type | Description |
+|:---|:---|:---|
+| `roscco` | `roscco_msg/Roscco` | Steering torque + velocity command |
+| `feedforward` | `pid_msgs/Feedforward` | Feedforward debug output |
+| `velocity_derived` | `std_msgs/Float64` | Filtered velocity used internally |
+
+### 3. `ackermann_smoother_node`
+
+Rate-limiter that sits between the planner and PID. Smooths incoming Ackermann setpoints by limiting steering and speed acceleration, preventing abrupt jumps that could destabilize control or cause mechanical stress.
+
+| Subscriptions | Type | Description |
+|:---|:---|:---|
+| `ackermann_in` | `ackermann_msgs/AckermannDriveStamped` | Raw setpoint from planner |
+
+| Publishers | Type | Description |
+|:---|:---|:---|
+| `ackermann_out` | `ackermann_msgs/AckermannDriveStamped` | Smoothed setpoint for PID |
+
+## Configuration
+
+- `config/vel_driven_feedforward_pid.yaml` — parameters for the feedforward PID node
+- Config is loaded via the launch file's `config_file` argument
+
+## Analysis Tools
+
+The `analysis/` directory contains Python scripts for fitting the feedforward steering torque model from bag data. See `analysis/README.md` for the full pipeline.
