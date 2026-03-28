@@ -16,6 +16,7 @@
 
 #include <gtsam/geometry/Pose3.h>
 
+#include <array>
 #include <atomic>
 #include <optional>
 
@@ -25,10 +26,9 @@ namespace eidos
 /**
  * @brief Single-writer, multi-reader lock-free storage for gtsam::Pose3.
  *
- * Uses a seqlock pattern: the writer increments a sequence counter before and
- * after writing. A reader that catches the writer mid-copy simply retries.
- * Since gtsam::Pose3 is ~100 bytes, the copy takes nanoseconds — the reader
- * effectively never blocks.
+ * Uses a 3-slot ring buffer: the writer writes to the next available slot
+ * and atomically updates the read index. Readers always read a complete,
+ * consistent pose from the current read slot — no retries, no torn reads.
  *
  * Constraints:
  * - Exactly one thread may call store() (single writer).
@@ -37,42 +37,33 @@ namespace eidos
 class LockFreePose
 {
 public:
-  /**
-   * @brief Store a pose into the slot (single-writer only).
-   * @param p The gtsam::Pose3 to store.
-   * @note Must be called from exactly one thread. Concurrent stores are undefined behavior.
-   */
+  /// @brief Store a pose (single-writer only).
+  /// @param p The gtsam::Pose3 to store.
   void store(const gtsam::Pose3 & p)
   {
-    seq_.fetch_add(1, std::memory_order_release);  // odd = writing
-    pose_ = p;
-    has_value_.store(true, std::memory_order_relaxed);
-    seq_.fetch_add(1, std::memory_order_release);  // even = done
+    // Write to the next slot (not the one readers are currently using)
+    int next = (write_idx_ + 1) % kNumSlots;
+    slots_[next] = p;
+    // Atomically publish the new slot for readers
+    read_idx_.store(next, std::memory_order_release);
+    write_idx_ = next;
+    has_value_.store(true, std::memory_order_release);
   }
 
-  /**
-   * @brief Load the latest pose snapshot.
-   * @return The stored pose, or std::nullopt if no pose has been stored yet.
-   * @note Safe to call concurrently from multiple reader threads. Retries
-   *       internally if a write is in progress.
-   */
+  /// @brief Load the latest pose snapshot.
+  /// @return The stored pose, or std::nullopt if no pose has been stored yet.
   std::optional<gtsam::Pose3> load() const
   {
-    gtsam::Pose3 result;
-    bool valid;
-    uint64_t s;
-    do {
-      s = seq_.load(std::memory_order_acquire);
-      if (s & 1) continue;  // writer active, retry
-      result = pose_;
-      valid = has_value_.load(std::memory_order_relaxed);
-    } while (seq_.load(std::memory_order_acquire) != s);
-    return valid ? std::optional(result) : std::nullopt;
+    if (!has_value_.load(std::memory_order_acquire)) return std::nullopt;
+    int idx = read_idx_.load(std::memory_order_acquire);
+    return slots_[idx];
   }
 
 private:
-  std::atomic<uint64_t> seq_{0};
-  gtsam::Pose3 pose_;
+  static constexpr int kNumSlots = 3;
+  std::array<gtsam::Pose3, kNumSlots> slots_;
+  std::atomic<int> read_idx_{0};
+  int write_idx_{0};  ///< Only accessed by the single writer thread
   std::atomic<bool> has_value_{false};
 };
 

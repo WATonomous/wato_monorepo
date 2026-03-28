@@ -76,7 +76,7 @@ public:
   StateSnapshot snapshot(double time) const override;
   void restore(const StateSnapshot & snap) override;
 
-  /// @brief State dimension.
+  /** @brief State dimension. */
   static constexpr int kStateDim = 15;
 
 private:

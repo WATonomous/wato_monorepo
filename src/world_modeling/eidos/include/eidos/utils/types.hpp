@@ -52,17 +52,24 @@ using PoseType = PointXYZIRPYT;
 /**
  * @brief Eidos node lifecycle states.
  *
- * INITIALIZING: node created but not yet configured.
- * WARMING_UP:   waiting for all plugins to report ready (e.g. IMU stationarity).
- * RELOCALIZING: prior map loaded, searching for initial pose via relocalization plugins.
- * TRACKING:     actively running SLAM or localization.
+ * Transitions (managed by InitSequencer, see init_sequencer.cpp):
+ *   INITIALIZING -> WARMING_UP:  on_activate() calls InitSequencer::reset()
+ *   WARMING_UP -> RELOCALIZING:  all plugins isReady() AND prior map loaded
+ *   WARMING_UP -> TRACKING:      all plugins isReady() AND no prior map
+ *   RELOCALIZING -> TRACKING:    relocalization succeeds OR timeout expires
+ *
+ * Gating logic: InitSequencer::handleWarmingUp() polls FactorPlugin::isReady()
+ * on every factor plugin. LisoFactor gates on IMU stationary detection +
+ * gravity alignment. ImuFactor gates on its own warmup if loaded.
+ *
+ * Values match eidos_msgs/msg/SlamStatus enum constants.
  */
 enum class SlamState
 {
-  INITIALIZING,
-  WARMING_UP,
-  RELOCALIZING,
-  TRACKING
+  INITIALIZING = 0,  ///< Node created, not yet configured/activated
+  WARMING_UP = 1,  ///< Waiting for all factor plugins to report isReady()
+  RELOCALIZING = 2,  ///< Prior map loaded, polling relocalization plugins
+  TRACKING = 3  ///< SLAM/localization active, graph optimizer running
 };
 
 /**

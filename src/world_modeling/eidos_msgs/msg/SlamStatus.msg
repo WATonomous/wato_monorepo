@@ -2,8 +2,9 @@ std_msgs/Header header
 
 # SLAM state enum
 uint8 INITIALIZING = 0
-uint8 RELOCALIZING = 1
-uint8 TRACKING = 2
+uint8 WARMING_UP = 1
+uint8 RELOCALIZING = 2
+uint8 TRACKING = 3
 uint8 state 0
 
 # Current state index in the pose graph

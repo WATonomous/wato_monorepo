@@ -27,7 +27,7 @@
 namespace eidos_transform
 {
 
-/// @brief Opaque snapshot of an EKF's full internal state for rewind-replay.
+/** @brief Opaque snapshot of an EKF's full internal state for rewind-replay. */
 struct StateSnapshot
 {
   double time = 0.0;
@@ -63,11 +63,11 @@ public:
 
   // ---- Lifecycle (pure virtual) ----
 
-  /// @brief Plugin-specific initialization (declare parameters, allocate state).
+  /** @brief Plugin-specific initialization (declare parameters, allocate state). */
   virtual void onInitialize() = 0;
-  /// @brief Activate the plugin (start accepting measurements).
+  /** @brief Activate the plugin (start accepting measurements). */
   virtual void activate() = 0;
-  /// @brief Deactivate the plugin (stop accepting measurements).
+  /** @brief Deactivate the plugin (stop accepting measurements). */
   virtual void deactivate() = 0;
 
   // ---- EKF interface ----
@@ -126,8 +126,10 @@ public:
    */
   virtual gtsam::Vector6 velocity() const = 0;
 
-  /// @brief Get the current estimated accelerometer bias.
-  /// @return 3D bias vector [bias_ax, bias_ay, bias_az]. Default: zero (no bias state).
+  /**
+   * @brief Get the current estimated accelerometer bias.
+   * @return 3D bias vector [bias_ax, bias_ay, bias_az]. Default: zero (no bias state).
+   */
   virtual Eigen::Vector3d accelBias() const
   {
     return Eigen::Vector3d::Zero();
@@ -139,10 +141,10 @@ public:
    */
   virtual void reset(const gtsam::Pose3 & initial) = 0;
 
-  /// @brief Capture the full internal state for rewind-replay.
+  /** @brief Capture the full internal state for rewind-replay. */
   virtual StateSnapshot snapshot(double time) const = 0;
 
-  /// @brief Restore the full internal state from a previous snapshot.
+  /** @brief Restore the full internal state from a previous snapshot. */
   virtual void restore(const StateSnapshot & snap) = 0;
 
 protected:

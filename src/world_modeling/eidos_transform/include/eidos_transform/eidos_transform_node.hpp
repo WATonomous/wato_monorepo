@@ -43,10 +43,12 @@
 namespace eidos_transform
 {
 
-/// @brief Unified measurement source descriptor.
-///
-/// Supports both nav_msgs/Odometry and sensor_msgs/Imu topics via the
-/// `type` field. Can appear in odom_sources, map_sources, or both.
+/**
+ * @brief Unified measurement source descriptor.
+ *
+ * Supports both nav_msgs/Odometry and sensor_msgs/Imu topics via the
+ * `type` field. Can appear in odom_sources, map_sources, or both.
+ */
 struct MeasurementSource
 {
   std::string name;
@@ -86,14 +88,16 @@ struct MeasurementSource
   bool logged_first_msg = false;
 };
 
-/// @brief Dual-EKF lifecycle node for multi-source odometry fusion and TF broadcasting.
-///
-/// Architecture (robot_localization style):
-/// - Local EKF (odom frame): fuses odom_sources, broadcasts odom→base_link, publishes /odom
-/// - Global EKF (map frame): fuses odom_sources + map_sources, derives map→odom via TF lookup
-///
-/// map→odom is computed as: global_ekf_pose * inv(odom→base_link from TF)
-/// This eliminates timestamp matching issues — TF provides time-indexed lookups.
+/**
+ * @brief Dual-EKF lifecycle node for multi-source odometry fusion and TF broadcasting.
+ *
+ * Architecture (robot_localization style):
+ * - Local EKF (odom frame): fuses odom_sources, broadcasts odom->base_link, publishes /odom
+ * - Global EKF (map frame): fuses odom_sources + map_sources, derives map->odom via TF lookup
+ *
+ * map->odom is computed as: global_ekf_pose * inv(odom->base_link from TF)
+ * This eliminates timestamp matching issues -- TF provides time-indexed lookups.
+ */
 class EidosTransformNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -110,25 +114,25 @@ protected:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  /// @brief Main tick: predict both EKFs, fuse sources, broadcast TF, publish odom.
+  /** @brief Main tick: predict both EKFs, fuse sources, broadcast TF, publish odom. */
   void tick();
 
-  /// @brief Fuse a measurement source into an EKF (handles both odom and imu types).
+  /** @brief Fuse a measurement source into an EKF (handles both odom and imu types). */
   void fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, MeasurementSource & src);
 
-  /// @brief Broadcast odom→base_link from the local EKF.
+  /** @brief Broadcast odom->base_link from the local EKF. */
   void broadcastOdomToBaseTF(const rclcpp::Time & stamp);
 
-  /// @brief Broadcast map→odom derived from global EKF and TF lookup.
+  /** @brief Broadcast map->odom derived from global EKF and TF lookup. */
   void broadcastMapToOdomTF(const rclcpp::Time & stamp);
 
-  /// @brief Publish fused odometry from the local EKF.
+  /** @brief Publish fused odometry from the local EKF. */
   void publishOdometry(const rclcpp::Time & stamp);
 
-  /// @brief Callback for static utm→map transform.
+  /** @brief Callback for static utm->map transform. */
   void utmToMapCallback(const geometry_msgs::msg::TransformStamped::SharedPtr msg);
 
-  /// @brief PredictRelativeTransform service callback.
+  /** @brief PredictRelativeTransform service callback. */
   void predictRelativeTransformCallback(
     const std::shared_ptr<eidos_msgs::srv::PredictRelativeTransform::Request> request,
     std::shared_ptr<eidos_msgs::srv::PredictRelativeTransform::Response> response);
@@ -148,7 +152,7 @@ private:
 
   // ---- Rewind-replay for delayed measurements (global EKF only) ----
 
-  /// @brief Record of an applied measurement for replay during rewind.
+  /** @brief Record of an applied measurement for replay during rewind. */
   struct MeasurementRecord
   {
     double time;
@@ -185,10 +189,10 @@ private:
     double imu_dt = 0.0;
   };
 
-  /// @brief Apply a measurement record to an EKF.
+  /** @brief Apply a measurement record to an EKF. */
   void applyMeasurement(std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec);
 
-  /// @brief Rewind the global EKF and replay with delayed measurement inserted.
+  /** @brief Rewind the global EKF and replay with delayed measurement inserted. */
   void rewindAndReplay(double delayed_time);
 
   std::deque<StateSnapshot> global_state_history_;

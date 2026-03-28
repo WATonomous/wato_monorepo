@@ -62,9 +62,26 @@ Eidos does not have a global "mode" switch. Mapping and localization are differe
 
 **Localization** reconfigures the same plugins to track against a prior map. Factor plugins produce odometry only (`add_factors: false`) and match against stored data from the prior map rather than building new submaps. The `map->odom` transform is set once from relocalization by `eidos_transform` and stays fixed. We chose this behavior because large jumps only occur during loop closures, which only occur during active mapping.
 
+## State Machine
+
+The node progresses through these states (visible via the `slam/status` topic and `eidos_msgs/msg/SlamStatus`):
+
+```
+INITIALIZING ──on_activate()──> WARMING_UP ──all isReady()──> RELOCALIZING ──relocalized──> TRACKING
+                                     │                              │
+                                     └──no prior map───────────────>┘
+```
+
+1. **INITIALIZING** (enum 0) -- Node created but not yet configured/activated.
+2. **WARMING_UP** (enum 1) -- `InitSequencer` polls all factor plugins' `isReady()` each tick ([`init_sequencer.cpp:handleWarmingUp`](src/init_sequencer.cpp)). Will not proceed until **every** plugin reports ready. `LisoFactor::isReady()` gates on IMU stationary detection + gravity alignment ([`liso_factor.hpp:isReady`](include/eidos/plugins/factors/liso_factor.hpp)). Once all ready: transitions to RELOCALIZING if a prior map is loaded, or directly to TRACKING if not.
+3. **RELOCALIZING** (enum 2) -- Prior map loaded. Polls relocalization plugins each tick. Times out after `relocalization_timeout` seconds.
+4. **TRACKING** (enum 3) -- Normal SLAM/localization operation. Factor plugins produce constraints, the graph optimizer runs, poses are published.
+
 ## Configuration
 
 All parameters live under the `/**/eidos_node/ros__parameters` namespace. The two config files (`example_slam.yaml` and `example_localization.yaml`) share the same parameter schema but differ in values.
+
+The following are the base parameters for Eidos. These are no plugin-specific.
 
 ### Frames
 
@@ -172,15 +189,6 @@ All topics and services are published under the node namespace (default: `/world
 |---|---|---|
 | `slam/save_map` | `eidos_msgs/srv/SaveMap` | Save the current map to disk. If `filepath` in the request is empty, uses `map.save_path` from config. |
 | `slam/load_map` | `eidos_msgs/srv/LoadMap` | Load a map from disk at the given `filepath`. |
-
-### State Machine
-
-The node progresses through these states (visible in the `slam/status` topic):
-
-1. **INITIALIZING** -- Waiting for plugins to be loaded and configured.
-2. **WARMUP** -- Plugins loaded. The InitSequencer polls all factor plugins' `isReady()` each tick. It will not proceed until **every** factor plugin reports ready (e.g. LisoFactor and ImuFactor both gate on IMU warmup -- stationary detection and gravity alignment). Once all plugins are ready: if no prior map is loaded, transitions immediately to TRACKING; if a prior map is loaded, transitions to RELOCALIZING.
-3. **RELOCALIZING** -- Prior map loaded. Attempting to determine initial pose via relocalization plugins. Times out after `relocalization_timeout` seconds.
-4. **TRACKING** -- Normal operation. Factor plugins produce constraints, the optimizer runs, and poses are published.
 
 ## Related Packages
 
