@@ -84,7 +84,7 @@ fi
 if [[ $# -gt 0 && "$1" == "play" && -n "${2:-}" ]]; then
   play_path="$2"
   if [[ "$play_path" == "$BAG_DIRECTORY"/* ]]; then
-    ros2_bag_args=("play" "/bags/${play_path#$BAG_DIRECTORY/}" "${@:3}")
+    ros2_bag_args=("play" "/bags/${play_path#"$BAG_DIRECTORY"/}" "${@:3}")
   elif [[ "$play_path" != /* ]]; then
     # Relative path: treat as relative to BAG_DIRECTORY, so inside container it's /bags/<path>
     ros2_bag_args=("play" "/bags/$play_path" "${@:3}")
