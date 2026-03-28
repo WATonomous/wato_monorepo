@@ -60,11 +60,29 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    const auto ego_lanelet_id = lane_ctx->current_lanelet.id;
+    std::vector<int64_t> ego_candidate_lanelet_ids;
+    ego_candidate_lanelet_ids.push_back(lane_ctx->current_lanelet.id);
+    for (const auto lanelet_id : lane_ctx->upcoming_lanelet_ids) {
+      if (!utils::lanelet::containsLaneletId(ego_candidate_lanelet_ids, lanelet_id)) {
+        ego_candidate_lanelet_ids.push_back(lanelet_id);
+      }
+    }
+
     std::vector<int64_t> right_of_way_lanelet_ids;
     for (const auto & reg_elem : lane_ctx->current_lanelet.regulatory_elements) {
-      const auto role = utils::lanelet::getRightOfWayRole(reg_elem, ego_lanelet_id);
-      if (role != utils::lanelet::RightOfWayRole::YIELD) {
+      if (reg_elem.subtype != "right_of_way") {
+        continue;
+      }
+
+      bool ego_matches_yield_lanelet = false;
+      for (const auto ego_lanelet_id : ego_candidate_lanelet_ids) {
+        if (utils::lanelet::containsLaneletId(reg_elem.yield_lanelet_ids, ego_lanelet_id)) {
+          ego_matches_yield_lanelet = true;
+          break;
+        }
+      }
+
+      if (!ego_matches_yield_lanelet) {
         continue;
       }
 
@@ -72,6 +90,9 @@ public:
         continue;
       }
       for (const auto lanelet_id : reg_elem.right_of_way_lanelet_ids) {
+        if (utils::lanelet::containsLaneletId(ego_candidate_lanelet_ids, lanelet_id)) {
+          continue;
+        }
         if (!utils::lanelet::containsLaneletId(right_of_way_lanelet_ids, lanelet_id)) {
           right_of_way_lanelet_ids.push_back(lanelet_id);
         }
@@ -79,10 +100,10 @@ public:
     }
 
     if (right_of_way_lanelet_ids.empty()) {
-          RCLCPP_DEBUG_STREAM(
-      logger(), "empty right of way lanelet_ids for lanelet_id=" << ego_lanelet_id);
+      RCLCPP_DEBUG_STREAM(
+        logger(), "empty right of way lanelet_ids for lanelet_id=" << lane_ctx->current_lanelet.id);
     }
-    
+
     setOutput("out_lanelet_ids", right_of_way_lanelet_ids);
     return BT::NodeStatus::SUCCESS;
   }
