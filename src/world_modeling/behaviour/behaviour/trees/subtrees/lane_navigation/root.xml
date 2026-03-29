@@ -8,7 +8,11 @@
     <!--  -->
     <Fallback name="Execute Navigation">
       <Sequence name="Goal reached">
-        <GoalReached ego_odom="{@ego_odom}" goal_lanelet="{goal_lanelet}"
+        <GoalReached
+          ego_odom="{@ego_odom}"
+          goal_point="{goal_point}"
+          goal_lanelet="{goal_lanelet}"
+          mode="{@bt.goal_reached_mode}"
           threshold_m="{@bt.goal_reached_threshold_m}" />
         <ResetRouteContext
           out_goal_point="{goal_point}"

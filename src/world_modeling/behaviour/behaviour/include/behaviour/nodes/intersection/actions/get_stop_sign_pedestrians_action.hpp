@@ -33,9 +33,9 @@ namespace behaviour
 {
 /**
  * @class GetStopSignPedestriansAction
- * @brief Collects pedestrian IDs on the yield lanelets of a stop sign.
+ * @brief Collects pedestrian IDs on relevant right-of-way lanelets.
  *
- * Any pedestrian present on a yield lanelet is considered to be crossing
+ * Any pedestrian present on a relevant lanelet is considered to be crossing
  * the intersection and must be yielded to before proceeding.
  */
 class GetStopSignPedestriansAction : public BT::SyncActionNode, protected BTLoggerBase
@@ -49,7 +49,7 @@ public:
   static BT::PortsList providedPorts()
   {
     return {
-      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("stop_sign"),
+      BT::InputPort<std::vector<int64_t>>("lanelet_ids"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
       BT::InputPort<std::size_t>("hypothesis_index"),
       BT::OutputPort<std::vector<std::string>>("out_stop_sign_pedestrian_ids"),
@@ -60,8 +60,8 @@ public:
   {
     const auto missing = [this](const char * port) { RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port); };
 
-    auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
-    if (!ports::require(stop_sign, "stop_sign", missing)) return BT::NodeStatus::FAILURE;
+    auto lanelet_ids = ports::tryGet<std::vector<int64_t>>(*this, "lanelet_ids");
+    if (!ports::require(lanelet_ids, "lanelet_ids", missing)) return BT::NodeStatus::FAILURE;
 
     auto objects = ports::tryGet<std::vector<world_model_msgs::msg::WorldObject>>(*this, "objects");
     if (!ports::require(objects, "objects", missing)) return BT::NodeStatus::FAILURE;
@@ -72,7 +72,7 @@ public:
     std::vector<std::string> out_ids;
     std::unordered_set<std::string> seen_ids;
 
-    for (const auto lanelet_id : stop_sign->yield_lanelet_ids) {
+    for (const auto lanelet_id : *lanelet_ids) {
       const auto pedestrians = utils::world_objects::getPedestriansByLanelet(*objects, *hypothesis_index, lanelet_id);
 
       for (const auto * obj : pedestrians) {

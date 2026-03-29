@@ -48,42 +48,88 @@
           </Sequence>
         </Fallback>
 
+        <EgoNearStopLine
+          ego_odom="{@ego_odom}"
+          stop_line_pose="{stop_sign.stop_line_pose}"
+          threshold_m="{@bt.stop_sign_ego_stop_line_threshold_m}" />
+
         <EgoStoppedForDuration
           ego_odom="{@ego_odom}"
           threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
-          duration_msec="500" />
-        <ReactiveSequence>
-          <!-- <GetWorldObjects
-                      objects="{stop_sign.objects}"
-                      error_message="{get_objects_error_msg}"
-                      service_name="/world_modeling/get_world_objects_enriched" /> -->
+          duration_msec="1000" />
+
+        <Fallback name="Latch Priority Actors Once">
+          <StopSignPriorityActorsLatched
+            priority_cars_latched="{stop_sign.priority_latched}"
+            priority_pedestrians_latched="{stop_sign.priority_pedestrian_latched}" />
+
+          <Sequence name="Initial Priority Scan">
+            <!-- <GetWorldObjects
+                        objects="{stop_sign.objects}"
+                        error_message="{get_objects_error_msg}"
+                        service_name="/world_modeling/get_world_objects_enriched" /> -->
+            <GetWorldObjectsSub
+              objects="{stop_sign.objects}"
+              error_message="{get_objects_error_msg}"
+              topic_name="/world_modeling/world_objects_enriched" />
+
+            <GetRightOfWayLaneletIds
+              lane_ctx="{@current_lane_ctx}"
+              out_lanelet_ids="{stop_sign.right_of_way_lanelet_ids}" />
+
+            <GetStopSignCars
+              lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+              objects="{stop_sign.objects}"
+              hypothesis_index="{@world_objects_hypothesis_index}"
+              out_stop_sign_car_ids="{stop_sign.current_ids}" />
+
+            <SetStopSignPriorityCars
+              current_car_ids="{stop_sign.current_ids}"
+              priority_car_ids="{stop_sign.priority_ids}"
+              priority_latched="{stop_sign.priority_latched}"
+              out_priority_car_ids="{stop_sign.priority_ids}"
+              out_priority_latched="{stop_sign.priority_latched}" />
+
+            <GetStopSignPedestrians
+              lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+              objects="{stop_sign.objects}"
+              hypothesis_index="{@world_objects_hypothesis_index}"
+              out_stop_sign_pedestrian_ids="{stop_sign.current_pedestrian_ids}" />
+
+            <SetStopSignPriorityPedestrians
+              current_pedestrian_ids="{stop_sign.current_pedestrian_ids}"
+              priority_pedestrian_ids="{stop_sign.priority_pedestrian_ids}"
+              priority_latched="{stop_sign.priority_pedestrian_latched}"
+              out_priority_pedestrian_ids="{stop_sign.priority_pedestrian_ids}"
+              out_priority_latched="{stop_sign.priority_pedestrian_latched}" />
+          </Sequence>
+        </Fallback>
+
+        <ReactiveSequence name="Wait For Latched Priority Actors To Clear">
           <GetWorldObjectsSub
             objects="{stop_sign.objects}"
             error_message="{get_objects_error_msg}"
             topic_name="/world_modeling/world_objects_enriched" />
 
-          <GetStopSignPedestrians
-            stop_sign="{stop_sign}"
-            objects="{stop_sign.objects}"
-            hypothesis_index="{@world_objects_hypothesis_index}"
-            out_stop_sign_pedestrian_ids="{stop_sign.pedestrian_ids}" />
-
-          <StopSignPedestriansClear
-            pedestrian_ids="{stop_sign.pedestrian_ids}" />
+          <GetRightOfWayLaneletIds
+            lane_ctx="{@current_lane_ctx}"
+            out_lanelet_ids="{stop_sign.right_of_way_lanelet_ids}" />
 
           <GetStopSignCars
-            stop_sign="{stop_sign}"
+            lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
             objects="{stop_sign.objects}"
             hypothesis_index="{@world_objects_hypothesis_index}"
-            stop_sign_line_threshold_m="{@bt.stop_sign_stop_line_proximity_m}"
             out_stop_sign_car_ids="{stop_sign.current_ids}" />
 
-          <SetStopSignPriorityCars
-            current_car_ids="{stop_sign.current_ids}"
-            priority_car_ids="{stop_sign.priority_ids}"
-            priority_latched="{stop_sign.priority_latched}"
-            out_priority_car_ids="{stop_sign.priority_ids}"
-            out_priority_latched="{stop_sign.priority_latched}" />
+          <GetStopSignPedestrians
+            lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+            objects="{stop_sign.objects}"
+            hypothesis_index="{@world_objects_hypothesis_index}"
+            out_stop_sign_pedestrian_ids="{stop_sign.current_pedestrian_ids}" />
+
+          <StopSignPriorityPedestriansClear
+            priority_ids="{stop_sign.priority_pedestrian_ids}"
+            current_ids="{stop_sign.current_pedestrian_ids}" />
 
           <StopSignPriorityCarsClear
             priority_ids="{stop_sign.priority_ids}"
