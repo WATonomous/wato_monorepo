@@ -33,6 +33,14 @@
 class SpatialAssociationCore
 {
 public:
+  /** One distance band for multi-band adaptive clustering. */
+  struct ClusteringBand
+  {
+    double max_distance;     /**< Upper distance bound (m) for this band. */
+    double tolerance_mult;   /**< Multiplier applied to base cluster tolerance. */
+    int min_cluster_size;    /**< Minimum cluster size for this band. */
+  };
+
   /** Configuration for voxel grid, Euclidean clustering, and merge (quality filter lives in ProjectionUtilsParams). */
   struct ClusteringParams
   {
@@ -44,6 +52,9 @@ public:
     bool use_adaptive_clustering = true;
     double euclid_close_threshold = 10.0;
     double euclid_close_tolerance_mult = 1.5;
+
+    /** Multi-band clustering bands. If non-empty, overrides the legacy close/far two-band split. */
+    std::vector<ClusteringBand> clustering_bands;
 
     double merge_threshold = 0.3;
 

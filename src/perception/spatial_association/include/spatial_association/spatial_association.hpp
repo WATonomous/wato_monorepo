@@ -130,7 +130,6 @@ private:
     const std_msgs::msg::Header & lidar_header,
     int image_width = 0,
     int image_height = 0,
-    bool skip_iou_assignment = false,
     const std::vector<std::optional<double>> & detection_depths = {});
 
   /** Filtered + clustered LiDAR for one non-ground message; shared into @c clustered_cloud_cache_. */
@@ -142,7 +141,6 @@ private:
     rclcpp::Time cloud_stamp{0, 0, RCL_ROS_TIME};
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
     std::vector<pcl::PointIndices> cluster_indices;
-    /** Built in worker when @c use_roi_first_clustering_ is false; unused otherwise. */
     std::optional<std::vector<projection_utils::ClusterCandidate>> global_candidates;
   };
 
@@ -222,14 +220,14 @@ private:
   double euclid_close_threshold_;
   double euclid_close_tolerance_mult_;
 
+  /** Multi-band clustering bands (empty = use legacy two-band or flat clustering). */
+  std::vector<SpatialAssociationCore::ClusteringBand> clustering_bands_;
+
   double merge_threshold_;
 
   float object_detection_confidence_;
 
   float voxel_size_;
-
-  /** When true, cluster only points projecting into each 2D detection ROI (skips global cluster association). */
-  bool use_roi_first_clustering_{false};
 
   /** RViz-only: stamp bbox markers with batch detection time; does not fix real LiDAR–det alignment (see @c skip_repeat_association_publish_). */
   bool bbox_markers_use_detection_stamp_{false};
@@ -245,6 +243,9 @@ private:
 
   /** Same as quality_filter_params.max_distance; applied as core max lidar range pre-voxel. */
   double quality_max_distance_{60.0};
+
+  /** Minimum enriched depth (m) to accept as valid; depths below are rejected. */
+  double min_depth_for_enrichment_{0.1};
 
   bool cross_camera_dedup_enabled_{true};
   /** intersection / min(|A|,|B|) on sorted LiDAR indices — same cluster in non-ROI mode often ≈1. */

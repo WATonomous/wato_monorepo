@@ -51,6 +51,7 @@ find_package(OpenCV REQUIRED)
 add_library(projection_utils
   utils/src/projection_utils.cpp
   utils/src/cluster_box_utils.cpp
+  utils/src/hungarian.cpp
 )
 
 target_include_directories(projection_utils

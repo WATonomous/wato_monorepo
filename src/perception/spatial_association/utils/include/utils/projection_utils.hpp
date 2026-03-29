@@ -114,47 +114,13 @@ struct ProjectionUtilsParams
   size_t default_sample_point_count = 64;
   double orientation_search_step_degrees = 2.0;
 
+  /** If true, use L-shaped fitting for vehicle classes (car/truck/bus) instead of search-based fit. */
+  bool use_l_shaped_fitting = true;
+
   double min_camera_z_distance = 1.0;
 
   int image_width = 0;
   int image_height = 0;
-
-  bool enable_second_pass_fallback = false;
-  double second_pass_min_iou = 0.05;
-  int max_unassigned_detections_second_pass = 10;
-
-  // Second-pass rescue policy (stronger evidence gates than IoU-only).
-  // These are tuned to preserve recall while reducing false associations.
-  double second_pass_min_det_conf = -1.0;  // If < 0, uses `object_detection_confidence` only.
-  double second_pass_bbox_expand_fraction = 0.15;  // Expands det width/height by (1 + fraction).
-
-  // Early rejection of very small 2D boxes (px^2). Set <= 0 to disable.
-  double second_pass_min_det_area_px2 = 0.0;
-  double second_pass_min_det_area_far_px2 = 0.0;
-
-  // Support checks: projected points that fall inside the expanded detection bbox.
-  // Near/medium range: require both count and fraction. Far range: require either (sparse points).
-  int second_pass_min_inside_points = 3;
-  double second_pass_min_inside_fraction = 0.20;
-  double second_pass_inside_points_far_scale = 0.75;
-  double second_pass_inside_points_medium_scale = 0.90;
-
-  // Class-aware tightening (string class_id comes from det.results[0].hypothesis.class_id).
-  // Expected sets: "person"; and vehicles: "car", "truck", "bus".
-  double second_pass_person_inside_fraction_scale = 1.20;
-  double second_pass_person_inside_points_scale = 1.20;
-  double second_pass_vehicle_inside_fraction_scale = 0.90;
-  double second_pass_vehicle_inside_points_scale = 0.90;
-
-  // Dimension/size plausibility via projected footprint match (ratio score in [0,1]).
-  double second_pass_min_size_score = 0.40;
-  double second_pass_person_min_size_score = 0.50;
-  double second_pass_vehicle_min_size_score = 0.35;
-
-  // Combined-score acceptance: best score must be high and clearly above 2nd best.
-  // Combined score uses: 0.35*iou + 0.30*inside_fraction + 0.20*center_score + 0.15*size_score.
-  double second_pass_min_combined_score = 0.45;
-  double second_pass_best_second_margin = 0.10;
 
   /** @{ @name Quality filter (post-IoU)
    *  Retention rules on @ref ClusterCandidate::stats : global min points/height, distance- and
@@ -167,57 +133,99 @@ struct ProjectionUtilsParams
   int quality_min_points = 5;
   float quality_min_height = 0.15f;
   /** Baseline min points before distance/volume tiering. */
-  int quality_min_points_default = 10;
+  int quality_min_points_default = 8;
   /** Min points when centroid distance exceeds @ref quality_distance_threshold_far. */
   int quality_min_points_far = 8;
   /** Min points when distance exceeds @ref quality_distance_threshold_medium (but not far). */
-  int quality_min_points_medium = 12;
+  int quality_min_points_medium = 10;
   /** Min points when AABB volume exceeds @ref quality_volume_threshold_large (near range). */
   int quality_min_points_large = 30;
   double quality_distance_threshold_far = 30.0;
   double quality_distance_threshold_medium = 20.0;
   float quality_volume_threshold_large = 8.0f;
-  /** Allowed points-per-unit-volume band when volume is non-trivial. */
+  /** Minimum points-per-unit-volume when volume is non-trivial. */
   float quality_min_density = 5.0f;
-  float quality_max_density = 1000.0f;
   /** Max largest AABB edge length (m). */
   float quality_max_dimension = 15.0f;
   /** Max ratio of largest to smallest AABB edge (thin slivers rejected). */
   float quality_max_aspect_ratio = 15.0f;
   /** @} */
 
-  /** @{ @name Strict association (primary IoU pass)
+  /** @name Strict association (primary IoU pass)
    *  When @c association_strict_matching is true, a candidate pairs with a detection only if all
    *  gates pass (inner-box centroid, IoU on projected point hull or AABB, in-box point fraction,
-   *  tiered min points, 2D aspect consistency). Disables permissive centroid-only fallback unless
-   *  @c association_allow_aabb_centroid_fallback is true.
+   *  tiered min points, 2D aspect consistency).
    */
   bool association_strict_matching = true;
-  /** Centroid must lie inside a box this fraction of the 2D detection width/height (centered). 0.75 ≈ inner 75%. */
-  double association_centroid_inner_box_fraction = 0.75;
-  /** Min fraction of cluster points that project inside the (unexpanded) 2D detection box. */
+  double association_centroid_inner_box_fraction = 0.85;
   double association_min_inside_point_fraction = 0.45;
-  /** min(projected AR / det AR, det AR / projected AR); below threshold rejects the pair. */
   double association_min_ar_consistency_score = 0.30;
-  /** If true, IoU uses the image-axis bounding rect of projected cluster points (tighter than 3D AABB corners). */
   bool association_use_point_projection_rect_for_iou = true;
-  /** Legacy: allow centroid-in-box with synthetic IoU when 8-corner AABB projection fails. */
-  bool association_allow_aabb_centroid_fallback = false;
-  /** If true (default), second-pass rescue is skipped while strict matching is on. */
-  bool association_suppress_second_pass_under_strict = true;
+
+  /** Association scoring weights (must sum to 1.0 before depth adjustment). */
+  double association_weight_iou = 0.30;
+  double association_weight_inside_fraction = 0.28;
+  double association_weight_ar = 0.18;
+  double association_weight_centroid = 0.14;
+  double association_weight_points = 0.10;
+
+  /** Class-aware threshold scaling (applied on top of distance-adaptive scaling). */
+  double person_inside_fraction_scale = 0.85;
+  double vehicle_inside_fraction_scale = 0.85;
+  double person_iou_threshold_scale = 0.90;
+  double vehicle_iou_threshold_scale = 0.90;
+  /** AR consistency gate multiplier for persons (projection shape is unreliable for narrow objects). */
+  double person_ar_consistency_scale = 0.70;
+
+  /** Absolute minimum inside-point count (prevents spurious single-point matches). */
+  int association_min_inside_points = 2;
+  /** Size consistency: min(w_ratio, 1/w_ratio) * min(h_ratio, 1/h_ratio) floor. Rejects wrong-scale clusters. */
+  double min_size_consistency_score = 0.25;
+  /** Min 2D detection area (px^2) for clusters beyond far distance threshold. 0 = disabled. */
+  double min_det_area_far_px2 = 400.0;
+
+  /** Centroid score: detection scale = this * hypot(box_w, box_h). Controls centroid proximity sensitivity. */
+  double centroid_score_detection_scale = 0.35;
+  /** Point score saturates at this many points (log-scale). */
+  double point_score_saturation_count = 120.0;
+  /** Early rejection: skip candidate-detection pairs where centroid is > this * max(det_w, det_h) away. */
+  double association_centroid_distance_multiplier = 1.5;
+  /** When only 1 point projects to image, create a synthetic bbox with this half-size (pixels). */
+  double single_point_bbox_margin_px = 3.0;
+
+  /** Minimum enriched depth (m) to accept as valid; depths below this are rejected. */
+  double min_depth_for_enrichment = 0.1;
+
+  /** L-shape energy: combined = mean_edge_dist + this * variance. */
+  double l_shape_energy_variance_weight = 0.5;
+  /** Orientation search: coarse step = this * fine step. */
+  double orientation_coarse_step_multiplier = 5.0;
+  /** Orientation search: fine range = this * fine step around best coarse angle. */
+  double orientation_fine_range_multiplier = 2.5;
 
   /** Weight of the depth-proximity term when enriched 3D detections are available. */
   double depth_score_weight = 0.15;
   /** Scale (metres) for depth score: exp(-|delta| / scale). */
   double depth_score_scale = 5.0;
 
-  /** Expand each 2D box by this fraction (of width/height) when gathering LiDAR for ROI-first clustering. */
-  double association_roi_expand_fraction = 0.12;
+  /** If true, use Hungarian (optimal) assignment instead of greedy. */
+  bool use_hungarian_assignment = true;
+
+  /** @{ @name Distance-adaptive thresholds
+   *  Scale min_iou_threshold and min_inside_point_fraction by cluster distance to improve far-range recall.
+   */
+  double far_iou_threshold_scale = 0.5;
+  double medium_iou_threshold_scale = 0.75;
+  double far_inside_fraction_scale = 0.6;
+  double medium_inside_fraction_scale = 0.8;
+  /** @} */
+
   /** Class-tight 3D caps after match (meters); applied in @ref filterCandidatesByClassAwareConstraints. */
   float quality_person_max_height_m = 2.5f;
   float quality_person_max_footprint_xy_m = 1.45f;
+  /** Extra class-aware guard: reject oversized person clusters by AABB volume (m^3). */
+  float quality_person_max_volume_m3 = 4.0f;
   float quality_vehicle_max_height_m = 4.8f;
-  /** @} */
 };
 
 constexpr int kDefaultImageWidth = 1280;
@@ -240,27 +248,6 @@ const ProjectionUtilsParams & getParams();
  */
 std::vector<ClusterCandidate> buildCandidates(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices);
-
-/**
- * @brief For each 2D detection (high score first), Euclidean-cluster LiDAR points that project into an
- *        expanded image ROI; keep the best cluster and pre-fill @c candidate.match.
- *
- * Intended as ROI-first alternative to clustering the full cloud then associating.
- *
- * @param claim_points_unique If true, a point is consumed by the first (highest-score) detection that uses it.
- */
-std::vector<ClusterCandidate> buildCandidatesFromDetectionRois(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
-  const vision_msgs::msg::Detection2DArray & detections,
-  float object_detection_confidence,
-  double roi_expand_fraction,
-  double cluster_tolerance,
-  int min_cluster_size,
-  int max_cluster_size,
-  int image_width,
-  int image_height,
-  bool claim_points_unique);
 
 /**
  * @brief Extracts cluster indices from candidates (for APIs that take indices).
@@ -320,6 +307,30 @@ void adaptiveEuclideanClusterExtraction(
   std::vector<pcl::PointIndices> & cluster_indices,
   double close_threshold = 10.0,
   double close_tolerance_mult = 1.5);
+
+/** One distance band for multi-band clustering. */
+struct ClusteringBand
+{
+  double max_distance;
+  double tolerance_mult;
+  int min_cluster_size;
+};
+
+/**
+ * @brief Multi-band adaptive clustering: splits cloud into N distance bands, each with its own
+ *        tolerance and min cluster size. Generalizes the two-band adaptive clustering.
+ * @param cloud Input point cloud
+ * @param base_cluster_tolerance Base tolerance (each band multiplies this)
+ * @param maxClusterSize Maximum cluster size for all bands
+ * @param cluster_indices Output cluster indices (indices into original cloud)
+ * @param bands Sorted vector of bands (ascending max_distance)
+ */
+void multiBandClusterExtraction(
+  pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  double base_cluster_tolerance,
+  int maxClusterSize,
+  std::vector<pcl::PointIndices> & cluster_indices,
+  const std::vector<ClusteringBand> & bands);
 
 /**
  * @brief Assigns random colors to clusters for visualization
