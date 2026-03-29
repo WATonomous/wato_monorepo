@@ -63,6 +63,7 @@ private:
   bool point_ahead_of_car(const geometry_msgs::msg::Point & pt);
 
   void plan_and_publish_path();
+  void extend_path_with_centerline(Path & path);
 
   PathPoint create_terminal_point(
     const geometry_msgs::msg::Point & pt,
@@ -90,6 +91,7 @@ private:
   // publisher topic names
   std::string final_path_topic, available_paths_topic;
   double publish_rate_hz_;
+  double min_path_length_;
 
   // parameter structs
   CostFunctionParams cf_params;
@@ -102,6 +104,8 @@ private:
   std::optional<geometry_msgs::msg::PoseStamped> car_pose;
   std::optional<PathPoint> car_frenet_point;
   std::unordered_map<int64_t, int> preferred_lanelets;
+  std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> cached_lanelets_;
+  int64_t cached_current_lanelet_id_ = -1;
 
   // subscribers
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
