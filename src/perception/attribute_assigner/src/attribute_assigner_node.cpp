@@ -198,11 +198,38 @@ void AttributeAssignerNode::syncedCallback(
     }
   }
 
-  // If no frames to decompress, pass through
+  // If no frames to decompress, pass through 2D and still attempt 3D
   if (frames_to_decompress.empty()) {
     if (detections_pub_ && detections_pub_->is_activated()) {
       detections_pub_->publish(*detections_msg);
     }
+
+    // Still publish 3D detections even on the pass-through path
+    if (detections_3d_pub_ && detections_3d_pub_->is_activated()) {
+      MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
+      {
+        std::lock_guard<std::mutex> lock(sync_mutex_);
+        cached_camera_info = cached_multi_camera_info_;
+      }
+
+      if (cached_camera_info && !cached_camera_info->camera_infos.empty()) {
+        std::unordered_map<std::string, sensor_msgs::msg::CameraInfo> camera_infos;
+        for (size_t i = 0; i < multi_image_msg->images.size() && i < cached_camera_info->camera_infos.size(); ++i) {
+          const std::string & frame_id = multi_image_msg->images[i].header.frame_id;
+          camera_infos[frame_id] = cached_camera_info->camera_infos[i];
+        }
+
+        auto detections_3d =
+          create3DDetections(*detections_msg, camera_infos, detections_msg->camera_detections[0].header.stamp);
+        detections_3d_pub_->publish(detections_3d);
+
+        if (enable_3d_markers_ && detections_3d_markers_pub_ && detections_3d_markers_pub_->is_activated()) {
+          auto markers = create3DMarkers(detections_3d);
+          detections_3d_markers_pub_->publish(markers);
+        }
+      }
+    }
+
     return;
   }
 

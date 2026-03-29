@@ -65,44 +65,44 @@ launch:
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
 
-  # camera 3 - pano SE
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_se"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386152"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 3 - pano SE
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_se"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386152"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
-  # camera 4 - pano SS
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_ss"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386134"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 4 - pano SS
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_ss"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386134"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
-  # camera 5 - pano SW
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_sw"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386093"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 5 - pano SW
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_sw"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386093"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
   # camera 6 - pano WW
   - include:
@@ -130,55 +130,55 @@ launch:
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
 
-  # Lower Cameras (4 cameras)
-  # camera 8 - lower NE
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_lower_ne"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386132"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # Lower Cameras (4 cameras)
+  # # camera 8 - lower NE
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_lower_ne"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386132"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
-  # camera 9 - lower SE
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_lower_se"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386083"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 9 - lower SE
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_lower_se"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386083"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
-  # camera 10 - lower SW
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_lower_sw"
-        - name: "guid"
-          value: "GEV-MV-CU013-80GC-DA8434466"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 10 - lower SW
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_lower_sw"
+  #       - name: "guid"
+  #         value: "GEV-MV-CU013-80GC-DA8434466"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
-  # camera 11 - lower NW
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_lower_nw"
-        - name: "guid"
-          value: "GEV-MV-CU013-80GC-DA8434479"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 11 - lower NW
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_lower_nw"
+  #       - name: "guid"
+  #         value: "GEV-MV-CU013-80GC-DA8434479"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"

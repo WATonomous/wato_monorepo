@@ -158,6 +158,7 @@ private:
   // Parameters
   std::vector<std::string> node_names_;
   bool autostart_;
+  double autostart_delay_s_;
   double transition_timeout_s_;
   double bond_timeout_s_;
   bool bond_enabled_;
