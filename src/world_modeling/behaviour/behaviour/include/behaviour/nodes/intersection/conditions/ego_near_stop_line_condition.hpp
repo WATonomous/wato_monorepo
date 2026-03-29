@@ -78,7 +78,8 @@ public:
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "ego_far_from_stop_line distance_m=" << distance_m << " threshold_m=" << *threshold_m);
+    RCLCPP_DEBUG_STREAM(
+      logger(), "ego_far_from_stop_line distance_m=" << distance_m << " threshold_m=" << *threshold_m);
     return BT::NodeStatus::FAILURE;
   }
 };

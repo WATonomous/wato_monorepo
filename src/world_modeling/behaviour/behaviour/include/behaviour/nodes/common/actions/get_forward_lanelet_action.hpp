@@ -17,8 +17,6 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -27,6 +25,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
@@ -38,12 +37,10 @@ namespace behaviour
 class GetForwardLaneletAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetForwardLaneletAction(
-    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  GetForwardLaneletAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
-  {
-  }
+  {}
 
   static BT::PortsList providedPorts()
   {
@@ -81,8 +78,7 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto index_map =
-      ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "lanelets_ahead_index_map");
+    auto index_map = ports::tryGetPtr<std::unordered_map<int64_t, std::size_t>>(*this, "lanelets_ahead_index_map");
     if (!index_map) {
       index_map = std::make_shared<std::unordered_map<int64_t, std::size_t>>();
       index_map->reserve(lanelets_ahead->lanelets.size());
@@ -97,21 +93,17 @@ public:
         continue;
       }
 
-      setOutput(
-        "out_lanelet",
-        std::make_shared<lanelet_msgs::msg::Lanelet>(lanelets_ahead->lanelets[it->second]));
+      setOutput("out_lanelet", std::make_shared<lanelet_msgs::msg::Lanelet>(lanelets_ahead->lanelets[it->second]));
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(
-      logger(), "forward_lanelet_not_found current_lanelet_id=" << lane_ctx->current_lanelet.id);
+    RCLCPP_DEBUG_STREAM(logger(), "forward_lanelet_not_found current_lanelet_id=" << lane_ctx->current_lanelet.id);
     return BT::NodeStatus::FAILURE;
   }
 
 private:
   static lanelet_msgs::msg::Lanelet::SharedPtr getForwardLaneletFromRoute(
-    const lanelet_msgs::msg::CurrentLaneContext & lane_ctx,
-    const lanelet_msgs::msg::RouteAhead & route_ahead)
+    const lanelet_msgs::msg::CurrentLaneContext & lane_ctx, const lanelet_msgs::msg::RouteAhead & route_ahead)
   {
     if (!route_ahead.has_active_route || route_ahead.ids.empty() || route_ahead.lanelets.empty()) {
       return nullptr;

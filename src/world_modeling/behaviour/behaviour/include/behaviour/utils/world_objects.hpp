@@ -80,10 +80,8 @@ inline bool isMotorcyclist(const world_model_msgs::msg::WorldObject & object, st
 
 inline bool isRoadUser(const world_model_msgs::msg::WorldObject & object, std::size_t hypothesis_index)
 {
-  return isVehicle(object, hypothesis_index) ||
-         isPedestrian(object, hypothesis_index) ||
-         isCyclist(object, hypothesis_index) ||
-         isMotorcyclist(object, hypothesis_index);
+  return isVehicle(object, hypothesis_index) || isPedestrian(object, hypothesis_index) ||
+         isCyclist(object, hypothesis_index) || isMotorcyclist(object, hypothesis_index);
 }
 
 inline std::vector<const world_model_msgs::msg::WorldObject *> getPedestriansByLanelet(
