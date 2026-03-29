@@ -72,7 +72,7 @@ void BehaviourNode::init()
   // timer to tick the behaviour tree
   tick_tree_timer_ = this->create_wall_timer(tick_period, std::bind(&BehaviourNode::tick_tree_callback, this));
 
-  reset_bt_service_ = this->create_service<std_srvs::srv::Trigger>(
+  reset_bt_srv_ = this->create_service<std_srvs::srv::Trigger>(
     "reset_bt", std::bind(&BehaviourNode::reset_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // subscribers
@@ -90,18 +90,6 @@ void BehaviourNode::init()
 
   ego_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "ego/odom", rclcpp::QoS(10), std::bind(&BehaviourNode::odom_callback, this, std::placeholders::_1));
-
-  // Service to force the BT back into standby by clearing the goal
-  standby_srv_ = this->create_service<std_srvs::srv::Trigger>(
-    "~/standby",
-    [this](
-      const std_srvs::srv::Trigger::Request::SharedPtr /*request*/,
-      std_srvs::srv::Trigger::Response::SharedPtr response) {
-      tree_->updateBlackboard<geometry_msgs::msg::PointStamped::SharedPtr>("goal_point", nullptr);
-      response->success = true;
-      response->message = "Goal cleared, BT entering standby";
-      RCLCPP_INFO(this->get_logger(), "Standby requested via service — goal cleared");
-    });
 
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been fully initialized.");
 }
