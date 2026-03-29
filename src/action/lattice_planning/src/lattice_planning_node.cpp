@@ -42,6 +42,7 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   final_path_topic = this->declare_parameter("path_topic", "path");
   available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
   publish_rate_hz_ = this->declare_parameter("publish_rate_hz", 10.0);
+  min_path_length_ = this->declare_parameter("min_path_length", 20.0);
 
   // Path generation parameters
   //  - Corridor -
@@ -191,6 +192,10 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
     lanelets[ll.id] = ll;
   }
 
+  // Cache for centerline extension
+  cached_lanelets_ = lanelets;
+  cached_current_lanelet_id_ = curr_id;
+
   // Clear previous terminals
   corridor_terminals.clear();
 
@@ -281,8 +286,87 @@ void LatticePlanningNode::plan_and_publish_path()
   }
 
   Path lowest_cost = core_->get_lowest_cost_path(paths, preferred_lanelets, cf_params);
+
+  // Extend winning path with centerline to reach min_path_length
+  extend_path_with_centerline(lowest_cost);
+
   publish_final_path(lowest_cost);
   publish_available_paths(paths);
+}
+
+void LatticePlanningNode::extend_path_with_centerline(Path & path)
+{
+  if (path.path.empty() || cached_current_lanelet_id_ < 0) return;
+
+  // Compute current path arc length
+  double path_len = 0.0;
+  for (size_t i = 1; i < path.path.size(); ++i) {
+    path_len += core_->get_euc_dist(
+      path.path[i - 1].x, path.path[i - 1].y, path.path[i].x, path.path[i].y);
+  }
+  if (path_len >= min_path_length_) return;
+
+  // Build ego lane sequence
+  auto id_order = get_id_order(cached_current_lanelet_id_, cached_lanelets_);
+  if (id_order.empty()) return;
+
+  // Find the ego lane
+  const std::vector<int64_t> * ego_lane = nullptr;
+  for (const auto & lane : id_order) {
+    if (!lane.empty() && lane.front() == cached_current_lanelet_id_) {
+      ego_lane = &lane;
+      break;
+    }
+  }
+  if (!ego_lane) ego_lane = &id_order[0];
+
+  // Find the closest centerline point to the end of the spiral
+  const auto & last_pt = path.path.back();
+  double min_dist = std::numeric_limits<double>::max();
+  size_t best_ll_idx = 0;
+  size_t best_pt_idx = 0;
+  bool found = false;
+
+  for (size_t li = 0; li < ego_lane->size(); ++li) {
+    auto it = cached_lanelets_.find((*ego_lane)[li]);
+    if (it == cached_lanelets_.end()) continue;
+    const auto & cl = it->second.centerline;
+    for (size_t pi = 0; pi < cl.size(); ++pi) {
+      double d = core_->get_euc_dist(last_pt.x, last_pt.y, cl[pi].x, cl[pi].y);
+      if (d < min_dist) {
+        min_dist = d;
+        best_ll_idx = li;
+        best_pt_idx = pi;
+        found = true;
+      }
+    }
+  }
+  if (!found) return;
+
+  // Append centerline points after the closest point until we reach min_path_length
+  bool started = false;
+  for (size_t li = best_ll_idx; li < ego_lane->size(); ++li) {
+    auto it = cached_lanelets_.find((*ego_lane)[li]);
+    if (it == cached_lanelets_.end()) break;
+    const auto & cl = it->second.centerline;
+
+    size_t start_pi = started ? 0 : best_pt_idx + 1;
+    started = true;
+
+    for (size_t pi = start_pi; pi < cl.size(); ++pi) {
+      const auto & pt = cl[pi];
+      double seg = core_->get_euc_dist(
+        path.path.back().x, path.path.back().y, pt.x, pt.y);
+      if (seg < 0.1) continue;  // skip near-duplicate points
+
+      // Compute heading from previous point
+      double angle = core_->get_angle_from_pts(path.path.back().x, path.path.back().y, pt.x, pt.y);
+      path.path.push_back(PathPoint{pt.x, pt.y, angle, 0.0});
+      path_len += seg;
+
+      if (path_len >= min_path_length_) return;
+    }
+  }
 }
 
 std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(

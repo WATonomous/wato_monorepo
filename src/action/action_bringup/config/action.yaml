@@ -16,6 +16,7 @@
     path_topic: "path"
     available_paths_topic: "available_paths"
     publish_rate_hz: 0.1
+    min_path_length: 20.0  # extend path with centerline up to this length (m)
 
     # Path generation parameters
     # -  Cost Function  -
@@ -138,7 +139,7 @@
     odom_topic: "odom"
     lookahead_distance: 6.0
     min_lookahead_distance: 2.5
-    lookahead_gain: 1.0
+    lookahead_gain: 2.5
     steering_angle_gain: 0.7
     max_speed: 2.5
     min_speed: 1.0
