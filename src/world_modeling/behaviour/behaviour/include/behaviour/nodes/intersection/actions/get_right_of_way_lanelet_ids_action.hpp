@@ -17,14 +17,13 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/lanelet.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
@@ -34,12 +33,10 @@ namespace behaviour
 class GetRightOfWayLaneletIdsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetRightOfWayLaneletIdsAction(
-    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  GetRightOfWayLaneletIdsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
   , BTLoggerBase(logger)
-  {
-  }
+  {}
 
   static BT::PortsList providedPorts()
   {
@@ -100,8 +97,7 @@ public:
     }
 
     if (right_of_way_lanelet_ids.empty()) {
-      RCLCPP_DEBUG_STREAM(
-        logger(), "empty right of way lanelet_ids for lanelet_id=" << lane_ctx->current_lanelet.id);
+      RCLCPP_DEBUG_STREAM(logger(), "empty right of way lanelet_ids for lanelet_id=" << lane_ctx->current_lanelet.id);
     }
 
     setOutput("out_lanelet_ids", right_of_way_lanelet_ids);

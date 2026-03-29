@@ -246,7 +246,7 @@ launch:
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
-          # reset behaviour tree service 
+          # reset behaviour tree service
         - from: reset_bt
           to: reset_bt
         - from: route_ahead

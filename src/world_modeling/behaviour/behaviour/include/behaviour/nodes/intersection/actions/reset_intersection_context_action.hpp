@@ -59,12 +59,10 @@ public:
       BT::OutputPort<std::vector<std::string>>(
         "out_stop_sign_priority_pedestrian_ids", "Reset stop sign priority pedestrian IDs"),
       BT::OutputPort<bool>("out_stop_sign_priority_latched", "Reset stop sign priority latch"),
-      BT::OutputPort<bool>(
-        "out_stop_sign_priority_pedestrian_latched", "Reset stop sign priority pedestrian latch"),
+      BT::OutputPort<bool>("out_stop_sign_priority_pedestrian_latched", "Reset stop sign priority pedestrian latch"),
       BT::OutputPort<bool>("out_stop_sign_ego_priority", "Reset stop sign ego priority latch"),
       BT::OutputPort<int32_t>("out_traffic_light_wall_id", "Reset traffic light wall ID"),
-      BT::OutputPort<bool>(
-        "out_traffic_light_right_turn_latch", "Reset traffic light right-turn latch"),
+      BT::OutputPort<bool>("out_traffic_light_right_turn_latch", "Reset traffic light right-turn latch"),
       BT::OutputPort<int32_t>("out_yield_wall_id", "Reset yield wall ID"),
       BT::OutputPort<bool>("out_yield_ego_priority", "Reset yield ego priority latch"),
       BT::OutputPort<int32_t>("out_active_wall_id", "Wall ID that needs despawning"),

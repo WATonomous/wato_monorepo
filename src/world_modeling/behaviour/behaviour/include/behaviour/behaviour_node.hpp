@@ -74,7 +74,7 @@ private:
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
-    // sub callbacks
+  // sub callbacks
   void goal_point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
   void lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
   void route_ahead_callback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);

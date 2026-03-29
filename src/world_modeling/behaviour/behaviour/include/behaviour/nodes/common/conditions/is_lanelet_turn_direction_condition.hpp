@@ -17,12 +17,11 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <iostream>
 #include <memory>
 #include <string>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 
@@ -35,8 +34,7 @@ public:
     const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
-  {
-  }
+  {}
 
   static BT::PortsList providedPorts()
   {
@@ -67,9 +65,9 @@ public:
     }
 
     RCLCPP_DEBUG_STREAM(
-      logger(), "turn_direction_mismatch lanelet_id=" << lanelet->id
-                << " actual=" << lanelet->turn_direction
-                << " expected=" << *expected);
+      logger(),
+      "turn_direction_mismatch lanelet_id=" << lanelet->id << " actual=" << lanelet->turn_direction
+                                            << " expected=" << *expected);
     return BT::NodeStatus::FAILURE;
   }
 };

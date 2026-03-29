@@ -41,10 +41,10 @@
 #include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
 
 // conditions
-#include "behaviour/nodes/common/conditions/empty_lanelets_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_lanelet_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_route_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
+#include "behaviour/nodes/common/conditions/empty_lanelets_condition.hpp"
 #include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_lanelet_exist_condition.hpp"
@@ -108,8 +108,7 @@ public:
     factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist", logger_.get_child("GoalExist"));
     factory.registerNodeType<behaviour::GoalLaneletExistCondition>(
       "GoalLaneletExist", logger_.get_child("GoalLaneletExist"));
-    factory.registerNodeType<behaviour::EmptyLaneletsCondition>(
-      "EmptyLanelets", logger_.get_child("EmptyLanelets"));
+    factory.registerNodeType<behaviour::EmptyLaneletsCondition>("EmptyLanelets", logger_.get_child("EmptyLanelets"));
     factory.registerNodeType<behaviour::GlobalRouteExistCondition>(
       "GlobalRouteExist", logger_.get_child("GlobalRouteExist"));
     factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute", logger_.get_child("EgoOnRoute"));

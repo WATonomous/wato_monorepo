@@ -73,8 +73,7 @@ void BehaviourNode::init()
   tick_tree_timer_ = this->create_wall_timer(tick_period, std::bind(&BehaviourNode::tick_tree_callback, this));
 
   reset_bt_service_ = this->create_service<std_srvs::srv::Trigger>(
-    "reset_bt",
-    std::bind(&BehaviourNode::reset_callback, this, std::placeholders::_1, std::placeholders::_2));
+    "reset_bt", std::bind(&BehaviourNode::reset_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // subscribers
   goal_point_sub_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
@@ -111,8 +110,7 @@ void BehaviourNode::load_params()
   right_lane_change_areas_ = this->get_parameter("bt.right_lane_change_areas").as_string_array();
   stop_line_wall_width_ = this->get_parameter("bt.intersection_wall_of_doom_width").as_double();
   stop_line_wall_length_ = this->get_parameter("bt.intersection_wall_of_doom_length").as_double();
-  stop_sign_ego_stop_line_threshold_m_ =
-    this->get_parameter("bt.stop_sign_ego_stop_line_threshold_m").as_double();
+  stop_sign_ego_stop_line_threshold_m_ = this->get_parameter("bt.stop_sign_ego_stop_line_threshold_m").as_double();
   ego_stopped_velocity_threshold_ = this->get_parameter("bt.ego_stopped_velocity_threshold").as_double();
   intersection_lookahead_m_ = this->get_parameter("bt.intersection_lookahead_m").as_double();
   goal_reached_mode_ = this->get_parameter("bt.goal_reached_mode").as_string();
