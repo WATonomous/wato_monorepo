@@ -688,6 +688,16 @@ void SpatialAssociationNode::initializeParams()
 
   declareIfMissing(this, pu + "depth_score_weight", 0.15);
   declareIfMissing(this, pu + "depth_score_scale", 5.0);
+  // Class-aware size priors (parallel arrays, same length).
+  declareIfMissing(this, pu + "size_prior_weight", 0.10);
+  declareIfMissing(this, pu + "size_prior_scale", 0.5);
+  declareIfMissing(this, pu + "size_prior_classes", std::vector<std::string>{});
+  declareIfMissing(this, pu + "size_prior_min_widths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_max_widths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_min_lengths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_max_lengths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_min_heights", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_max_heights", std::vector<double>{});
   declareIfMissing(this, pu + "use_hungarian_assignment", true);
   declareIfMissing(this, pu + "far_iou_threshold_scale", 0.5);
   declareIfMissing(this, pu + "medium_iou_threshold_scale", 0.75);
@@ -806,6 +816,33 @@ void SpatialAssociationNode::initializeParams()
 
   proj_params.depth_score_weight = this->get_parameter(pu + "depth_score_weight").as_double();
   proj_params.depth_score_scale = this->get_parameter(pu + "depth_score_scale").as_double();
+  // Class-aware size priors.
+  proj_params.size_prior_weight = this->get_parameter(pu + "size_prior_weight").as_double();
+  proj_params.size_prior_scale = this->get_parameter(pu + "size_prior_scale").as_double();
+  {
+    auto sp_cls = this->get_parameter(pu + "size_prior_classes").as_string_array();
+    auto sp_min_w = this->get_parameter(pu + "size_prior_min_widths").as_double_array();
+    auto sp_max_w = this->get_parameter(pu + "size_prior_max_widths").as_double_array();
+    auto sp_min_l = this->get_parameter(pu + "size_prior_min_lengths").as_double_array();
+    auto sp_max_l = this->get_parameter(pu + "size_prior_max_lengths").as_double_array();
+    auto sp_min_h = this->get_parameter(pu + "size_prior_min_heights").as_double_array();
+    auto sp_max_h = this->get_parameter(pu + "size_prior_max_heights").as_double_array();
+    const size_t n = sp_cls.size();
+    if (
+      n > 0 && sp_min_w.size() == n && sp_max_w.size() == n && sp_min_l.size() == n && sp_max_l.size() == n &&
+      sp_min_h.size() == n && sp_max_h.size() == n)
+    {
+      for (size_t i = 0; i < n; ++i) {
+        proj_params.size_priors[sp_cls[i]] = {
+          sp_min_w[i], sp_max_w[i], sp_min_l[i], sp_max_l[i], sp_min_h[i], sp_max_h[i]};
+      }
+    } else if (n > 0) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "size_prior arrays have mismatched lengths (%zu classes); size priors disabled",
+        n);
+    }
+  }
   proj_params.use_hungarian_assignment = this->get_parameter(pu + "use_hungarian_assignment").as_bool();
   proj_params.far_iou_threshold_scale = this->get_parameter(pu + "far_iou_threshold_scale").as_double();
   proj_params.medium_iou_threshold_scale = this->get_parameter(pu + "medium_iou_threshold_scale").as_double();
@@ -1637,6 +1674,7 @@ DetectionOutputs SpatialAssociationNode::processDetections(
       }
     }
     boxes.push_back(cluster_box::computeClusterBoxWithClassHint(cloud, out_indices[i], class_hint));
+    cluster_box::applyClassAwareBoxExtension(boxes.back(), class_hint);
   }
 
   if (publish_bounding_box_) {

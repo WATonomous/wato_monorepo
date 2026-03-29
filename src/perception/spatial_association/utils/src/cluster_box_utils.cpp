@@ -654,4 +654,58 @@ projection_utils::Box3D computeClusterBoxWithClassHint(
   return box;
 }
 
+void applyClassAwareBoxExtension(projection_utils::Box3D & box, const std::string & class_hint)
+{
+  const auto & params = projection_utils::getParams();
+  if (class_hint.empty()) return;
+  auto it = params.size_priors.find(class_hint);
+  if (it == params.size_priors.end()) return;
+
+  const auto & prior = it->second;
+
+  // Box convention: size.x = along yaw (length), size.y = perpendicular (width).
+  const double target_length = 0.5 * (prior.min_length + prior.max_length);
+  const double target_width = 0.5 * (prior.min_width + prior.max_width);
+
+  const double cx = static_cast<double>(box.center.x());
+  const double cy = static_cast<double>(box.center.y());
+  const double los_angle = std::atan2(cy, cx);
+
+  // How aligned is each box axis with the radial (ego-to-object) direction?
+  // cos_rel ≈ 1: x-axis (yaw) points radially → x is depth, y is cross-range (well-observed).
+  // cos_rel ≈ 0: y-axis points radially → y is depth, x is cross-range (well-observed).
+  const double cos_rel = std::abs(std::cos(box.yaw - los_angle));
+
+  // Only extend the axis that is predominantly radial (facing away from ego).
+  // Threshold at cos(45°) ≈ 0.707: if the angle is ambiguous, don't extend — LiDAR sees
+  // both sides partially and the fit is reasonable as-is.
+  constexpr double kMinRadialAlignment = 0.707;  // cos(45°)
+
+  const double cos_yaw = std::cos(box.yaw);
+  const double sin_yaw = std::sin(box.yaw);
+
+  if (cos_rel >= kMinRadialAlignment) {
+    // x-axis (length) is radial → LiDAR can't see it well. Extend length only.
+    if (static_cast<double>(box.size.x()) < target_length) {
+      const double delta = target_length - static_cast<double>(box.size.x());
+      const double dot = cos_yaw * cx + sin_yaw * cy;
+      const double sign = (dot >= 0.0) ? 1.0 : -1.0;
+      box.center.x() = static_cast<float>(cx + sign * cos_yaw * delta * 0.5);
+      box.center.y() = static_cast<float>(cy + sign * sin_yaw * delta * 0.5);
+      box.size.x() = static_cast<float>(target_length);
+    }
+  } else if (cos_rel <= (1.0 - kMinRadialAlignment)) {
+    // y-axis (width) is radial → LiDAR can't see it well. Extend width only.
+    if (static_cast<double>(box.size.y()) < target_width) {
+      const double delta = target_width - static_cast<double>(box.size.y());
+      const double dot_perp = -sin_yaw * cx + cos_yaw * cy;
+      const double sign = (dot_perp >= 0.0) ? 1.0 : -1.0;
+      box.center.x() = static_cast<float>(cx + sign * (-sin_yaw) * delta * 0.5);
+      box.center.y() = static_cast<float>(cy + sign * cos_yaw * delta * 0.5);
+      box.size.y() = static_cast<float>(target_width);
+    }
+  }
+  // else: ambiguous viewing angle (near 45°) — don't extend, the fit is the best we have.
+}
+
 }  // namespace cluster_box

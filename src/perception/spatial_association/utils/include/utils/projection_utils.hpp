@@ -26,6 +26,7 @@
 #include <Eigen/Dense>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -207,6 +208,24 @@ struct ProjectionUtilsParams
   double depth_score_weight = 0.15;
   /** Scale (metres) for depth score: exp(-|delta| / scale). */
   double depth_score_scale = 5.0;
+
+  /** @{ @name Class-aware size prior (pre-match penalty)
+   *  Penalizes candidate-detection pairs where the cluster's 3D AABB dimensions deviate from expected
+   *  class dimensions. Applied as an exponential decay before depth scoring.
+   */
+  struct ClassSizePrior
+  {
+    double min_width{0.0};   ///< Min footprint along shorter horizontal axis (m).
+    double max_width{100.0};
+    double min_length{0.0};  ///< Min footprint along longer horizontal axis (m).
+    double max_length{100.0};
+    double min_height{0.0};
+    double max_height{100.0};
+  };
+  double size_prior_weight = 0.10;   ///< Weight of size-prior term (0 = disabled).
+  double size_prior_scale = 0.5;     ///< Exponential decay scale (m); lower = stricter.
+  std::unordered_map<std::string, ClassSizePrior> size_priors;
+  /** @} */
 
   /** If true, use Hungarian (optimal) assignment instead of greedy. */
   bool use_hungarian_assignment = true;

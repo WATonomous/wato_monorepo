@@ -50,6 +50,13 @@ projection_utils::Box3D computeClusterBoxWithClassHint(
 projection_utils::ClusterStats computeSingleClusterStats(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const pcl::PointIndices & indices);
 
+/**
+ * @brief Extend a fitted box's width/length to match class size priors, pushing the far face away from ego.
+ * @param box The fitted box to extend in-place.
+ * @param class_hint COCO class name (e.g. "person", "car"). No-op if class has no size prior.
+ */
+void applyClassAwareBoxExtension(projection_utils::Box3D & box, const std::string & class_hint);
+
 /** Per-cluster stats for many clusters (same semantics as @c projection_utils::computeClusterStats). */
 std::vector<projection_utils::ClusterStats> computeClusterStatsBatch(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices);

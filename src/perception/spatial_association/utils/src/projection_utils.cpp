@@ -449,6 +449,36 @@ int qualityTieredMinPoints(const ClusterStats & s, const ProjectionUtilsParams &
   }
   return min_points_threshold;
 }
+
+double computeSizePriorScore(
+  const ClusterStats & stats,
+  const ProjectionUtilsParams::ClassSizePrior & prior,
+  double scale)
+{
+  const double dx = static_cast<double>(stats.max_x - stats.min_x);
+  const double dy = static_cast<double>(stats.max_y - stats.min_y);
+  const double dz = static_cast<double>(stats.max_z - stats.min_z);
+
+  if (dx <= 0.0 && dy <= 0.0 && dz <= 0.0) return 0.0;
+  if (scale <= 0.0) return 1.0;
+
+  // Orientation-agnostic: compare sorted horizontal extents to width/length priors.
+  const double cluster_short = std::min(dx, dy);
+  const double cluster_long = std::max(dx, dy);
+
+  auto outside = [](double val, double lo, double hi) -> double {
+    if (val < lo) return lo - val;
+    if (val > hi) return val - hi;
+    return 0.0;
+  };
+
+  const double dw = outside(cluster_short, prior.min_width, prior.max_width);
+  const double dl = outside(cluster_long, prior.min_length, prior.max_length);
+  const double dh = outside(dz, prior.min_height, prior.max_height);
+
+  const double total = std::sqrt(dw * dw + dl * dl + dh * dh);
+  return std::exp(-total / scale);
+}
 }  // namespace
 
 void filterCandidatesByClassAwareConstraints(
@@ -817,6 +847,18 @@ void assignCandidatesToDetectionsByIOU(
           std::min(1.0, std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + params.point_score_saturation_count));
         const double base_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac + kAssocWAr * ar_score +
                                    kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
+
+        // Class-aware size prior penalty: penalize clusters whose 3D dimensions deviate from expectations.
+        double sized_score = base_score;
+        const double sp_w = params.size_prior_weight;
+        if (sp_w > 0.0 && !det.results.empty()) {
+          auto sp_it = params.size_priors.find(det.results[0].hypothesis.class_id);
+          if (sp_it != params.size_priors.end()) {
+            const double sp = computeSizePriorScore(st, sp_it->second, params.size_prior_scale);
+            sized_score = base_score * (1.0 - sp_w) + sp_w * sp;
+          }
+        }
+
         double combined_score;
         if (
           has_depths && static_cast<size_t>(d) < detection_depths.size() &&
@@ -825,9 +867,9 @@ void assignCandidatesToDetectionsByIOU(
           const double det_depth = detection_depths[static_cast<size_t>(d)].value();
           const double cluster_dist = st.centroid.head<3>().norm();
           const double ds = depth_w * std::exp(-std::abs(cluster_dist - det_depth) / params.depth_score_scale);
-          combined_score = base_score * (1.0 - depth_w) + ds;
+          combined_score = sized_score * (1.0 - depth_w) + ds;
         } else {
-          combined_score = base_score;
+          combined_score = sized_score;
         }
 
         pairs.push_back({c, d, iou, combined_score});
