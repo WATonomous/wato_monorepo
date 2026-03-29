@@ -146,7 +146,7 @@
     standby_steering: 0.0
     control_rate_hz: 20.0
     wheelbase_fallback: 2.5667
-    max_steering_angle: 0.5
+    max_steering_angle: 2.0
     idle_timeout_sec: 2.0
     invert_steering: true
     disable_standby: false
