@@ -96,7 +96,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   std::string odom_topic = get_parameter("odom_topic").as_string();
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     odom_topic, rclcpp::QoS(10), [this](const nav_msgs::msg::Odometry::ConstSharedPtr & msg) {
-      current_speed_ = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
+      current_speed_ = msg->twist.twist.linear.x;
     });
 
   RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz", control_rate_hz_);
