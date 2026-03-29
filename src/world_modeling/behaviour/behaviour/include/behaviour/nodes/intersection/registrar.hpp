@@ -29,6 +29,7 @@
 #include "behaviour/nodes/intersection/actions/get_intersection_context_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_intersection_search_lanelets_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_lanelet_end_pose_action.hpp"
+#include "behaviour/nodes/intersection/actions/get_right_of_way_lanelet_ids_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_line_pose_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_pedestrians_action.hpp"
@@ -39,6 +40,7 @@
 #include "behaviour/nodes/intersection/actions/set_reg_elem_ego_priority_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_pedestrians_action.hpp"
+#include "behaviour/nodes/intersection/actions/set_traffic_light_right_turn_latch_action.hpp"
 
 // conditions
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_exist_condition.hpp"
@@ -50,6 +52,7 @@
 #include "behaviour/nodes/intersection/conditions/reg_elem_ego_priority_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_actors_latched_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_pedestrians_clear_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/stop_sign_priority_actors_latched_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_pedestrians_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/traffic_light_right_turn_latched_condition.hpp"

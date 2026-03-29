@@ -116,14 +116,16 @@ public:
     // Check if within threshold
     if (distance <= threshold) {
       RCLCPP_DEBUG_STREAM(
-        logger(), "Distance " << distance << " is within threshold " << threshold << " (mode=" << mode << ", "
-                               << target_desc << ")");
+        logger(),
+        "Distance " << distance << " is within threshold " << threshold << " (mode=" << mode << ", " << target_desc
+                    << ")");
       return BT::NodeStatus::SUCCESS;
     }
 
     RCLCPP_DEBUG_STREAM(
-      logger(), "Distance " << distance << " is outside threshold " << threshold << " (mode=" << mode << ", "
-                             << target_desc << ")");
+      logger(),
+      "Distance " << distance << " is outside threshold " << threshold << " (mode=" << mode << ", " << target_desc
+                  << ")");
     return BT::NodeStatus::FAILURE;
   }
 };

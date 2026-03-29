@@ -17,13 +17,12 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
-#include "behaviour/nodes/bt_logger_base.hpp"
-
 #include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/lanelet.hpp"
 #include "behaviour/utils/ports.hpp"
 #include "behaviour/utils/world_objects.hpp"
@@ -34,12 +33,10 @@ namespace behaviour
 class EmptyLaneletsCondition : public BT::ConditionNode, protected BTLoggerBase
 {
 public:
-  EmptyLaneletsCondition(
-    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
+  EmptyLaneletsCondition(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::ConditionNode(name, config)
   , BTLoggerBase(logger)
-  {
-  }
+  {}
 
   static BT::PortsList providedPorts()
   {
@@ -87,8 +84,7 @@ public:
       }
 
       RCLCPP_DEBUG_STREAM(
-        logger(), "lanelet_occupied lanelet_id=" << object_lanelet_id
-                  << " object_id=" << object.detection.id);
+        logger(), "lanelet_occupied lanelet_id=" << object_lanelet_id << " object_id=" << object.detection.id);
       return BT::NodeStatus::FAILURE;
     }
 

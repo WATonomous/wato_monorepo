@@ -40,6 +40,7 @@ namespace behaviour
    *
    * Logic:
    * - If an active traffic control element is already latched (car is currently dealing with it), return it and `SUCCESS`.
+   *   Full reset of subtype-specific state is handled later by `ResetIntersectionContext`.
    * - Otherwise, inspect `search_lanelets` in order to find the next relevant control element.
    * - Select control priority as: `traffic_light` > `stop_sign` > `yield`.
    * - Write selected control element and lanelet metadata to output ports.
@@ -89,24 +90,17 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    // if active element input is provided, it means we are currently latched to an element and should validate it before deciding whether to keep or drop the latch
+    // If an active element is already latched, preserve it here so the tree can
+    // run the full reset path in ResetIntersectionContext. Clearing only the
+    // active element here would leave subtype-specific blackboard state stale.
     auto active_traffic_control_element =
       ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "in_active_traffic_control_element");
 
     if (active_traffic_control_element) {
       auto active_lanelet_id = ports::tryGet<int64_t>(*this, "in_active_traffic_control_lanelet_id");
-
-      if (active_lanelet_id && utils::intersection::hasPassedActiveTrafficControlElement(*active_lanelet_id, *lane_ctx))
-      {
-        // ego has left the intersection zone and the active lanelet is no longer ahead
-        RCLCPP_DEBUG_STREAM(logger(), "clear_stale_latch lanelet_id=" << *active_lanelet_id);
-        clear_active_outputs();
-        // fall through to rescan for a new element below
-      } else {
-        publish_active_context(utils::intersection::makeActiveTrafficControlContext(
-          *lane_ctx, *search_lanelets, active_lanelet_id.value_or(ports::null_id), active_traffic_control_element));
-        return BT::NodeStatus::SUCCESS;
-      }
+      publish_active_context(utils::intersection::makeActiveTrafficControlContext(
+        *lane_ctx, *search_lanelets, active_lanelet_id.value_or(ports::null_id), active_traffic_control_element));
+      return BT::NodeStatus::SUCCESS;
     }
 
     auto next_active_context = utils::intersection::findNextActiveTrafficControlContext(*lane_ctx, *search_lanelets);
