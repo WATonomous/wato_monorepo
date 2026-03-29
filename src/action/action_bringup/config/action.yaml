@@ -17,6 +17,8 @@
     available_paths_topic: "available_paths"
     publish_rate_hz: 0.1
     min_path_length: 20.0  # extend path with centerline up to this length (m)
+    lane_follow_mode: false  # when true, skips spirals and uses centerline directly
+    lane_change_lookahead_distances: [8.0, 12.0, 16.0]  # multiple horizons for lane change candidates
 
     # Path generation parameters
     # -  Cost Function  -
@@ -125,7 +127,7 @@
     publish_deleteall_each_update: true
 
 # =============================================================================
-# Pure Pursuit Controller
+# Pure Pursuit Controller (used by action.launch.yaml)
 # =============================================================================
 /**/pure_pursuit_node:
   ros__parameters:
@@ -151,3 +153,103 @@
     idle_timeout_sec: 2.0
     invert_steering: true
     disable_standby: false
+
+# =============================================================================
+# MPC Controller (used by action_mpc.launch.yaml)
+# =============================================================================
+#
+# TUNING GUIDE
+# ~~~~~~~~~~~~
+# Visualize /action/mpc/predicted_path in RViz alongside the trajectory planner's
+# output to see what MPC is planning vs what it's being asked to follow.
+#
+# Step 1: Set actuator limits and wheelbase to match your vehicle FIRST.
+#         Wrong values here make all other tuning meaningless.
+#
+# Step 2: Straight road
+#   - Set all cost weights to defaults. Drive a straightaway.
+#   - If it doesn't accelerate toward the speed limit: raise w_progress.
+#   - If it oscillates left/right: raise w_lateral and w_dsteering.
+#   - If acceleration is jerky: raise w_daccel or lower max_jerk.
+#
+# Step 3: Curves / bends
+#   - If it cuts corners: raise w_lateral.
+#   - If it overshoots turns (swings wide then corrects): raise w_heading.
+#   - If steering feels twitchy through the curve: raise w_dsteering.
+#   - If steering feels sluggish entering curves: lower w_dsteering or raise max_steering_rate.
+#
+# Step 4: Approaching a stop line
+#   - If it brakes too late: raise horizon_distance (or check that lattice
+#     min_path_length is long enough for MPC to see the speed drop).
+#   - If braking is abrupt: raise w_daccel or lower max_jerk.
+#   - If it doesn't fully stop: check trajectory planner is outputting max_speed=0.
+#
+# Step 5: Lane change
+#   - If the lane change path is tracked with oscillation: raise w_dsteering.
+#   - If MPC doesn't follow the lane change path closely enough: raise w_lateral.
+#
+# Step 6: Solver issues
+#   - If you see "MPC solver failed" warnings: raise max_solver_iterations.
+#   - If solve time is too high (check with ros2 topic hz on /action/ackermann):
+#     lower max_horizon_steps or raise point_spacing.
+#
+# COMMON ISSUES:
+#   Vehicle doesn't move        → check disable_standby, standby_msg, behaviour tree
+#   Vehicle reverses             → standby_speed is negative, set to 0.0
+#   Steering is inverted         → toggle invert_steering
+#   Vehicle ignores speed limits → check trajectory planner is publishing max_speed
+#
+/**/mpc_controller_node:
+  ros__parameters:
+    # Topics
+    trajectory_topic: "trajectory"
+    bt_topic: "execute_behaviour"
+    ackermann_topic: "ackermann"
+    idle_topic: "is_idle"
+    predicted_path_topic: "predicted_path"
+    odom_topic: "odom"
+
+    base_frame: "base_footprint"
+
+    control_rate_hz: 20.0     # [5.0 - 50.0] Hz. Raise: more responsive, more CPU. Lower: less CPU, laggier.
+    idle_timeout_sec: 2.0
+    standby_speed: -0.5
+    standby_steering: 0.0
+    standby_msg: "standby"
+    invert_steering: true
+    disable_standby: false
+
+    # Vehicle model
+    wheelbase: 2.5667         # meters — distance between front and rear axles. Must match vehicle.
+
+    # Horizon
+    horizon_distance: 25.0    # [10.0 - 50.0] m. Raise: sees stops/curves earlier, slower solve. Lower: faster, may brake late.
+    point_spacing: 1.0        # [0.5 - 3.0] m. Raise: fewer points, faster. Lower: finer, heavier QP.
+    max_horizon_steps: 30     # [10 - 50] — safety cap on QP size.
+
+    # Cost weights — relative ratios matter, not absolute values.
+    w_lateral: 50.0           # [1 - 200] position error. Raise: tighter tracking. Lower: allows deviation, smoother.
+    w_heading: 20.0           # [1 - 100] heading error. Raise: snappier turns. Lower: lazier correction.
+    w_progress: 5.0           # [0 - 20] speed reward. Raise: aggressive accel. Lower: coasts more. 0 = disable.
+    w_steering: 1.0           # [0.1 - 50] steering effort. Raise: prefers straight. Lower: steers freely.
+    w_accel: 1.0              # [0.1 - 50] accel effort. Raise: prefers coasting. Lower: brakes/accels harder.
+    w_dsteering: 100.0        # [10 - 500] steering rate. PRIMARY STEERING COMFORT KNOB. Raise: smoother. Lower: reactive.
+    w_daccel: 50.0            # [10 - 500] jerk. PRIMARY LONGITUDINAL COMFORT KNOB. Raise: gentler. Lower: snappier.
+    w_terminal: 5.0           # [1 - 20] terminal weight multiplier. Raise: stabilizes horizon tail.
+
+    # Actuator limits — must match vehicle hardware.
+    max_steering_angle: 0.5   # [0.3 - 1.0] rad
+    max_accel: 2.5            # [1.0 - 5.0] m/s^2
+    max_decel: -4.0           # [-8.0 - -1.0] m/s^2
+    max_speed: 15.0           # [1.0 - 30.0] m/s — global cap on top of trajectory planner limits.
+
+    # Comfort limits — rate constraints. Tighter = smoother but less responsive.
+    max_steering_rate: 0.3    # [0.1 - 1.5] rad/s. Raise: quicker steering. Lower: smoother.
+    max_jerk: 5.0             # [1.0 - 15.0] m/s^3. Raise: snappier. Lower: gentler transitions.
+
+    # Solver
+    dt_min: 0.5               # [0.1 - 2.0] s — max dt per step when near zero speed.
+    max_solver_iterations: 200 # [50 - 500] — raise if solver hits iteration limit.
+    solver_eps_abs: 0.001
+    solver_eps_rel: 0.001
+    warm_start: true

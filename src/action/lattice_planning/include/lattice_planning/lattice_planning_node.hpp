@@ -61,8 +61,11 @@ public:
 private:
   // path generation functions
   bool point_ahead_of_car(const geometry_msgs::msg::Point & pt);
+  bool is_lane_change_requested() const;
 
   void plan_and_publish_path();
+  void plan_lane_follow();
+  void plan_lane_change();
   void extend_path_with_centerline(Path & path);
 
   PathPoint create_terminal_point(
@@ -97,8 +100,10 @@ private:
   CostFunctionParams cf_params;
 
   // corridor construction
+  bool lane_follow_mode_ = true;
   int num_horizons;
   std::vector<double> lookahead_s_m;  // in metres
+  std::vector<double> lane_change_lookahead_s_m_;
   std::vector<std::pair<PathPoint, int64_t>> corridor_terminals;
 
   std::optional<geometry_msgs::msg::PoseStamped> car_pose;

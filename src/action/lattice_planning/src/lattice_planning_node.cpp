@@ -42,7 +42,12 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   final_path_topic = this->declare_parameter("path_topic", "path");
   available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
   publish_rate_hz_ = this->declare_parameter("publish_rate_hz", 10.0);
-  min_path_length_ = this->declare_parameter("min_path_length", 20.0);
+  min_path_length_ = this->declare_parameter("min_path_length", 35.0);
+
+  // Lane follow mode
+  lane_follow_mode_ = this->declare_parameter("lane_follow_mode", true);
+  lane_change_lookahead_s_m_ = this->declare_parameter(
+    "lane_change_lookahead_distances", std::vector<double>{8.0, 12.0, 16.0});
 
   // Path generation parameters
   //  - Corridor -
@@ -258,38 +263,133 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
   plan_and_publish_path();
 }
 
+bool LatticePlanningNode::is_lane_change_requested() const
+{
+  if (preferred_lanelets.empty() || cached_current_lanelet_id_ < 0) return false;
+  // If preferred lanelets contain only the current lane (or its successors in ego lane), no change needed
+  for (const auto & [id, _] : preferred_lanelets) {
+    if (id != cached_current_lanelet_id_) return true;
+  }
+  return false;
+}
+
 void LatticePlanningNode::plan_and_publish_path()
 {
-  std::vector<Path> paths;
-
   if (!car_frenet_point) {
     RCLCPP_WARN(get_logger(), "Car frenet point not available");
     return;
   }
 
+  if (lane_follow_mode_ && !is_lane_change_requested()) {
+    plan_lane_follow();
+  } else {
+    plan_lane_change();
+  }
+}
+
+void LatticePlanningNode::plan_lane_follow()
+{
+  // Build path directly from centerline — no spiral optimization
+  Path path;
+  path.target_lanelet_id = cached_current_lanelet_id_;
+  path.cost = 0.0;
+
+  // Start with current vehicle position
+  path.path.push_back(car_frenet_point.value());
+
+  // Extend with centerline to min_path_length
+  extend_path_with_centerline(path);
+
+  publish_final_path(path);
+  publish_available_paths({path});
+}
+
+void LatticePlanningNode::plan_lane_change()
+{
+  // Use multi-horizon lookaheads for lane change spiral candidates
+  // Temporarily swap lookahead distances if lane_change_lookaheads are configured
+  std::vector<double> original_lookaheads = lookahead_s_m;
+  int original_num_horizons = num_horizons;
+
+  if (!lane_change_lookahead_s_m_.empty()) {
+    lookahead_s_m = lane_change_lookahead_s_m_;
+    num_horizons = static_cast<int>(lane_change_lookahead_s_m_.size());
+
+    // Re-generate corridor terminals with new horizons
+    // Trigger recomputation by re-processing cached lanelets
+    if (cached_current_lanelet_id_ >= 0 && !cached_lanelets_.empty()) {
+      corridor_terminals.clear();
+      auto id_order = get_id_order(cached_current_lanelet_id_, cached_lanelets_);
+
+      for (size_t lane_idx = 0; lane_idx < id_order.size(); lane_idx++) {
+        const auto & lane = id_order[lane_idx];
+        int curr_horizon = 0;
+        bool closest_found = false;
+        const geometry_msgs::msg::Point * prev_pt = nullptr;
+        const auto & car_pos = car_pose->pose.position;
+
+        for (const int64_t ll_id : lane) {
+          const auto & centerline = cached_lanelets_.at(ll_id).centerline;
+          for (size_t pt_idx = 0; pt_idx < centerline.size(); pt_idx++) {
+            if (curr_horizon >= num_horizons) break;
+            const auto & pt = centerline[pt_idx];
+            if (!closest_found) {
+              if (point_ahead_of_car(pt)) {
+                closest_found = true;
+              } else {
+                continue;
+              }
+            }
+            double euc_dist = core_->get_euc_dist(car_pos.x, car_pos.y, pt.x, pt.y);
+            if (euc_dist >= lookahead_s_m[curr_horizon]) {
+              if (prev_pt) {
+                double prev_dist = core_->get_euc_dist(car_pos.x, car_pos.y, prev_pt->x, prev_pt->y);
+                double frac = (lookahead_s_m[curr_horizon] - prev_dist) / (euc_dist - prev_dist);
+                frac = std::clamp(frac, 0.0, 1.0);
+                geometry_msgs::msg::Point interp_pt;
+                interp_pt.x = prev_pt->x + frac * (pt.x - prev_pt->x);
+                interp_pt.y = prev_pt->y + frac * (pt.y - prev_pt->y);
+                interp_pt.z = prev_pt->z + frac * (pt.z - prev_pt->z);
+                PathPoint t_pt = create_terminal_point(interp_pt, pt_idx, centerline, prev_pt);
+                corridor_terminals.push_back({t_pt, ll_id});
+              } else {
+                PathPoint t_pt = create_terminal_point(pt, pt_idx, centerline, nullptr);
+                corridor_terminals.push_back({t_pt, ll_id});
+              }
+              curr_horizon++;
+            } else {
+              prev_pt = &pt;
+            }
+          }
+          if (curr_horizon >= num_horizons) break;
+        }
+      }
+    }
+  }
+
+  // Generate spiral paths for each terminal (original logic)
+  std::vector<Path> paths;
   for (size_t i = 0; i < corridor_terminals.size(); i++) {
     auto & terminal = corridor_terminals[i];
-
     std::vector<PathPoint> ft_path = core_->generate_path(car_frenet_point.value(), terminal.first);
-
-    if (ft_path.empty()) {
-      RCLCPP_DEBUG(get_logger(), "Path generation failed for terminal %zu", i);
-    } else {
+    if (!ft_path.empty()) {
       Path path{ft_path, terminal.second, 0, 0};
       paths.push_back(path);
     }
   }
 
+  // Restore original parameters
+  lookahead_s_m = original_lookaheads;
+  num_horizons = original_num_horizons;
+
   if (paths.empty()) {
-    RCLCPP_WARN(get_logger(), "No valid paths generated from %zu terminals", corridor_terminals.size());
+    RCLCPP_WARN(get_logger(), "No valid lane change paths, falling back to lane follow");
+    plan_lane_follow();
     return;
   }
 
   Path lowest_cost = core_->get_lowest_cost_path(paths, preferred_lanelets, cf_params);
-
-  // Extend winning path with centerline to reach min_path_length
   extend_path_with_centerline(lowest_cost);
-
   publish_final_path(lowest_cost);
   publish_available_paths(paths);
 }

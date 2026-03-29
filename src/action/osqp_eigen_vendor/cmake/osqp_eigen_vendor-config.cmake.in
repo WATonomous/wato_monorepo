@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+if(osqp_eigen_vendor_FOUND)
+    return()
+endif()
+set(osqp_eigen_vendor_FOUND TRUE)
+
+check_required_components(osqp_eigen_vendor)
+
+# OsqpEigen installs its own cmake config under the vendor prefix.
+# Add that prefix so find_package(OsqpEigen) works for downstream consumers.
+list(APPEND CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/osqp_eigen_vendor")
+find_package(OsqpEigen REQUIRED)
