@@ -67,6 +67,12 @@ Service names are set directly in the XML tree files (see [DEVELOPING.md](DEVELO
 | `/world_modeling/spawn_wall`               | `costmap_msgs/SpawnWall`             | Create virtual wall at stop lines   |
 | `/world_modeling/despawn_wall`             | `costmap_msgs/DespawnWall`           | Remove virtual wall                 |
 
+## Services Exposed
+
+| Service Name                  | Type                 | Description                                                        |
+| ---------------------------- | -------------------- | ------------------------------------------------------------------ |
+| `/world_modeling/reset_bt`   | `std_srvs/Trigger`   | Rebuilds the BT and clears runtime blackboard state in-process     |
+
 ## Intersection Notes
 
 - `traffic_sign` regulatory elements are normalized into BT-level `STOP_SIGN` / `YIELD` types via `behaviour/utils/lanelet.hpp`.
