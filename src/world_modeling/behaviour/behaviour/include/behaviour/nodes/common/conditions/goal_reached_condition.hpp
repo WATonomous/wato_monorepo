@@ -17,6 +17,8 @@
 
 #include <behaviortree_cpp/condition_node.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -25,6 +27,7 @@
 
 #include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/lanelet.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
@@ -46,7 +49,9 @@ public:
   {
     return {
       BT::InputPort<nav_msgs::msg::Odometry::SharedPtr>("ego_odom"),
+      BT::InputPort<geometry_msgs::msg::PointStamped::SharedPtr>("goal_point"),
       BT::InputPort<lanelet_msgs::msg::Lanelet::SharedPtr>("goal_lanelet"),
+      BT::InputPort<std::string>("mode"),
       BT::InputPort<double>("threshold_m")};
   };
 
@@ -61,43 +66,64 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto goal_lanelet = ports::tryGetPtr<lanelet_msgs::msg::Lanelet>(*this, "goal_lanelet");
-    if (!ports::require(goal_lanelet, "goal_lanelet", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
-    }
-    if (goal_lanelet->centerline.empty()) {
-      RCLCPP_DEBUG_STREAM(logger(), "goal_lanelet centerline is empty");
-      return BT::NodeStatus::FAILURE;
-    }
+    std::string mode = ports::tryGet<std::string>(*this, "mode").value_or("lanelet");
+    std::transform(mode.begin(), mode.end(), mode.begin(), [](unsigned char c) { return std::tolower(c); });
 
     auto threshold_m = ports::tryGet<double>(*this, "threshold_m");
     if (!ports::require(threshold_m, "threshold_m", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
-    // Goal-point distance check removed: we now measure distance to end of goal lanelet centerline.
     const auto & cp = ego_odom->pose.pose.position;
-    const auto & lanelet_end_point = goal_lanelet->centerline.back();
+    double target_x = 0.0;
+    double target_y = 0.0;
+    std::string target_desc;
+
+    if (mode == "lanelet") {
+      auto goal_lanelet = ports::tryGetPtr<lanelet_msgs::msg::Lanelet>(*this, "goal_lanelet");
+      if (!ports::require(goal_lanelet, "goal_lanelet", missing_input_callback)) {
+        return BT::NodeStatus::FAILURE;
+      }
+      if (goal_lanelet->centerline.empty()) {
+        RCLCPP_DEBUG_STREAM(logger(), "goal_lanelet centerline is empty");
+        return BT::NodeStatus::FAILURE;
+      }
+
+      const auto & lanelet_end_point = goal_lanelet->centerline.back();
+      target_x = lanelet_end_point.x;
+      target_y = lanelet_end_point.y;
+      target_desc = "goal_lanelet_id=" + std::to_string(goal_lanelet->id);
+    } else if (mode == "point") {
+      auto goal_point = ports::tryGetPtr<geometry_msgs::msg::PointStamped>(*this, "goal_point");
+      if (!ports::require(goal_point, "goal_point", missing_input_callback)) {
+        return BT::NodeStatus::FAILURE;
+      }
+
+      target_x = goal_point->point.x;
+      target_y = goal_point->point.y;
+      target_desc = "goal_point=(" + std::to_string(target_x) + ", " + std::to_string(target_y) + ")";
+    } else {
+      RCLCPP_ERROR_STREAM(logger(), "Invalid goal reached mode '" << mode << "'. Expected 'lanelet' or 'point'");
+      return BT::NodeStatus::FAILURE;
+    }
     const double threshold = *threshold_m;
 
     // Calculate 2D distance
-    const double dx = lanelet_end_point.x - cp.x;
-    const double dy = lanelet_end_point.y - cp.y;
+    const double dx = target_x - cp.x;
+    const double dy = target_y - cp.y;
     const double distance = std::sqrt(dx * dx + dy * dy);
 
     // Check if within threshold
     if (distance <= threshold) {
       RCLCPP_DEBUG_STREAM(
-        logger(),
-        "Distance " << distance << " is within threshold " << threshold << " (goal_lanelet_id=" << goal_lanelet->id
-                    << ")");
+        logger(), "Distance " << distance << " is within threshold " << threshold << " (mode=" << mode << ", "
+                               << target_desc << ")");
       return BT::NodeStatus::SUCCESS;
     }
 
     RCLCPP_DEBUG_STREAM(
-      logger(),
-      "Distance " << distance << " is outside threshold " << threshold << " (goal_lanelet_id=" << goal_lanelet->id
-                  << ")");
+      logger(), "Distance " << distance << " is outside threshold " << threshold << " (mode=" << mode << ", "
+                             << target_desc << ")");
     return BT::NodeStatus::FAILURE;
   }
 };

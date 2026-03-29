@@ -1,0 +1,153 @@
+# Unified action planning configuration
+# All action node parameters in a single file
+
+# =============================================================================
+# Lattice Planner
+# =============================================================================
+/**/lattice_planning_node:
+  ros__parameters:
+
+    # Topic names
+    lanelet_ahead_topic: "lanelet_ahead"
+    odom_topic: "odom"
+    bt_topic: "execute_behaviour"
+
+    # Publishing
+    path_topic: "path"
+    available_paths_topic: "available_paths"
+    publish_rate_hz: 0.1
+    min_path_length: 20.0  # extend path with centerline up to this length (m)
+
+    # Path generation parameters
+    # -  Cost Function  -
+    cost_function:
+      lateral_movement_weight: 2.0
+      physical_limits_weight: 4.0
+      preferred_lane_cost: 100.0
+      unknown_occupancy_cost: 50.0
+      max_curvature_change: 0.1
+
+    # -  Corridor  -
+    num_horizons: 1
+    # must be same length as specified above
+    lookahead_distances: [10.0]  # meters
+
+    # -  Path Generation  -
+    path_gen:
+      max_iterations: 20
+      path_steps: 35
+      convergence_tolerance: 0.15
+      newton_damping: 0.7
+      max_step_size: 1.0
+
+    # Cubic spiral coefficient calculation parameters
+    # For k(s) = c0 + c1*s + c2*s^2 + c3*s^3
+    # These constants define how intermediate curvatures k0, k1, k2, k3 map to polynomial coefficients
+    # These are derived from the paper mentioned in the readme, DO NOT CHANGE unless you know what you are doing
+    spiral_coeffs:
+      c1_k0_coeff: -11.0
+      c1_k1_coeff: 18.0
+      c1_k2_coeff: -9.0
+      c1_k3_coeff: 2.0
+      c1_divisor: 2.0
+
+      c2_k0_coeff: 18.0
+      c2_k1_coeff: -45.0
+      c2_k2_coeff: 36.0
+      c2_k3_coeff: -9.0
+      c2_divisor: 2.0
+
+      c3_k0_coeff: -9.0
+      c3_k1_coeff: 27.0
+      c3_k2_coeff: -27.0
+      c3_k3_coeff: 9.0
+      c3_divisor: 2.0
+
+# =============================================================================
+# Trajectory Planner
+# =============================================================================
+/**/trajectory_planner_node:
+  ros__parameters:
+
+    # Publisher Topic Names
+    traj_pub_topic: "trajectory"
+    marker_pub_topic: "trajectory_markers"
+
+    # Subscriber Topic Names
+    path_sub_topic: "input_path"
+    costmap_sub_topic: "costmap"
+    lane_context_sub_topic: "lane_context"
+    odom_sub_topic: "odom"
+    bt_sub_topic: "execute_behaviour"
+
+    # Safety distances
+    safe_distance: 5.0  # Distance (m) where slowing down begins
+    stop_distance: 0.3  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+
+    # Speed limits
+    max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
+    max_tangential_accel: 2.5  # Max tangential acceleration (m/s^2)
+    max_lateral_accel: 1.0  # Max lateral acceleration (m/s^2) to slow down in curves
+
+    # Path interpolation
+    interpolation_resolution: 0.1  # Resolution (m) for path interpolation
+
+    # Vehicle footprint bounding box in footprint_frame (m)
+    # x: forward/backward, y: left/right (ROS convention)
+    footprint_frame: "base_link"
+    footprint_x_min: -0.5   # rear of vehicle
+    footprint_y_min: -1.2   # right side
+    footprint_x_max: 3.5    # front bumper
+    footprint_y_max: 1.2    # left side
+
+# =============================================================================
+# Lattice Planning Markers
+# =============================================================================
+/**/lattice_planning_markers_node:
+  ros__parameters:
+    # Subscription topics
+    path_topic: "path"
+    available_paths_topic: "available_paths"
+
+    # Publisher topics
+    path_markers_topic: "path_markers"
+    available_paths_markers_topic: "available_paths_markers"
+
+    # Marker appearance
+    path_line_width: 0.1
+    available_path_line_width: 0.1
+    available_paths_alpha: 1.0
+
+    # How many candidate paths to publish markers for
+    max_available_paths: 50
+
+    # If true, publish a DELETEALL marker before updates to avoid stale markers in RViz
+    publish_deleteall_each_update: true
+
+# =============================================================================
+# Pure Pursuit Controller
+# =============================================================================
+/**/pure_pursuit_node:
+  ros__parameters:
+    trajectory_topic: "trajectory"
+    bt_topic: "execute_behaviour"
+    ackermann_topic: "ackermann"
+    idle_topic: "is_idle"
+    base_frame: "base_footprint"
+    rear_axle_frame: "rear_axle"
+    front_axle_frame: "front_axle"
+    odom_topic: "odom"
+    lookahead_distance: 6.0
+    min_lookahead_distance: 2.5
+    lookahead_gain: 2.5
+    steering_angle_gain: 0.7
+    max_speed: 4.0
+    min_speed: 1.0
+    standby_speed: -0.5
+    standby_steering: 0.0
+    control_rate_hz: 20.0
+    wheelbase_fallback: 2.5667
+    max_steering_angle: 2.0
+    idle_timeout_sec: 2.0
+    invert_steering: true
+    disable_standby: false

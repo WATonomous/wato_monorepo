@@ -33,19 +33,26 @@
 #include "behaviour/nodes/intersection/actions/get_stop_sign_cars_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_stop_sign_pedestrians_action.hpp"
 #include "behaviour/nodes/intersection/actions/get_traffic_light_state_action.hpp"
+#include "behaviour/nodes/intersection/actions/get_right_of_way_lanelet_ids_action.hpp"
 #include "behaviour/nodes/intersection/actions/reset_intersection_context_action.hpp"
+#include "behaviour/nodes/intersection/actions/set_traffic_light_right_turn_latch_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_reg_elem_ego_priority_action.hpp"
 #include "behaviour/nodes/intersection/actions/set_stop_sign_priority_cars_action.hpp"
+#include "behaviour/nodes/intersection/actions/set_stop_sign_priority_pedestrians_action.hpp"
 
 // conditions
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_exist_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/active_traffic_control_element_passed_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/ego_near_stop_line_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_regulatory_element_type_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/is_traffic_light_state_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/passing_active_traffic_control_element_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/reg_elem_ego_priority_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/stop_sign_priority_actors_latched_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_pedestrians_clear_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/stop_sign_priority_cars_clear_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/stop_sign_priority_pedestrians_clear_condition.hpp"
+#include "behaviour/nodes/intersection/conditions/traffic_light_right_turn_latched_condition.hpp"
 #include "behaviour/nodes/intersection/conditions/yield_sign_can_proceed_condition.hpp"
 
 class IntersectionNodeRegistrar : public NodeRegistrarBase
@@ -76,19 +83,27 @@ public:
       "GetStopSignPedestrians", logger_.get_child("GetStopSignPedestrians"));
     factory.registerNodeType<behaviour::GetTrafficLightStateAction>(
       "GetTrafficLightState", logger_.get_child("GetTrafficLightState"));
+    factory.registerNodeType<behaviour::GetRightOfWayLaneletIdsAction>(
+      "GetRightOfWayLaneletIds", logger_.get_child("GetRightOfWayLaneletIds"));
     factory.registerNodeType<behaviour::GetStopLinePoseAction>("GetStopLinePose", logger_.get_child("GetStopLinePose"));
     factory.registerNodeType<behaviour::ResetIntersectionContextAction>(
       "ResetIntersectionContext", logger_.get_child("ResetIntersectionContext"));
+    factory.registerNodeType<behaviour::SetTrafficLightRightTurnLatchAction>(
+      "SetTrafficLightRightTurnLatch", logger_.get_child("SetTrafficLightRightTurnLatch"));
     factory.registerNodeType<behaviour::SetRegElemEgoPriorityAction>(
       "SetRegElemEgoPriority", logger_.get_child("SetRegElemEgoPriority"));
     factory.registerNodeType<behaviour::SetStopSignPriorityCarsAction>(
       "SetStopSignPriorityCars", logger_.get_child("SetStopSignPriorityCars"));
+    factory.registerNodeType<behaviour::SetStopSignPriorityPedestriansAction>(
+      "SetStopSignPriorityPedestrians", logger_.get_child("SetStopSignPriorityPedestrians"));
 
     // conditions
     factory.registerNodeType<behaviour::ActiveTrafficControlElementExistCondition>(
       "ActiveTrafficControlElementExist", logger_.get_child("ActiveTrafficControlElementExist"));
     factory.registerNodeType<behaviour::ActiveTrafficControlElementPassedCondition>(
       "ActiveTrafficControlElementPassed", logger_.get_child("ActiveTrafficControlElementPassed"));
+    factory.registerNodeType<behaviour::EgoNearStopLineCondition>(
+      "EgoNearStopLine", logger_.get_child("EgoNearStopLine"));
     factory.registerNodeType<behaviour::IsRegulatoryElementTypeCondition>(
       "IsRegulatoryElementType", logger_.get_child("IsRegulatoryElementType"));
     factory.registerNodeType<behaviour::IsTrafficLightStateCondition>(
@@ -97,10 +112,16 @@ public:
       "PassingActiveTrafficControlElement", logger_.get_child("PassingActiveTrafficControlElement"));
     factory.registerNodeType<behaviour::StopSignPriorityCarsClearCondition>(
       "StopSignPriorityCarsClear", logger_.get_child("StopSignPriorityCarsClear"));
+    factory.registerNodeType<behaviour::StopSignPriorityPedestriansClearCondition>(
+      "StopSignPriorityPedestriansClear", logger_.get_child("StopSignPriorityPedestriansClear"));
     factory.registerNodeType<behaviour::StopSignPedestriansClearCondition>(
       "StopSignPedestriansClear", logger_.get_child("StopSignPedestriansClear"));
     factory.registerNodeType<behaviour::RegElemEgoPriorityCondition>(
       "RegElemEgoPriority", logger_.get_child("RegElemEgoPriority"));
+    factory.registerNodeType<behaviour::StopSignPriorityActorsLatchedCondition>(
+      "StopSignPriorityActorsLatched", logger_.get_child("StopSignPriorityActorsLatched"));
+    factory.registerNodeType<behaviour::TrafficLightRightTurnLatchedCondition>(
+      "TrafficLightRightTurnLatched", logger_.get_child("TrafficLightRightTurnLatched"));
     factory.registerNodeType<behaviour::YieldSignCanProceedCondition>(
       "YieldCanProceed", logger_.get_child("YieldCanProceed"));
   }

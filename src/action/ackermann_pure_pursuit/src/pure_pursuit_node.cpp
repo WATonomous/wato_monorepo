@@ -41,6 +41,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("standby_msg", "standby");
   declare_parameter("lookahead_distance", 5.0);
   declare_parameter("min_lookahead_distance", 2.0);
+  declare_parameter("lookahead_gain", 0.5);
   declare_parameter("steering_angle_gain", 1.0);
   declare_parameter("max_speed", 5.0);
   declare_parameter("min_speed", 0.5);
@@ -51,6 +52,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("max_steering_angle", 0.5);
   declare_parameter("idle_timeout_sec", 2.0);
   declare_parameter("invert_steering", false);
+  declare_parameter("odom_topic", "odom");
   declare_parameter("disable_standby", false);
 }
 
@@ -66,6 +68,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   standby_msg_ = get_parameter("standby_msg").as_string();
   lookahead_distance_ = get_parameter("lookahead_distance").as_double();
   min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
+  lookahead_gain_ = get_parameter("lookahead_gain").as_double();
   steering_angle_gain = get_parameter("steering_angle_gain").as_double();
   max_speed_ = get_parameter("max_speed").as_double();
   min_speed_ = get_parameter("min_speed").as_double();
@@ -89,6 +92,12 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
     trajectory_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::trajectoryCallback, this, std::placeholders::_1));
   bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
     bt_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::bt_callback, this, std::placeholders::_1));
+
+  std::string odom_topic = get_parameter("odom_topic").as_string();
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+    odom_topic, rclcpp::QoS(10), [this](const nav_msgs::msg::Odometry::ConstSharedPtr & msg) {
+      current_speed_ = msg->twist.twist.linear.x;
+    });
 
   RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz", control_rate_hz_);
   return CallbackReturn::SUCCESS;
@@ -208,6 +217,10 @@ void PurePursuitNode::controlCallback()
   const auto & traj = *latest_trajectory_;
   double wheelbase = getWheelbase();
 
+  // Adaptive lookahead: scale with speed, clamp to [min, max]
+  double adaptive_lookahead =
+    std::clamp(lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
+
   // Transform trajectory points into base_frame and find lookahead point
   double lookahead_x = 0.0;
   double lookahead_y = 0.0;
@@ -234,7 +247,7 @@ void PurePursuitNode::controlCallback()
 
     // Only consider points ahead of the vehicle (positive x in base frame)
     if (dx > 0.0 && dist >= min_lookahead_distance_) {
-      if (dist >= lookahead_distance_ || &pt == &traj.points.back()) {
+      if (dist >= adaptive_lookahead || &pt == &traj.points.back()) {
         lookahead_x = dx;
         lookahead_y = dy;
         target_speed = pt.max_speed;

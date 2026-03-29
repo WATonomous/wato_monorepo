@@ -30,6 +30,7 @@
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace behaviour
 {
@@ -78,6 +79,9 @@ private:
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelets_ahead_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr goal_point_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odom_sub_;
+
+  // Services
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr standby_srv_;
 
   // Configuration
   std::string map_frame_;
