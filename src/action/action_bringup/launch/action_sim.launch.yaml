@@ -1,0 +1,114 @@
+# action_sim.launch.yaml
+# Simulation-specific action stack: Lattice Planner + Trajectory Planner + MPC Controller
+# Remaps topics to CARLA simulation sources instead of world_modeling.
+
+launch:
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection
+
+  # Lattice Planner
+  - node:
+      pkg: "lattice_planning"
+      exec: "lattice_planning_node"
+      name: "lattice_planning_node"
+      namespace: "action/lattice_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        - from: "lanelet_ahead"
+          to: "/world_modeling/lanelet/lanelet_ahead"
+        - from: "odom"
+          to: "/ego/odom"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+
+  # Trajectory Planner
+  - node:
+      pkg: "trajectory_planner"
+      exec: "trajectory_planner_node"
+      name: "trajectory_planner_node"
+      namespace: "action/trajectory_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        - from: "input_path"
+          to: "/action/lattice_planning/path"
+        - from: "costmap"
+          to: "/world_modeling/costmap"
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "lane_context"
+          to: "/world_modeling/lanelet/lane_context"
+        - from: "odom"
+          to: "/ego/odom"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+
+  # Lattice Planning Markers
+  - node:
+      pkg: "lattice_planning_markers"
+      exec: "lattice_planning_markers_node"
+      name: "lattice_planning_markers_node"
+      namespace: "action/lattice_planning_markers"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        - from: "path"
+          to: "/action/lattice_planning/path"
+        - from: "available_paths"
+          to: "/action/lattice_planning/available_paths"
+
+  # MPC Controller
+  - node:
+      pkg: mpc_controller
+      exec: mpc_controller_node
+      name: mpc_controller_node
+      namespace: "action"
+      output: screen
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        # Subscribers
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+        - from: "odom"
+          to: "/ego/odom"
+        # Publishers
+        - from: "ackermann"
+          to: "/carla/ackermann_control/command"
+        - from: "predicted_path"
+          to: "/action/mpc/predicted_path"
+
+  # Lifecycle Manager
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "action_lifecycle_manager"
+      namespace: "action"
+      param:
+        - name: "node_names"
+          value:
+            - /action/lattice_planning/local_planner_node
+            - /action/trajectory_planning/trajectory_planner_node
+            - /action/lattice_planning/lattice_planning_node
+            - /action/mpc_controller_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
