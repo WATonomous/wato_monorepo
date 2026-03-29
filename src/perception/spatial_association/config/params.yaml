@@ -64,7 +64,8 @@
       depth_score_scale: 5.0
       min_depth_for_enrichment: 0.1
 
-      # Class-aware size prior (pre-match penalty; 0 weight = disabled)
+      # Class-aware size prior (pre-match penalty; toggle off to disable entirely)
+      enable_size_prior: true
       size_prior_weight: 0.10
       size_prior_scale: 0.5
       size_prior_classes:      ["person", "car",  "truck", "bus",  "bicycle", "motorcycle"]

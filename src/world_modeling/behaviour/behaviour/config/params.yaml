@@ -46,10 +46,10 @@
       ego_stopped_velocity_threshold: 0.5
 
       # Max distance from the stop line to count the ego stop for stop signs (meters)
-      stop_sign_ego_stop_line_threshold_m: 3.0
+      stop_sign_ego_stop_line_threshold_m: 4.0
 
       # Max distance from the stop line to count the ego stop for stop signs (meters)
-      stop_sign_ego_stop_line_threshold_m: 3.0
+      stop_sign_ego_stop_line_threshold_m: 4.0
 
       # Intersection lookahead distance (meters)
       intersection_lookahead_m: 100.0
@@ -66,4 +66,4 @@
     wait_for_service_timeout_ms: 60000
 
     # Logging options
-    enable_console_logging: false
+    enable_console_logging: true

@@ -17,7 +17,7 @@
     available_paths_topic: "available_paths"
     publish_rate_hz: 0.1
     min_path_length: 30.0  # extend path with centerline up to this length (m)
-    lane_follow_mode: false  # when true, skips spirals and uses centerline directly
+    lane_follow_mode: true  # when true, skips spirals and uses centerline directly
     lane_change_lookahead_distances: [8.0, 12.0, 16.0]  # multiple horizons for lane change candidates
 
     # Path generation parameters
@@ -83,13 +83,13 @@
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    safe_distance: 5.0  # Distance (m) where slowing down begins
-    stop_distance: 0.3  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    stop_distance: 0.5  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
-    max_tangential_accel: 1.0  # Max tangential acceleration (m/s^2)
-    max_lateral_accel: 1.0  # Max lateral acceleration (m/s^2) to slow down in curves
+    max_tangential_accel: 2.0  # Max tangential acceleration (m/s^2)
+    max_emergency_accel: 2.0  # Max emergency braking deceleration (m/s^2)
+    max_lateral_accel: 2.0  # Max lateral acceleration (m/s^2) to slow down in curves
 
     # Path interpolation
     interpolation_resolution: 0.1  # Resolution (m) for path interpolation

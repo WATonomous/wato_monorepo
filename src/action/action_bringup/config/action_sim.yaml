@@ -63,10 +63,10 @@
     odom_sub_topic: "odom"
     bt_sub_topic: "execute_behaviour"
 
-    safe_distance: 5.0
     stop_distance: 0.3
     max_speed: 10.0
     max_tangential_accel: 2.5
+    max_emergency_accel: 5.0
     max_lateral_accel: 1.0
     interpolation_resolution: 0.1
 

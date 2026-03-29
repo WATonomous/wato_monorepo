@@ -79,11 +79,11 @@
       submap_ds_resolution: 0.5
       num_neighbors: 10
       submap_radius: 30.0
-      max_submap_states: 15
+      max_submap_states: 5
 
       max_correspondence_distance: 2.0
       max_iterations: 20
-      num_threads: 16
+      num_threads: 4
 
       min_inliers: 50
       min_noise: 0.01

@@ -179,6 +179,7 @@ void LatticePlanningNode::update_vehicle_odom(const nav_msgs::msg::Odometry::Con
 
 void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
 {
+  bt_behaviour_ = msg->behaviour;
   preferred_lanelets.clear();
   for (auto id : msg->preferred_lanelet_ids) {
     preferred_lanelets[id] = 1;
@@ -265,12 +266,7 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
 
 bool LatticePlanningNode::is_lane_change_requested() const
 {
-  if (preferred_lanelets.empty() || cached_current_lanelet_id_ < 0) return false;
-  // If preferred lanelets contain only the current lane (or its successors in ego lane), no change needed
-  for (const auto & [id, _] : preferred_lanelets) {
-    if (id != cached_current_lanelet_id_) return true;
-  }
-  return false;
+  return bt_behaviour_.find("lane change") != std::string::npos;
 }
 
 void LatticePlanningNode::plan_and_publish_path()

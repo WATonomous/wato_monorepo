@@ -1,0 +1,17 @@
+# GetLaneletsByRegElem.srv
+# Get all lanelets associated with a specific regulatory element.
+#
+# Returns lanelets that reference the given regulatory element
+# (e.g., all lanelets controlled by a specific traffic light).
+
+int64 reg_elem_id
+
+---
+bool success
+
+# Error description if success is false
+# Values: "reg_elem_not_found", "map_not_loaded"
+string error_message
+
+# Lanelets associated with this regulatory element
+Lanelet[] lanelets

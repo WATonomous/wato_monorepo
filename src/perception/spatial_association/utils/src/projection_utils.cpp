@@ -850,7 +850,7 @@ void assignCandidatesToDetectionsByIOU(
 
         // Class-aware size prior penalty: penalize clusters whose 3D dimensions deviate from expectations.
         double sized_score = base_score;
-        const double sp_w = params.size_prior_weight;
+        const double sp_w = params.enable_size_prior ? params.size_prior_weight : 0.0;
         if (sp_w > 0.0 && !det.results.empty()) {
           auto sp_it = params.size_priors.find(det.results[0].hypothesis.class_id);
           if (sp_it != params.size_priors.end()) {

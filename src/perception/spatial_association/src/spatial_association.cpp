@@ -689,6 +689,7 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, pu + "depth_score_weight", 0.15);
   declareIfMissing(this, pu + "depth_score_scale", 5.0);
   // Class-aware size priors (parallel arrays, same length).
+  declareIfMissing(this, pu + "enable_size_prior", true);
   declareIfMissing(this, pu + "size_prior_weight", 0.10);
   declareIfMissing(this, pu + "size_prior_scale", 0.5);
   declareIfMissing(this, pu + "size_prior_classes", std::vector<std::string>{});
@@ -817,6 +818,7 @@ void SpatialAssociationNode::initializeParams()
   proj_params.depth_score_weight = this->get_parameter(pu + "depth_score_weight").as_double();
   proj_params.depth_score_scale = this->get_parameter(pu + "depth_score_scale").as_double();
   // Class-aware size priors.
+  proj_params.enable_size_prior = this->get_parameter(pu + "enable_size_prior").as_bool();
   proj_params.size_prior_weight = this->get_parameter(pu + "size_prior_weight").as_double();
   proj_params.size_prior_scale = this->get_parameter(pu + "size_prior_scale").as_double();
   {

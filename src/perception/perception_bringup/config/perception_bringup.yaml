@@ -63,36 +63,36 @@ multi_camera_sync:
     # Raw topics example: ["/camera1/image_raw", "/camera2/image_raw"]
     # Compressed topics example: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/camera_pano_nn/image_rect_compressed"
-      - "/camera_pano_ne/image_rect_compressed"
+      # - "/camera_pano_ne/image_rect_compressed"
       - "/camera_pano_ee/image_rect_compressed"
       # - "/camera_pano_se/image_rect_compressed"
       # - "/camera_pano_ss/image_rect_compressed"
       # - "/camera_pano_sw/image_rect_compressed"
       - "/camera_pano_ww/image_rect_compressed"
-      - "/camera_pano_nw/image_rect_compressed"
+      # - "/camera_pano_nw/image_rect_compressed"
+      - "/camera_pano_nn/image_rect_compressed"
 
     # CameraInfo topics (same order as camera_topics). Required for ~/multi_camera_info.
     camera_info_topics:
-      - "/camera_pano_nn/camera_info"
-      - "/camera_pano_ne/camera_info"
+      # - "/camera_pano_ne/camera_info"
       - "/camera_pano_ee/camera_info"
       # - "/camera_pano_se/camera_info"
       # - "/camera_pano_ss/camera_info"
       # - "/camera_pano_sw/camera_info"
       - "/camera_pano_ww/camera_info"
-      - "/camera_pano_nw/camera_info"
+      # - "/camera_pano_nw/camera_info"
+      - "/camera_pano_nn/camera_info"
 
     # Optional camera names (same order). Auto-generated if omitted.
     camera_names:
-      - "camera_pano_nn"
-      - "camera_pano_ne"
+      # - "camera_pano_ne"
       - "camera_pano_ee"
       # - "camera_pano_se"
       # - "camera_pano_ss"
       # - "camera_pano_sw"
       - "camera_pano_ww"
-      - "camera_pano_nw"
+      # - "camera_pano_nw"
+      - "camera_pano_nn"
 
     # --- Transport and synchronization behavior ---
     use_compressed: true   # true: sensor_msgs/CompressedImage, false: sensor_msgs/Image
@@ -177,8 +177,15 @@ multi_camera_sync:
     # --- Output frame and visualization ---
     # Use lidar_cc when running without localization (no map->lidar_cc TF).
     # Set to "map" when localization is active and global-frame tracks are needed.
-    output_frame: "lidar_cc"
+    output_frame: "map"
     publish_visualization: true
+
+    # --- Prediction (Kalman filter future path) ---
+    centroid_history_size: 10   # past centroids stored per track
+    prediction_time: 5.0        # how far into the future to predict (seconds)
+    prediction_dt: 0.1          # time step between predicted poses (seconds)
+    process_noise: 0.1          # KF process noise (higher = trust measurements more)
+    measurement_noise: 0.5      # KF measurement noise (higher = smoother, filters outliers more)
 
 # =============================================================================
 # Spatial Association Node
@@ -200,30 +207,30 @@ multi_camera_sync:
 
     # --- Euclidean clustering (3D proposals from point cloud) ---
     euclid_params:
-      cluster_tolerance: 0.40
+      cluster_tolerance: 0.30
       min_cluster_size: 20
-      max_cluster_size: 1000
+      max_cluster_size: 600
       use_adaptive_clustering: true
       close_threshold: 5.0
-      close_tolerance_mult: 1.25
+      close_tolerance_mult: 1.0
 
       # Distance-band overrides for adaptive clustering.
       clustering_bands:
         max_distances: [8.0, 20.0, 40.0, 999.0]
-        tolerance_mults: [1.3, 1.0, 1.5, 2.0]
+        tolerance_mults: [1.0, 0.8, 1.2, 1.5]
         min_cluster_sizes: [15, 12, 10, 8]
 
     # --- Merge behavior ---
-    merge_threshold: 0.4
+    merge_threshold: 0.15
 
     # --- Cross-camera deduplication ---
     cross_camera_dedup:
-      enabled: false
-      min_lidar_index_overlap: 0.5
-      weak_lidar_index_overlap: 0.22
-      max_center_dist_m: 1.8
-      min_bev_box_iou: 0.16
-      min_bev_box_iou_no_class: 0.30
+      enabled: true
+      min_lidar_index_overlap: 0.35
+      weak_lidar_index_overlap: 0.15
+      max_center_dist_m: 1.2
+      min_bev_box_iou: 0.10
+      min_bev_box_iou_no_class: 0.20
 
     # --- Global detection gates ---
     object_detection_confidence: 0.42
@@ -247,7 +254,7 @@ multi_camera_sync:
 
     # --- Node outputs and debug toggles ---
     publish_bounding_box: true
-    publish_visualization: false
+    publish_visualization: true
     publish_image_visualization: false
     debug_logging: false
 
@@ -266,16 +273,16 @@ multi_camera_sync:
       # --- Orientation and shape fitting ---
       ar_front_view_threshold: 1.2
       min_points_for_fit: 3
-      default_sample_point_count: 64
-      orientation_search_step_degrees: 2.0
-      orientation_coarse_step_multiplier: 5.0
-      orientation_fine_range_multiplier: 2.5
+      default_sample_point_count: 128
+      orientation_search_step_degrees: 1.0
+      orientation_coarse_step_multiplier: 3.0
+      orientation_fine_range_multiplier: 4.0
       use_l_shaped_fitting: true
-      l_shape_energy_variance_weight: 0.5
+      l_shape_energy_variance_weight: 0.7
 
       # --- Outlier rejection and robust extents ---
-      outlier_rejection_point_count: 30
-      outlier_sigma_multiplier: 4.5
+      outlier_rejection_point_count: 20
+      outlier_sigma_multiplier: 3.0
       xy_extent_percentile_low: 10.0
       xy_extent_percentile_high: 90.0
       z_extent_percentile_low: 8.0
@@ -287,23 +294,23 @@ multi_camera_sync:
 
       # Strict gates (inner box, in-box fraction, aspect) need accurate projection.
       # Keep disabled during bringup until camera-lidar calibration is verified.
-      association_strict_matching: true
-      association_centroid_inner_box_fraction: 0.85
-      association_min_inside_point_fraction: 0.45
-      association_min_ar_consistency_score: 0.30
+      association_strict_matching: false
+      association_centroid_inner_box_fraction: 0.95
+      association_min_inside_point_fraction: 0.10
+      association_min_ar_consistency_score: 0.05
       association_use_point_projection_rect_for_iou: true
 
       # --- Class-aware threshold scaling ---
-      person_inside_fraction_scale: 0.85
-      vehicle_inside_fraction_scale: 0.85
-      person_iou_threshold_scale: 0.90
-      vehicle_iou_threshold_scale: 0.90
-      person_ar_consistency_scale: 0.70
+      person_inside_fraction_scale: 0.25
+      vehicle_inside_fraction_scale: 0.50
+      person_iou_threshold_scale: 0.05
+      vehicle_iou_threshold_scale: 0.10
+      person_ar_consistency_scale: 0.20
 
       # --- Minimum evidence gates ---
-      association_min_inside_points: 2
-      min_size_consistency_score: 0.25
-      min_det_area_far_px2: 400.0
+      association_min_inside_points: 1
+      min_size_consistency_score: 0.05
+      min_det_area_far_px2: 100.0
 
       # --- Association score blending ---
       association_weight_iou: 0.30
@@ -319,31 +326,32 @@ multi_camera_sync:
       # --- Assignment and distance-aware relaxations ---
       min_depth_for_enrichment: 0.1
       use_hungarian_assignment: true
-      far_iou_threshold_scale: 0.5
-      medium_iou_threshold_scale: 0.75
-      far_inside_fraction_scale: 0.6
-      medium_inside_fraction_scale: 0.8
+      far_iou_threshold_scale: 0.3
+      medium_iou_threshold_scale: 0.5
+      far_inside_fraction_scale: 0.3
+      medium_inside_fraction_scale: 0.5
 
       # --- Class-specific quality limits ---
-      quality_person_max_height_m: 3.0
-      quality_person_max_footprint_xy_m: 1.8
-      quality_person_max_volume_m3: 4.0
+      quality_person_max_height_m: 4.0
+      quality_person_max_footprint_xy_m: 3.0
+      quality_person_max_volume_m3: 8.0
       quality_vehicle_max_height_m: 4.8
 
       # --- Depth consistency scoring from enriched 3D detections ---
-      depth_score_weight: 0.20
+      depth_score_weight: 0.10
       depth_score_scale: 5.0
 
-      # --- Class-aware size prior (pre-match penalty; 0 weight = disabled) ---
+      # --- Class-aware size prior (pre-match penalty; toggle off to disable entirely) ---
+      enable_size_prior: true
       size_prior_weight: 0.10
       size_prior_scale: 0.5
       size_prior_classes:      ["person", "car",  "truck", "bus",  "bicycle", "motorcycle"]
-      size_prior_min_widths:   [0.2,      1.4,    2.0,     2.2,    0.3,       0.4]
-      size_prior_max_widths:   [0.8,      2.2,    3.0,     3.0,    0.8,       1.0]
-      size_prior_min_lengths:  [0.2,      3.0,    5.0,     8.0,    1.2,       1.5]
-      size_prior_max_lengths:  [0.8,      4.5,    12.0,    15.0,   2.0,       2.5]
-      size_prior_min_heights:  [0.8,      1.2,    2.0,     2.5,    0.8,       0.8]
-      size_prior_max_heights:  [2.2,      2.0,    4.5,     4.0,    1.8,       1.8]
+      size_prior_min_widths:   [0.1,      1.4,    2.0,     2.2,    0.3,       0.4]
+      size_prior_max_widths:   [0.9,      2.2,    3.0,     3.0,    0.8,       1.0]
+      size_prior_min_lengths:  [0.1,      2.5,    5.0,     8.0,    1.2,       1.5]
+      size_prior_max_lengths:  [0.9,      4.0,    12.0,    15.0,   2.0,       2.5]
+      size_prior_min_heights:  [0.4,      1.2,    2.0,     2.5,    0.8,       0.8]
+      size_prior_max_heights:  [3.0,      2.0,    4.5,     4.0,    1.8,       1.8]
 
 # =============================================================================
 # Attribute Assigner Node
@@ -384,16 +392,16 @@ multi_camera_sync:
 
     # --- Subscriber QoS ---
     qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
-    qos_subscriber_depth: 10
+    qos_subscriber_depth: 5
 
     # --- Publisher QoS ---
-    qos_publisher_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_publisher_reliability: "reliable"  # Options: "reliable", "best_effort"
     qos_publisher_durability: "volatile"      # Options: "transient_local", "volatile"
-    qos_publisher_depth: 10
+    qos_publisher_depth: 1
 
     # --- Message synchronization ---
-    sync_queue_size: 10
-    sync_max_time_diff_ms: 900.0  # Detections usually lag images by about 50-150 ms
+    sync_queue_size: 5
+    sync_max_time_diff_ms: 400.0  # Detections usually lag images by about 50-150 ms
 
     # --- Visualization outputs ---
     enable_image_markers: false  # 2D image marker overlays

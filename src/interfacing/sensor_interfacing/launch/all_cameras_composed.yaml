@@ -40,17 +40,17 @@ launch:
           value: "$(var cameras_config_file)"
 
   # camera 1 - pano NE
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_ne"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386154"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_ne"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386154"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
   # camera 2 - pano EE
   - include:
@@ -78,7 +78,7 @@ launch:
   #       - name: "cameras_config_file"
   #         value: "$(var cameras_config_file)"
 
-  # # camera 4 - pano SS
+  # camera 4 - pano SS
   # - include:
   #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
   #     arg:
@@ -117,18 +117,18 @@ launch:
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
 
-  # camera 7 - pano NW
-  - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_nw"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386109"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
+  # # camera 7 - pano NW
+  # - include:
+  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_nw"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386109"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
 
   # # Lower Cameras (4 cameras)
   # # camera 8 - lower NE

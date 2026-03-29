@@ -222,9 +222,13 @@ void PurePursuitNode::controlCallback()
     std::clamp(lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
 
   // Transform trajectory points into base_frame and find lookahead point
+  static constexpr double SPEED_LOOKAHEAD_M = 1.0;
+
   double lookahead_x = 0.0;
   double lookahead_y = 0.0;
   double target_speed = max_speed_;
+  double speed_ahead = max_speed_;
+  bool found_speed_point = false;
   bool found_lookahead = false;
 
   for (const auto & pt : traj.points) {
@@ -245,12 +249,18 @@ void PurePursuitNode::controlCallback()
     double dy = pose_in_base.pose.position.y;
     double dist = std::hypot(dx, dy);
 
+    // Use speed from the point ~1m ahead of ego
+    if (!found_speed_point && dx > 0.0 && dist >= SPEED_LOOKAHEAD_M) {
+      speed_ahead = pt.max_speed;
+      found_speed_point = true;
+    }
+
     // Only consider points ahead of the vehicle (positive x in base frame)
     if (dx > 0.0 && dist >= min_lookahead_distance_) {
       if (dist >= adaptive_lookahead || &pt == &traj.points.back()) {
         lookahead_x = dx;
         lookahead_y = dy;
-        target_speed = pt.max_speed;
+        target_speed = speed_ahead;
         found_lookahead = true;
         break;
       }

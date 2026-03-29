@@ -657,6 +657,7 @@ projection_utils::Box3D computeClusterBoxWithClassHint(
 void applyClassAwareBoxExtension(projection_utils::Box3D & box, const std::string & class_hint)
 {
   const auto & params = projection_utils::getParams();
+  if (!params.enable_size_prior) return;
   if (class_hint.empty()) return;
   auto it = params.size_priors.find(class_hint);
   if (it == params.size_priors.end()) return;

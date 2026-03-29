@@ -17,11 +17,13 @@
 
 #include <ByteTrack/BYTETracker.h>
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <Eigen/Dense>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/state.hpp>
@@ -30,6 +32,21 @@
 #include <tf2_ros/transform_listener.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <world_model_msgs/msg/world_object_array.hpp>
+
+/**
+ * @brief Per-track Kalman filter for centroid-based velocity estimation.
+ *
+ * State vector: [x, y, vx, vy] (2D ground-plane position and velocity).
+ * Constant-velocity motion model with position-only measurements.
+ */
+struct TrackKalmanFilter
+{
+  Eigen::Vector4d state;       // [x, y, vx, vy]
+  Eigen::Matrix4d covariance;  // state covariance P
+  bool initialized = false;
+  rclcpp::Time last_update_time{0, 0, RCL_ROS_TIME};
+};
 
 /**
  * @brief ROS2 Lifecycle Node that manages 3D multi-object tracking.
@@ -46,6 +63,7 @@ public:
   static constexpr auto kDetectionsTopic = "input_detections";
   static constexpr auto kTracksTopic = "output_tracks";
   static constexpr auto kMarkersTopic = "output_markers";
+  static constexpr auto kPredictionsTopic = "output_predictions";
 
   /**
    * @brief Looks up the numerical id corresponding to a class.
@@ -142,6 +160,7 @@ private:
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_dets_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr predictions_pub_;
 
   // ByteTrack parameters
   int frame_rate_;
@@ -160,6 +179,17 @@ private:
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+  // Prediction parameters
+  int centroid_history_size_;
+  double prediction_time_;   // how far into the future to predict (seconds)
+  double prediction_dt_;     // time step between predicted poses (seconds)
+  double process_noise_;
+  double measurement_noise_;
+
+  // Per-track state: Kalman filters and centroid history
+  std::unordered_map<int, TrackKalmanFilter> track_filters_;
+  std::unordered_map<int, std::deque<geometry_msgs::msg::PoseStamped>> track_centroids_;
 
   static rclcpp::Logger static_logger_;
 };
