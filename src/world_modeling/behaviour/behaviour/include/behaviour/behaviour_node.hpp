@@ -93,7 +93,7 @@ private:
 
   // ROS Communications
   rclcpp::TimerBase::SharedPtr tick_tree_timer_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_bt_service_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_bt_srv_;
 
   // Subs
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr current_lane_context_sub_;
