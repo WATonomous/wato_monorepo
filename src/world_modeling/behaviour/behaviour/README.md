@@ -73,6 +73,40 @@ Service names are set directly in the XML tree files (see [DEVELOPING.md](DEVELO
 | ---------------------------- | -------------------- | ------------------------------------------------------------------ |
 | `/world_modeling/reset_bt`   | `std_srvs/Trigger`   | Rebuilds the BT and clears runtime blackboard state in-process     |
 
+## Reset BT Service
+
+The behaviour node exposes a `std_srvs/Trigger` service named `reset_bt`.
+
+- Under `world_modeling_bringup`, the behaviour node runs in the `world_modeling` namespace, so the default resolved service name is `/world_modeling/reset_bt`.
+- Under the standalone [behaviour.launch.yaml](launch/behaviour.launch.yaml), the node has no namespace, so the default resolved service name is `/reset_bt`.
+- If the launch file remaps `reset_bt`, use the remapped service name instead.
+
+Calling this service rebuilds the behaviour tree from the installed XML and replaces the in-process blackboard. Static BT configuration is re-seeded immediately; runtime entries such as goal, route, lane context, and odometry are repopulated by the next incoming subscriber callbacks.
+
+### From Terminal
+
+```bash
+ros2 service call /world_modeling/reset_bt std_srvs/srv/Trigger "{}"
+```
+
+Standalone launch:
+
+```bash
+ros2 service call /reset_bt std_srvs/srv/Trigger "{}"
+```
+
+### From Foxglove
+
+Use the `Call Service` panel with:
+
+- Service: `/world_modeling/reset_bt`
+- Type: `std_srvs/srv/Trigger`
+- Request:
+
+```json
+{}
+```
+
 ## Intersection Notes
 
 - `traffic_sign` regulatory elements are normalized into BT-level `STOP_SIGN` / `YIELD` types via `behaviour/utils/lanelet.hpp`.
