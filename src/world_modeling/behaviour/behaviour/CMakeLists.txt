@@ -123,9 +123,15 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY config launch trees
+install(DIRECTORY config trees
   DESTINATION share/${PROJECT_NAME}
 )
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/launch")
+  install(DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}
+  )
+endif()
 
 # ══════════════════════════════════════════════════════════════════════
 # Testing
