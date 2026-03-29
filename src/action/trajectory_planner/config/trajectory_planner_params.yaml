@@ -13,13 +13,13 @@ trajectory_planner_node:
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    safe_distance: 10.0  # Distance (m) where slowing down begins
-    stop_distance: 2.0   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    safe_distance: 2.0  # Distance (m) where slowing down begins
+    stop_distance: 0.1   # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
     max_speed: 20.0  # Default maximum speed (m/s) if lanelet limit unavailable
-    max_tangential_accel: 1.5  # Max tangential acceleration (m/s^2)
-    max_lateral_accel: 2.0 # Max lateral acceleration (m/s^2) to slow down in curves
+    max_tangential_accel: 1.0  # Max tangential acceleration (m/s^2)
+    max_lateral_accel: 0.5 # Max lateral acceleration (m/s^2) to slow down in curves
 
     # Path interpolation
     interpolation_resolution: 0.1  # Resolution (m) for path interpolation
