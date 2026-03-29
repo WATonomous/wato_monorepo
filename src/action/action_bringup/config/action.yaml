@@ -81,11 +81,11 @@
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    safe_distance: 3.0  # Distance (m) where slowing down begins
+    safe_distance: 5.0  # Distance (m) where slowing down begins
     stop_distance: 0.3  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
-    max_speed: 20.0  # Default maximum speed (m/s) if lanelet limit unavailable
+    max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
     max_tangential_accel: 2.5  # Max tangential acceleration (m/s^2)
     max_lateral_accel: 1.0  # Max lateral acceleration (m/s^2) to slow down in curves
 
@@ -141,7 +141,7 @@
     min_lookahead_distance: 2.5
     lookahead_gain: 2.5
     steering_angle_gain: 0.7
-    max_speed: 2.5
+    max_speed: 4.0
     min_speed: 1.0
     standby_speed: -0.5
     standby_steering: 0.0
