@@ -30,6 +30,9 @@
     base_frame: "base_footprint"
     utm_frame: "utm"
 
+    # Map visualization
+    map_viz_mode: "all"
+
     # Entity tracking
     entity_history_duration_sec: 5.0
     entity_prune_timeout_sec: 2.0
