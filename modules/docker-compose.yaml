@@ -214,7 +214,7 @@ services:
         - "${WORLD_MODELING_IMAGE}:main"
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
-    command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.yaml"
+    command: /bin/bash -c "ros2 launch world_modeling_bringup world_model_sim.launch.yaml use_sim_time:=true"
     volumes:
       - ${MONO_DIR}/maps:/opt/watonomous/maps
     environment:
