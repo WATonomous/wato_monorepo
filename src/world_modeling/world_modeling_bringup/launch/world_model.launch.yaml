@@ -38,7 +38,7 @@ launch:
 
   - arg:
       name: log_bt
-      default: "debug"
+      default: "info"
       description: Log level for behaviour_node
 
   # ---- Autonomy stack (localization mode only) ----
