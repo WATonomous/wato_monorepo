@@ -159,6 +159,14 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3 & initial_pose)
     initial_pose.rotation().yaw() * 180.0 / M_PI,
     submap_source_.c_str(),
     add_factors_);
+  // Reset incremental odom state so it initializes fresh after relocalization
+  first_scan_.store(true);
+  has_prev_incremental_ = false;
+  has_last_match_ = false;
+  has_last_factor_ = false;
+  has_prev_liso_ = false;
+  has_pending_incremental_correction_.store(false, std::memory_order_relaxed);
+
   if (submap_source_ != "prior_map") return;
 
   Eigen::Vector3f pos(
@@ -172,8 +180,6 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3 & initial_pose)
   has_last_match_ = true;
 
   // Seed the lock-free pose outputs so eidos_transform has data immediately
-  // Map pose is in map frame (the relocalized position).
-  // Odom pose starts at identity — map→odom absorbs the global offset.
   setMapPose(initial_pose);
   setOdomPose(gtsam::Pose3());
 
@@ -392,7 +398,11 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     return;
   }
 
-  if (submap_stale_.load()) return;
+  if (submap_stale_.load()) {
+    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+      "[%s] submap is stale, skipping scan", name_.c_str());
+    return;
+  }
 
   // Initial guess from gyro-integrated rotation
   Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
@@ -412,7 +422,11 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   small_gicp::RegistrationResult result;
   {
     std::shared_lock lock(submap_mtx_);
-    if (!cached_submap_ || !cached_submap_tree_ || cached_submap_->empty()) return;
+    if (!cached_submap_ || !cached_submap_tree_ || cached_submap_->empty()) {
+      RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+        "[%s] no submap available for GICP matching", name_.c_str());
+      return;
+    }
 
     small_gicp::RegistrationSetting setting;
     setting.type = small_gicp::RegistrationSetting::GICP;
@@ -423,7 +437,12 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     result = small_gicp::align(*cached_submap_, *scan, *cached_submap_tree_, init_guess, setting);
   }
 
-  if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) return;
+  if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) {
+    RCLCPP_WARN(node_->get_logger(),
+      "[%s] GICP failed: converged=%d inliers=%zu (min=%d)",
+      name_.c_str(), result.converged, result.num_inliers, min_inliers_);
+    return;
+  }
 
   gtsam::Pose3 matched_pose(
     gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
@@ -676,11 +695,17 @@ void LisoFactor::rebuildSubmap()
   if (state_->load(std::memory_order_acquire) != SlamState::TRACKING) return;
 
   auto key_list = map_manager_->getKeyList();
-  if (key_list.empty()) return;
+  if (key_list.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmap: key_list empty", name_.c_str());
+    return;
+  }
 
   gtsam::Key start_key = key_list.back();
   auto collected_keys = collectRecentStates(start_key, submap_radius_);
-  if (collected_keys.empty()) return;
+  if (collected_keys.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmap: no keys within radius %.1fm", name_.c_str(), submap_radius_);
+    return;
+  }
 
   auto merged = std::make_shared<small_gicp::PointCloud>();
   auto poses_6d = map_manager_->getKeyPoses6D();
@@ -703,7 +728,10 @@ void LisoFactor::rebuildSubmap()
     }
   }
 
-  if (merged->empty()) return;
+  if (merged->empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmap: merged cloud empty after %zu keys", name_.c_str(), collected_keys.size());
+    return;
+  }
 
   auto [submap, submap_tree] =
     small_gicp::preprocess_points(*merged, submap_ds_resolution_, num_neighbors_, num_threads_);
@@ -739,10 +767,16 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f & position)
 {
   auto poses_6d = map_manager_->getKeyPoses6D();
   auto key_list = map_manager_->getKeyList();
-  if (key_list.empty()) return;
+  if (key_list.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmapAtPosition: key_list is empty, no keyframes loaded", name_.c_str());
+    return;
+  }
 
   auto kdtree = map_manager_->getKdTree();
-  if (!kdtree) return;
+  if (!kdtree) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmapAtPosition: KdTree is null", name_.c_str());
+    return;
+  }
 
   PointType search_point;
   search_point.x = position.x();
@@ -782,7 +816,12 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f & position)
     }
   }
 
-  if (merged->empty()) return;
+  if (merged->empty()) {
+    RCLCPP_WARN(node_->get_logger(),
+      "[%s] rebuildSubmapAtPosition: merged cloud is empty after collecting %zu keyframes",
+      name_.c_str(), indices.size());
+    return;
+  }
 
   auto [submap, submap_tree] =
     small_gicp::preprocess_points(*merged, submap_ds_resolution_, num_neighbors_, num_threads_);

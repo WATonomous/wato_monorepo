@@ -30,6 +30,7 @@
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 #include "behaviour/nodes/common/actions/get_area_occupancy_service.hpp"
 #include "behaviour/nodes/common/actions/get_area_occupancy_subscriber.hpp"
+#include "behaviour/nodes/common/actions/get_forward_lanelet_action.hpp"
 #include "behaviour/nodes/common/actions/get_lanelet_by_id_action.hpp"
 #include "behaviour/nodes/common/actions/get_lanelet_by_relation_action.hpp"
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
@@ -40,15 +41,18 @@
 #include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
 
 // conditions
+#include "behaviour/nodes/common/conditions/empty_lanelets_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_lanelet_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_route_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
+#include "behaviour/nodes/common/conditions/empty_lanelets_condition.hpp"
 #include "behaviour/nodes/common/conditions/global_route_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_lanelet_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/goal_reached_condition.hpp"
 #include "behaviour/nodes/common/conditions/is_area_occupied_condition.hpp"
 #include "behaviour/nodes/common/conditions/is_error_message_condition.hpp"
+#include "behaviour/nodes/common/conditions/is_lanelet_turn_direction_condition.hpp"
 #include "behaviour/nodes/common/conditions/wall_exist_condition.hpp"
 #include "behaviour/nodes/common/conditions/world_objects_contains_condition.hpp"
 
@@ -87,6 +91,8 @@ public:
     factory.registerNodeType<behaviour::SpawnWallService>("SpawnWall", spawn_wall_params);
     factory.registerNodeType<behaviour::DespawnWallService>("DespawnWall", despawn_wall_params);
     factory.registerNodeType<behaviour::GetLaneletByIdAction>("GetLaneletById", logger_.get_child("GetLaneletById"));
+    factory.registerNodeType<behaviour::GetForwardLaneletAction>(
+      "GetForwardLanelet", logger_.get_child("GetForwardLanelet"));
     factory.registerNodeType<behaviour::GetLaneletByRelationAction>(
       "GetLaneletByRelation", logger_.get_child("GetLaneletByRelation"));
 
@@ -103,6 +109,7 @@ public:
     factory.registerNodeType<behaviour::GoalExistCondition>("GoalExist", logger_.get_child("GoalExist"));
     factory.registerNodeType<behaviour::GoalLaneletExistCondition>(
       "GoalLaneletExist", logger_.get_child("GoalLaneletExist"));
+    factory.registerNodeType<behaviour::EmptyLaneletsCondition>("EmptyLanelets", logger_.get_child("EmptyLanelets"));
     factory.registerNodeType<behaviour::GlobalRouteExistCondition>(
       "GlobalRouteExist", logger_.get_child("GlobalRouteExist"));
     factory.registerNodeType<behaviour::EgoOnRouteCondition>("EgoOnRoute", logger_.get_child("EgoOnRoute"));
@@ -111,6 +118,8 @@ public:
     factory.registerNodeType<behaviour::IsAreaOccupiedCondition>("IsAreaOccupied", logger_.get_child("IsAreaOccupied"));
     factory.registerNodeType<behaviour::WorldObjectsContainsCondition>(
       "WorldObjectsContains", logger_.get_child("WorldObjectsContains"));
+    factory.registerNodeType<behaviour::IsLaneletTurnDirectionCondition>(
+      "IsLaneletTurnDirection", logger_.get_child("IsLaneletTurnDirection"));
 
     // decorators
     factory.registerNodeType<behaviour::RateController>("RateController");

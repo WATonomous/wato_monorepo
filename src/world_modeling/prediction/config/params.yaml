@@ -91,8 +91,8 @@ prediction_node:
     # Lanelet matching
     # ==========================================================================
     lanelet_match_max_distance: 10.0    # meters — skip centerline points farther
-    heading_penalty_weight: 3.0         # weight on heading_diff in matching score
-    heading_rejection_threshold: 1.047  # radians (~60°, π/3) — reject wrong-way
+    heading_penalty_weight: 1.0         # weight on heading_diff in matching score
+    heading_rejection_threshold: 2.094  # radians (~120°, 2π/3) — reject reversed vehicles only
 
     # ==========================================================================
     # Curvature-aware scoring adjustments
@@ -106,7 +106,7 @@ prediction_node:
     # ==========================================================================
     # Geometric scoring (Gaussian model)
     # ==========================================================================
-    heading_score_denominator: 0.2      # denominator in heading Gaussian
+    heading_score_denominator: 1.0      # denominator in heading Gaussian
     lateral_score_denominator: 4.0      # denominator in lateral Gaussian
 
     # ==========================================================================
@@ -146,7 +146,7 @@ prediction_node:
     lateral_offset_threshold: 0.25         # meters — offset for directional boost/suppress
     lateral_offset_boost: 1.25             # multiplier when offset favors this direction
     lateral_offset_suppress: 0.6           # multiplier when offset opposes this direction
-    heading_weight_for_lane_change: 0.4    # reduce heading influence for LC scoring
+    heading_weight_for_lane_change: 0.2    # reduce heading influence for LC scoring
     lane_change_completion_boost: 1.5      # inertia boost when continuing same LC
     lane_change_direction_switch_suppress: 0.1  # suppress contradictory LC direction
     lane_change_blend_count: 5             # interpolation points in LC path transition
