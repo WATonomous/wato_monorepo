@@ -1,4 +1,6 @@
-# action.launch.yaml
+# action_mpc.launch.yaml
+# Same pipeline as action.launch.yaml but with MPC controller instead of pure pursuit.
+# Switch between controllers by launching this file vs action.launch.yaml.
 
 launch:
   - arg:
@@ -64,9 +66,9 @@ launch:
           to: "/action/lattice_planning/available_paths"
 
   - node:
-      pkg: ackermann_pure_pursuit
-      exec: pure_pursuit_node
-      name: pure_pursuit_node
+      pkg: mpc_controller
+      exec: mpc_controller_node
+      name: mpc_controller_node
       namespace: "action"
       output: screen
       param:
@@ -82,6 +84,8 @@ launch:
         # Publishers
         - from: "ackermann"
           to: "/action/ackermann"
+        - from: "predicted_path"
+          to: "/action/mpc/predicted_path"
 
   # Lifecycle Manager
   - node:
@@ -92,9 +96,10 @@ launch:
       param:
         - name: "node_names"
           value:
+            - /action/lattice_planning/local_planner_node
             - /action/trajectory_planning/trajectory_planner_node
             - /action/lattice_planning/lattice_planning_node
-            - /action/pure_pursuit_node
+            - /action/mpc_controller_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

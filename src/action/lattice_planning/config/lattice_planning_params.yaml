@@ -17,14 +17,14 @@ action:
         cost_function:
           lateral_movement_weight: 2.0
           physical_limits_weight: 4.0
-          preferred_lane_cost: 20.0
+          preferred_lane_cost: 100.0
           unknown_occupancy_cost: 50.0
           max_curvature_change: 0.1
 
         # -  Corridor  -
-        num_horizons: 3
+        num_horizons: 4
         # must be same length as specified above
-        lookahead_distances: [10.0, 15.0, 20.0]  # meters
+        lookahead_distances: [5.0, 10.0, 15.0, 20.0]  # meters
 
         # -  Path Generation  -
         path_gen:
