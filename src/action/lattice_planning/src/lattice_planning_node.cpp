@@ -14,12 +14,12 @@
 
 #include "lattice_planning/lattice_planning_node.hpp"
 
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <chrono>
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
@@ -29,7 +29,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("local_planner_node", options)
+: rclcpp_lifecycle::LifecycleNode("lattice_planning_node", options)
 {
   RCLCPP_INFO(this->get_logger(), "Lattice Planner ROS 2 lifecycle node created");
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
