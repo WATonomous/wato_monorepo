@@ -36,6 +36,11 @@ launch:
       default: "false"
       description: Enable bond-based crash detection
 
+  - arg:
+      name: log_bt
+      default: "info"
+      description: Log level for behaviour_node
+
   # ---- Autonomy stack (localization mode only) ----
 
   # Prediction - generates trajectory hypotheses for tracked objects
@@ -235,12 +240,15 @@ launch:
       name: behaviour_node
       namespace: "world_modeling"
       output: screen
-      launch-prefix: "bash -c 'sleep 15; $0 $@'"
       param:
         - from: $(find-pkg-share behaviour)/config/params.yaml
+      ros_args: "--log-level world_modeling.behaviour_node:=$(var log_bt)"
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
+          # reset behaviour tree service
+        - from: reset_bt
+          to: reset_bt
         - from: route_ahead
           to: lanelet/route_ahead
         - from: lane_context

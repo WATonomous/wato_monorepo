@@ -37,14 +37,14 @@ launch:
       description: Enable bond-based crash detection
 
   - arg:
+      name: log_bt
+      default: "info"
+      description: Log level for behaviour_node
+
+  - arg:
       name: use_sim_time
       default: "true"
       description: Use simulation time from /clock topic
-
-  - arg:
-      name: log_behaviour_node
-      default: "info"
-      description: Log level for behaviour_node
 
   # Prediction - generates trajectory hypotheses for tracked objects
   - node:
@@ -235,10 +235,13 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share behaviour)/config/params.yaml
-      ros_args: "--log-level world_modeling.behaviour_node:=$(var log_behaviour_node)"
+      ros_args: "--log-level world_modeling.behaviour_node:=$(var log_bt)"
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
+          # reset behaviour tree service
+        - from: reset_bt
+          to: reset_bt
         - from: speed_behaviour
           to: /behaviour/speed_behaviour
         - from: route_ahead
