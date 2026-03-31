@@ -95,7 +95,7 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel linearize - zero state
   CHECK(lin.A(1, 1) == Catch::Approx(1.0).margin(1e-10));
   CHECK(lin.A(2, 2) == Catch::Approx(1.0).margin(1e-10));
   CHECK(lin.A(3, 3) == Catch::Approx(1.0).margin(1e-10));
-  CHECK(lin.A(0, 3) == Catch::Approx(dt).margin(1e-10));   // cos(0) * dt
+  CHECK(lin.A(0, 3) == Catch::Approx(dt).margin(1e-10));  // cos(0) * dt
   CHECK(lin.A(1, 3) == Catch::Approx(0.0).margin(1e-10));  // sin(0) * dt
 
   // B should be near-zero except Bc(3,1) = 1 -> B_d(3,1) = dt
