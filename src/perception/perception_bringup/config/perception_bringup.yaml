@@ -207,8 +207,8 @@ multi_camera_sync:
 
     # --- Euclidean clustering (3D proposals from point cloud) ---
     euclid_params:
-      cluster_tolerance: 0.30
-      min_cluster_size: 20
+      cluster_tolerance: 0.40
+      min_cluster_size: 10
       max_cluster_size: 600
       use_adaptive_clustering: true
       close_threshold: 5.0
@@ -217,8 +217,8 @@ multi_camera_sync:
       # Distance-band overrides for adaptive clustering.
       clustering_bands:
         max_distances: [8.0, 20.0, 40.0, 999.0]
-        tolerance_mults: [1.0, 0.8, 1.2, 1.5]
-        min_cluster_sizes: [15, 12, 10, 8]
+        tolerance_mults: [1.0, 1.0, 1.5, 2.5]
+        min_cluster_sizes: [10, 6, 3, 2]
 
     # --- Merge behavior ---
     merge_threshold: 0.15
@@ -233,22 +233,22 @@ multi_camera_sync:
       min_bev_box_iou_no_class: 0.20
 
     # --- Global detection gates ---
-    object_detection_confidence: 0.42
-    voxel_size: 0.20
+    object_detection_confidence: 0.2
+    voxel_size: 0.10
 
     # --- Quality filtering of 3D boxes ---
     quality_filter_params:
       max_distance: 60.0
-      min_points: 5
-      min_height: 0.15
-      min_points_default: 8
-      min_points_far: 8
-      min_points_medium: 10
-      min_points_large: 30
-      distance_threshold_far: 30.0
-      distance_threshold_medium: 20.0
+      min_points: 1
+      min_height: 0.05
+      min_points_default: 3
+      min_points_far: 1
+      min_points_medium: 2
+      min_points_large: 15
+      distance_threshold_far: 45.0
+      distance_threshold_medium: 30.0
       volume_threshold_large: 8.0
-      min_density: 5.0
+      min_density: 1.5
       max_dimension: 15.0
       max_aspect_ratio: 15.0
 
@@ -301,16 +301,16 @@ multi_camera_sync:
       association_use_point_projection_rect_for_iou: true
 
       # --- Class-aware threshold scaling ---
-      person_inside_fraction_scale: 0.25
+      person_inside_fraction_scale: 0.15
       vehicle_inside_fraction_scale: 0.50
-      person_iou_threshold_scale: 0.05
+      person_iou_threshold_scale: 0.03
       vehicle_iou_threshold_scale: 0.10
       person_ar_consistency_scale: 0.20
 
       # --- Minimum evidence gates ---
       association_min_inside_points: 1
       min_size_consistency_score: 0.05
-      min_det_area_far_px2: 100.0
+      min_det_area_far_px2: 60.0
 
       # --- Association score blending ---
       association_weight_iou: 0.30
@@ -326,10 +326,10 @@ multi_camera_sync:
       # --- Assignment and distance-aware relaxations ---
       min_depth_for_enrichment: 0.1
       use_hungarian_assignment: true
-      far_iou_threshold_scale: 0.3
-      medium_iou_threshold_scale: 0.5
-      far_inside_fraction_scale: 0.3
-      medium_inside_fraction_scale: 0.5
+      far_iou_threshold_scale: 0.2
+      medium_iou_threshold_scale: 0.4
+      far_inside_fraction_scale: 0.2
+      medium_inside_fraction_scale: 0.4
 
       # --- Class-specific quality limits ---
       quality_person_max_height_m: 4.0

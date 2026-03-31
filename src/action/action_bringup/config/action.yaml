@@ -83,11 +83,11 @@
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    stop_distance: 0.5  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    stop_distance: 1.5  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
-    max_tangential_accel: 2.0  # Max tangential acceleration (m/s^2)
+    max_tangential_accel: 1.5  # Max tangential acceleration (m/s^2)
     max_emergency_accel: 2.0  # Max emergency braking deceleration (m/s^2)
     max_lateral_accel: 2.0  # Max lateral acceleration (m/s^2) to slow down in curves
 

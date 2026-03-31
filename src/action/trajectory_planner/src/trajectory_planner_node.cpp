@@ -164,13 +164,12 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_shutdown(const r
 void TrajectoryPlannerNode::path_callback(const nav_msgs::msg::Path::SharedPtr msg)
 {
   latest_path_ = msg;
-  update_trajectory();
 }
 
 void TrajectoryPlannerNode::costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 {
-  // Cache latest costmap; used on the next path callback to check for obstacles
   latest_costmap_ = msg;
+  update_trajectory();
 }
 
 void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
