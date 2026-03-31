@@ -163,9 +163,13 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - stop at zero speed"
   auto config = make_test_config();
   config.max_horizon_steps = 20;
   config.horizon_distance = 25.0;
+  config.max_decel = -6.0;
+  config.max_jerk = 10.0;
+  config.max_solver_iterations = 500;
   MpcCore mpc(config, 2.5);
 
-  auto traj = make_stop_trajectory(30.0, 0.5, 5.0, 15.0);
+  // Gentle stop: ramp from 5 m/s to 0 over 20m with a long trajectory
+  auto traj = make_stop_trajectory(40.0, 0.5, 5.0, 20.0);
   StateVec state;
   state << 0.0, 0.0, 0.0, 5.0;
 
