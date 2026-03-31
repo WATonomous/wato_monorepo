@@ -27,6 +27,9 @@ namespace mpc_controller
 MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("mpc_controller_node", options)
 , last_trajectory_time_(0, 0, RCL_ROS_TIME)
+, current_speed_(0.0)
+, prev_steering_(0.0)
+, prev_accel_(0.0)
 {
   // Topic params
   declare_parameter("trajectory_topic", "trajectory");

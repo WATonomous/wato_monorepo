@@ -36,7 +36,11 @@ static double normalize_angle(double angle)
 }
 
 MpcCore::MpcCore(const MpcConfig & config, double wheelbase)
-: config_(config), model_(wheelbase)
+: config_(config),
+  model_(wheelbase),
+  solver_initialized_(false),
+  prev_N_(0),
+  has_prev_solution_(false)
 {}
 
 std::vector<ReferencePoint> MpcCore::sample_reference(
@@ -106,7 +110,7 @@ MpcSolution MpcCore::solve(
   double prev_steering,
   double prev_accel)
 {
-  MpcSolution result;
+  MpcSolution result{0.0, 0.0, 0.0, false, {}};
   if (reference.size() < 2) {
     return result;
   }
