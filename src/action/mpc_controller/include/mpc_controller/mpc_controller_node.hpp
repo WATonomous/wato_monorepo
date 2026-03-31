@@ -16,9 +16,11 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
+#include "mpc_controller/mpc_core.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -27,8 +29,6 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
-
-#include "mpc_controller/mpc_core.hpp"
 
 namespace mpc_controller
 {

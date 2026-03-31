@@ -14,12 +14,12 @@
 
 #pragma once
 
-#include <memory>
-#include <vector>
+#include <OsqpEigen/OsqpEigen.h>
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
-#include <OsqpEigen/OsqpEigen.h>
+#include <memory>
+#include <vector>
 
 #include "mpc_controller/bicycle_model.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
@@ -184,8 +184,7 @@ public:
    * @return Sampled reference points. Returns fewer than 2 if trajectory is too short.
    */
   std::vector<ReferencePoint> sample_reference(
-    const wato_trajectory_msgs::msg::Trajectory & trajectory,
-    const StateVec & current_state) const;
+    const wato_trajectory_msgs::msg::Trajectory & trajectory, const StateVec & current_state) const;
 
   /**
    * @brief Solve MPC for the optimal control action.

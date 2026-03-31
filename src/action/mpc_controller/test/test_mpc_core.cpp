@@ -23,10 +23,45 @@
 namespace wato
 {
 
-using namespace mpc_controller;
+using mpc_controller::MpcConfig;
+using mpc_controller::MpcCore;
+using mpc_controller::StateVec;
 
-static wato_trajectory_msgs::msg::Trajectory make_straight_trajectory(
-  double length, double spacing, double speed)
+// Returns a fully-populated MpcConfig with reasonable test defaults.
+static MpcConfig make_test_config()
+{
+  MpcConfig config{};
+  config.horizon_distance = 20.0;
+  config.point_spacing = 1.0;
+  config.max_horizon_steps = 15;
+
+  config.w_lateral = 50.0;
+  config.w_heading = 20.0;
+  config.w_progress = 5.0;
+  config.w_steering = 1.0;
+  config.w_accel = 1.0;
+  config.w_dsteering = 100.0;
+  config.w_daccel = 50.0;
+  config.w_terminal = 5.0;
+
+  config.max_steering_angle = 0.5;
+  config.max_accel = 2.5;
+  config.max_decel = -4.0;
+  config.max_speed = 10.0;
+
+  config.max_steering_rate = 0.3;
+  config.max_jerk = 5.0;
+
+  config.dt_min = 0.5;
+  config.max_solver_iterations = 200;
+  config.solver_eps_abs = 1e-3;
+  config.solver_eps_rel = 1e-3;
+  config.warm_start = true;
+
+  return config;
+}
+
+static wato_trajectory_msgs::msg::Trajectory make_straight_trajectory(double length, double spacing, double speed)
 {
   wato_trajectory_msgs::msg::Trajectory traj;
   for (double x = 0.0; x <= length; x += spacing) {
@@ -62,8 +97,7 @@ static wato_trajectory_msgs::msg::Trajectory make_stop_trajectory(
 
 TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore sample_reference - basic", "[mpc]")
 {
-  MpcConfig config;
-  config.point_spacing = 1.0;
+  auto config = make_test_config();
   config.max_horizon_steps = 10;
   config.horizon_distance = 15.0;
   MpcCore mpc(config, 2.5);
@@ -86,14 +120,7 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore sample_reference - basic", 
 
 TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - straight line tracking", "[mpc]")
 {
-  MpcConfig config;
-  config.point_spacing = 1.0;
-  config.max_horizon_steps = 15;
-  config.horizon_distance = 20.0;
-  config.w_lateral = 50.0;
-  config.w_heading = 20.0;
-  config.w_progress = 5.0;
-  config.max_speed = 10.0;
+  auto config = make_test_config();
   MpcCore mpc(config, 2.5);
 
   auto traj = make_straight_trajectory(30.0, 0.5, 5.0);
@@ -114,11 +141,7 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - straight line track
 
 TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - speed limit enforcement", "[mpc]")
 {
-  MpcConfig config;
-  config.point_spacing = 1.0;
-  config.max_horizon_steps = 15;
-  config.horizon_distance = 20.0;
-  config.max_speed = 10.0;
+  auto config = make_test_config();
   MpcCore mpc(config, 2.5);
 
   auto traj = make_straight_trajectory(30.0, 0.5, 3.0);  // speed limit is 3.0
@@ -137,11 +160,9 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - speed limit enforce
 
 TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - stop at zero speed", "[mpc]")
 {
-  MpcConfig config;
-  config.point_spacing = 1.0;
+  auto config = make_test_config();
   config.max_horizon_steps = 20;
   config.horizon_distance = 25.0;
-  config.max_speed = 10.0;
   MpcCore mpc(config, 2.5);
 
   auto traj = make_stop_trajectory(30.0, 0.5, 5.0, 15.0);

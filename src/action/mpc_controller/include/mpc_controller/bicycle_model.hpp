@@ -89,7 +89,10 @@ public:
   LinearizedModel linearize(const StateVec & x_ref, const ControlVec & u_ref, double dt) const;
 
   /// @brief Get the wheelbase used by this model.
-  double wheelbase() const { return wheelbase_; }
+  double wheelbase() const
+  {
+    return wheelbase_;
+  }
 
 private:
   // Front-to-rear axle distance in meters

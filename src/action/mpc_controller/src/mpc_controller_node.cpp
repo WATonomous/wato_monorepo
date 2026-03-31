@@ -14,8 +14,12 @@
 
 #include "mpc_controller/mpc_controller_node.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
@@ -85,8 +89,7 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
   declare_parameter("warm_start", true);
 }
 
-MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(
-  const rclcpp_lifecycle::State &)
+MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(const rclcpp_lifecycle::State &)
 {
   // Load topic params
   auto trajectory_topic = get_parameter("trajectory_topic").as_string();
@@ -141,29 +144,23 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(
   core_ = std::make_unique<MpcCore>(config_, wheelbase_);
 
   // Publishers
-  ackermann_pub_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(
-    ackermann_topic, rclcpp::QoS(10));
+  ackermann_pub_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(ackermann_topic, rclcpp::QoS(10));
   idle_pub_ = create_publisher<std_msgs::msg::Bool>(idle_topic, rclcpp::QoS(10));
-  predicted_path_pub_ = create_publisher<nav_msgs::msg::Path>(
-    predicted_path_topic, rclcpp::QoS(10));
+  predicted_path_pub_ = create_publisher<nav_msgs::msg::Path>(predicted_path_topic, rclcpp::QoS(10));
 
   // Subscribers
   trajectory_sub_ = create_subscription<wato_trajectory_msgs::msg::Trajectory>(
-    trajectory_topic, rclcpp::QoS(10),
-    std::bind(&MpcControllerNode::trajectory_callback, this, std::placeholders::_1));
+    trajectory_topic, rclcpp::QoS(10), std::bind(&MpcControllerNode::trajectory_callback, this, std::placeholders::_1));
   bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
-    bt_topic, rclcpp::QoS(10),
-    std::bind(&MpcControllerNode::bt_callback, this, std::placeholders::_1));
+    bt_topic, rclcpp::QoS(10), std::bind(&MpcControllerNode::bt_callback, this, std::placeholders::_1));
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-    odom_topic, rclcpp::QoS(10),
-    std::bind(&MpcControllerNode::odom_callback, this, std::placeholders::_1));
+    odom_topic, rclcpp::QoS(10), std::bind(&MpcControllerNode::odom_callback, this, std::placeholders::_1));
 
   RCLCPP_INFO(get_logger(), "Configured: MPC control at %.1f Hz", control_rate_hz_);
   return CallbackReturn::SUCCESS;
 }
 
-MpcControllerNode::CallbackReturn MpcControllerNode::on_activate(
-  const rclcpp_lifecycle::State &)
+MpcControllerNode::CallbackReturn MpcControllerNode::on_activate(const rclcpp_lifecycle::State &)
 {
   ackermann_pub_->on_activate();
   idle_pub_->on_activate();
@@ -178,8 +175,7 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_activate(
   return CallbackReturn::SUCCESS;
 }
 
-MpcControllerNode::CallbackReturn MpcControllerNode::on_deactivate(
-  const rclcpp_lifecycle::State &)
+MpcControllerNode::CallbackReturn MpcControllerNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
   control_timer_.reset();
   ackermann_pub_->on_deactivate();
@@ -190,8 +186,7 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_deactivate(
   return CallbackReturn::SUCCESS;
 }
 
-MpcControllerNode::CallbackReturn MpcControllerNode::on_cleanup(
-  const rclcpp_lifecycle::State &)
+MpcControllerNode::CallbackReturn MpcControllerNode::on_cleanup(const rclcpp_lifecycle::State &)
 {
   ackermann_pub_.reset();
   idle_pub_.reset();
@@ -208,8 +203,7 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_cleanup(
   return CallbackReturn::SUCCESS;
 }
 
-MpcControllerNode::CallbackReturn MpcControllerNode::on_shutdown(
-  const rclcpp_lifecycle::State &)
+MpcControllerNode::CallbackReturn MpcControllerNode::on_shutdown(const rclcpp_lifecycle::State &)
 {
   control_timer_.reset();
   ackermann_pub_.reset();
@@ -225,21 +219,18 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_shutdown(
   return CallbackReturn::SUCCESS;
 }
 
-void MpcControllerNode::trajectory_callback(
-  const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg)
+void MpcControllerNode::trajectory_callback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg)
 {
   latest_trajectory_ = msg;
   last_trajectory_time_ = now();
 }
 
-void MpcControllerNode::odom_callback(
-  const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
+void MpcControllerNode::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
 {
   current_speed_ = msg->twist.twist.linear.x;
 }
 
-void MpcControllerNode::bt_callback(
-  const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
+void MpcControllerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
 {
   bt_requested_behaviour_ = msg->behaviour;
 }
@@ -250,8 +241,7 @@ void MpcControllerNode::control_callback()
 
   // Idle checks (same logic as pure pursuit)
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
-                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ ||
-                 bt_requested_behaviour_.empty();
+                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour_.empty();
 
   if (is_idle || (!disable_standby_ && bt_requested_behaviour_ == standby_msg_)) {
     idle_msg.data = true;
@@ -270,13 +260,16 @@ void MpcControllerNode::control_callback()
     current_state(0) = tf.transform.translation.x;
     current_state(1) = tf.transform.translation.y;
     const auto & q = tf.transform.rotation;
-    current_state(2) = std::atan2(
-      2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+    current_state(2) = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
     current_state(3) = current_speed_;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000,
-      "Cannot get vehicle pose from TF (map -> %s): %s", base_frame_.c_str(), ex.what());
+      get_logger(),
+      *get_clock(),
+      2000,
+      "Cannot get vehicle pose from TF (map -> %s): %s",
+      base_frame_.c_str(),
+      ex.what());
     return;
   }
 
@@ -304,14 +297,12 @@ void MpcControllerNode::control_callback()
       publish_predicted_path(solution.predicted_states);
     }
   } else {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 1000, "MPC solver failed, holding previous command");
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "MPC solver failed, holding previous command");
     publish_ackermann(base_frame_, std::max(0.0, current_speed_ + prev_accel_ * 0.05), prev_steering_);
   }
 }
 
-void MpcControllerNode::publish_ackermann(
-  const std::string & frame_id, double speed, double steering_angle)
+void MpcControllerNode::publish_ackermann(const std::string & frame_id, double speed, double steering_angle)
 {
   ackermann_msgs::msg::AckermannDriveStamped cmd;
   cmd.header.stamp = now();

@@ -97,10 +97,17 @@ install(DIRECTORY include/
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
 
+  # Bicycle model test only needs the model, not OSQP
+  add_library(bicycle_model_lib STATIC src/bicycle_model.cpp)
+  target_include_directories(bicycle_model_lib PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  )
+  target_link_libraries(bicycle_model_lib PUBLIC Eigen3::Eigen)
+
   add_wato_test(test_bicycle_model
     test/test_bicycle_model.cpp
     LIBRARIES
-      ${PROJECT_NAME}_component
+      bicycle_model_lib
   )
 
   add_wato_test(test_mpc_core

@@ -17,13 +17,13 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace mpc_controller
 {
 
-static double yaw_from_quaternion(
-  double qx, double qy, double qz, double qw)
+static double yaw_from_quaternion(double qx, double qy, double qz, double qw)
 {
   return std::atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz));
 }
@@ -36,16 +36,15 @@ static double normalize_angle(double angle)
 }
 
 MpcCore::MpcCore(const MpcConfig & config, double wheelbase)
-: config_(config),
-  model_(wheelbase),
-  solver_initialized_(false),
-  prev_N_(0),
-  has_prev_solution_(false)
+: config_(config)
+, model_(wheelbase)
+, solver_initialized_(false)
+, prev_N_(0)
+, has_prev_solution_(false)
 {}
 
 std::vector<ReferencePoint> MpcCore::sample_reference(
-  const wato_trajectory_msgs::msg::Trajectory & trajectory,
-  const StateVec & current_state) const
+  const wato_trajectory_msgs::msg::Trajectory & trajectory, const StateVec & current_state) const
 {
   std::vector<ReferencePoint> reference;
   const auto & points = trajectory.points;
@@ -155,10 +154,10 @@ MpcSolution MpcCore::solve_qp(
   // 6. Steering rate: -max_rate*dt <= delta_k - delta_{k-1} for k=0..N-1 (N inequalities)
   // 7. Jerk: -max_jerk*dt <= a_k - a_{k-1} for k=0..N-1 (N inequalities)
 
-  const int n_eq = nx + N * nx;                     // initial + dynamics
-  const int n_speed = N + 1;                         // speed bounds
-  const int n_actuator = N * nu;                     // steering + accel bounds
-  const int n_rate = N * nu;                         // steering rate + jerk
+  const int n_eq = nx + N * nx;  // initial + dynamics
+  const int n_speed = N + 1;  // speed bounds
+  const int n_actuator = N * nu;  // steering + accel bounds
+  const int n_rate = N * nu;  // steering rate + jerk
   const int n_constraints = n_eq + n_speed + n_actuator + n_rate;
 
   // Build Hessian P (sparse, upper triangular)
@@ -397,8 +396,7 @@ MpcSolution MpcCore::solve_qp(
         int src = n_states + std::min(k + 1, prev_N_ - 1) * nu;
         warm_primal.segment(n_states + k * nu, nu) = prev_primal_.segment(src, nu);
       }
-      warm_primal.segment(n_states + (N - 1) * nu, nu) =
-        warm_primal.segment(n_states + std::max(0, N - 2) * nu, nu);
+      warm_primal.segment(n_states + (N - 1) * nu, nu) = warm_primal.segment(n_states + std::max(0, N - 2) * nu, nu);
 
       solver_->setPrimalVariable(warm_primal);
     }

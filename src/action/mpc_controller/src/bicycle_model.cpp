@@ -38,8 +38,7 @@ StateVec BicycleModel::dynamics(const StateVec & x, const ControlVec & u) const
   return x_dot;
 }
 
-LinearizedModel BicycleModel::linearize(
-  const StateVec & x_ref, const ControlVec & u_ref, double dt) const
+LinearizedModel BicycleModel::linearize(const StateVec & x_ref, const ControlVec & u_ref, double dt) const
 {
   const double theta = x_ref(2);
   const double v = x_ref(3);
