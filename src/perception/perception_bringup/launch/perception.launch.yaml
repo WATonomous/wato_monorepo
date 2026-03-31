@@ -54,72 +54,122 @@ launch:
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
 
-  # # Load all 12 camera pipelines into the shared container
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "perception_container"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  # Load all 12 camera pipelines into the shared container (temporarily disabled)
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      arg:
+        - name: "container_name"
+          value: "perception_container"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
 
-  # # Load multi-camera sync into the shared container
-  # - load_composable_node:
-  #     target: perception_container
-  #     composable_node:
-  #       - pkg: camera_sync
-  #         plugin: camera_sync::MultiCameraSyncNode
-  #         name: multi_camera_sync
-  #         namespace: ""
-  #         extra_arg:
-  #           - name: use_intra_process_comms
-  #             value: "true"
-  #         param:
-  #           - from: $(var config_file)
+  # Load multi-camera sync into the shared container
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: camera_sync
+          plugin: camera_sync::MultiCameraSyncNode
+          name: multi_camera_sync
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var config_file)
 
-  # # Load deep object detection into the shared container
-  # - load_composable_node:
-  #     target: perception_container
-  #     composable_node:
-  #       - pkg: deep_object_detection
-  #         plugin: deep_object_detection::DeepObjectDetectionNode
-  #         name: deep_object_detection_node
-  #         namespace: ""
-  #         extra_arg:
-  #           - name: use_intra_process_comms
-  #             value: "true"
-  #         remap:
-  #           - from: "/detections"
-  #             to: "/perception/detections"
-  #           - from: "/image_annotations"
-  #             to: "/perception/image_annotations"
-  #         param:
-  #           - from: $(var config_file)
+  # Load deep object detection into the shared container
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: deep_object_detection
+          plugin: deep_object_detection::DeepObjectDetectionNode
+          name: deep_object_detection_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          remap:
+            - from: "/detections"
+              to: "/perception/detections"
+            - from: "/image_annotations"
+              to: "/perception/image_annotations"
+          param:
+            - from: $(var config_file)
 
-  # # Load 3D tracking into the shared container
-  # - load_composable_node:
-  #     target: perception_container
-  #     composable_node:
-  #       - pkg: tracking
-  #         plugin: TrackingNode
-  #         name: tracking_node
-  #         namespace: "perception"
-  #         param:
-  #           - from: $(var config_file)
-  #         remap:
-  #           - from: input_detections
-  #             to: /perception/detections_3D
-  #           - from: output_tracks
-  #             to: /perception/detections_3D_tracked
+  # Load attribute assigner into the shared container
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: attribute_assigner
+          plugin: wato::perception::attribute_assigner::AttributeAssignerNode
+          name: attribute_assigner_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var config_file)
 
-  # # Lifecycle Manager for detection node (params from perception_bringup.yaml)
-  # - node:
-  #     pkg: wato_lifecycle_manager
-  #     exec: wato_lifecycle_manager_node
-  #     name: detection_lifecycle_manager
-  #     output: screen
-  #     param:
-  #       - from: $(var config_file)
+  # Load 3D tracking into the shared container
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: tracking
+          plugin: TrackingNode
+          name: tracking_node
+          namespace: "perception"
+          param:
+            - from: $(var config_file)
+          remap:
+            - from: input_detections
+              to: /perception/detections_3D
+            - from: output_tracks
+              to: /perception/detections_3D_tracked
+            - from: output_markers
+              to: /perception/tracked_markers
+            - from: output_predictions
+              to: /world_modeling/world_object_seeds
+              
+
+  # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)
+  # Subscribes: multi_camera_info, detections, non_ground_cloud; optional multi_image (compressed) for viz
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: spatial_association
+          plugin: SpatialAssociationNode
+          name: spatial_association_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            # Parameter files are applied in-order; keep bringup last so it overrides
+            # both the node's hardcoded declareIfMissing defaults and package defaults.
+            - from: $(find-pkg-share spatial_association)/config/params.yaml
+            - from: $(var config_file)
+          remap:
+            - from: multi_camera_info
+              to: /multi_camera_sync/multi_camera_info
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_compressed
+            - from: non_ground_cloud
+              to: /perception/non_ground_cloud
+            - from: detections
+              to: /perception/detections_enriched
+            - from: detections_3d_enriched
+              to: /perception/detections_3d_enriched
+            - from: detection_3d
+              to: /perception/detections_3D
+
+  # Lifecycle Manager for detection and attribute_assigner nodes (params from perception_bringup.yaml)
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: detection_lifecycle_manager
+      output: screen
+      param:
+        - from: $(var config_file)
 
   # Lifecycle Manager for patchworkpp and tracking (params from perception_bringup.yaml)
   - node:
