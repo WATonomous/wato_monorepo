@@ -7,3 +7,9 @@ tracking:
     match_thresh: 0.8
     use_maj_cls: true
     output_frame: "map"
+    # Prediction parameters
+    centroid_history_size: 10    # number of past centroids to store per track
+    prediction_time: 5.0         # how far into the future to predict (seconds)
+    prediction_dt: 0.1           # time step between predicted poses (seconds)
+    process_noise: 0.1           # Kalman filter process noise (higher = trust measurements more)
+    measurement_noise: 0.5       # Kalman filter measurement noise (higher = smoother, filters outliers more)
