@@ -187,6 +187,32 @@ void LidarLidarCalibNode::log_results()
     transform_.matrix()(3, 2),
     transform_.matrix()(3, 3));
   RCLCPP_INFO(this->get_logger(), "============================================");
+
+  // Log BOTH directions so the user can pick the correct one for the xacro
+  RCLCPP_INFO(this->get_logger(), "--- URDF xacro copy-paste (parent=%s, child=%s) ---",
+    target_frame_.c_str(), source_frame_.c_str());
+
+  // Option A: direct T_target_source values
+  RCLCPP_INFO(this->get_logger(),
+    "DIRECT (T_%s_%s): <origin xyz=\"%.6f %.6f %.6f\" rpy=\"%.6f %.6f %.6f\"/>",
+    target_frame_.c_str(), source_frame_.c_str(),
+    translation_.x(), translation_.y(), translation_.z(),
+    euler_.x(), euler_.y(), euler_.z());
+
+  // Option B: inverse
+  Eigen::Isometry3d T_inv = transform_.inverse();
+  Eigen::Vector3d inv_t = T_inv.translation();
+  Eigen::Matrix3d inv_r = T_inv.rotation();
+  double inv_roll = std::atan2(inv_r(2, 1), inv_r(2, 2));
+  double inv_pitch = std::asin(-inv_r(2, 0));
+  double inv_yaw = std::atan2(inv_r(1, 0), inv_r(0, 0));
+  RCLCPP_INFO(this->get_logger(),
+    "INVERSE (T_%s_%s): <origin xyz=\"%.6f %.6f %.6f\" rpy=\"%.6f %.6f %.6f\"/>",
+    source_frame_.c_str(), target_frame_.c_str(),
+    inv_t.x(), inv_t.y(), inv_t.z(),
+    inv_roll, inv_pitch, inv_yaw);
+
+  RCLCPP_INFO(this->get_logger(), "--- Compare both against original xacro values to pick the right one ---");
 }
 
 void LidarLidarCalibNode::publish_transform()
