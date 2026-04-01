@@ -61,12 +61,8 @@ public:
 private:
   // path generation functions
   bool point_ahead_of_car(const geometry_msgs::msg::Point & pt);
-  bool is_lane_change_requested() const;
 
   void plan_and_publish_path();
-  void plan_lane_follow();
-  void plan_lane_change();
-  void extend_path_with_centerline(Path & path);
 
   PathPoint create_terminal_point(
     const geometry_msgs::msg::Point & pt,
@@ -76,6 +72,10 @@ private:
 
   std::vector<std::vector<int64_t>> get_id_order(
     int64_t curr_id, const std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> & ll_map);
+
+  // Converts a raw centreline point sequence into PathPoints with heading and curvature.
+  // Used for ego-lane paths that bypass spiral generation.
+  std::vector<PathPoint> centreline_to_path_points(const std::vector<geometry_msgs::msg::Point> & centreline);
 
   // subscriber callbacks
   void lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg);
@@ -93,25 +93,31 @@ private:
 
   // publisher topic names
   std::string final_path_topic, available_paths_topic;
-  double publish_rate_hz_;
-  double min_path_length_;
 
   // parameter structs
   CostFunctionParams cf_params;
 
-  // corridor construction
-  bool lane_follow_mode_ = true;
-  int num_horizons;
-  std::vector<double> lookahead_s_m;  // in metres
-  std::vector<double> lane_change_lookahead_s_m_;
+  // parameter variables
+  double control_rate_hz_;
+
+  // corridor construction (lane-change paths only)
+  int num_lane_switch_horizons;
+  std::vector<double> lane_switch_lookahead_distances;  // in metres
   std::vector<std::pair<PathPoint, int64_t>> corridor_terminals;
 
+  double centreline_horizon;
+  double centreline_velocity_scale;
+
+  // One entry per ego-lane sequence (including fork variants).
+  // Each entry is (centreline_points, terminal_lanelet_id).
+  // Terminal lanelet id is the last lanelet that contributed points, used
+  // as the lane identifier when scoring paths in the costmap.
+  std::vector<std::pair<std::vector<geometry_msgs::msg::Point>, int64_t>> ego_centrelines_;
+
+  std::optional<double> car_tang_velocity;
   std::optional<geometry_msgs::msg::PoseStamped> car_pose;
   std::optional<PathPoint> car_frenet_point;
   std::unordered_map<int64_t, int> preferred_lanelets;
-  std::string bt_behaviour_;
-  std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> cached_lanelets_;
-  int64_t cached_current_lanelet_id_ = -1;
 
   // subscribers
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
@@ -119,10 +125,10 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
 
-  // timers
-  rclcpp::TimerBase::SharedPtr publish_timer_;
-
   // publishers
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<lattice_planning_msgs::msg::PathArray>::SharedPtr available_paths_pub_;
+
+  // timers
+  rclcpp::TimerBase::SharedPtr publish_timer_;
 };

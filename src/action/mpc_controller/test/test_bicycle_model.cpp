@@ -22,7 +22,10 @@
 namespace wato
 {
 
-using namespace mpc_controller;
+using mpc_controller::BicycleModel;
+using mpc_controller::ControlVec;
+using mpc_controller::STATE_DIM;
+using mpc_controller::StateVec;
 
 TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel dynamics - straight line", "[bicycle]")
 {
@@ -51,7 +54,7 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel dynamics - turning", "
   StateVec x_dot = model.dynamics(x, u);
 
   CHECK(x_dot(0) == Catch::Approx(5.0).epsilon(1e-9));  // cos(0)*5
-  CHECK(x_dot(1) == Catch::Approx(0.0).margin(1e-9));   // sin(0)*5
+  CHECK(x_dot(1) == Catch::Approx(0.0).margin(1e-9));  // sin(0)*5
   CHECK(x_dot(2) > 0.0);  // positive yaw rate (turning left with positive delta)
   CHECK(x_dot(3) == Catch::Approx(0.0).margin(1e-9));
 }
@@ -76,7 +79,7 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel linearize - affine ter
   }
 }
 
-TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel linearize - identity at zero", "[bicycle]")
+TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel linearize - zero state structure", "[bicycle]")
 {
   BicycleModel model(2.5);
   StateVec x_ref = StateVec::Zero();
@@ -85,13 +88,20 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "BicycleModel linearize - identity a
 
   auto lin = model.linearize(x_ref, u_ref, dt);
 
-  // At zero state with zero control, A should be identity (v=0, all Jacobians zero)
-  for (int i = 0; i < STATE_DIM; ++i) {
-    for (int j = 0; j < STATE_DIM; ++j) {
-      double expected = (i == j) ? 1.0 : 0.0;
-      CHECK(lin.A(i, j) == Catch::Approx(expected).margin(1e-10));
-    }
-  }
+  // At zero state (theta=0, v=0, delta=0):
+  // Ac(0,3) = cos(0) = 1, Ac(1,3) = sin(0) = 0, all other Ac entries zero
+  // So A_d = I + dt*Ac has A_d(0,3) = dt
+  CHECK(lin.A(0, 0) == Catch::Approx(1.0).margin(1e-10));
+  CHECK(lin.A(1, 1) == Catch::Approx(1.0).margin(1e-10));
+  CHECK(lin.A(2, 2) == Catch::Approx(1.0).margin(1e-10));
+  CHECK(lin.A(3, 3) == Catch::Approx(1.0).margin(1e-10));
+  CHECK(lin.A(0, 3) == Catch::Approx(dt).margin(1e-10));  // cos(0) * dt
+  CHECK(lin.A(1, 3) == Catch::Approx(0.0).margin(1e-10));  // sin(0) * dt
+
+  // B should be near-zero except Bc(3,1) = 1 -> B_d(3,1) = dt
+  CHECK(lin.B(3, 1) == Catch::Approx(dt).margin(1e-10));
+  CHECK(lin.B(0, 0) == Catch::Approx(0.0).margin(1e-10));
+  CHECK(lin.B(2, 0) == Catch::Approx(0.0).margin(1e-10));  // v=0 so no steering effect
 }
 
 }  // namespace wato

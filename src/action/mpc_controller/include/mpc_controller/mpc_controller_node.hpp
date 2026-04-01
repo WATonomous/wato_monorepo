@@ -16,9 +16,11 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
+#include "mpc_controller/mpc_core.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -28,11 +30,25 @@
 #include "tf2_ros/transform_listener.h"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
-#include "mpc_controller/mpc_core.hpp"
-
 namespace mpc_controller
 {
 
+/**
+ * @brief ROS2 lifecycle node that runs the MPC controller.
+ *
+ * Subscribes to a trajectory from the planner, vehicle odometry, and behaviour
+ * tree commands. On each control tick, samples a reference from the trajectory,
+ * solves the MPC QP via MpcCore, and publishes an Ackermann drive command.
+ *
+ * Follows the same lifecycle and idle/standby conventions as PurePursuitNode
+ * so it can be swapped in as a drop-in replacement in the action launch file.
+ *
+ * Lifecycle transitions:
+ *  - on_configure: declares and loads parameters, creates subs/pubs and MpcCore.
+ *  - on_activate: starts the control timer.
+ *  - on_deactivate: stops the control timer.
+ *  - on_cleanup / on_shutdown: releases all resources.
+ */
 class MpcControllerNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -47,52 +63,69 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State &) override;
 
 private:
+  // ---- Callbacks ----
   void trajectory_callback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg);
   void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
   void bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg);
   void control_callback();
 
+  // ---- Publishing helpers ----
   void publish_ackermann(const std::string & frame_id, double speed, double steering_angle);
   void publish_predicted_path(const std::vector<StateVec> & states);
 
+  // ---- MPC ----
+
+  // QP-based trajectory tracking solver
   std::unique_ptr<MpcCore> core_;
+
+  // MPC tuning parameters (populated in on_configure)
   MpcConfig config_;
 
-  // Publishers
+  // ---- Publishers ----
   rclcpp_lifecycle::LifecyclePublisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_pub_;
   rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr idle_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr predicted_path_pub_;
 
-  // Subscribers
+  // ---- Subscribers ----
   rclcpp::Subscription<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_sub_;
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
-  // Timer
+  // ---- Timer ----
   rclcpp::TimerBase::SharedPtr control_timer_;
 
-  // TF
+  // ---- TF ----
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-  // State
+  // ---- Trajectory state ----
   wato_trajectory_msgs::msg::Trajectory::SharedPtr latest_trajectory_;
-  rclcpp::Time last_trajectory_time_;
-  std::string bt_requested_behaviour_;
-  double current_speed_ = 0.0;
-  double prev_steering_ = 0.0;
-  double prev_accel_ = 0.0;
 
-  // Params
+  // Time of last trajectory receive (for idle detection)
+  rclcpp::Time last_trajectory_time_;
+
+  // Latest behaviour command from the behaviour tree
+  std::string bt_requested_behaviour_;
+
+  // Latest longitudinal speed from odometry (m/s)
+  double current_speed_;
+
+  // Previous steering command sent (for MPC rate constraint)
+  double prev_steering_;
+
+  // Previous acceleration command sent (for MPC jerk constraint)
+  double prev_accel_;
+
+  // ---- Parameters (loaded in on_configure) ----
   std::string base_frame_;
   std::string standby_msg_;
-  double standby_speed_ = 0.0;
-  double standby_steering_ = 0.0;
-  double control_rate_hz_ = 20.0;
-  double wheelbase_ = 2.5667;
-  double idle_timeout_sec_ = 2.0;
-  bool invert_steering_ = false;
-  bool disable_standby_ = false;
+  double standby_speed_;
+  double standby_steering_;
+  double control_rate_hz_;
+  double wheelbase_;
+  double idle_timeout_sec_;
+  bool invert_steering_;
+  bool disable_standby_;
 };
 
 }  // namespace mpc_controller

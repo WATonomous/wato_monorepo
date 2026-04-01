@@ -19,9 +19,10 @@
 namespace mpc_controller
 {
 
-// State: [x, y, theta, v]
-// Control: [delta (steering angle), a (acceleration)]
+// State vector dimension: [x, y, theta, v]
 constexpr int STATE_DIM = 4;
+
+// Control vector dimension: [delta (steering angle), a (acceleration)]
 constexpr int CONTROL_DIM = 2;
 
 using StateVec = Eigen::Matrix<double, STATE_DIM, 1>;
@@ -29,28 +30,72 @@ using ControlVec = Eigen::Matrix<double, CONTROL_DIM, 1>;
 using StateMat = Eigen::Matrix<double, STATE_DIM, STATE_DIM>;
 using InputMat = Eigen::Matrix<double, STATE_DIM, CONTROL_DIM>;
 
+/**
+ * @brief Result of linearizing the bicycle model at an operating point.
+ *
+ * Represents the discrete-time affine system:
+ *   x_{k+1} = A * x_k + B * u_k + g
+ */
 struct LinearizedModel
 {
-  StateMat A;    // Discrete state transition matrix
-  InputMat B;    // Discrete input matrix
-  StateVec g;    // Affine term from linearization
+  // Discrete state transition matrix
+  StateMat A;
+
+  // Discrete input matrix
+  InputMat B;
+
+  // Affine offset from linearization (captures nonlinearity residual)
+  StateVec g;
 };
 
+/**
+ * @brief Kinematic bicycle model for vehicle motion prediction.
+ *
+ * Models the vehicle as a rigid body with front-axle steering. The rear axle
+ * is the reference point. State is [x, y, theta, v] where theta is heading
+ * and v is longitudinal speed. Control inputs are steering angle and
+ * longitudinal acceleration.
+ *
+ * Used by MpcCore to linearize dynamics at each horizon step for QP
+ * formulation. The model assumes small slip angles (kinematic regime).
+ */
 class BicycleModel
 {
 public:
+  /// @brief Construct with the vehicle's wheelbase (front-to-rear axle distance).
+  /// @param wheelbase Distance between front and rear axles in meters.
   explicit BicycleModel(double wheelbase);
 
-  /// Evaluate nonlinear dynamics: x_dot = f(x, u)
+  /**
+   * @brief Evaluate continuous-time nonlinear dynamics: x_dot = f(x, u).
+   * @param x Current state [x, y, theta, v].
+   * @param u Control input [steering_angle, acceleration].
+   * @return Time derivative of the state vector.
+   */
   StateVec dynamics(const StateVec & x, const ControlVec & u) const;
 
-  /// Linearize around (x_ref, u_ref) and discretize with forward Euler.
-  /// Returns A_d, B_d, g_d such that: x_{k+1} ≈ A_d * x_k + B_d * u_k + g_d
+  /**
+   * @brief Linearize and discretize dynamics around an operating point.
+   *
+   * Computes the Jacobians df/dx and df/du at (x_ref, u_ref), then applies
+   * forward Euler discretization with time step dt.
+   *
+   * @param x_ref State operating point for linearization.
+   * @param u_ref Control operating point for linearization.
+   * @param dt Time step for Euler discretization in seconds.
+   * @return LinearizedModel with A_d, B_d, g_d such that:
+   *         x_{k+1} = A_d * x_k + B_d * u_k + g_d
+   */
   LinearizedModel linearize(const StateVec & x_ref, const ControlVec & u_ref, double dt) const;
 
-  double wheelbase() const { return wheelbase_; }
+  /// @brief Get the wheelbase used by this model.
+  double wheelbase() const
+  {
+    return wheelbase_;
+  }
 
 private:
+  // Front-to-rear axle distance in meters
   double wheelbase_;
 };
 

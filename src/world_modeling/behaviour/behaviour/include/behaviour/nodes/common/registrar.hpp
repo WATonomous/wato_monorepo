@@ -26,6 +26,7 @@
 #include "behaviour/nodes/node_registrar_base.hpp"
 
 // actions
+#include "behaviour/nodes/common/actions/clear_pending_goal_point_action.hpp"
 #include "behaviour/nodes/common/actions/despawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/execute_behaviour_publisher.hpp"
 #include "behaviour/nodes/common/actions/get_area_occupancy_service.hpp"
@@ -36,6 +37,9 @@
 #include "behaviour/nodes/common/actions/get_shortest_route_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_service.hpp"
 #include "behaviour/nodes/common/actions/get_world_objects_subscriber.hpp"
+#include "behaviour/nodes/common/actions/log_failure_action.hpp"
+#include "behaviour/nodes/common/actions/set_new_goal_action.hpp"
+#include "behaviour/nodes/common/actions/set_pending_goal_action.hpp"
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
@@ -95,6 +99,11 @@ public:
       "GetForwardLanelet", logger_.get_child("GetForwardLanelet"));
     factory.registerNodeType<behaviour::GetLaneletByRelationAction>(
       "GetLaneletByRelation", logger_.get_child("GetLaneletByRelation"));
+    factory.registerNodeType<behaviour::ClearPendingGoalPointAction>(
+      "ClearPendingGoalPoint", logger_.get_child("ClearPendingGoalPoint"));
+    factory.registerNodeType<behaviour::LogFailureAction>("LogFailure", logger_.get_child("LogFailure"));
+    factory.registerNodeType<behaviour::SetNewGoalAction>("SetNewGoal", logger_.get_child("SetNewGoal"));
+    factory.registerNodeType<behaviour::SetPendingGoalAction>("SetPendingGoal", logger_.get_child("SetPendingGoal"));
 
     factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", service_params);
     factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", service_params);

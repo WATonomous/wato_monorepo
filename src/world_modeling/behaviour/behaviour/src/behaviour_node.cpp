@@ -166,7 +166,7 @@ void BehaviourNode::reset_callback(
 
 void BehaviourNode::goal_point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg)
 {
-  tree_->updateBlackboard("goal_point", msg);
+  tree_->updateBlackboard("requested_gp", msg);
   RCLCPP_INFO(this->get_logger(), "New goal received: x=%.2f, y=%.2f", msg->point.x, msg->point.y);
 }
 

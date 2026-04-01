@@ -23,11 +23,11 @@
 #include <vector>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/trigger.hpp>
 
 #include "behaviour/behaviour_tree.hpp"
-#include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
