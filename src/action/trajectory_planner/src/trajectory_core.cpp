@@ -92,10 +92,28 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
       double dist_remaining = *obstacle_dist - dist_along_path;
       if (dist_remaining <= config_.stop_distance) {
         target_speed = 0.0;
-      } else if (dist_remaining < config_.safe_distance) {
-        double ratio = (dist_remaining - config_.stop_distance) / (config_.safe_distance - config_.stop_distance);
-        target_speed = std::min(target_speed, effective_max_speed * ratio);
+      } else {
+        double braking_dist = dist_remaining - config_.stop_distance;
+        double comfort_stop_dist = prev_speed * prev_speed / (2.0 * config_.max_tangential_accel);
+
+        double effective_accel = config_.max_tangential_accel;
+        if (comfort_stop_dist > 0.0 && braking_dist < comfort_stop_dist) {
+          double blend = braking_dist / comfort_stop_dist;
+          effective_accel =
+            config_.max_tangential_accel + (1.0 - blend) * (config_.max_emergency_accel - config_.max_tangential_accel);
+        }
+
+        double v_brake = std::sqrt(2.0 * effective_accel * braking_dist);
+        target_speed = std::min(target_speed, v_brake);
       }
+    }
+
+    // Scale speed down for non-lethal costmap costs
+    double yaw = yaw_from_pose(path.poses[i].pose);
+    int8_t cost = get_max_footprint_cost(pos.x, pos.y, yaw, costmap);
+    if (cost > 0 && cost < LETHAL_COST) {
+      double cost_scale = 1.0 - static_cast<double>(cost) / LETHAL_COST;
+      target_speed *= cost_scale;
     }
 
     target_speed = std::clamp(target_speed, 0.0, effective_max_speed);
@@ -176,6 +194,48 @@ std::optional<double> TrajectoryCore::find_first_collision(
   }
 
   return std::nullopt;
+}
+
+int8_t TrajectoryCore::get_max_footprint_cost(
+  double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap) const
+{
+  double map_ox = costmap.info.origin.position.x;
+  double map_oy = costmap.info.origin.position.y;
+  double res = costmap.info.resolution;
+  int w = costmap.info.width;
+  int h = costmap.info.height;
+
+  auto get_cost = [&](double wx, double wy) -> int8_t {
+    int cx = static_cast<int>((wx - map_ox) / res);
+    int cy = static_cast<int>((wy - map_oy) / res);
+    if (cx < 0 || cx >= w || cy < 0 || cy >= h) return 0;
+    return costmap.data[cy * w + cx];
+  };
+
+  double cos_t = std::cos(yaw);
+  double sin_t = std::sin(yaw);
+
+  auto footprint_cost = [&](double lx, double ly) -> int8_t {
+    double wx = x + lx * cos_t - ly * sin_t;
+    double wy = y + lx * sin_t + ly * cos_t;
+    return get_cost(wx, wy);
+  };
+
+  int8_t max_cost = 0;
+
+  // Sample the four corners
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, config_.footprint_y_max));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, config_.footprint_y_min));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_min, config_.footprint_y_max));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_min, config_.footprint_y_min));
+
+  // Sample along the front edge
+  for (double ly = config_.footprint_y_min; ly <= config_.footprint_y_max + 1e-9; ly += res) {
+    double clamped_ly = std::min(ly, config_.footprint_y_max);
+    max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, clamped_ly));
+  }
+
+  return max_cost;
 }
 
 }  // namespace trajectory_planner

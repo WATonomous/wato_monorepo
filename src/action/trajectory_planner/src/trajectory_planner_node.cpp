@@ -41,12 +41,12 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("bt_sub_topic", "execute_behaviour");
 
   // Obstacle avoidance distances
-  declare_parameter("safe_distance", 10.0);
   declare_parameter("stop_distance", 2.0);
 
   // Speed and path resolution
   declare_parameter("max_speed", 20.0);
   declare_parameter("max_tangential_accel", 2.0);
+  declare_parameter("max_emergency_accel", 5.0);
   declare_parameter("max_lateral_accel", 2.0);
   declare_parameter("interpolation_resolution", 0.1);
 
@@ -75,10 +75,10 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
 
   // Build config from declared parameters and construct the planning core
   TrajectoryConfig config;
-  config.safe_distance = get_parameter("safe_distance").as_double();
   config.stop_distance = get_parameter("stop_distance").as_double();
   config.max_speed = get_parameter("max_speed").as_double();
   config.max_tangential_accel = get_parameter("max_tangential_accel").as_double();
+  config.max_emergency_accel = get_parameter("max_emergency_accel").as_double();
   config.max_lateral_accel = get_parameter("max_lateral_accel").as_double();
   config.interpolation_resolution = get_parameter("interpolation_resolution").as_double();
   config.footprint_x_min = get_parameter("footprint_x_min").as_double();
@@ -164,13 +164,12 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_shutdown(const r
 void TrajectoryPlannerNode::path_callback(const nav_msgs::msg::Path::SharedPtr msg)
 {
   latest_path_ = msg;
-  update_trajectory();
 }
 
 void TrajectoryPlannerNode::costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 {
-  // Cache latest costmap; used on the next path callback to check for obstacles
   latest_costmap_ = msg;
+  update_trajectory();
 }
 
 void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
