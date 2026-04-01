@@ -16,6 +16,8 @@
 
 #include <pcl/search/kdtree.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include <algorithm>
 #include <array>
@@ -34,7 +36,7 @@
 #include "utils/cluster_box_utils.hpp"
 #include "utils/hungarian.hpp"
 
-namespace projection_utils
+namespace wato::perception::projection_utils
 {
 
 static ProjectionUtilsParams s_params_{};
@@ -1112,4 +1114,158 @@ vision_msgs::msg::Detection3DArray compute3DDetection(
   return det_arr;
 }
 
-}  // namespace projection_utils
+// ---------------------------------------------------------------------------
+// Cross-camera deduplication
+// ---------------------------------------------------------------------------
+
+void sortUniqueIndicesInPlace(std::vector<int> & v)
+{
+  std::sort(v.begin(), v.end());
+  v.erase(std::unique(v.begin(), v.end()), v.end());
+}
+
+namespace
+{
+size_t sortedIntersectionSize(const std::vector<int> & a, const std::vector<int> & b)
+{
+  size_t i = 0, j = 0, c = 0;
+  while (i < a.size() && j < b.size()) {
+    if (a[i] == b[j]) {
+      ++c;
+      ++i;
+      ++j;
+    } else if (a[i] < b[j]) {
+      ++i;
+    } else {
+      ++j;
+    }
+  }
+  return c;
+}
+
+std::string primaryClassId(const vision_msgs::msg::Detection3D & d)
+{
+  return d.results.empty() ? std::string() : d.results[0].hypothesis.class_id;
+}
+
+double bevDistanceXY(const vision_msgs::msg::Detection3D & a, const vision_msgs::msg::Detection3D & b)
+{
+  const double dx = a.bbox.center.position.x - b.bbox.center.position.x;
+  const double dy = a.bbox.center.position.y - b.bbox.center.position.y;
+  return std::hypot(dx, dy);
+}
+}  // namespace
+
+Aabb2d bevAabbFromBoundingBox3D(const vision_msgs::msg::BoundingBox3D & b)
+{
+  tf2::Quaternion q;
+  tf2::fromMsg(b.center.orientation, q);
+  double roll = 0.0;
+  double pitch = 0.0;
+  double yaw = 0.0;
+  tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+  const double c = std::cos(yaw);
+  const double s = std::sin(yaw);
+  const double cx = b.center.position.x;
+  const double cy = b.center.position.y;
+  const double hx = b.size.x * 0.5;
+  const double hy = b.size.y * 0.5;
+  double minx = std::numeric_limits<double>::infinity();
+  double maxx = -std::numeric_limits<double>::infinity();
+  double miny = std::numeric_limits<double>::infinity();
+  double maxy = -std::numeric_limits<double>::infinity();
+  const double corners[4][2] = {{-hx, -hy}, {hx, -hy}, {hx, hy}, {-hx, hy}};
+  for (const auto & corner : corners) {
+    const double wx = c * corner[0] - s * corner[1];
+    const double wy = s * corner[0] + c * corner[1];
+    minx = std::min(minx, cx + wx);
+    maxx = std::max(maxx, cx + wx);
+    miny = std::min(miny, cy + wy);
+    maxy = std::max(maxy, cy + wy);
+  }
+  return {minx, maxx, miny, maxy};
+}
+
+double bevAabbIou(const Aabb2d & a, const Aabb2d & b)
+{
+  const double ix0 = std::max(a.minx, b.minx);
+  const double ix1 = std::min(a.maxx, b.maxx);
+  const double iy0 = std::max(a.miny, b.miny);
+  const double iy1 = std::min(a.maxy, b.maxy);
+  if (ix1 <= ix0 || iy1 <= iy0) return 0.0;
+  const double inter = (ix1 - ix0) * (iy1 - iy0);
+  const double ua = std::max(0.0, a.maxx - a.minx) * std::max(0.0, a.maxy - a.miny);
+  const double ub = std::max(0.0, b.maxx - b.minx) * std::max(0.0, b.maxy - b.miny);
+  const double uni = ua + ub - inter;
+  return uni > 1e-9 ? inter / uni : 0.0;
+}
+
+bool areCrossCameraDuplicates(
+  const CrossCameraWorkItem & a,
+  const CrossCameraWorkItem & b,
+  double min_overlap,
+  double weak_overlap,
+  double max_center_m,
+  double min_bev_iou,
+  double min_bev_iou_no_class)
+{
+  const std::string ca = primaryClassId(a.det3d);
+  const std::string cb = primaryClassId(b.det3d);
+
+  if (!a.sorted_indices.empty() && !b.sorted_indices.empty()) {
+    const size_t inter = sortedIntersectionSize(a.sorted_indices, b.sorted_indices);
+    const size_t mn = std::min(a.sorted_indices.size(), b.sorted_indices.size());
+    if (mn > 0) {
+      const double ol = static_cast<double>(inter) / static_cast<double>(mn);
+      if (ol >= min_overlap) return true;
+      if (ol >= weak_overlap && !ca.empty() && ca == cb && bevDistanceXY(a.det3d, b.det3d) <= max_center_m) {
+        return true;
+      }
+    }
+  }
+
+  const Aabb2d ra = bevAabbFromBoundingBox3D(a.det3d.bbox);
+  const Aabb2d rb = bevAabbFromBoundingBox3D(b.det3d.bbox);
+  const double biou = bevAabbIou(ra, rb);
+  if (!ca.empty() && ca == cb && biou >= min_bev_iou) return true;
+  if (ca.empty() && cb.empty() && biou >= min_bev_iou_no_class) return true;
+  return false;
+}
+
+void deduplicateCrossCameraWorkItems(
+  std::vector<CrossCameraWorkItem> & items,
+  double min_overlap,
+  double weak_overlap,
+  double max_center_m,
+  double min_bev_iou,
+  double min_bev_iou_no_class)
+{
+  if (items.size() <= 1u) return;
+
+  std::vector<size_t> order(items.size());
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](size_t i, size_t j) { return items[i].score > items[j].score; });
+
+  std::vector<char> suppressed(items.size(), 0);
+  for (size_t oi = 0; oi < order.size(); ++oi) {
+    const size_t i = order[oi];
+    if (suppressed[i]) continue;
+    for (size_t j = 0; j < items.size(); ++j) {
+      if (i == j || suppressed[j]) continue;
+      if (areCrossCameraDuplicates(
+            items[i], items[j], min_overlap, weak_overlap, max_center_m, min_bev_iou, min_bev_iou_no_class))
+      {
+        suppressed[j] = 1;
+      }
+    }
+  }
+
+  std::vector<CrossCameraWorkItem> kept;
+  kept.reserve(items.size());
+  for (size_t i = 0; i < items.size(); ++i) {
+    if (!suppressed[i]) kept.push_back(std::move(items[i]));
+  }
+  items = std::move(kept);
+}
+
+}  // namespace wato::perception::projection_utils

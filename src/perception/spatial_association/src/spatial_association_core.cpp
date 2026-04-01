@@ -18,6 +18,9 @@
 #include <limits>
 #include <vector>
 
+namespace wato::perception::spatial_association
+{
+
 SpatialAssociationCore::SpatialAssociationCore()
 {
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -183,3 +186,5 @@ void SpatialAssociationCore::computeClusterCentroids(
   centroid_cloud->height = 1;
   centroid_cloud->is_dense = true;
 }
+
+}  // namespace wato::perception::spatial_association

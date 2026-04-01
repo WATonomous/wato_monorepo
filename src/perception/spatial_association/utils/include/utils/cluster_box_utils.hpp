@@ -30,7 +30,7 @@
  * Used by @c projection_utils for @c computeClusterBoxes, @c computeClusterStats, and
  * @c mergeClusters. Parameters come from @c projection_utils::getParams() (set via ROS).
  */
-namespace cluster_box
+namespace wato::perception::cluster_box
 {
 
 /** Oriented 3D box from cluster points (xy from search + percentiles, z from percentiles). */
@@ -59,6 +59,6 @@ void applyClassAwareBoxExtension(projection_utils::Box3D & box, const std::strin
 std::vector<projection_utils::ClusterStats> computeClusterStatsBatch(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices);
 
-}  // namespace cluster_box
+}  // namespace wato::perception::cluster_box
 
 #endif  // CLUSTER_BOX_UTILS_HPP

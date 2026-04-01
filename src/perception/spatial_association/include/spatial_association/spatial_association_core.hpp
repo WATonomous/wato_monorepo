@@ -26,6 +26,9 @@
 
 #include "utils/projection_utils.hpp"
 
+namespace wato::perception::spatial_association
+{
+
 /**
  * @brief Core LiDAR clustering, pre-processing, and 3D box computation logic.
  * Used by SpatialAssociationNode for voxel filtering, Euclidean clustering, cluster merging, and 3D box/centroid/color computation.
@@ -146,5 +149,7 @@ private:
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
 };
+
+}  // namespace wato::perception::spatial_association
 
 #endif  // SPATIAL_ASSOCIATION_CORE_HPP

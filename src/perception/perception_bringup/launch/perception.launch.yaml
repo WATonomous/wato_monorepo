@@ -137,7 +137,7 @@ launch:
       target: perception_container
       composable_node:
         - pkg: spatial_association
-          plugin: SpatialAssociationNode
+          plugin: wato::perception::spatial_association::SpatialAssociationNode
           name: spatial_association_node
           namespace: ""
           extra_arg:

@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-namespace cluster_box
+namespace wato::perception::cluster_box
 {
 
 static void getPercentileBounds(
@@ -705,4 +705,4 @@ void applyClassAwareBoxExtension(projection_utils::Box3D & box, const std::strin
   // else: ambiguous viewing angle (near 45°) — don't extend, the fit is the best we have.
 }
 
-}  // namespace cluster_box
+}  // namespace wato::perception::cluster_box

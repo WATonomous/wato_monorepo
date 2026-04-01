@@ -19,7 +19,7 @@
 #include <limits>
 #include <vector>
 
-namespace hungarian
+namespace wato::perception::hungarian
 {
 
 std::vector<std::pair<size_t, size_t>> solve(
@@ -113,4 +113,4 @@ std::vector<std::pair<size_t, size_t>> solve(
   return result;
 }
 
-}  // namespace hungarian
+}  // namespace wato::perception::hungarian

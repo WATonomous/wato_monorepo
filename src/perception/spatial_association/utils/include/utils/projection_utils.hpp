@@ -41,7 +41,7 @@
  * @brief Static utilities for LiDAR-camera projection, clustering, merging, IoU assignment,
  *        3D box fitting, and post-IoU candidate quality filtering.
  */
-namespace projection_utils
+namespace wato::perception::projection_utils
 {
 
 /** 3D oriented bounding box: center, size (length-x, width-y, height-z in box frame), and yaw (rad). */
@@ -468,6 +468,59 @@ vision_msgs::msg::Detection3DArray compute3DDetection(
   const std_msgs::msg::Header & header,
   const vision_msgs::msg::Detection2DArray & detections);
 
-}  // namespace projection_utils
+/** 2D axis-aligned bounding box for BEV deduplication. */
+struct Aabb2d
+{
+  double minx{0.0};
+  double maxx{0.0};
+  double miny{0.0};
+  double maxy{0.0};
+};
+
+/** Work item for cross-camera deduplication: one 3D detection with optional marker and LiDAR indices. */
+struct CrossCameraWorkItem
+{
+  vision_msgs::msg::Detection3D det3d;
+  visualization_msgs::msg::Marker bbox;
+  bool has_bbox{false};
+  std::vector<int> sorted_indices;
+  double score{0.0};
+};
+
+/** Sort and deduplicate an index vector in-place. */
+void sortUniqueIndicesInPlace(std::vector<int> & v);
+
+/** BEV axis-aligned bounding box from an oriented 3D bounding box (projects xy footprint). */
+Aabb2d bevAabbFromBoundingBox3D(const vision_msgs::msg::BoundingBox3D & b);
+
+/** Compute IoU of two 2D AABBs. */
+double bevAabbIou(const Aabb2d & a, const Aabb2d & b);
+
+/**
+ * @brief Check whether two cross-camera work items are duplicates.
+ * Uses LiDAR index overlap, class match, BEV center distance, and BEV box IoU.
+ */
+bool areCrossCameraDuplicates(
+  const CrossCameraWorkItem & a,
+  const CrossCameraWorkItem & b,
+  double min_overlap,
+  double weak_overlap,
+  double max_center_m,
+  double min_bev_iou,
+  double min_bev_iou_no_class);
+
+/**
+ * @brief Suppress duplicate detections across cameras by score-ordered NMS.
+ * Higher-scoring items suppress lower-scoring duplicates (determined by @ref areCrossCameraDuplicates).
+ */
+void deduplicateCrossCameraWorkItems(
+  std::vector<CrossCameraWorkItem> & items,
+  double min_overlap,
+  double weak_overlap,
+  double max_center_m,
+  double min_bev_iou,
+  double min_bev_iou_no_class);
+
+}  // namespace wato::perception::projection_utils
 
 #endif
