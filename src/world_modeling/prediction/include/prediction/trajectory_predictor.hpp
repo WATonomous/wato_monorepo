@@ -355,8 +355,7 @@ private:
    * assumptions.
    */
   std::vector<TrajectoryHypothesis> generatePedestrianHypotheses(
-    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity,
-    std::optional<double> velocity_heading = std::nullopt);
+    const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
 
   /**
    * @brief Generate hypotheses for cyclist objects (hybrid model)
@@ -366,22 +365,14 @@ private:
     const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity);
 
   /**
-   * @brief Velocity estimate from centroid displacement history
-   */
-  struct VelocityEstimate
-  {
-    double speed;    // m/s
-    double heading;  // radians, atan2(dy, dx) of centroid displacement
-  };
-
-  /**
    * @brief Update detection history and compute velocity
    * @param object_id Unique object identifier
    * @param position Current position
    * @param timestamp Current timestamp
-   * @return Computed speed and heading, or nullopt if insufficient history
+   * @return Computed velocity magnitude (m/s), or nullopt if insufficient
+   * history
    */
-  std::optional<VelocityEstimate> updateHistoryAndComputeVelocity(
+  std::optional<double> updateHistoryAndComputeVelocity(
     const std::string & object_id, const geometry_msgs::msg::Point & position, double timestamp);
 
   /**

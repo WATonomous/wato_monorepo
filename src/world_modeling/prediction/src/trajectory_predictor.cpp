@@ -169,18 +169,15 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::buildCvFallback(
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateHypotheses(
   const vision_msgs::msg::Detection3D & detection, double timestamp)
 {
-  auto vel_estimate =
+  std::optional<double> velocity =
     updateHistoryAndComputeVelocity(detection.id, detection.bbox.center.position, timestamp);
-
-  std::optional<double> velocity = vel_estimate ? std::optional<double>(vel_estimate->speed) : std::nullopt;
 
   if (!detection.results.empty()) {
     const std::string & class_id = detection.results[0].hypothesis.class_id;
     if (class_id == "car" || class_id == "truck" || class_id == "bus" || class_id == "vehicle") {
       return generateVehicleHypotheses(detection, velocity);
     } else if (class_id == "pedestrian") {
-      std::optional<double> vel_heading = vel_estimate ? std::optional<double>(vel_estimate->heading) : std::nullopt;
-      return generatePedestrianHypotheses(detection, velocity, vel_heading);
+      return generatePedestrianHypotheses(detection, velocity);
     } else if (class_id == "bicycle") {
       return generateCyclistHypotheses(detection, velocity);
     } else {
@@ -1167,8 +1164,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateGeometricVehicleH
 // =============================================================================
 
 std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypotheses(
-  const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity,
-  std::optional<double> velocity_heading)
+  const vision_msgs::msg::Detection3D & detection, std::optional<double> velocity)
 {
   std::vector<TrajectoryHypothesis> hypotheses;
   hypotheses.reserve(4);
@@ -1186,8 +1182,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generatePedestrianHypothe
   const double start_y = detection.bbox.center.position.y;
   const double start_z = detection.bbox.center.position.z;
 
-  // Use velocity-derived heading when available, fall back to detection orientation
-  const double heading_yaw = velocity_heading.value_or(extractYaw(detection.bbox.center.orientation));
+  const double heading_yaw = extractYaw(detection.bbox.center.orientation);
 
   // Precompute orientation aligned with heading
   geometry_msgs::msg::Quaternion aligned_orientation;
@@ -1384,7 +1379,7 @@ std::vector<TrajectoryHypothesis> TrajectoryPredictor::generateCyclistHypotheses
   return buildCvFallback(state, v, "no lanelet");
 }
 
-std::optional<TrajectoryPredictor::VelocityEstimate> TrajectoryPredictor::updateHistoryAndComputeVelocity(
+std::optional<double> TrajectoryPredictor::updateHistoryAndComputeVelocity(
   const std::string & object_id, const geometry_msgs::msg::Point & position, double timestamp)
 {
   std::lock_guard lock(history_mutex_);
@@ -1422,10 +1417,7 @@ std::optional<TrajectoryPredictor::VelocityEstimate> TrajectoryPredictor::update
   const double dy = curr.position.y - prev.position.y;
   const double dz = curr.position.z - prev.position.z;
 
-  VelocityEstimate est;
-  est.speed = std::sqrt(dx * dx + dy * dy + dz * dz) / dt;
-  est.heading = std::atan2(dy, dx);
-  return est;
+  return std::sqrt(dx * dx + dy * dy + dz * dz) / dt;
 }
 
 std::vector<std::tuple<std::vector<Eigen::Vector2d>, Intent, std::vector<int64_t>>>
