@@ -36,9 +36,9 @@ public:
   /** One distance band for multi-band adaptive clustering. */
   struct ClusteringBand
   {
-    double max_distance;     /**< Upper distance bound (m) for this band. */
-    double tolerance_mult;   /**< Multiplier applied to base cluster tolerance. */
-    int min_cluster_size;    /**< Minimum cluster size for this band. */
+    double max_distance; /**< Upper distance bound (m) for this band. */
+    double tolerance_mult; /**< Multiplier applied to base cluster tolerance. */
+    int min_cluster_size; /**< Minimum cluster size for this band. */
   };
 
   /** Configuration for voxel grid, Euclidean clustering, and merge (quality filter lives in ProjectionUtilsParams). */

@@ -451,9 +451,7 @@ int qualityTieredMinPoints(const ClusterStats & s, const ProjectionUtilsParams &
 }
 
 double computeSizePriorScore(
-  const ClusterStats & stats,
-  const ProjectionUtilsParams::ClassSizePrior & prior,
-  double scale)
+  const ClusterStats & stats, const ProjectionUtilsParams::ClassSizePrior & prior, double scale)
 {
   const double dx = static_cast<double>(stats.max_x - stats.min_x);
   const double dy = static_cast<double>(stats.max_y - stats.min_y);
@@ -735,8 +733,7 @@ void assignCandidatesToDetectionsByIOU(
       if (!g.centroid_ok && g.uvs.empty()) continue;
 
       // Compute cluster distance for distance-adaptive thresholds.
-      const double cluster_dist_2d = std::sqrt(
-        st.centroid.x() * st.centroid.x() + st.centroid.y() * st.centroid.y());
+      const double cluster_dist_2d = std::sqrt(st.centroid.x() * st.centroid.x() + st.centroid.y() * st.centroid.y());
       double effective_min_iou = min_iou;
       double effective_min_inside_frac = params.association_min_inside_point_fraction;
       if (cluster_dist_2d > params.quality_distance_threshold_far) {
@@ -816,9 +813,9 @@ void assignCandidatesToDetectionsByIOU(
         const bool count_ok = static_cast<int>(inside) >= params.association_min_inside_points;
         const bool frac_ok = inside_frac >= det_min_inside_frac;
         if (is_far) {
-          if (!count_ok && !frac_ok) continue;   // OR at far range (lenient)
+          if (!count_ok && !frac_ok) continue;  // OR at far range (lenient)
         } else {
-          if (!count_ok || !frac_ok) continue;    // AND at close/medium range (strict)
+          if (!count_ok || !frac_ok) continue;  // AND at close/medium range (strict)
         }
 
         if (st.num_points < params.quality_min_points) continue;
@@ -843,10 +840,11 @@ void assignCandidatesToDetectionsByIOU(
         const double dist_c = std::hypot(g.centroid_uv.x - det_cx, g.centroid_uv.y - det_cy);
         const double det_scale = std::max(1e-3, params.centroid_score_detection_scale * std::hypot(b.size_x, b.size_y));
         const double centroid_score = std::exp(-dist_c / det_scale);
-        const double point_score =
-          std::min(1.0, std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + params.point_score_saturation_count));
+        const double point_score = std::min(
+          1.0,
+          std::log(1.0 + static_cast<double>(st.num_points)) / std::log(1.0 + params.point_score_saturation_count));
         const double base_score = kAssocWIoU * iou + kAssocWInsideFrac * inside_frac + kAssocWAr * ar_score +
-                                   kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
+                                  kAssocWCentroid * centroid_score + kAssocWPoints * point_score;
 
         // Class-aware size prior penalty: penalize clusters whose 3D dimensions deviate from expectations.
         double sized_score = base_score;
@@ -931,7 +929,7 @@ void assignCandidatesToDetectionsByIOU(
 
     const size_t nr = cand_ids.size();
     const size_t nc = det_ids.size();
-    const double kForbidden = 2.0; // scores are in [0,1], so cost 2.0 = forbidden
+    const double kForbidden = 2.0;  // scores are in [0,1], so cost 2.0 = forbidden
 
     // Build cost matrix: cost = 1.0 - combined_score (forbidden = kForbidden).
     std::vector<double> cost_matrix(nr * nc, kForbidden);

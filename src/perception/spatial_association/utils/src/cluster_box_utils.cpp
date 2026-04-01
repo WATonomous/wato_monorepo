@@ -467,8 +467,7 @@ std::vector<projection_utils::ClusterStats> computeClusterStatsBatch(
  * distance is the best L-shape orientation. This works well when LiDAR sees 1-2 sides of
  * a rectangular object.
  */
-static SearchResult computeLShapedFit(
-  const pcl::PointCloud<pcl::PointXYZ> & pts, const std::vector<int> & indices)
+static SearchResult computeLShapedFit(const pcl::PointCloud<pcl::PointXYZ> & pts, const std::vector<int> & indices)
 {
   const auto & p = projection_utils::getParams();
   SearchResult r;
@@ -571,8 +570,7 @@ static SearchResult computeLShapedFit(
   double cx_rot = 0.5 * (min_x + max_x);
   double cy_rot = 0.5 * (min_y + max_y);
   r.center_xy = Eigen::Vector2f(
-    static_cast<float>(cx_rot * cos_t - cy_rot * sin_t),
-    static_cast<float>(cx_rot * sin_t + cy_rot * cos_t));
+    static_cast<float>(cx_rot * cos_t - cy_rot * sin_t), static_cast<float>(cx_rot * sin_t + cy_rot * cos_t));
 
   double d1 = max_x - min_x;
   double d2 = max_y - min_y;
@@ -590,9 +588,7 @@ static SearchResult computeLShapedFit(
 }
 
 projection_utils::Box3D computeClusterBoxWithClassHint(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  const pcl::PointIndices & cluster,
-  const std::string & class_hint)
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const pcl::PointIndices & cluster, const std::string & class_hint)
 {
   const auto & params = projection_utils::getParams();
   const bool is_vehicle = (class_hint == "car" || class_hint == "truck" || class_hint == "bus");

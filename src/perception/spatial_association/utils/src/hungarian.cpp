@@ -46,13 +46,13 @@ std::vector<std::pair<size_t, size_t>> solve(
   // p[j] = row assigned to column j (-1 if unassigned).
   const int N = static_cast<int>(n);
   std::vector<double> u(n + 1, 0.0), v(n + 1, 0.0);
-  std::vector<int> p(n + 1, 0);   // p[j] = row assigned to col j (1-indexed; 0 = unassigned)
-  std::vector<int> way(n + 1, 0); // way[j] = previous column in augmenting path
+  std::vector<int> p(n + 1, 0);  // p[j] = row assigned to col j (1-indexed; 0 = unassigned)
+  std::vector<int> way(n + 1, 0);  // way[j] = previous column in augmenting path
 
   for (int i = 1; i <= N; ++i) {
     // Start augmenting from row i.
     p[0] = i;
-    int j0 = 0; // virtual column 0
+    int j0 = 0;  // virtual column 0
     std::vector<double> minv(n + 1, std::numeric_limits<double>::infinity());
     std::vector<bool> used(n + 1, false);
 

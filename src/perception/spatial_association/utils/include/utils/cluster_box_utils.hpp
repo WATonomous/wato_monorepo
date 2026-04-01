@@ -42,9 +42,7 @@ projection_utils::Box3D computeClusterBox(
  * @param class_hint If "car", "truck", or "bus", tries L-shaped fitting and uses it if better than search-based.
  */
 projection_utils::Box3D computeClusterBoxWithClassHint(
-  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
-  const pcl::PointIndices & cluster,
-  const std::string & class_hint);
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const pcl::PointIndices & cluster, const std::string & class_hint);
 
 /** Centroid + percentile-trimmed axis-aligned bounds for one cluster. */
 projection_utils::ClusterStats computeSingleClusterStats(

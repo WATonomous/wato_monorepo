@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "spatial_association/spatial_association.hpp"
-#include "utils/cluster_box_utils.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -36,6 +35,8 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+
+#include "utils/cluster_box_utils.hpp"
 
 namespace
 {
@@ -379,9 +380,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
 
   try {
     auto cloud_qos = rclcpp::QoS(10);
-  cloud_qos.reliable();
-  cloud_qos.durability(rclcpp::DurabilityPolicy::TransientLocal);
-  non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    cloud_qos.reliable();
+    cloud_qos.durability(rclcpp::DurabilityPolicy::TransientLocal);
+    non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       kNonGroundCloud,
       cloud_qos,
       std::bind(&SpatialAssociationNode::nonGroundCloudCallback, this, std::placeholders::_1));
@@ -739,8 +740,7 @@ void SpatialAssociationNode::initializeParams()
     clustering_bands_.clear();
     if (!band_dists.empty() && band_dists.size() == band_mults.size() && band_dists.size() == band_mins.size()) {
       for (size_t i = 0; i < band_dists.size(); ++i) {
-        clustering_bands_.push_back(
-          {band_dists[i], band_mults[i], static_cast<int>(band_mins[i])});
+        clustering_bands_.push_back({band_dists[i], band_mults[i], static_cast<int>(band_mins[i])});
       }
     }
   }
@@ -790,7 +790,8 @@ void SpatialAssociationNode::initializeParams()
     this->get_parameter(pu + "association_use_point_projection_rect_for_iou").as_bool();
   // Association scoring weights.
   proj_params.association_weight_iou = this->get_parameter(pu + "association_weight_iou").as_double();
-  proj_params.association_weight_inside_fraction = this->get_parameter(pu + "association_weight_inside_fraction").as_double();
+  proj_params.association_weight_inside_fraction =
+    this->get_parameter(pu + "association_weight_inside_fraction").as_double();
   proj_params.association_weight_ar = this->get_parameter(pu + "association_weight_ar").as_double();
   proj_params.association_weight_centroid = this->get_parameter(pu + "association_weight_centroid").as_double();
   proj_params.association_weight_points = this->get_parameter(pu + "association_weight_points").as_double();
@@ -806,14 +807,17 @@ void SpatialAssociationNode::initializeParams()
   // Scoring internals.
   proj_params.centroid_score_detection_scale = this->get_parameter(pu + "centroid_score_detection_scale").as_double();
   proj_params.point_score_saturation_count = this->get_parameter(pu + "point_score_saturation_count").as_double();
-  proj_params.association_centroid_distance_multiplier = this->get_parameter(pu + "association_centroid_distance_multiplier").as_double();
+  proj_params.association_centroid_distance_multiplier =
+    this->get_parameter(pu + "association_centroid_distance_multiplier").as_double();
   proj_params.single_point_bbox_margin_px = this->get_parameter(pu + "single_point_bbox_margin_px").as_double();
   min_depth_for_enrichment_ = this->get_parameter(pu + "min_depth_for_enrichment").as_double();
   proj_params.min_depth_for_enrichment = min_depth_for_enrichment_;
   // Orientation / L-shape search.
   proj_params.l_shape_energy_variance_weight = this->get_parameter(pu + "l_shape_energy_variance_weight").as_double();
-  proj_params.orientation_coarse_step_multiplier = this->get_parameter(pu + "orientation_coarse_step_multiplier").as_double();
-  proj_params.orientation_fine_range_multiplier = this->get_parameter(pu + "orientation_fine_range_multiplier").as_double();
+  proj_params.orientation_coarse_step_multiplier =
+    this->get_parameter(pu + "orientation_coarse_step_multiplier").as_double();
+  proj_params.orientation_fine_range_multiplier =
+    this->get_parameter(pu + "orientation_fine_range_multiplier").as_double();
 
   proj_params.depth_score_weight = this->get_parameter(pu + "depth_score_weight").as_double();
   proj_params.depth_score_scale = this->get_parameter(pu + "depth_score_scale").as_double();
@@ -840,9 +844,7 @@ void SpatialAssociationNode::initializeParams()
       }
     } else if (n > 0) {
       RCLCPP_WARN(
-        this->get_logger(),
-        "size_prior arrays have mismatched lengths (%zu classes); size priors disabled",
-        n);
+        this->get_logger(), "size_prior arrays have mismatched lengths (%zu classes); size priors disabled", n);
     }
   }
   proj_params.use_hungarian_assignment = this->get_parameter(pu + "use_hungarian_assignment").as_bool();

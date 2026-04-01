@@ -129,7 +129,7 @@ launch:
               to: /perception/tracked_markers
             - from: output_predictions
               to: /world_modeling/world_object_seeds
-              
+
 
   # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)
   # Subscribes: multi_camera_info, detections, non_ground_cloud; optional multi_image (compressed) for viz

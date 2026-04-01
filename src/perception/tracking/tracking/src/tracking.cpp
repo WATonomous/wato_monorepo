@@ -379,8 +379,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
   // Kalman filter matrices (constant velocity model)
   // Measurement matrix H: observe [x, y] from state [x, y, vx, vy]
   Eigen::Matrix<double, 2, 4> H;
-  H << 1, 0, 0, 0,
-       0, 1, 0, 0;
+  H << 1, 0, 0, 0, 0, 1, 0, 0;
 
   // Measurement noise R
   Eigen::Matrix2d R = Eigen::Matrix2d::Identity() * measurement_noise_;
@@ -441,10 +440,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       double dt3 = dt2 * dt / 2.0;
       double dt4 = dt2 * dt2 / 4.0;
       Eigen::Matrix4d Q;
-      Q << dt4, 0,   dt3, 0,
-           0,   dt4, 0,   dt3,
-           dt3, 0,   dt2, 0,
-           0,   dt3, 0,   dt2;
+      Q << dt4, 0, dt3, 0, 0, dt4, 0, dt3, dt3, 0, dt2, 0, 0, dt3, 0, dt2;
       Q *= process_noise_;
 
       // Predict step
@@ -453,8 +449,8 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
 
       // Update step with measurement [cx, cy]
       Eigen::Vector2d z(cx, cy);
-      Eigen::Vector2d y = z - H * kf.state;                          // innovation
-      Eigen::Matrix2d S = H * kf.covariance * H.transpose() + R;     // innovation covariance
+      Eigen::Vector2d y = z - H * kf.state;  // innovation
+      Eigen::Matrix2d S = H * kf.covariance * H.transpose() + R;  // innovation covariance
       Eigen::Matrix<double, 4, 2> K = kf.covariance * H.transpose() * S.inverse();  // Kalman gain
 
       kf.state = kf.state + K * y;

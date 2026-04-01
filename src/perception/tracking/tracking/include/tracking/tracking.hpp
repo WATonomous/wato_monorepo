@@ -18,12 +18,12 @@
 #include <ByteTrack/BYTETracker.h>
 
 #include <deque>
+#include <Eigen/Dense>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <Eigen/Dense>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/state.hpp>
@@ -42,7 +42,7 @@
  */
 struct TrackKalmanFilter
 {
-  Eigen::Vector4d state;       // [x, y, vx, vy]
+  Eigen::Vector4d state;  // [x, y, vx, vy]
   Eigen::Matrix4d covariance;  // state covariance P
   bool initialized = false;
   rclcpp::Time last_update_time{0, 0, RCL_ROS_TIME};
@@ -182,8 +182,8 @@ private:
 
   // Prediction parameters
   int centroid_history_size_;
-  double prediction_time_;   // how far into the future to predict (seconds)
-  double prediction_dt_;     // time step between predicted poses (seconds)
+  double prediction_time_;  // how far into the future to predict (seconds)
+  double prediction_dt_;  // time step between predicted poses (seconds)
   double process_noise_;
   double measurement_noise_;
 
