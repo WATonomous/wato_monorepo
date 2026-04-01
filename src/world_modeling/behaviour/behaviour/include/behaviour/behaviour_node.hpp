@@ -23,11 +23,11 @@
 #include <vector>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/trigger.hpp>
 
 #include "behaviour/behaviour_tree.hpp"
-#include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
@@ -95,7 +95,7 @@ private:
 
   // ROS Communications
   rclcpp::TimerBase::SharedPtr tick_tree_timer_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_bt_service_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_bt_srv_;
 
   // Subs
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr current_lane_context_sub_;

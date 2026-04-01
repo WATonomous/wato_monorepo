@@ -72,7 +72,7 @@ void BehaviourNode::init()
   // timer to tick the behaviour tree
   tick_tree_timer_ = this->create_wall_timer(tick_period, std::bind(&BehaviourNode::tick_tree_callback, this));
 
-  reset_bt_service_ = this->create_service<std_srvs::srv::Trigger>(
+  reset_bt_srv_ = this->create_service<std_srvs::srv::Trigger>(
     "reset_bt", std::bind(&BehaviourNode::reset_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // subscribers
@@ -166,7 +166,7 @@ void BehaviourNode::reset_callback(
 
 void BehaviourNode::goal_point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg)
 {
-  tree_->updateBlackboard("goal_point", msg);
+  tree_->updateBlackboard("requested_gp", msg);
   RCLCPP_INFO(this->get_logger(), "New goal received: x=%.2f, y=%.2f", msg->point.x, msg->point.y);
 }
 
