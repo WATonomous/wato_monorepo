@@ -59,6 +59,7 @@ private:
 
   double bbox_inflation_m_{0.5};
   double bbox_cost_decay_{1.0};
+  double prediction_inflation_m_{1.0};
   double prediction_cost_decay_{0.3};
   double max_centroid_height_m_{100.0};
 };
