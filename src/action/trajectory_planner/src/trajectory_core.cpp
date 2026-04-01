@@ -94,14 +94,13 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
         target_speed = 0.0;
       } else {
         double braking_dist = dist_remaining - config_.stop_distance;
-        double comfort_stop_dist =
-          prev_speed * prev_speed / (2.0 * config_.max_tangential_accel);
+        double comfort_stop_dist = prev_speed * prev_speed / (2.0 * config_.max_tangential_accel);
 
         double effective_accel = config_.max_tangential_accel;
         if (comfort_stop_dist > 0.0 && braking_dist < comfort_stop_dist) {
           double blend = braking_dist / comfort_stop_dist;
-          effective_accel = config_.max_tangential_accel +
-            (1.0 - blend) * (config_.max_emergency_accel - config_.max_tangential_accel);
+          effective_accel =
+            config_.max_tangential_accel + (1.0 - blend) * (config_.max_emergency_accel - config_.max_tangential_accel);
         }
 
         double v_brake = std::sqrt(2.0 * effective_accel * braking_dist);

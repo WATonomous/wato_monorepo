@@ -30,8 +30,11 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `stop_distance` | 0.1 m | Distance to obstacle where vehicle must be fully stopped. |
+| `stop_distance` | 2.0 m | Distance to obstacle where vehicle must be fully stopped. |
 | `max_speed` | 20.0 m/s | Maximum speed when no lanelet limit is available. |
+| `max_tangential_accel` | 1.0 m/s^2 | Comfort braking deceleration for normal obstacle avoidance. |
+| `max_emergency_accel` | 5.0 m/s^2 | Emergency braking deceleration when comfort braking is insufficient. |
+| `max_lateral_accel` | 0.5 m/s^2 | Maximum lateral acceleration to slow down in curves. |
 | `interpolation_resolution` | 0.1 m | Point spacing along path for collision checking. |
 | `footprint_frame` | `base_link` | Frame in which the footprint is defined. |
 | `footprint_x_min` | -0.5 m | Rear extent of vehicle. |
