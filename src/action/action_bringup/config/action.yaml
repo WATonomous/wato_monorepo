@@ -1,0 +1,255 @@
+# Unified action planning configuration
+# All action node parameters in a single file
+
+# =============================================================================
+# Lattice Planner
+# =============================================================================
+/**/lattice_planning_node:
+  ros__parameters:
+
+    # Topic names
+    lanelet_ahead_topic: "lanelet_ahead"
+    odom_topic: "odom"
+    bt_topic: "execute_behaviour"
+
+    # Publishing
+    path_topic: "path"
+    available_paths_topic: "available_paths"
+    control_rate_hz: 2.0
+
+    # Path generation parameters
+    # -  Cost Function  -
+    cost_function:
+      lateral_movement_weight: 2.0
+      physical_limits_weight: 4.0
+      preferred_lane_cost: 100.0
+      unknown_occupancy_cost: 50.0
+      max_curvature_change: 0.1
+
+    # -  Corridor  -
+    num_lane_switch_horizons: 3
+    lane_switch_lookahead_distances: [10.0, 17.5, 25.0]  # meters
+
+    # Centreline horizon
+    centreline_horizon: 30.0  # meters
+    centreline_velocity_scale: 0.2
+
+    # -  Path Generation  -
+    path_gen:
+      max_iterations: 20
+      path_steps: 35
+      convergence_tolerance: 0.15
+      newton_damping: 0.7
+      max_step_size: 1.0
+
+    # Cubic spiral coefficient calculation parameters
+    # For k(s) = c0 + c1*s + c2*s^2 + c3*s^3
+    # These constants define how intermediate curvatures k0, k1, k2, k3 map to polynomial coefficients
+    # These are derived from the paper mentioned in the readme, DO NOT CHANGE unless you know what you are doing
+    spiral_coeffs:
+      c1_k0_coeff: -11.0
+      c1_k1_coeff: 18.0
+      c1_k2_coeff: -9.0
+      c1_k3_coeff: 2.0
+      c1_divisor: 2.0
+
+      c2_k0_coeff: 18.0
+      c2_k1_coeff: -45.0
+      c2_k2_coeff: 36.0
+      c2_k3_coeff: -9.0
+      c2_divisor: 2.0
+
+      c3_k0_coeff: -9.0
+      c3_k1_coeff: 27.0
+      c3_k2_coeff: -27.0
+      c3_k3_coeff: 9.0
+      c3_divisor: 2.0
+
+# =============================================================================
+# Trajectory Planner
+# =============================================================================
+/**/trajectory_planner_node:
+  ros__parameters:
+
+    # Publisher Topic Names
+    traj_pub_topic: "trajectory"
+    marker_pub_topic: "trajectory_markers"
+
+    # Subscriber Topic Names
+    path_sub_topic: "input_path"
+    costmap_sub_topic: "costmap"
+    lane_context_sub_topic: "lane_context"
+    odom_sub_topic: "odom"
+    bt_sub_topic: "execute_behaviour"
+
+    # Safety distances
+    stop_distance: 1.5  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+
+    # Speed limits
+    max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
+    max_tangential_accel: 1.5  # Max tangential acceleration (m/s^2)
+    max_emergency_accel: 2.0  # Max emergency braking deceleration (m/s^2)
+    max_lateral_accel: 2.0  # Max lateral acceleration (m/s^2) to slow down in curves
+
+    # Path interpolation
+    interpolation_resolution: 0.1  # Resolution (m) for path interpolation
+
+    # Vehicle footprint bounding box in footprint_frame (m)
+    # x: forward/backward, y: left/right (ROS convention)
+    footprint_frame: "base_link"
+    footprint_x_min: -0.5   # rear of vehicle
+    footprint_y_min: -1.2   # right side
+    footprint_x_max: 3.5    # front bumper
+    footprint_y_max: 1.2    # left side
+
+# =============================================================================
+# Lattice Planning Markers
+# =============================================================================
+/**/lattice_planning_markers_node:
+  ros__parameters:
+    # Subscription topics
+    path_topic: "path"
+    available_paths_topic: "available_paths"
+
+    # Publisher topics
+    path_markers_topic: "path_markers"
+    available_paths_markers_topic: "available_paths_markers"
+
+    # Marker appearance
+    path_line_width: 0.1
+    available_path_line_width: 0.1
+    available_paths_alpha: 1.0
+
+    # How many candidate paths to publish markers for
+    max_available_paths: 50
+
+    # If true, publish a DELETEALL marker before updates to avoid stale markers in RViz
+    publish_deleteall_each_update: true
+
+# =============================================================================
+# Pure Pursuit Controller (used by action.launch.yaml)
+# =============================================================================
+/**/pure_pursuit_node:
+  ros__parameters:
+    trajectory_topic: "trajectory"
+    bt_topic: "execute_behaviour"
+    ackermann_topic: "ackermann"
+    idle_topic: "is_idle"
+    base_frame: "base_footprint"
+    rear_axle_frame: "rear_axle"
+    front_axle_frame: "front_axle"
+    odom_topic: "odom"
+    lookahead_distance: 6.0
+    min_lookahead_distance: 2.5
+    lookahead_gain: 2.5
+    steering_angle_gain: 0.7
+    max_speed: 4.0
+    min_speed: 1.0
+    standby_speed: -0.5
+    standby_steering: 0.0
+    control_rate_hz: 20.0
+    wheelbase_fallback: 2.5667
+    max_steering_angle: 2.0
+    idle_timeout_sec: 2.0
+    invert_steering: true
+    disable_standby: false
+
+# =============================================================================
+# MPC Controller (used by action_mpc.launch.yaml)
+# =============================================================================
+#
+# TUNING GUIDE
+# ~~~~~~~~~~~~
+# Visualize /action/mpc/predicted_path in RViz alongside the trajectory planner's
+# output to see what MPC is planning vs what it's being asked to follow.
+#
+# Step 1: Set actuator limits and wheelbase to match your vehicle FIRST.
+#         Wrong values here make all other tuning meaningless.
+#
+# Step 2: Straight road
+#   - Set all cost weights to defaults. Drive a straightaway.
+#   - If it doesn't accelerate toward the speed limit: raise w_progress.
+#   - If it oscillates left/right: raise w_lateral and w_dsteering.
+#   - If acceleration is jerky: raise w_daccel or lower max_jerk.
+#
+# Step 3: Curves / bends
+#   - If it cuts corners: raise w_lateral.
+#   - If it overshoots turns (swings wide then corrects): raise w_heading.
+#   - If steering feels twitchy through the curve: raise w_dsteering.
+#   - If steering feels sluggish entering curves: lower w_dsteering or raise max_steering_rate.
+#
+# Step 4: Approaching a stop line
+#   - If it brakes too late: raise horizon_distance (or check that lattice
+#     min_path_length is long enough for MPC to see the speed drop).
+#   - If braking is abrupt: raise w_daccel or lower max_jerk.
+#   - If it doesn't fully stop: check trajectory planner is outputting max_speed=0.
+#
+# Step 5: Lane change
+#   - If the lane change path is tracked with oscillation: raise w_dsteering.
+#   - If MPC doesn't follow the lane change path closely enough: raise w_lateral.
+#
+# Step 6: Solver issues
+#   - If you see "MPC solver failed" warnings: raise max_solver_iterations.
+#   - If solve time is too high (check with ros2 topic hz on /action/ackermann):
+#     lower max_horizon_steps or raise point_spacing.
+#
+# COMMON ISSUES:
+#   Vehicle doesn't move        → check disable_standby, standby_msg, behaviour tree
+#   Vehicle reverses             → standby_speed is negative, set to 0.0
+#   Steering is inverted         → toggle invert_steering
+#   Vehicle ignores speed limits → check trajectory planner is publishing max_speed
+#
+/**/mpc_controller_node:
+  ros__parameters:
+    # Topics
+    trajectory_topic: "trajectory"
+    bt_topic: "execute_behaviour"
+    ackermann_topic: "ackermann"
+    idle_topic: "is_idle"
+    predicted_path_topic: "predicted_path"
+    odom_topic: "odom"
+
+    base_frame: "base_footprint"
+
+    control_rate_hz: 20.0     # [5.0 - 50.0] Hz. Raise: more responsive, more CPU. Lower: less CPU, laggier.
+    idle_timeout_sec: 2.0
+    standby_speed: -0.5
+    standby_steering: 0.0
+    standby_msg: "standby"
+    invert_steering: true
+    disable_standby: false
+
+    # Vehicle model
+    wheelbase: 2.5667         # meters — distance between front and rear axles. Must match vehicle.
+
+    # Horizon
+    horizon_distance: 25.0    # [10.0 - 50.0] m. Raise: sees stops/curves earlier, slower solve. Lower: faster, may brake late.
+    point_spacing: 1.0        # [0.5 - 3.0] m. Raise: fewer points, faster. Lower: finer, heavier QP.
+    max_horizon_steps: 30     # [10 - 50] — safety cap on QP size.
+
+    # Cost weights — relative ratios matter, not absolute values.
+    w_lateral: 50.0           # [1 - 200] position error. Raise: tighter tracking. Lower: allows deviation, smoother.
+    w_heading: 20.0           # [1 - 100] heading error. Raise: snappier turns. Lower: lazier correction.
+    w_progress: 5.0           # [0 - 20] speed reward. Raise: aggressive accel. Lower: coasts more. 0 = disable.
+    w_steering: 1.0           # [0.1 - 50] steering effort. Raise: prefers straight. Lower: steers freely.
+    w_accel: 1.0              # [0.1 - 50] accel effort. Raise: prefers coasting. Lower: brakes/accels harder.
+    w_dsteering: 100.0        # [10 - 500] steering rate. PRIMARY STEERING COMFORT KNOB. Raise: smoother. Lower: reactive.
+    w_daccel: 50.0            # [10 - 500] jerk. PRIMARY LONGITUDINAL COMFORT KNOB. Raise: gentler. Lower: snappier.
+    w_terminal: 5.0           # [1 - 20] terminal weight multiplier. Raise: stabilizes horizon tail.
+
+    # Actuator limits — must match vehicle hardware.
+    max_steering_angle: 0.5   # [0.3 - 1.0] rad
+    max_accel: 2.5            # [1.0 - 5.0] m/s^2
+    max_decel: -4.0           # [-8.0 - -1.0] m/s^2
+    max_speed: 15.0           # [1.0 - 30.0] m/s — global cap on top of trajectory planner limits.
+
+    # Comfort limits — rate constraints. Tighter = smoother but less responsive.
+    max_steering_rate: 0.3    # [0.1 - 1.5] rad/s. Raise: quicker steering. Lower: smoother.
+    max_jerk: 5.0             # [1.0 - 15.0] m/s^3. Raise: snappier. Lower: gentler transitions.
+
+    # Solver
+    dt_min: 0.5               # [0.1 - 2.0] s — max dt per step when near zero speed.
+    max_solver_iterations: 200 # [50 - 500] — raise if solver hits iteration limit.
+    solver_eps_abs: 0.001
+    solver_eps_rel: 0.001
+    warm_start: true

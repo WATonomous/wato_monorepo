@@ -1,0 +1,361 @@
+{
+  "configById": {
+    "Plot!3veuhss": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.twist.twist.linear.x",
+          "enabled": true,
+          "color": "#4e98e2",
+          "label": "liso twist x",
+          "showLine": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/transform/odometry.twist.twist.linear.x",
+          "enabled": true,
+          "color": "#f5774d",
+          "label": "transform twist x"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.twist.twist.linear.y",
+          "enabled": true,
+          "color": "#f7df71",
+          "label": "liso twist y",
+          "showLine": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/transform/odometry.twist.twist.linear.y",
+          "enabled": true,
+          "color": "#5cd6a9",
+          "label": "transform twist y"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/liso/odometry_incremental.twist.twist.linear.z",
+          "enabled": true,
+          "color": "#61cbff",
+          "showLine": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/world_modeling/transform/odometry.twist.twist.linear.z",
+          "enabled": true,
+          "color": "#a395e2"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!1o6hnri": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/action/ackermann.drive.steering_angle",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/interfacing/can_state_estimator/steering_angle.angle",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "a71109fb-31e5-46e6-a1f0-c3919cd2eb67"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/interfacing/joystick/ackermann.drive.steering_angle",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "783d8ca8-c5e1-462f-843e-b37fe517873f"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!2ye68sg": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/action/ackermann.drive.speed",
+          "enabled": true,
+          "color": "#4e98e2"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/novatel/oem7/odom.twist.twist.linear.x",
+          "enabled": true,
+          "color": "#f5774d",
+          "id": "a71109fb-31e5-46e6-a1f0-c3919cd2eb67"
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/interfacing/smoothed/ackermann.drive.speed",
+          "enabled": true,
+          "color": "#f7df71",
+          "id": "9e7a25ac-edb1-4c2b-bd82-5e19b0ca2f9e"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "RawMessages!2ka49yk": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/behaviour/execute_behaviour",
+      "fontSize": 12
+    },
+    "RawMessages!2evrrrc": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/world_modeling/world_object_seeds",
+      "fontSize": 12
+    },
+    "CallService!36vhq2p": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/world_modeling/reset_bt"
+    },
+    "3D!3iebfs2": {
+      "cameraState": {
+        "perspective": false,
+        "distance": 201.12578754291295,
+        "phi": 34.00005729832884,
+        "thetaOffset": 22.999999989537315,
+        "targetOffset": [
+          6.086115084404035,
+          -4.39113985297264,
+          -3.57056900610451e-16
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "scene": {
+        "transforms": {
+          "labelSize": 0.07
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/slam/visualization/map": {
+          "visible": true,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.528
+        },
+        "/slam/path": {
+          "visible": true
+        },
+        "/slam/visualization/factor_graph": {
+          "visible": true
+        },
+        "/lidar_cc/velodyne_points": {
+          "visible": false,
+          "colorField": "ring",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.51
+        },
+        "/liso/submap": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/world_modeling/slam/visualization/map": {
+          "visible": false,
+          "colorMode": "colormap",
+          "colorField": "z",
+          "colorMap": "turbo",
+          "explicitAlpha": 0.084
+        },
+        "/world_modeling/slam/visualization/factor_graph": {
+          "visible": true
+        },
+        "/world_modeling/lanelet/lane_context_markers": {
+          "visible": false
+        },
+        "/world_modeling/lanelet/map_viz_markers": {
+          "visible": false
+        },
+        "/world_modeling/liso/submap": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar/all/points_merged": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo",
+          "pointSize": 1.88,
+          "flatColor": "#9480ed82"
+        },
+        "/action/lattice_planning_markers/available_paths_markers": {
+          "visible": false
+        },
+        "/action/lattice_planning_markers/path_markers": {
+          "visible": false
+        },
+        "/action/trajectory_planning/trajectory_markers": {
+          "visible": false
+        },
+        "/world_modeling/lanelet/lanelet_ahead_markers": {
+          "visible": false
+        },
+        "/world_modeling/world_object_seeds_markers": {
+          "visible": false
+        },
+        "/world_modeling/world_objects_enriched_markers": {
+          "visible": false
+        },
+        "/perception/detections_3d_markers": {
+          "visible": false
+        },
+        "/perception/tracked_markers": {
+          "visible": true
+        },
+        "/perception/non_ground_cloud": {
+          "visible": false,
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_cc/velodyne_packets": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/lidar_ne/velodyne_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/lidar_nw/velodyne_points": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "colorMap": "turbo"
+        },
+        "/bounding_box": {
+          "visible": false
+        },
+        "/world_modeling/costmap": {
+          "visible": false,
+          "colorMode": "costmap"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "b2241ef7-06c8-4b6f-861e-62e3472986f1",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/goal_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "map",
+      "fixedFrame": "map"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "first": "Plot!3veuhss",
+      "second": {
+        "first": "Plot!1o6hnri",
+        "second": "Plot!2ye68sg",
+        "direction": "row"
+      },
+      "direction": "column"
+    },
+    "second": {
+      "direction": "row",
+      "first": {
+        "first": "RawMessages!2ka49yk",
+        "second": {
+          "first": "RawMessages!2evrrrc",
+          "second": "CallService!36vhq2p",
+          "direction": "column"
+        },
+        "direction": "column",
+        "splitPercentage": 18.365566868510662
+      },
+      "second": "3D!3iebfs2",
+      "splitPercentage": 31.720193014412175
+    },
+    "splitPercentage": 41.277472527472526
+  }
+}

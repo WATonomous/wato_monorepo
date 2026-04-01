@@ -44,21 +44,21 @@ launch:
   # ---- Autonomy stack (localization mode only) ----
 
   # Prediction - generates trajectory hypotheses for tracked objects
-  - node:
-      pkg: prediction
-      exec: prediction_node
-      name: prediction_node
-      namespace: "world_modeling"
-      output: screen
-      param:
-        - from: $(find-pkg-share prediction)/config/params.yaml
-      remap:
-        - from: tracks_3d
-          to: /perception/tracked_detections_3d
-        - from: ego_pose
-          to: /localization/pose
-        - from: lanelet_ahead
-          to: lanelet/lanelet_ahead
+  # - node:
+  #     pkg: prediction
+  #     exec: prediction_node
+  #     name: prediction_node
+  #     namespace: "world_modeling"
+  #     output: screen
+  #     param:
+  #       - from: $(find-pkg-share prediction)/config/params.yaml
+  #     remap:
+  #       - from: tracks_3d
+  #         to: /perception/tracked_detections_3d
+  #       - from: ego_pose
+  #         to: /localization/pose
+  #       - from: lanelet_ahead
+  #         to: lanelet/lanelet_ahead
 
   # World Model
   - node:
@@ -260,7 +260,7 @@ launch:
         - from: goal_point
           to: /goal_point
         - from: ego/odom
-          to: /ego/odom
+          to: /world_modeling/liso/odometry
 
   # Behaviour Tree visualization markers
   - node:
@@ -353,7 +353,7 @@ launch:
         - name: node_names
           value:
             - /world_modeling/eidos_transform_node
-            - /world_modeling/prediction_node
+            # - /world_modeling/prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node
