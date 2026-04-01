@@ -1,0 +1,225 @@
+/**/eidos_node:
+  ros__parameters:
+    # TF frame names
+    frames:
+      base_link: "base_footprint"    # Robot body frame
+      odometry: "odom"               # Odometry frame
+      map: "map"                     # Global map frame
+
+    # Main SLAM loop frequency (Hz)
+    slam_rate: 10.0
+    # Seconds to wait for relocalization before falling back to identity pose
+    relocalization_timeout: 30.0
+
+    # ISAM2 incremental optimizer settings
+    isam2:
+      update_iterations: 2           # ISAM2 iterations per normal optimization step
+      correction_iterations: 5       # Extra iterations when a correction factor (GPS) is added
+      loop_closure_iterations: 5     # Extra iterations when loop closure is detected
+      relinearize_threshold: 0.01    # Variable relinearization threshold
+      relinearize_skip: 1            # Steps between relinearization checks
+
+    # Prior factor covariance on the first state (anchors the graph origin)
+    # [x, y, z, roll, pitch, yaw] diagonal variances
+    prior:
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    # Map persistence paths
+    map:
+      load_path: ""                                    # Empty = no prior map (SLAM builds from scratch)
+      save_path: "/opt/watonomous/maps/wrestrc.map"    # Default path for save_map service
+
+    # Published topics, services, and odometry covariance
+    topics:
+      pose: "slam/pose"                    # PoseStamped in map frame (consumed by eidos_transform)
+      status: "slam/status"                # SlamStatus message (state, keyframe count, etc.)
+      odom: "slam/odometry"                # Odometry in map frame with covariance
+      odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]  # Diagonal pose covariance on odom topic [x,y,z,roll,pitch,yaw]
+      save_map_service: "slam/save_map"    # Service to save the map to disk
+      load_map_service: "slam/load_map"    # Service to load a map from disk
+
+    # Plugin lists (loaded in order)
+    factor_plugins:
+      - "gps_factor"
+      - "liso_factor"
+      - "euclidean_distance_loop_closure_factor"
+
+    relocalization_plugins:
+      - "gps_icp_relocalization"
+
+    visualization_plugins:
+      - "keyframe_map_visualization"
+      - "factor_graph_visualization"
+
+    # GPS Factor
+    # Converts GPS fixes to UTM, produces unary position factors
+    gps_factor:
+      plugin: "eidos::GpsFactor"
+      gps_topic: "/novatel/oem7/fix"           # NavSatFix input
+      imu_topic: "/novatel/oem7/imu/data"      # IMU for heading initialization
+      add_factors: true                         # Inject GPS factors into the graph
+      max_cov: 5.0                              # Reject fixes with covariance above this
+      use_elevation: true                       # Include GPS altitude in the factor
+      min_radius: 150.0                         # Min distance from origin before adding factors (m)
+      pose_cov_threshold: 1.0                   # Graph pose covariance threshold for injection
+      gps_cov: [2.0, 2.0, 4.0]                 # GPS factor noise [x, y, z] (m)
+
+    # LISO Factor (LiDAR-Inertial Submap Odometry)
+    # GICP scan-to-submap matching, produces BetweenFactor<Pose3>
+    liso_factor:
+      plugin: "eidos::LisoFactor"
+      add_factors: true                                    # Inject odometry factors into the graph
+      submap_source: "recent_keyframes"                    # Build submap from live keyframes
+      lidar_topic: "/lidar_cc/velodyne_points"             # PointCloud2 input
+      odom_topic: "liso/odometry"                          # Published map-frame odometry
+      odometry_incremental_topic: "liso/odometry_incremental"  # Published odom-frame incremental odometry
+      imu_topic: "/novatel/oem7/imu/data"                  # IMU for gyro initial guess
+      lidar_frame: "lidar_cc"                              # LiDAR TF frame
+      imu_frame: "imu_link"                                # IMU TF frame
+      initialization:
+        warmup_samples: 200                                # IMU samples before LISO starts
+        stationary_gyr_threshold: 0.005                    # Gyro threshold for stationary detection (rad/s)
+      scan_ds_resolution: 0.5                              # Voxel downsample for incoming scans (m)
+      submap_ds_resolution: 0.5                            # Voxel downsample for submap (m)
+      num_neighbors: 10                                    # KNN for GICP covariance estimation
+      submap_radius: 20.0                                  # Radius for keyframe collection into submap (m)
+      max_submap_states: 10                                # Max keyframes in the submap
+      max_correspondence_distance: 2.0                     # GICP max correspondence distance (m)
+      max_iterations: 20                                   # GICP max iterations
+      num_threads: 16                                      # Threads for GICP
+      min_inliers: 50                                      # Min inlier correspondences for a valid match
+      min_noise: 0.01                                      # Min noise floor for BetweenFactor covariance
+      min_scan_distance: 5.0                               # Min travel distance between keyframes (m)
+      odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]         # Pose covariance on published odometry
+      odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]  # Twist covariance on published odometry
+
+    # Euclidean Distance Loop Closure Factor
+    # Searches for nearby keyframes far apart in time, verifies with ICP
+    euclidean_distance_loop_closure_factor:
+      plugin: "eidos::EuclideanDistanceLoopClosureFactor"
+      frequency: 1.0                     # Loop closure search frequency (Hz)
+      search_radius: 20.0                # Spatial search radius (m)
+      search_time_diff: 80.0             # Min time between candidates (s)
+      search_num: 15                     # Max candidates to evaluate
+      min_inlier_ratio: 0.3              # Min ICP inlier ratio to accept
+      submap_radius: 25.0                # Candidate submap radius (m)
+      submap_leaf_size: 0.4              # Candidate submap voxel size (m)
+      max_correspondence_distance: 2.0   # ICP max correspondence distance (m)
+      max_iterations: 100                # ICP max iterations
+      num_threads: 16                    # Threads for ICP
+      num_neighbors: 10                  # KNN for GICP covariance estimation
+      loop_closure_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]  # BetweenFactor covariance
+      gicp_pointcloud_from: "liso_factor/gicp_cloud"   # Source for pre-processed GICP cloud
+
+    # GPS + ICP Relocalization
+    # Determines initial pose by matching GPS candidates against the prior map
+    gps_icp_relocalization:
+      plugin: "eidos::GpsIcpRelocalization"
+      gps_topic: "/novatel/oem7/fix"
+      lidar_topic: "/lidar_cc/velodyne_points"
+      imu_topic: "/novatel/oem7/imu/data"
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
+      gps_candidate_radius: 30.0              # Search radius around GPS position (m)
+      pointcloud_from: "liso_factor/cloud"     # Source for current LiDAR cloud
+      gps_from: "gps_factor"                   # Source for GPS UTM coordinates
+      scan_ds_resolution: 0.5                  # Voxel downsample for scan (m)
+      submap_leaf_size: 0.4                    # Voxel size for candidate submap (m)
+      max_correspondence_distance: 2.0         # ICP max correspondence distance (m)
+      max_icp_iterations: 100                  # ICP max iterations
+      num_threads: 16
+      num_neighbors: 10
+      fitness_threshold: 0.3                   # Max ICP fitness to accept relocalization
+
+    # Keyframe Map Visualization
+    # Publishes accumulated/windowed keyframe cloud for RViz
+    keyframe_map_visualization:
+      plugin: "eidos::KeyframeMapVisualization"
+      topic: "slam/visualization/map"          # Published PointCloud2 topic
+      pointcloud_from: "liso_factor/cloud"     # Source for keyframe clouds
+      voxel_leaf_size: 0.4                     # Downsample leaf size (m)
+      publish_rate: 1.0                        # Publish rate (Hz)
+      mode: "accumulate"                       # "accumulate" or "windowed"
+      accumulate:
+        skip_factor: 20                        # Include every Nth keyframe
+      windowed:
+        radius: 50.0                           # Spatial radius for windowed mode (m)
+
+    # Factor Graph Visualization
+    # Publishes graph structure as RViz markers
+    factor_graph_visualization:
+      plugin: "eidos::FactorGraphVisualization"
+      topic: "slam/visualization/factor_graph"
+      state_scale: 1.0                         # Scale of state markers
+      line_width: 0.5                          # Width of factor edge lines
+      publish_rate: 1.0                        # Publish rate (Hz)
+      mode: "full"                             # "full" or windowed
+      window_radius: 50.0                      # Radius for windowed mode (m)
+
+# eidos_transform config for mapping mode (dual-EKF)
+/**/eidos_transform_node:
+  ros__parameters:
+    tick_rate: 200.0
+    frames:
+      odom: "odom"
+      base_link: "base_footprint"
+      map: "map"
+      utm: "utm"
+    topics:
+      odom: "transform/odometry"
+      utm_to_map: "gps_factor/utm_to_map_tf"
+      predict_service: "transform/predict_relative"
+    ekf:
+      plugin: "eidos_transform::HolonomicEKF"
+      name: "holonomic_ekf"
+    # [pose(6), velocity(6), accel_bias(3)]
+    holonomic_ekf:
+      process_noise:
+        [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2,
+         1.0e-6, 1.0e-6, 1.0e-6]
+    holonomic_ekf_global:
+      process_noise:
+        [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3,
+         1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
+         1.0e-6, 1.0e-6, 1.0e-6]
+    odom_sources:
+      - "liso_odom"
+      - "imu_raw"
+    liso_odom:
+      type: "odom"
+      topic: "liso/odometry_incremental"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [true, true, true, true, true, true]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      # [ang_x, ang_y, ang_z, lin_x, lin_y, lin_z]
+      twist_noise: [5.0e-2, 5.0e-2, 5.0e-2, 1.0e-1, 3.0e-2, 3.0e-2]
+    imu_raw:
+      type: "imu"
+      topic: "/novatel/oem7/imu/data"
+      imu_frame: "imu_link"
+      use_orientation: true
+      use_angular_velocity: true
+      use_linear_acceleration: true
+      gravity: 9.80511
+      gravity_compensated: false
+      orientation_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0, 1.0, 1.0]
+      angular_velocity_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0, 1.0, 1.0]
+      linear_velocity_noise: [1.0, 1.0, 1.0, 1.0e-1, 1.0e-1, 1.0e-1]
+    map_sources:
+      - "liso_map"
+      - "slam"
+    liso_map:
+      type: "odom"
+      topic: "liso/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      twist_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+    slam:
+      type: "odom"
+      topic: "slam/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]

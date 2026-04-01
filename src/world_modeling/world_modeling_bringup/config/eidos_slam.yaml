@@ -1,0 +1,249 @@
+/**/eidos_node:
+  ros__parameters:
+    frames:
+      base_link: "base_footprint"
+      odometry: "odom"
+      map: "map"
+
+    # Main SLAM loop frequency (Hz)
+    slam_rate: 10.0
+    # Seconds to wait for relocalization before falling back to identity
+    relocalization_timeout: 30.0
+
+    # ISAM2 incremental optimizer
+    isam2:
+      update_iterations: 2           # ISAM2 iterations per normal optimization step
+      correction_iterations: 5       # Extra iterations when a correction factor (GPS) is added
+      loop_closure_iterations: 5     # Extra iterations when loop closure is detected
+      relinearize_threshold: 0.01    # Variable relinearization threshold
+      relinearize_skip: 1            # Steps between relinearization checks
+
+    # Prior factor on the first state (anchors the graph origin)
+    # [x, y, z, roll, pitch, yaw] covariance diagonal
+    prior:
+      pose_cov: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]
+
+    map:
+      load_path: ""                                    # No prior map in SLAM mode
+      save_path: "/opt/watonomous/maps/wrestrc.map"    # Default save path for save_map service
+
+    # Published topics and services
+    topics:
+      pose: "slam/pose"                    # PoseStamped in map frame (consumed by eidos_transform)
+      status: "slam/status"                # SlamStatus (state machine, keyframe count, etc.)
+      odom: "slam/odometry"                # Odometry in map frame
+      odom_pose_cov: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-4, 1.0e-4]  # Diagonal pose covariance on odom topic [x,y,z,roll,pitch,yaw]
+      save_map_service: "slam/save_map"
+      load_map_service: "slam/load_map"
+
+    # Plugin lists
+    factor_plugins:
+      - "gps_factor"
+      - "liso_factor"
+      - "euclidean_distance_loop_closure_factor"
+
+    relocalization_plugins:
+      - "gps_icp_relocalization"
+
+    visualization_plugins:
+      - "keyframe_map_visualization"
+      - "factor_graph_visualization"
+
+    # GPS Factor
+    gps_factor:
+      plugin: "eidos::GpsFactor"
+
+      gps_topic: "/novatel/oem7/fix"
+      imu_topic: "/novatel/oem7/imu/data"
+
+      add_factors: true
+      max_cov: 5.0
+      use_elevation: true
+      min_radius: 150.0
+      pose_cov_threshold: 1.0
+      gps_cov: [2.0, 2.0, 4.0]
+
+    # LISO Factor (LiDAR-Inertial Submap Odometry)
+    liso_factor:
+      plugin: "eidos::LisoFactor"
+      add_factors: true
+      submap_source: "recent_keyframes"
+
+      lidar_topic: "/lidar_cc/velodyne_points"
+      odom_topic: "liso/odometry"
+      odometry_incremental_topic: "liso/odometry_incremental"
+      imu_topic: "/novatel/oem7/imu/data"
+
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
+
+      initialization:
+        warmup_samples: 200
+        stationary_gyr_threshold: 0.005
+
+      scan_ds_resolution: 0.5
+      submap_ds_resolution: 0.5
+      num_neighbors: 10
+      submap_radius: 20.0
+      max_submap_states: 10
+
+      max_correspondence_distance: 2.0
+      max_iterations: 20
+      num_threads: 16
+
+      min_inliers: 50
+      min_noise: 0.01
+      min_scan_distance: 5.0
+
+      odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
+      odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+    # Euclidean Distance Loop Closure Factor
+    euclidean_distance_loop_closure_factor:
+      plugin: "eidos::EuclideanDistanceLoopClosureFactor"
+      frequency: 1.0
+      search_radius: 20.0
+      search_time_diff: 80.0
+      search_num: 15
+      min_inlier_ratio: 0.3
+
+      submap_radius: 25.0
+      submap_leaf_size: 0.4
+      max_correspondence_distance: 2.0
+      max_iterations: 100
+      num_threads: 16
+
+      num_neighbors: 10
+      loop_closure_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+      gicp_pointcloud_from: "liso_factor/gicp_cloud"
+
+    # GPS + ICP Relocalization
+    gps_icp_relocalization:
+      plugin: "eidos::GpsIcpRelocalization"
+
+      gps_topic: "/novatel/oem7/fix"
+      lidar_topic: "/lidar_cc/velodyne_points"
+      imu_topic: "/novatel/oem7/imu/data"
+
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
+
+      gps_candidate_radius: 30.0
+      pointcloud_from: "liso_factor/cloud"
+      gps_from: "gps_factor"
+
+      scan_ds_resolution: 0.5
+      submap_leaf_size: 0.4
+      max_correspondence_distance: 2.0
+      max_icp_iterations: 100
+      num_threads: 16
+      num_neighbors: 10
+
+      fitness_threshold: 0.3
+
+    # Keyframe Map Visualization
+    keyframe_map_visualization:
+      plugin: "eidos::KeyframeMapVisualization"
+      topic: "slam/visualization/map"
+      pointcloud_from: "liso_factor/cloud"
+      voxel_leaf_size: 0.4
+      publish_rate: 1.0
+      mode: "accumulate"
+
+      accumulate:
+        skip_factor: 20
+
+      windowed:
+        radius: 50.0
+
+    # Factor Graph Visualization
+    factor_graph_visualization:
+      plugin: "eidos::FactorGraphVisualization"
+      topic: "slam/visualization/factor_graph"
+      state_scale: 1.0
+      line_width: 0.5
+      publish_rate: 1.0
+      mode: "full"
+      window_radius: 50.0
+
+/**/eidos_transform_node:
+  ros__parameters:
+    tick_rate: 200.0
+
+    frames:
+      odom: "odom"
+      base_link: "base_footprint"
+      map: "map"
+      utm: "utm"
+
+    topics:
+      odom: "transform/odometry"
+      utm_to_map: "gps_factor/utm_to_map_tf"
+      predict_service: "transform/predict_relative"
+
+    ekf:
+      plugin: "eidos_transform::HolonomicEKF"
+      name: "holonomic_ekf"
+
+    # Local EKF process noise: [pose(6), velocity(6), accel_bias(3)]
+    holonomic_ekf:
+      process_noise:
+        [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4,
+         1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2,
+         1.0e-6, 1.0e-6, 1.0e-6]
+
+    # Global EKF process noise: [pose(6), velocity(6), accel_bias(3)]
+    holonomic_ekf_global:
+      process_noise:
+        [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3,
+         1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
+         1.0e-6, 1.0e-6, 1.0e-6]
+
+    # Odom sources (local EKF only, odom frame)
+    odom_sources:
+      - "liso_odom"
+      - "imu_raw"
+
+    liso_odom:
+      type: "odom"
+      topic: "liso/odometry_incremental"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [true, true, true, true, true, true]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      # [ang_x, ang_y, ang_z, lin_x, lin_y, lin_z]
+      twist_noise: [5.0e-2, 5.0e-2, 5.0e-2, 1.0e-1, 3.0e-2, 3.0e-2]
+
+    imu_raw:
+      type: "imu"
+      topic: "/novatel/oem7/imu/data"
+      imu_frame: "imu_link"
+      use_orientation: true
+      use_angular_velocity: true
+      use_linear_acceleration: true
+      gravity: 9.80511
+      gravity_compensated: false
+      orientation_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0, 1.0, 1.0]
+      angular_velocity_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0, 1.0, 1.0]
+      linear_velocity_noise: [1.0, 1.0, 1.0, 1.0e-1, 1.0e-1, 1.0e-1]
+
+    # Map sources (global EKF only, map frame)
+    map_sources:
+      - "liso_map"
+      - "slam"
+
+    liso_map:
+      type: "odom"
+      topic: "liso/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+      twist_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3]
+
+    slam:
+      type: "odom"
+      topic: "slam/odometry"
+      pose_mask: [true, true, true, true, true, true]
+      twist_mask: [false, false, false, false, false, false]
+      pose_noise: [1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4, 1.0e-4]
+      twist_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2]

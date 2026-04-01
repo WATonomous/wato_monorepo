@@ -7,6 +7,8 @@ Dockerized monorepo for the WATonomous autonomous vehicle project (dubbed EVE).
   <img src=".img/wheel_turn_stabilized.gif" height="250">
   <img src=".img/sensors.gif" height="250"/>
   <img src=".img/world_model.gif" height="250"/>
+  <img src="./src/world_modeling/eidos/.img/EIDOS.gif" height="250"/>
+  <img src="./src/world_modeling/eidos/.img/reloc.gif" height="250"/>
 </div>
 
 ## Prerequisite Installation
@@ -17,6 +19,14 @@ These steps are to setup the monorepo to work on your own PC. We utilize docker 
 1. Our monorepo infrastructure supports Linux Ubuntu >= 22.04, Windows (WSL/WSL2), and MacOS. Though, aspects of this repo might require specific hardware like NVidia GPUs.
 2. Once inside Linux, [Download Docker Engine using the `apt` repository](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository). If you are using WSL, install docker outside of WSL, it will automatically setup docker within WSL for you.
 3. You're all set! Information on running the monorepo with our infrastructure is given [here](https://wiki.watonomous.ca/autonomous_software_general/monorepo_infrastructure/)
+
+## Large File Storage
+Some nodes require larger files like model weights and maps. Furthermore, we might want to test our codebase on bag recordings which are even larger. These files are stored in our **Google Drive** (Only accessible by WATonomous members):
+- [**Bag Recordings**](https://drive.google.com/drive/folders/127Kw3o7Org474rkK1wwMDRZKiYHaR0Db) (place inside a wato_monorepo/bags/ directory for full functionality)
+- [**Maps**](https://drive.google.com/drive/folders/19dYQiaLV9ZQ7KtriXxWlO38N4E2GCZSF) (place inside a wato_monorepo/maps/ directory for full functionality)
+  - **REQUIRED** by **world_modeling** (map elements for localization on an existing map, .osm file for HD map) (not required when running simulation)
+- [**Weights**](https://drive.google.com/drive/folders/10EXFocqX40L4JLPhppSyHl9GuhrG9wPj?usp=sharing) (place inside a wato_monorepo/weights/ directory for full funtionality)
+  - **REQUIRED** by **perception** (model weights for inference)
 
 ## Available Modules
 
