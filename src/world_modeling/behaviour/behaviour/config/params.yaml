@@ -63,4 +63,4 @@
     wait_for_service_timeout_ms: 60000
 
     # Logging options
-    enable_console_logging: true
+    enable_console_logging: false

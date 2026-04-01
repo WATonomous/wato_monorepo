@@ -4,6 +4,7 @@
 #   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map
 #   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map use_sim_time:=true
 #   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
+#   Static ego pose:     ros2 launch world_modeling_bringup world_model.launch.yaml run_localization:=false use_static_ego_pose:=true static_ego_x:=0.0 static_ego_y:=0.0 static_ego_yaw:=0.0 use_sim_time:=true
 ---
 launch:
   - arg:
@@ -25,6 +26,51 @@ launch:
       name: use_sim_time
       default: "false"
       description: Use simulation time from /clock topic
+
+  - arg:
+      name: run_localization
+      default: "true"
+      description: "Run eidos localization nodes. Disable this for a fixed/static ego pose."
+
+  - arg:
+      name: use_static_ego_pose
+      default: "false"
+      description: "Publish a fixed map/odom/base_footprint pose instead of running localization."
+
+  - arg:
+      name: static_ego_x
+      default: "0.0"
+      description: "Fixed ego x position in map/odom frame."
+
+  - arg:
+      name: static_ego_y
+      default: "0.0"
+      description: "Fixed ego y position in map/odom frame."
+
+  - arg:
+      name: static_ego_z
+      default: "0.0"
+      description: "Fixed ego z position in map/odom frame."
+
+  - arg:
+      name: static_ego_roll
+      default: "0.0"
+      description: "Fixed ego roll in radians."
+
+  - arg:
+      name: static_ego_pitch
+      default: "0.0"
+      description: "Fixed ego pitch in radians."
+
+  - arg:
+      name: static_ego_yaw
+      default: "0.0"
+      description: "Fixed ego yaw in radians."
+
+  - arg:
+      name: static_ego_rate_hz
+      default: "10.0"
+      description: "Publish rate for fixed ego odometry topics."
 
   - arg:
       name: autostart
@@ -258,7 +304,7 @@ launch:
         - from: area_occupancy
           to: area_occupancy
         - from: goal_point
-          to: /goal_point
+          to: /clicked_point
         - from: ego/odom
           to: /world_modeling/liso/odometry
 
@@ -313,7 +359,7 @@ launch:
   # ---- Eidos Transform + Eidos (localization mode) ----
 
   - node:
-      unless: "$(var mapping)"
+      if: "$(var run_localization)"
       pkg: eidos_transform
       exec: eidos_transform_node
       name: eidos_transform_node
@@ -325,7 +371,7 @@ launch:
           value: $(var use_sim_time)
 
   - node:
-      unless: "$(var mapping)"
+      if: "$(var run_localization)"
       pkg: eidos
       exec: eidos_node
       name: eidos_node
@@ -338,12 +384,72 @@ launch:
         - name: map.load_path
           value: $(var eidos_map_path)
 
+  # ---- Fixed Ego Pose (localization disabled) ----
+  #
+  # Use with:
+  #   run_localization:=false use_static_ego_pose:=true
+  #
+  # Also exclude conflicting bag topics, especially /tf and any recorded
+  # world_modeling odometry topics.
+  - node:
+      if: "$(var use_static_ego_pose)"
+      pkg: tf2_ros
+      exec: static_transform_publisher
+      name: static_map_to_odom
+      output: screen
+      args: "--x 0.0 --y 0.0 --z 0.0 --yaw 0.0 --pitch 0.0 --roll 0.0 --frame-id map --child-frame-id odom"
+
+  - node:
+      if: "$(var use_static_ego_pose)"
+      pkg: tf2_ros
+      exec: static_transform_publisher
+      name: static_odom_to_base
+      output: screen
+      args: "--x $(var static_ego_x) --y $(var static_ego_y) --z $(var static_ego_z) --yaw $(var static_ego_yaw) --pitch $(var static_ego_pitch) --roll $(var static_ego_roll) --frame-id odom --child-frame-id base_footprint"
+
+  - node:
+      if: "$(var use_static_ego_pose)"
+      pkg: world_modeling_bringup
+      exec: fixed_ego_odometry.py
+      name: fixed_ego_odometry
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: rate_hz
+          value: $(var static_ego_rate_hz)
+        - name: x
+          value: $(var static_ego_x)
+        - name: y
+          value: $(var static_ego_y)
+        - name: z
+          value: $(var static_ego_z)
+        - name: roll
+          value: $(var static_ego_roll)
+        - name: pitch
+          value: $(var static_ego_pitch)
+        - name: yaw
+          value: $(var static_ego_yaw)
+        - name: map_frame
+          value: "map"
+        - name: odom_frame
+          value: "odom"
+        - name: base_frame
+          value: "base_footprint"
+        - name: map_topic
+          value: "liso/odometry"
+        - name: odom_topic
+          value: "transform/odometry"
+        - name: slam_topic
+          value: "slam/odometry"
+
   # ---- Lifecycle Manager ----
 
   # Full stack lifecycle (localization mode)
   # eidos_transform activates first (broadcasts identity TF), then eidos
   - node:
-      unless: "$(var mapping)"
+      if: "$(var run_localization)"
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: world_modeling_lifecycle_manager
@@ -357,6 +463,27 @@ launch:
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
+
+  - node:
+      if: "$(var use_static_ego_pose)"
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: world_modeling_static_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/world_model
+            - /world_modeling/costmap_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
