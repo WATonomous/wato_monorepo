@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "spatial_association/spatial_association.hpp"
+#include "utils/cluster_box_utils.hpp"
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2/LinearMath/Matrix3x3.h>
@@ -355,6 +356,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     core_params.merge_threshold = merge_threshold_;
     core_params.max_lidar_range_m = quality_max_distance_;
 
+    // Load multi-band clustering config if present.
+    core_params.clustering_bands = clustering_bands_;
+
     core_->setParams(core_params);
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -374,9 +378,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
   RCLCPP_INFO(this->get_logger(), "Activating Spatial Association node");
 
   try {
-    non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    auto cloud_qos = rclcpp::QoS(10);
+  cloud_qos.reliable();
+  cloud_qos.durability(rclcpp::DurabilityPolicy::TransientLocal);
+  non_ground_cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       kNonGroundCloud,
-      rclcpp::SensorDataQoS(),
+      cloud_qos,
       std::bind(&SpatialAssociationNode::nonGroundCloudCallback, this, std::placeholders::_1));
 
     multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
@@ -598,9 +605,12 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "euclid_params.close_threshold", 10.0);
   declareIfMissing(this, "euclid_params.close_tolerance_mult", 1.5);
 
-  declareIfMissing(this, "merge_threshold", 0.3);
+  // Multi-band clustering: parallel arrays. Empty = use legacy two-band or flat clustering.
+  declareIfMissing(this, "euclid_params.clustering_bands.max_distances", std::vector<double>{});
+  declareIfMissing(this, "euclid_params.clustering_bands.tolerance_mults", std::vector<double>{});
+  declareIfMissing(this, "euclid_params.clustering_bands.min_cluster_sizes", std::vector<int64_t>{});
 
-  declareIfMissing(this, "use_roi_first_clustering", false);
+  declareIfMissing(this, "merge_threshold", 0.3);
 
   declareIfMissing(this, "cross_camera_dedup.enabled", true);
   declareIfMissing(this, "cross_camera_dedup.min_lidar_index_overlap", 0.5);
@@ -614,15 +624,14 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "quality_filter_params.max_distance", 60.0);
   declareIfMissing(this, "quality_filter_params.min_points", 5);
   declareIfMissing(this, "quality_filter_params.min_height", 0.15);
-  declareIfMissing(this, "quality_filter_params.min_points_default", 10);
+  declareIfMissing(this, "quality_filter_params.min_points_default", 8);
   declareIfMissing(this, "quality_filter_params.min_points_far", 8);
-  declareIfMissing(this, "quality_filter_params.min_points_medium", 12);
+  declareIfMissing(this, "quality_filter_params.min_points_medium", 10);
   declareIfMissing(this, "quality_filter_params.min_points_large", 30);
   declareIfMissing(this, "quality_filter_params.distance_threshold_far", 30.0);
   declareIfMissing(this, "quality_filter_params.distance_threshold_medium", 20.0);
   declareIfMissing(this, "quality_filter_params.volume_threshold_large", 8.0);
   declareIfMissing(this, "quality_filter_params.min_density", 5.0);
-  declareIfMissing(this, "quality_filter_params.max_density", 1000.0);
   declareIfMissing(this, "quality_filter_params.max_dimension", 15.0);
   declareIfMissing(this, "quality_filter_params.max_aspect_ratio", 15.0);
 
@@ -640,46 +649,64 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, pu + "min_points_for_fit", 3);
   declareIfMissing(this, pu + "default_sample_point_count", 64);
   declareIfMissing(this, pu + "orientation_search_step_degrees", 2.0);
+  declareIfMissing(this, pu + "use_l_shaped_fitting", true);
   declareIfMissing(this, pu + "min_camera_z_distance", 1.0);
   declareIfMissing(this, pu + "detection_score_weight", 0.6);
   declareIfMissing(this, pu + "iou_score_weight", 0.4);
   declareIfMissing(this, pu + "image_width", 1280);
   declareIfMissing(this, pu + "image_height", 1024);
-  declareIfMissing(this, pu + "enable_second_pass_fallback", false);
-  declareIfMissing(this, pu + "second_pass_min_iou", 0.05);
-  declareIfMissing(this, pu + "max_unassigned_detections_second_pass", 10);
-
-  // Second-pass rescue policy knobs (gating + scoring).
-  declareIfMissing(this, pu + "second_pass_min_det_conf", -1.0);
-  declareIfMissing(this, pu + "second_pass_bbox_expand_fraction", 0.15);
-  declareIfMissing(this, pu + "second_pass_min_det_area_px2", 0.0);
-  declareIfMissing(this, pu + "second_pass_min_det_area_far_px2", 0.0);
-  declareIfMissing(this, pu + "second_pass_min_inside_points", 3);
-  declareIfMissing(this, pu + "second_pass_min_inside_fraction", 0.20);
-  declareIfMissing(this, pu + "second_pass_inside_points_far_scale", 0.75);
-  declareIfMissing(this, pu + "second_pass_inside_points_medium_scale", 0.90);
-  declareIfMissing(this, pu + "second_pass_person_inside_fraction_scale", 1.20);
-  declareIfMissing(this, pu + "second_pass_person_inside_points_scale", 1.20);
-  declareIfMissing(this, pu + "second_pass_vehicle_inside_fraction_scale", 0.90);
-  declareIfMissing(this, pu + "second_pass_vehicle_inside_points_scale", 0.90);
-  declareIfMissing(this, pu + "second_pass_min_size_score", 0.40);
-  declareIfMissing(this, pu + "second_pass_person_min_size_score", 0.50);
-  declareIfMissing(this, pu + "second_pass_vehicle_min_size_score", 0.35);
-  declareIfMissing(this, pu + "second_pass_min_combined_score", 0.45);
-  declareIfMissing(this, pu + "second_pass_best_second_margin", 0.10);
-
   declareIfMissing(this, pu + "association_strict_matching", true);
-  declareIfMissing(this, pu + "association_centroid_inner_box_fraction", 0.75);
+  declareIfMissing(this, pu + "association_centroid_inner_box_fraction", 0.85);
   declareIfMissing(this, pu + "association_min_inside_point_fraction", 0.45);
   declareIfMissing(this, pu + "association_min_ar_consistency_score", 0.30);
   declareIfMissing(this, pu + "association_use_point_projection_rect_for_iou", true);
-  declareIfMissing(this, pu + "association_allow_aabb_centroid_fallback", false);
-  declareIfMissing(this, pu + "association_suppress_second_pass_under_strict", true);
-  declareIfMissing(this, pu + "association_roi_expand_fraction", 0.12);
+  // Association scoring weights.
+  declareIfMissing(this, pu + "association_weight_iou", 0.30);
+  declareIfMissing(this, pu + "association_weight_inside_fraction", 0.28);
+  declareIfMissing(this, pu + "association_weight_ar", 0.18);
+  declareIfMissing(this, pu + "association_weight_centroid", 0.14);
+  declareIfMissing(this, pu + "association_weight_points", 0.10);
+  // Class-aware threshold scaling.
+  declareIfMissing(this, pu + "person_inside_fraction_scale", 0.85);
+  declareIfMissing(this, pu + "vehicle_inside_fraction_scale", 0.85);
+  declareIfMissing(this, pu + "person_iou_threshold_scale", 0.90);
+  declareIfMissing(this, pu + "vehicle_iou_threshold_scale", 0.90);
+  declareIfMissing(this, pu + "person_ar_consistency_scale", 0.70);
+  declareIfMissing(this, pu + "association_min_inside_points", 2);
+  declareIfMissing(this, pu + "min_size_consistency_score", 0.25);
+  declareIfMissing(this, pu + "min_det_area_far_px2", 400.0);
+  // Scoring internals.
+  declareIfMissing(this, pu + "centroid_score_detection_scale", 0.35);
+  declareIfMissing(this, pu + "point_score_saturation_count", 120.0);
+  declareIfMissing(this, pu + "association_centroid_distance_multiplier", 1.5);
+  declareIfMissing(this, pu + "single_point_bbox_margin_px", 3.0);
+  declareIfMissing(this, pu + "min_depth_for_enrichment", 0.1);
+  // Orientation / L-shape search.
+  declareIfMissing(this, pu + "l_shape_energy_variance_weight", 0.5);
+  declareIfMissing(this, pu + "orientation_coarse_step_multiplier", 5.0);
+  declareIfMissing(this, pu + "orientation_fine_range_multiplier", 2.5);
+
   declareIfMissing(this, pu + "depth_score_weight", 0.15);
   declareIfMissing(this, pu + "depth_score_scale", 5.0);
+  // Class-aware size priors (parallel arrays, same length).
+  declareIfMissing(this, pu + "enable_size_prior", true);
+  declareIfMissing(this, pu + "size_prior_weight", 0.10);
+  declareIfMissing(this, pu + "size_prior_scale", 0.5);
+  declareIfMissing(this, pu + "size_prior_classes", std::vector<std::string>{});
+  declareIfMissing(this, pu + "size_prior_min_widths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_max_widths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_min_lengths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_max_lengths", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_min_heights", std::vector<double>{});
+  declareIfMissing(this, pu + "size_prior_max_heights", std::vector<double>{});
+  declareIfMissing(this, pu + "use_hungarian_assignment", true);
+  declareIfMissing(this, pu + "far_iou_threshold_scale", 0.5);
+  declareIfMissing(this, pu + "medium_iou_threshold_scale", 0.75);
+  declareIfMissing(this, pu + "far_inside_fraction_scale", 0.6);
+  declareIfMissing(this, pu + "medium_inside_fraction_scale", 0.8);
   declareIfMissing(this, pu + "quality_person_max_height_m", 2.5);
   declareIfMissing(this, pu + "quality_person_max_footprint_xy_m", 1.45);
+  declareIfMissing(this, pu + "quality_person_max_volume_m3", 4.0);
   declareIfMissing(this, pu + "quality_vehicle_max_height_m", 4.8);
 
   publish_bounding_box_ = this->get_parameter("publish_bounding_box").as_bool();
@@ -704,8 +731,21 @@ void SpatialAssociationNode::initializeParams()
   euclid_close_threshold_ = this->get_parameter("euclid_params.close_threshold").as_double();
   euclid_close_tolerance_mult_ = this->get_parameter("euclid_params.close_tolerance_mult").as_double();
 
+  // Load multi-band clustering config.
+  {
+    auto band_dists = this->get_parameter("euclid_params.clustering_bands.max_distances").as_double_array();
+    auto band_mults = this->get_parameter("euclid_params.clustering_bands.tolerance_mults").as_double_array();
+    auto band_mins = this->get_parameter("euclid_params.clustering_bands.min_cluster_sizes").as_integer_array();
+    clustering_bands_.clear();
+    if (!band_dists.empty() && band_dists.size() == band_mults.size() && band_dists.size() == band_mins.size()) {
+      for (size_t i = 0; i < band_dists.size(); ++i) {
+        clustering_bands_.push_back(
+          {band_dists[i], band_mults[i], static_cast<int>(band_mins[i])});
+      }
+    }
+  }
+
   merge_threshold_ = this->get_parameter("merge_threshold").as_double();
-  use_roi_first_clustering_ = this->get_parameter("use_roi_first_clustering").as_bool();
   cross_camera_dedup_enabled_ = this->get_parameter("cross_camera_dedup.enabled").as_bool();
   cross_camera_min_lidar_overlap_ = this->get_parameter("cross_camera_dedup.min_lidar_index_overlap").as_double();
   cross_camera_weak_lidar_overlap_ = this->get_parameter("cross_camera_dedup.weak_lidar_index_overlap").as_double();
@@ -733,44 +773,12 @@ void SpatialAssociationNode::initializeParams()
   proj_params.default_sample_point_count =
     static_cast<size_t>(this->get_parameter(pu + "default_sample_point_count").as_int());
   proj_params.orientation_search_step_degrees = this->get_parameter(pu + "orientation_search_step_degrees").as_double();
+  proj_params.use_l_shaped_fitting = this->get_parameter(pu + "use_l_shaped_fitting").as_bool();
   proj_params.min_camera_z_distance = this->get_parameter(pu + "min_camera_z_distance").as_double();
   proj_params.detection_score_weight = this->get_parameter(pu + "detection_score_weight").as_double();
   proj_params.iou_score_weight = this->get_parameter(pu + "iou_score_weight").as_double();
   proj_params.image_width = this->get_parameter(pu + "image_width").as_int();
   proj_params.image_height = this->get_parameter(pu + "image_height").as_int();
-  proj_params.enable_second_pass_fallback = this->get_parameter(pu + "enable_second_pass_fallback").as_bool();
-  proj_params.second_pass_min_iou = this->get_parameter(pu + "second_pass_min_iou").as_double();
-  proj_params.max_unassigned_detections_second_pass =
-    this->get_parameter(pu + "max_unassigned_detections_second_pass").as_int();
-
-  proj_params.second_pass_min_det_conf = this->get_parameter(pu + "second_pass_min_det_conf").as_double();
-  proj_params.second_pass_bbox_expand_fraction =
-    this->get_parameter(pu + "second_pass_bbox_expand_fraction").as_double();
-  proj_params.second_pass_min_det_area_px2 = this->get_parameter(pu + "second_pass_min_det_area_px2").as_double();
-  proj_params.second_pass_min_det_area_far_px2 =
-    this->get_parameter(pu + "second_pass_min_det_area_far_px2").as_double();
-  proj_params.second_pass_min_inside_points = this->get_parameter(pu + "second_pass_min_inside_points").as_int();
-  proj_params.second_pass_min_inside_fraction = this->get_parameter(pu + "second_pass_min_inside_fraction").as_double();
-  proj_params.second_pass_inside_points_far_scale =
-    this->get_parameter(pu + "second_pass_inside_points_far_scale").as_double();
-  proj_params.second_pass_inside_points_medium_scale =
-    this->get_parameter(pu + "second_pass_inside_points_medium_scale").as_double();
-  proj_params.second_pass_person_inside_fraction_scale =
-    this->get_parameter(pu + "second_pass_person_inside_fraction_scale").as_double();
-  proj_params.second_pass_person_inside_points_scale =
-    this->get_parameter(pu + "second_pass_person_inside_points_scale").as_double();
-  proj_params.second_pass_vehicle_inside_fraction_scale =
-    this->get_parameter(pu + "second_pass_vehicle_inside_fraction_scale").as_double();
-  proj_params.second_pass_vehicle_inside_points_scale =
-    this->get_parameter(pu + "second_pass_vehicle_inside_points_scale").as_double();
-  proj_params.second_pass_min_size_score = this->get_parameter(pu + "second_pass_min_size_score").as_double();
-  proj_params.second_pass_person_min_size_score =
-    this->get_parameter(pu + "second_pass_person_min_size_score").as_double();
-  proj_params.second_pass_vehicle_min_size_score =
-    this->get_parameter(pu + "second_pass_vehicle_min_size_score").as_double();
-  proj_params.second_pass_min_combined_score = this->get_parameter(pu + "second_pass_min_combined_score").as_double();
-  proj_params.second_pass_best_second_margin = this->get_parameter(pu + "second_pass_best_second_margin").as_double();
-
   proj_params.association_strict_matching = this->get_parameter(pu + "association_strict_matching").as_bool();
   proj_params.association_centroid_inner_box_fraction =
     this->get_parameter(pu + "association_centroid_inner_box_fraction").as_double();
@@ -780,17 +788,74 @@ void SpatialAssociationNode::initializeParams()
     this->get_parameter(pu + "association_min_ar_consistency_score").as_double();
   proj_params.association_use_point_projection_rect_for_iou =
     this->get_parameter(pu + "association_use_point_projection_rect_for_iou").as_bool();
-  proj_params.association_allow_aabb_centroid_fallback =
-    this->get_parameter(pu + "association_allow_aabb_centroid_fallback").as_bool();
-  proj_params.association_suppress_second_pass_under_strict =
-    this->get_parameter(pu + "association_suppress_second_pass_under_strict").as_bool();
-  proj_params.association_roi_expand_fraction = this->get_parameter(pu + "association_roi_expand_fraction").as_double();
+  // Association scoring weights.
+  proj_params.association_weight_iou = this->get_parameter(pu + "association_weight_iou").as_double();
+  proj_params.association_weight_inside_fraction = this->get_parameter(pu + "association_weight_inside_fraction").as_double();
+  proj_params.association_weight_ar = this->get_parameter(pu + "association_weight_ar").as_double();
+  proj_params.association_weight_centroid = this->get_parameter(pu + "association_weight_centroid").as_double();
+  proj_params.association_weight_points = this->get_parameter(pu + "association_weight_points").as_double();
+  // Class-aware threshold scaling.
+  proj_params.person_inside_fraction_scale = this->get_parameter(pu + "person_inside_fraction_scale").as_double();
+  proj_params.vehicle_inside_fraction_scale = this->get_parameter(pu + "vehicle_inside_fraction_scale").as_double();
+  proj_params.person_iou_threshold_scale = this->get_parameter(pu + "person_iou_threshold_scale").as_double();
+  proj_params.vehicle_iou_threshold_scale = this->get_parameter(pu + "vehicle_iou_threshold_scale").as_double();
+  proj_params.person_ar_consistency_scale = this->get_parameter(pu + "person_ar_consistency_scale").as_double();
+  proj_params.association_min_inside_points = this->get_parameter(pu + "association_min_inside_points").as_int();
+  proj_params.min_size_consistency_score = this->get_parameter(pu + "min_size_consistency_score").as_double();
+  proj_params.min_det_area_far_px2 = this->get_parameter(pu + "min_det_area_far_px2").as_double();
+  // Scoring internals.
+  proj_params.centroid_score_detection_scale = this->get_parameter(pu + "centroid_score_detection_scale").as_double();
+  proj_params.point_score_saturation_count = this->get_parameter(pu + "point_score_saturation_count").as_double();
+  proj_params.association_centroid_distance_multiplier = this->get_parameter(pu + "association_centroid_distance_multiplier").as_double();
+  proj_params.single_point_bbox_margin_px = this->get_parameter(pu + "single_point_bbox_margin_px").as_double();
+  min_depth_for_enrichment_ = this->get_parameter(pu + "min_depth_for_enrichment").as_double();
+  proj_params.min_depth_for_enrichment = min_depth_for_enrichment_;
+  // Orientation / L-shape search.
+  proj_params.l_shape_energy_variance_weight = this->get_parameter(pu + "l_shape_energy_variance_weight").as_double();
+  proj_params.orientation_coarse_step_multiplier = this->get_parameter(pu + "orientation_coarse_step_multiplier").as_double();
+  proj_params.orientation_fine_range_multiplier = this->get_parameter(pu + "orientation_fine_range_multiplier").as_double();
+
   proj_params.depth_score_weight = this->get_parameter(pu + "depth_score_weight").as_double();
   proj_params.depth_score_scale = this->get_parameter(pu + "depth_score_scale").as_double();
+  // Class-aware size priors.
+  proj_params.enable_size_prior = this->get_parameter(pu + "enable_size_prior").as_bool();
+  proj_params.size_prior_weight = this->get_parameter(pu + "size_prior_weight").as_double();
+  proj_params.size_prior_scale = this->get_parameter(pu + "size_prior_scale").as_double();
+  {
+    auto sp_cls = this->get_parameter(pu + "size_prior_classes").as_string_array();
+    auto sp_min_w = this->get_parameter(pu + "size_prior_min_widths").as_double_array();
+    auto sp_max_w = this->get_parameter(pu + "size_prior_max_widths").as_double_array();
+    auto sp_min_l = this->get_parameter(pu + "size_prior_min_lengths").as_double_array();
+    auto sp_max_l = this->get_parameter(pu + "size_prior_max_lengths").as_double_array();
+    auto sp_min_h = this->get_parameter(pu + "size_prior_min_heights").as_double_array();
+    auto sp_max_h = this->get_parameter(pu + "size_prior_max_heights").as_double_array();
+    const size_t n = sp_cls.size();
+    if (
+      n > 0 && sp_min_w.size() == n && sp_max_w.size() == n && sp_min_l.size() == n && sp_max_l.size() == n &&
+      sp_min_h.size() == n && sp_max_h.size() == n)
+    {
+      for (size_t i = 0; i < n; ++i) {
+        proj_params.size_priors[sp_cls[i]] = {
+          sp_min_w[i], sp_max_w[i], sp_min_l[i], sp_max_l[i], sp_min_h[i], sp_max_h[i]};
+      }
+    } else if (n > 0) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "size_prior arrays have mismatched lengths (%zu classes); size priors disabled",
+        n);
+    }
+  }
+  proj_params.use_hungarian_assignment = this->get_parameter(pu + "use_hungarian_assignment").as_bool();
+  proj_params.far_iou_threshold_scale = this->get_parameter(pu + "far_iou_threshold_scale").as_double();
+  proj_params.medium_iou_threshold_scale = this->get_parameter(pu + "medium_iou_threshold_scale").as_double();
+  proj_params.far_inside_fraction_scale = this->get_parameter(pu + "far_inside_fraction_scale").as_double();
+  proj_params.medium_inside_fraction_scale = this->get_parameter(pu + "medium_inside_fraction_scale").as_double();
   proj_params.quality_person_max_height_m =
     static_cast<float>(this->get_parameter(pu + "quality_person_max_height_m").as_double());
   proj_params.quality_person_max_footprint_xy_m =
     static_cast<float>(this->get_parameter(pu + "quality_person_max_footprint_xy_m").as_double());
+  proj_params.quality_person_max_volume_m3 =
+    static_cast<float>(this->get_parameter(pu + "quality_person_max_volume_m3").as_double());
   proj_params.quality_vehicle_max_height_m =
     static_cast<float>(this->get_parameter(pu + "quality_vehicle_max_height_m").as_double());
 
@@ -811,8 +876,6 @@ void SpatialAssociationNode::initializeParams()
     static_cast<float>(this->get_parameter("quality_filter_params.volume_threshold_large").as_double());
   proj_params.quality_min_density =
     static_cast<float>(this->get_parameter("quality_filter_params.min_density").as_double());
-  proj_params.quality_max_density =
-    static_cast<float>(this->get_parameter("quality_filter_params.max_density").as_double());
   proj_params.quality_max_dimension =
     static_cast<float>(this->get_parameter("quality_filter_params.max_dimension").as_double());
   proj_params.quality_max_aspect_ratio =
@@ -940,9 +1003,7 @@ void SpatialAssociationNode::workerLoop()
     snap->cloud_stamp = rclcpp::Time(my_header.stamp, get_clock()->get_clock_type());
     snap->cloud = std::move(filtered);
     snap->cluster_indices = std::move(indices);
-    if (!use_roi_first_clustering_) {
-      snap->global_candidates = projection_utils::buildCandidates(snap->cloud, snap->cluster_indices);
-    }
+    snap->global_candidates = projection_utils::buildCandidates(snap->cloud, snap->cluster_indices);
 
     {
       std::lock_guard<std::mutex> lock(cloud_mutex_);
@@ -1152,16 +1213,14 @@ void SpatialAssociationNode::runAssociationFromDetections(
   const std::vector<pcl::PointIndices> & indices = snap->cluster_indices;
   const std_msgs::msg::Header & lidar_header = snap->header;
 
-  if (!use_roi_first_clustering_ && indices.empty()) {
+  if (indices.empty()) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No clusters available from non-ground cloud");
     return;
   }
 
-  if (!use_roi_first_clustering_) {
-    if (!snap->global_candidates.has_value() || snap->global_candidates->empty()) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No cluster candidates available");
-      return;
-    }
+  if (!snap->global_candidates.has_value() || snap->global_candidates->empty()) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "No cluster candidates available");
+    return;
   }
 
   const rclcpp::Time & cloud_time = snap->cloud_stamp;
@@ -1209,7 +1268,6 @@ void SpatialAssociationNode::runAssociationFromDetections(
   size_t skipped_no_camera_info = 0;
   size_t skipped_stamp_delta = 0;
   size_t skipped_tf_failed = 0;
-  size_t skipped_roi_no_candidates = 0;
   size_t cameras_with_2d_but_zero_3d = 0;
 
   for (const auto & camera_detections : msg->camera_detections) {
@@ -1297,30 +1355,7 @@ void SpatialAssociationNode::runAssociationFromDetections(
       lidar_to_cam_transform_cache_[frame_id] = tf_lidar_to_cam;
     }
 
-    std::vector<projection_utils::ClusterCandidate> candidates;
-    if (use_roi_first_clustering_) {
-      const Eigen::Matrix<double, 3, 4> lidar_to_image =
-        projection_utils::buildLidarToImageMatrix(tf_lidar_to_cam, projection_matrix);
-      const auto & pup = projection_utils::getParams();
-      candidates = projection_utils::buildCandidatesFromDetectionRois(
-        cloud,
-        lidar_to_image,
-        camera_detections,
-        static_cast<float>(object_detection_confidence_),
-        pup.association_roi_expand_fraction,
-        euclid_cluster_tolerance_,
-        euclid_min_cluster_size_,
-        euclid_max_cluster_size_,
-        cam_width,
-        cam_height,
-        true);
-      if (candidates.empty()) {
-        ++skipped_roi_no_candidates;
-        continue;
-      }
-    } else {
-      candidates = *snap->global_candidates;
-    }
+    std::vector<projection_utils::ClusterCandidate> candidates = *snap->global_candidates;
 
     // Separate traffic lights (bypass LiDAR) and build depth vector for remaining detections
     std::vector<std::optional<double>> cam_depths;
@@ -1371,7 +1406,7 @@ void SpatialAssociationNode::runAssociationFromDetections(
           const double depth =
             std::sqrt(pos_lidar.x * pos_lidar.x + pos_lidar.y * pos_lidar.y + pos_lidar.z * pos_lidar.z);
           std::optional<double> d;
-          if (depth > 0.1) {
+          if (depth > min_depth_for_enrichment_) {
             d = depth;
           }
           cam_depths.push_back(d);
@@ -1397,7 +1432,6 @@ void SpatialAssociationNode::runAssociationFromDetections(
       lidar_header,
       cam_width,
       cam_height,
-      use_roi_first_clustering_,
       cam_depths);
 
     const size_t nd = detection_results.detections3d.detections.size();
@@ -1492,7 +1526,7 @@ void SpatialAssociationNode::runAssociationFromDetections(
       *get_clock(),
       5000,
       "No 3D detections despite %zu 2D (across %zu camera(s)). Skipped: stamp_delta=%zu no_camera_info=%zu "
-      "tf_fail=%zu roi_empty=%zu. Cameras that ran association but produced 0 3D: %zu. Hints: if "
+      "tf_fail=%zu. Cameras that ran association but produced 0 3D: %zu. Hints: if "
       "stamp_delta==%zu increase max_detection_cloud_stamp_delta or clustered_cloud_cache_size; match detection "
       "frame_id to MultiCameraInfo; "
       "check TF %s→camera; relax object_detection_confidence, min_iou_threshold, or association_strict_matching.",
@@ -1501,7 +1535,6 @@ void SpatialAssociationNode::runAssociationFromDetections(
       skipped_stamp_delta,
       skipped_no_camera_info,
       skipped_tf_failed,
-      skipped_roi_no_candidates,
       cameras_with_2d_but_zero_3d,
       n_cams,
       lidar_frame_.c_str());
@@ -1582,7 +1615,6 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   const std_msgs::msg::Header & lidar_header,
   int image_width,
   int image_height,
-  bool skip_iou_assignment,
   const std::vector<std::optional<double>> & detection_depths)
 {
   DetectionOutputs detection_outputs;
@@ -1605,25 +1637,16 @@ DetectionOutputs SpatialAssociationNode::processDetections(
       detection.detections.size());
   }
 
-  if (!skip_iou_assignment) {
-    projection_utils::assignCandidatesToDetectionsByIOU(
-      cloud,
-      candidates,
-      detection,
-      transform,
-      projection_matrix,
-      object_detection_confidence_,
-      image_width,
-      image_height,
-      detection_depths);
-  } else {
-    candidates.erase(
-      std::remove_if(
-        candidates.begin(),
-        candidates.end(),
-        [](const projection_utils::ClusterCandidate & c) { return !c.match.has_value(); }),
-      candidates.end());
-  }
+  projection_utils::assignCandidatesToDetectionsByIOU(
+    cloud,
+    candidates,
+    detection,
+    transform,
+    projection_matrix,
+    object_detection_confidence_,
+    image_width,
+    image_height,
+    detection_depths);
 
   if (debug_logging_) {
     RCLCPP_INFO(
@@ -1640,7 +1663,21 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   projection_utils::filterCandidatesByClassAwareConstraints(candidates, detection);
 
   std::vector<pcl::PointIndices> out_indices = projection_utils::extractIndices(candidates);
-  auto boxes = core_->computeClusterBoxes(cloud, out_indices);
+
+  // Compute 3D boxes with class-aware fitting (L-shaped for vehicles).
+  std::vector<projection_utils::Box3D> boxes;
+  boxes.reserve(out_indices.size());
+  for (size_t i = 0; i < out_indices.size(); ++i) {
+    std::string class_hint;
+    if (candidates[i].match && candidates[i].match->det_idx >= 0) {
+      size_t di = static_cast<size_t>(candidates[i].match->det_idx);
+      if (di < detection.detections.size() && !detection.detections[di].results.empty()) {
+        class_hint = detection.detections[di].results[0].hypothesis.class_id;
+      }
+    }
+    boxes.push_back(cluster_box::computeClusterBoxWithClassHint(cloud, out_indices[i], class_hint));
+    cluster_box::applyClassAwareBoxExtension(boxes.back(), class_hint);
+  }
 
   if (publish_bounding_box_) {
     detection_outputs.bboxes = projection_utils::computeBoundingBox(boxes, out_indices, lidar_header);

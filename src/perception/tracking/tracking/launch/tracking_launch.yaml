@@ -21,6 +21,10 @@ launch:
       name: tracks_topic
       default: /perception/detections_3D_tracked
       description: Topic to publish tracks to
+  - arg:
+      name: predictions_topic
+      default: /perception/predicted_objects
+      description: Topic to publish predicted world objects to
 
   # Launch the 2D tracking node
   - node:
@@ -35,3 +39,5 @@ launch:
           to: $(var detections_topic)
         - from: output_tracks
           to: $(var tracks_topic)
+        - from: output_predictions
+          to: $(var predictions_topic)

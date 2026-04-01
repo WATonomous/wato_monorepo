@@ -21,6 +21,7 @@
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -172,7 +173,7 @@ static SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> &
   };
 
   const double step_rad = p.orientation_search_step_degrees * M_PI / 180.0;
-  const double coarse_step = 5.0 * step_rad;
+  const double coarse_step = p.orientation_coarse_step_multiplier * step_rad;
   for (double theta = 0.0; theta < M_PI_2; theta += coarse_step) {
     double energy = calculateEdgeEnergy(theta);
     if (energy < min_energy) {
@@ -181,7 +182,7 @@ static SearchResult computeSearchBasedFit(const pcl::PointCloud<pcl::PointXYZ> &
     }
   }
 
-  const double fine_range = 2.5 * step_rad;
+  const double fine_range = p.orientation_fine_range_multiplier * step_rad;
   const double fine_step = step_rad;
 
   double start_theta = std::max(0.0, best_theta - fine_range);
@@ -456,6 +457,256 @@ std::vector<projection_utils::ClusterStats> computeClusterStatsBatch(
   }
 
   return stats;
+}
+
+/**
+ * @brief L-shaped fitting for vehicle-like clusters.
+ *
+ * For each candidate yaw angle, projects points to the rotated frame and finds the closest
+ * edge (left/right/front/back) for each point. The angle that minimizes total closest-edge
+ * distance is the best L-shape orientation. This works well when LiDAR sees 1-2 sides of
+ * a rectangular object.
+ */
+static SearchResult computeLShapedFit(
+  const pcl::PointCloud<pcl::PointXYZ> & pts, const std::vector<int> & indices)
+{
+  const auto & p = projection_utils::getParams();
+  SearchResult r;
+  if (indices.size() < p.min_points_for_fit) {
+    r.ok = false;
+    return r;
+  }
+
+  auto search_points = samplePointsXY(pts, indices, p.default_sample_point_count);
+  if (search_points.size() < p.min_points_for_fit) {
+    r.ok = false;
+    return r;
+  }
+
+  const double pct_lo = p.xy_extent_percentile_low;
+  const double pct_hi = p.xy_extent_percentile_high;
+
+  double min_energy = std::numeric_limits<double>::max();
+  double best_theta = 0.0;
+
+  // L-shaped criterion: for each angle, compute how close points are to the nearest edge
+  // of the bounding rectangle. Lower total = better L-fit (points cluster near edges).
+  auto calculateLShapeEnergy = [&](double theta) -> double {
+    double cos_t = std::cos(theta);
+    double sin_t = std::sin(theta);
+
+    double min_x = std::numeric_limits<double>::max();
+    double max_x = std::numeric_limits<double>::lowest();
+    double min_y = min_x;
+    double max_y = max_x;
+
+    std::vector<std::pair<double, double>> rotated(search_points.size());
+    for (size_t i = 0; i < search_points.size(); ++i) {
+      const auto & pt = search_points[i];
+      double x_rot = static_cast<double>(pt.x()) * cos_t + static_cast<double>(pt.y()) * sin_t;
+      double y_rot = -static_cast<double>(pt.x()) * sin_t + static_cast<double>(pt.y()) * cos_t;
+      rotated[i] = {x_rot, y_rot};
+      min_x = std::min(min_x, x_rot);
+      max_x = std::max(max_x, x_rot);
+      min_y = std::min(min_y, y_rot);
+      max_y = std::max(max_y, y_rot);
+    }
+
+    // L-shape energy: variance of the closest-edge distances (low variance = L-shaped).
+    double sum_d = 0.0;
+    double sum_d2 = 0.0;
+    for (const auto & pr : rotated) {
+      double dx = std::min(std::abs(pr.first - min_x), std::abs(pr.first - max_x));
+      double dy = std::min(std::abs(pr.second - min_y), std::abs(pr.second - max_y));
+      double d = std::min(dx, dy);
+      sum_d += d;
+      sum_d2 += d * d;
+    }
+    double n = static_cast<double>(rotated.size());
+    double mean = sum_d / n;
+    double variance = sum_d2 / n - mean * mean;
+
+    // Combined: mean closeness + variance penalty (L-shapes have low mean AND low variance).
+    return mean + p.l_shape_energy_variance_weight * variance;
+  };
+
+  // Coarse search: 0-90 degrees.
+  const double step_rad = p.orientation_search_step_degrees * M_PI / 180.0;
+  const double coarse_step = p.orientation_coarse_step_multiplier * step_rad;
+  for (double theta = 0.0; theta < M_PI_2; theta += coarse_step) {
+    double energy = calculateLShapeEnergy(theta);
+    if (energy < min_energy) {
+      min_energy = energy;
+      best_theta = theta;
+    }
+  }
+
+  // Fine search around the best coarse angle.
+  double start = std::max(0.0, best_theta - p.orientation_fine_range_multiplier * step_rad);
+  double end = std::min(M_PI_2, best_theta + p.orientation_fine_range_multiplier * step_rad);
+  for (double theta = start; theta <= end; theta += step_rad) {
+    double energy = calculateLShapeEnergy(theta);
+    if (energy < min_energy) {
+      min_energy = energy;
+      best_theta = theta;
+    }
+  }
+
+  // Compute final extents using all points.
+  std::vector<double> x_rot_all, y_rot_all;
+  x_rot_all.reserve(indices.size());
+  y_rot_all.reserve(indices.size());
+  double cos_t = std::cos(best_theta);
+  double sin_t = std::sin(best_theta);
+  for (int idx : indices) {
+    const auto & pt = pts.points[idx];
+    x_rot_all.push_back(static_cast<double>(pt.x) * cos_t + static_cast<double>(pt.y) * sin_t);
+    y_rot_all.push_back(-static_cast<double>(pt.x) * sin_t + static_cast<double>(pt.y) * cos_t);
+  }
+
+  double min_x, max_x, min_y, max_y;
+  getPercentileBounds(x_rot_all, pct_lo, pct_hi, min_x, max_x);
+  getPercentileBounds(y_rot_all, pct_lo, pct_hi, min_y, max_y);
+
+  double cx_rot = 0.5 * (min_x + max_x);
+  double cy_rot = 0.5 * (min_y + max_y);
+  r.center_xy = Eigen::Vector2f(
+    static_cast<float>(cx_rot * cos_t - cy_rot * sin_t),
+    static_cast<float>(cx_rot * sin_t + cy_rot * cos_t));
+
+  double d1 = max_x - min_x;
+  double d2 = max_y - min_y;
+  if (d1 >= d2) {
+    r.len = static_cast<float>(d1);
+    r.wid = static_cast<float>(d2);
+    r.yaw = normalizeAngle(best_theta);
+  } else {
+    r.len = static_cast<float>(d2);
+    r.wid = static_cast<float>(d1);
+    r.yaw = normalizeAngle(best_theta + M_PI_2);
+  }
+  r.ok = true;
+  return r;
+}
+
+projection_utils::Box3D computeClusterBoxWithClassHint(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const pcl::PointIndices & cluster,
+  const std::string & class_hint)
+{
+  const auto & params = projection_utils::getParams();
+  const bool is_vehicle = (class_hint == "car" || class_hint == "truck" || class_hint == "bus");
+
+  if (!is_vehicle || !params.use_l_shaped_fitting || !cloud || cluster.indices.size() < 5u) {
+    return computeClusterBox(cloud, cluster);
+  }
+
+  // Run both search-based and L-shaped fitting, pick the one with lower energy.
+  projection_utils::Box3D box;
+  const auto & p_box = projection_utils::getParams();
+
+  // Compute Z extents (shared).
+  std::vector<double> z_vals;
+  z_vals.reserve(cluster.indices.size());
+  for (int idx : cluster.indices) {
+    z_vals.push_back(static_cast<double>(cloud->points[idx].z));
+  }
+  double z_lo, z_hi;
+  getPercentileBounds(z_vals, p_box.z_extent_percentile_low, p_box.z_extent_percentile_high, z_lo, z_hi);
+  box.center.z() = static_cast<float>(0.5 * (z_lo + z_hi));
+  box.size.z() = static_cast<float>(std::max(0.0, z_hi - z_lo));
+
+  SearchResult search_fit = computeSearchBasedFit(*cloud, cluster.indices);
+  SearchResult l_fit = computeLShapedFit(*cloud, cluster.indices);
+
+  // Pick L-shaped if it produced a valid result.
+  // L-shaped fitting is preferred for vehicles because it handles partial visibility better.
+  SearchResult & chosen = (l_fit.ok) ? l_fit : search_fit;
+  if (!chosen.ok) {
+    // Fallback to AABB.
+    return computeClusterBox(cloud, cluster);
+  }
+
+  // Resolve yaw ambiguity using line-of-sight.
+  double ar = static_cast<double>(chosen.len) / std::max(static_cast<double>(chosen.wid), 0.1);
+  Eigen::Vector4f centroid_temp;
+  pcl::compute3DCentroid(*cloud, cluster.indices, centroid_temp);
+  double yaw_los = std::atan2(centroid_temp.y(), centroid_temp.x());
+
+  double final_yaw;
+  if (ar < p_box.ar_front_view_threshold) {
+    final_yaw = yaw_los;
+  } else {
+    double yaw0 = normalizeAngle(chosen.yaw);
+    double yaw1 = normalizeAngle(chosen.yaw + M_PI);
+    final_yaw = (angleDiff(yaw1, yaw_los) < angleDiff(yaw0, yaw_los)) ? yaw1 : yaw0;
+  }
+
+  Eigen::Vector2f box_center_xy, box_size_xy;
+  recomputeExtentsInYaw(*cloud, cluster.indices, final_yaw, chosen.center_xy, box_center_xy, box_size_xy);
+
+  box.center.x() = box_center_xy.x();
+  box.center.y() = box_center_xy.y();
+  box.size.x() = box_size_xy.x();
+  box.size.y() = box_size_xy.y();
+  box.yaw = final_yaw;
+
+  return box;
+}
+
+void applyClassAwareBoxExtension(projection_utils::Box3D & box, const std::string & class_hint)
+{
+  const auto & params = projection_utils::getParams();
+  if (!params.enable_size_prior) return;
+  if (class_hint.empty()) return;
+  auto it = params.size_priors.find(class_hint);
+  if (it == params.size_priors.end()) return;
+
+  const auto & prior = it->second;
+
+  // Box convention: size.x = along yaw (length), size.y = perpendicular (width).
+  const double target_length = 0.5 * (prior.min_length + prior.max_length);
+  const double target_width = 0.5 * (prior.min_width + prior.max_width);
+
+  const double cx = static_cast<double>(box.center.x());
+  const double cy = static_cast<double>(box.center.y());
+  const double los_angle = std::atan2(cy, cx);
+
+  // How aligned is each box axis with the radial (ego-to-object) direction?
+  // cos_rel ≈ 1: x-axis (yaw) points radially → x is depth, y is cross-range (well-observed).
+  // cos_rel ≈ 0: y-axis points radially → y is depth, x is cross-range (well-observed).
+  const double cos_rel = std::abs(std::cos(box.yaw - los_angle));
+
+  // Only extend the axis that is predominantly radial (facing away from ego).
+  // Threshold at cos(45°) ≈ 0.707: if the angle is ambiguous, don't extend — LiDAR sees
+  // both sides partially and the fit is reasonable as-is.
+  constexpr double kMinRadialAlignment = 0.707;  // cos(45°)
+
+  const double cos_yaw = std::cos(box.yaw);
+  const double sin_yaw = std::sin(box.yaw);
+
+  if (cos_rel >= kMinRadialAlignment) {
+    // x-axis (length) is radial → LiDAR can't see it well. Extend length only.
+    if (static_cast<double>(box.size.x()) < target_length) {
+      const double delta = target_length - static_cast<double>(box.size.x());
+      const double dot = cos_yaw * cx + sin_yaw * cy;
+      const double sign = (dot >= 0.0) ? 1.0 : -1.0;
+      box.center.x() = static_cast<float>(cx + sign * cos_yaw * delta * 0.5);
+      box.center.y() = static_cast<float>(cy + sign * sin_yaw * delta * 0.5);
+      box.size.x() = static_cast<float>(target_length);
+    }
+  } else if (cos_rel <= (1.0 - kMinRadialAlignment)) {
+    // y-axis (width) is radial → LiDAR can't see it well. Extend width only.
+    if (static_cast<double>(box.size.y()) < target_width) {
+      const double delta = target_width - static_cast<double>(box.size.y());
+      const double dot_perp = -sin_yaw * cx + cos_yaw * cy;
+      const double sign = (dot_perp >= 0.0) ? 1.0 : -1.0;
+      box.center.x() = static_cast<float>(cx + sign * (-sin_yaw) * delta * 0.5);
+      box.center.y() = static_cast<float>(cy + sign * cos_yaw * delta * 0.5);
+      box.size.y() = static_cast<float>(target_width);
+    }
+  }
+  // else: ambiguous viewing angle (near 45°) — don't extend, the fit is the best we have.
 }
 
 }  // namespace cluster_box

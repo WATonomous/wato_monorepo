@@ -19,6 +19,8 @@
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>world_model_msgs</depend>
   <depend>bytetrack_cpp_vendor</depend>
 
   <test_depend>wato_test</test_depend>
