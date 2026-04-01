@@ -45,6 +45,9 @@
       # Ego stopped velocity threshold (m/s)
       ego_stopped_velocity_threshold: 0.1
 
+      # Max distance from the stop line to count the ego stop for stop signs (meters)
+      stop_sign_ego_stop_line_threshold_m: 3.0
+
       # Intersection lookahead distance (meters)
       intersection_lookahead_m: 100.0
 
