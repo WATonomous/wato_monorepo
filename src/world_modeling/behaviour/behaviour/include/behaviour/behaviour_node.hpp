@@ -32,7 +32,6 @@
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "std_srvs/srv/trigger.hpp"
 
 namespace behaviour
 {

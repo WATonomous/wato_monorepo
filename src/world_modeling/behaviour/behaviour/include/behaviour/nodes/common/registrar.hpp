@@ -45,7 +45,6 @@
 #include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
 
 // conditions
-#include "behaviour/nodes/common/conditions/empty_lanelets_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_lanelet_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_on_route_condition.hpp"
 #include "behaviour/nodes/common/conditions/ego_stopped_condition.hpp"
