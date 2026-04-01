@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>osqp_eigen_vendor</name>
+  <version>0.0.0</version>
+  <description>ROS 2 vendor package for OsqpEigen (C++ Eigen wrapper for OSQP).</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>osqp_vendor</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
