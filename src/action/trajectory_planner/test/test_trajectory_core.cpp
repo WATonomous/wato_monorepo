@@ -87,7 +87,8 @@ TEST_CASE_METHOD(
   trajectory_planner::TrajectoryConfig cfg;
   cfg.max_speed = 20.0;
   cfg.stop_distance = 2.0;
-  cfg.safe_distance = 10.0;
+  cfg.max_tangential_accel = 2.0;
+  cfg.max_emergency_accel = 5.0;
   cfg.footprint_x_min = 0.0;
   cfg.footprint_x_max = 0.0;
   cfg.footprint_y_min = 0.0;
@@ -103,65 +104,6 @@ TEST_CASE_METHOD(
   }
 }
 
-// Speed interpolation test with obstacle at 12 m
-//
-// Config: stop_distance=2, safe_distance=10, max_speed=20
-// Path points at x = 0, 4, 8, 12, 16  (dist_along_path == x value)
-// obstacle_dist = 12.0
-//
-// Expected per-point speeds:
-//   x=0  dist_remaining=12 >= safe_distance(10)          -> 20.0 (full)
-//   x=4  dist_remaining=8,  ratio=(8-2)/(10-2)=0.75      -> 15.0
-//   x=8  dist_remaining=4,  ratio=(4-2)/(10-2)=0.25      ->  5.0
-//   x=12 dist_remaining=0  <= stop_distance(2)           ->  0.0
-//   x=16 dist_remaining=-4 <= stop_distance(2)           ->  0.0
-
-TEST_CASE_METHOD(
-  wato::test::TestExecutorFixture,
-  "compute_trajectory linearly interpolates speed near obstacle",
-  "[trajectory_core][speed]")
-{
-  trajectory_planner::TrajectoryConfig cfg;
-  cfg.max_speed = 20.0;
-  cfg.stop_distance = 2.0;
-  cfg.safe_distance = 10.0;
-  cfg.interpolation_resolution = 0.5;
-  cfg.footprint_x_min = 0.0;
-  cfg.footprint_x_max = 0.0;
-  cfg.footprint_y_min = 0.0;
-  cfg.footprint_y_max = 0.0;
-  trajectory_planner::TrajectoryCore core(cfg);
-
-  auto path = make_straight_path({0.0, 4.0, 8.0, 12.0, 16.0});
-  auto traj = core.compute_trajectory(path, make_grid_with_obstacle_at_12m(), cfg.max_speed, cfg.max_speed);
-
-  REQUIRE(traj.points.size() == 5);
-
-  SECTION("full speed beyond safe distance")
-  {
-    REQUIRE(traj.points[0].max_speed == Catch::Approx(20.0));
-  }
-
-  SECTION("75 percent speed at 8 m remaining")
-  {
-    REQUIRE(traj.points[1].max_speed == Catch::Approx(15.0));
-  }
-
-  SECTION("25 percent speed at 4 m remaining")
-  {
-    REQUIRE(traj.points[2].max_speed == Catch::Approx(5.0));
-  }
-
-  SECTION("zero speed at obstacle distance")
-  {
-    REQUIRE(traj.points[3].max_speed == Catch::Approx(0.0));
-  }
-
-  SECTION("zero speed past obstacle")
-  {
-    REQUIRE(traj.points[4].max_speed == Catch::Approx(0.0));
-  }
-}
 
 // ---------------------------------------------------------------------------
 // find_first_collision tests

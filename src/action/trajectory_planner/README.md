@@ -4,7 +4,7 @@ The `trajectory_planner` package refines a geometric path into a velocity-profil
 
 ## Overview
 
-The node subscribes to a path (from `local_planning`) and a costmap (from `world_modeling`). It interpolates the path at a fixed resolution, sweeps the vehicle footprint at each point, and finds the distance to the first lethal obstacle. Velocity at each point is then scaled linearly between `max_speed` (at `safe_distance`) and 0 (at `stop_distance`).
+The node subscribes to a path (from `local_planning`) and a costmap (from `world_modeling`). It interpolates the path at a fixed resolution, sweeps the vehicle footprint at each point, and finds the distance to the first lethal obstacle. Velocity at each point is then limited by kinematics-based braking: `v = sqrt(2 * max_tangential_accel * braking_distance)`, ensuring the vehicle can always stop in time given its current speed and max deceleration.
 
 The lane speed limit from `/world_modeling/lanelet/lane_context` further caps velocity when available.
 
@@ -30,8 +30,7 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `safe_distance` | 10.0 m | Distance to obstacle where deceleration begins. |
-| `stop_distance` | 2.0 m | Distance to obstacle where vehicle must be fully stopped. |
+| `stop_distance` | 0.1 m | Distance to obstacle where vehicle must be fully stopped. |
 | `max_speed` | 20.0 m/s | Maximum speed when no lanelet limit is available. |
 | `interpolation_resolution` | 0.1 m | Point spacing along path for collision checking. |
 | `footprint_frame` | `base_link` | Frame in which the footprint is defined. |
@@ -43,7 +42,7 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 ### Tuning Guide
 
 1. **Car stops too early/late**: Adjust `stop_distance` or the `footprint_x_max` to match actual front bumper position.
-2. **Car is too jerky**: Increase `safe_distance` to lengthen the deceleration ramp.
+2. **Car is too jerky**: Decrease `max_tangential_accel` for gentler braking.
 3. **Car clips obstacles on the sides**: Increase `footprint_y_min`/`footprint_y_max` to widen the safety corridor.
 4. **High CPU usage**: Increase `interpolation_resolution` (e.g. 0.2 m), but avoid missing narrow obstacles.
 
