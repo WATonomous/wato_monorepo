@@ -21,6 +21,7 @@
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
@@ -63,6 +64,7 @@ private:
   std::string standby_msg_;
   double lookahead_distance_;
   double min_lookahead_distance_;
+  double lookahead_gain_;
   double steering_angle_gain;
   double max_speed_;
   double min_speed_;
@@ -87,12 +89,14 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr idle_pub_;
   rclcpp::Subscription<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_sub_;
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::TimerBase::SharedPtr control_timer_;
 
   // State
   wato_trajectory_msgs::msg::Trajectory::SharedPtr latest_trajectory_;
   rclcpp::Time last_trajectory_time_;
   std::string bt_requested_behaviour;
+  double current_speed_{0.0};
 };
 
 }  // namespace ackermann_pure_pursuit
