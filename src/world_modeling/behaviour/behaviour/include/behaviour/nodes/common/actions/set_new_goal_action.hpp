@@ -57,13 +57,14 @@ public:
       BT::OutputPort<lanelet_msgs::srv::GetShortestRoute::Response::SharedPtr>("out_global_route"),
       BT::OutputPort<std::shared_ptr<std::unordered_map<int64_t, std::size_t>>>("out_global_route_index_map"),
       BT::OutputPort<std::vector<int64_t>>("out_global_route_lanelet_ids"),
+      BT::OutputPort<geometry_msgs::msg::PointStamped::SharedPtr>("out_pending_goal_point"),
     };
   }
 
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      RCLCPP_ERROR(logger(), "Missing input port: %s", port_name);
     };
 
     auto goal_point = ports::tryGetPtr<geometry_msgs::msg::PointStamped>(*this, "goal_point");
@@ -97,6 +98,8 @@ public:
     setOutput("out_global_route", global_route);
     setOutput("out_global_route_index_map", global_route_index_map);
     setOutput("out_global_route_lanelet_ids", global_route_lanelet_ids.value());
+    geometry_msgs::msg::PointStamped::SharedPtr cleared_pending_goal_point = nullptr;
+    setOutput("out_pending_goal_point", cleared_pending_goal_point);
     return BT::NodeStatus::SUCCESS;
   }
 };

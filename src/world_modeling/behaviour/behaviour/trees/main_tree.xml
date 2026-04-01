@@ -5,19 +5,24 @@
     <ParallelAll max_failures="-1">
       <ReactiveFallback name="Goal Manager">
         <Sequence name="Update Route On Goal Change">
-          <GetGoalPointSub
-            goal_point="{pending_goal_point}"
-            error_message="{goal_point_sub_error_msg}"
-            topic_name="goal_point" />
+          <Fallback name="Ensure Pending Goal">
+            <GoalExist goal_point="{pending_gp}" />
 
-          <GoalUpdated goal_point="{pending_goal_point}" />
+            <Sequence>
+              <GoalExist goal_point="{requested_gp}" />
+              <SetPendingGoal
+                requested_goal_point="{requested_gp}"
+                out_pending_goal_point="{pending_gp}"
+                out_requested_goal_point="{requested_gp}" />
+            </Sequence>
+          </Fallback>
 
           <Fallback name="Try Set New Goal">
             <Sequence>
               <RetryUntilSuccessful num_attempts="8">
                 <RateController hz="1.0">
                   <SetRoute
-                    goal_point="{pending_goal_point}"
+                    goal_point="{pending_gp}"
                     error_message="{set_route_error_msg}"
                     service_name="/world_modeling/set_route" />
                 </RateController>
@@ -36,7 +41,7 @@
               </RetryUntilSuccessful>
 
               <SetNewGoal
-                goal_point="{pending_goal_point}"
+                goal_point="{pending_gp}"
                 goal_lanelet="{staged_goal_lanelet}"
                 global_route="{staged_global_route}"
                 global_route_index_map="{staged_global_route_index_map}"
@@ -45,14 +50,18 @@
                 out_goal_lanelet="{goal_lanelet}"
                 out_global_route="{global_route}"
                 out_global_route_index_map="{global_route_index_map}"
-                out_global_route_lanelet_ids="{global_route_lanelet_ids}" />
+                out_global_route_lanelet_ids="{global_route_lanelet_ids}"
+                out_pending_goal_point="{pending_gp}" />
             </Sequence>
 
-            <LogFailure message="failed to set new goal point" />
+            <Sequence>
+              <ClearPendingGoalPoint out_pending_goal_point="{pending_gp}" />
+              <LogFailure message="failed to set new goal point" error_message="{set_route_error_msg}" />
+            </Sequence>
           </Fallback>
         </Sequence>
 
-        <GoalExist goal_point="{pending_goal_point}" />
+        <GoalExist goal_point="{requested_gp}" />
       </ReactiveFallback>
 
       <Fallback name="Root Fallback">
