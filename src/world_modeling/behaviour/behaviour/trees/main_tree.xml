@@ -51,12 +51,16 @@
                 out_global_route="{global_route}"
                 out_global_route_index_map="{global_route_index_map}"
                 out_global_route_lanelet_ids="{global_route_lanelet_ids}" />
+
+              <ClearPendingGoalPoint out_pending_goal_point="{pending_gp}" />
             </Sequence>
 
-            <LogFailure message="failed to set new goal point" error_message="{set_route_error_msg}" />
+            <Sequence>
+              <ClearPendingGoalPoint out_pending_goal_point="{pending_gp}" />
+              <LogFailure message="failed to set new goal point" error_message="{set_route_error_msg}" />
+            </Sequence>
           </Fallback>
 
-          <ClearPendingGoalPoint out_pending_goal_point="{pending_gp}" />
         </Sequence>
 
         <GoalExist goal_point="{requested_gp}" />
