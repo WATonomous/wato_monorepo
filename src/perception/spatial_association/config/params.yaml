@@ -1,3 +1,4 @@
+---
 /**/spatial_association_node:
   ros__parameters:
     lidar_frame: lidar_cc
@@ -68,13 +69,13 @@
       enable_size_prior: true
       size_prior_weight: 0.10
       size_prior_scale: 0.5
-      size_prior_classes:      ["person", "car",  "truck", "bus",  "bicycle", "motorcycle"]
-      size_prior_min_widths:   [0.2,      1.4,    2.0,     2.2,    0.3,       0.4]
-      size_prior_max_widths:   [0.8,      2.2,    3.0,     3.0,    0.8,       1.0]
-      size_prior_min_lengths:  [0.2,      3.0,    5.0,     8.0,    1.2,       1.5]
-      size_prior_max_lengths:  [0.8,      5.5,    14.0,    15.0,   2.0,       2.5]
-      size_prior_min_heights:  [0.8,      1.2,    2.0,     2.5,    0.8,       0.8]
-      size_prior_max_heights:  [2.2,      2.0,    4.5,     4.0,    1.8,       1.8]
+      size_prior_classes: ["person", "car",  "truck", "bus",  "bicycle", "motorcycle"]
+      size_prior_min_widths: [0.2,      1.4,    2.0,     2.2,    0.3,       0.4]
+      size_prior_max_widths: [0.8,      2.2,    3.0,     3.0,    0.8,       1.0]
+      size_prior_min_lengths: [0.2,      3.0,    5.0,     8.0,    1.2,       1.5]
+      size_prior_max_lengths: [0.8,      5.5,    14.0,    15.0,   2.0,       2.5]
+      size_prior_min_heights: [0.8,      1.2,    2.0,     2.5,    0.8,       0.8]
+      size_prior_max_heights: [2.2,      2.0,    4.5,     4.0,    1.8,       1.8]
 
       # 3D output score blend
       detection_score_weight: 0.6

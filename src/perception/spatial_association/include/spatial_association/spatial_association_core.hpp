@@ -26,6 +26,9 @@
 
 #include "utils/projection_utils.hpp"
 
+namespace wato::perception::spatial_association
+{
+
 /**
  * @brief Core LiDAR clustering, pre-processing, and 3D box computation logic.
  * Used by SpatialAssociationNode for voxel filtering, Euclidean clustering, cluster merging, and 3D box/centroid/color computation.
@@ -36,9 +39,9 @@ public:
   /** One distance band for multi-band adaptive clustering. */
   struct ClusteringBand
   {
-    double max_distance;     /**< Upper distance bound (m) for this band. */
-    double tolerance_mult;   /**< Multiplier applied to base cluster tolerance. */
-    int min_cluster_size;    /**< Minimum cluster size for this band. */
+    double max_distance; /**< Upper distance bound (m) for this band. */
+    double tolerance_mult; /**< Multiplier applied to base cluster tolerance. */
+    int min_cluster_size; /**< Minimum cluster size for this band. */
   };
 
   /** Configuration for voxel grid, Euclidean clustering, and merge (quality filter lives in ProjectionUtilsParams). */
@@ -146,5 +149,7 @@ private:
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr working_colored_cluster_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr working_centroid_cloud_;
 };
+
+}  // namespace wato::perception::spatial_association
 
 #endif  // SPATIAL_ASSOCIATION_CORE_HPP

@@ -24,7 +24,7 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::executors::MultiThreadedExecutor exec;
-  auto node = std::make_shared<SpatialAssociationNode>(rclcpp::NodeOptions());
+  auto node = std::make_shared<wato::perception::spatial_association::SpatialAssociationNode>(rclcpp::NodeOptions());
   exec.add_node(node->get_node_base_interface());
 
   auto configured_state = node->configure();

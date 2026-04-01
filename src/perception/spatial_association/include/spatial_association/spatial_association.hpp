@@ -48,6 +48,9 @@
 #include "spatial_association/spatial_association_core.hpp"
 #include "utils/projection_utils.hpp"
 
+namespace wato::perception::spatial_association
+{
+
 struct DetectionOutputs
 {
   visualization_msgs::msg::MarkerArray bboxes;
@@ -258,5 +261,7 @@ private:
   /** Stricter BEV IoU when both hypotheses lack class_id. */
   double cross_camera_min_bev_box_iou_no_class_{0.30};
 };
+
+}  // namespace wato::perception::spatial_association
 
 #endif

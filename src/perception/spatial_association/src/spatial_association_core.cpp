@@ -18,6 +18,9 @@
 #include <limits>
 #include <vector>
 
+namespace wato::perception::spatial_association
+{
+
 SpatialAssociationCore::SpatialAssociationCore()
 {
   working_colored_cluster_.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -125,11 +128,7 @@ void SpatialAssociationCore::performClustering(
       bands.push_back({b.max_distance, b.tolerance_mult, b.min_cluster_size});
     }
     projection_utils::multiBandClusterExtraction(
-      filtered_cloud,
-      params_.euclid_cluster_tolerance,
-      params_.euclid_max_cluster_size,
-      cluster_indices,
-      bands);
+      filtered_cloud, params_.euclid_cluster_tolerance, params_.euclid_max_cluster_size, cluster_indices, bands);
   } else if (params_.use_adaptive_clustering) {
     projection_utils::adaptiveEuclideanClusterExtraction(
       filtered_cloud,
@@ -187,3 +186,5 @@ void SpatialAssociationCore::computeClusterCentroids(
   centroid_cloud->height = 1;
   centroid_cloud->is_dense = true;
 }
+
+}  // namespace wato::perception::spatial_association

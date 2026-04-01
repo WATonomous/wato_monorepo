@@ -139,7 +139,7 @@ target_link_libraries(spatial_association_node
 )
 
 rclcpp_components_register_nodes(spatial_association_node
-  "SpatialAssociationNode"
+  "wato::perception::spatial_association::SpatialAssociationNode"
 )
 
 # Standalone executable (needs include dirs for headers pulled in by spatial_association.hpp)

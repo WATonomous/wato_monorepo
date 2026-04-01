@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-namespace hungarian
+namespace wato::perception::hungarian
 {
 
 /**
@@ -37,6 +37,6 @@ namespace hungarian
 std::vector<std::pair<size_t, size_t>> solve(
   const std::vector<double> & cost_matrix, size_t num_rows, size_t num_cols, double max_cost = 1e9);
 
-}  // namespace hungarian
+}  // namespace wato::perception::hungarian
 
 #endif
