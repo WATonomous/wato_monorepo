@@ -166,13 +166,7 @@ void ObjectsLayer::update(
         }
 
         markBox(
-          grid,
-          pred_out.pose.position.x,
-          pred_out.pose.position.y,
-          pred_yaw,
-          base_half_x,
-          base_half_y,
-          pred_cost);
+          grid, pred_out.pose.position.x, pred_out.pose.position.y, pred_yaw, base_half_x, base_half_y, pred_cost);
       }
     }
   }
