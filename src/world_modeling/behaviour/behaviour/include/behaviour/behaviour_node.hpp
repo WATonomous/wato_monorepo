@@ -27,7 +27,6 @@
 #include <std_srvs/srv/trigger.hpp>
 
 #include "behaviour/behaviour_tree.hpp"
-#include "geometry_msgs/msg/point_stamped.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
@@ -75,7 +74,6 @@ private:
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
   // sub callbacks
-  void goal_point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
   void lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
   void route_ahead_callback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
   void lanelet_ahead_callback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
@@ -101,7 +99,6 @@ private:
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr current_lane_context_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::RouteAhead>::SharedPtr route_ahead_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelets_ahead_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr goal_point_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odom_sub_;
 
   // Configuration
