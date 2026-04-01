@@ -20,14 +20,10 @@
     # Map
     osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_010426_utm.osm"
     projector_type: "utm"
-    origin_lat: 43.4352586520
-    origin_lon: -80.5801880023
-    # osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_290326.osm"
-    # projector_type: "utm"
     # origin_lat: 43.43663210811
     # origin_lon: -80.5788350291
-    # origin_lat: 43.4352586520
-    # origin_lon: -80.5801880023
+    origin_lat: 43.4352586520
+    origin_lon: -80.5801880023
 
     # Frames
     map_frame: "map"
@@ -127,7 +123,6 @@
     publish_rate_hz: 30.0
     grid_width_m: 50.0
     grid_height_m: 50.0
-    grid_forward_offset_m: 12.5
     resolution: 0.3
     footprint_front_left: [2.5, 1.0]
     footprint_rear_right: [-1.5, -1.0]
