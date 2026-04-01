@@ -44,7 +44,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      RCLCPP_ERROR(logger(), "[%s] Missing input port: %s", name().c_str(), port_name);
+      RCLCPP_ERROR(logger(), "Missing input port: %s", port_name);
     };
 
     auto message = ports::tryGet<std::string>(*this, "message");
@@ -54,9 +54,9 @@ public:
 
     auto error_message = ports::tryGet<std::string>(*this, "error_message");
     if (error_message && !error_message->empty()) {
-      RCLCPP_ERROR(logger(), "[%s] %s: %s", name().c_str(), message->c_str(), error_message->c_str());
+      RCLCPP_ERROR(logger(), "%s: %s", message->c_str(), error_message->c_str());
     } else {
-      RCLCPP_ERROR(logger(), "[%s] %s", name().c_str(), message->c_str());
+      RCLCPP_ERROR(logger(), "%s", message->c_str());
     }
 
     return BT::NodeStatus::FAILURE;

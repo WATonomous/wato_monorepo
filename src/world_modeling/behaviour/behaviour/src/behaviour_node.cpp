@@ -76,6 +76,9 @@ void BehaviourNode::init()
     "reset_bt", std::bind(&BehaviourNode::reset_callback, this, std::placeholders::_1, std::placeholders::_2));
 
   // subscribers
+  goal_point_sub_ = this->create_subscription<geometry_msgs::msg::PointStamped>(
+    "goal_point", 10, std::bind(&BehaviourNode::goal_point_callback, this, std::placeholders::_1));
+
   current_lane_context_sub_ = this->create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
     "lane_context", 10, std::bind(&BehaviourNode::lane_context_callback, this, std::placeholders::_1));
 
@@ -159,6 +162,12 @@ void BehaviourNode::reset_callback(
     response->message = std::string("Failed to reset behaviour tree: ") + e.what();
     RCLCPP_ERROR(this->get_logger(), "%s", response->message.c_str());
   }
+}
+
+void BehaviourNode::goal_point_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg)
+{
+  tree_->updateBlackboard("requested_gp", msg);
+  RCLCPP_INFO(this->get_logger(), "New goal received: x=%.2f, y=%.2f", msg->point.x, msg->point.y);
 }
 
 void BehaviourNode::lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
