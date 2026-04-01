@@ -21,6 +21,7 @@
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"

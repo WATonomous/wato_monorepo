@@ -399,8 +399,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   }
 
   if (submap_stale_.load()) {
-    RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-      "[%s] submap is stale, skipping scan", name_.c_str());
+    RCLCPP_WARN_THROTTLE(
+      node_->get_logger(), *node_->get_clock(), 2000, "[%s] submap is stale, skipping scan", name_.c_str());
     return;
   }
 
@@ -423,8 +423,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   {
     std::shared_lock lock(submap_mtx_);
     if (!cached_submap_ || !cached_submap_tree_ || cached_submap_->empty()) {
-      RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
-        "[%s] no submap available for GICP matching", name_.c_str());
+      RCLCPP_WARN_THROTTLE(
+        node_->get_logger(), *node_->get_clock(), 2000, "[%s] no submap available for GICP matching", name_.c_str());
       return;
     }
 
@@ -438,9 +438,13 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   }
 
   if (!result.converged || static_cast<int>(result.num_inliers) < min_inliers_) {
-    RCLCPP_WARN(node_->get_logger(),
+    RCLCPP_WARN(
+      node_->get_logger(),
       "[%s] GICP failed: converged=%d inliers=%zu (min=%d)",
-      name_.c_str(), result.converged, result.num_inliers, min_inliers_);
+      name_.c_str(),
+      result.converged,
+      result.num_inliers,
+      min_inliers_);
     return;
   }
 
@@ -729,7 +733,11 @@ void LisoFactor::rebuildSubmap()
   }
 
   if (merged->empty()) {
-    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmap: merged cloud empty after %zu keys", name_.c_str(), collected_keys.size());
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "[%s] rebuildSubmap: merged cloud empty after %zu keys",
+      name_.c_str(),
+      collected_keys.size());
     return;
   }
 
@@ -768,7 +776,8 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f & position)
   auto poses_6d = map_manager_->getKeyPoses6D();
   auto key_list = map_manager_->getKeyList();
   if (key_list.empty()) {
-    RCLCPP_WARN(node_->get_logger(), "[%s] rebuildSubmapAtPosition: key_list is empty, no keyframes loaded", name_.c_str());
+    RCLCPP_WARN(
+      node_->get_logger(), "[%s] rebuildSubmapAtPosition: key_list is empty, no keyframes loaded", name_.c_str());
     return;
   }
 
@@ -817,9 +826,11 @@ void LisoFactor::rebuildSubmapAtPosition(const Eigen::Vector3f & position)
   }
 
   if (merged->empty()) {
-    RCLCPP_WARN(node_->get_logger(),
+    RCLCPP_WARN(
+      node_->get_logger(),
       "[%s] rebuildSubmapAtPosition: merged cloud is empty after collecting %zu keyframes",
-      name_.c_str(), indices.size());
+      name_.c_str(),
+      indices.size());
     return;
   }
 

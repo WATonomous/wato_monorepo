@@ -69,8 +69,7 @@ public:
     const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap);
 
 private:
-  int8_t get_max_footprint_cost(
-    double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap) const;
+  int8_t get_max_footprint_cost(double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap) const;
 
   TrajectoryConfig config_;
 };

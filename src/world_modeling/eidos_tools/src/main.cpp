@@ -27,12 +27,12 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <filesystem>
-#include <iomanip>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -557,8 +557,7 @@ static bool parseConvertArgs(int argc, char ** argv, ConvertArgs & args)
 }
 
 /// UTM forward projection (WGS84 lat/lon -> UTM easting/northing).
-static void latlonToUtm(
-  double lat_deg, double lon_deg, double & easting, double & northing, int & zone)
+static void latlonToUtm(double lat_deg, double lon_deg, double & easting, double & northing, int & zone)
 {
   constexpr double a = 6378137.0;
   constexpr double f = 1.0 / 298.257223563;
@@ -580,29 +579,23 @@ static void latlonToUtm(
   double C = (e2 / (1.0 - e2)) * cosLat * cosLat;
   double A = cosLat * (lon - lon0);
 
-  double M =
-    a * ((1.0 - e2 / 4.0 - 3.0 * e2 * e2 / 64.0 - 5.0 * e2 * e2 * e2 / 256.0) * lat -
-         (3.0 * e2 / 8.0 + 3.0 * e2 * e2 / 32.0 + 45.0 * e2 * e2 * e2 / 1024.0) *
-           std::sin(2.0 * lat) +
-         (15.0 * e2 * e2 / 256.0 + 45.0 * e2 * e2 * e2 / 1024.0) * std::sin(4.0 * lat) -
-         (35.0 * e2 * e2 * e2 / 3072.0) * std::sin(6.0 * lat));
+  double M = a * ((1.0 - e2 / 4.0 - 3.0 * e2 * e2 / 64.0 - 5.0 * e2 * e2 * e2 / 256.0) * lat -
+                  (3.0 * e2 / 8.0 + 3.0 * e2 * e2 / 32.0 + 45.0 * e2 * e2 * e2 / 1024.0) * std::sin(2.0 * lat) +
+                  (15.0 * e2 * e2 / 256.0 + 45.0 * e2 * e2 * e2 / 1024.0) * std::sin(4.0 * lat) -
+                  (35.0 * e2 * e2 * e2 / 3072.0) * std::sin(6.0 * lat));
 
   double ep2 = e2 / (1.0 - e2);
   easting = k0 * N *
               (A + (1.0 - T + C) * A * A * A / 6.0 +
-               (5.0 - 18.0 * T + T * T + 72.0 * C - 58.0 * ep2) * A * A * A * A * A /
-                 120.0) +
+               (5.0 - 18.0 * T + T * T + 72.0 * C - 58.0 * ep2) * A * A * A * A * A / 120.0) +
             500000.0;
-  northing = k0 *
-             (M + N * tanLat *
-                    (A * A / 2.0 + (5.0 - T + 9.0 * C + 4.0 * C * C) * A * A * A * A / 24.0 +
-                     (61.0 - 58.0 * T + T * T + 600.0 * C - 330.0 * ep2) * A * A * A * A * A *
-                       A / 720.0));
+  northing = k0 * (M + N * tanLat *
+                         (A * A / 2.0 + (5.0 - T + 9.0 * C + 4.0 * C * C) * A * A * A * A / 24.0 +
+                          (61.0 - 58.0 * T + T * T + 600.0 * C - 330.0 * ep2) * A * A * A * A * A * A / 720.0));
 }
 
 /// UTM inverse projection (UTM easting/northing -> WGS84 lat/lon).
-static void utmToLatlon(
-  double easting, double northing, int zone, bool is_north, double & lat_deg, double & lon_deg)
+static void utmToLatlon(double easting, double northing, int zone, bool is_north, double & lat_deg, double & lon_deg)
 {
   constexpr double a = 6378137.0;
   constexpr double f = 1.0 / 298.257223563;
@@ -618,8 +611,7 @@ static void utmToLatlon(
 
   double e1 = (1.0 - std::sqrt(1.0 - e2)) / (1.0 + std::sqrt(1.0 - e2));
   double phi1 = mu + (3.0 * e1 / 2.0 - 27.0 * e1 * e1 * e1 / 32.0) * std::sin(2.0 * mu) +
-                (21.0 * e1 * e1 / 16.0 - 55.0 * e1 * e1 * e1 * e1 / 32.0) *
-                  std::sin(4.0 * mu) +
+                (21.0 * e1 * e1 / 16.0 - 55.0 * e1 * e1 * e1 * e1 / 32.0) * std::sin(4.0 * mu) +
                 (151.0 * e1 * e1 * e1 / 96.0) * std::sin(6.0 * mu) +
                 (1097.0 * e1 * e1 * e1 * e1 / 512.0) * std::sin(8.0 * mu);
 
@@ -634,18 +626,14 @@ static void utmToLatlon(
   double D = x / (N * k0);
 
   double lat =
-    phi1 -
-    (N * tanP / R) *
-      (D * D / 2.0 -
-       (5.0 + 3.0 * T + 10.0 * C - 4.0 * C * C - 9.0 * ep2) * D * D * D * D / 24.0 +
-       (61.0 + 90.0 * T + 298.0 * C + 45.0 * T * T - 252.0 * ep2 - 3.0 * C * C) * D * D * D *
-         D * D * D / 720.0);
+    phi1 - (N * tanP / R) *
+             (D * D / 2.0 - (5.0 + 3.0 * T + 10.0 * C - 4.0 * C * C - 9.0 * ep2) * D * D * D * D / 24.0 +
+              (61.0 + 90.0 * T + 298.0 * C + 45.0 * T * T - 252.0 * ep2 - 3.0 * C * C) * D * D * D * D * D * D / 720.0);
 
   double lon0 = ((zone - 1) * 6.0 - 180.0 + 3.0) * M_PI / 180.0;
   double lon =
     lon0 + (D - (1.0 + 2.0 * T + C) * D * D * D / 6.0 +
-            (5.0 - 2.0 * C + 28.0 * T - 3.0 * C * C + 8.0 * ep2 + 24.0 * T * T) * D * D * D *
-              D * D / 120.0) /
+            (5.0 - 2.0 * C + 28.0 * T - 3.0 * C * C + 8.0 * ep2 + 24.0 * T * T) * D * D * D * D * D / 120.0) /
              cosP;
 
   lat_deg = lat * 180.0 / M_PI;
@@ -656,13 +644,12 @@ static int cmdConvert(int argc, char ** argv)
 {
   ConvertArgs args;
   if (!parseConvertArgs(argc, argv, args)) {
-    std::cerr
-      << "Usage: eidos convert --input <in.osm> --output <out.osm> "
-         "--origin-lat <lat> --origin-lon <lon>\n"
-      << "\n"
-      << "Converts a lanelet2 OSM file from local coordinates (local_x/local_y)\n"
-      << "to WGS84 lat/lon. The origin must match the UtmProjector origin used\n"
-      << "by the world model.\n";
+    std::cerr << "Usage: eidos convert --input <in.osm> --output <out.osm> "
+                 "--origin-lat <lat> --origin-lon <lon>\n"
+              << "\n"
+              << "Converts a lanelet2 OSM file from local coordinates (local_x/local_y)\n"
+              << "to WGS84 lat/lon. The origin must match the UtmProjector origin used\n"
+              << "by the world model.\n";
     return 1;
   }
 
@@ -676,10 +663,9 @@ static int cmdConvert(int argc, char ** argv)
   int zone;
   latlonToUtm(args.origin_lat, args.origin_lon, origin_e, origin_n, zone);
 
-  std::cerr << "Origin: (" << std::fixed << std::setprecision(10) << args.origin_lat << ", "
-            << args.origin_lon << ")\n";
-  std::cerr << "UTM zone " << zone << ": (" << std::setprecision(4) << origin_e << ", "
-            << origin_n << ")\n";
+  std::cerr << "Origin: (" << std::fixed << std::setprecision(10) << args.origin_lat << ", " << args.origin_lon
+            << ")\n";
+  std::cerr << "UTM zone " << zone << ": (" << std::setprecision(4) << origin_e << ", " << origin_n << ")\n";
 
   // Parse XML
   // We do a simple line-by-line approach: for each <node> with local_x/local_y tags,
@@ -729,9 +715,7 @@ static int cmdConvert(int argc, char ** argv)
 
     // Determine the full block end
     size_t block_end;
-    if (node_block_end != std::string::npos &&
-        (self_close == std::string::npos || node_block_end < self_close + 2))
-    {
+    if (node_block_end != std::string::npos && (self_close == std::string::npos || node_block_end < self_close + 2)) {
       block_end = node_block_end + 7;  // length of "</node>"
     } else if (self_close != std::string::npos && self_close < node_tag_end + 1) {
       // Self-closing <node ... />
