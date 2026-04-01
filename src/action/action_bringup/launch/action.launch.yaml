@@ -23,7 +23,7 @@ launch:
         - from: "lanelet_ahead"
           to: "/world_modeling/lanelet/lanelet_ahead"
         - from: "odom"
-          to: "/world_modeling/slam/odometry"
+          to: "/world_modeling/liso/odometry"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 
@@ -45,7 +45,7 @@ launch:
         - from: "lane_context"
           to: "/world_modeling/lanelet/lane_context"
         - from: "odom"
-          to: "/world_modeling/slam/odometry"
+          to: "/world_modeling/liso/odometry"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 
@@ -90,9 +90,8 @@ launch:
       param:
         - name: "node_names"
           value:
-            - /action/lattice_planning/local_planner_node
-            - /action/trajectory_planning/trajectory_planner_node
             - /action/lattice_planning/lattice_planning_node
+            - /action/trajectory_planning/trajectory_planner_node
             - /action/pure_pursuit_node
         - name: autostart
           value: $(var autostart)

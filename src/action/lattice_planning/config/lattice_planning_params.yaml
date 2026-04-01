@@ -12,6 +12,9 @@ action:
         path_topic: "path"
         available_paths_topic: "available_paths"
 
+        # Control Frequency
+        control_rate_hz: 2.0
+
         # Path generation parameters
         # -  Cost Function  -
         cost_function:
@@ -22,9 +25,13 @@ action:
           max_curvature_change: 0.1
 
         # -  Corridor  -
-        num_horizons: 3
+        num_lane_switch_horizons: 3
         # must be same length as specified above
-        lookahead_distances: [10.0, 15.0, 20.0]  # meters
+        lane_switch_lookahead_distances: [10.0, 17.5, 25.0]  # meters
+
+        # centreline horizon
+        centreline_horizon: 30.0 # meters
+        centreline_velocity_scale: 0.2 # use to scale horizon based on velocity
 
         # -  Path Generation  -
         path_gen:

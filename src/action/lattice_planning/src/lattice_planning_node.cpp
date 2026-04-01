@@ -14,10 +14,13 @@
 
 #include "lattice_planning/lattice_planning_node.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <geometry_msgs/msg/point.hpp>
@@ -28,7 +31,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
-: rclcpp_lifecycle::LifecycleNode("local_planner_node", options)
+: rclcpp_lifecycle::LifecycleNode("lattice_planning_node", options)
 {
   RCLCPP_INFO(this->get_logger(), "Lattice Planner ROS 2 lifecycle node created");
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
@@ -42,12 +45,18 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   final_path_topic = this->declare_parameter("path_topic", "path");
   available_paths_topic = this->declare_parameter("available_paths_topic", "available_paths");
 
+  // Control Frequency
+  control_rate_hz_ = this->declare_parameter("control_rate_hz", 2.0);
+
   // Path generation parameters
   //  - Corridor -
-  num_horizons = this->declare_parameter("num_horizons", 3);
-  lookahead_s_m = this->declare_parameter("lookahead_distances", std::vector<double>{10.0, 15.0, 20.0});
+  num_lane_switch_horizons = this->declare_parameter("num_lane_switch_horizons", 3);
+  lane_switch_lookahead_distances =
+    this->declare_parameter("lookahead_distances", std::vector<double>{10.0, 15.0, 20.0});
+  centreline_horizon = this->declare_parameter("centreline_horizon", 30.0);
+  centreline_velocity_scale = this->declare_parameter("centreline_velocity_scale", 1.0);
 
-  //  - Cost Funcation -
+  //  - Cost Function -
   cf_params.lateral_movement_weight = this->declare_parameter("cost_function.lateral_movement_weight", 2.0);
   cf_params.physical_limits_weight = this->declare_parameter("cost_function.physical_limits_weight", 4.0);
   cf_params.preferred_lane_cost = this->declare_parameter("cost_function.preferred_lane_cost", 20.0);
@@ -62,7 +71,7 @@ LatticePlanningNode::LatticePlanningNode(const rclcpp::NodeOptions & options)
   pg_params.newton_damping = this->declare_parameter("path_gen.newton_damping", 0.7);
   pg_params.max_step_size = this->declare_parameter("path_gen.max_step_size", 1.0);
 
-  // Sprial Coefficient Equation Constants
+  // Spiral Coefficient Equation Constants
   SpiralCoeffConstants constants;
   constants.c1_k0_coeff = this->declare_parameter("spiral_coeffs.c1_k0_coeff", -11.0);
   constants.c1_k1_coeff = this->declare_parameter("spiral_coeffs.c1_k1_coeff", 18.0);
@@ -92,6 +101,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(final_path_topic, 10);
   available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
+  const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
+  publish_timer_ = this->create_wall_timer(period, std::bind(&LatticePlanningNode::plan_and_publish_path, this));
+  publish_timer_->cancel();
+
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -108,6 +121,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
     bt_topic, 10, std::bind(&LatticePlanningNode::set_preferred_lanes, this, std::placeholders::_1));
   path_pub_->on_activate();
   available_paths_pub_->on_activate();
+  publish_timer_->reset();
   RCLCPP_INFO(this->get_logger(), "Node Activated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -118,6 +132,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   RCLCPP_INFO(this->get_logger(), "Deactivating Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
+  publish_timer_->cancel();
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -128,6 +143,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   RCLCPP_INFO(this->get_logger(), "Cleaning up Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
+  publish_timer_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -138,6 +154,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   RCLCPP_INFO(this->get_logger(), "Shutting down Lattice Planning node");
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
+  publish_timer_.reset();
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -165,6 +182,7 @@ void LatticePlanningNode::update_vehicle_odom(const nav_msgs::msg::Odometry::Con
   }
   car_pose = ps;
   car_frenet_point = fp;
+  car_tang_velocity = fabs(msg->twist.twist.linear.x);
 }
 
 void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
@@ -178,62 +196,117 @@ void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::Execute
 void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg)
 {
   std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> lanelets;
-  std::vector<std::vector<int64_t>> id_order;
 
   const int64_t curr_id = msg->current_lanelet_id;
 
-  // Build map of all lanelets in msg
   for (const auto & ll : msg->lanelets) {
     lanelets[ll.id] = ll;
   }
 
-  // Clear previous terminals
   corridor_terminals.clear();
+  ego_centrelines_.clear();
 
-  // Get the order of ids for each lane
-  id_order = get_id_order(curr_id, lanelets);
+  const std::vector<std::vector<int64_t>> id_order = get_id_order(curr_id, lanelets);
 
-  // Search lanes for terminal points at horizons
-  for (size_t lane_idx = 0; lane_idx < id_order.size(); lane_idx++) {
-    const auto & lane = id_order[lane_idx];
+  // Compute velocity-scaled horizon once; shared by all ego-lane variants.
+  double horizon = centreline_horizon;
+  if (car_tang_velocity.has_value() && car_tang_velocity.value() > 0.0) {
+    horizon = std::max(centreline_horizon, centreline_horizon * car_tang_velocity.value() * centreline_velocity_scale);
+  }
 
-    int curr_horizon = 0;
-    bool closest_found = false;
-    double arc_length = 0.0;
-    const geometry_msgs::msg::Point * prev_pt = nullptr;
+  for (const auto & lane : id_order) {
+    if (lane.empty()) continue;
 
-    for (const int64_t ll_id : lane) {
-      const auto & centerline = lanelets.at(ll_id).centerline;
+    if (lane.front() == curr_id) {
+      // ------------------------------------------------------------------
+      // Ego lane (including fork variants): collect centreline up to horizon.
+      //
+      // All lanes whose sequence starts from curr_id are ego-lane options —
+      // this includes the straight-ahead lane AND every fork variant that
+      // get_id_order creates when the ego lane has multiple successors.
+      // We store each independently so the costmap can score them all.
+      // ------------------------------------------------------------------
 
-      for (size_t pt_idx = 0; pt_idx < centerline.size(); pt_idx++) {
-        if (curr_horizon >= num_horizons) break;
+      std::vector<geometry_msgs::msg::Point> centreline_pts;
+      int64_t last_ll_id = curr_id;
+      bool closest_found = false;
+      double arc_length = 0.0;
+      std::optional<geometry_msgs::msg::Point> prev_pt;
 
-        const auto & pt = centerline[pt_idx];
+      for (const int64_t ll_id : lane) {
+        if (lanelets.count(ll_id) == 0) continue;
+        const auto & centerline = lanelets.at(ll_id).centerline;
 
-        if (!closest_found) {
-          if (point_ahead_of_car(pt)) {
-            closest_found = true;
-          } else {
-            continue;
+        for (const auto & pt : centerline) {
+          if (!closest_found) {
+            if (point_ahead_of_car(pt)) {
+              closest_found = true;
+            } else {
+              continue;
+            }
           }
-        }
 
-        // Horizon sampling
-        if (arc_length < lookahead_s_m[curr_horizon]) {
-          if (prev_pt) {
+          if (prev_pt.has_value()) {
             arc_length += core_->get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
           }
-          prev_pt = &pt;
-        } else {
-          PathPoint t_pt = create_terminal_point(pt, pt_idx, centerline, prev_pt);
-          corridor_terminals.push_back({t_pt, ll_id});
-          curr_horizon++;
+
+          if (arc_length > horizon) break;
+
+          centreline_pts.push_back(pt);
+          prev_pt = pt;
+          last_ll_id = ll_id;
         }
+
+        if (arc_length > horizon) break;
       }
-      if (curr_horizon >= num_horizons) break;
+
+      if (!centreline_pts.empty()) {
+        ego_centrelines_.emplace_back(std::move(centreline_pts), last_ll_id);
+      }
+
+    } else {
+      // ------------------------------------------------------------------
+      // Adjacent lane (left or right): generate corridor terminal points
+      // at each lookahead horizon for spiral-based lane-change paths.
+      // ------------------------------------------------------------------
+
+      int curr_horizon = 0;
+      bool closest_found = false;
+      double arc_length = 0.0;
+      const geometry_msgs::msg::Point * prev_pt = nullptr;
+
+      for (const int64_t ll_id : lane) {
+        if (lanelets.count(ll_id) == 0) continue;
+        const auto & centerline = lanelets.at(ll_id).centerline;
+
+        for (size_t pt_idx = 0; pt_idx < centerline.size(); pt_idx++) {
+          if (curr_horizon >= num_lane_switch_horizons) break;
+
+          const auto & pt = centerline[pt_idx];
+
+          if (!closest_found) {
+            if (point_ahead_of_car(pt)) {
+              closest_found = true;
+            } else {
+              continue;
+            }
+          }
+
+          if (arc_length < lane_switch_lookahead_distances[curr_horizon]) {
+            if (prev_pt) {
+              arc_length += core_->get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
+            }
+            prev_pt = &pt;
+          } else {
+            PathPoint t_pt = create_terminal_point(pt, pt_idx, centerline, prev_pt);
+            corridor_terminals.push_back({t_pt, ll_id});
+            curr_horizon++;
+          }
+        }
+        if (curr_horizon >= num_lane_switch_horizons) break;
+      }
     }
   }
-  plan_and_publish_path();
 }
 
 void LatticePlanningNode::plan_and_publish_path()
@@ -245,21 +318,35 @@ void LatticePlanningNode::plan_and_publish_path()
     return;
   }
 
+  // Generate spiral lane-change paths toward each corridor terminal.
+  // Corridor terminals only exist for adjacent (non-ego) lanes.
   for (size_t i = 0; i < corridor_terminals.size(); i++) {
-    auto & terminal = corridor_terminals[i];
-
+    const auto & terminal = corridor_terminals[i];
     std::vector<PathPoint> ft_path = core_->generate_path(car_frenet_point.value(), terminal.first);
 
     if (ft_path.empty()) {
-      RCLCPP_DEBUG(get_logger(), "Path generation failed for terminal %zu", i);
+      RCLCPP_DEBUG(get_logger(), "Path generation failed for corridor terminal %zu", i);
     } else {
-      Path path{ft_path, terminal.second, 0, 0};
-      paths.push_back(path);
+      paths.push_back(Path{ft_path, terminal.second, 0, 0});
+    }
+  }
+
+  // Convert every ego-lane centreline (straight-ahead + all fork variants)
+  // to a Path and add it for costmap evaluation.  The costmap decides which
+  // option — lane change or any of the ego-lane forks — is lowest cost.
+  for (const auto & [centreline_pts, ll_id] : ego_centrelines_) {
+    std::vector<PathPoint> cl_pts = centreline_to_path_points(centreline_pts);
+    if (!cl_pts.empty()) {
+      paths.push_back(Path{cl_pts, ll_id, 0, 0});
     }
   }
 
   if (paths.empty()) {
-    RCLCPP_WARN(get_logger(), "No valid paths generated from %zu terminals", corridor_terminals.size());
+    RCLCPP_WARN(
+      get_logger(),
+      "No valid paths generated (corridor terminals: %zu, ego centrelines: %zu)",
+      corridor_terminals.size(),
+      ego_centrelines_.size());
     return;
   }
 
@@ -267,6 +354,48 @@ void LatticePlanningNode::plan_and_publish_path()
   publish_final_path(lowest_cost);
   publish_available_paths(paths);
 }
+
+// ---------------------------------------------------------------------------
+// Conversion helper
+// ---------------------------------------------------------------------------
+
+std::vector<PathPoint> LatticePlanningNode::centreline_to_path_points(
+  const std::vector<geometry_msgs::msg::Point> & centreline)
+{
+  std::vector<PathPoint> path_points;
+  path_points.reserve(centreline.size());
+
+  for (size_t i = 0; i < centreline.size(); i++) {
+    const auto & pt = centreline[i];
+
+    // Heading: forward difference; backward at the last point
+    double angle = 0.0;
+    if (i + 1 < centreline.size()) {
+      angle = core_->get_angle_from_pts(pt.x, pt.y, centreline[i + 1].x, centreline[i + 1].y);
+    } else if (i > 0) {
+      angle = core_->get_angle_from_pts(centreline[i - 1].x, centreline[i - 1].y, pt.x, pt.y);
+    }
+
+    // Curvature: dθ/ds via finite difference
+    double curvature = 0.0;
+    if (i > 0) {
+      const auto & prev = centreline[i - 1];
+      double prev_angle = core_->get_angle_from_pts(prev.x, prev.y, pt.x, pt.y);
+      double ds = core_->get_euc_dist(prev.x, prev.y, pt.x, pt.y);
+      if (ds > 0.001) {
+        curvature = core_->normalise_angle(angle - prev_angle) / ds;
+      }
+    }
+
+    path_points.push_back(PathPoint{pt.x, pt.y, angle, curvature});
+  }
+
+  return path_points;
+}
+
+// ---------------------------------------------------------------------------
+// Remaining helpers (unchanged)
+// ---------------------------------------------------------------------------
 
 std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
   int64_t curr_id, const std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> & ll_map)
@@ -279,17 +408,14 @@ std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
   const auto & curr_ll = it_curr->second;
   const int64_t first_lanelet_id[3] = {curr_ll.left_lane_id, curr_ll.id, curr_ll.right_lane_id};
 
-  // Initialize starting lanes
   for (auto id : first_lanelet_id) {
     if (id >= 0) {
       id_order.push_back({id});
     }
   }
 
-  // Use index-based loop to allow safe addition during iteration
   for (size_t lane_idx = 0; lane_idx < id_order.size(); ++lane_idx) {
     while (true) {
-      // Check empty at the start of each iteration
       if (id_order[lane_idx].empty()) {
         RCLCPP_ERROR(get_logger(), "Empty lane at index %zu", lane_idx);
         break;
@@ -306,15 +432,14 @@ std::vector<std::vector<int64_t>> LatticePlanningNode::get_id_order(
       int64_t succ_id = succs.front();
       if (succ_id < 0 || succ_id == current_id || ll_map.count(succ_id) < 1) break;
 
-      // Add first successor
       id_order[lane_idx].push_back(succ_id);
 
-      // Handle splits for ego lane only
-      if (succs.size() > 1 && lane_idx == 1) {
+      // Forks on ego-lane sequences only: each extra successor becomes a new
+      // sequence that shares the same history up to the fork point.
+      if (succs.size() > 1 && id_order[lane_idx].front() == curr_id) {
         for (size_t i = 1; i < succs.size(); ++i) {
           if (succs[i] >= 0 && succs[i] != current_id && ll_map.count(succs[i]) > 0) {
             std::vector<int64_t> split_lane = id_order[lane_idx];
-
             if (!split_lane.empty()) {
               split_lane.back() = succs[i];
               id_order.push_back(split_lane);
@@ -339,9 +464,7 @@ bool LatticePlanningNode::point_ahead_of_car(const geometry_msgs::msg::Point & p
   double to_point_x = pt.x - car_pos.x;
   double to_point_y = pt.y - car_pos.y;
 
-  // use dot product to find if point lies ahead or behind the car
   double dot = car_forward_x * to_point_x + car_forward_y * to_point_y;
-
   return dot > 0.0;
 }
 
@@ -351,23 +474,18 @@ PathPoint LatticePlanningNode::create_terminal_point(
   const std::vector<geometry_msgs::msg::Point> & centerline,
   const geometry_msgs::msg::Point * prev_pt)
 {
-  // Calculate heading
   double angle = 0.0;
   if ((pt_idx + 1) < centerline.size()) {
-    // Use forward difference
     const auto & next_pt = centerline[pt_idx + 1];
     angle = core_->get_angle_from_pts(pt.x, pt.y, next_pt.x, next_pt.y);
   } else if (prev_pt) {
-    // Use backward difference
     angle = core_->get_angle_from_pts(prev_pt->x, prev_pt->y, pt.x, pt.y);
   }
 
-  // Calculate curvature
   double curvature = 0.0;
   if (prev_pt) {
     double prev_angle = core_->get_angle_from_pts(prev_pt->x, prev_pt->y, pt.x, pt.y);
     double ds = core_->get_euc_dist(prev_pt->x, prev_pt->y, pt.x, pt.y);
-
     if (ds > 0.001) {
       double dtheta = core_->normalise_angle(angle - prev_angle);
       curvature = dtheta / ds;
@@ -390,7 +508,6 @@ void LatticePlanningNode::publish_final_path(const Path & path)
     pose.pose.position.y = pt.y;
     pose.pose.position.z = 0.0;
 
-    // Convert heading to quaternion
     tf2::Quaternion q;
     q.setRPY(0, 0, pt.theta);
     pose.pose.orientation = tf2::toMsg(q);
@@ -410,7 +527,7 @@ void LatticePlanningNode::publish_available_paths(const std::vector<Path> & path
     return;
   }
 
-  for (auto path : paths) {
+  for (const auto & path : paths) {
     nav_msgs::msg::Path path_msg;
     path_msg.header.stamp = this->now();
     path_msg.header.frame_id = "map";
@@ -422,7 +539,6 @@ void LatticePlanningNode::publish_available_paths(const std::vector<Path> & path
       pose.pose.position.y = pt.y;
       pose.pose.position.z = 0.0;
 
-      // Convert heading to quaternion
       tf2::Quaternion q;
       q.setRPY(0, 0, pt.theta);
       pose.pose.orientation = tf2::toMsg(q);
