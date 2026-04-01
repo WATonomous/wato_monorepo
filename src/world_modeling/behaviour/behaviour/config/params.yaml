@@ -39,14 +39,14 @@
         - "right_lane_change_corridor"
 
       # Stop line wall of doom dimensions (meters)
-      intersection_wall_of_doom_width: 1.0
+      intersection_wall_of_doom_width: 0.5
       intersection_wall_of_doom_length: 8.0
 
       # Ego stopped velocity threshold (m/s)
-      ego_stopped_velocity_threshold: 0.1
+      ego_stopped_velocity_threshold: 0.5
 
       # Max distance from the stop line to count the ego stop for stop signs (meters)
-      stop_sign_ego_stop_line_threshold_m: 3.0
+      stop_sign_ego_stop_line_threshold_m: 4.0
 
       # Intersection lookahead distance (meters)
       intersection_lookahead_m: 100.0
