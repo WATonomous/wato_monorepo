@@ -425,3 +425,18 @@ future reader can deserialize without knowing about your plugin.
   format handles each data key, then deserializes all keyframe and global data blobs
   using the format registry. Loaded keyframes are tracked as prior map keys
   (`prior_map_keys_`) so the system can distinguish them from newly created keyframes.
+
+## 7. Troubleshooting
+
+### Memory growth across restarts
+
+If RAM usage grows after repeatedly restarting eidos (or any ROS 2 node using `rmw_zenoh_cpp`), the cause is stale zenoh shared memory segments in `/dev/shm/`. Zenoh allocates shared memory for inter-process communication but does not clean up segments when processes are killed.
+
+To fix: stop all containers, then clear the segments:
+
+```bash
+watod down all
+rm -f /dev/shm/*.zenoh
+```
+
+This is safe only when no ROS 2 processes are running. Do not clean `/dev/shm/*.zenoh` while containers are active.
