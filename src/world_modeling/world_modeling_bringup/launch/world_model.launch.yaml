@@ -395,6 +395,14 @@ launch:
       if: "$(var use_static_ego_pose)"
       pkg: tf2_ros
       exec: static_transform_publisher
+      name: static_utm_to_map
+      output: screen
+      args: "--x 0.0 --y 0.0 --z 0.0 --yaw 0.0 --pitch 0.0 --roll 0.0 --frame-id utm --child-frame-id map"
+
+  - node:
+      if: "$(var use_static_ego_pose)"
+      pkg: tf2_ros
+      exec: static_transform_publisher
       name: static_map_to_odom
       output: screen
       args: "--x 0.0 --y 0.0 --z 0.0 --yaw 0.0 --pitch 0.0 --roll 0.0 --frame-id map --child-frame-id odom"
@@ -406,6 +414,14 @@ launch:
       name: static_odom_to_base
       output: screen
       args: "--x $(var static_ego_x) --y $(var static_ego_y) --z $(var static_ego_z) --yaw $(var static_ego_yaw) --pitch $(var static_ego_pitch) --roll $(var static_ego_roll) --frame-id odom --child-frame-id base_footprint"
+
+  - node:
+      if: "$(var use_static_ego_pose)"
+      pkg: tf2_ros
+      exec: static_transform_publisher
+      name: static_base_footprint_to_base_link
+      output: screen
+      args: "--x 0.0 --y 0.0 --z 0.0 --yaw 0.0 --pitch 0.0 --roll 0.0 --frame-id base_footprint --child-frame-id base_link"
 
   - node:
       if: "$(var use_static_ego_pose)"
