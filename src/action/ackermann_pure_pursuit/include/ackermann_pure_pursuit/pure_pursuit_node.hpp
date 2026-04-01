@@ -21,13 +21,13 @@
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-#include "nav_msgs/msg/odometry.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
 namespace ackermann_pure_pursuit
