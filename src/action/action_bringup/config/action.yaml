@@ -15,10 +15,7 @@
     # Publishing
     path_topic: "path"
     available_paths_topic: "available_paths"
-    publish_rate_hz: 0.1
-    min_path_length: 30.0  # extend path with centerline up to this length (m)
-    lane_follow_mode: true  # when true, skips spirals and uses centerline directly
-    lane_change_lookahead_distances: [8.0, 12.0, 16.0]  # multiple horizons for lane change candidates
+    control_rate_hz: 2.0
 
     # Path generation parameters
     # -  Cost Function  -
@@ -30,9 +27,12 @@
       max_curvature_change: 0.1
 
     # -  Corridor  -
-    num_horizons: 1
-    # must be same length as specified above
-    lookahead_distances: [10.0]  # meters
+    num_lane_switch_horizons: 3
+    lane_switch_lookahead_distances: [10.0, 17.5, 25.0]  # meters
+
+    # Centreline horizon
+    centreline_horizon: 30.0  # meters
+    centreline_velocity_scale: 0.2
 
     # -  Path Generation  -
     path_gen:

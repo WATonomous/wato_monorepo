@@ -11,13 +11,13 @@
     bt_topic: "execute_behaviour"
     path_topic: "path"
     available_paths_topic: "available_paths"
-    publish_rate_hz: 10.0
-    min_path_length: 35.0
-    lane_follow_mode: true
-    lane_change_lookahead_distances: [8.0, 12.0, 16.0]
+    control_rate_hz: 2.0
 
-    num_horizons: 1
-    lookahead_distances: [10.0]
+    num_lane_switch_horizons: 3
+    lane_switch_lookahead_distances: [10.0, 17.5, 25.0]
+
+    centreline_horizon: 35.0
+    centreline_velocity_scale: 0.2
 
     cost_function:
       lateral_movement_weight: 2.0
