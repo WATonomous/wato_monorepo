@@ -28,7 +28,6 @@
 #include "std_msgs/msg/bool.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-#include "nav_msgs/msg/odometry.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
 namespace ackermann_pure_pursuit
