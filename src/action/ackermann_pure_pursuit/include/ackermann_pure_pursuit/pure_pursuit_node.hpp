@@ -76,6 +76,7 @@ private:
   double idle_timeout_sec_;
   bool invert_steering_;
   bool disable_standby_;
+  double speed_lookahead_distance_;
 
   // Cached wheelbase from TF (0.0 = not yet resolved)
   double wheelbase_cached_{0.0};

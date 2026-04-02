@@ -34,6 +34,7 @@ CostmapNode::CostmapNode(const rclcpp::NodeOptions & options)
   declare_parameter("publish_rate_hz", 20.0);
   declare_parameter("grid_width_m", 60.0);
   declare_parameter("grid_height_m", 60.0);
+  declare_parameter("grid_forward_offset_m", 0.0);
   declare_parameter("resolution", 0.25);
   declare_parameter("layers", std::vector<std::string>{"objects", "virtual_wall"});
   declare_parameter("footprint_front_left", std::vector<double>{0.0, 0.0});
@@ -47,6 +48,7 @@ CostmapNode::CallbackReturn CostmapNode::on_configure(const rclcpp_lifecycle::St
   publish_rate_hz_ = get_parameter("publish_rate_hz").as_double();
   grid_width_m_ = get_parameter("grid_width_m").as_double();
   grid_height_m_ = get_parameter("grid_height_m").as_double();
+  grid_forward_offset_m_ = get_parameter("grid_forward_offset_m").as_double();
   resolution_ = get_parameter("resolution").as_double();
   layer_names_ = get_parameter("layers").as_string_array();
   footprint_front_left_ = get_parameter("footprint_front_left").as_double_array();
@@ -171,8 +173,8 @@ void CostmapNode::publishCostmap()
   grid.info.width = static_cast<uint32_t>(grid_width_m_ / resolution_);
   grid.info.height = static_cast<uint32_t>(grid_height_m_ / resolution_);
 
-  // Center grid on the costmap frame origin
-  grid.info.origin.position.x = -grid_width_m_ / 2.0;
+  // Center grid on the costmap frame origin, shifted forward by offset
+  grid.info.origin.position.x = -grid_width_m_ / 2.0 + grid_forward_offset_m_;
   grid.info.origin.position.y = -grid_height_m_ / 2.0;
   grid.info.origin.orientation.w = 1.0;
 

@@ -125,6 +125,21 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     trajectory.points.push_back(point);
   }
 
+  // Backward pass: propagate speed limits backward so the vehicle decelerates
+  // in advance of curves, obstacles, and stops instead of braking suddenly.
+  if (trajectory.points.size() >= 2) {
+    for (int i = static_cast<int>(trajectory.points.size()) - 2; i >= 0; --i) {
+      double dx = path.poses[i + 1].pose.position.x - path.poses[i].pose.position.x;
+      double dy = path.poses[i + 1].pose.position.y - path.poses[i].pose.position.y;
+      double seg = std::hypot(dx, dy);
+      if (seg > 1e-9) {
+        double next_speed = trajectory.points[i + 1].max_speed;
+        double v_max = std::sqrt(next_speed * next_speed + 2.0 * config_.max_lateral_accel * seg);
+        trajectory.points[i].max_speed = std::min(trajectory.points[i].max_speed, v_max);
+      }
+    }
+  }
+
   return trajectory;
 }
 

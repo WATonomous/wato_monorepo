@@ -43,7 +43,7 @@
       intersection_wall_of_doom_length: 8.0
 
       # Ego stopped velocity threshold (m/s)
-      ego_stopped_velocity_threshold: 0.5
+      ego_stopped_velocity_threshold: 0.3
 
       # Max distance from the stop line to count the ego stop for stop signs (meters)
       stop_sign_ego_stop_line_threshold_m: 4.0
