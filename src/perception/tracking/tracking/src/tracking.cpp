@@ -33,17 +33,6 @@
 // static logger for static logging
 rclcpp::Logger TrackingNode::static_logger_ = rclcpp::get_logger("tracking_stc");
 
-// class maps
-std::unordered_map<std::string, int> TrackingNode::class_map_ = {
-  {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"person", 3}, {"bus", 4}, {"vehicle", 5}, {"traffic light", 6}
-  // etc...
-};
-std::unordered_map<int, std::string> TrackingNode::reverse_class_map_ = [] {
-  std::unordered_map<int, std::string> m;
-  for (const auto & [k, v] : TrackingNode::class_map_) m[v] = k;
-  return m;
-}();
-
 TrackingNode::TrackingNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("tracking", options)
 {
@@ -168,34 +157,6 @@ void TrackingNode::initializeParams()
   measurement_noise_ = this->declare_parameter<double>("measurement_noise", 0.5);
 }
 
-// Get class id from class_map_ using class name
-int TrackingNode::classLookup(const std::string & class_name)
-{
-  auto it = class_map_.find(class_name);
-  if (it != class_map_.end())
-    return it->second;
-  else {  // Class name key not in map
-    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
-    RCLCPP_WARN_THROTTLE(
-      static_logger_, steady_clock, 5000, "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
-    return -1;
-  }
-}
-
-// Get class name from reverse_class_map_ using class id
-std::string TrackingNode::reverseClassLookup(int class_id)
-{
-  auto it = reverse_class_map_.find(class_id);
-  if (it != reverse_class_map_.end())
-    return it->second;
-  else {  // Class id key not in reverse map
-    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
-    RCLCPP_WARN_THROTTLE(
-      static_logger_, steady_clock, 5000, "Class %d not found, defaulting to '[unknown]' class", class_id);
-    return "[unknown]";
-  }
-}
-
 // Convert from ros msgs to bytetrack's required format
 std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::msg::Detection3DArray & dets)
 {
@@ -231,7 +192,7 @@ std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::m
       label = -1;
       prob = 0.0;
     } else {
-      label = classLookup(best_hyp->hypothesis.class_id);
+      label = best_hyp->hypothesis.class_id;
       prob = best_hyp->hypothesis.score;
     }
 
@@ -266,7 +227,7 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
 
     vision_msgs::msg::ObjectHypothesisWithPose hyp;
     hyp.hypothesis.score = score;
-    hyp.hypothesis.class_id = reverseClassLookup(class_id);
+    hyp.hypothesis.class_id = class_id;
     trk.results.push_back(hyp);
 
     vision_msgs::msg::ObjectHypothesisWithPose vel;

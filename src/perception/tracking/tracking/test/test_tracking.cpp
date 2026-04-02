@@ -76,7 +76,7 @@ std::vector<vision_msgs::msg::Detection3DArray> getTestInput(
 
 // [cx, cy, cz, yaw, l, w, h, score]
 std::vector<byte_track::BYTETracker::STrackPtr> arraysToSTrackPtrs(
-  const std::vector<std::array<float, 8>> & det_info, const std::vector<int> & class_ids)
+  const std::vector<std::array<float, 8>> & det_info, const std::vector<std::string> & class_ids)
 {
   std::vector<byte_track::BYTETracker::STrackPtr> strks;
 
@@ -131,7 +131,7 @@ TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
         }
       }
       REQUIRE_THAT(obj.prob, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(obj.label == TrackingNode::classLookup(class_ids[i]));
+      REQUIRE(obj.label == TrackingNode::class_ids[i]);
     }
   }
 }
@@ -149,7 +149,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
     {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
     {-5.5f, -1.2f, -3.3f, 2.28f, 2.0f, 2.0f, 1.5f, 0.9f},
     {0.0f, -20.0f, 0.0f, 0.5f, 1.0f, 1.0f, 0.5f, 0.7f}};
-  std::vector<int> class_ids = {0, 3, 2, 4, 1};
+  std::vector<std::string> class_ids = {"car", "bus", "truck", "bicycle", "pedestrian"};
   auto strks = arraysToSTrackPtrs(det_info, class_ids);
 
   vision_msgs::msg::Detection3DArray trks = TrackingNode::STracksToTracks(strks, h);
@@ -183,7 +183,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
       REQUIRE_THAT(trk_box.size.z, Catch::Matchers::WithinRel(exp[6]));
 
       REQUIRE_THAT(trk.results[0].hypothesis.score, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(trk.results[0].hypothesis.class_id == TrackingNode::reverseClassLookup(class_ids[i]));
+      REQUIRE(trk.results[0].hypothesis.class_id == TrackingNode::class_ids[i]);
 
       REQUIRE(trk.header.stamp == h.stamp);
       REQUIRE(trk.header.frame_id == h.frame_id);
