@@ -501,6 +501,22 @@ void LatticePlanningNode::publish_final_path(const Path & path)
   path_msg.header.stamp = this->now();
   path_msg.header.frame_id = "map";
 
+  // Prepend a point 0.5m behind the first path point so pure pursuit
+  // always has the path starting behind the vehicle and doesn't creep.
+  if (!path.path.empty()) {
+    constexpr double PATH_START_OFFSET = 2.0;
+    const auto & first = path.path.front();
+    geometry_msgs::msg::PoseStamped behind;
+    behind.header = path_msg.header;
+    behind.pose.position.x = first.x - PATH_START_OFFSET * std::cos(first.theta);
+    behind.pose.position.y = first.y - PATH_START_OFFSET * std::sin(first.theta);
+    behind.pose.position.z = 0.0;
+    tf2::Quaternion q_behind;
+    q_behind.setRPY(0, 0, first.theta);
+    behind.pose.orientation = tf2::toMsg(q_behind);
+    path_msg.poses.push_back(behind);
+  }
+
   for (const auto & pt : path.path) {
     geometry_msgs::msg::PoseStamped pose;
     pose.header = path_msg.header;

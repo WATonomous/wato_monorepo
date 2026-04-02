@@ -127,6 +127,7 @@
     publish_rate_hz: 30.0
     grid_width_m: 50.0
     grid_height_m: 50.0
+    grid_forward_offset_m: 12.5
     resolution: 0.3
     footprint_front_left: [2.5, 1.0]
     footprint_rear_right: [-1.5, -1.0]

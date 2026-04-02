@@ -61,6 +61,7 @@ private:
   double publish_rate_hz_;
   double grid_width_m_;
   double grid_height_m_;
+  double grid_forward_offset_m_;
   double resolution_;
   std::vector<double> footprint_front_left_;
   std::vector<double> footprint_rear_right_;
