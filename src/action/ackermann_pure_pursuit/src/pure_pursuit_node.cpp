@@ -223,9 +223,14 @@ void PurePursuitNode::controlCallback()
   double adaptive_lookahead =
     std::clamp(lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
   RCLCPP_INFO(
-    get_logger(), "Lookahead: %.2f m (speed=%.2f, gain=%.2f, raw=%.2f, min=%.2f, max=%.2f)",
-    adaptive_lookahead, current_speed_, lookahead_gain_,
-    lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
+    get_logger(),
+    "Lookahead: %.2f m (speed=%.2f, gain=%.2f, raw=%.2f, min=%.2f, max=%.2f)",
+    adaptive_lookahead,
+    current_speed_,
+    lookahead_gain_,
+    lookahead_gain_ * current_speed_,
+    min_lookahead_distance_,
+    lookahead_distance_);
 
   // Transform trajectory points into base_frame and find lookahead point
   const double SPEED_LOOKAHEAD_M = speed_lookahead_distance_;
