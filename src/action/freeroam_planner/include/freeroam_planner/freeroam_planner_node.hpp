@@ -60,6 +60,7 @@ private:
   std::string costmap_topic_;
   std::string trajectory_topic_;
   std::string base_frame_;
+  std::string trajectory_frame_;
   double max_speed_;
   double goal_tolerance_;
   int obstacle_threshold_;

@@ -23,6 +23,7 @@ services:
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
   infrastructure_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -46,7 +47,7 @@ services:
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
 
   log_viewer:
-    container_name: watod_log_viewer
+    container_name: ${COMPOSE_PROJECT_NAME:-watod}_log_viewer
     build:
       context: ../watod_scripts/tools/log-viewer
       dockerfile: Dockerfile
@@ -81,6 +82,7 @@ services:
     image: "${INTERFACING_IMAGE}:deps_${TAG}"
 
   interfacing_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -134,6 +136,7 @@ services:
     image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
 
   perception_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -195,6 +198,7 @@ services:
     image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
 
   world_modeling_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -211,6 +215,8 @@ services:
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.yaml"
+    volumes:
+      - ${MONO_DIR}/maps:/opt/watonomous/maps
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
@@ -243,6 +249,7 @@ services:
     image: "${ACTION_IMAGE}:deps_${TAG}"
 
   action_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host
@@ -313,6 +320,7 @@ services:
     image: "${SIMULATION_IMAGE}:deps_${TAG}"
 
   simulation_bringup:
+    init: true
     ulimits:
       memlock: -1
     ipc: host

@@ -54,6 +54,30 @@ inline const char * toString(LaneTransition value)
   }
 }
 
+enum class OvertakeStage : uint8_t
+{
+  IDLE = 0,
+  DIVERGE = 1,
+  OVERTAKE = 2,
+  MERGE = 3,
+};
+
+inline const char * toString(OvertakeStage value)
+{
+  switch (value) {
+    case OvertakeStage::IDLE:
+      return "IDLE";
+    case OvertakeStage::DIVERGE:
+      return "DIVERGE";
+    case OvertakeStage::OVERTAKE:
+      return "OVERTAKE";
+    case OvertakeStage::MERGE:
+      return "MERGE";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 // Enumeration for different traffic CONTROL element types
 enum class TrafficControlElementType : uint8_t
 {
@@ -87,6 +111,16 @@ inline behaviour::types::LaneTransition convertFromString(StringView str)
   if (str == "LEFT") return behaviour::types::LaneTransition::LEFT;
   if (str == "RIGHT") return behaviour::types::LaneTransition::RIGHT;
   throw BT::RuntimeError("Can't convert string [", str, "] to LaneTransition");
+}
+
+template <>
+inline behaviour::types::OvertakeStage convertFromString(StringView str)
+{
+  if (str == "IDLE") return behaviour::types::OvertakeStage::IDLE;
+  if (str == "DIVERGE") return behaviour::types::OvertakeStage::DIVERGE;
+  if (str == "OVERTAKE") return behaviour::types::OvertakeStage::OVERTAKE;
+  if (str == "MERGE") return behaviour::types::OvertakeStage::MERGE;
+  throw BT::RuntimeError("Can't convert string [", str, "] to OvertakeStage");
 }
 
 template <>

@@ -21,7 +21,9 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(behaviour_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -44,7 +46,9 @@ target_link_libraries(pure_pursuit_lib
     rclcpp_lifecycle::rclcpp_lifecycle
     tf2::tf2
     tf2_ros::tf2_ros
+    ${behaviour_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
+    ${nav_msgs_TARGETS}
     ${std_msgs_TARGETS}
     ${ackermann_msgs_TARGETS}
     ${wato_trajectory_msgs_TARGETS}

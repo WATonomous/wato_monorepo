@@ -26,9 +26,11 @@ namespace trajectory_planner
 
 struct TrajectoryConfig
 {
-  double safe_distance;
   double stop_distance;
   double max_speed;
+  double max_tangential_accel;
+  double max_emergency_accel;
+  double max_lateral_accel;
   double interpolation_resolution;
   double footprint_x_min;  // rear extent (m)
   double footprint_y_min;  // right extent (m)
@@ -67,6 +69,8 @@ public:
     const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap);
 
 private:
+  int8_t get_max_footprint_cost(double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap) const;
+
   TrajectoryConfig config_;
 };
 

@@ -5,6 +5,7 @@ action:
       costmap_topic: "costmap"
       trajectory_topic: "trajectory"
       base_frame: "base_footprint"
+      trajectory_frame: "map"
       max_speed: 5.0
       goal_tolerance: 1.0
       obstacle_threshold: 50

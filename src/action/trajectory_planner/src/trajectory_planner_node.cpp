@@ -29,12 +29,25 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
 {
   RCLCPP_INFO(get_logger(), "Trajectory Planner lifecycle node created");
 
+  // Publisher Topic Names
+  declare_parameter("traj_pub_topic", "trajectory");
+  declare_parameter("marker_pub_topic", "trajectory_markers");
+
+  // Subscriber Topic Names
+  declare_parameter("path_sub_topic", "input_path");
+  declare_parameter("costmap_sub_topic", "costmap");
+  declare_parameter("lane_context_sub_topic", "lane_context");
+  declare_parameter("odom_sub_topic", "odom");
+  declare_parameter("bt_sub_topic", "execute_behaviour");
+
   // Obstacle avoidance distances
-  declare_parameter("safe_distance", 10.0);
   declare_parameter("stop_distance", 2.0);
 
   // Speed and path resolution
   declare_parameter("max_speed", 20.0);
+  declare_parameter("max_tangential_accel", 2.0);
+  declare_parameter("max_emergency_accel", 5.0);
+  declare_parameter("max_lateral_accel", 2.0);
   declare_parameter("interpolation_resolution", 0.1);
 
   // Vehicle footprint bounding box for costmap collision checks
@@ -49,11 +62,24 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
 {
   RCLCPP_INFO(get_logger(), "Configuring Trajectory Planner node");
 
+  // Publisher Topic Names
+  traj_pub_topic = get_parameter("traj_pub_topic").as_string();
+  marker_pub_topic = get_parameter("marker_pub_topic").as_string();
+
+  // Subscriber Topic Names
+  path_sub_topic = get_parameter("path_sub_topic").as_string();
+  costmap_sub_topic = get_parameter("costmap_sub_topic").as_string();
+  lane_context_sub_topic = get_parameter("lane_context_sub_topic").as_string();
+  odom_sub_topic = get_parameter("odom_sub_topic").as_string();
+  bt_sub_topic = get_parameter("bt_sub_topic").as_string();
+
   // Build config from declared parameters and construct the planning core
   TrajectoryConfig config;
-  config.safe_distance = get_parameter("safe_distance").as_double();
   config.stop_distance = get_parameter("stop_distance").as_double();
   config.max_speed = get_parameter("max_speed").as_double();
+  config.max_tangential_accel = get_parameter("max_tangential_accel").as_double();
+  config.max_emergency_accel = get_parameter("max_emergency_accel").as_double();
+  config.max_lateral_accel = get_parameter("max_lateral_accel").as_double();
   config.interpolation_resolution = get_parameter("interpolation_resolution").as_double();
   config.footprint_x_min = get_parameter("footprint_x_min").as_double();
   config.footprint_y_min = get_parameter("footprint_y_min").as_double();
@@ -67,18 +93,24 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   core_ = std::make_unique<TrajectoryCore>(config);
 
   // Publishers — activated separately in on_activate
-  traj_pub_ = create_publisher<wato_trajectory_msgs::msg::Trajectory>("trajectory", 10);
-  marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("trajectory_markers", 10);
+  traj_pub_ = create_publisher<wato_trajectory_msgs::msg::Trajectory>(traj_pub_topic, 10);
+  marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(marker_pub_topic, 10);
 
   // Subscribers
   path_sub_ = create_subscription<nav_msgs::msg::Path>(
-    "input_path", 10, std::bind(&TrajectoryPlannerNode::path_callback, this, std::placeholders::_1));
+    path_sub_topic, 10, std::bind(&TrajectoryPlannerNode::path_callback, this, std::placeholders::_1));
 
   costmap_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
-    "costmap", 10, std::bind(&TrajectoryPlannerNode::costmap_callback, this, std::placeholders::_1));
+    costmap_sub_topic, 10, std::bind(&TrajectoryPlannerNode::costmap_callback, this, std::placeholders::_1));
 
   lane_context_sub_ = create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
-    "lane_context", 10, std::bind(&TrajectoryPlannerNode::lane_context_callback, this, std::placeholders::_1));
+    lane_context_sub_topic, 10, std::bind(&TrajectoryPlannerNode::lane_context_callback, this, std::placeholders::_1));
+
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+    odom_sub_topic, 10, std::bind(&TrajectoryPlannerNode::odom_callback, this, std::placeholders::_1));
+
+  bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
+    bt_sub_topic, 10, std::bind(&TrajectoryPlannerNode::bt_callback, this, std::placeholders::_1));
 
   // TF listener for cross-frame path transforms
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -114,6 +146,8 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_cleanup(const rc
   path_sub_.reset();
   costmap_sub_.reset();
   lane_context_sub_.reset();
+  odom_sub_.reset();
+  bt_sub_.reset();
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
@@ -130,13 +164,12 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_shutdown(const r
 void TrajectoryPlannerNode::path_callback(const nav_msgs::msg::Path::SharedPtr msg)
 {
   latest_path_ = msg;
-  update_trajectory();
 }
 
 void TrajectoryPlannerNode::costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 {
-  // Cache latest costmap; used on the next path callback to check for obstacles
   latest_costmap_ = msg;
+  update_trajectory();
 }
 
 void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg)
@@ -146,10 +179,20 @@ void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::Curre
   has_speed_limit_ = true;
 }
 
+void TrajectoryPlannerNode::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
+{
+  current_speed_mps = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
+}
+
+void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
+{
+  bt_requested_behaviour = msg->behaviour;
+}
+
 void TrajectoryPlannerNode::update_trajectory()
 {
   // Wait until all inputs are ready before computing
-  if (!latest_path_ || !latest_costmap_ || !core_) {
+  if (!latest_path_ || !latest_costmap_ || !core_ || current_speed_mps < 0.0 || bt_requested_behaviour.empty()) {
     return;
   }
 
@@ -191,8 +234,8 @@ void TrajectoryPlannerNode::update_trajectory()
 
   // Use lane speed limit if available, otherwise fall back to config max_speed
   double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
-
-  auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed);
+  if (bt_requested_behaviour == "standby") limit_speed = 0.0;
+  auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
   // Publish trajectory
   traj_pub_->publish(traj);

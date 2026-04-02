@@ -17,41 +17,37 @@
 
 #include <behaviortree_cpp/action_node.h>
 
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
-#include <limits>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
-#include "lanelet_msgs/msg/regulatory_element.hpp"
-#include "lanelet_msgs/msg/way.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 
 namespace behaviour
 {
 /**
    * @class GetStopSignCarsAction
-   * @brief SyncActionNode to collect stop-sign queued car IDs.
+   * @brief SyncActionNode to collect car IDs occupying relevant right-of-way lanelets.
    */
-class GetStopSignCarsAction : public BT::SyncActionNode
+class GetStopSignCarsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config)
+  GetStopSignCarsAction(const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
   {
     return {
-      BT::InputPort<lanelet_msgs::msg::RegulatoryElement::SharedPtr>("stop_sign"),
+      BT::InputPort<std::vector<int64_t>>("lanelet_ids"),
       BT::InputPort<std::vector<world_model_msgs::msg::WorldObject>>("objects"),
       BT::InputPort<std::size_t>("hypothesis_index"),
-      BT::InputPort<double>("stop_sign_line_threshold_m"),
       BT::OutputPort<std::vector<std::string>>("out_stop_sign_car_ids"),
       BT::OutputPort<std::vector<world_model_msgs::msg::WorldObject>>("out_stop_sign_cars"),
     };
@@ -60,11 +56,11 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetStopSignCars] Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "missing_input port=" << port_name);
     };
 
-    auto stop_sign = ports::tryGetPtr<lanelet_msgs::msg::RegulatoryElement>(*this, "stop_sign");
-    if (!ports::require(stop_sign, "stop_sign", missing_input_callback)) {
+    auto lanelet_ids = ports::tryGet<std::vector<int64_t>>(*this, "lanelet_ids");
+    if (!ports::require(lanelet_ids, "lanelet_ids", missing_input_callback)) {
       return BT::NodeStatus::FAILURE;
     }
 
@@ -78,45 +74,14 @@ public:
       return BT::NodeStatus::FAILURE;
     }
 
-    auto stop_sign_line_threshold_m = ports::tryGet<double>(*this, "stop_sign_line_threshold_m");
-    if (!ports::require(stop_sign_line_threshold_m, "stop_sign_line_threshold_m", missing_input_callback)) {
-      return BT::NodeStatus::FAILURE;
-    }
-
     std::vector<std::string> out_ids;
     std::vector<world_model_msgs::msg::WorldObject> out_cars;
     std::unordered_set<std::string> seen_ids;
-    std::unordered_map<int64_t, const lanelet_msgs::msg::Way *> stop_line_way_by_lanelet_id;
-
-    for (const auto & lanelet_way : stop_sign->ref_lines) {
-      if (lanelet_way.way.points.empty()) {
-        continue;
-      }
-
-      for (const auto lanelet_id : lanelet_way.lanelet_ids) {
-        stop_line_way_by_lanelet_id[lanelet_id] = &lanelet_way.way;
-      }
-    }
-
-    for (const auto lanelet_id : stop_sign->yield_lanelet_ids) {
-      const auto stop_line_way_it = stop_line_way_by_lanelet_id.find(lanelet_id);
-      if (stop_line_way_it == stop_line_way_by_lanelet_id.end()) {
-        continue;
-      }
-      const auto stop_line_way = stop_line_way_it->second;
-      if (stop_line_way == nullptr) {
-        continue;
-      }
-
-      const auto cars_in_lanelet = world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
+    for (const auto lanelet_id : *lanelet_ids) {
+      const auto cars_in_lanelet = utils::world_objects::getCarsByLanelet(*objects, *hypothesis_index, lanelet_id);
 
       for (const auto * obj : cars_in_lanelet) {
         if (obj == nullptr) {
-          continue;
-        }
-
-        const double distance_to_stop_line = geometry::objectToWayDistanceXY(*obj, *stop_line_way);
-        if (!std::isfinite(distance_to_stop_line) || distance_to_stop_line > *stop_sign_line_threshold_m) {
           continue;
         }
 

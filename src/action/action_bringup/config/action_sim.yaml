@@ -1,0 +1,193 @@
+# Simulation-specific action configuration
+# Uses CARLA odometry directly, tuned for simulation dynamics
+
+# =============================================================================
+# Lattice Planner (simulation)
+# =============================================================================
+/**/lattice_planning_node:
+  ros__parameters:
+    lanelet_ahead_topic: "lanelet_ahead"
+    odom_topic: "odom"
+    bt_topic: "execute_behaviour"
+    path_topic: "path"
+    available_paths_topic: "available_paths"
+    control_rate_hz: 2.0
+
+    num_lane_switch_horizons: 3
+    lane_switch_lookahead_distances: [10.0, 17.5, 25.0]
+
+    centreline_horizon: 35.0
+    centreline_velocity_scale: 0.2
+
+    cost_function:
+      lateral_movement_weight: 2.0
+      physical_limits_weight: 4.0
+      preferred_lane_cost: 100.0
+      unknown_occupancy_cost: 50.0
+      max_curvature_change: 0.1
+
+    path_gen:
+      max_iterations: 20
+      path_steps: 35
+      convergence_tolerance: 0.15
+      newton_damping: 0.7
+      max_step_size: 1.0
+
+    spiral_coeffs:
+      c1_k0_coeff: -11.0
+      c1_k1_coeff: 18.0
+      c1_k2_coeff: -9.0
+      c1_k3_coeff: 2.0
+      c1_divisor: 2.0
+      c2_k0_coeff: 18.0
+      c2_k1_coeff: -45.0
+      c2_k2_coeff: 36.0
+      c2_k3_coeff: -9.0
+      c2_divisor: 2.0
+      c3_k0_coeff: -9.0
+      c3_k1_coeff: 27.0
+      c3_k2_coeff: -27.0
+      c3_k3_coeff: 9.0
+      c3_divisor: 2.0
+
+# =============================================================================
+# Trajectory Planner (simulation)
+# =============================================================================
+/**/trajectory_planner_node:
+  ros__parameters:
+    traj_pub_topic: "trajectory"
+    marker_pub_topic: "trajectory_markers"
+    path_sub_topic: "input_path"
+    costmap_sub_topic: "costmap"
+    lane_context_sub_topic: "lane_context"
+    odom_sub_topic: "odom"
+    bt_sub_topic: "execute_behaviour"
+
+    stop_distance: 0.3
+    max_speed: 10.0
+    max_tangential_accel: 2.5
+    max_emergency_accel: 5.0
+    max_lateral_accel: 1.0
+    interpolation_resolution: 0.1
+
+    footprint_frame: "base_link"
+    footprint_x_min: -0.5
+    footprint_y_min: -1.2
+    footprint_x_max: 3.5
+    footprint_y_max: 1.2
+
+# =============================================================================
+# Lattice Planning Markers
+# =============================================================================
+/**/lattice_planning_markers_node:
+  ros__parameters:
+    path_topic: "path"
+    available_paths_topic: "available_paths"
+    path_markers_topic: "path_markers"
+    available_paths_markers_topic: "available_paths_markers"
+    path_line_width: 0.1
+    available_path_line_width: 0.1
+    available_paths_alpha: 1.0
+    max_available_paths: 50
+    publish_deleteall_each_update: true
+
+# =============================================================================
+# MPC Controller (simulation-tuned)
+# =============================================================================
+/**/mpc_controller_node:
+  ros__parameters:
+    trajectory_topic: "trajectory"
+    bt_topic: "execute_behaviour"
+    ackermann_topic: "ackermann"
+    idle_topic: "is_idle"
+    predicted_path_topic: "predicted_path"
+    odom_topic: "odom"
+
+    base_frame: "base_footprint"
+
+    control_rate_hz: 20.0     # [5.0 - 50.0] Hz — how often MPC solves. Raise: more responsive, more CPU. Lower: less CPU, laggier control.
+    idle_timeout_sec: 2.0     # seconds — go idle if no trajectory received for this long
+    standby_speed: 0.0
+    standby_steering: 0.0
+    standby_msg: "standby"
+    invert_steering: false
+    disable_standby: true
+
+    # Vehicle model
+    wheelbase: 2.5667         # meters — distance between front and rear axles. Must match your vehicle.
+
+    # Horizon
+    horizon_distance: 25.0    # [10.0 - 50.0] meters — how far ahead MPC looks. Raise: sees stops/curves earlier, slower solve. Lower: faster solve, may brake too late.
+    point_spacing: 1.0        # [0.5 - 3.0] meters — arc-length between reference points. Raise: fewer points, coarser, faster. Lower: finer resolution, heavier QP.
+    max_horizon_steps: 30     # [10 - 50] — caps QP size. With point_spacing=1.0 and horizon=25m, you get 25 steps. This is a safety cap.
+
+    # =========================================================================
+    # Cost weights — all values >= 0. Relative ratios matter, not absolute values.
+    # Doubling all weights changes nothing. Doubling one weight makes MPC
+    # prioritize that term over others.
+    # =========================================================================
+
+    # Tracking weights
+    w_lateral: 50.0           # [1.0 - 200.0] — position error penalty.
+                              #   Raise: tighter path tracking, less cutting corners.
+                              #   Lower: allows more deviation, smoother but may drift from path.
+
+    w_heading: 20.0           # [1.0 - 100.0] — heading error penalty.
+                              #   Raise: snappier turn entry, points toward path earlier.
+                              #   Lower: lazier heading correction, smoother but may overshoot turns.
+
+    w_progress: 5.0           # [0.0 - 20.0] — speed reward (linear, not quadratic).
+                              #   Raise: more aggressive acceleration toward speed limit.
+                              #   Lower: more conservative, coasts more. Set 0 to disable.
+
+    # Control effort weights
+    w_steering: 1.0           # [0.1 - 50.0] — penalizes steering angle magnitude.
+                              #   Raise: prefers driving straight, may underreact to curves.
+                              #   Lower: willing to steer more aggressively.
+
+    w_accel: 1.0              # [0.1 - 50.0] — penalizes acceleration magnitude.
+                              #   Raise: prefers coasting, gentle speed changes.
+                              #   Lower: willing to brake/accelerate harder.
+
+    # Smoothness weights (most important for ride comfort)
+    w_dsteering: 100.0        # [10.0 - 500.0] — penalizes steering rate (change between steps).
+                              #   Raise: buttery smooth steering, may feel sluggish on tight turns.
+                              #   Lower: more reactive steering, may feel jerky.
+                              #   This is the primary "steering comfort" knob.
+
+    w_daccel: 50.0            # [10.0 - 500.0] — penalizes jerk (acceleration change between steps).
+                              #   Raise: smoother speed transitions, gentle braking ramps.
+                              #   Lower: snappier acceleration response, may feel abrupt.
+                              #   This is the primary "longitudinal comfort" knob.
+
+    w_terminal: 5.0           # [1.0 - 20.0] — multiplier on tracking weights at the last horizon step.
+                              #   Raise: stabilizes horizon tail, prevents MPC from ignoring the end.
+                              #   Lower: MPC focuses on near-term, may oscillate if horizon is short.
+
+    # =========================================================================
+    # Actuator limits — hard constraints, vehicle physical limits.
+    # Must match your actual vehicle capabilities.
+    # =========================================================================
+    max_steering_angle: 0.5   # [0.3 - 1.0] rad — max steering angle. Must match vehicle hardware.
+    max_accel: 2.5            # [1.0 - 5.0] m/s^2 — max forward acceleration. Must match vehicle capability.
+    max_decel: -4.0           # [-8.0 - -1.0] m/s^2 — max braking. More negative = harder braking allowed.
+    max_speed: 10.0           # [1.0 - 30.0] m/s — global speed cap, on top of trajectory planner's per-point limits.
+
+    # =========================================================================
+    # Comfort limits — rate constraints on actuators.
+    # These shape the ride feel. Tighter = smoother but less responsive.
+    # =========================================================================
+    max_steering_rate: 0.5    # [0.1 - 1.5] rad/s — how fast steering can change per step.
+                              #   Raise: quicker steering response, may feel twitchy.
+                              #   Lower: smoother steering, may feel sluggish entering curves.
+
+    max_jerk: 5.0             # [1.0 - 15.0] m/s^3 — how fast acceleration can change per step.
+                              #   Raise: snappier braking/acceleration response.
+                              #   Lower: gentler transitions, passengers feel less lurch.
+
+    # Solver
+    dt_min: 0.5               # [0.1 - 2.0] seconds — maximum dt per step when speed is near zero. Prevents division-by-zero in dt calculation.
+    max_solver_iterations: 200 # [50 - 500] — OSQP iteration cap. Raise if solver returns OSQP_MAX_ITER_REACHED.
+    solver_eps_abs: 0.001     # [1e-4 - 1e-2] — absolute convergence tolerance. Lower = more precise, slower.
+    solver_eps_rel: 0.001     # [1e-4 - 1e-2] — relative convergence tolerance.
+    warm_start: true          # reuse previous solution as initial guess — always keep true.

@@ -49,28 +49,39 @@
 # =============================================================================
 multi_camera_sync:
   ros__parameters:
-    # Camera topics to synchronize
     # For raw images, use topics like: ["/camera1/image_raw", "/camera2/image_raw"]
     # For compressed images, use topics like: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      - "/camera_pano_ww/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
+      - "/camera_pano_ne/image_rect_compressed"
       - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_se/image_rect_compressed"
       - "/camera_pano_ss/image_rect_compressed"
+      - "/camera_pano_sw/image_rect_compressed"
+      - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_nw/image_rect_compressed"
 
     # CameraInfo topics (one per camera, same order). Required for batched ~/multi_camera_info.
     camera_info_topics:
-      - "/camera_pano_ww/camera_info"
       - "/camera_pano_nn/camera_info"
+      - "/camera_pano_ne/camera_info"
       - "/camera_pano_ee/camera_info"
+      - "/camera_pano_se/camera_info"
       - "/camera_pano_ss/camera_info"
+      - "/camera_pano_sw/camera_info"
+      - "/camera_pano_ww/camera_info"
+      - "/camera_pano_nw/camera_info"
 
     # Optional names for the cameras (if not provided, will auto-generate camera_1, camera_2, etc.)
     camera_names:
-      - "camera_pano_ww"
       - "camera_pano_nn"
+      - "camera_pano_ne"
       - "camera_pano_ee"
+      - "camera_pano_se"
       - "camera_pano_ss"
+      - "camera_pano_sw"
+      - "camera_pano_ww"
+      - "camera_pano_nw"
 
     # Whether to use compressed images (sensor_msgs/CompressedImage) instead of raw (sensor_msgs/Image)
     # Set to true if your camera topics publish compressed images
@@ -78,11 +89,11 @@ multi_camera_sync:
 
     # Maximum time difference in milliseconds for message synchronization
     # Larger values allow more tolerance but may reduce temporal accuracy
-    sync_tolerance_ms: 2000.0
+    sync_tolerance_ms: 500.0
 
     # Queue size for message filters
     # Larger values can handle more variable frame rates but use more memory
-    queue_size: 20
+    queue_size: 10
 
     # Whether to publish synchronization information and statistics
     publish_sync_info: true
@@ -150,20 +161,214 @@ multi_camera_sync:
 # =============================================================================
 /**/tracking_node:
   ros__parameters:
-    frame_rate: 2
-    track_buffer: 30
-    track_thresh: 0.5
-    high_thresh: 0.6
-    match_thresh: 1.0
+    frame_rate: 12
+    track_buffer: 120
+    track_thresh: 0.1
+    high_thresh: 0.15
+    match_thresh: 0.9
     use_maj_cls: true
-    output_frame: "map"
+    # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
+    # Set to "map" when running with localization so tracks are in the global frame.
+    output_frame: "lidar_cc"
+    publish_visualization: true
+
+# =============================================================================
+# Spatial Association Node
+# =============================================================================
+/**/spatial_association_node:
+  ros__parameters:
+    # This block mirrors spatial_association/config/params.yaml so every node parameter
+    # can be tuned directly from perception bringup. The package config remains the
+    # default layer; these values are the bringup-level overrides.
+    lidar_frame: lidar_cc
+    max_detection_cloud_stamp_delta: 0.0
+    detection_stamp_fallback_policy: "median_camera_stamp"
+    clustered_cloud_cache_size: 24
+    raw_cloud_pending_queue_size: 1
+    raw_cloud_latest_only: true
+    bbox_markers_use_detection_stamp: false
+    skip_repeat_association_publish: true
+
+    euclid_params:
+      cluster_tolerance: 0.40
+      min_cluster_size: 30
+      max_cluster_size: 1200
+      use_adaptive_clustering: true
+      close_threshold: 10.0
+      close_tolerance_mult: 1.5
+
+    merge_threshold: 0.55
+    use_roi_first_clustering: false
+
+    cross_camera_dedup:
+      enabled: false
+      min_lidar_index_overlap: 0.5
+      weak_lidar_index_overlap: 0.22
+      max_center_dist_m: 1.8
+      min_bev_box_iou: 0.16
+      min_bev_box_iou_no_class: 0.30
+
+    object_detection_confidence: 0.55   # Accept slightly weaker 2D detections
+    voxel_size: 0.25
+
+    quality_filter_params:
+      max_distance: 50.0
+      min_points: 3
+      min_height: 0.08
+      min_points_default: 5
+      min_points_far: 4
+      min_points_medium: 6
+      min_points_large: 15
+      distance_threshold_far: 30.0
+      distance_threshold_medium: 20.0
+      volume_threshold_large: 8.0
+      min_density: 2.0
+      max_density: 1000.0
+      max_dimension: 15.0
+      max_aspect_ratio: 15.0
+
+    publish_bounding_box: true
+    publish_visualization: false
+    publish_image_visualization: false
+    debug_logging: false
+
+    # Projection/utils: association, orientation, merge (see projection_utils.cpp). Filtering: quality_filter_params.
+    projection_utils_params:
+      marker_lifetime_s: 0.5
+      marker_alpha: 0.2
+      min_iou_threshold: 0.08   # Lower = more permissive association (was 0.15)
+      min_camera_z_distance: 0.6
+      detection_score_weight: 0.6
+      iou_score_weight: 0.4
+      ar_front_view_threshold: 1.2
+      min_points_for_fit: 3
+      default_sample_point_count: 64
+      orientation_search_step_degrees: 2.0
+      outlier_rejection_point_count: 30
+      outlier_sigma_multiplier: 4.5
+      xy_extent_percentile_low: 5.0
+      xy_extent_percentile_high: 95.0
+      z_extent_percentile_low: 2.0
+      z_extent_percentile_high: 98.0
+      image_width: 1280
+      image_height: 1024
+      enable_second_pass_fallback: false
+      second_pass_min_iou: 0.05
+      max_unassigned_detections_second_pass: 10
+      second_pass_min_det_conf: -1.0
+      second_pass_bbox_expand_fraction: 0.15
+      second_pass_min_det_area_px2: 0.0
+      second_pass_min_det_area_far_px2: 0.0
+      second_pass_min_inside_points: 3
+      second_pass_min_inside_fraction: 0.20
+      second_pass_inside_points_far_scale: 0.75
+      second_pass_inside_points_medium_scale: 0.90
+      second_pass_person_inside_fraction_scale: 1.20
+      second_pass_person_inside_points_scale: 1.20
+      second_pass_vehicle_inside_fraction_scale: 0.90
+      second_pass_vehicle_inside_points_scale: 0.90
+      second_pass_min_size_score: 0.40
+      second_pass_person_min_size_score: 0.50
+      second_pass_vehicle_min_size_score: 0.35
+      second_pass_min_combined_score: 0.45
+      second_pass_best_second_margin: 0.10
+      # Strict gates (inner box, in-box point fraction, aspect) need accurate projection; disable for bringup
+      # until camera–lidar calibration is verified, otherwise 3D output can be empty despite 2D detections.
+      association_strict_matching: false
+      association_centroid_inner_box_fraction: 0.75
+      association_min_inside_point_fraction: 0.45
+      association_min_ar_consistency_score: 0.30
+      association_use_point_projection_rect_for_iou: true
+      association_allow_aabb_centroid_fallback: false
+      association_suppress_second_pass_under_strict: true
+      association_roi_expand_fraction: 0.12
+      quality_person_max_height_m: 4.5
+      quality_person_max_footprint_xy_m: 3.0
+      quality_vehicle_max_height_m: 4.8
+      # Depth scoring from enriched 3D detections (monocular depth)
+      depth_score_weight: 0.9    # Weight of depth proximity term (0 = disabled)
+      depth_score_scale: 4.0      # Scale (metres) for exp(-|delta| / scale)
+
+# =============================================================================
+# Attribute Assigner Node
+# =============================================================================
+/**/attribute_assigner_node:
+  ros__parameters:
+    # Topic names (message_filters doesn't respect launch remapping)
+    input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"
+    input_detections_topic: "/perception/detections"
+    output_detections_topic: "/perception/detections_enriched"
+
+    # Class ID names
+    traffic_light_class_ids: ["traffic light"]
+    car_class_ids: ["car"]
+    truck_class_ids: ["truck"]
+    bus_class_ids: ["bus"]
+    min_detection_confidence: 0.3
+
+    # Traffic light color detection thresholds (HSV-based, OpenCV H: 0-180)
+    traffic_light_min_saturation: 30.0
+    traffic_light_min_value: 100.0
+    traffic_light_red_hue_lo: 23.0      # Red: H <= this OR H >= red_hue_hi
+    traffic_light_red_hue_hi: 160.0     # Red: H >= this OR H <= red_hue_lo
+    traffic_light_yellow_hue_hi: 55.0   # Yellow: red_hue_lo < H <= this
+    traffic_light_green_hue_hi: 85.0    # Green: yellow_hue_hi < H < this
+    traffic_light_strip_margin: 0.25    # Fraction of width/height to ignore on each side (0.0-0.45)
+
+    # Car signal detection thresholds (HSV-based)
+    car_brake_min_brightness: 254.0
+    car_brake_min_saturation: 110.0     # Lower than amber — brake lights on white cars appear washed out
+    car_red_hue_lo: 23.0                # Brake light red: H <= this
+    car_red_hue_hi: 160.0               # Brake light red: H >= this
+    car_amber_hue_lo: 24.0
+    car_amber_hue_hi: 35.0
+    car_amber_min_saturation: 40.0
+    car_amber_min_value: 200.0
+
+    # QoS Configuration for subscribers
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 10
+
+    # QoS Configuration for publishers
+    qos_publisher_reliability: "best_effort"      # Options: "reliable", "best_effort"
+    qos_publisher_durability: "volatile"  # Options: "transient_local", "volatile"
+    qos_publisher_depth: 10
+
+    # Message synchronization
+    sync_queue_size: 10
+    sync_max_time_diff_ms: 900.0  # Max time difference for syncing multi-image and detections (ms)
+                                    # Detections are typically 50-150ms after images due to processing time
+
+    # Visualization toggles
+    enable_image_markers: false       # Publish 2D image marker overlays (enriched_detection_markers)
+    enable_3d_markers: true          # Publish 3D MarkerArray for Foxglove
+
+    # 3D Detection settings
+    # These parameters control the 3D localization of detections using camera intrinsics and TF
+    input_multi_camera_info_topic: "/multi_camera_sync/multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
+    target_frame: "base_link"                                               # Target coordinate frame for 3D detections
+    traffic_light_assumed_depth: 30.0                                       # Fallback depth for traffic lights (meters)
+    car_assumed_depth: 20.0                                                 # Fallback depth for all vehicles (meters)
+
+    # Vehicle 3D dimensions (width used for depth estimation, all in meters)
+    car_real_width: 1.8
+    car_real_height: 1.8
+    car_real_length: 6.0
+
+    truck_real_width: 2.5
+    truck_real_height: 3.5
+    truck_real_length: 8.0
+
+    bus_real_width: 2.5
+    bus_real_height: 3.2
+    bus_real_length: 12.0
 
 # =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
   ros__parameters:
-    node_names: ["deep_object_detection_node"]
+    node_names: ["deep_object_detection_node", "attribute_assigner_node"]
     autostart: true
     transition_timeout_s: 10.0
     bond_timeout_s: 4.0
@@ -171,8 +376,9 @@ detection_lifecycle_manager:
 
 perception_lifecycle_manager:
   ros__parameters:
-    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node", "/spatial_association_node", "/perception/tracking_node"]
     autostart: true
-    transition_timeout_s: 10.0
+    autostart_delay_s: 15.0
+    transition_timeout_s: 15.0
     bond_timeout_s: 4.0
     bond_enabled: false

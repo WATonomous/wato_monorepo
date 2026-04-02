@@ -32,9 +32,13 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(world_model_msgs REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(bytetrack_cpp_vendor REQUIRED)
 
 # Add library
@@ -55,8 +59,12 @@ target_link_libraries(${PROJECT_NAME}_lib
     bytetrack_cpp_vendor::bytetrack
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
+    Eigen3::Eigen
     ${std_msgs_TARGETS}
     ${vision_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${world_model_msgs_TARGETS}
     ${tf2_ros_TARGETS}
     PRIVATE
     rclcpp_components::component

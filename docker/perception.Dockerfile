@@ -11,9 +11,14 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code needed for perception build
 RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros
 COPY src/perception perception
+
+COPY src/world_modeling/world_model_msgs world_model_msgs
+COPY src/world_modeling/lanelet_msgs lanelet_msgs
+
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/interfacing/calibration/camera_calib camera_calib
 COPY src/interfacing/sensor_interfacing sensor_interfacing
+
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

@@ -1,0 +1,157 @@
+---
+/**/spatial_association_node:
+  ros__parameters:
+    lidar_frame: lidar_cc
+
+    # --- Timing / Buffering ---
+    max_detection_cloud_stamp_delta: 0.08       # Max |det.stamp - cloud.stamp| (s); <=0 disables per-camera rejection
+    detection_stamp_fallback_policy: "median_camera_stamp"  # or "max_camera_stamp"
+    clustered_cloud_cache_size: 24              # Ring buffer of recent clustered snapshots
+    raw_cloud_pending_queue_size: 1
+    raw_cloud_latest_only: true
+    skip_repeat_association_publish: true
+
+    # --- Clustering ---
+    voxel_size: 0.2
+    euclid_params:
+      cluster_tolerance: 0.40                   # Base tolerance (m) for Euclidean clustering
+      min_cluster_size: 20
+      max_cluster_size: 1000
+      use_adaptive_clustering: true
+      # Legacy close/far split (ignored when clustering_bands is non-empty):
+      close_threshold: 5.0
+      close_tolerance_mult: 1.25
+      # Multi-band: overrides legacy split. Each index = one distance band.
+      clustering_bands:
+        max_distances: [8.0, 20.0, 40.0, 999.0]
+        tolerance_mults: [1.3, 1.0, 1.5, 2.0]
+        min_cluster_sizes: [15, 12, 10, 8]
+    merge_threshold: 0.4
+
+    # --- 2D Detection Filter ---
+    object_detection_confidence: 0.42
+
+    # --- Association (strict mode — primary path) ---
+    projection_utils_params:
+      marker_lifetime_s: 0.25
+      marker_alpha: 0.2
+
+      # Matching gates (all must pass)
+      association_strict_matching: true
+      min_iou_threshold: 0.11
+      association_centroid_inner_box_fraction: 0.85
+      association_min_inside_point_fraction: 0.45
+      association_min_ar_consistency_score: 0.30
+      association_use_point_projection_rect_for_iou: true
+
+      # Distance-adaptive relaxation (applied to thresholds above)
+      far_iou_threshold_scale: 0.5              # Multiplier for clusters > 30m
+      medium_iou_threshold_scale: 0.75          # Multiplier for clusters > 20m
+      far_inside_fraction_scale: 0.6
+      medium_inside_fraction_scale: 0.8
+
+      # Scoring weights (must sum to 1.0 before depth adjustment)
+      association_weight_iou: 0.30
+      association_weight_inside_fraction: 0.28
+      association_weight_ar: 0.18
+      association_weight_centroid: 0.14
+      association_weight_points: 0.10
+
+      # Assignment solver
+      use_hungarian_assignment: true            # false = greedy fallback
+
+      # Depth enrichment (optional; from attribute assigner)
+      depth_score_weight: 0.15
+      depth_score_scale: 5.0
+      min_depth_for_enrichment: 0.1
+
+      # Class-aware size prior (pre-match penalty; toggle off to disable entirely)
+      enable_size_prior: true
+      size_prior_weight: 0.10
+      size_prior_scale: 0.5
+      size_prior_classes: ["person", "car",  "truck", "bus",  "bicycle", "motorcycle"]
+      size_prior_min_widths: [0.2,      1.4,    2.0,     2.2,    0.3,       0.4]
+      size_prior_max_widths: [0.8,      2.2,    3.0,     3.0,    0.8,       1.0]
+      size_prior_min_lengths: [0.2,      3.0,    5.0,     8.0,    1.2,       1.5]
+      size_prior_max_lengths: [0.8,      5.5,    14.0,    15.0,   2.0,       2.5]
+      size_prior_min_heights: [0.8,      1.2,    2.0,     2.5,    0.8,       0.8]
+      size_prior_max_heights: [2.2,      2.0,    4.5,     4.0,    1.8,       1.8]
+
+      # 3D output score blend
+      detection_score_weight: 0.6
+      iou_score_weight: 0.4
+
+      # --- Quality Filtering (post-match) ---
+      quality_person_max_height_m: 2.5
+      quality_person_max_footprint_xy_m: 1.45
+      quality_person_max_volume_m3: 4.0
+      quality_vehicle_max_height_m: 4.8
+
+      # --- 3D Box Fitting ---
+      use_l_shaped_fitting: true                # L-shaped for car/truck/bus; false = search-based for all
+      orientation_search_step_degrees: 2.0
+      orientation_coarse_step_multiplier: 5.0
+      orientation_fine_range_multiplier: 2.5
+      l_shape_energy_variance_weight: 0.5
+      ar_front_view_threshold: 1.2
+      default_sample_point_count: 64
+      min_points_for_fit: 3
+      outlier_rejection_point_count: 30
+      outlier_sigma_multiplier: 4.5
+      xy_extent_percentile_low: 5.0
+      xy_extent_percentile_high: 95.0
+      z_extent_percentile_low: 2.0
+      z_extent_percentile_high: 98.0
+
+      # --- Scoring Internals (rarely need tuning) ---
+      centroid_score_detection_scale: 0.35
+      point_score_saturation_count: 120.0
+      association_centroid_distance_multiplier: 1.5
+      single_point_bbox_margin_px: 3.0
+      min_camera_z_distance: 0.8
+      image_width: 1280
+      image_height: 1024
+
+      # Class-aware threshold scaling (on top of distance-adaptive)
+      person_inside_fraction_scale: 0.85        # Relaxed for narrow persons (LiDAR projection rarely fills 2D box)
+      vehicle_inside_fraction_scale: 0.85       # Relaxed for wide vehicles
+      person_iou_threshold_scale: 0.90          # Relaxed IoU for persons (small projected footprint)
+      vehicle_iou_threshold_scale: 0.90         # Slightly relaxed IoU for vehicles
+      person_ar_consistency_scale: 0.70         # Relaxed AR gate for persons (projection shape is unreliable)
+
+      # Support checks
+      association_min_inside_points: 2          # Absolute floor for inside-point count (prevents single-point matches)
+      min_size_consistency_score: 0.25          # Width/height ratio plausibility floor; rejects wrong-scale clusters
+      min_det_area_far_px2: 400.0              # Min 2D detection area (px^2) for far clusters; 0 = disabled
+
+    # --- Quality Filter (global, pre-class-caps) ---
+    quality_filter_params:
+      max_distance: 60.0
+      min_points: 5
+      min_height: 0.15
+      min_points_default: 8
+      min_points_far: 8
+      min_points_medium: 10
+      min_points_large: 30
+      distance_threshold_far: 30.0
+      distance_threshold_medium: 20.0
+      volume_threshold_large: 8.0
+      min_density: 5.0
+      max_dimension: 15.0
+      max_aspect_ratio: 15.0
+
+    # --- Cross-Camera Deduplication ---
+    cross_camera_dedup:
+      enabled: true
+      min_lidar_index_overlap: 0.5
+      weak_lidar_index_overlap: 0.22
+      max_center_dist_m: 1.8
+      min_bev_box_iou: 0.16
+      min_bev_box_iou_no_class: 0.30
+
+    # --- Visualization (does not affect detection output) ---
+    publish_bounding_box: true
+    publish_visualization: false
+    publish_image_visualization: false
+    bbox_markers_use_detection_stamp: false
+    debug_logging: false

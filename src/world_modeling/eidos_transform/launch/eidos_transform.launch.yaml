@@ -1,0 +1,53 @@
+# Standalone launch file for the eidos_transform node.
+#
+# Usage:
+#   ros2 launch eidos_transform eidos_transform.launch.yaml
+#   ros2 launch eidos_transform eidos_transform.launch.yaml config_file:=/path/to/custom_params.yaml
+---
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share eidos_transform)/config/params.yaml
+      description: Path to the eidos_transform configuration file
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  # EidosTransform Node
+  - node:
+      pkg: eidos_transform
+      exec: eidos_transform_node
+      name: eidos_transform_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+
+  # Lifecycle Manager
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_transform_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/eidos_transform_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

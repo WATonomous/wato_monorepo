@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "behaviour/nodes/bt_logger_base.hpp"
 #include "behaviour/utils/utils.hpp"
 #include "lanelet_msgs/msg/route_ahead.hpp"
 
@@ -37,11 +38,13 @@ namespace behaviour
  * - Read the route_ahead message from the blackboard.
  * - Extract lanelet IDs from the route ahead as the preferred lanelets.
  */
-class GetFollowRoutePreferredLaneletsAction : public BT::SyncActionNode
+class GetFollowRoutePreferredLaneletsAction : public BT::SyncActionNode, protected BTLoggerBase
 {
 public:
-  GetFollowRoutePreferredLaneletsAction(const std::string & name, const BT::NodeConfig & config)
+  GetFollowRoutePreferredLaneletsAction(
+    const std::string & name, const BT::NodeConfig & config, const rclcpp::Logger & logger)
   : BT::SyncActionNode(name, config)
+  , BTLoggerBase(logger)
   {}
 
   static BT::PortsList providedPorts()
@@ -57,7 +60,7 @@ public:
   BT::NodeStatus tick() override
   {
     const auto missing_input_callback = [&](const char * port_name) {
-      std::cout << "[GetFollowRoutePreferredLanelets]: Missing " << port_name << " input" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "Missing " << port_name << " input");
     };
 
     auto route_ahead = ports::tryGetPtr<lanelet_msgs::msg::RouteAhead>(*this, "route_ahead");
@@ -66,7 +69,7 @@ public:
     }
 
     if (!route_ahead->has_active_route || route_ahead->ids.empty()) {
-      std::cout << "[GetFollowRoutePreferredLanelets]: No active route or empty route ahead" << std::endl;
+      RCLCPP_DEBUG_STREAM(logger(), "No active route or empty route ahead");
       setOutput("error_message", std::string("No active route or empty route ahead"));
       return BT::NodeStatus::FAILURE;
     }

@@ -19,17 +19,6 @@ set -e
 source /opt/ros/"${ROS_DISTRO}"/setup.bash
 [ -f /opt/watonomous/setup.bash ] && source /opt/watonomous/setup.bash
 
-# Handle signals properly - forward SIGTERM to child process
-_term() {
-  echo "Caught SIGTERM signal, forwarding to child process..."
-  kill -TERM "$child" 2>/dev/null
-}
-
-trap _term SIGTERM
-
-# Run command in background so we can trap signals
-"$@" &
-child=$!
-
-# Wait for child process
-wait "$child"
+# exec replaces this shell so signals from tini (init: true) go
+# directly to the child process. No manual trapping needed.
+exec "$@"

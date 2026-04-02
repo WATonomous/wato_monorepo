@@ -17,7 +17,11 @@
 
 #include <behaviortree_cpp/bt_factory.h>
 
+#include <memory>
+#include <stdexcept>
+
 #include <behaviortree_ros2/ros_node_params.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 /**
  * @class NodeRegistrarBase
@@ -26,8 +30,21 @@
 class NodeRegistrarBase
 {
 public:
+  explicit NodeRegistrarBase(const rclcpp::Node::SharedPtr & node)
+  : node_(node)
+  , logger_(node ? node->get_logger() : rclcpp::get_logger("node_registrar"))
+  {
+    if (!node_) {
+      throw std::runtime_error("Registrar constructed with null ROS node");
+    }
+  }
+
   virtual void register_nodes(BT::BehaviorTreeFactory &, const BT::RosNodeParams &) = 0;
-  virtual ~NodeRegistrarBase() = default;
+  ~NodeRegistrarBase() = default;
+
+protected:
+  rclcpp::Node::SharedPtr node_;
+  rclcpp::Logger logger_;
 };
 
 #endif  // BEHAVIOUR__NODES__NODE_REGISTRAR_BASE_HPP_

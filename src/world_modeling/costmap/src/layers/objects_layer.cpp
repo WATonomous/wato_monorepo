@@ -33,11 +33,13 @@ void ObjectsLayer::configure(
 
   node_->declare_parameter("layers." + layer_name_ + ".bbox_inflation_m", 0.5);
   node_->declare_parameter("layers." + layer_name_ + ".bbox_cost_decay", 1.0);
+  node_->declare_parameter("layers." + layer_name_ + ".prediction_inflation_m", 1.0);
   node_->declare_parameter("layers." + layer_name_ + ".prediction_cost_decay", 0.3);
   node_->declare_parameter("layers." + layer_name_ + ".max_centroid_height_m", 100.0);
 
   bbox_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".bbox_inflation_m").as_double();
   bbox_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".bbox_cost_decay").as_double();
+  prediction_inflation_m_ = node_->get_parameter("layers." + layer_name_ + ".prediction_inflation_m").as_double();
   prediction_cost_decay_ = node_->get_parameter("layers." + layer_name_ + ".prediction_cost_decay").as_double();
   max_centroid_height_m_ = node_->get_parameter("layers." + layer_name_ + ".max_centroid_height_m").as_double();
 }
@@ -148,17 +150,23 @@ void ObjectsLayer::update(
         }
         int8_t pred_cost = static_cast<int8_t>(std::min(100.0, raw_pred_cost));
 
-        // Prediction footprints already use scaled object dimensions.
-        double pred_half_x = base_half_x;
-        double pred_half_y = base_half_y;
+        double pred_yaw = yawFromQuat(pred_out.pose.orientation);
+
+        // Mark inflated prediction region at decayed cost, then core at full pred cost
+        if (prediction_inflation_m_ > 0.0) {
+          int8_t inflated_pred_cost = static_cast<int8_t>(std::max(1.0, pred_cost * bbox_cost_decay_));
+          markBox(
+            grid,
+            pred_out.pose.position.x,
+            pred_out.pose.position.y,
+            pred_yaw,
+            base_half_x + prediction_inflation_m_,
+            base_half_y + prediction_inflation_m_,
+            inflated_pred_cost);
+        }
+
         markBox(
-          grid,
-          pred_out.pose.position.x,
-          pred_out.pose.position.y,
-          yawFromQuat(pred_out.pose.orientation),
-          pred_half_x,
-          pred_half_y,
-          pred_cost);
+          grid, pred_out.pose.position.x, pred_out.pose.position.y, pred_yaw, base_half_x, base_half_y, pred_cost);
       }
     }
   }

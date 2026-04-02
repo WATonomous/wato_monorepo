@@ -1,0 +1,156 @@
+<root BTCPP_format="4" main_tree_to_execute="StopSignSubTree">
+
+  <BehaviorTree ID="StopSignSubTree">
+    <Fallback name="Handle Stop Sign">
+
+      <Sequence name="Stop Sign Ego Priority Latched">
+        <RegElemEgoPriority ego_priority="{stop_sign.ego_priority}" />
+        <Fallback name="DespawnIfNeeded">
+          <Inverter>
+            <WallIdExist wall_id="{stop_sign.wall_id}" />
+          </Inverter>
+          <DespawnWall
+            wall_id="{stop_sign.wall_id}"
+            out_wall_id="{stop_sign.wall_id}"
+            error_message="{stop_sign.despawn_wall_error_msg}"
+            service_name="/world_modeling/despawn_wall" />
+        </Fallback>
+      </Sequence>
+
+      <Sequence name="Wait For Stop Sign Turn">
+
+        <!-- compute stop line pose and spawn wall (only if not already spawned) -->
+        <Fallback name="SpawnIfNeeded">
+          <WallIdExist wall_id="{stop_sign.wall_id}" />
+          <Sequence>
+            <Fallback name="GetStopSignWallPose">
+              <GetStopLinePose
+                reg_elem="{stop_sign}"
+                lane_ctx="{@current_lane_ctx}"
+                map_frame="{@map_frame}"
+                pose="{stop_sign.stop_line_pose}"
+                error_message="{stop_sign.get_stop_line_pose_error_msg}" />
+              <GetLaneletEndPose
+                lane_ctx="{@current_lane_ctx}"
+                map_frame="{@map_frame}"
+                pose="{stop_sign.stop_line_pose}"
+                error_message="{stop_sign.get_lanelet_end_pose_error_msg}" />
+            </Fallback>
+            <SpawnWall
+              pose="{stop_sign.stop_line_pose}"
+              tf_buffer="{@tf_buffer}"
+              pose_frame="{@map_frame}"
+              width="{@bt.intersection_wall_of_doom_width}"
+              length="{@bt.intersection_wall_of_doom_length}"
+              wall_id="{stop_sign.wall_id}"
+              error_message="{stop_sign.spawn_wall_error_msg}"
+              service_name="/world_modeling/spawn_wall" />
+          </Sequence>
+        </Fallback>
+
+        <EgoNearStopLine
+          ego_odom="{@ego_odom}"
+          stop_line_pose="{stop_sign.stop_line_pose}"
+          threshold_m="{@bt.stop_sign_ego_stop_line_threshold_m}" />
+
+        <EgoStoppedForDuration
+          ego_odom="{@ego_odom}"
+          threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
+          duration_msec="1000" />
+
+        <Fallback name="Latch Priority Actors Once">
+          <StopSignPriorityActorsLatched
+            priority_cars_latched="{stop_sign.priority_latched}"
+            priority_pedestrians_latched="{stop_sign.priority_pedestrian_latched}" />
+
+          <Sequence name="Initial Priority Scan">
+            <!-- <GetWorldObjects
+                        objects="{stop_sign.objects}"
+                        error_message="{get_objects_error_msg}"
+                        service_name="/world_modeling/get_world_objects_enriched" /> -->
+            <GetWorldObjectsSub
+              objects="{stop_sign.objects}"
+              error_message="{get_objects_error_msg}"
+              topic_name="/world_modeling/world_objects_enriched" />
+
+            <GetRightOfWayLaneletIds
+              lane_ctx="{@current_lane_ctx}"
+              out_lanelet_ids="{stop_sign.right_of_way_lanelet_ids}" />
+
+            <GetStopSignCars
+              lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+              objects="{stop_sign.objects}"
+              hypothesis_index="{@world_objects_hypothesis_index}"
+              out_stop_sign_car_ids="{stop_sign.current_ids}" />
+
+            <SetStopSignPriorityCars
+              current_car_ids="{stop_sign.current_ids}"
+              priority_car_ids="{stop_sign.priority_ids}"
+              priority_latched="{stop_sign.priority_latched}"
+              out_priority_car_ids="{stop_sign.priority_ids}"
+              out_priority_latched="{stop_sign.priority_latched}" />
+
+            <GetStopSignPedestrians
+              lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+              objects="{stop_sign.objects}"
+              hypothesis_index="{@world_objects_hypothesis_index}"
+              out_stop_sign_pedestrian_ids="{stop_sign.current_pedestrian_ids}" />
+
+            <SetStopSignPriorityPedestrians
+              current_pedestrian_ids="{stop_sign.current_pedestrian_ids}"
+              priority_pedestrian_ids="{stop_sign.priority_pedestrian_ids}"
+              priority_latched="{stop_sign.priority_pedestrian_latched}"
+              out_priority_pedestrian_ids="{stop_sign.priority_pedestrian_ids}"
+              out_priority_latched="{stop_sign.priority_pedestrian_latched}" />
+          </Sequence>
+        </Fallback>
+
+        <ReactiveSequence name="Wait For Latched Priority Actors To Clear">
+          <GetWorldObjectsSub
+            objects="{stop_sign.objects}"
+            error_message="{get_objects_error_msg}"
+            topic_name="/world_modeling/world_objects_enriched" />
+
+          <GetRightOfWayLaneletIds
+            lane_ctx="{@current_lane_ctx}"
+            out_lanelet_ids="{stop_sign.right_of_way_lanelet_ids}" />
+
+          <GetStopSignCars
+            lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+            objects="{stop_sign.objects}"
+            hypothesis_index="{@world_objects_hypothesis_index}"
+            out_stop_sign_car_ids="{stop_sign.current_ids}" />
+
+          <GetStopSignPedestrians
+            lanelet_ids="{stop_sign.right_of_way_lanelet_ids}"
+            objects="{stop_sign.objects}"
+            hypothesis_index="{@world_objects_hypothesis_index}"
+            out_stop_sign_pedestrian_ids="{stop_sign.current_pedestrian_ids}" />
+
+          <StopSignPriorityPedestriansClear
+            priority_ids="{stop_sign.priority_pedestrian_ids}"
+            current_ids="{stop_sign.current_pedestrian_ids}" />
+
+          <StopSignPriorityCarsClear
+            priority_ids="{stop_sign.priority_ids}"
+            current_ids="{stop_sign.current_ids}" />
+        </ReactiveSequence>
+
+        <SetRegElemEgoPriority ego_priority="{stop_sign.ego_priority}" />
+
+        <!-- despawn wall once ego has earned priority -->
+        <Fallback name="DespawnIfNeeded">
+          <Inverter>
+            <WallIdExist wall_id="{stop_sign.wall_id}" />
+          </Inverter>
+          <DespawnWall
+            wall_id="{stop_sign.wall_id}"
+            out_wall_id="{stop_sign.wall_id}"
+            error_message="{stop_sign.despawn_wall_error_msg}"
+            service_name="/world_modeling/despawn_wall" />
+        </Fallback>
+
+      </Sequence>
+    </Fallback>
+  </BehaviorTree>
+</root>

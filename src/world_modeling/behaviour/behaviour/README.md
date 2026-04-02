@@ -26,16 +26,13 @@ There is more comments and info under `/config/param.yaml`
 | `bt.right_lane_change_areas`              | string[] | `[right_lane_change_corridor]` | Area names for right lane change safety                                        |
 | `bt.intersection_wall_of_doom_width`      | double   | 5.0                            | Virtual wall width at stop lines (m)                                           |
 | `bt.intersection_wall_of_doom_length`     | double   | 1.0                            | Virtual wall length at stop lines (m)                                          |
+| `bt.stop_sign_ego_stop_line_threshold_m`  | double   | 3.0                            | Max ego distance from the stop line to accept the stop at a stop sign (m)      |
 | `bt.ego_stopped_velocity_threshold`       | double   | 0.1                            | Velocity threshold for "stopped" (m/s)                                         |
-| `bt.intersection_lookahead_m`             | double   | 40.0                           | Intersection detection lookahead (m)                                           |
-| `bt.stop_sign_stop_line_proximity_m`      | double   | 5.0                            | Max distance from stop line for a car to be considered at the intersection (m) |
+| `bt.intersection_lookahead_m`             | double   | 100.0                          | Intersection detection lookahead (m)                                            |
+| `bt.goal_reached_mode`                    | string   | `lanelet`                      | Goal distance source: `lanelet` endpoint or raw `point`                        |
 | `bt.goal_reached_threshold_m`             | double   | 1.0                            | Distance to goal to consider reached (m)                                       |
-| `get_shortest_route_timeout_ms`           | int      | 6000                           | Service timeout for get_shortest_route (ms)                                    |
-| `set_route_timeout_ms`                    | int      | 6000                           | Service timeout for set_route (ms)                                             |
-| `get_area_occupancy_timeout_ms`           | int      | 5000                           | Service timeout for get_area_occupancy (ms)                                    |
-| `get_world_objects_enriched_timeout_ms`   | int      | 5000                           | Service timeout for get_world_objects_enriched (ms)                            |
-| `get_lanelets_by_reg_elem_timeout_ms`     | int      | 5000                           | Service timeout for get_lanelets_by_reg_elem (ms)                              |
-| `wall_service_timeout_ms`                 | int      | 5000                           | Service timeout for spawn/despawn wall (ms)                                    |
+| `service_timeout_ms`                      | int      | 6000                           | Global timeout for behaviour service calls (ms)                                |
+| `wait_for_service_timeout_ms`             | int      | 60000                          | Max time to wait for required services during BT startup (ms)                  |
 | `enable_console_logging`                  | bool     | false                          | Enable BT console logging                                                      |
 
 ## Topics
@@ -55,7 +52,7 @@ There is more comments and info under `/config/param.yaml`
 | Topic               | Type                                  | Description                                                                                                               |
 | ------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `execute_behaviour` | `behaviour_msgs/ExecuteBehaviour.msg` | Sends lattice planner the message to execute the accurate behaviour and the preferred lanelets that the car should be on. |
-|                     |
+| `speed_behaviour`   | `behaviour_msgs/SpeedBehaviour.msg`   | Publishes intersection speed advice and ego-relative distance to the upcoming intersection. |
 
 ## Services Called
 
@@ -67,9 +64,54 @@ Service names are set directly in the XML tree files (see [DEVELOPING.md](DEVELO
 | `/world_modeling/set_route`                | `lanelet_msgs/SetRoute`              | Set the active route                |
 | `/world_modeling/get_area_occupancy`       | `world_model_msgs/GetAreaOccupancy`  | Get occupancy of defined areas      |
 | `/world_modeling/get_world_objects_enriched` | `world_model_msgs/GetWorldObjectsEnriched` | Get all tracked world objects (enriched) |
-| `/world_modeling/get_lanelets_by_reg_elem` | `lanelet_msgs/GetLaneletsByRegElem`  | Find lanelets by regulatory element |
 | `/world_modeling/spawn_wall`               | `costmap_msgs/SpawnWall`             | Create virtual wall at stop lines   |
 | `/world_modeling/despawn_wall`             | `costmap_msgs/DespawnWall`           | Remove virtual wall                 |
+
+## Services Exposed
+
+| Service Name                  | Type                 | Description                                                        |
+| ---------------------------- | -------------------- | ------------------------------------------------------------------ |
+| `/world_modeling/reset_bt`   | `std_srvs/Trigger`   | Rebuilds the BT and clears runtime blackboard state in-process     |
+
+## Reset BT Service
+
+The behaviour node exposes a `std_srvs/Trigger` service named `reset_bt`.
+
+- Under `world_modeling_bringup`, the behaviour node runs in the `world_modeling` namespace, so the default resolved service name is `/world_modeling/reset_bt`.
+- Under the standalone [behaviour.launch.yaml](launch/behaviour.launch.yaml), the node has no namespace, so the default resolved service name is `/reset_bt`.
+- If the launch file remaps `reset_bt`, use the remapped service name instead.
+
+Calling this service rebuilds the behaviour tree from the installed XML and replaces the in-process blackboard. Static BT configuration is re-seeded immediately; runtime entries such as goal, route, lane context, and odometry are repopulated by the next incoming subscriber callbacks.
+
+### From Terminal
+
+```bash
+ros2 service call /world_modeling/reset_bt std_srvs/srv/Trigger "{}"
+```
+
+Standalone launch:
+
+```bash
+ros2 service call /reset_bt std_srvs/srv/Trigger "{}"
+```
+
+### From Foxglove
+
+Use the `Call Service` panel with:
+
+- Service: `/world_modeling/reset_bt`
+- Type: `std_srvs/srv/Trigger`
+- Request:
+
+```json
+{}
+```
+
+## Intersection Notes
+
+- `traffic_sign` regulatory elements are normalized into BT-level `STOP_SIGN` / `YIELD` types via `behaviour/utils/lanelet.hpp`.
+- Stop sign and yield now use a shared `RegElemEgoPriority` latch to avoid wall flashing once ego has earned the turn but has not physically passed the regulatory element yet.
+- If a stop/yield regulatory element has no usable `ref_line`, `GetLaneletEndPose` falls back to the midpoint of the current lanelet centerline.
 
 ## Tree Structure
 
