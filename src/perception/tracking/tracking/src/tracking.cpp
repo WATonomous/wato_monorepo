@@ -222,6 +222,7 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
     auto trk_id = strk_ptr->getTrackId();
     auto class_id = strk_ptr->getClassId();
     auto state_mean = strk_ptr->getMean();
+    auto state_cov = strk_ptr->getCov();
 
     vision_msgs::msg::Detection3D trk;
     trk.header.frame_id = header.frame_id;
@@ -239,6 +240,11 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
       vel.pose.pose.position.x = state_mean[7];
       vel.pose.pose.position.y = state_mean[8];
       vel.pose.pose.position.z = state_mean[9];
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          vel.pose.covariance[i * 6 + j] = state_cov(i + 7, j + 7);
+        }
+      }
     } else {
       vel.hypothesis.score = 0.0;
       ++skip_count;
