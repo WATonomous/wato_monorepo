@@ -131,7 +131,7 @@ TEST_CASE("Detection3DArray to Object conversion working", "[conv_1]")
         }
       }
       REQUIRE_THAT(obj.prob, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(obj.label == TrackingNode::class_ids[i]);
+      REQUIRE(obj.label == class_ids[i]);
     }
   }
 }
@@ -183,7 +183,7 @@ TEST_CASE("STrack to Detection3DArray conversion before publishing", "[conv_2]")
       REQUIRE_THAT(trk_box.size.z, Catch::Matchers::WithinRel(exp[6]));
 
       REQUIRE_THAT(trk.results[0].hypothesis.score, Catch::Matchers::WithinRel(exp[7]));
-      REQUIRE(trk.results[0].hypothesis.class_id == TrackingNode::class_ids[i]);
+      REQUIRE(trk.results[0].hypothesis.class_id == class_ids[i]);
 
       REQUIRE(trk.header.stamp == h.stamp);
       REQUIRE(trk.header.frame_id == h.frame_id);
