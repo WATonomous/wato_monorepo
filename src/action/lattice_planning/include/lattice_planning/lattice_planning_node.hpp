@@ -112,7 +112,7 @@ private:
   // Each entry is (centreline_points, terminal_lanelet_id).
   // Terminal lanelet id is the last lanelet that contributed points, used
   // as the lane identifier when scoring paths in the costmap.
-  std::vector<std::pair<std::vector<geometry_msgs::msg::Point>, int64_t>> ego_centrelines_;
+  std::vector<std::pair<std::vector<geometry_msgs::msg::Point>, std::vector<int64_t>>> ego_centrelines_;
 
   std::optional<double> car_tang_velocity;
   std::optional<geometry_msgs::msg::PoseStamped> car_pose;
