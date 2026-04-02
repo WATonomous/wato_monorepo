@@ -22,6 +22,7 @@
   <exec_depend>behaviour_markers</exec_depend>
   <exec_depend>eidos</exec_depend>
   <exec_depend>eidos_transform</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>tf2_ros</exec_depend>

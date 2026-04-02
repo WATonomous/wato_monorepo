@@ -55,7 +55,7 @@
 					<EgoStoppedForDuration
 						ego_odom="{@ego_odom}"
 						threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
-						duration_msec="2000" />
+						duration_msec="10000" />
 					<GetForwardLanelet
 						lane_ctx="{@current_lane_ctx}"
 						route_ahead="{@route_ahead}"
