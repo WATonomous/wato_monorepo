@@ -63,7 +63,7 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
 
   // ByteTrack tracker
   tracker_ = std::make_unique<byte_track::BYTETracker>(
-    frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_);
+    frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_, use_R_scaling_, dist_metric_);
 
   RCLCPP_INFO(this->get_logger(), "Configuration successful");
   return TrackingNode::CallbackReturn::SUCCESS;
@@ -146,6 +146,8 @@ void TrackingNode::initializeParams()
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
   use_maj_cls_ = this->declare_parameter<bool>("use_maj_cls", true);
+  use_R_scaling_ = this->declare_parameter<bool>("use_R_scaling", false);
+  dist_metric_ = this->declare_parameter<std::string>("dist_metric", "IOU");
   output_frame_ = this->declare_parameter<std::string>("output_frame", "map");
   publish_visualization_ = this->declare_parameter<bool>("publish_visualization", false);
 

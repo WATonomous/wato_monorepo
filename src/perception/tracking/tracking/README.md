@@ -30,6 +30,8 @@ Core logic draws inspiration from ByteTrackV2 (Zhang et al., 2023). The implemen
 | `high_thresh` | float | 0.6 | Minimum detection confidence score required to start a new track |
 | `match_thresh` | float | 0.8 | Maximum IoU cost to still be considered a match |
 | `use_maj_cls` | bool | true | Use most frequent class as track's class if true, use most recent class otherwise |
+| `use_R_scaling` | bool | false | Scale R matrix in Kalman Filter according to detection confidence |
+| `dist_metric` | string | "IOU" | Which distance metric to use (currently supports "IOU", "DIOU", "CIOU") |
 | `output_frame` | string | "map" | Frame to output tracks in |
 
 ## Acknowledgements

@@ -145,6 +145,8 @@ private:
   float high_thresh_;
   float match_thresh_;
   bool use_maj_cls_;
+  bool use_R_scaling_;
+  std::string dist_metric_;
   std::string output_frame_;
   bool publish_visualization_;
 
