@@ -228,7 +228,7 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
       // ------------------------------------------------------------------
 
       std::vector<geometry_msgs::msg::Point> centreline_pts;
-      std::vector<int64_t> contributing_ids;  // ← track unique IDs in traversal order
+      std::vector<int64_t> contributing_ids;
       bool closest_found = false;
       double arc_length = 0.0;
       std::optional<geometry_msgs::msg::Point> prev_pt;
@@ -333,7 +333,7 @@ void LatticePlanningNode::plan_and_publish_path()
     if (ft_path.empty()) {
       RCLCPP_DEBUG(get_logger(), "Path generation failed for corridor terminal %zu", i);
     } else {
-      paths.push_back(Path{ft_path, {terminal.second}, 0, 0});  // ← single ID in vector
+      paths.push_back(Path{ft_path, {terminal.second}, 0, 0});
     }
   }
 
@@ -341,7 +341,7 @@ void LatticePlanningNode::plan_and_publish_path()
   for (const auto & [centreline_pts, ll_ids] : ego_centrelines_) {
     std::vector<PathPoint> cl_pts = centreline_to_path_points(centreline_pts);
     if (!cl_pts.empty()) {
-      paths.push_back(Path{cl_pts, ll_ids, 0, 0});  // ← full ID list
+      paths.push_back(Path{cl_pts, ll_ids, 0, 0});
     }
   }
 
