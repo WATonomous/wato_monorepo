@@ -176,8 +176,8 @@ std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::m
     float z = det.bbox.center.position.z;
 
     byte_track::Rect<float> rect{x, y, z, yaw, length, width, height};
-    int label = 0;
-    float prob = 1.0;
+    std::string label = "";
+    float prob = 0.0;
 
     // Get highest scored class hypothesis, skipping attribute hypotheses (prefixed with "state:", "behavior:", etc.)
     decltype(det.results.begin()) best_hyp = det.results.end();
@@ -191,8 +191,6 @@ std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::m
 
     if (best_hyp == det.results.end()) {
       RCLCPP_WARN(static_logger_, "det.results must be non-empty, falling back to dummy values");
-      label = -1;
-      prob = 0.0;
     } else {
       label = best_hyp->hypothesis.class_id;
       prob = best_hyp->hypothesis.score;
