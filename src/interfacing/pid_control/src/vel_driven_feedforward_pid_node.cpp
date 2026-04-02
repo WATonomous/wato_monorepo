@@ -356,7 +356,7 @@ void VelDrivenFeedforwardPidNode::control_loop()
     }
     velocity_command = std::clamp(velocity_command, -1.0, 1.0);
 
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       this->get_logger(),
       "VEL | err=%.4f raw=%.4f cmd=%.4f setpt=%.4f meas=%.4f",
       velocity_error,

@@ -237,6 +237,12 @@ void TrajectoryPlannerNode::update_trajectory()
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
+  // Publish trajectory in the original path frame (map) so it doesn't drift with the ego frame
+  traj.header.frame_id = latest_path_->header.frame_id;
+  for (size_t i = 0; i < traj.points.size() && i < latest_path_->poses.size(); ++i) {
+    traj.points[i].pose = latest_path_->poses[i].pose;
+  }
+
   // Publish trajectory
   traj_pub_->publish(traj);
 

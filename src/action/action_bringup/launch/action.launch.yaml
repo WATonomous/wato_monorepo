@@ -18,7 +18,7 @@ launch:
       namespace: "action/lattice_planning"
       output: "screen"
       param:
-        - from: "$(find-pkg-share lattice_planning)/config/lattice_planning_params.yaml"
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
       remap:
         - from: "lanelet_ahead"
           to: "/world_modeling/lanelet/lanelet_ahead"
@@ -34,7 +34,7 @@ launch:
       namespace: "action/trajectory_planning"
       output: "screen"
       param:
-        - from: "$(find-pkg-share trajectory_planner)/config/trajectory_planner_params.yaml"
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
       remap:
         - from: "input_path"
           to: "/action/lattice_planning/path"
@@ -45,7 +45,7 @@ launch:
         - from: "lane_context"
           to: "/world_modeling/lanelet/lane_context"
         - from: "odom"
-          to: "/world_modeling/liso/odometry"
+          to: "/world_modeling/transform/odometry"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
 
@@ -56,7 +56,7 @@ launch:
       namespace: "action/lattice_planning_markers"
       output: "screen"
       param:
-        - from: "$(find-pkg-share lattice_planning_markers)/config/lattice_planning_markers_params.yaml"
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
       remap:
         - from: "path"
           to: "/action/lattice_planning/path"
@@ -70,13 +70,15 @@ launch:
       namespace: "action"
       output: screen
       param:
-        - from: $(find-pkg-share ackermann_pure_pursuit)/config/params.yaml
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
       remap:
         # Subscribers
         - from: "trajectory"
           to: "/action/trajectory_planning/trajectory"
         - from: "execute_behaviour"
           to: "/behaviour/execute_behaviour"
+        - from: "odom"
+          to: "/world_modeling/transform/odometry"
         # Publishers
         - from: "ackermann"
           to: "/action/ackermann"

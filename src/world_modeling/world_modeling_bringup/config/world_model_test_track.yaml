@@ -18,10 +18,14 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_290326.osm"
+    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_010426_utm.osm"
     projector_type: "utm"
-    origin_lat: 43.43663210811
-    origin_lon: -80.5788350291
+    origin_lat: 43.4352586520
+    origin_lon: -80.5801880023
+    # osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_290326.osm"
+    # projector_type: "utm"
+    # origin_lat: 43.43663210811
+    # origin_lon: -80.5788350291
     # origin_lat: 43.4352586520
     # origin_lon: -80.5801880023
 

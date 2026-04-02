@@ -54,6 +54,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("invert_steering", false);
   declare_parameter("odom_topic", "odom");
   declare_parameter("disable_standby", false);
+  declare_parameter("speed_lookahead_distance", 1.0);
 }
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
@@ -80,6 +81,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
   invert_steering_ = get_parameter("invert_steering").as_bool();
   disable_standby_ = get_parameter("disable_standby").as_bool();
+  speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -220,9 +222,13 @@ void PurePursuitNode::controlCallback()
   // Adaptive lookahead: scale with speed, clamp to [min, max]
   double adaptive_lookahead =
     std::clamp(lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
+  RCLCPP_INFO(
+    get_logger(), "Lookahead: %.2f m (speed=%.2f, gain=%.2f, raw=%.2f, min=%.2f, max=%.2f)",
+    adaptive_lookahead, current_speed_, lookahead_gain_,
+    lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
 
   // Transform trajectory points into base_frame and find lookahead point
-  static constexpr double SPEED_LOOKAHEAD_M = 1.0;
+  const double SPEED_LOOKAHEAD_M = speed_lookahead_distance_;
 
   double lookahead_x = 0.0;
   double lookahead_y = 0.0;
