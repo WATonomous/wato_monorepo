@@ -111,12 +111,19 @@ Path LatticePlanningCore::get_lowest_cost_path(
   const std::unordered_map<int64_t, int> & preferred_lanelets,
   const CostFunctionParams & cf_params)
 {
+  // Returns true if ANY lanelet ID in the path is a preferred lanelet
+  auto is_preferred = [&](const Path & p) {
+    for (const auto & id : p.lanelet_ids) {
+      if (preferred_lanelets.count(id) >= 1) return true;
+    }
+    return false;
+  };
+
   Path lowest_cost_path = paths[0];
-  double prev_cost = path_cost_function(paths[0], preferred_lanelets.count(paths[0].target_lanelet_id) >= 1, cf_params);
+  double prev_cost = path_cost_function(paths[0], is_preferred(paths[0]), cf_params);
 
   for (size_t i = 1; i < paths.size(); i++) {
-    bool preferred_lane = preferred_lanelets.count(paths[i].target_lanelet_id) >= 1;
-    double path_cost = path_cost_function(paths[i], preferred_lane, cf_params);
+    double path_cost = path_cost_function(paths[i], is_preferred(paths[i]), cf_params);
 
     if (path_cost < prev_cost) {
       lowest_cost_path = paths[i];
