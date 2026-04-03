@@ -14,12 +14,10 @@
 
         <!-- else decide whether we should overtake -->
         <Sequence name="Start Overtake">
-          <ReactiveSequence name="Require Sustained Stop">
-            <EgoStopped
-              ego_odom="{@ego_odom}"
-              threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
-            <WaitDuration duration_msec="8000" />
-          </ReactiveSequence>
+          <EgoStoppedForDuration
+            ego_odom="{@ego_odom}"
+            threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
+            duration_msec="10000" />
           <GlobalRouteExist route="{global_route}" />
           <EgoOnRoute
             route_index_map="{global_route_index_map}"
