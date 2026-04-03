@@ -264,7 +264,7 @@ launch:
         - from: ego/odom
           to: /world_modeling/liso/odometry
         - from: ego/odom_incremental
-          to: /world_modeling/liso/odometry_incremental
+          to: /world_modeling/transform/odometry
 
   # Behaviour Tree visualization markers
   - node:

@@ -63,35 +63,35 @@ multi_camera_sync:
     # Raw topics example: ["/camera1/image_raw", "/camera2/image_raw"]
     # Compressed topics example: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      # - "/camera_pano_ne/image_rect_compressed"
-      - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_ne/image_rect_compressed"
+      # - "/camera_pano_ee/image_rect_compressed"
       # - "/camera_pano_se/image_rect_compressed"
       # - "/camera_pano_ss/image_rect_compressed"
       # - "/camera_pano_sw/image_rect_compressed"
-      - "/camera_pano_ww/image_rect_compressed"
-      # - "/camera_pano_nw/image_rect_compressed"
+      # - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_nw/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
 
     # CameraInfo topics (same order as camera_topics). Required for ~/multi_camera_info.
     camera_info_topics:
-      # - "/camera_pano_ne/camera_info"
-      - "/camera_pano_ee/camera_info"
+      - "/camera_pano_ne/camera_info"
+      # - "/camera_pano_ee/camera_info"
       # - "/camera_pano_se/camera_info"
       # - "/camera_pano_ss/camera_info"
       # - "/camera_pano_sw/camera_info"
-      - "/camera_pano_ww/camera_info"
-      # - "/camera_pano_nw/camera_info"
+      # - "/camera_pano_ww/camera_info"
+      - "/camera_pano_nw/camera_info"
       - "/camera_pano_nn/camera_info"
 
     # Optional camera names (same order). Auto-generated if omitted.
     camera_names:
-      # - "camera_pano_ne"
-      - "camera_pano_ee"
+      - "camera_pano_ne"
+      # - "camera_pano_ee"
       # - "camera_pano_se"
       # - "camera_pano_ss"
       # - "camera_pano_sw"
-      - "camera_pano_ww"
-      # - "camera_pano_nw"
+      # - "camera_pano_ww"
+      - "camera_pano_nw"
       - "camera_pano_nn"
 
     # --- Transport and synchronization behavior ---
@@ -177,7 +177,7 @@ multi_camera_sync:
     dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
-    output_frame: "lidar_cc"
+    output_frame: "map"
     publish_visualization: true
 
     # --- Prediction (Kalman filter future path) ---
@@ -207,11 +207,11 @@ multi_camera_sync:
 
     # --- Euclidean clustering (3D proposals from point cloud) ---
     euclid_params:
-      cluster_tolerance: 0.40
-      min_cluster_size: 10
-      max_cluster_size: 600
-      use_adaptive_clustering: true
-      close_threshold: 5.0
+      cluster_tolerance: 0.80
+      min_cluster_size: 3
+      max_cluster_size: 1000
+      use_adaptive_clustering: false
+      close_threshold: 10.0
       close_tolerance_mult: 1.0
 
       # Distance-band overrides for adaptive clustering.
@@ -221,7 +221,7 @@ multi_camera_sync:
         min_cluster_sizes: [10, 6, 3, 2]
 
     # --- Merge behavior ---
-    merge_threshold: 0.15
+    merge_threshold: 0.50
 
     # --- Cross-camera deduplication ---
     cross_camera_dedup:
@@ -234,7 +234,7 @@ multi_camera_sync:
 
     # --- Global detection gates ---
     object_detection_confidence: 0.1
-    voxel_size: 0.10
+    voxel_size: 0.05
 
     # --- Quality filtering of 3D boxes ---
     quality_filter_params:
@@ -277,7 +277,7 @@ multi_camera_sync:
       orientation_search_step_degrees: 1.0
       orientation_coarse_step_multiplier: 3.0
       orientation_fine_range_multiplier: 4.0
-      use_l_shaped_fitting: true
+      use_l_shaped_fitting: false
       l_shape_energy_variance_weight: 0.7
 
       # --- Outlier rejection and robust extents ---

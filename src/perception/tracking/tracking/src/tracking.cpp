@@ -287,19 +287,10 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
   try {
     tf_stamped = tf_buffer_->lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s", ex.what());
-    RCLCPP_WARN(this->get_logger(), "Falling back to identity transform");
-    // Fall back to identity
-    tf_stamped.header.stamp = msg->header.stamp;
-    tf_stamped.header.frame_id = output_frame_;
-    tf_stamped.child_frame_id = msg->header.frame_id;
-    tf_stamped.transform.translation.x = 0.0;
-    tf_stamped.transform.translation.y = 0.0;
-    tf_stamped.transform.translation.z = 0.0;
-    tf_stamped.transform.rotation.x = 0.0;
-    tf_stamped.transform.rotation.y = 0.0;
-    tf_stamped.transform.rotation.z = 0.0;
-    tf_stamped.transform.rotation.w = 1.0;
+    RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s. Clearing track state.", ex.what());
+    track_filters_.clear();
+    track_centroids_.clear();
+    return;
   }
 
   vision_msgs::msg::Detection3DArray tf_msg;

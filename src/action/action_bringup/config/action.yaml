@@ -32,7 +32,7 @@
 
     # Centreline horizon
     centreline_horizon: 30.0  # meters
-    centreline_velocity_scale: 0.2
+    centreline_velocity_scale: 1.1
 
     # -  Path Generation  -
     path_gen:
@@ -140,11 +140,11 @@
     rear_axle_frame: "rear_axle"
     front_axle_frame: "front_axle"
     odom_topic: "odom"
-    lookahead_distance: 6.0
+    lookahead_distance: 30.0
     min_lookahead_distance: 2.5
     lookahead_gain: 2.5
-    steering_angle_gain: 0.8
-    max_speed: 4.0
+    steering_angle_gain: 0.76
+    max_speed: 6.0
     min_speed: 1.0
     standby_speed: -0.5
     standby_steering: 0.0
