@@ -236,7 +236,8 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
       for (const int64_t ll_id : lane) {
         if (lanelets.count(ll_id) == 0) continue;
         const auto & centerline = lanelets.at(ll_id).centerline;
-        bool ll_contributed = false;
+        // it should only be false if ll_id is not the curr_id
+        bool ll_contributed = (ll_id == curr_id);
 
         for (const auto & pt : centerline) {
           if (!closest_found) {
