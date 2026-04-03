@@ -15,6 +15,7 @@
 #ifndef COSTMAP__LAYERS__VIRTUAL_WALL_LAYER_HPP_
 #define COSTMAP__LAYERS__VIRTUAL_WALL_LAYER_HPP_
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>

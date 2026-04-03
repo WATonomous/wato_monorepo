@@ -68,7 +68,7 @@ void BehaviourNode::init()
 {
   load_params();
   rebuild_tree();
-  
+
   clear_walls_client_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   clear_walls_client_ =
     this->create_client<std_srvs::srv::Trigger>("clear_walls", rclcpp::ServicesQoS(), clear_walls_client_group_);
