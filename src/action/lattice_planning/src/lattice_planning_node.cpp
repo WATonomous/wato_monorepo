@@ -253,6 +253,12 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
 
           if (arc_length > horizon) break;
 
+          // Skip near-duplicate points at lanelet boundaries
+          if (!centreline_pts.empty()) {
+            double dd = core_->get_euc_dist(centreline_pts.back().x, centreline_pts.back().y, pt.x, pt.y);
+            if (dd < 0.01) continue;
+          }
+
           centreline_pts.push_back(pt);
           prev_pt = pt;
 
