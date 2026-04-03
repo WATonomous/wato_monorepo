@@ -94,15 +94,15 @@ void ObjectsLayer::update(
     const auto & det = obj.detection;
     const auto & bbox = det.bbox;
 
-    // Skip objects whose centroid is above the max height (e.g. traffic lights)
-    if (bbox.center.position.z > max_centroid_height_m_) {
-      continue;
-    }
-
     // Transform bbox center to costmap frame
     geometry_msgs::msg::PoseStamped pose_in, pose_out;
     pose_in.pose = bbox.center;
     tf2::doTransform(pose_in, pose_out, obj_to_costmap);
+
+    // Skip objects whose centroid is above the max height relative to the ego
+    if (pose_out.pose.position.z > max_centroid_height_m_) {
+      continue;
+    }
 
     double obj_yaw = yawFromQuat(pose_out.pose.orientation);
     double base_half_x = bbox.size.x / 2.0;

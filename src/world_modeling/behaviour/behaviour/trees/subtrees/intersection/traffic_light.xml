@@ -64,9 +64,9 @@
 						threshold_m="{@bt.stop_sign_ego_stop_line_threshold_m}" />
 					<ReactiveSequence name="Require Full Stop">
 						<EgoStopped
-							ego_odom="{@ego_odom}"
+							ego_odom="{@ego_odom_incremental}"
 							threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
-						<WaitDuration duration_msec="5000" />
+						<WaitDuration duration_msec="1000" />
 					</ReactiveSequence>
 					<GetForwardLanelet
 						lane_ctx="{@current_lane_ctx}"

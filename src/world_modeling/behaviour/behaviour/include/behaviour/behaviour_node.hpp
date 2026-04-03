@@ -87,6 +87,7 @@ private:
   void route_ahead_callback(const lanelet_msgs::msg::RouteAhead::SharedPtr msg);
   void lanelet_ahead_callback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void odom_incremental_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
   /**
    * @brief Time callback that ticks the behavior tree.
@@ -112,6 +113,7 @@ private:
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelets_ahead_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr goal_point_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odom_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odom_incremental_sub_;
 
   // Configuration
   std::string tree_file_path_;

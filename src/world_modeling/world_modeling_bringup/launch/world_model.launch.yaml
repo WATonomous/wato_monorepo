@@ -263,6 +263,8 @@ launch:
           to: /goal_point
         - from: ego/odom
           to: /world_modeling/liso/odometry
+        - from: ego/odom_incremental
+          to: /world_modeling/transform/odometry
 
   # Behaviour Tree visualization markers
   - node:

@@ -138,12 +138,12 @@
     layers.pointcloud.type: "costmap::PointCloudLayer"
     layers.virtual_wall.type: "costmap::VirtualWallLayer"
 
-    # ObjectsLayer paramssudo ip addr del 10.8.0.1/16 dev enp8s0f0 && sudo ip link set enp8s0f0 master br0
+    # ObjectsLayer params
     layers.objects.bbox_inflation_m: 0.2
     layers.objects.bbox_cost_decay: 0.3
     layers.objects.prediction_inflation_m: 0.3
     layers.objects.prediction_cost_decay: 0.3
-    layers.objects.max_centroid_height_m: 5.0
+    layers.objects.max_centroid_height_m: 3.0
 
     # PointCloudLayer params
     layers.pointcloud.max_height_m: 2.0
