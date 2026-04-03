@@ -53,10 +53,12 @@
           stop_line_pose="{stop_sign.stop_line_pose}"
           threshold_m="{@bt.stop_sign_ego_stop_line_threshold_m}" />
 
-        <EgoStoppedForDuration
-          ego_odom="{@ego_odom}"
-          threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
-          duration_msec="5000" />
+        <ReactiveSequence name="Require Full Stop">
+          <EgoStopped
+            ego_odom="{@ego_odom}"
+            threshold_velocity="{@bt.ego_stopped_velocity_threshold}" />
+          <WaitDuration duration_msec="5000" />
+        </ReactiveSequence>
 
         <Fallback name="Latch Priority Actors Once">
           <StopSignPriorityActorsLatched

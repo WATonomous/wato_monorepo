@@ -242,6 +242,8 @@ launch:
           # reset behaviour tree service
         - from: reset_bt
           to: reset_bt
+        - from: clear_walls
+          to: clear_walls
         - from: speed_behaviour
           to: /behaviour/speed_behaviour
         - from: route_ahead

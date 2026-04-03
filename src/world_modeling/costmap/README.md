@@ -68,3 +68,4 @@ No parameters. Walls are created and removed via ROS services.
 |---------|------|-------------|
 | `spawn_wall` | `costmap_msgs/SpawnWall` | Create a virtual wall |
 | `despawn_wall` | `costmap_msgs/DespawnWall` | Remove a virtual wall |
+| `clear_walls` | `std_srvs/Trigger` | Remove all virtual walls |
