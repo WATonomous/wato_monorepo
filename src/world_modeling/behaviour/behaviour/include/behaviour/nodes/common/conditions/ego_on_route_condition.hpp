@@ -73,6 +73,7 @@ public:
     if (it != route_index_map->end()) {
       RCLCPP_DEBUG_STREAM(logger(), "Current lanelet " << ctx->current_lanelet.id << " is on the route");
     } else {
+      setOutput("error_message", "ego_not_on_route");
       RCLCPP_DEBUG_STREAM(logger(), "Current lanelet " << ctx->current_lanelet.id << " is not on the route");
     }
 

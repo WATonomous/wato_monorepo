@@ -29,7 +29,12 @@
       <SubTree ID="OvertakeSubTree" _autoremap="true" />
 
       <!-- else follow nominal route -->
-      <Sequence>
+      <Sequence name="Follow Nominal Route">
+        <EgoOnRoute
+          route_index_map="{global_route_index_map}"
+          lane_ctx="{@current_lane_ctx}"
+          error_message="{lane_nav.ego_on_route_error_msg}" />
+
         <GetRouteContext
           route="{global_route}"
           route_index_map="{global_route_index_map}"
@@ -107,7 +112,25 @@
 
         </Fallback>
       </Sequence>
-      <Sequence>
+
+      <Sequence name="Recover Off Route">
+        <IsErrorMessage msg="{lane_nav.ego_on_route_error_msg}" expected="ego_not_on_route" />
+
+        <SetRoute
+          goal_point="{goal_point}"
+          error_message="{lane_nav.set_route_error_msg}"
+          service_name="/world_modeling/set_route" />
+
+        <GetShortestRoute
+          route="{global_route}"
+          route_index_map="{global_route_index_map}"
+          route_lanelet_ids="{global_route_lanelet_ids}"
+          goal_lanelet="{goal_lanelet}"
+          error_message="{lane_nav.get_shortest_route_error_msg}"
+          service_name="/world_modeling/get_shortest_route" />
+      </Sequence>
+
+      <Sequence name="Fallback Follow Lane">
         <GetFollowLanePreferredLanelets
           lane_ctx="{@current_lane_ctx}"
           out_preferred_lanelet_ids="{_follow_lane_preferred_lanelet_ids}" />
