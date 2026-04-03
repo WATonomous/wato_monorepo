@@ -24,6 +24,7 @@
 #include "costmap_msgs/srv/spawn_wall.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "rclcpp/service.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace costmap
 {
@@ -57,12 +58,17 @@ private:
     const costmap_msgs::srv::DespawnWall::Request::SharedPtr request,
     costmap_msgs::srv::DespawnWall::Response::SharedPtr response);
 
+  void clearWallsCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
   rclcpp_lifecycle::LifecycleNode * node_{nullptr};
   tf2_ros::Buffer * tf_buffer_{nullptr};
   std::string layer_name_;
 
   rclcpp::Service<costmap_msgs::srv::SpawnWall>::SharedPtr spawn_srv_;
   rclcpp::Service<costmap_msgs::srv::DespawnWall>::SharedPtr despawn_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr clear_walls_srv_;
 
   std::mutex walls_mutex_;
   std::unordered_map<int32_t, Wall> walls_;

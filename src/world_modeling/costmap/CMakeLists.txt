@@ -22,6 +22,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
@@ -51,6 +52,7 @@ target_link_libraries(costmap_layers
     rclcpp_lifecycle::rclcpp_lifecycle
     tf2::tf2
     tf2_ros::tf2_ros
+    ${std_srvs_TARGETS}
     ${nav_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${world_model_msgs_TARGETS}

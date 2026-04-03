@@ -71,7 +71,7 @@ Service names are set directly in the XML tree files (see [DEVELOPING.md](DEVELO
 
 | Service Name                  | Type                 | Description                                                        |
 | ---------------------------- | -------------------- | ------------------------------------------------------------------ |
-| `/world_modeling/reset_bt`   | `std_srvs/Trigger`   | Rebuilds the BT and clears runtime blackboard state in-process     |
+| `/world_modeling/reset_bt`   | `std_srvs/Trigger`   | Clears costmap virtual walls, then rebuilds the BT and runtime blackboard state |
 
 ## Reset BT Service
 
@@ -81,7 +81,7 @@ The behaviour node exposes a `std_srvs/Trigger` service named `reset_bt`.
 - Under the standalone [behaviour.launch.yaml](launch/behaviour.launch.yaml), the node has no namespace, so the default resolved service name is `/reset_bt`.
 - If the launch file remaps `reset_bt`, use the remapped service name instead.
 
-Calling this service rebuilds the behaviour tree from the installed XML and replaces the in-process blackboard. Static BT configuration is re-seeded immediately; runtime entries such as goal, route, lane context, and odometry are repopulated by the next incoming subscriber callbacks.
+Calling this service first requests `clear_walls` from the costmap node. If that succeeds, it rebuilds the behaviour tree from the installed XML and replaces the in-process blackboard. Static BT configuration is re-seeded immediately; runtime entries such as goal, route, lane context, and odometry are repopulated by the next incoming subscriber callbacks.
 
 ### From Terminal
 

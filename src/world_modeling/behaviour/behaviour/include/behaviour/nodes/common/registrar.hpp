@@ -43,6 +43,7 @@
 #include "behaviour/nodes/common/actions/set_route_service.hpp"
 #include "behaviour/nodes/common/actions/spawn_wall_service.hpp"
 #include "behaviour/nodes/common/actions/speed_behaviour_publisher.hpp"
+#include "behaviour/nodes/common/actions/wait_duration_action.hpp"
 
 // conditions
 #include "behaviour/nodes/common/conditions/ego_on_lanelet_condition.hpp"
@@ -103,6 +104,7 @@ public:
     factory.registerNodeType<behaviour::LogFailureAction>("LogFailure", logger_.get_child("LogFailure"));
     factory.registerNodeType<behaviour::SetNewGoalAction>("SetNewGoal", logger_.get_child("SetNewGoal"));
     factory.registerNodeType<behaviour::SetPendingGoalAction>("SetPendingGoal", logger_.get_child("SetPendingGoal"));
+    factory.registerNodeType<behaviour::WaitDurationAction>("WaitDuration", logger_.get_child("WaitDuration"));
 
     factory.registerNodeType<behaviour::GetWorldObjectsSubscriber>("GetWorldObjectsSub", service_params);
     factory.registerNodeType<behaviour::GetAreaOccupancySubscriber>("GetAreaOccupancySub", service_params);
