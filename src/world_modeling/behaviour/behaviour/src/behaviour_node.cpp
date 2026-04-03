@@ -96,6 +96,10 @@ void BehaviourNode::init()
   ego_odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
     "ego/odom", rclcpp::QoS(10), std::bind(&BehaviourNode::odom_callback, this, std::placeholders::_1));
 
+  ego_odom_incremental_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+    "ego/odom_incremental", rclcpp::QoS(10),
+    std::bind(&BehaviourNode::odom_incremental_callback, this, std::placeholders::_1));
+
   RCLCPP_INFO(this->get_logger(), "BehaviourNode has been fully initialized.");
 }
 
@@ -252,6 +256,11 @@ void BehaviourNode::lanelet_ahead_callback(const lanelet_msgs::msg::LaneletAhead
 void BehaviourNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   tree_->updateBlackboard("ego_odom", msg);
+}
+
+void BehaviourNode::odom_incremental_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
+  tree_->updateBlackboard("ego_odom_incremental", msg);
 }
 
 /**
