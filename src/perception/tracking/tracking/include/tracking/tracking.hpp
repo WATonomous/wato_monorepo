@@ -66,30 +66,6 @@ public:
   static constexpr auto kPredictionsTopic = "output_predictions";
 
   /**
-   * @brief Looks up the numerical id corresponding to a class.
-   *
-   * Looks up the name of the class in the unordered_map of classes.
-   * If the name exists in the unordered_map, the corresonding
-   * numerical id is returned.
-   * If the name does not exist, then the default value 0 is returned
-   * and a warning is given.
-   *
-   * @param class_name The name of the required class.
-   * @return int The numerical id corresponding to the class.
-   */
-  static int classLookup(const std::string & class_name);
-
-  /**
-   * @brief Looks up the class name corresponding to a numerical id.
-   *
-   * Same logic as classLookup.
-   *
-   * @param class_id The id of the required class.
-   * @return std::string The class name corresponding to the id.
-   */
-  static std::string reverseClassLookup(int class_id);
-
-  /**
    * @brief Converts Detection2DArray messages to ByteTrack Object format.
    *
    * Initializes and populates a vector of ByteTrack Objects using the given
@@ -169,11 +145,10 @@ private:
   float high_thresh_;
   float match_thresh_;
   bool use_maj_cls_;
+  bool use_R_scaling_;
+  std::string dist_metric_;
   std::string output_frame_;
   bool publish_visualization_;
-
-  static std::unordered_map<std::string, int> class_map_;
-  static std::unordered_map<int, std::string> reverse_class_map_;
 
   std::unique_ptr<byte_track::BYTETracker> tracker_;
 

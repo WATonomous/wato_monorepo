@@ -173,6 +173,8 @@ multi_camera_sync:
     high_thresh: 0.15
     match_thresh: 0.9
     use_maj_cls: true
+    use_R_scaling: false
+    dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
     output_frame: "lidar_cc"
