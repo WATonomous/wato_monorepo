@@ -22,7 +22,7 @@
     cost_function:
       lateral_movement_weight: 2.0
       physical_limits_weight: 4.0
-      preferred_lane_cost: 100.0
+      preferred_lane_cost: 10000.0
       unknown_occupancy_cost: 50.0
       max_curvature_change: 0.1
 
@@ -83,7 +83,7 @@
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    stop_distance: 1.0  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    stop_distance: 0.8  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable

@@ -231,7 +231,7 @@ multi_camera_sync:
       min_bev_box_iou_no_class: 0.20
 
     # --- Global detection gates ---
-    object_detection_confidence: 0.2
+    object_detection_confidence: 0.1
     voxel_size: 0.10
 
     # --- Quality filtering of 3D boxes ---
@@ -263,7 +263,7 @@ multi_camera_sync:
       marker_alpha: 0.2
 
       # --- Base association scoring ---
-      min_iou_threshold: 0.08  # Lower = more permissive association (was 0.15)
+      min_iou_threshold: 0.03  # Lower = more permissive association (was 0.08)
       min_camera_z_distance: 0.4
       detection_score_weight: 0.5
       iou_score_weight: 0.4
@@ -300,9 +300,9 @@ multi_camera_sync:
 
       # --- Class-aware threshold scaling ---
       person_inside_fraction_scale: 0.15
-      vehicle_inside_fraction_scale: 0.50
+      vehicle_inside_fraction_scale: 0.30
       person_iou_threshold_scale: 0.03
-      vehicle_iou_threshold_scale: 0.10
+      vehicle_iou_threshold_scale: 0.05
       person_ar_consistency_scale: 0.20
 
       # --- Minimum evidence gates ---
@@ -402,7 +402,7 @@ multi_camera_sync:
     sync_max_time_diff_ms: 400.0  # Detections usually lag images by about 50-150 ms
 
     # --- Visualization outputs ---
-    enable_image_markers: false  # 2D image marker overlays
+    enable_image_markers: true  # 2D image marker overlays
     enable_3d_markers: true      # 3D MarkerArray for Foxglove
 
     # --- 3D enrichment (intrinsics + TF + priors) ---
