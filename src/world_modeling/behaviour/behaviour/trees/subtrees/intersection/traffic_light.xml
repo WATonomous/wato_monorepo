@@ -52,10 +52,20 @@
 
 				<Sequence name="Right Turn Yield Release">
 					<WallIdExist wall_id="{traffic_light.wall_id}" />
+					<GetStopLinePose
+						reg_elem="{traffic_light}"
+						lane_ctx="{@current_lane_ctx}"
+						map_frame="{@map_frame}"
+						pose="{traffic_light.wall_pose}"
+						error_message="{traffic_light.get_stop_line_pose_error_msg}" />
+					<EgoNearStopLine
+						ego_odom="{@ego_odom}"
+						stop_line_pose="{traffic_light.wall_pose}"
+						threshold_m="{@bt.stop_sign_ego_stop_line_threshold_m}" />
 					<EgoStoppedForDuration
 						ego_odom="{@ego_odom}"
 						threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
-						duration_msec="10000" />
+						duration_msec="5000" />
 					<GetForwardLanelet
 						lane_ctx="{@current_lane_ctx}"
 						route_ahead="{@route_ahead}"

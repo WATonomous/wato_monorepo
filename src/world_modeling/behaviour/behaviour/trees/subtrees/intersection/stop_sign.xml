@@ -56,7 +56,7 @@
         <EgoStoppedForDuration
           ego_odom="{@ego_odom}"
           threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
-          duration_msec="10000" />
+          duration_msec="5000" />
 
         <Fallback name="Latch Priority Actors Once">
           <StopSignPriorityActorsLatched
