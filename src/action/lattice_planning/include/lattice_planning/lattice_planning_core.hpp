@@ -30,7 +30,7 @@ struct PathPoint
 struct Path
 {
   std::vector<PathPoint> path;
-  int64_t target_lanelet_id;
+  std::vector<int64_t> lanelet_ids;
   double lateral_dist_from_goal_lane;
   double cost;
 };

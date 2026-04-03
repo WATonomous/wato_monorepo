@@ -228,7 +228,7 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
       // ------------------------------------------------------------------
 
       std::vector<geometry_msgs::msg::Point> centreline_pts;
-      int64_t last_ll_id = curr_id;
+      std::vector<int64_t> contributing_ids;
       bool closest_found = false;
       double arc_length = 0.0;
       std::optional<geometry_msgs::msg::Point> prev_pt;
@@ -236,6 +236,7 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
       for (const int64_t ll_id : lane) {
         if (lanelets.count(ll_id) == 0) continue;
         const auto & centerline = lanelets.at(ll_id).centerline;
+        bool ll_contributed = false;
 
         for (const auto & pt : centerline) {
           if (!closest_found) {
@@ -254,14 +255,19 @@ void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::Lanel
 
           centreline_pts.push_back(pt);
           prev_pt = pt;
-          last_ll_id = ll_id;
+
+          // Record this lanelet the first time it contributes a point
+          if (!ll_contributed) {
+            contributing_ids.push_back(ll_id);
+            ll_contributed = true;
+          }
         }
 
         if (arc_length > horizon) break;
       }
 
       if (!centreline_pts.empty()) {
-        ego_centrelines_.emplace_back(std::move(centreline_pts), last_ll_id);
+        ego_centrelines_.emplace_back(std::move(centreline_pts), std::move(contributing_ids));
       }
 
     } else {
@@ -327,17 +333,15 @@ void LatticePlanningNode::plan_and_publish_path()
     if (ft_path.empty()) {
       RCLCPP_DEBUG(get_logger(), "Path generation failed for corridor terminal %zu", i);
     } else {
-      paths.push_back(Path{ft_path, terminal.second, 0, 0});
+      paths.push_back(Path{ft_path, {terminal.second}, 0, 0});
     }
   }
 
-  // Convert every ego-lane centreline (straight-ahead + all fork variants)
-  // to a Path and add it for costmap evaluation.  The costmap decides which
-  // option — lane change or any of the ego-lane forks — is lowest cost.
-  for (const auto & [centreline_pts, ll_id] : ego_centrelines_) {
+  // Ego-lane centreline paths — full traversal ID list populated above
+  for (const auto & [centreline_pts, ll_ids] : ego_centrelines_) {
     std::vector<PathPoint> cl_pts = centreline_to_path_points(centreline_pts);
     if (!cl_pts.empty()) {
-      paths.push_back(Path{cl_pts, ll_id, 0, 0});
+      paths.push_back(Path{cl_pts, ll_ids, 0, 0});
     }
   }
 
