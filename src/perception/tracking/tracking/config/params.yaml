@@ -6,6 +6,8 @@ tracking:
     high_thresh: 0.6
     match_thresh: 0.8
     use_maj_cls: true
+    use_R_scaling: false
+    dist_metric: "IOU"
     output_frame: "map"
     # Prediction parameters
     centroid_history_size: 10    # number of past centroids to store per track

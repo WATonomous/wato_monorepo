@@ -33,17 +33,6 @@
 // static logger for static logging
 rclcpp::Logger TrackingNode::static_logger_ = rclcpp::get_logger("tracking_stc");
 
-// class maps
-std::unordered_map<std::string, int> TrackingNode::class_map_ = {
-  {"car", 0}, {"truck", 1}, {"bicycle", 2}, {"person", 3}, {"bus", 4}, {"vehicle", 5}, {"traffic light", 6}
-  // etc...
-};
-std::unordered_map<int, std::string> TrackingNode::reverse_class_map_ = [] {
-  std::unordered_map<int, std::string> m;
-  for (const auto & [k, v] : TrackingNode::class_map_) m[v] = k;
-  return m;
-}();
-
 TrackingNode::TrackingNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("tracking", options)
 {
@@ -74,7 +63,7 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
 
   // ByteTrack tracker
   tracker_ = std::make_unique<byte_track::BYTETracker>(
-    frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_);
+    frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_, use_R_scaling_, dist_metric_);
 
   RCLCPP_INFO(this->get_logger(), "Configuration successful");
   return TrackingNode::CallbackReturn::SUCCESS;
@@ -157,6 +146,8 @@ void TrackingNode::initializeParams()
   high_thresh_ = static_cast<float>(this->declare_parameter<double>("high_thresh", 0.6));
   match_thresh_ = static_cast<float>(this->declare_parameter<double>("match_thresh", 1.0));
   use_maj_cls_ = this->declare_parameter<bool>("use_maj_cls", true);
+  use_R_scaling_ = this->declare_parameter<bool>("use_R_scaling", false);
+  dist_metric_ = this->declare_parameter<std::string>("dist_metric", "IOU");
   output_frame_ = this->declare_parameter<std::string>("output_frame", "map");
   publish_visualization_ = this->declare_parameter<bool>("publish_visualization", false);
 
@@ -166,34 +157,6 @@ void TrackingNode::initializeParams()
   prediction_dt_ = this->declare_parameter<double>("prediction_dt", 0.1);
   process_noise_ = this->declare_parameter<double>("process_noise", 0.1);
   measurement_noise_ = this->declare_parameter<double>("measurement_noise", 0.5);
-}
-
-// Get class id from class_map_ using class name
-int TrackingNode::classLookup(const std::string & class_name)
-{
-  auto it = class_map_.find(class_name);
-  if (it != class_map_.end())
-    return it->second;
-  else {  // Class name key not in map
-    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
-    RCLCPP_WARN_THROTTLE(
-      static_logger_, steady_clock, 5000, "Class '%s' not found, defaulting to -1 as id", class_name.c_str());
-    return -1;
-  }
-}
-
-// Get class name from reverse_class_map_ using class id
-std::string TrackingNode::reverseClassLookup(int class_id)
-{
-  auto it = reverse_class_map_.find(class_id);
-  if (it != reverse_class_map_.end())
-    return it->second;
-  else {  // Class id key not in reverse map
-    static rclcpp::Clock steady_clock(RCL_STEADY_TIME);
-    RCLCPP_WARN_THROTTLE(
-      static_logger_, steady_clock, 5000, "Class %d not found, defaulting to '[unknown]' class", class_id);
-    return "[unknown]";
-  }
 }
 
 // Convert from ros msgs to bytetrack's required format
@@ -213,8 +176,8 @@ std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::m
     float z = det.bbox.center.position.z;
 
     byte_track::Rect<float> rect{x, y, z, yaw, length, width, height};
-    int label = 0;
-    float prob = 1.0;
+    std::string label = "";
+    float prob = 0.0;
 
     // Get highest scored class hypothesis, skipping attribute hypotheses (prefixed with "state:", "behavior:", etc.)
     decltype(det.results.begin()) best_hyp = det.results.end();
@@ -228,10 +191,8 @@ std::vector<byte_track::Object> TrackingNode::detsToObjects(const vision_msgs::m
 
     if (best_hyp == det.results.end()) {
       RCLCPP_WARN(static_logger_, "det.results must be non-empty, falling back to dummy values");
-      label = -1;
-      prob = 0.0;
     } else {
-      label = classLookup(best_hyp->hypothesis.class_id);
+      label = best_hyp->hypothesis.class_id;
       prob = best_hyp->hypothesis.score;
     }
 
@@ -251,12 +212,15 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
   trks.header.frame_id = header.frame_id;
   trks.header.stamp = header.stamp;
 
+  int skip_count = 0;
   for (const auto & strk_ptr : strk_ptrs) {
     // Convert STrackPtr to Detection2D
     auto rect = strk_ptr->getRect();
     auto score = strk_ptr->getScore();
     auto trk_id = strk_ptr->getTrackId();
     auto class_id = strk_ptr->getClassId();
+    auto state_mean = strk_ptr->getMean();
+    auto state_cov = strk_ptr->getCov();
 
     vision_msgs::msg::Detection3D trk;
     trk.header.frame_id = header.frame_id;
@@ -264,8 +228,26 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
 
     vision_msgs::msg::ObjectHypothesisWithPose hyp;
     hyp.hypothesis.score = score;
-    hyp.hypothesis.class_id = reverseClassLookup(class_id);
+    hyp.hypothesis.class_id = class_id;
     trk.results.push_back(hyp);
+
+    vision_msgs::msg::ObjectHypothesisWithPose vel;
+    vel.hypothesis.class_id = "linear_velocity";
+    if (state_mean.size() > 9) {
+      vel.hypothesis.score = 1.0;
+      vel.pose.pose.position.x = state_mean[7];
+      vel.pose.pose.position.y = state_mean[8];
+      vel.pose.pose.position.z = state_mean[9];
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          vel.pose.covariance[i * 6 + j] = state_cov(i + 7, j + 7);
+        }
+      }
+    } else {
+      vel.hypothesis.score = 0.0;
+      ++skip_count;
+    }
+    trk.results.push_back(vel);
 
     tf2::Quaternion q;
     q.setRPY(0, 0, rect.yaw());
@@ -281,6 +263,13 @@ vision_msgs::msg::Detection3DArray TrackingNode::STracksToTracks(
     trk.id = std::to_string(trk_id);
 
     trks.detections.push_back(trk);
+  }
+
+  if (skip_count > 0) {
+    RCLCPP_WARN(
+      static_logger_,
+      "Received unexpected mean shape for %d tracks, velocity hypothesis score is set to 0.0",
+      skip_count);
   }
 
   return trks;
