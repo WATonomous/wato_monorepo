@@ -11,6 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
+  <depend>std_srvs</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>tf2_ros</depend>

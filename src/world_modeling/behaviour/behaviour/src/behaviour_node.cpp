@@ -17,6 +17,7 @@
 #include <chrono>
 #include <filesystem>
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -68,6 +69,10 @@ void BehaviourNode::init()
   load_params();
   rebuild_tree();
 
+  clear_walls_client_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  clear_walls_client_ =
+    this->create_client<std_srvs::srv::Trigger>("clear_walls", rclcpp::ServicesQoS(), clear_walls_client_group_);
+
   auto tick_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / rate_hz_));
   // timer to tick the behaviour tree
   tick_tree_timer_ = this->create_wall_timer(tick_period, std::bind(&BehaviourNode::tick_tree_callback, this));
@@ -115,6 +120,8 @@ void BehaviourNode::load_params()
   intersection_lookahead_m_ = this->get_parameter("bt.intersection_lookahead_m").as_double();
   goal_reached_mode_ = this->get_parameter("bt.goal_reached_mode").as_string();
   goal_reached_threshold_m_ = this->get_parameter("bt.goal_reached_threshold_m").as_double();
+  service_timeout_ms_ = static_cast<int>(this->get_parameter("service_timeout_ms").as_int());
+  wait_for_service_timeout_ms_ = static_cast<int>(this->get_parameter("wait_for_service_timeout_ms").as_int());
 
   // tree file path
   const std::string package_share_directory = ament_index_cpp::get_package_share_directory("behaviour");
@@ -144,6 +151,40 @@ void BehaviourNode::rebuild_tree()
   tree_->updateBlackboard("bt.goal_reached_threshold_m", goal_reached_threshold_m_);
 }
 
+bool BehaviourNode::clear_virtual_walls(std::string & error_message)
+{
+  if (!clear_walls_client_group_ || !clear_walls_client_) {
+    error_message = "clear_walls client is not initialized";
+    return false;
+  }
+
+  if (!clear_walls_client_->wait_for_service(std::chrono::milliseconds(wait_for_service_timeout_ms_))) {
+    error_message = "Timed out waiting for clear_walls service";
+    return false;
+  }
+
+  auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+  auto future = clear_walls_client_->async_send_request(request);
+
+  if (future.wait_for(std::chrono::milliseconds(service_timeout_ms_)) != std::future_status::ready) {
+    error_message = "Timed out waiting for clear_walls response";
+    return false;
+  }
+
+  const auto response = future.get();
+  if (!response) {
+    error_message = "clear_walls service returned no response";
+    return false;
+  }
+
+  if (!response->success) {
+    error_message = response->message.empty() ? "clear_walls service returned failure" : response->message;
+    return false;
+  }
+
+  return true;
+}
+
 void BehaviourNode::reset_callback(
   const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
   std::shared_ptr<std_srvs::srv::Trigger::Response> response)
@@ -152,10 +193,19 @@ void BehaviourNode::reset_callback(
 
   try {
     load_params();
+
+    std::string clear_error;
+    if (!clear_virtual_walls(clear_error)) {
+      response->success = false;
+      response->message = "Failed to clear costmap walls: " + clear_error;
+      RCLCPP_ERROR(this->get_logger(), "%s", response->message.c_str());
+      return;
+    }
+
     rebuild_tree();
 
     response->success = true;
-    response->message = "Behaviour tree reset complete.";
+    response->message = "Behaviour tree reset complete and all virtual walls cleared.";
     RCLCPP_INFO(this->get_logger(), "Behaviour tree reset via reset_bt service.");
   } catch (const std::exception & e) {
     response->success = false;

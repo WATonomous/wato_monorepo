@@ -249,6 +249,8 @@ launch:
           # reset behaviour tree service
         - from: reset_bt
           to: reset_bt
+        - from: clear_walls
+          to: clear_walls
         - from: route_ahead
           to: lanelet/route_ahead
         - from: lane_context

@@ -16,9 +16,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <string>
 
 #include "costmap/costmap_utils.hpp"
+#include "std_srvs/srv/trigger.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace costmap
@@ -40,18 +42,24 @@ void VirtualWallLayer::activate()
   despawn_srv_ = node_->create_service<costmap_msgs::srv::DespawnWall>(
     "despawn_wall",
     std::bind(&VirtualWallLayer::despawnWallCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  clear_walls_srv_ = node_->create_service<std_srvs::srv::Trigger>(
+    "clear_walls",
+    std::bind(&VirtualWallLayer::clearWallsCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void VirtualWallLayer::deactivate()
 {
   spawn_srv_.reset();
   despawn_srv_.reset();
+  clear_walls_srv_.reset();
 }
 
 void VirtualWallLayer::cleanup()
 {
   spawn_srv_.reset();
   despawn_srv_.reset();
+  clear_walls_srv_.reset();
   std::lock_guard<std::mutex> lock(walls_mutex_);
   walls_.clear();
 }
@@ -124,6 +132,20 @@ void VirtualWallLayer::despawnWallCallback(
     response->success = false;
     response->error_message = "Wall ID " + std::to_string(request->wall_id) + " not found";
   }
+}
+
+void VirtualWallLayer::clearWallsCallback(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  (void)request;
+
+  std::lock_guard<std::mutex> lock(walls_mutex_);
+  const auto cleared_walls = walls_.size();
+  walls_.clear();
+
+  response->success = true;
+  response->message = "Cleared " + std::to_string(cleared_walls) + " virtual wall(s).";
 }
 
 void VirtualWallLayer::update(

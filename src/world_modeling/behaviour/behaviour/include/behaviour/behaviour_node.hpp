@@ -69,6 +69,13 @@ private:
    */
   void rebuild_tree();
 
+  /**
+   * @brief Clears all virtual walls from the costmap before rebuilding the BT.
+   * @param error_message Populated when the clear-walls request fails.
+   * @return true when the wall clear service succeeds.
+   */
+  bool clear_virtual_walls(std::string & error_message);
+
   // service callbacks
   void reset_callback(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
@@ -96,6 +103,8 @@ private:
   // ROS Communications
   rclcpp::TimerBase::SharedPtr tick_tree_timer_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_bt_srv_;
+  rclcpp::CallbackGroup::SharedPtr clear_walls_client_group_;
+  rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr clear_walls_client_;
 
   // Subs
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr current_lane_context_sub_;
@@ -110,6 +119,8 @@ private:
   std::string base_frame_;
   std::string goal_reached_mode_;
   bool enable_console_logging_;
+  int service_timeout_ms_;
+  int wait_for_service_timeout_ms_;
   double rate_hz_;
   std::size_t traffic_light_state_hypothesis_index_;
   std::size_t world_objects_hypothesis_index_;
