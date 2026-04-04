@@ -6,7 +6,7 @@ Ground truth localization from CARLA simulation.
 
 ### localization
 
-Publishes the ego vehicle's ground truth pose as TF transforms. The transform chain is `map` -> `odom` -> `base_link`, where the `map` -> `odom` transform is identity (no drift in simulation) and `odom` -> `base_link` contains the vehicle's actual pose from CARLA.
+Publishes the ego vehicle's ground truth pose as TF transforms. The transform chain is `map` -> `odom` -> `base_footprint`, where the `map` -> `odom` transform is identity (no drift in simulation) and `odom` -> `base_footprint` contains the vehicle's actual pose from CARLA.
 
 Coordinates are converted from CARLA's left-handed system (X-forward, Y-right, Z-up) to ROS's right-handed system (X-forward, Y-left, Z-up).
 
@@ -26,5 +26,5 @@ ros2 run carla_localization localization
 | `role_name` | string | `ego_vehicle` | Role name of the ego vehicle to track |
 | `map_frame` | string | `map` | Name of the map frame |
 | `odom_frame` | string | `odom` | Name of the odom frame |
-| `base_frame` | string | `base_link` | Name of the base_link frame |
+| `base_frame` | string | `base_footprint` | Name of the base footprint frame |
 | `publish_rate` | double | `50.0` | TF publish rate in Hz |
