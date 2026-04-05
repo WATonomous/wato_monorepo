@@ -37,7 +37,7 @@
     # -  Path Generation  -
     path_gen:
       max_iterations: 20
-      path_steps: 35
+      path_steps: 500
       convergence_tolerance: 0.15
       newton_damping: 0.7
       max_step_size: 1.0
@@ -88,7 +88,7 @@
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
     max_tangential_accel: 0.5  # Max tangential acceleration (m/s^2)
-    max_emergency_accel: 2.0  # Max emergency braking deceleration (m/s^2)
+    max_emergency_accel: 4.0  # Max emergency braking deceleration (m/s^2)
     max_lateral_accel: 2.0  # Max lateral acceleration (m/s^2) to slow down in curves
 
     # Path interpolation
@@ -145,7 +145,7 @@
     lookahead_gain: 2.5
     steering_angle_gain: 0.76
     max_speed: 6.0
-    min_speed: 1.0
+    min_speed: 0.0
     standby_speed: -0.5
     standby_steering: 0.0
     control_rate_hz: 20.0
