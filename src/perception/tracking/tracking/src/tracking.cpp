@@ -282,6 +282,15 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
     return;
   }
 
+  float dt = 1.0f;
+
+  const rclcpp::Time curr_time = msg->header.stamp;
+  if (prev_time_) {
+    dt = static_cast<float>((curr_time - *prev_time_).seconds());
+  }
+  prev_time_ = curr_time;
+  RCLCPP_DEBUG(this->get_logger(), "detections dt: %.4f s", dt);
+
   // Get newest frame transform
   geometry_msgs::msg::TransformStamped tf_stamped;
   try {
@@ -316,7 +325,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
 
   // Run bytetrack on detections
   auto objs = detsToObjects(tf_msg);
-  auto stracks = tracker_->update(objs);
+  auto stracks = tracker_->update(objs, dt);
   auto tracked_dets = STracksToTracks(stracks, tf_msg.header);
 
   // Match each tracked detection to the nearest input detection to:

@@ -24,14 +24,14 @@ Core logic draws inspiration from ByteTrackV2 (Zhang et al., 2023). The implemen
 ## Parameters
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `frame_rate`| int | 30 | Frame rate of the input detections |
-| `track_buffer` | int | 30 | Amount of consecutive frames a track can stay unmatched before getting removed |
-| `track_thresh` | float | 0.5 | Threshold between high and low confidence detections |
-| `high_thresh` | float | 0.6 | Minimum detection confidence score required to start a new track |
-| `match_thresh` | float | 0.8 | Maximum IoU cost to still be considered a match |
+| `frame_rate`| int | 12 | Frame rate of the input detections |
+| `track_buffer` | int | 120 | Amount of consecutive frames a track can stay unmatched before getting removed |
+| `track_thresh` | float | 0.1 | Threshold between high and low confidence detections |
+| `high_thresh` | float | 0.15 | Minimum detection confidence score required to start a new track |
+| `match_thresh` | float | 1.4 | Maximum IoU cost to still be considered a match |
 | `use_maj_cls` | bool | true | Use most frequent class as track's class if true, use most recent class otherwise |
 | `use_R_scaling` | bool | false | Scale R matrix in Kalman Filter according to detection confidence |
-| `dist_metric` | string | "IOU" | Which distance metric to use (currently supports "IOU", "DIOU", "CIOU") |
+| `dist_metric` | string | "DIOU" | Which distance metric to use (currently supports "IOU", "DIOU", "CIOU") |
 | `output_frame` | string | "map" | Frame to output tracks in |
 
 ## Acknowledgements
