@@ -65,6 +65,18 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     dist_along_path += segment_dist;
     prev_pos = pos;
 
+    // The first point is the behind-ego point prepended by the lattice planner.
+    // Assign starting_speed directly and skip kinematic constraints so the
+    // forward pass starts fresh at the actual ego position (index 1).
+    if (i == 0) {
+      wato_trajectory_msgs::msg::TrajectoryPoint point;
+      point.pose = path.poses[i].pose;
+      point.max_speed = current_speed;
+      trajectory.points.push_back(point);
+      prev_speed = current_speed;
+      continue;
+    }
+
     double target_speed = effective_max_speed;
 
     double tang_accel =

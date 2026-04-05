@@ -15,6 +15,7 @@
 #include "trajectory_planner/trajectory_planner_node.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -37,7 +38,6 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("path_sub_topic", "input_path");
   declare_parameter("costmap_sub_topic", "costmap");
   declare_parameter("lane_context_sub_topic", "lane_context");
-  declare_parameter("odom_sub_topic", "odom");
   declare_parameter("bt_sub_topic", "execute_behaviour");
 
   // Obstacle avoidance distances
@@ -70,7 +70,6 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   path_sub_topic = get_parameter("path_sub_topic").as_string();
   costmap_sub_topic = get_parameter("costmap_sub_topic").as_string();
   lane_context_sub_topic = get_parameter("lane_context_sub_topic").as_string();
-  odom_sub_topic = get_parameter("odom_sub_topic").as_string();
   bt_sub_topic = get_parameter("bt_sub_topic").as_string();
 
   // Build config from declared parameters and construct the planning core
@@ -105,9 +104,6 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
 
   lane_context_sub_ = create_subscription<lanelet_msgs::msg::CurrentLaneContext>(
     lane_context_sub_topic, 10, std::bind(&TrajectoryPlannerNode::lane_context_callback, this, std::placeholders::_1));
-
-  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-    odom_sub_topic, 10, std::bind(&TrajectoryPlannerNode::odom_callback, this, std::placeholders::_1));
 
   bt_sub_ = create_subscription<behaviour_msgs::msg::ExecuteBehaviour>(
     bt_sub_topic, 10, std::bind(&TrajectoryPlannerNode::bt_callback, this, std::placeholders::_1));
@@ -146,8 +142,8 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_cleanup(const rc
   path_sub_.reset();
   costmap_sub_.reset();
   lane_context_sub_.reset();
-  odom_sub_.reset();
   bt_sub_.reset();
+  last_published_trajectory_.reset();
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
@@ -179,11 +175,6 @@ void TrajectoryPlannerNode::lane_context_callback(const lanelet_msgs::msg::Curre
   has_speed_limit_ = true;
 }
 
-void TrajectoryPlannerNode::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
-{
-  current_speed_mps = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
-}
-
 void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
 {
   bt_requested_behaviour = msg->behaviour;
@@ -192,7 +183,7 @@ void TrajectoryPlannerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehavi
 void TrajectoryPlannerNode::update_trajectory()
 {
   // Wait until all inputs are ready before computing
-  if (!latest_path_ || !latest_costmap_ || !core_ || current_speed_mps < 0.0 || bt_requested_behaviour.empty()) {
+  if (!latest_path_ || !latest_costmap_ || !core_ || bt_requested_behaviour.empty()) {
     return;
   }
 
@@ -235,7 +226,28 @@ void TrajectoryPlannerNode::update_trajectory()
   // Use lane speed limit if available, otherwise fall back to config max_speed
   double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
-  auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
+
+  // Sample the starting speed from the previous trajectory at the point closest
+  // to the current ego position. Use latest_path_ (map frame) since the stored
+  // trajectory is also in map frame. Index 1 skips the prepended behind-ego point
+  // that the lattice planner adds.
+  double starting_speed = 0.0;
+  if (last_published_trajectory_ && !last_published_trajectory_->points.empty() &&
+      latest_path_->poses.size() > 1)
+  {
+    const auto & ego_pos = latest_path_->poses[1].pose.position;
+    double best_dist_sq = std::numeric_limits<double>::max();
+    for (const auto & pt : last_published_trajectory_->points) {
+      double dx = pt.pose.position.x - ego_pos.x;
+      double dy = pt.pose.position.y - ego_pos.y;
+      double d_sq = dx * dx + dy * dy;
+      if (d_sq < best_dist_sq) {
+        best_dist_sq = d_sq;
+        starting_speed = pt.max_speed;
+      }
+    }
+  }
+  auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, starting_speed);
 
   // Publish trajectory in the original path frame (map) so it doesn't drift with the ego frame
   traj.header.frame_id = latest_path_->header.frame_id;
@@ -243,8 +255,9 @@ void TrajectoryPlannerNode::update_trajectory()
     traj.points[i].pose = latest_path_->poses[i].pose;
   }
 
-  // Publish trajectory
+  // Publish trajectory and store for next cycle's starting speed
   traj_pub_->publish(traj);
+  last_published_trajectory_ = traj;
 
   // Visualization
   if (marker_pub_->get_subscription_count() > 0) {

@@ -15,12 +15,12 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "lanelet_msgs/msg/current_lane_context.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
-#include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -52,7 +52,6 @@ private:
   void path_callback(const nav_msgs::msg::Path::SharedPtr msg);
   void costmap_callback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void lane_context_callback(const lanelet_msgs::msg::CurrentLaneContext::SharedPtr msg);
-  void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
   void bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg);
 
   // Recomputes and publishes trajectory when new path or costmap arrives
@@ -65,7 +64,7 @@ private:
   std::string traj_pub_topic, marker_pub_topic;
 
   // Subscriber Topic Names
-  std::string path_sub_topic, costmap_sub_topic, lane_context_sub_topic, odom_sub_topic, bt_sub_topic;
+  std::string path_sub_topic, costmap_sub_topic, lane_context_sub_topic, bt_sub_topic;
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr traj_pub_;
@@ -75,7 +74,6 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::CurrentLaneContext>::SharedPtr lane_context_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
 
   // TF — used to transform path into costmap frame when frames differ
@@ -91,8 +89,8 @@ private:
   double current_speed_limit_mps_{0.0};
   bool has_speed_limit_{false};
 
-  // Current speed of car
-  double current_speed_mps{-1.0};
+  // Last published trajectory — used to seed starting speed for kinematic constraints
+  std::optional<wato_trajectory_msgs::msg::Trajectory> last_published_trajectory_;
 };
 
 }  // namespace trajectory_planner

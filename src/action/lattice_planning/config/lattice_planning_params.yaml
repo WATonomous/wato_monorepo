@@ -36,7 +36,7 @@ action:
         # -  Path Generation  -
         path_gen:
           max_iterations: 20
-          path_steps: 35
+          path_steps: 100
           convergence_tolerance: 0.15
           newton_damping: 0.7
           max_step_size: 1.0

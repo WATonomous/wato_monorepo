@@ -241,6 +241,8 @@ void PurePursuitNode::controlCallback()
   double speed_ahead = max_speed_;
   bool found_speed_point = false;
   bool found_lookahead = false;
+  double prev_dist = 0.0;
+  double prev_max_speed = max_speed_;
 
   for (const auto & pt : traj.points) {
     geometry_msgs::msg::PoseStamped pose_in_traj;
@@ -260,10 +262,19 @@ void PurePursuitNode::controlCallback()
     double dy = pose_in_base.pose.position.y;
     double dist = std::hypot(dx, dy);
 
-    // Use speed from the point ~1m ahead of ego
-    if (!found_speed_point && dx > 0.0 && dist >= SPEED_LOOKAHEAD_M) {
-      speed_ahead = pt.max_speed;
-      found_speed_point = true;
+    // Interpolate speed at the exact lookahead distance between bracketing trajectory points
+    if (!found_speed_point && dx > 0.0) {
+      if (dist >= SPEED_LOOKAHEAD_M) {
+        if (prev_dist < SPEED_LOOKAHEAD_M && dist > prev_dist) {
+          double t = (SPEED_LOOKAHEAD_M - prev_dist) / (dist - prev_dist);
+          speed_ahead = prev_max_speed + t * (pt.max_speed - prev_max_speed);
+        } else {
+          speed_ahead = pt.max_speed;
+        }
+        found_speed_point = true;
+      }
+      prev_dist = dist;
+      prev_max_speed = pt.max_speed;
     }
 
     // Only consider points ahead of the vehicle (positive x in base frame)
