@@ -55,6 +55,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("odom_topic", "odom");
   declare_parameter("disable_standby", false);
   declare_parameter("speed_lookahead_distance", 1.0);
+  declare_parameter("max_accel_limit", 2.0);
 }
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
@@ -82,6 +83,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   invert_steering_ = get_parameter("invert_steering").as_bool();
   disable_standby_ = get_parameter("disable_standby").as_bool();
   speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
+  max_accel_limit_ = get_parameter("max_accel_limit").as_double();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -232,17 +234,23 @@ void PurePursuitNode::controlCallback()
     min_lookahead_distance_,
     lookahead_distance_);
 
-  // Transform trajectory points into base_frame and find lookahead point
-  const double SPEED_LOOKAHEAD_M = speed_lookahead_distance_;
-
+  // Transform trajectory points into base_frame.
+  // Find: (1) ego point on trajectory, (2) speed lookahead point, (3) steering lookahead point.
   double lookahead_x = 0.0;
   double lookahead_y = 0.0;
-  double target_speed = max_speed_;
-  double speed_ahead = max_speed_;
-  bool found_speed_point = false;
   bool found_lookahead = false;
 
-  for (const auto & pt : traj.points) {
+  // Speed control: extract spatial acceleration from trajectory profile
+  int ego_idx = -1;
+  int ahead_idx = -1;
+  double ego_traj_speed = 0.0;
+  double ahead_traj_speed = 0.0;
+  bool found_ego = false;
+  bool found_ahead = false;
+
+  for (size_t i = 0; i < traj.points.size(); ++i) {
+    const auto & pt = traj.points[i];
+
     geometry_msgs::msg::PoseStamped pose_in_traj;
     pose_in_traj.header = traj.header;
     pose_in_traj.pose = pt.pose;
@@ -260,45 +268,85 @@ void PurePursuitNode::controlCallback()
     double dy = pose_in_base.pose.position.y;
     double dist = std::hypot(dx, dy);
 
-    // Use speed from the point ~1m ahead of ego
-    if (!found_speed_point && dx > 0.0 && dist >= SPEED_LOOKAHEAD_M) {
-      speed_ahead = pt.max_speed;
-      found_speed_point = true;
+    // First point ahead of ego — this is where we are on the trajectory
+    if (!found_ego && dx > 0.0) {
+      ego_idx = static_cast<int>(i);
+      ego_traj_speed = pt.max_speed;
+      found_ego = true;
     }
 
-    // Only consider points ahead of the vehicle (positive x in base frame)
+    // Point at speed_lookahead_distance ahead — for computing spatial acceleration
+    if (found_ego && !found_ahead && dx > 0.0 && dist >= speed_lookahead_distance_) {
+      ahead_idx = static_cast<int>(i);
+      ahead_traj_speed = pt.max_speed;
+      found_ahead = true;
+    }
+
+    // Steering lookahead (UNCHANGED)
     if (dx > 0.0 && dist >= min_lookahead_distance_) {
       if (dist >= adaptive_lookahead || &pt == &traj.points.back()) {
         lookahead_x = dx;
         lookahead_y = dy;
-        target_speed = speed_ahead;
         found_lookahead = true;
         break;
       }
     }
   }
 
-  if (!found_lookahead) {
+  if (!found_lookahead || !found_ego) {
     return;
   }
 
-  // Pure pursuit math
+  // Pure pursuit math (UNCHANGED)
   double ld_sq = lookahead_x * lookahead_x + lookahead_y * lookahead_y;
   double curvature = 2.0 * lookahead_y / ld_sq;
   double steering_angle = steering_angle_gain * std::atan(wheelbase * curvature);
-
-  // Clamp steering
   steering_angle = std::clamp(steering_angle, -max_steering_angle_, max_steering_angle_);
+
+  // Compute spatial acceleration from trajectory speed profile
+  double spatial_accel = 0.0;
+  if (found_ahead) {
+    // Use ego → ahead window (speed_lookahead_distance)
+    const auto & p0 = traj.points[ego_idx].pose.position;
+    const auto & p1 = traj.points[ahead_idx].pose.position;
+    double ahead_dist = std::hypot(p1.x - p0.x, p1.y - p0.y);
+    if (ahead_dist > 0.1) {
+      spatial_accel =
+        (ahead_traj_speed * ahead_traj_speed - ego_traj_speed * ego_traj_speed) / (2.0 * ahead_dist);
+    }
+  } else if (ego_idx + 1 < static_cast<int>(traj.points.size())) {
+    // Fallback: use consecutive points
+    const auto & p0 = traj.points[ego_idx].pose.position;
+    const auto & p1 = traj.points[ego_idx + 1].pose.position;
+    double seg_dist = std::hypot(p1.x - p0.x, p1.y - p0.y);
+    if (seg_dist > 0.1) {
+      double v0 = traj.points[ego_idx].max_speed;
+      double v1 = traj.points[ego_idx + 1].max_speed;
+      spatial_accel = (v1 * v1 - v0 * v0) / (2.0 * seg_dist);
+    }
+  }
+  spatial_accel = std::clamp(spatial_accel, -max_accel_limit_, max_accel_limit_);
+
+  // Apply spatial acceleration temporally
+  double dt = 1.0 / control_rate_hz_;
+  double speed = current_speed_ + spatial_accel * dt;
 
   // Reduce speed proportional to steering magnitude
   double steering_ratio = std::abs(steering_angle) / max_steering_angle_;
-  double speed = target_speed * (1.0 - 0.5 * steering_ratio);
-  speed = std::clamp(speed, min_speed_, max_speed_);
+  speed *= (1.0 - 0.5 * steering_ratio);
 
-  // If target trajectory point says stop, stop
-  if (target_speed <= 0.0) {
+  // Clamp — lower bound is 0.0 to allow smooth ramp from stop
+  speed = std::clamp(speed, 0.0, max_speed_);
+
+  // Hard stop when trajectory says stop at ego position
+  if (ego_traj_speed <= 0.0) {
     speed = 0.0;
   }
+
+  RCLCPP_INFO_THROTTLE(
+    get_logger(), *get_clock(), 500,
+    "Speed: cmd=%.2f curr=%.2f ego_traj=%.2f ahead_traj=%.2f accel=%.2f",
+    speed, current_speed_, ego_traj_speed, found_ahead ? ahead_traj_speed : -1.0, spatial_accel);
 
   publishAckermannMsg(base_frame_, speed, steering_angle, invert_steering_);
 }

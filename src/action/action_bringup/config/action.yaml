@@ -88,7 +88,7 @@
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
     max_tangential_accel: 0.5  # Max tangential acceleration (m/s^2)
-    max_emergency_accel: 2.0  # Max emergency braking deceleration (m/s^2)
+    max_emergency_accel: 4.0  # Max emergency braking deceleration (m/s^2)
     max_lateral_accel: 2.0  # Max lateral acceleration (m/s^2) to slow down in curves
 
     # Path interpolation
@@ -145,7 +145,7 @@
     lookahead_gain: 2.5
     steering_angle_gain: 0.76
     max_speed: 6.0
-    min_speed: 1.0
+    min_speed: 0.0
     standby_speed: -0.5
     standby_steering: 0.0
     control_rate_hz: 20.0
@@ -154,7 +154,8 @@
     idle_timeout_sec: 2.0
     invert_steering: true
     disable_standby: false
-    speed_lookahead_distance: 1.2  # Distance (m) ahead of ego to sample trajectory speed
+    speed_lookahead_distance: 1.2  # Distance (m) ahead of ego to compute spatial acceleration over
+    max_accel_limit: 4.0  # Safety cap on extracted spatial acceleration (m/s^2)
 
 # =============================================================================
 # MPC Controller (used by action_mpc.launch.yaml)

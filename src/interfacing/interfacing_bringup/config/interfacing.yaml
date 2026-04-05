@@ -119,7 +119,7 @@
 /**/ackermann_smoother_node:
   ros__parameters:
     max_steering_accel: 2.0  # rad/s^2 - max rate of change of steering velocity
-    max_speed_accel: 2.0     # m/s^3 - max rate of change of speed (jerk limit)
+    max_speed_accel: 8.0     # m/s^3 - max rate of change of speed (jerk limit)
     publish_rate: 50.0       # Hz
 
 # Velocity-Driven Feedforward PID Control
