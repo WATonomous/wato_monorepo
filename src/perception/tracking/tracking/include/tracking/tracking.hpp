@@ -20,6 +20,7 @@
 #include <deque>
 #include <Eigen/Dense>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -149,6 +150,7 @@ private:
   std::string dist_metric_;
   std::string output_frame_;
   bool publish_visualization_;
+  std::optional<rclcpp::Time> prev_time_;
 
   std::unique_ptr<byte_track::BYTETracker> tracker_;
 
