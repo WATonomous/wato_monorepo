@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -61,9 +62,31 @@ TrackingNode::CallbackReturn TrackingNode::on_configure(const rclcpp_lifecycle::
   predictions_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>(kPredictionsTopic, 10);
   RCLCPP_DEBUG(this->get_logger(), "Publishers initialized, publishing to %s", tracked_dets_pub_->get_topic_name());
 
-  // ByteTrack tracker
+  // ByteTrack tracker (default for classes without per-class overrides)
   tracker_ = std::make_unique<byte_track::BYTETracker>(
     frame_rate_, track_buffer_, track_thresh_, high_thresh_, match_thresh_, use_maj_cls_, use_R_scaling_, dist_metric_);
+
+  // Per-class tracker instances
+  class_trackers_.clear();
+  for (const auto & [cls, cp] : class_tracker_params_) {
+    class_trackers_[cls] = std::make_unique<byte_track::BYTETracker>(
+      frame_rate_,
+      track_buffer_,
+      cp.track_thresh,
+      cp.high_thresh,
+      cp.match_thresh,
+      use_maj_cls_,
+      use_R_scaling_,
+      cp.dist_metric);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Created tracker for '%s': match=%.2f, high=%.2f, track=%.2f, metric=%s",
+      cls.c_str(),
+      cp.match_thresh,
+      cp.high_thresh,
+      cp.track_thresh,
+      cp.dist_metric.c_str());
+  }
 
   RCLCPP_INFO(this->get_logger(), "Configuration successful");
   return TrackingNode::CallbackReturn::SUCCESS;
@@ -112,6 +135,7 @@ TrackingNode::CallbackReturn TrackingNode::on_cleanup(const rclcpp_lifecycle::St
   tf_listener_.reset();
   tf_buffer_.reset();
   tracker_.reset();
+  class_trackers_.clear();
   track_filters_.clear();
   track_centroids_.clear();
 
@@ -130,6 +154,7 @@ TrackingNode::CallbackReturn TrackingNode::on_shutdown(const rclcpp_lifecycle::S
   tf_listener_.reset();
   tf_buffer_.reset();
   tracker_.reset();
+  class_trackers_.clear();
   track_filters_.clear();
   track_centroids_.clear();
 
@@ -157,6 +182,31 @@ void TrackingNode::initializeParams()
   prediction_dt_ = this->declare_parameter<double>("prediction_dt", 0.1);
   process_noise_ = this->declare_parameter<double>("process_noise", 0.1);
   measurement_noise_ = this->declare_parameter<double>("measurement_noise", 0.5);
+
+  auto ct_classes = this->declare_parameter<std::vector<std::string>>("class_tracking.classes", {});
+  auto ct_match = this->declare_parameter<std::vector<double>>("class_tracking.match_thresholds", {});
+  auto ct_high = this->declare_parameter<std::vector<double>>("class_tracking.high_thresholds", {});
+  auto ct_dist = this->declare_parameter<std::vector<std::string>>("class_tracking.dist_metrics", {});
+  auto ct_track = this->declare_parameter<std::vector<double>>("class_tracking.track_thresholds", {});
+  const size_t n = ct_classes.size();
+  class_tracker_params_.clear();
+  if (n > 0 && ct_match.size() == n && ct_high.size() == n && ct_dist.size() == n && ct_track.size() == n) {
+    for (size_t i = 0; i < n; ++i) {
+      ClassTrackingParams cp;
+      cp.track_thresh = static_cast<float>(ct_track[i]);
+      cp.high_thresh = static_cast<float>(ct_high[i]);
+      cp.match_thresh = static_cast<float>(ct_match[i]);
+      cp.dist_metric = ct_dist[i];
+      class_tracker_params_[ct_classes[i]] = cp;
+      class_tracker_id_offsets_[ct_classes[i]] = static_cast<int>((i + 1) * 10000);
+    }
+    RCLCPP_INFO(this->get_logger(), "Per-class tracking enabled for %zu class(es)", n);
+  } else if (n > 0) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "class_tracking arrays have mismatched lengths (%zu classes); per-class tracking disabled",
+      n);
+  }
 }
 
 // Convert from ros msgs to bytetrack's required format
@@ -305,10 +355,48 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
     tf_msg.detections.push_back(tf_det);
   }
 
-  // Run bytetrack on detections
+  // Run bytetrack on detections, with per-class tracker routing.
   auto objs = detsToObjects(tf_msg);
-  auto stracks = tracker_->update(objs);
-  auto tracked_dets = STracksToTracks(stracks, tf_msg.header);
+  vision_msgs::msg::Detection3DArray tracked_dets;
+  tracked_dets.header.frame_id = tf_msg.header.frame_id;
+  tracked_dets.header.stamp = tf_msg.header.stamp;
+
+  if (class_trackers_.empty()) {
+    auto stracks = tracker_->update(objs);
+    tracked_dets = STracksToTracks(stracks, tf_msg.header);
+  } else {
+    // Split objects by class: each class with a dedicated tracker gets its own group.
+    std::unordered_map<std::string, std::vector<byte_track::Object>> class_objs;
+    std::vector<byte_track::Object> default_objs;
+    for (auto & obj : objs) {
+      if (class_trackers_.count(obj.label)) {
+        class_objs[obj.label].push_back(obj);
+      } else {
+        default_objs.push_back(obj);
+      }
+    }
+
+    // Run each per-class tracker, convert to messages with ID offsets to avoid collisions.
+    for (auto & [cls, class_tracker] : class_trackers_) {
+      auto it = class_objs.find(cls);
+      // Always call update (even with empty vector) so the tracker can age out stale tracks.
+      std::vector<byte_track::Object> empty_objs;
+      auto & cls_objs = (it != class_objs.end()) ? it->second : empty_objs;
+      auto stracks = class_tracker->update(cls_objs);
+      auto cls_dets = STracksToTracks(stracks, tf_msg.header);
+      const int offset = class_tracker_id_offsets_[cls];
+      for (auto & det : cls_dets.detections) {
+        det.id = std::to_string(std::stoi(det.id) + offset);
+        tracked_dets.detections.push_back(std::move(det));
+      }
+    }
+
+    auto default_stracks = tracker_->update(default_objs);
+    auto default_dets = STracksToTracks(default_stracks, tf_msg.header);
+    for (auto & det : default_dets.detections) {
+      tracked_dets.detections.push_back(std::move(det));
+    }
+  }
 
   // Match each tracked detection to the nearest input detection to:
   // 1. Override ByteTrack's filtered yaw (Kalman filter causes unstable spinning)

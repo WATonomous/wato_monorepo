@@ -78,6 +78,14 @@ The node is structured in three main layers:
                                 │
                                 ▼
                         ┌─────────────────┐
+                        │ Class-Aware     │
+                        │ Re-Clustering   │
+                        │ (per-class      │
+                        │  tolerance)     │
+                        └────────┬────────┘
+                                │
+                                ▼
+                        ┌─────────────────┐
                         │ 3D Box Fitting  │
                         │ (L-shaped /     │
                         │  search-based)  │
@@ -127,6 +135,23 @@ All parameters are in `config/params.yaml`.
 | `euclid_params.clustering_bands.tolerance_mults` | array | [1.3, 1.0, 1.5, 2.0] | Tolerance multiplier per band |
 | `euclid_params.clustering_bands.min_cluster_sizes` | array | [15, 12, 10, 8] | Min cluster size per band |
 | `merge_threshold` | double (m) | 0.4 | Max AABB gap distance between clusters to merge |
+
+### Class-Aware Clustering (Per-Class Re-Clustering)
+
+After initial clustering + 2D detection association assigns class labels, matched detections are **re-clustered** with class-specific parameters. For each matched candidate, points projecting into the 2D detection box are extracted and re-clustered using per-class tolerance and size constraints. Empty arrays disable the feature entirely.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `euclid_params.class_clustering.classes` | string[] | [car, person, truck, bus, bicycle, motorcycle, stop sign] | Class names (parallel with arrays below) |
+| `euclid_params.class_clustering.cluster_tolerances` | double[] | [0.50, 0.30, 0.80, 1.00, 0.25, 0.30, 0.15] | Euclidean cluster tolerance (m) per class |
+| `euclid_params.class_clustering.min_cluster_sizes` | int[] | [8, 3, 12, 12, 3, 3, 2] | Minimum points per cluster per class |
+| `euclid_params.class_clustering.max_cluster_sizes` | int[] | [800, 200, 2000, 2000, 100, 150, 50] | Maximum points per cluster per class |
+| `euclid_params.class_clustering.merge_thresholds` | double[] | [0.50, 0.30, 0.80, 1.00, 0.20, 0.30, 0.10] | AABB gap for merge (m) per class |
+| `euclid_params.class_clustering.bbox_inflation_factors` | double[] | [1.20, 1.10, 1.30, 1.30, 1.10, 1.10, 1.05] | Multiplier on 2D detection box size before point extraction (compensates for TF misalignment at range). 1.0 = no inflation. Optional — defaults to 1.0 if omitted. |
+
+Negative values in any per-class parameter fall back to the global default.
+
+**Safeguard**: The refined cluster is only accepted if it has **at least as many points** as the original. If the 2D detection box captures fewer LiDAR points than the original 3D cluster (common with TF misalignment at range), the original is kept. This prevents re-clustering from shrinking good clusters.
 
 ### 2D Detection Filter
 
@@ -312,9 +337,17 @@ Applied on top of distance-adaptive thresholds.
 
 ## Key Components
 
-### 1. Class-Aware Filtering
+### 1. Class-Aware Filtering & Re-Clustering
 
 **`filterCandidatesByClassAwareConstraints()`** runs after IoU matching and applies size/quality constraints (same defaults for all candidates). Constraint values are configured via `quality_filter_params` in `params.yaml`.
+
+**Class-aware re-clustering** runs after quality filtering and before 3D box fitting. For each matched detection with a configured class override:
+1. `extractPointIndicesInDetectionBox()` projects all LiDAR points to the camera image and collects those inside the 2D detection box.
+2. `SpatialAssociationCore::reClusterPointSubset()` builds a sub-cloud from those points and runs Euclidean clustering with per-class tolerance, min/max size.
+3. `selectBestClusterByOverlap()` picks the refined cluster that best overlaps the original candidate.
+4. Cluster stats are recomputed for downstream box fitting.
+
+This allows tight clustering for small objects (people, bicycles, stop signs) while using larger tolerances for trucks and buses, without compromising the initial class-agnostic clustering pass.
 
 ### 2. Multi-camera behavior
 
@@ -335,7 +368,8 @@ The pipeline uses a single container type **`ClusterCandidate`** (indices + stat
 2. **Build candidates** - `ProjectionUtils::buildCandidates(cloud, cluster_indices)`: one struct per cluster with indices and stats.
 3. **IoU match** - `ProjectionUtils::assignCandidatesToDetectionsByIOU(cloud, candidates, ...)`: fills `candidate.match`, removes unmatched.
 4. **Class-aware filter** - `ProjectionUtils::filterCandidatesByClassAwareConstraints(candidates, detections)`: reads quality thresholds from `ProjectionUtils::getParams()` (filled from `quality_filter_params` in `initializeParams()` / `setParams`).
-5. **Box fitting** - boxes from `extractIndices(candidates)`, then `compute3DDetection(boxes, candidates, ...)` for class/score from `candidate.match`.
+5. **Class-aware re-clustering** - For each matched candidate with per-class overrides: `extractPointIndicesInDetectionBox()` + `SpatialAssociationCore::reClusterPointSubset()` + `selectBestClusterByOverlap()`. Refines cluster boundaries using class-specific tolerances.
+6. **Box fitting** - boxes from `extractIndices(candidates)`, then `compute3DDetection(boxes, candidates, ...)` for class/score from `candidate.match`.
 
 #### `SpatialAssociationCore::performClustering()`
 
@@ -449,30 +483,46 @@ Default bands:
 
 Prevents fragmentation of close objects while maintaining precision for distant objects.
 
-### 2. L-Shaped Fitting (Vehicles)
+### 2. Class-Aware Re-Clustering
+
+After association assigns class labels, matched detections are refined with per-class Euclidean clustering:
+
+1. **Point extraction**: All LiDAR points are projected to the camera image; those inside the 2D detection box are collected (`extractPointIndicesInDetectionBox()`).
+2. **Sub-cloud clustering**: A sub-cloud is built from the extracted points and clustered with class-specific tolerance, min/max size (`reClusterPointSubset()`).
+3. **Best cluster selection**: The refined cluster with the most index overlap with the original candidate is chosen (`selectBestClusterByOverlap()`).
+4. **Stats recomputation**: Cluster stats (centroid, bounds) are recomputed for downstream box fitting.
+
+This addresses the fundamental trade-off where a single set of clustering params cannot be optimal for all object types:
+- **People/bicycles/stop signs**: Tight tolerance (0.20-0.40m), low min size (2-3 points)
+- **Cars**: Moderate tolerance (0.50-0.80m), moderate min size (5-8 points)
+- **Trucks/buses**: Large tolerance (0.80-1.50m), higher min size (8-12 points)
+
+If `class_clustering.classes` is empty, this step is skipped entirely (backward compatible).
+
+### 3. L-Shaped Fitting (Vehicles)
 
 Alternative to search-based orientation fitting; fits L-shaped corner points (front bumper + side profile) for better vehicle orientation recovery. Used by default for car/truck/bus classes.
 
-### 3. Search-Based Orientation Fitting
+### 4. Search-Based Orientation Fitting
 
 For non-vehicle classes:
 1. **Coarse search**: Tests angles in 10 degree steps (0 to 90 degrees)
 2. **Fine search**: Refines best angle in +/-5 degree range with 2 degree steps
 3. **Edge energy minimization**: Finds orientation that minimizes distance to bounding box edges
 
-### 4. Outlier Rejection
+### 5. Outlier Rejection
 
 For clusters with > 30 points:
 - Computes mean and standard deviation of rotated coordinates
 - Clips points beyond 4.5 sigma to prevent outliers from skewing bounding box
 
-### 5. Aspect Ratio Disambiguation
+### 6. Aspect Ratio Disambiguation
 
 When aspect ratio < 1.2 (nearly square):
 - Uses line-of-sight yaw (from centroid to sensor)
 - Otherwise uses fitted orientation, choosing the direction closest to line-of-sight
 
-### 6. Cross-Camera Deduplication
+### 7. Cross-Camera Deduplication
 
 Merges duplicate detections from multiple camera views:
 - LiDAR index overlap >= 0.5 (intersection/min set size)
@@ -549,6 +599,14 @@ euclid_params:
   clustering_bands:
     tolerance_mults: [1.5, 1.2, 1.8, 2.5]  # Increase multipliers
 ```
+
+### Issue: Class-Aware Re-Clustering Not Activating
+
+**Solution**: Check that:
+- `euclid_params.class_clustering.classes` is non-empty
+- All parallel arrays (`cluster_tolerances`, `min_cluster_sizes`, `max_cluster_sizes`, `merge_thresholds`) have the same length as `classes`
+- The class names match the 2D detector's `class_id` strings exactly (case-sensitive)
+- If arrays are mismatched, a warning is logged and the feature is disabled
 
 ### Issue: TF Transform Errors
 

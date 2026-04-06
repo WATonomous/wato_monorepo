@@ -138,7 +138,7 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr predictions_pub_;
 
-  // ByteTrack parameters
+  // ByteTrack parameters (global defaults)
   int frame_rate_;
   int track_buffer_;
   float track_thresh_;
@@ -150,7 +150,22 @@ private:
   std::string output_frame_;
   bool publish_visualization_;
 
+  /** Default tracker for classes without per-class overrides. */
   std::unique_ptr<byte_track::BYTETracker> tracker_;
+
+  /** Per-class tracking overrides */
+  struct ClassTrackingParams
+  {
+    float track_thresh;
+    float high_thresh;
+    float match_thresh;
+    std::string dist_metric;
+  };
+
+  std::unordered_map<std::string, ClassTrackingParams> class_tracker_params_;
+  std::unordered_map<std::string, std::unique_ptr<byte_track::BYTETracker>> class_trackers_;
+  /** Stable ID offset per class to avoid collisions between separate tracker instances. */
+  std::unordered_map<std::string, int> class_tracker_id_offsets_;
 
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
