@@ -18,7 +18,7 @@
 /**/world_model:
   ros__parameters:
     # Map
-    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_010426_utm.osm"
+    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_050426_utm.osm"
     projector_type: "utm"
     origin_lat: 43.4352586520
     origin_lon: -80.5801880023

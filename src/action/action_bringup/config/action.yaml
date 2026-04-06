@@ -83,7 +83,7 @@
     bt_sub_topic: "execute_behaviour"
 
     # Safety distances
-    stop_distance: 0.8  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
+    stop_distance: 0.4  # Distance (m) where vehicle must be fully stopped (relative to front bumper)
 
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
@@ -142,8 +142,8 @@
     odom_topic: "odom"
     lookahead_distance: 30.0
     min_lookahead_distance: 2.5
-    lookahead_gain: 2.5
-    steering_angle_gain: 0.76
+    lookahead_gain: 2.0
+    steering_angle_gain: 1.0
     max_speed: 6.0
     min_speed: 0.0
     standby_speed: -0.5
@@ -154,7 +154,7 @@
     idle_timeout_sec: 2.0
     invert_steering: true
     disable_standby: false
-    speed_lookahead_distance: 1.2  # Distance (m) ahead of ego to sample trajectory speed
+    speed_lookahead_distance: 0.1  # Distance (m) ahead of ego to sample trajectory speed
 
 # =============================================================================
 # MPC Controller (used by action_mpc.launch.yaml)
