@@ -36,7 +36,7 @@ bash -c "ros2 launch perception_bringup perception_bringup_launch.yaml"
 **If launching just the tracker + visualization:**
 
 ```bash
-bash -c "ros2 launch tracking_2d tracking_2d_launch.yaml & ros2 launch track_viz_2d track_viz_2d_launch.yaml"
+bash -c "ros2 launch tracking_2d tracking_2d_launch.yaml & ros2 launch track_viz_2d track_viz_2d.launch.yaml"
 ```
 
 ## High Level Flow

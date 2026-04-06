@@ -430,7 +430,7 @@ spatial_association/
 ├── config/
 │   └── params.yaml                             # ROS2 parameters
 ├── launch/
-│   └── spatial_association_launch.yaml         # Launch file (3 modes)
+│   └── spatial_association.launch.yaml         # Launch file (3 modes)
 └── docs/
     └── DEVELOPING.md                           # This file
 ```
