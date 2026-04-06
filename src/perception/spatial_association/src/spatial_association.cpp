@@ -199,6 +199,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Spatia
     // Load multi-band clustering config if present.
     core_params.clustering_bands = clustering_bands_;
 
+    // Load per-class clustering overrides.
+    core_params.class_params = class_clustering_params_;
+
     core_->setParams(core_params);
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -450,6 +453,14 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "euclid_params.clustering_bands.tolerance_mults", std::vector<double>{});
   declareIfMissing(this, "euclid_params.clustering_bands.min_cluster_sizes", std::vector<int64_t>{});
 
+  // Per-class clustering overrides (parallel arrays, like size_prior_classes).
+  declareIfMissing(this, "euclid_params.class_clustering.classes", std::vector<std::string>{});
+  declareIfMissing(this, "euclid_params.class_clustering.cluster_tolerances", std::vector<double>{});
+  declareIfMissing(this, "euclid_params.class_clustering.min_cluster_sizes", std::vector<int64_t>{});
+  declareIfMissing(this, "euclid_params.class_clustering.max_cluster_sizes", std::vector<int64_t>{});
+  declareIfMissing(this, "euclid_params.class_clustering.merge_thresholds", std::vector<double>{});
+  declareIfMissing(this, "euclid_params.class_clustering.bbox_inflation_factors", std::vector<double>{});
+
   declareIfMissing(this, "merge_threshold", 0.3);
 
   declareIfMissing(this, "cross_camera_dedup.enabled", true);
@@ -476,7 +487,7 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "quality_filter_params.max_aspect_ratio", 15.0);
 
   const std::string pu("projection_utils_params.");
-  declareIfMissing(this, pu + "marker_lifetime_s", 0.5);
+  declareIfMissing(this, pu + "marker_lifetime_s", 1.5);
   declareIfMissing(this, pu + "marker_alpha", 0.2);
   declareIfMissing(this, pu + "min_iou_threshold", 0.15);
   declareIfMissing(this, pu + "ar_front_view_threshold", 1.2);
@@ -581,6 +592,36 @@ void SpatialAssociationNode::initializeParams()
       for (size_t i = 0; i < band_dists.size(); ++i) {
         clustering_bands_.push_back({band_dists[i], band_mults[i], static_cast<int>(band_mins[i])});
       }
+    }
+  }
+
+  // Load per-class clustering overrides.
+  {
+    auto cc_cls = this->get_parameter("euclid_params.class_clustering.classes").as_string_array();
+    auto cc_tol = this->get_parameter("euclid_params.class_clustering.cluster_tolerances").as_double_array();
+    auto cc_min = this->get_parameter("euclid_params.class_clustering.min_cluster_sizes").as_integer_array();
+    auto cc_max = this->get_parameter("euclid_params.class_clustering.max_cluster_sizes").as_integer_array();
+    auto cc_merge = this->get_parameter("euclid_params.class_clustering.merge_thresholds").as_double_array();
+    auto cc_inflate = this->get_parameter("euclid_params.class_clustering.bbox_inflation_factors").as_double_array();
+    const size_t n = cc_cls.size();
+    class_clustering_params_.clear();
+    // bbox_inflation_factors is optional — defaults to 1.0 per class if omitted or wrong length.
+    const bool have_inflate = (cc_inflate.size() == n);
+    if (n > 0 && cc_tol.size() == n && cc_min.size() == n && cc_max.size() == n && cc_merge.size() == n) {
+      for (size_t i = 0; i < n; ++i) {
+        SpatialAssociationCore::ClassClusteringParams cp;
+        cp.cluster_tolerance = cc_tol[i];
+        cp.min_cluster_size = static_cast<int>(cc_min[i]);
+        cp.max_cluster_size = static_cast<int>(cc_max[i]);
+        cp.merge_threshold = cc_merge[i];
+        cp.bbox_inflation = have_inflate ? cc_inflate[i] : 1.0;
+        class_clustering_params_[cc_cls[i]] = cp;
+      }
+    } else if (n > 0) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "class_clustering arrays have mismatched lengths (%zu classes); class-aware clustering disabled",
+        n);
     }
   }
 
@@ -1502,6 +1543,96 @@ DetectionOutputs SpatialAssociationNode::processDetections(
   }
 
   projection_utils::filterCandidatesByClassAwareConstraints(candidates, detection);
+
+  // Class-aware re-clustering: refine matched candidates using per-class clustering params.
+  const auto & class_params = core_->getParams().class_params;
+  if (!class_params.empty() && !candidates.empty()) {
+    const auto lidar_to_image = projection_utils::buildLidarToImageMatrix(transform, projection_matrix);
+    const int iw = image_width > 0 ? image_width : projection_utils::kDefaultImageWidth;
+    const int ih = image_height > 0 ? image_height : projection_utils::kDefaultImageHeight;
+
+    for (auto & candidate : candidates) {
+      if (!candidate.match || candidate.match->det_idx < 0) continue;
+      const size_t di = static_cast<size_t>(candidate.match->det_idx);
+      if (di >= detection.detections.size() || detection.detections[di].results.empty()) continue;
+
+      const std::string & class_id = detection.detections[di].results[0].hypothesis.class_id;
+      auto it = class_params.find(class_id);
+      if (it == class_params.end()) {
+        if (debug_logging_) {
+          RCLCPP_INFO(
+            this->get_logger(),
+            "Class-recluster: no per-class params for '%s', keeping original (%zu pts)",
+            class_id.c_str(),
+            candidate.indices.indices.size());
+        }
+        continue;
+      }
+
+      const size_t orig_size = candidate.indices.indices.size();
+
+      // Inflate the 2D detection box to compensate for transform misalignment at range.
+      const double inflate = it->second.bbox_inflation;
+      vision_msgs::msg::Detection2D inflated_det = detection.detections[di];
+      if (inflate > 1.0) {
+        inflated_det.bbox.size_x *= inflate;
+        inflated_det.bbox.size_y *= inflate;
+      }
+
+      // Extract all LiDAR points that project into the (inflated) 2D bounding box.
+      auto region_indices =
+        projection_utils::extractPointIndicesInDetectionBox(cloud, lidar_to_image, inflated_det, iw, ih);
+      if (region_indices.size() < 2u) {
+        if (debug_logging_) {
+          RCLCPP_INFO(
+            this->get_logger(),
+            "Class-recluster [%s]: only %zu points in detection box, skipping (need >= 2)",
+            class_id.c_str(),
+            region_indices.size());
+        }
+        continue;
+      }
+
+      // Re-cluster the region with class-specific params.
+      auto refined = core_->reClusterPointSubset(cloud, region_indices, it->second);
+      if (refined.empty()) {
+        if (debug_logging_) {
+          RCLCPP_INFO(
+            this->get_logger(),
+            "Class-recluster [%s]: %zu region pts -> 0 clusters (tol=%.2f, min=%d), keeping original (%zu pts)",
+            class_id.c_str(),
+            region_indices.size(),
+            it->second.cluster_tolerance,
+            it->second.min_cluster_size,
+            orig_size);
+        }
+        continue;
+      }
+
+      // Select the refined cluster that best overlaps with the original candidate.
+      size_t best = projection_utils::selectBestClusterByOverlap(refined, candidate.indices);
+      const size_t refined_size = refined[best].indices.size();
+      candidate.indices = std::move(refined[best]);
+
+      // Recompute stats for the refined cluster.
+      auto stats = projection_utils::computeClusterStats(cloud, {candidate.indices});
+      if (!stats.empty()) {
+        candidate.stats = stats[0];
+      }
+
+      if (debug_logging_) {
+        RCLCPP_INFO(
+          this->get_logger(),
+          "Class-recluster [%s]: %zu region pts -> %zu clusters, picked #%zu (%zu pts, was %zu)",
+          class_id.c_str(),
+          region_indices.size(),
+          refined.size(),
+          best,
+          refined_size,
+          orig_size);
+      }
+    }
+  }
 
   std::vector<pcl::PointIndices> out_indices = projection_utils::extractIndices(candidates);
 

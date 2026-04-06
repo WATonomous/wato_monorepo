@@ -22,6 +22,9 @@ Core logic draws inspiration from ByteTrackV2 (Zhang et al., 2023). The implemen
 | `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked detections, track velocities are stored in the results field (ObjectHypothesisWithPose[]) |
 
 ## Parameters
+
+### Global Defaults
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `frame_rate`| int | 30 | Frame rate of the input detections |
@@ -33,6 +36,43 @@ Core logic draws inspiration from ByteTrackV2 (Zhang et al., 2023). The implemen
 | `use_R_scaling` | bool | false | Scale R matrix in Kalman Filter according to detection confidence |
 | `dist_metric` | string | "IOU" | Which distance metric to use (currently supports "IOU", "DIOU", "CIOU") |
 | `output_frame` | string | "map" | Frame to output tracks in |
+
+### Prediction (Kalman Filter)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `centroid_history_size` | int | 10 | Past centroids stored per track for velocity seeding |
+| `prediction_time` | double | 5.0 | How far into the future to predict (seconds) |
+| `prediction_dt` | double | 0.1 | Time step between predicted poses (seconds) |
+| `process_noise` | double | 0.1 | KF process noise (higher = trust measurements more, noisier velocity) |
+| `measurement_noise` | double | 0.5 | KF measurement noise (higher = smoother tracks, filters outliers) |
+
+### Per-Class Tracking Overrides
+
+When configured, separate `BYTETracker` instances run per class with independent thresholds and distance metrics. Detections are split by class before tracking and merged afterward with unique track ID offsets to avoid collisions. Classes not listed use the global defaults.
+
+Empty arrays disable per-class tracking (single global tracker for all classes).
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `class_tracking.classes` | string[] | [] | Class names (parallel with arrays below) |
+| `class_tracking.match_thresholds` | double[] | [] | Max IoU cost per class (higher = more permissive matching) |
+| `class_tracking.high_thresholds` | double[] | [] | Min confidence to create new track per class |
+| `class_tracking.track_thresholds` | double[] | [] | High/low confidence split per class |
+| `class_tracking.dist_metrics` | string[] | [] | Distance metric per class ("IOU", "DIOU", "CIOU") |
+
+**Example** (cars use strict IOU, persons use permissive CIOU):
+
+```yaml
+class_tracking:
+  classes:           ["car",  "person", "truck", "bus"]
+  match_thresholds:  [0.95,   0.99,     0.95,    0.95]
+  high_thresholds:   [0.40,   0.001,    0.10,    0.10]
+  track_thresholds:  [0.10,   0.01,     0.10,    0.10]
+  dist_metrics:      ["IOU",  "CIOU",   "IOU",   "IOU"]
+```
+
+**Why per-class?** Small objects (persons, bicycles) have tiny 3D bounding boxes where frame-to-frame BEV IoU is near zero even for the same physical object. CIOU with a high match threshold bridges this gap. Large objects (cars, trucks) have stable boxes where standard IOU works well and CIOU can cause ID switches.
 
 ## Acknowledgements
 

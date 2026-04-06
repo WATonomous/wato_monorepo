@@ -226,6 +226,9 @@ private:
   /** Multi-band clustering bands (empty = use legacy two-band or flat clustering). */
   std::vector<SpatialAssociationCore::ClusteringBand> clustering_bands_;
 
+  /** Per-class clustering parameter overrides (empty = no class-aware re-clustering). */
+  std::unordered_map<std::string, SpatialAssociationCore::ClassClusteringParams> class_clustering_params_;
+
   double merge_threshold_;
 
   float object_detection_confidence_;
