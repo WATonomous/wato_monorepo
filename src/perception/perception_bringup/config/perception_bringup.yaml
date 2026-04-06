@@ -168,7 +168,7 @@ multi_camera_sync:
 /**/tracking_node:
   ros__parameters:
     # --- Temporal tracking behavior ---
-    frame_rate: 9
+    frame_rate: 12
     track_buffer: 120
     track_thresh: 0.1
     high_thresh: 0.15
@@ -178,7 +178,7 @@ multi_camera_sync:
     dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
-    output_frame: "lidar_cc"
+    output_frame: "map"
     publish_visualization: true
 
     # --- Per-class tracking overrides (parallel arrays). Empty = single global tracker. ---
