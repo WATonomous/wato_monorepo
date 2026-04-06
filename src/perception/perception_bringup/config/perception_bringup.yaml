@@ -114,8 +114,7 @@ multi_camera_sync:
 /**/deep_object_detection_node:
   ros__parameters:
     # --- Input/asset paths and transport ---
-    model_path: "/ws/models/yolov8m.onnx"
-    class_names_path: "/ws/install/deep_object_detection/share/deep_object_detection/config/coco_classes.txt"
+    # model_path and class_names_path are set in the launch file
     use_compressed_images: true  # true for compressed image topics, false for uncompressed/shared memory
 
     # --- Model tensor contract ---
@@ -169,7 +168,7 @@ multi_camera_sync:
   ros__parameters:
     # --- Temporal tracking behavior ---
     frame_rate: 12
-    track_buffer: 120
+    track_buffer: 60
     track_thresh: 0.1
     high_thresh: 0.15
     match_thresh: 0.9
@@ -185,10 +184,10 @@ multi_camera_sync:
     # Classes not listed here use the global defaults above.
     class_tracking:
       classes: ["car",  "person", "truck", "bus"]
-      match_thresholds: [0.95,   0.999999,     0.95,    0.95]
-      high_thresholds: [0.40,   0.001,     0.35,    0.20]
-      track_thresholds: [0.10,   0.001,     0.10,    0.10]
-      dist_metrics: ["IOU",  "CIOU",   "IOU",   "IOU"]
+      match_thresholds: [0.95,   1.5,       0.95,    0.95]
+      high_thresholds: [0.40,   0.35,      0.35,    0.20]
+      track_thresholds: [0.10,   0.25,      0.10,    0.10]
+      dist_metrics: ["IOU",  "CIOU",    "IOU",   "IOU"]
 
     # --- Prediction (Kalman filter future path) ---
     centroid_history_size: 10   # past centroids stored per track
@@ -220,28 +219,29 @@ multi_camera_sync:
       cluster_tolerance: 0.60
       min_cluster_size: 3
       max_cluster_size: 1000
-      use_adaptive_clustering: false
+      use_adaptive_clustering: true
       close_threshold: 10.0
       close_tolerance_mult: 1.0
 
       # Distance-band overrides for adaptive clustering.
+      # With sparse clouds (~31k valid points), far objects need larger tolerance to cluster.
       clustering_bands:
         max_distances: [8.0, 20.0, 40.0, 999.0]
-        tolerance_mults: [1.0, 1.0, 1.5, 2.5]
-        min_cluster_sizes: [10, 6, 3, 2]
+        tolerance_mults: [1.0, 1.2, 1.8, 3.0]
+        min_cluster_sizes: [8, 4, 2, 1]
 
       # Per-class clustering overrides for class-aware re-clustering.
       # After initial clustering + 2D association, matched detections are re-clustered
       # with class-specific params. This is usually for classes smaller than cars that need tighter tolerances
       class_clustering:
         classes: ["person", "bicycle", "motorcycle", "stop sign"]
-        cluster_tolerances: [0.50,   0.80,      0.80,       0.20]
+        cluster_tolerances: [0.60,   0.80,      0.80,       0.20]
         min_cluster_sizes: [1,      5,         5,            2]
         max_cluster_sizes: [700,   900,       900,          80]
         merge_thresholds: [0.4,   0.50,      0.40,         0.05]
         # Inflate 2D detection box before extracting LiDAR points (compensates for TF misalignment at range).
         # 1.0 = no inflation, 1.3 = 30% wider/taller box.
-        bbox_inflation_factors: [1.5,   1.15,      1.15,   1.00]
+        bbox_inflation_factors: [1.8,   1.15,      1.15,   1.00]
 
     # --- Merge behavior ---
     merge_threshold: 0.60
@@ -264,14 +264,14 @@ multi_camera_sync:
       max_distance: 60.0
       min_points: 1
       min_height: 0.05
-      min_points_default: 3
+      min_points_default: 2
       min_points_far: 1
-      min_points_medium: 2
+      min_points_medium: 1
       min_points_large: 15
       distance_threshold_far: 45.0
       distance_threshold_medium: 30.0
       volume_threshold_large: 8.0
-      min_density: 1.5
+      min_density: 1.0
       max_dimension: 15.0
       max_aspect_ratio: 15.0
 

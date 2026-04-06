@@ -95,6 +95,10 @@ launch:
               to: "/perception/image_annotations"
           param:
             - from: $(var config_file)
+            - name: model_path
+              value: /opt/watonomous/models/yolov8m.onnx
+            - name: class_names_path
+              value: $(find-pkg-share deep_object_detection)/config/coco_classes.txt
 
   # Load attribute assigner into the shared container
   - load_composable_node:

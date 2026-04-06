@@ -487,7 +487,7 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "quality_filter_params.max_aspect_ratio", 15.0);
 
   const std::string pu("projection_utils_params.");
-  declareIfMissing(this, pu + "marker_lifetime_s", 1.5);
+  declareIfMissing(this, pu + "marker_lifetime_s", 0.5);
   declareIfMissing(this, pu + "marker_alpha", 0.2);
   declareIfMissing(this, pu + "min_iou_threshold", 0.15);
   declareIfMissing(this, pu + "ar_front_view_threshold", 1.2);

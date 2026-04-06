@@ -332,15 +332,22 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
     return;
   }
 
-  // Get newest frame transform
+  // Get frame transform at detection time (not latest) to avoid position jumps from ego motion
   geometry_msgs::msg::TransformStamped tf_stamped;
   try {
-    tf_stamped = tf_buffer_->lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
-  } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s. Clearing track state.", ex.what());
-    track_filters_.clear();
-    track_centroids_.clear();
-    return;
+    tf_stamped = tf_buffer_->lookupTransform(
+      output_frame_, msg->header.frame_id, rclcpp::Time(msg->header.stamp),
+      rclcpp::Duration::from_seconds(0.1));
+  } catch (const tf2::TransformException &) {
+    // Fall back to latest transform if the stamped lookup fails
+    try {
+      tf_stamped = tf_buffer_->lookupTransform(output_frame_, msg->header.frame_id, tf2::TimePointZero);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s. Clearing track state.", ex.what());
+      track_filters_.clear();
+      track_centroids_.clear();
+      return;
+    }
   }
 
   vision_msgs::msg::Detection3DArray tf_msg;
@@ -398,13 +405,25 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
     }
   }
 
-  // Match each tracked detection to the nearest input detection to:
+  // Match each tracked detection to the nearest same-class input detection to:
   // 1. Override ByteTrack's filtered yaw (Kalman filter causes unstable spinning)
   // 2. Carry forward attribute hypotheses (state:*, behavior:*) from enriched detections
   for (auto & trk : tracked_dets.detections) {
+    const std::string trk_class =
+      trk.results.empty() ? "" : trk.results[0].hypothesis.class_id;
     double best_dist = std::numeric_limits<double>::max();
     const vision_msgs::msg::Detection3D * best_det = nullptr;
     for (const auto & det : tf_msg.detections) {
+      // Only match within the same class to avoid cross-class contamination
+      std::string det_class;
+      for (const auto & r : det.results) {
+        if (r.hypothesis.class_id.find(':') == std::string::npos) {
+          det_class = r.hypothesis.class_id;
+          break;
+        }
+      }
+      if (det_class != trk_class) continue;
+
       double dx = trk.bbox.center.position.x - det.bbox.center.position.x;
       double dy = trk.bbox.center.position.y - det.bbox.center.position.y;
       double dz = trk.bbox.center.position.z - det.bbox.center.position.z;
@@ -414,7 +433,8 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
         best_det = &det;
       }
     }
-    if (best_det) {
+    // Gate: reject matches beyond 3m (squared) to avoid snapping to distant detections
+    if (best_det && best_dist < 9.0) {
       trk.bbox.center.orientation = best_det->bbox.center.orientation;
 
       // Append attribute hypotheses (class_id contains ':') from the matched input detection

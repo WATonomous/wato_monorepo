@@ -156,8 +156,7 @@ services:
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
     volumes:
-      - ../models:/ws/models
-      - ../src/perception/perception_bringup/config:/ws/src/perception/perception_bringup/config
+      - ${MONO_DIR}/models:/opt/watonomous/models
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
