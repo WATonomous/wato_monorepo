@@ -336,8 +336,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
   geometry_msgs::msg::TransformStamped tf_stamped;
   try {
     tf_stamped = tf_buffer_->lookupTransform(
-      output_frame_, msg->header.frame_id, rclcpp::Time(msg->header.stamp),
-      rclcpp::Duration::from_seconds(0.1));
+      output_frame_, msg->header.frame_id, rclcpp::Time(msg->header.stamp), rclcpp::Duration::from_seconds(0.1));
   } catch (const tf2::TransformException &) {
     // Fall back to latest transform if the stamped lookup fails
     try {
@@ -409,8 +408,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
   // 1. Override ByteTrack's filtered yaw (Kalman filter causes unstable spinning)
   // 2. Carry forward attribute hypotheses (state:*, behavior:*) from enriched detections
   for (auto & trk : tracked_dets.detections) {
-    const std::string trk_class =
-      trk.results.empty() ? "" : trk.results[0].hypothesis.class_id;
+    const std::string trk_class = trk.results.empty() ? "" : trk.results[0].hypothesis.class_id;
     double best_dist = std::numeric_limits<double>::max();
     const vision_msgs::msg::Detection3D * best_det = nullptr;
     for (const auto & det : tf_msg.detections) {
