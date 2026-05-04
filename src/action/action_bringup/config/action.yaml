@@ -27,8 +27,8 @@
       max_curvature_change: 0.1
 
     # -  Corridor  -
-    num_lane_switch_horizons: 3
-    lane_switch_lookahead_distances: [10.0, 17.5, 25.0]  # meters
+    num_lane_switch_horizons: 1
+    lane_switch_lookahead_distances: [2.0]  # meters
 
     # Centreline horizon
     centreline_horizon: 30.0  # meters
