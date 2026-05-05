@@ -427,7 +427,7 @@ multi_camera_sync:
     sync_max_time_diff_ms: 400.0  # Detections usually lag images by about 50-150 ms
 
     # --- Visualization outputs ---
-    enable_image_markers: true  # 2D image marker overlays
+    enable_image_markers: false  # 2D image marker overlays
     enable_3d_markers: true      # 3D MarkerArray for Foxglove
 
     # --- 3D enrichment (intrinsics + TF + priors) ---
