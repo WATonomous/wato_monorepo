@@ -25,6 +25,8 @@
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
+#include <rcl_interfaces/msg/parameter_type.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <tf2/utils.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -183,11 +185,21 @@ void TrackingNode::initializeParams()
   process_noise_ = this->declare_parameter<double>("process_noise", 0.1);
   measurement_noise_ = this->declare_parameter<double>("measurement_noise", 0.5);
 
-  auto ct_classes = this->declare_parameter<std::vector<std::string>>("class_tracking.classes", {});
-  auto ct_match = this->declare_parameter<std::vector<double>>("class_tracking.match_thresholds", {});
-  auto ct_high = this->declare_parameter<std::vector<double>>("class_tracking.high_thresholds", {});
-  auto ct_dist = this->declare_parameter<std::vector<std::string>>("class_tracking.dist_metrics", {});
-  auto ct_track = this->declare_parameter<std::vector<double>>("class_tracking.track_thresholds", {});
+  rcl_interfaces::msg::ParameterDescriptor str_arr_desc;
+  str_arr_desc.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING_ARRAY;
+  rcl_interfaces::msg::ParameterDescriptor dbl_arr_desc;
+  dbl_arr_desc.type = rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE_ARRAY;
+
+  auto ct_classes = this->declare_parameter<std::vector<std::string>>(
+    "class_tracking.classes", std::vector<std::string>{}, str_arr_desc);
+  auto ct_match = this->declare_parameter<std::vector<double>>(
+    "class_tracking.match_thresholds", std::vector<double>{}, dbl_arr_desc);
+  auto ct_high = this->declare_parameter<std::vector<double>>(
+    "class_tracking.high_thresholds", std::vector<double>{}, dbl_arr_desc);
+  auto ct_dist = this->declare_parameter<std::vector<std::string>>(
+    "class_tracking.dist_metrics", std::vector<std::string>{}, str_arr_desc);
+  auto ct_track = this->declare_parameter<std::vector<double>>(
+    "class_tracking.track_thresholds", std::vector<double>{}, dbl_arr_desc);
   const size_t n = ct_classes.size();
   class_tracker_params_.clear();
   if (n > 0 && ct_match.size() == n && ct_high.size() == n && ct_dist.size() == n && ct_track.size() == n) {
