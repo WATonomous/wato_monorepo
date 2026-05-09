@@ -24,6 +24,7 @@
   <depend>bytetrack_cpp_vendor</depend>
 
   <test_depend>wato_test</test_depend>
+  <test_depend>rmw_fastrtps_cpp</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

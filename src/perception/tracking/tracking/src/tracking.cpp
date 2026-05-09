@@ -194,8 +194,8 @@ void TrackingNode::initializeParams()
     "class_tracking.classes", std::vector<std::string>{}, str_arr_desc);
   auto ct_match = this->declare_parameter<std::vector<double>>(
     "class_tracking.match_thresholds", std::vector<double>{}, dbl_arr_desc);
-  auto ct_high = this->declare_parameter<std::vector<double>>(
-    "class_tracking.high_thresholds", std::vector<double>{}, dbl_arr_desc);
+  auto ct_high =
+    this->declare_parameter<std::vector<double>>("class_tracking.high_thresholds", std::vector<double>{}, dbl_arr_desc);
   auto ct_dist = this->declare_parameter<std::vector<std::string>>(
     "class_tracking.dist_metrics", std::vector<std::string>{}, str_arr_desc);
   auto ct_track = this->declare_parameter<std::vector<double>>(
