@@ -15,7 +15,7 @@
         <!-- else decide whether we should overtake -->
         <Sequence name="Start Overtake">
           <EgoStoppedForDuration
-            ego_odom="{@ego_odom}"
+            ego_odom="{@ego_odom_incremental}"
             threshold_velocity="{@bt.ego_stopped_velocity_threshold}"
             duration_msec="10000" />
           <GlobalRouteExist route="{global_route}" />

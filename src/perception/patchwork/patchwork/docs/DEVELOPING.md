@@ -17,7 +17,7 @@ Key sources:
 - Node (ROS-facing) API: `src/perception/patchwork/include/patchworkpp/ground_removal_node.hpp:1`
 - Core implementation: `src/perception/patchwork/src/ground_removal_core.cpp:1`
 - Node implementation: `src/perception/patchwork/src/ground_removal_node.cpp:1`
-- Launch (package local): `src/perception/patchwork/launch/ground_removal_launch.yaml:1`
+- Launch (package local): `src/perception/patchwork/launch/ground_removal.launch.yaml:1`
 - Default parameters: `src/perception/patchwork/config/params.yaml:1`
 
 Directory layout:
@@ -72,7 +72,7 @@ QoS:
 
 Launch options:
 
-- Local launch YAML: `src/perception/patchwork/launch/ground_removal_launch.yaml:1` supports a `cloud_topic` argument.
+- Local launch YAML: `src/perception/patchwork/launch/ground_removal.launch.yaml:1` supports a `cloud_topic` argument.
 - Perception bringup: `src/perception/perception_bringup/launch/perception.launch.py:81` composes this node with remappable input/output topics and parameter file.
 - Component composition: The node is registered as a composable component via `RCLCPP_COMPONENTS_REGISTER_NODE` and can be loaded dynamically.
 
@@ -383,7 +383,7 @@ ros2 launch perception_bringup perception.launch.py \
 Package‑local launch:
 
 ```
-ros2 launch patchworkpp ground_removal_launch.yaml cloud_topic:=/lidar_cc
+ros2 launch patchworkpp ground_removal.launch.yaml cloud_topic:=/lidar_cc
 ```
 
 Docker (builds Patchwork++ and this package): see `docker/perception/perception.Dockerfile:1`. Inside the container, build and launch as above.

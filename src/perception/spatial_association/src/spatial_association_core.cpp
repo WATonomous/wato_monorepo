@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <utility>
 #include <vector>
 
 namespace wato::perception::spatial_association
@@ -185,6 +186,52 @@ void SpatialAssociationCore::computeClusterCentroids(
   centroid_cloud->width = centroid_cloud->points.size();
   centroid_cloud->height = 1;
   centroid_cloud->is_dense = true;
+}
+
+std::vector<pcl::PointIndices> SpatialAssociationCore::reClusterPointSubset(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const std::vector<int> & point_indices,
+  const ClassClusteringParams & cp) const
+{
+  std::vector<pcl::PointIndices> result;
+  if (!cloud || point_indices.size() < 2u) return result;
+
+  // Build sub-cloud from the given indices.
+  pcl::PointCloud<pcl::PointXYZ>::Ptr sub(new pcl::PointCloud<pcl::PointXYZ>);
+  sub->points.reserve(point_indices.size());
+  for (int idx : point_indices) {
+    sub->points.push_back(cloud->points[idx]);
+  }
+  sub->width = sub->points.size();
+  sub->height = 1;
+  sub->is_dense = false;
+
+  // Resolve per-class params with fallback to global defaults.
+  const double tolerance = cp.cluster_tolerance > 0 ? cp.cluster_tolerance : params_.euclid_cluster_tolerance;
+  const int min_size = cp.min_cluster_size > 0 ? cp.min_cluster_size : params_.euclid_min_cluster_size;
+  const int max_size = cp.max_cluster_size > 0 ? cp.max_cluster_size : params_.euclid_max_cluster_size;
+
+  std::vector<pcl::PointIndices> sub_clusters;
+  projection_utils::euclideanClusterExtraction(sub, tolerance, min_size, max_size, sub_clusters);
+
+  // Merge nearby clusters if per-class merge threshold is set.
+  const double merge_thresh = cp.merge_threshold > 0 ? cp.merge_threshold : params_.merge_threshold;
+  if (sub_clusters.size() > 1u && merge_thresh > 0) {
+    auto stats = projection_utils::computeClusterStats(sub, sub_clusters);
+    projection_utils::mergeClusters(sub_clusters, sub, stats, merge_thresh);
+  }
+
+  // Map sub-cloud indices back to original cloud indices.
+  result.reserve(sub_clusters.size());
+  for (auto & cluster : sub_clusters) {
+    pcl::PointIndices mapped;
+    mapped.indices.reserve(cluster.indices.size());
+    for (int idx : cluster.indices) {
+      mapped.indices.push_back(point_indices[idx]);
+    }
+    result.push_back(std::move(mapped));
+  }
+  return result;
 }
 
 }  // namespace wato::perception::spatial_association

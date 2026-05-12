@@ -113,12 +113,6 @@ macro(build_bytetrack_cpp)
         DESTINATION ${CMAKE_INSTALL_PREFIX}/opt/bytetrack_cpp_vendor
     )
 
-    # Install cmake config
-    install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/bytetrack_cpp_vendor-config.cmake
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/opt/bytetrack_cpp_vendor/cmake
-    )
-
 endmacro()
 
 # Check for pre-existing ByteTrack installations, build if none or forced
@@ -131,4 +125,6 @@ else()
 endif()
 
 # Export dependencies
-ament_package()
+ament_package(CONFIG_EXTRAS
+    "${CMAKE_CURRENT_BINARY_DIR}/bytetrack_cpp_vendor-config.cmake"
+)

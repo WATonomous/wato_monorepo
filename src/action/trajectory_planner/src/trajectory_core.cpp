@@ -134,7 +134,7 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
       double seg = std::hypot(dx, dy);
       if (seg > 1e-9) {
         double next_speed = trajectory.points[i + 1].max_speed;
-        double v_max = std::sqrt(next_speed * next_speed + 2.0 * config_.max_lateral_accel * seg);
+        double v_max = std::sqrt(next_speed * next_speed + 2.0 * config_.max_tangential_accel * seg);
         trajectory.points[i].max_speed = std::min(trajectory.points[i].max_speed, v_max);
       }
     }

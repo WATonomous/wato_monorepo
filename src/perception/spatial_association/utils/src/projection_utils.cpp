@@ -79,6 +79,55 @@ std::vector<pcl::PointIndices> extractIndices(const std::vector<ClusterCandidate
   return indices;
 }
 
+std::vector<int> extractPointIndicesInDetectionBox(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  const vision_msgs::msg::Detection2D & detection,
+  int image_width,
+  int image_height)
+{
+  std::vector<int> indices;
+  if (!cloud || cloud->empty()) return indices;
+
+  const double cx = detection.bbox.center.position.x;
+  const double cy = detection.bbox.center.position.y;
+  const double half_w = detection.bbox.size_x * 0.5;
+  const double half_h = detection.bbox.size_y * 0.5;
+  const double x_min = std::max(0.0, cx - half_w);
+  const double x_max = std::min(static_cast<double>(image_width), cx + half_w);
+  const double y_min = std::max(0.0, cy - half_h);
+  const double y_max = std::min(static_cast<double>(image_height), cy + half_h);
+
+  indices.reserve(cloud->size() / 4);
+  for (size_t i = 0; i < cloud->points.size(); ++i) {
+    auto proj = projectLidarToCamera(lidar_to_image, cloud->points[i]);
+    if (!proj) continue;
+    if (proj->x >= x_min && proj->x <= x_max && proj->y >= y_min && proj->y <= y_max) {
+      indices.push_back(static_cast<int>(i));
+    }
+  }
+  return indices;
+}
+
+size_t selectBestClusterByOverlap(const std::vector<pcl::PointIndices> & clusters, const pcl::PointIndices & reference)
+{
+  if (clusters.empty()) return 0;
+  std::unordered_set<int> ref_set(reference.indices.begin(), reference.indices.end());
+  size_t best = 0;
+  size_t best_overlap = 0;
+  for (size_t c = 0; c < clusters.size(); ++c) {
+    size_t overlap = 0;
+    for (int idx : clusters[c].indices) {
+      if (ref_set.count(idx)) ++overlap;
+    }
+    if (overlap > best_overlap) {
+      best_overlap = overlap;
+      best = c;
+    }
+  }
+  return best;
+}
+
 std::vector<Box3D> computeClusterBoxes(
   const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud, const std::vector<pcl::PointIndices> & cluster_indices)
 {
