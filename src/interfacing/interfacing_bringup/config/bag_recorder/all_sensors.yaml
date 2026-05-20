@@ -41,6 +41,7 @@ bag_recorder:
         - /lidar_cc/velodyne_points
         - /lidar_nw/velodyne_points
         - /lidar_ne/velodyne_points
+        - /lidar/all/points_merged
         # Novatel GPS/IMU
         - /novatel/oem7/bestgnsspos
         - /novatel/oem7/bestgnssvel
@@ -85,6 +86,10 @@ bag_recorder:
         - /interfacing/oscc_interfacing/steering_torque
         - /interfacing/oscc_interfacing/wheel_speeds
         - /interfacing/roscco
+        # EIDOS Localization
+        - /world_modeling/slam/pose
+        - /world_modeling/slam/odometry
+        - /world_modeling/transform/odometry
         # Transforms
         - /tf
         - /tf_static
