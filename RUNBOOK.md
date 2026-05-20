@@ -39,7 +39,7 @@ When preparing the car for the test track, do the following:
 1. reconnect compute rack fuse by pushing the yellow lever in
 1. connect sensor power bar to sine wave generator (blue box)
 1. connect computer to sine wave generator
-1. turn on the car and proceed to go to test track
+1. turn on the car (holding the brake and pressing the start button) and proceed to go to test track
 1. **Once at the test track** disconnect the car battery, wait 10 sec, and reconnect the car battery (this is a hack because for some reason our boards start to fault if we've driven the car ourselves for too long, you can use this tactic whenever our teleop setup doesn't work. We need to look into this)
 1. turn car back on, and drive roughly 200m in any direction (so that we can hone in the gps, else localization and pid controls wont work)
 1. proceed to up the entire software start with `watod` (enabling all profiles and upping)
