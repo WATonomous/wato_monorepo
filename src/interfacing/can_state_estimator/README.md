@@ -1,48 +1,41 @@
 # can_state_estimator
 
-Vehicle state estimation from the CAN bus.
+Reads steering angle and wheel speed frames directly from the vehicle OBD CAN bus and publishes steering angle, body velocity, and dead-reckoning odometry.
 
-This node reads steering angle and wheel speed frames directly from SocketCAN and publishes steering angle, body velocity, and dead-reckoning odometry. It replaces the separate `car_steering_feedback` and `car_velocity_feedback` packages with a single lifecycle node.
+## Overview
 
-## Node
+Rather than routing vehicle feedback through OSCC, this node reads CAN frames directly via SocketCAN. This eliminates the OSCC dependency for feedback data and reduces latency by one ROS hop. It handles both the `0x2B0` (steering) and `0x4B0` (wheel speeds) CAN frame IDs used by the Kia Soul EV.
 
-### can_state_estimator_node
+## Architecture
 
-Reads two CAN frame types from the vehicle OBD bus:
+The node runs a background thread that blocks on `read()` for incoming CAN frames. Each frame is decoded and the corresponding state (steering angle, wheel speeds) is updated under a mutex. On each wheel speed frame the node recomputes body velocity and integrates odometry.
 
-- **0x2B0** - Steering wheel angle (int16 LE, 0.1 deg/bit). Converted to wheel angle in radians using the `steering_conversion_factor`.
-- **0x4B0** - Wheel speeds (four 12-bit values at 2-byte offsets, decoded as `(int)(raw / 3.2) / 10.0` in km/h).
-
-Body velocity is computed as the average front wheel speed projected through the steering angle (Ackermann bicycle model). Odometry integrates this velocity and yaw rate over time.
-
-The wheelbase is resolved from TF by looking up the distance between the `rear_axle_frame` and `front_axle_frame` (published by `robot_state_publisher` from the URDF). The node will wait for this transform before publishing velocity or odometry.
-
-```bash
-ros2 run can_state_estimator can_state_estimator_node
+```
+CAN Bus (SocketCAN)
+  0x2B0 steering ──┐
+  0x4B0 wheels  ──┤──► CAN read thread ──► decode & integrate ──► publishers
+                   │
+              TF lookup (rear_axle → front_axle = wheelbase)
 ```
 
-**Publications:**
+**Ackermann bicycle model** (rear-axle reference):
+```
+v_front_avg = (v_nw + v_ne) / 2
+v_body      = v_front_avg * cos(steering_angle)
+omega       = v_body * tan(steering_angle) / wheelbase
 
-| Topic | Type | Description |
-|-------|------|-------------|
-| `can_state_estimator/steering_angle` | `roscco_msg/SteeringAngle` | Wheel angle in radians |
-| `can_state_estimator/body_velocity` | `std_msgs/Float64` | Rear-axle longitudinal velocity in m/s |
-| `can_state_estimator/odom` | `nav_msgs/Odometry` | Dead-reckoning pose and twist |
+x     += v_body * cos(theta) * dt
+y     += v_body * sin(theta) * dt
+theta += omega * dt
+```
 
-**Parameters:**
+The wheelbase is resolved from TF at startup by looking up the distance between `rear_axle_frame` and `front_axle_frame` (published by `robot_state_publisher` from the URDF). The node blocks until this transform is available before publishing velocity or odometry.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `can_interface` | string | `can1` | SocketCAN interface for the vehicle OBD bus |
-| `steering_conversion_factor` | double | `15.7` | Steering wheel to wheel angle ratio |
-| `rear_axle_frame` | string | `rear_axle` | TF frame at the rear axle (wheelbase source) |
-| `front_axle_frame` | string | `front_axle` | TF frame at the front axle (wheelbase target) |
-| `odom_frame` | string | `odom` | Frame ID for the odometry header |
-| `base_frame` | string | `base_footprint` | Child frame ID for the odometry message |
+Odometry is pure dead-reckoning and will drift. Fuse with GPS/IMU for absolute positioning.
 
 ## Lifecycle
 
-The node is managed by `wato_lifecycle_manager`:
+Managed by `wato_lifecycle_manager`:
 
 | Transition | Action |
 |------------|--------|
@@ -50,19 +43,3 @@ The node is managed by `wato_lifecycle_manager`:
 | activate | Activate publishers, reset odometry, start CAN read thread |
 | deactivate | Stop CAN read thread, deactivate publishers |
 | cleanup | Close CAN socket, destroy publishers and TF resources |
-
-## Odometry Model
-
-Uses the Ackermann bicycle model referenced at the rear axle:
-
-```
-v_front_avg = (v_nw + v_ne) / 2          front wheel average (km/h -> m/s)
-v_body      = v_front_avg * cos(delta)    longitudinal velocity at rear axle
-omega       = v_body * tan(delta) / L     yaw rate (L = wheelbase from TF)
-
-x     += v_body * cos(theta) * dt
-y     += v_body * sin(theta) * dt
-theta += omega * dt
-```
-
-This is pure dead-reckoning and will drift over time. Fuse with GPS/IMU for absolute positioning.

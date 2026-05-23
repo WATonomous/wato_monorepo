@@ -1,69 +1,24 @@
-# Ackermann Mux
+# ackermann_mux
 
-Priority-based multiplexer for Ackermann drive commands. Handles multiple input sources (e.g., joystick, action planning) and selects the highest priority active input to forward to the vehicle control system.
+Priority-based multiplexer for Ackermann drive commands (`ackermann_msgs/AckermannDriveStamped`). Sits between all Ackermann command sources (joystick, action planner, test nodes) and the PID controller, selecting the highest-priority active input at each publish cycle.
 
-## Features
+## Overview
 
-- **Priority-based arbitration**: Higher priority inputs take precedence over lower priority ones
-- **Input masking**: Enable/disable inputs dynamically via boolean mask topics
-- **Safety gating**: Automatically triggers emergency stop if safety-gated inputs stop sending commands within a configurable timeout
-- **Emergency fallback**: Publishes a safe emergency command when no eligible inputs are available or safety conditions are tripped
+Multiple subsystems may simultaneously want to control the vehicle — a joystick operator, an autonomous planner, or a test signal generator. `ackermann_mux` arbitrates between them using configurable priority levels, so the joystick always overrides the planner, which overrides test nodes, without any source needing to know about the others.
 
-## Configuration
+## Architecture
 
-The node is configured via a YAML file (see [config/ackermann_mux_config.yaml](./config/ackermann_mux_config.yaml)). Key parameters:
-
-- `safety_threshold`: Time in seconds before a safety-gated input triggers emergency (default: 0.5s)
-- `publish_rate_hz`: Rate at which output commands are published (default: 50.0 Hz)
-- `emergency`: Emergency command to publish when no eligible inputs or safety trip occurs
-  - `steering_angle`: Emergency steering angle (default: 0.0)
-  - `speed`: Emergency speed (default: -0.5)
-- `inputs`: List of input sources, each with:
-  - `topic`: ROS topic subscribing to `ackermann_msgs/msg/AckermannDriveStamped`
-  - `priority`: Priority level (higher number = higher priority)
-  - `has_mask`: Whether this input uses a mask topic (default: false)
-  - `mask_topic`: Topic publishing `std_msgs/msg/Bool` to enable/disable this input (required if `has_mask: true`)
-  - `safety_gating`: Whether to enable safety timeout for this input (default: false)
-
-## Usage
-
-Launch the node with the default configuration:
-
-```bash
-ros2 launch ackermann_mux ackermann_mux.launch.yaml
+```
+/joystick/ackermann  (priority 200) ─┐
+/action/ackermann    (priority 100) ─┤─► ackermann_mux ─► /ackermann ─► pid_control
+/dummy/ackermann     (priority  10) ─┘
 ```
 
-The node publishes multiplexed commands to `/ackermann` as `ackermann_msgs/msg/AckermannDriveStamped`.
+On each publish tick the node:
+1. Checks whether any safety-gated input has gone stale — if so, publishes the emergency command immediately.
+2. Iterates inputs from highest to lowest priority, skipping masked-out inputs.
+3. Publishes the latest command from the first eligible input, or the emergency command if none qualify.
 
-## How It Works
+**Safety gating** monitors command age on critical inputs (typically the joystick). If the joystick stops sending within `safety_threshold` seconds, the mux publishes the emergency command (brake) rather than holding the last known command.
 
-1. **Safety Check**: If any input with `safety_gating: true` hasn't received a command within `safety_threshold` seconds, the emergency command is published immediately.
-
-2. **Arbitration**: Among all eligible inputs (have received at least one command and are not masked), the one with the highest priority is selected.
-
-3. **Output**: The latest command from the selected input is published with an updated timestamp. If no eligible inputs exist, the emergency command is published.
-
-## Example Configuration
-
-```yaml
-ackermann_mux:
-  ros__parameters:
-    safety_threshold: 0.5
-    publish_rate_hz: 50.0
-    emergency:
-      steering_angle: 0.0
-      speed: -0.5
-    inputs:
-      joystick:
-        topic: /joystick/ackermann
-        priority: 100 # Highest priority
-        has_mask: true
-        mask_topic: /joystick/is_idle
-        safety_gating: true # Will trigger emergency if joystick stops sending commands
-      action:
-        topic: /action/ackermann
-        priority: 10 # Lower priority than joystick
-        has_mask: true
-        mask_topic: /action/is_idle
-        safety_gating: false
-```
+**Input masking** lets a source signal that it is voluntarily idle (e.g., `joystick/is_idle` when the enable trigger is released) so lower-priority inputs can take over without triggering a safety trip.

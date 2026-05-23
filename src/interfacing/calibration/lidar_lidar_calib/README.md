@@ -1,21 +1,27 @@
 # lidar_lidar_calib
 
-LiDAR to LiDAR extrinsic calibration package. Takes a target cloud and source cloud, and computes a transform with GICP.
+LiDAR-to-LiDAR extrinsic calibration using GICP (Generalized ICP) point cloud registration. Computes the rigid transform between the center LiDAR and each side LiDAR (NE, NW).
 
-> Note: this method requires a pretty good initial guess. This can be obtained using physical measurements. You know that you've made a good initial guess when this method starts to converge on a solution consistently. Further work can be made on automating finding a good initial guess with something like a Particle Filter.
+## Overview
+
+The NE and NW LiDARs are side-mounted and their transforms relative to the center LiDAR must be known for `lidar_aggregator` to merge the point clouds correctly. This package takes simultaneous scans from two LiDARs and finds the transform that best aligns them.
+
+GICP is an iterative refinement algorithm — it requires a reasonable initial guess (from physical measurement) to converge. The calibration must be run with the vehicle stationary in a feature-rich environment.
+
+## Prerequisites
+
+- Vehicle must be stationary
+- Environment must have sufficient geometric features (not an empty, symmetric room)
+- A physical measurement of the approximate LiDAR mount positions must be available as the initial guess
 
 ## Usage
-This method takes in two pointcloud topics, logs and publishes a transformation between the two pointclouds. For setting configurations like initial guess and max corrospondence distance, refer to the sample [config files](./config).
-
-### Prerequisites
-- Make sure robot is stationary
-- Make sure robot is in a room that is feature-rich (that is, the room is not empty and a perfect square)
 
 ```bash
 colcon build --packages-select lidar_lidar_calib
 source install/setup.bash
-
 ros2 launch lidar_lidar_calib lidar_lidar_calib.yaml
 ```
 
-This launches two nodes, each calibrating between the center lidar of the car and one of the mirror mounted lidars.
+This launches two calibration instances in parallel — one for NE and one for NW — each registering its side LiDAR against the center LiDAR. The resulting transforms are logged and published.
+
+Once calibration converges consistently, update the corresponding `<origin>` blocks in `eve_description/urdf/` with the calibrated values.

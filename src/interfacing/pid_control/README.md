@@ -1,67 +1,34 @@
 # pid_control
 
-The `pid_control` package provides ROS 2 lifecycle nodes for low-level vehicle control. It outputs `Roscco` commands for the OSCC (Open Source Car Control) system.
+Low-level vehicle control nodes that close the loop between Ackermann setpoints and ROSCCO actuator commands. Three lifecycle nodes cover different stages of the control pipeline.
+
+## Overview
+
+The control chain converts planner outputs (desired steering angle + speed) into hardware torque and throttle commands for the OSCC system:
+
+```
+[planner] ──► ackermann_smoother ──► vel_driven_feedforward_pid ──► [oscc_mux]
+                                           ▲              ▲
+                              steering_feedback     velocity_feedback
+```
 
 ## Nodes
 
-### 1. `pid_control_node`
+### ackermann_smoother_node
 
-Basic dual PID controller for steering and velocity. Subscribes to an Ackermann setpoint and sensor feedback, runs independent PID loops, and publishes a combined `Roscco` command.
+Rate-limiter between the planner and the PID controller. Prevents abrupt setpoint jumps by clamping the rate of change of steering angle and speed. Produces smoother hardware commands and reduces mechanical stress.
 
-| Subscriptions | Type | Description |
-|:---|:---|:---|
-| `ackermann` | `ackermann_msgs/AckermannDriveStamped` | Desired steering angle and speed |
-| `steering_feedback` | `roscco_msg/SteeringAngle` | Current steering angle |
-| `velocity_feedback` | `std_msgs/Float64` | Current vehicle velocity |
+### pid_control_node
 
-| Publishers | Type | Description |
-|:---|:---|:---|
-| `roscco` | `roscco_msg/Roscco` | Steering torque + velocity command |
+Basic dual PID controller. Runs independent PID loops for steering (setpoint = desired angle, feedback = current angle) and velocity (setpoint = desired speed, feedback = current speed), and combines their outputs into a single ROSCCO command.
 
-### 2. `vel_driven_feedforward_pid_node`
+### vel_driven_feedforward_pid_node
 
-![alt text](image.png)
+Extended controller with a velocity-dependent feedforward term on top of steering PID. Improves tracking at speed by pre-compensating for the known steering torque required at a given velocity.
 
-Feedforward + PID controller for steering and velocity. Adds a velocity-dependent feedforward torque model on top of the steering PID to improve tracking at speed. Also supports D-on-measurement to avoid derivative kick, an EMA filter on velocity, and configurable throttle/brake scaling.
-
-The feedforward model is:
-
+**Feedforward model:**
 ```
-T_ff = (c0 + c1*v + c2*v²) * steering_setpoint + friction_offset * sign(steering_setpoint)
+T_ff = (c0 + c1·v + c2·v²) · steering_setpoint + friction_offset · sign(steering_setpoint)
 ```
 
-Coefficients are fit from bag data using the scripts in `analysis/` (see `analysis/README.md`). Parameters are hot-reloadable at runtime.
-
-| Subscriptions | Type | Description |
-|:---|:---|:---|
-| `ackermann` | `ackermann_msgs/AckermannDriveStamped` | Desired steering angle and speed |
-| `steering_feedback` | `roscco_msg/SteeringAngle` | Current steering angle |
-| `velocity_feedback` | `std_msgs/Float64` | Current velocity (CAN) |
-| `odom_feedback` | `nav_msgs/Odometry` | Current velocity (odometry, alternative source) |
-
-| Publishers | Type | Description |
-|:---|:---|:---|
-| `roscco` | `roscco_msg/Roscco` | Steering torque + velocity command |
-| `feedforward` | `pid_msgs/Feedforward` | Feedforward debug output |
-| `velocity_derived` | `std_msgs/Float64` | Filtered velocity used internally |
-
-### 3. `ackermann_smoother_node`
-
-Rate-limiter that sits between the planner and PID. Smooths incoming Ackermann setpoints by limiting steering and speed acceleration, preventing abrupt jumps that could destabilize control or cause mechanical stress.
-
-| Subscriptions | Type | Description |
-|:---|:---|:---|
-| `ackermann_in` | `ackermann_msgs/AckermannDriveStamped` | Raw setpoint from planner |
-
-| Publishers | Type | Description |
-|:---|:---|:---|
-| `ackermann_out` | `ackermann_msgs/AckermannDriveStamped` | Smoothed setpoint for PID |
-
-## Configuration
-
-- `config/vel_driven_feedforward_pid.yaml` — parameters for the feedforward PID node
-- Config is loaded via the launch file's `config_file` argument
-
-## Analysis Tools
-
-The `analysis/` directory contains Python scripts for fitting the feedforward steering torque model from bag data. See `analysis/README.md` for the full pipeline.
+Polynomial coefficients are fit from bag data using the scripts in `analysis/`. D-on-measurement avoids derivative kick when the setpoint changes. An EMA filter smooths noisy velocity feedback.

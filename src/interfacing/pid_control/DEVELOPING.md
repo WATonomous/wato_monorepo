@@ -1,0 +1,84 @@
+# Developing pid_control
+
+## Topics
+
+### ackermann_smoother_node
+
+| Direction | Topic | Type | Description |
+|-----------|-------|------|-------------|
+| Subscribed | `ackermann_in` | `ackermann_msgs/AckermannDriveStamped` | Raw setpoint from planner |
+| Published | `ackermann_out` | `ackermann_msgs/AckermannDriveStamped` | Rate-limited setpoint |
+
+### pid_control_node
+
+| Direction | Topic | Type | Description |
+|-----------|-------|------|-------------|
+| Subscribed | `ackermann` | `ackermann_msgs/AckermannDriveStamped` | Desired steering angle and speed |
+| Subscribed | `steering_feedback` | `roscco_msg/SteeringAngle` | Current wheel angle |
+| Subscribed | `velocity_feedback` | `std_msgs/Float64` | Current velocity (m/s) |
+| Published | `roscco` | `roscco_msg/Roscco` | Steering torque + throttle/brake command |
+
+### vel_driven_feedforward_pid_node
+
+| Direction | Topic | Type | Description |
+|-----------|-------|------|-------------|
+| Subscribed | `ackermann` | `ackermann_msgs/AckermannDriveStamped` | Desired steering angle and speed |
+| Subscribed | `steering_feedback` | `roscco_msg/SteeringAngle` | Current wheel angle |
+| Subscribed | `velocity_feedback` | `std_msgs/Float64` | Current velocity from CAN |
+| Subscribed | `odom_feedback` | `nav_msgs/Odometry` | Current velocity from odometry (alternative) |
+| Published | `roscco` | `roscco_msg/Roscco` | Final command (PID + feedforward) |
+| Published | `feedforward` | `pid_msgs/Feedforward` | Feedforward component only (diagnostics) |
+| Published | `velocity_derived` | `std_msgs/Float64` | EMA-filtered velocity used internally (diagnostics) |
+
+## Parameters
+
+### ackermann_smoother_node
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_steering_accel` | double | `2.0` | Max rate of change of steering angle (rad/s²) |
+| `max_speed_accel` | double | `2.0` | Max rate of change of speed (m/s³) |
+| `publish_rate` | double | `50.0` | Output publish rate (Hz) |
+
+### pid_control_node
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `update_rate` | double | `20.0` | Control loop rate (Hz) |
+| `steering_pid.p/i/d` | double | `2.5/0.0/0.1` | Steering PID gains |
+| `steering_pid.i_clamp_max/min` | double | `1.0/−1.0` | Integrator saturation limits |
+| `steering_pid.u_clamp_max/min` | double | `1.0/−1.0` | Output saturation limits |
+| `steering_pid.antiwindup` | bool | `true` | Enable anti-windup |
+| `steering_pid.antiwindup_strategy` | string | `conditional_integration` | Anti-windup method |
+| `velocity_pid.p/i/d` | double | `1.0/0.1/0.01` | Velocity PID gains |
+
+### vel_driven_feedforward_pid_node
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `update_rate` | double | `20.0` | Control loop rate (Hz) |
+| `steering.output_clamp_max/min` | float | `1.0/−1.0` | Total steering output saturation |
+| `steering.d_on_measurement` | double | `0.2` | D-on-measurement gain (avoids derivative kick on setpoint changes) |
+| `steering.pid.p/i/d` | double | `4.0/0.2/0.0` | Steering PID gains |
+| `steering.feedforward.coefficients` | double[3] | `[−0.220738, 0.156354, −0.003626]` | Feedforward polynomial coefficients `[c0, c1, c2]` |
+| `steering.feedforward.friction_offset` | double | `0.079768` | Friction compensation offset |
+| `velocity.filter_alpha` | double | `0.05` | EMA filter factor on velocity (0 = no update, 1 = no smoothing) |
+| `velocity.pid.p/i/d` | double | `0.4/0.1/0.0` | Velocity PID gains |
+| `velocity.output.throttle_scale` | double | `1.0` | Scale positive PID effort → throttle command |
+| `velocity.output.brake_scale` | double | `1.0` | Scale negative PID effort → brake command |
+| `velocity.output.deadband` | double | `0.05` | Effort below this magnitude → coast (forward = 0) |
+
+## Build & Launch
+
+```bash
+colcon build --packages-select pid_control
+
+# Launch individual nodes (typically via interfacing_can.launch.yaml)
+ros2 launch pid_control vel_driven_feedforward_pid.launch.yaml
+```
+
+Config is loaded from `config/vel_driven_feedforward_pid.yaml` or via the `config_file` launch argument.
+
+## Fitting Feedforward Coefficients
+
+The `analysis/` directory contains Python scripts to fit the polynomial feedforward model from bag data. See `analysis/README.md` for the full pipeline. After fitting, update the `steering.feedforward.coefficients` and `steering.feedforward.friction_offset` parameters in the config file.

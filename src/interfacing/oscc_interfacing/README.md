@@ -1,19 +1,23 @@
-# Eve OSCC Interfacing
+# oscc_interfacing
 
-ROS2 node that interfaces with the physical OSCC boards through OSCC CAN API
+Hardware interface to the OSCC (Open Source Car Control) boards via CAN. Sends steering torque, throttle, and brake commands and reads back wheel speeds, steering feedback, and fault state.
 
-This node does these things:
+## Overview
 
-- Subscribes to /roscco
+OSCC is the low-level by-wire system on Eve. This node wraps the OSCC C library, which manages direct CAN communication with the steering, throttle, and brake modules. The node exposes a clean ROS interface: subscribe to a ROSCCO command, provide an arm/disarm service, and publish feedback.
 
-- Publishes to /oscc_interfacing/is_armed (Just a bool, 100HZ)
+## Architecture
 
-- Publishes to /oscc_interfacing/wheel_speeds (4 floats, one per wheel)
-- Publishes to /oscc_interfacing/steering_angle (float, radians, angle of front wheels, 0 = centered)
-  - You can model this with ackermann reference frames and get an odom for
-  - speed and angular velocity for localization
+```
+[oscc_mux] ──► /roscco ──► oscc_interfacing_node ──► OSCC C library ──► CAN bus ──► vehicle
+                                     │
+                                     ├──► /oscc_interfacing/is_armed
+                                     ├──► /oscc_interfacing/wheel_speeds
+                                     └──► /oscc_interfacing/steering_angle
+```
 
-- Is a server for the service /oscc_interfacing/arm
-  - Attempt to either arm or disarm.
-  - SetBool service: true = attempt to arm, false = attempt to disarm
-  - Returns success/fail (message empty)
+**Arming** enables the OSCC modules (steering, throttle, brakes) so they accept commands. The vehicle must be armed before any actuation occurs. The joystick operator arms via button press, which calls the `/oscc_interfacing/arm` service.
+
+**Fault handling:** The OSCC library fires callbacks when faults are detected (e.g., operator brake/throttle override). The node detects these and either disarms or disables individual modules depending on `disable_boards_on_fault`. Override detection (driver touching the wheel or pedals) automatically disarms.
+
+The OSCC library manages CAN communication in its own background context. The ROS node caches the latest feedback values and publishes them at a fixed rate.
