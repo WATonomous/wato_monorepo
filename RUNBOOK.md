@@ -7,7 +7,21 @@
   - Located under a metal plate in the middle of the backseat
 - DO NOT TOUCH THE LEADS OF THE SMALL CAR BATTERY AND THE CHASSIS WITH LEFT AND RIGHT HAND, you will die
 
+## DO NOT DO
+The 12V battery will drain if the following is ALL true:
+- the E-stop is not pressed
+- the 12V battery is connected (open the front, connect the red wire to the short metal cylinder)
+
+It is recommended to have both E-stop pressed and 12V battery disconnected.
+
 ## General Procedure
+### Turning on the car
+As we disconnected the 12V battery, we cannot open the front to turn on the car. Therefore, do the following:
+1. pull out the physical key and open the driver seat
+2. press the button under the steering wheel to open the front
+3. connect the 12V battery (red wire to short metal cylinder)
+4. turn on the car
+
 ### Charging
 To charge the car, open the front and use the emergency latch to open the car charging dock.
 
