@@ -61,3 +61,27 @@ oscc_mux:
 colcon build --packages-select oscc_mux
 # Launched by interfacing_bringup/interfacing_can.launch.yaml
 ```
+
+## After Launching
+
+1. **Verify output is publishing:**
+   ```bash
+   ros2 topic hz /roscco   # expect 50 Hz
+   ```
+
+2. **Test priority** — publish a low-priority ROSCCO command and confirm it appears on `/roscco`:
+   ```bash
+   ros2 topic pub /pid/roscco roscco_msg/msg/Roscco "{steering: 0.1, forward: 0.5}" --rate 10
+   ros2 topic echo /roscco --once
+   ```
+
+3. **Test override** — while PID is publishing, move the joystick into ROSCCO mode (press toggle) and hold enable. The joystick input (priority 100) should immediately take over.
+
+## Definition of Good Result
+
+| Check | Expected |
+|-------|----------|
+| Output publish rate | 50 Hz |
+| Joystick in ROSCCO mode + enable held | Output matches joystick command |
+| Joystick idle (`is_idle = true`) | Output falls through to PID command |
+| No inputs active | Emergency: `steering = 0.0, forward = 0.0` (coast) |

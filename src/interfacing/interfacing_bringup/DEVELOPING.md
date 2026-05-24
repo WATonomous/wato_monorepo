@@ -44,6 +44,41 @@ All node parameters live in `config/interfacing.yaml`. Each top-level key matche
 - `can_state_estimator_node` → [can_state_estimator/DEVELOPING.md](../can_state_estimator/DEVELOPING.md)
 - `oscc_interfacing_node` → [oscc_interfacing/DEVELOPING.md](../oscc_interfacing/DEVELOPING.md)
 
+## After Launching
+
+1. **Check lifecycle nodes reached active state:**
+   ```bash
+   ros2 lifecycle get /ackermann_mux_node
+   ros2 lifecycle get /joystick_node
+   ros2 lifecycle get /vel_driven_feedforward_pid_node
+   ros2 lifecycle get /can_state_estimator_node
+   ros2 lifecycle get /oscc_mux_node
+   # Each should print: active
+   ```
+
+2. **Check topic healthchecker** (if full stack launched):
+   ```bash
+   curl http://localhost:8080
+   ```
+   All topics should show `"healthy"`. Any `"stale"` or `"no_publishers"` entries indicate a sensor or driver issue.
+
+3. **Spot-check key topics:**
+   ```bash
+   ros2 topic hz /ackermann                          # 50 Hz from mux
+   ros2 topic hz /can_state_estimator/body_velocity  # CAN rate
+   ros2 topic hz /lidar/all/points_merged            # ~10 Hz
+   ```
+
+## Definition of Good Result
+
+| Component | Check | Expected |
+|-----------|-------|----------|
+| Lifecycle nodes | All `ros2 lifecycle get` | `active` |
+| Healthchecker | `curl localhost:8080` | All topics `"healthy"` |
+| CAN stack | `/ackermann` publishing | 50 Hz |
+| Sensor stack | `/lidar/all/points_merged` publishing | ~10 Hz |
+| Sensor stack | `/novatel/oem7/bestpos` publishing | ~5 Hz |
+
 ## Adding a New Node to the Stack
 
 1. Add the package to `package.xml` as an exec dependency.

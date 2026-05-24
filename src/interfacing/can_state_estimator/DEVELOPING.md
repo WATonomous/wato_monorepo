@@ -70,6 +70,45 @@ CAN frames are read directly via SocketCAN rather than subscribing to OSCC topic
 
 The wheelbase is looked up from TF (published by `robot_state_publisher` from `eve_description`) instead of being hardcoded so vehicle geometry is defined in one place (the URDF).
 
+## After Launching
+
+1. **Verify lifecycle transition** — the node is managed by `wato_lifecycle_manager`. Check it reaches active state:
+   ```bash
+   ros2 lifecycle get /can_state_estimator_node   # expect: active
+   ```
+
+2. **Verify topics are publishing:**
+   ```bash
+   ros2 topic hz /can_state_estimator/steering_angle   # publishes on each 0x2B0 frame (~50–100 Hz)
+   ros2 topic hz /can_state_estimator/body_velocity    # publishes on each 0x4B0 frame
+   ros2 topic hz /can_state_estimator/odom
+   ```
+
+3. **Sanity-check steering angle** — turn the steering wheel to full lock and echo the topic:
+   ```bash
+   ros2 topic echo /can_state_estimator/steering_angle --once
+   ```
+
+4. **Sanity-check velocity** — drive at a known speed and compare:
+   ```bash
+   ros2 topic echo /can_state_estimator/body_velocity --once
+   ```
+
+## Definition of Good Result
+
+| Check | Expected |
+|-------|----------|
+| Steering angle at centre | Within ±0.03 rad of 0.0 |
+| Steering angle at full lock | Matches physical limit (typically ±0.55 rad) |
+| Body velocity at 10 km/h | Within ±0.2 m/s of 2.78 m/s |
+| Odometry drift over 100 m straight | < 2 m lateral (dead-reckoning only) |
+| No CAN errors in log | No `"Failed to read CAN frame"` or socket error messages |
+
+If topics are not publishing, common causes:
+- Wrong `can_interface` parameter (check with `ip link show`)
+- CAN socket not up (`sudo ip link set can1 up type can bitrate 500000`)
+- TF wheelbase lookup pending — wait for `eve_description` TF to publish
+
 ## Adding New CAN Signals
 
 1. Add the CAN ID constant and add it to the kernel filter array in `on_configure`.

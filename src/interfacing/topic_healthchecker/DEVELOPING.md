@@ -29,6 +29,49 @@ colcon build --packages-select topic_healthchecker
 
 **HTTP server:** Runs in a separate thread started at node construction. On each `GET /` request it serializes the current per-topic state (last age, rate, status) to JSON and returns it. The per-topic state map is protected by a mutex shared with the subscription callbacks.
 
+## After Launching
+
+1. **Verify the HTTP server started** — check the node log for:
+   ```
+   Health HTTP server listening on port 8080
+   Topic healthchecker monitoring N topics, HTTP on port 8080
+   ```
+
+2. **Poll the endpoint:**
+   ```bash
+   curl http://localhost:8080
+   ```
+
+3. **Watch for subscriptions** — as monitored topics come online, the node logs:
+   ```
+   Subscribed to /some/topic [sensor_msgs/msg/PointCloud2]
+   ```
+
+## Definition of Good Result
+
+A healthy system returns HTTP 200 with an overall `{"status":"ok"}` and all per-topic statuses as `"healthy"`:
+
+```json
+{
+  "status": "ok",
+  "topics": {
+    "/lidar_cc/velodyne_points": {"status": "healthy", "age_sec": 0.08, "rate_hz": 10.1},
+    "/novatel/oem7/bestpos":     {"status": "healthy", "age_sec": 0.21, "rate_hz": 4.9}
+  }
+}
+```
+
+Possible per-topic status values:
+
+| Status | Meaning |
+|--------|---------|
+| `"healthy"` | Message received within `stale_timeout` seconds |
+| `"stale"` | Last message older than `stale_timeout` (default 5 s) |
+| `"no_publishers"` | Topic exists in graph but no node is publishing |
+| `"not_found"` | Topic has never appeared in the ROS graph |
+
+Any status other than `"healthy"` for an expected topic indicates a driver or node problem.
+
 ## Adding Monitored Topics
 
 Add topic names to the `topics` parameter in `config/interfacing.yaml` under the `topic_healthchecker` key. No code changes needed.

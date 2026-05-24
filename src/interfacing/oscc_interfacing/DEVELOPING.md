@@ -57,3 +57,44 @@ The OSCC C library runs its own CAN communication thread. This node registers ca
 Callback data is written under a mutex or via atomics. The ROS subscriber callback and the publish timer read from the same cached state.
 
 **Steering deadzone:** The Kia Soul EV OSCC steering module has a mechanical deadzone near zero torque. The `steering_torque_deadzone_pos/neg` offsets compensate for this by shifting the command magnitude so small inputs still produce motion.
+
+## After Launching
+
+1. **Arm the vehicle:**
+   ```bash
+   ros2 service call /oscc_interfacing/arm std_srvs/srv/SetBool "{data: true}"
+   # Expect: success=True
+   ```
+
+2. **Verify arming state:**
+   ```bash
+   ros2 topic echo /oscc_interfacing/is_armed --once
+   # Expect: data: true
+   ```
+
+3. **Verify feedback topics are publishing:**
+   ```bash
+   ros2 topic hz /oscc_interfacing/wheel_speeds     # publishes at CAN OBD rate
+   ros2 topic hz /oscc_interfacing/steering_angle   # publishes at CAN OBD rate
+   ```
+
+4. **Disarm when done:**
+   ```bash
+   ros2 service call /oscc_interfacing/arm std_srvs/srv/SetBool "{data: false}"
+   ```
+
+## Definition of Good Result
+
+| Check | Expected |
+|-------|----------|
+| Arm service response | `success=True` with no error message |
+| `is_armed` after arming | `true` at 100 Hz |
+| `wheel_speeds` fields | Non-zero and changing when wheels are spinning |
+| `steering_angle` | Changes smoothly when steering wheel is turned |
+| No fault callbacks | No `"override detected"` or fault messages in node log |
+| Disarm via button | `is_armed` drops to `false`, long joystick vibration pulse |
+
+If arm fails, common causes:
+- CAN bus not up (`oscc_can_bus` parameter pointing to wrong bus)
+- OSCC boards not powered
+- `disable_boards_on_fault` triggered by a prior fault — power-cycle the OSCC boards
