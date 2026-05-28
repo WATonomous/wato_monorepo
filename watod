@@ -69,6 +69,9 @@ Commands
                               If nothing specified, runs tests in all modules
   bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
                               Runs in ./bags directory with auto-mounting
+  sil run <scenario.yaml>     Run a Software-In-the-Loop component scenario
+                              Records a fixed-duration bag and checks limits
+                              (requires a running CARLA server)
 
 Examples
   watod up                              # docker compose up
@@ -89,6 +92,7 @@ Examples
   watod bag record -a                   # record all topics (auto-saves to ./bags)
   watod bag play my_bag                 # play bag from ./bags directory
   watod bag info my_bag                 # show bag info
+  watod sil run scenario.yaml           # run a SIL component scenario + check limits
   watod -s                              # setup dev env (extracts all module headers)
   watod -s world_modeling               # setup dev env with specific module only
 
@@ -289,6 +293,12 @@ while [[ $# -gt 0 ]]; do
       # Pass all remaining arguments to watod-bag.sh
       BAG_ARGS=( "$@" )
       break ;;
+    sil)
+      RUN_SIL=1
+      shift
+      # Pass all remaining arguments to watod-sil.sh
+      SIL_ARGS=( "$@" )
+      break ;;
     down)
       RUN_DOWN=1
       shift
@@ -447,6 +457,17 @@ if [[ -n ${RUN_BAG:-} ]]; then
   export RMW_IMPLEMENTATION ROS_DOMAIN_ID COMPOSE_PROJECT_NAME
   export ZENOH_ROUTER_CONFIG_URI ZENOH_SESSION_CONFIG_URI
   "$MONO_DIR/watod_scripts/watod-bag.sh" "${BAG_ARGS[@]}"
+  exit $?
+fi
+
+# ────────────────────────────── Run SIL ──────────────────────────────
+
+if [[ -n ${RUN_SIL:-} ]]; then
+  # Export variables needed by watod-sil.sh (same graph-joining vars as bag)
+  export MONO_DIR MODULES_DIR TAG ACTION_IMAGE SIMULATION_IMAGE
+  export RMW_IMPLEMENTATION ROS_DOMAIN_ID COMPOSE_PROJECT_NAME
+  export ZENOH_ROUTER_CONFIG_URI ZENOH_SESSION_CONFIG_URI
+  "$MONO_DIR/watod_scripts/watod-sil.sh" "${SIL_ARGS[@]}"
   exit $?
 fi
 

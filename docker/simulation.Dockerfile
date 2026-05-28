@@ -12,6 +12,9 @@ COPY src/simulation simulation
 COPY src/infrastructure/vision_msgs_markers vision_msgs_markers
 COPY src/interfacing/eve_description eve_description
 
+# Needed by sil_testing (the SIL framework synthesizes/reads wato_trajectory_msgs)
+COPY src/action/wato_trajectory_msgs wato_trajectory_msgs
+
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################

@@ -1,0 +1,34 @@
+# Motion-control SIL scenario: tight turn at high speed.
+# Expected result: FAIL on max_lateral_accel_mps2.
+# A ~10 m radius turn at 12 m/s implies a_lat = v^2/R ~= 14.4 m/s^2, well above 4.0.
+#
+# All poses are in the ROS map frame: x forward, y left, z up, yaw in degrees CCW.
+# NOTE: coordinates are map-specific; tune to a clear area on the chosen `map`.
+
+name: aggressive_turn
+component: motion_control
+map: Town10HD
+duration_s: 30.0
+seed: 42
+weather: ClearNoon
+
+ego:
+  transform: {x: 100.0, y: 8.0, z: 0.3, yaw: 0.0}
+  blueprint: vehicle.mini.cooper
+
+route:
+  target_speed_mps: 12.0
+  waypoints:
+    - {x: 100.0, y: 8.0}
+    - {x: 120.0, y: 8.0}
+    - {x: 128.0, y: 11.0}
+    - {x: 131.0, y: 18.0}
+    - {x: 131.0, y: 38.0}
+
+actors: []
+
+limits:
+  max_lateral_accel_mps2: 4.0
+  max_steering_rate_radps: 1.0
+  max_cross_track_error_m: 1.5
+  max_speed_mps: 14.0

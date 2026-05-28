@@ -1,0 +1,33 @@
+# Motion-control SIL scenario: follow a straight reference at a moderate speed.
+# Expected result: PASS (no limit exceeded).
+#
+# All poses are in the ROS map frame: x forward, y left, z up, yaw in degrees CCW.
+# NOTE: coordinates are map-specific. Tune ego.transform + route to a clear stretch of
+# road on the chosen `map`, or set ego.spawn_point_index to a known on-road spawn point.
+
+name: straight_follow
+component: motion_control
+map: Town10HD
+duration_s: 30.0
+seed: 42
+weather: ClearNoon
+
+ego:
+  transform: {x: 100.0, y: 8.0, z: 0.3, yaw: 0.0}
+  blueprint: vehicle.mini.cooper
+
+route:
+  target_speed_mps: 8.0
+  waypoints:
+    - {x: 100.0, y: 8.0}
+    - {x: 140.0, y: 8.0}
+    - {x: 180.0, y: 8.0}
+    - {x: 220.0, y: 8.0}
+
+actors: []
+
+limits:
+  max_lateral_accel_mps2: 4.0
+  max_steering_rate_radps: 1.0
+  max_cross_track_error_m: 1.5
+  max_speed_mps: 10.0

@@ -402,6 +402,7 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
             "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
+            "carla_scenarios.scenarios.yaml_scenario": "SIL scenario from SIL_SCENARIO_FILE",
         }
         self.available_scenarios.update(builtin_scenarios)
 

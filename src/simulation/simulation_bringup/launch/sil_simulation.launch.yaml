@@ -1,0 +1,118 @@
+# sil_simulation.launch.yaml
+#
+# Minimal CARLA bringup for Software-In-the-Loop component testing. Launches only
+# the nodes needed to close a control loop against CARLA: the scenario server (which
+# loads the YAML scenario), ground-truth localization, the Ackermann control bridge,
+# and ground-truth actor bounding boxes. No cameras/LiDAR/pygame/teleop.
+#
+# The scenario file is selected via the SIL_SCENARIO_FILE environment variable, read
+# by the yaml_scenario plugin configured as initial_scenario in the config below.
+
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share simulation_bringup)/config/sil_carla_bridge.yaml
+      description: "Path to the SIL CARLA bridge configuration file"
+  - arg:
+      name: carla_port
+      default: "2000"
+      description: "CARLA server port"
+
+  # Ego robot description (provides base_footprint -> rear_axle/front_axle frames so
+  # pure pursuit can read the true wheelbase from TF)
+  - include:
+      file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+
+  # Scenario Server (uses wall time since it is the /clock source)
+  - node:
+      pkg: carla_scenarios
+      exec: scenario_server
+      name: scenario_server
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false
+        - from: $(var config_file)
+        - name: carla_port
+          value: $(var carla_port)
+
+  # Lifecycle Manager - waits for scenario_server, then brings up the SIL node set
+  - node:
+      pkg: carla_lifecycle
+      exec: lifecycle_manager
+      name: carla_lifecycle_manager
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false
+        - name: scenario_server_name
+          value: /carla/scenario_server
+        - name: node_names
+          value:
+            - /carla/carla_localization
+            - /carla/ackermann_control
+            - /carla/bbox_publisher
+        - name: service_timeout
+          value: 10.0
+        - name: startup_retry_interval
+          value: 5.0
+
+  # Localization (publishes TF map -> odom -> base_footprint and /ego/odom)
+  - node:
+      pkg: carla_localization
+      exec: localization
+      name: carla_localization
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(var config_file)
+        - name: carla_port
+          value: $(var carla_port)
+
+  # Ackermann Control (applies the controller command to the ego vehicle)
+  - node:
+      pkg: carla_control
+      exec: ackermann_control
+      name: ackermann_control
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(var config_file)
+        - name: carla_port
+          value: $(var carla_port)
+
+  # Ground-truth actor bounding boxes
+  - node:
+      pkg: carla_perception
+      exec: bbox_publisher
+      name: bbox_publisher
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(var config_file)
+        - name: carla_port
+          value: $(var carla_port)
+
+  # 3D Detection Visualization (Detection3DArray -> MarkerArray for Foxglove)
+  - node:
+      pkg: vision_msgs_markers
+      exec: vision_msgs_markers_node
+      name: bbox_markers
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+      remap:
+        - from: detections_in
+          to: /carla/detections_3d
+        - from: markers_out
+          to: /carla/bbox_markers

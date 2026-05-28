@@ -1,0 +1,65 @@
+{
+  "configById": {
+    "3D!sil3d": {
+      "layers": {},
+      "cameraState": {
+        "distance": 60,
+        "perspective": true,
+        "phi": 55,
+        "thetaOffset": 45,
+        "targetOffset": [0, 0, 0],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "base_footprint",
+      "scene": {},
+      "transforms": {},
+      "topics": {
+        "/carla/bbox_markers": { "visible": true },
+        "/sil/reference_trajectory": { "visible": true }
+      }
+    },
+    "Plot!silspeed": {
+      "title": "Speed (m/s)",
+      "paths": [
+        { "value": "/ego/odom.twist.twist.linear.x", "label": "ego vx", "enabled": true },
+        { "value": "/carla/ackermann_control/command.drive.speed", "label": "cmd speed", "enabled": true }
+      ],
+      "xAxisVal": "timestamp"
+    },
+    "Plot!silsteer": {
+      "title": "Steering angle (rad)",
+      "paths": [
+        { "value": "/carla/ackermann_control/command.drive.steering_angle", "label": "cmd steer", "enabled": true }
+      ],
+      "xAxisVal": "timestamp"
+    },
+    "DiagnosticSummary!sildiag": {
+      "minLevel": 0,
+      "pinnedIds": [],
+      "topicToRender": "/sil/diagnostics",
+      "sortByLevel": true
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": { "speed": 1 },
+  "layout": {
+    "direction": "row",
+    "first": "3D!sil3d",
+    "second": {
+      "direction": "column",
+      "first": "Plot!silspeed",
+      "second": {
+        "direction": "column",
+        "first": "Plot!silsteer",
+        "second": "DiagnosticSummary!sildiag",
+        "splitPercentage": 55
+      },
+      "splitPercentage": 40
+    },
+    "splitPercentage": 60
+  }
+}
