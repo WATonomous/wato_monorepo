@@ -74,18 +74,22 @@ Each iteration uses the previous result as the initial guess. Results are saved 
 1. **Drive pattern** — drive in a figure-8 or repeated S-curves. The algorithm requires excitation in all three rotational axes (roll, pitch, yaw). Driving in a straight line provides yaw only and will not fully constrain the rotation.
 
 2. **Watch the log** — the node prints progress. Wait for:
-   ```
+
+```
    Initialization result:
    Translation LiDAR to IMU (meter) = X Y Z
    Time Lag IMU to LiDAR (second)   = X
    ```
-   Then, after refinement:
-   ```
+
+Then, after refinement:
+
+```
    Refinement result:
    ```
-   Results are also written to `result/Initialization_result.txt` and printed as a ready-to-paste URDF `<origin>` block.
 
-3. **Apply the result** — copy the printed `<origin xyz="..." rpy="..."/>` block into `eve_description/urdf/eve_kia_soul_ev.xacro` for the IMU joint.
+Results are also written to `result/Initialization_result.txt` and printed as a ready-to-paste URDF `<origin>` block.
+
+1. **Apply the result** — copy the printed `<origin xyz="..." rpy="..."/>` block into `eve_description/urdf/eve_kia_soul_ev.xacro` for the IMU joint.
 
 ## Definition of Good Result
 

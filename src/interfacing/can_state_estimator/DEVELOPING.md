@@ -73,26 +73,31 @@ The wheelbase is looked up from TF (published by `robot_state_publisher` from `e
 ## After Launching
 
 1. **Verify lifecycle transition** — the node is managed by `wato_lifecycle_manager`. Check it reaches active state:
+
    ```bash
    ros2 lifecycle get /can_state_estimator_node   # expect: active
    ```
 
 2. **Verify topics are publishing:**
-   ```bash
+
+```bash
    ros2 topic hz /can_state_estimator/steering_angle   # publishes on each 0x2B0 frame (~50–100 Hz)
    ros2 topic hz /can_state_estimator/body_velocity    # publishes on each 0x4B0 frame
    ros2 topic hz /can_state_estimator/odom
    ```
 
-3. **Sanity-check steering angle** — turn the steering wheel to full lock and echo the topic:
+1. **Sanity-check steering angle** — turn the steering wheel to full lock and echo the topic:
+
    ```bash
-   ros2 topic echo /can_state_estimator/steering_angle --once
+ros2 topic echo /can_state_estimator/steering_angle --once
+
    ```
 
 4. **Sanity-check velocity** — drive at a known speed and compare:
+
    ```bash
    ros2 topic echo /can_state_estimator/body_velocity --once
-   ```
+```
 
 ## Definition of Good Result
 

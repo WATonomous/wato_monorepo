@@ -32,19 +32,23 @@ colcon build --packages-select topic_healthchecker
 ## After Launching
 
 1. **Verify the HTTP server started** — check the node log for:
+
    ```
    Health HTTP server listening on port 8080
    Topic healthchecker monitoring N topics, HTTP on port 8080
    ```
 
 2. **Poll the endpoint:**
-   ```bash
+
+```bash
    curl http://localhost:8080
    ```
 
-3. **Watch for subscriptions** — as monitored topics come online, the node logs:
+1. **Watch for subscriptions** — as monitored topics come online, the node logs:
+
    ```
-   Subscribed to /some/topic [sensor_msgs/msg/PointCloud2]
+Subscribed to /some/topic [sensor_msgs/msg/PointCloud2]
+
    ```
 
 ## Definition of Good Result

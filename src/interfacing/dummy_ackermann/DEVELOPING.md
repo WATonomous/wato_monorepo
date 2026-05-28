@@ -39,7 +39,6 @@ colcon build --packages-select dummy_ackermann
 
 Both nodes are launched via `interfacing_can.launch.yaml` with optional arguments:
 
-
 ```bash
 # Enable velocity trapezoid test node
 ros2 launch interfacing_bringup interfacing_can.launch.yaml test_velocity:=true

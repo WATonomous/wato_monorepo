@@ -53,21 +53,23 @@ ros2 launch joystick_interfacing joystick_interfacing.launch.yaml
 ## After Launching
 
 1. **Verify joystick is detected:**
+
    ```bash
    ros2 topic hz /joy   # should publish when any axis/button changes
    ```
 
 2. **Hold the enable trigger** (axis index `enable_axis`, default: axis 2) and move the steering/throttle sticks. Verify commands publish:
-   ```bash
+
+```bash
    ros2 topic echo /joystick/ackermann
    ros2 topic echo /joystick/is_idle   # should be false while enable held
    ```
 
-3. **Release enable trigger** — `is_idle` should go `true` and commands should go to zero.
+1. **Release enable trigger** — `is_idle` should go `true` and commands should go to zero.
 
-4. **Test mode toggle** — press `toggle_button` (default: button 0). The joystick should vibrate (2 pulses → ROSCCO, 1 pulse → ACKERMANN) and `/joystick/state` should change value.
+2. **Test mode toggle** — press `toggle_button` (default: button 0). The joystick should vibrate (2 pulses → ROSCCO, 1 pulse → ACKERMANN) and `/joystick/state` should change value.
 
-5. **Test arming** — press `arming_button`. The node calls `/oscc_interfacing/arm`. If OSCC is running, expect 2 vibration pulses on success.
+3. **Test arming** — press `arming_button`. The node calls `/oscc_interfacing/arm`. If OSCC is running, expect 2 vibration pulses on success.
 
 ## Definition of Good Result
 

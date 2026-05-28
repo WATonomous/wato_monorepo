@@ -77,19 +77,23 @@ The node is a lifecycle node managed by `wato_lifecycle_manager`. It runs a sing
 ## After Launching
 
 1. **Verify output is publishing:**
+
    ```bash
    ros2 topic hz /ackermann   # expect 50 Hz
    ```
 
 2. **Test priority arbitration** — publish a command on a low-priority input and confirm it appears on `/ackermann`:
-   ```bash
+
+```bash
    ros2 topic pub /action/ackermann ackermann_msgs/msg/AckermannDriveStamped "{drive: {speed: 1.0, steering_angle: 0.1}}" --rate 10
    ros2 topic echo /ackermann --once
    ```
 
-3. **Test override** — while the low-priority input is publishing, publish on the joystick input and confirm it takes over immediately:
+1. **Test override** — while the low-priority input is publishing, publish on the joystick input and confirm it takes over immediately:
+
    ```bash
-   ros2 topic pub /joystick/ackermann ackermann_msgs/msg/AckermannDriveStamped "{drive: {speed: 0.5, steering_angle: 0.2}}" --rate 10
+ros2 topic pub /joystick/ackermann ackermann_msgs/msg/AckermannDriveStamped "{drive: {speed: 0.5, steering_angle: 0.2}}" --rate 10
+
    ```
 
 4. **Test emergency** — stop all inputs and wait `safety_threshold` seconds (0.5 s default). The output should switch to `speed: -0.5, steering_angle: 0.0`.

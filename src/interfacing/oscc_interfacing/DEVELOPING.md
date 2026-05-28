@@ -61,27 +61,32 @@ Callback data is written under a mutex or via atomics. The ROS subscriber callba
 ## After Launching
 
 1. **Arm the vehicle:**
+
    ```bash
    ros2 service call /oscc_interfacing/arm std_srvs/srv/SetBool "{data: true}"
    # Expect: success=True
    ```
 
 2. **Verify arming state:**
-   ```bash
+
+```bash
    ros2 topic echo /oscc_interfacing/is_armed --once
    # Expect: data: true
    ```
 
-3. **Verify feedback topics are publishing:**
+1. **Verify feedback topics are publishing:**
+
    ```bash
-   ros2 topic hz /oscc_interfacing/wheel_speeds     # publishes at CAN OBD rate
+ros2 topic hz /oscc_interfacing/wheel_speeds     # publishes at CAN OBD rate
    ros2 topic hz /oscc_interfacing/steering_angle   # publishes at CAN OBD rate
+
    ```
 
 4. **Disarm when done:**
+
    ```bash
    ros2 service call /oscc_interfacing/arm std_srvs/srv/SetBool "{data: false}"
-   ```
+```
 
 ## Definition of Good Result
 

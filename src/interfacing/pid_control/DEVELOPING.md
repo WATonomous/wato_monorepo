@@ -82,31 +82,39 @@ Config is loaded from `config/vel_driven_feedforward_pid.yaml` or via the `confi
 ## After Launching
 
 1. **Verify lifecycle activation** — look for this log line from the active node:
+
    ```
    Activated - control loop running at 20.0 Hz
    ```
+
    For `vel_driven_feedforward_pid_node`, also confirm the velocity source:
+
    ```
    Velocity source locked to CAN (Float64)
    ```
+
    or `Velocity source locked to Odometry` depending on which topic publishes first.
 
 2. **Verify output is publishing:**
-   ```bash
+
+```bash
    ros2 topic hz /roscco   # expect 20 Hz (matches update_rate)
    ```
 
-3. **Check for waiting warnings** — if any of these appear after the first few seconds, the corresponding feedback topic is not publishing:
+1. **Check for waiting warnings** — if any of these appear after the first few seconds, the corresponding feedback topic is not publishing:
+
    ```
-   Waiting for ackermann setpoint...
+Waiting for ackermann setpoint...
    Waiting for steering feedback...
    Waiting for velocity feedback...
+
    ```
 
 4. **Command the smoother** (if in use) — publish a setpoint and confirm `ackermann_out` tracks it with rate limiting:
+
    ```bash
    ros2 topic pub /ackermann_in ackermann_msgs/msg/AckermannDriveStamped \
-     "{drive: {speed: 1.0, steering_angle: 0.3}}" --rate 20
+  "{drive: {speed: 1.0, steering_angle: 0.3}}" --rate 20
    ros2 topic echo /ackermann_out
    ```
 

@@ -75,14 +75,17 @@ colcon build --packages-select lidar_aggregator
 ## After Launching
 
 1. **Verify startup** — check the node log for these lines before proceeding:
+
    ```
    LidarAggregatorNode running with message_filters sync. Inputs: cc=... ne=... nw=...
    Loaded extrinsics from TF: lidar_ne->lidar_cc and lidar_nw->lidar_cc
    GPS clock offset computed: X.XXX s
    ```
+
    If extrinsics fail to load, `eve_description` TF is not running — launch it first.
 
 2. **Verify output** — confirm the merged cloud is publishing:
+
    ```bash
    ros2 topic hz /lidar/all/points_merged   # should be ~10 Hz
    ros2 topic echo /lidar/all/points_merged --once | grep width  # expect ~3x the points of one lidar
@@ -98,18 +101,23 @@ colcon build --packages-select lidar_aggregator
 - No repeated/doubled surfaces visible in Foxglove at the NE/NW seams — if surfaces appear doubled, the extrinsic calibration in `eve_description` needs updating
 
 **With online offset estimation enabled:**
+
 Monitor the offset score topics during a turn:
+
 ```bash
 ros2 topic echo /lidar/sync/offset_scores
 ```
-- `vector.x` = NE overlap score, `vector.y` = NW overlap score
-- Score is `hits / total_points` (voxel overlap fraction, range 0–1)
-- **Good:** scores stabilize at ≥ 0.10 (≥ 10% overlap) during turns — this means the NE/NW timing is well-aligned with the center cloud
-- **Poor:** scores below 0.05 consistently — increase `search_half_window_sec` or check whether the manual timing offsets in `timing.ne_time_offset_sec` / `timing.nw_time_offset_sec` need adjustment
-- Log lines during active estimation look like:
-  ```
-  Offset update [ne]: old=0.0000 best=0.0120 new=0.0024 score=0.143 gyro_z=0.082
-  ```
+
+`vector.x` = NE overlap score, `vector.y` = NW overlap score. Score is `hits / total_points` (voxel overlap fraction, range 0–1).
+
+- **Good:** scores stabilize at ≥ 0.10 (≥ 10% overlap) during turns — NE/NW timing is well-aligned with the center cloud
+- **Poor:** scores below 0.05 consistently — increase `search_half_window_sec` or adjust `timing.ne_time_offset_sec` / `timing.nw_time_offset_sec`
+
+Log lines during active estimation look like:
+
+```
+Offset update [ne]: old=0.0000 best=0.0120 new=0.0024 score=0.143 gyro_z=0.082
+```
 
 ## Internal Architecture
 

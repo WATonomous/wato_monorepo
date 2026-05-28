@@ -47,6 +47,7 @@ All node parameters live in `config/interfacing.yaml`. Each top-level key matche
 ## After Launching
 
 1. **Check lifecycle nodes reached active state:**
+
    ```bash
    ros2 lifecycle get /ackermann_mux_node
    ros2 lifecycle get /joystick_node
@@ -57,16 +58,20 @@ All node parameters live in `config/interfacing.yaml`. Each top-level key matche
    ```
 
 2. **Check topic healthchecker** (if full stack launched):
-   ```bash
+
+```bash
    curl http://localhost:8080
    ```
-   All topics should show `"healthy"`. Any `"stale"` or `"no_publishers"` entries indicate a sensor or driver issue.
 
-3. **Spot-check key topics:**
+All topics should show `"healthy"`. Any `"stale"` or `"no_publishers"` entries indicate a sensor or driver issue.
+
+1. **Spot-check key topics:**
+
    ```bash
-   ros2 topic hz /ackermann                          # 50 Hz from mux
+ros2 topic hz /ackermann                          # 50 Hz from mux
    ros2 topic hz /can_state_estimator/body_velocity  # CAN rate
    ros2 topic hz /lidar/all/points_merged            # ~10 Hz
+
    ```
 
 ## Definition of Good Result

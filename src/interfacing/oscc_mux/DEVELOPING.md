@@ -65,17 +65,19 @@ colcon build --packages-select oscc_mux
 ## After Launching
 
 1. **Verify output is publishing:**
+
    ```bash
    ros2 topic hz /roscco   # expect 50 Hz
    ```
 
 2. **Test priority** — publish a low-priority ROSCCO command and confirm it appears on `/roscco`:
-   ```bash
+
+```bash
    ros2 topic pub /pid/roscco roscco_msg/msg/Roscco "{steering: 0.1, forward: 0.5}" --rate 10
    ros2 topic echo /roscco --once
    ```
 
-3. **Test override** — while PID is publishing, move the joystick into ROSCCO mode (press toggle) and hold enable. The joystick input (priority 100) should immediately take over.
+1. **Test override** — while PID is publishing, move the joystick into ROSCCO mode (press toggle) and hold enable. The joystick input (priority 100) should immediately take over.
 
 ## Definition of Good Result
 

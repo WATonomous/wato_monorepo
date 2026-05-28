@@ -27,6 +27,7 @@ Basic dual PID controller. Runs independent PID loops for steering (setpoint = d
 Extended controller with a velocity-dependent feedforward term on top of steering PID. Improves tracking at speed by pre-compensating for the known steering torque required at a given velocity.
 
 **Feedforward model:**
+
 ```
 T_ff = (c0 + c1·v + c2·v²) · steering_setpoint + friction_offset · sign(steering_setpoint)
 ```

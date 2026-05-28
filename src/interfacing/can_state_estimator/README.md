@@ -19,6 +19,7 @@ CAN Bus (SocketCAN)
 ```
 
 **Ackermann bicycle model** (rear-axle reference):
+
 ```
 v_front_avg = (v_nw + v_ne) / 2
 v_body      = v_front_avg * cos(steering_angle)
