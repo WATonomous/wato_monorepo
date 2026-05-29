@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <thread>
 #include <type_traits>
@@ -75,10 +77,15 @@ public:
       std::is_base_of_v<rclcpp::Node, T> || std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>,
       "T must inherit from rclcpp::Node or rclcpp_lifecycle::LifecycleNode");
 
-    executor_.add_node(node->get_node_base_interface());
+    auto node_base = node->get_node_base_interface();
+    executor_.add_node(node_base);
 
-    // Keep nodes alive to prevent destruction from CATCH2 while executor is running
-    nodes_.push_back(node->get_node_base_interface());
+    // Keep node interface alive for executor
+    nodes_.push_back(node_base);
+
+    // Keep full node object alive until fixture teardown (prevents use-after-free
+    // when the caller's shared_ptr goes out of scope before executor_.cancel())
+    managed_nodes_.push_back(node);
 
     // Track lifecycle nodes for cleanup
     if constexpr (std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>) {
@@ -90,6 +97,7 @@ protected:
   rclcpp::executors::SingleThreadedExecutor executor_;
   std::thread spin_thread_;
   std::vector<rclcpp::node_interfaces::NodeBaseInterface::SharedPtr> nodes_;
+  std::vector<std::shared_ptr<void>> managed_nodes_;
   std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;
 };
 
@@ -132,12 +140,12 @@ public:
       std::is_base_of_v<rclcpp::Node, T> || std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>,
       "T must inherit from rclcpp::Node or rclcpp_lifecycle::LifecycleNode");
 
-    executor_.add_node(node->get_node_base_interface());
+    auto node_base = node->get_node_base_interface();
+    executor_.add_node(node_base);
 
-    // Keep nodes alive to prevent destruction from CATCH2 while executor is running
-    nodes_.push_back(node->get_node_base_interface());
+    nodes_.push_back(node_base);
+    managed_nodes_.push_back(node);
 
-    // Track lifecycle nodes for cleanup
     if constexpr (std::is_base_of_v<rclcpp_lifecycle::LifecycleNode, T>) {
       lifecycle_nodes_.push_back(std::static_pointer_cast<rclcpp_lifecycle::LifecycleNode>(node));
     }
@@ -147,6 +155,7 @@ protected:
   rclcpp::executors::MultiThreadedExecutor executor_;
   std::thread spin_thread_;
   std::vector<rclcpp::node_interfaces::NodeBaseInterface::SharedPtr> nodes_;
+  std::vector<std::shared_ptr<void>> managed_nodes_;
   std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;
 };
 
