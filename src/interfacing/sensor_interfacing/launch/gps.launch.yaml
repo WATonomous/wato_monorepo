@@ -1,0 +1,26 @@
+---
+launch:
+  - arg:
+      name: "oem7_ip_addr"
+      default: "10.8.0.8"
+      description: "IP address of the OEM7 GPS receiver"
+
+  - arg:
+      name: "oem7_port"
+      default: "3001"
+      description: "TCP or UDP port for OEM7 communication"
+
+  - arg:
+      name: "oem7_if"
+      default: "Oem7ReceiverTcp"
+      description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
+
+  - include:
+      file: "$(find-pkg-share novatel_oem7_driver)/launch/oem7_net.launch.py"
+      arg:
+        - name: "oem7_ip_addr"
+          value: "$(var oem7_ip_addr)"
+        - name: "oem7_port"
+          value: "$(var oem7_port)"
+        - name: "oem7_if"
+          value: "$(var oem7_if)"

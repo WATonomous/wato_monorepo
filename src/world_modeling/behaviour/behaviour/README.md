@@ -42,7 +42,8 @@ There is more comments and info under `/config/param.yaml`
 | Topic            | Type                                  | Description                       |
 | ---------------- | ------------------------------------- | --------------------------------- |
 | `goal_point`     | `geometry_msgs/PointStamped`          | Goal position                     |
-| `ego_odom`       | `nav_msgs/Odometry`                   | Ego pose and twist                |
+| `ego_odom`       | `nav_msgs/Odometry`                   | Ego map-frame odometry for pose-based checks |
+| `ego_odom_incremental` | `nav_msgs/Odometry`             | Ego odom-frame incremental odometry for velocity-based stop checks |
 | `lane_context`   | `lanelet_msgs/CurrentLaneContext`     | Current lane information          |
 | `world_objects`  | `world_model_msgs/WorldObjectArray`   | Tracked world objects (enriched)  |
 | `area_occupancy` | `world_model_msgs/AreaOccupancyArray` | Occupancy status of defined areas |

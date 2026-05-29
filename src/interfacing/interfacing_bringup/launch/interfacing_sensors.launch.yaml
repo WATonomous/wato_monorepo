@@ -29,7 +29,7 @@ launch:
 
   # GPS - Novatel OEM7
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/gps_launch.yaml"
+      file: "$(find-pkg-share sensor_interfacing)/launch/gps.launch.yaml"
       arg:
         - name: "oem7_ip_addr"
           value: "$(var oem7_ip_addr)"

@@ -22,6 +22,8 @@
 #include <pcl/segmentation/extract_clusters.h>
 
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "utils/projection_utils.hpp"
@@ -44,6 +46,16 @@ public:
     int min_cluster_size; /**< Minimum cluster size for this band. */
   };
 
+  /** Per-class override for clustering parameters. Negative values fall back to global defaults. */
+  struct ClassClusteringParams
+  {
+    double cluster_tolerance = -1.0; /**< Euclidean cluster tolerance (m). */
+    int min_cluster_size = -1; /**< Minimum points per cluster. */
+    int max_cluster_size = -1; /**< Maximum points per cluster. */
+    double merge_threshold = -1.0; /**< AABB gap for post-cluster merge (m). */
+    double bbox_inflation = 1.0; /**< Multiplier on 2D detection box size for point extraction (1.0 = no change). */
+  };
+
   /** Configuration for voxel grid, Euclidean clustering, and merge (quality filter lives in ProjectionUtilsParams). */
   struct ClusteringParams
   {
@@ -63,6 +75,9 @@ public:
 
     /** Drop points beyond this range from lidar origin (m). 0 = disabled. Reduces far noise before voxel/cluster. */
     double max_lidar_range_m = 0.0;
+
+    /** Per-class clustering overrides keyed by class_id (e.g. "car", "person"). */
+    std::unordered_map<std::string, ClassClusteringParams> class_params;
   };
 
   /**
@@ -110,6 +125,20 @@ public:
    */
   void performClustering(
     pcl::PointCloud<pcl::PointXYZ>::Ptr & filtered_cloud, std::vector<pcl::PointIndices> & cluster_indices);
+
+  /**
+   * @brief Re-clusters a subset of points using class-specific parameters.
+   * Builds a sub-cloud from the given indices, runs Euclidean clustering with class-specific
+   * tolerances, and maps resulting indices back to the original cloud.
+   * @param cloud Full filtered point cloud
+   * @param point_indices Indices into cloud defining the subset to re-cluster
+   * @param class_params Class-specific clustering parameters (negative values fall back to defaults)
+   * @return Vector of cluster indices (mapped back to original cloud)
+   */
+  std::vector<pcl::PointIndices> reClusterPointSubset(
+    const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+    const std::vector<int> & point_indices,
+    const ClassClusteringParams & class_params) const;
 
   /**
    * @brief Computes 3D bounding boxes for clusters

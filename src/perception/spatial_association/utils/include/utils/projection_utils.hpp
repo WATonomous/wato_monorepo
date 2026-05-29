@@ -278,6 +278,30 @@ std::vector<ClusterCandidate> buildCandidates(
 std::vector<pcl::PointIndices> extractIndices(const std::vector<ClusterCandidate> & candidates);
 
 /**
+ * @brief Extracts indices of cloud points that project within a 2D detection bounding box.
+ * @param cloud Point cloud in LiDAR frame
+ * @param lidar_to_image Pre-computed 3x4 projection matrix (P * T)
+ * @param detection 2D detection with bounding box
+ * @param image_width Image width for clipping
+ * @param image_height Image height for clipping
+ * @return Sorted vector of point indices that fall within the detection box
+ */
+std::vector<int> extractPointIndicesInDetectionBox(
+  const pcl::PointCloud<pcl::PointXYZ>::Ptr & cloud,
+  const Eigen::Matrix<double, 3, 4> & lidar_to_image,
+  const vision_msgs::msg::Detection2D & detection,
+  int image_width,
+  int image_height);
+
+/**
+ * @brief Selects the cluster from a set that best overlaps with a reference cluster.
+ * @param clusters Candidate clusters to choose from
+ * @param reference Reference cluster to compare against
+ * @return Index of the best-matching cluster (0 if clusters is empty)
+ */
+size_t selectBestClusterByOverlap(const std::vector<pcl::PointIndices> & clusters, const pcl::PointIndices & reference);
+
+/**
  * @brief Build lidar-to-image matrix once for use in point loops.
  * Use this + projectLidarToCamera(lidar_to_image, pt) so matrices are not rebuilt per point.
  */

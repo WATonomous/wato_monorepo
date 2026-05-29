@@ -26,6 +26,19 @@
         max_distances: [8.0, 20.0, 40.0, 999.0]
         tolerance_mults: [1.3, 1.0, 1.5, 2.0]
         min_cluster_sizes: [15, 12, 10, 8]
+
+      # Per-class clustering overrides (parallel arrays). After initial clustering + 2D association
+      # assigns class labels, matched detections are re-clustered with class-specific params.
+      # Empty arrays = disabled (no class-aware re-clustering).
+      class_clustering:
+        classes: ["car",  "person", "truck", "bus",  "bicycle", "motorcycle", "stop sign"]
+        cluster_tolerances: [0.50,   0.30,     0.80,    1.00,   0.25,      0.30,         0.15]
+        min_cluster_sizes: [8,      3,        12,      12,     3,         3,            2]
+        max_cluster_sizes: [800,    200,      2000,    2000,   100,       150,          50]
+        merge_thresholds: [0.50,   0.30,     0.80,    1.00,   0.20,      0.30,         0.10]
+        # Inflate 2D detection box before extracting LiDAR points (compensates for TF misalignment at range).
+        # 1.0 = no inflation, 1.3 = 30% wider/taller box. Optional — defaults to 1.0 if omitted.
+        bbox_inflation_factors: [1.20,   1.10,     1.30,    1.30,   1.10,      1.10,         1.05]
     merge_threshold: 0.4
 
     # --- 2D Detection Filter ---

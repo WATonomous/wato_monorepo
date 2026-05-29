@@ -25,6 +25,7 @@
 # =============================================================================
 # Patchwork++ Node (Ground Segmentation)
 # =============================================================================
+---
 /**/patchworkpp_node:
   ros__parameters:
     # --- Frames and range gates ---
@@ -63,35 +64,35 @@ multi_camera_sync:
     # Raw topics example: ["/camera1/image_raw", "/camera2/image_raw"]
     # Compressed topics example: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
-      # - "/camera_pano_ne/image_rect_compressed"
-      - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_ne/image_rect_compressed"
+      # - "/camera_pano_ee/image_rect_compressed"
       # - "/camera_pano_se/image_rect_compressed"
       # - "/camera_pano_ss/image_rect_compressed"
       # - "/camera_pano_sw/image_rect_compressed"
-      - "/camera_pano_ww/image_rect_compressed"
-      # - "/camera_pano_nw/image_rect_compressed"
+      # - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_nw/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
 
     # CameraInfo topics (same order as camera_topics). Required for ~/multi_camera_info.
     camera_info_topics:
-      # - "/camera_pano_ne/camera_info"
-      - "/camera_pano_ee/camera_info"
+      - "/camera_pano_ne/camera_info"
+      # - "/camera_pano_ee/camera_info"
       # - "/camera_pano_se/camera_info"
       # - "/camera_pano_ss/camera_info"
       # - "/camera_pano_sw/camera_info"
-      - "/camera_pano_ww/camera_info"
-      # - "/camera_pano_nw/camera_info"
+      # - "/camera_pano_ww/camera_info"
+      - "/camera_pano_nw/camera_info"
       - "/camera_pano_nn/camera_info"
 
     # Optional camera names (same order). Auto-generated if omitted.
     camera_names:
-      # - "camera_pano_ne"
-      - "camera_pano_ee"
+      - "camera_pano_ne"
+      # - "camera_pano_ee"
       # - "camera_pano_se"
       # - "camera_pano_ss"
       # - "camera_pano_sw"
-      - "camera_pano_ww"
-      # - "camera_pano_nw"
+      # - "camera_pano_ww"
+      - "camera_pano_nw"
       - "camera_pano_nn"
 
     # --- Transport and synchronization behavior ---
@@ -113,8 +114,7 @@ multi_camera_sync:
 /**/deep_object_detection_node:
   ros__parameters:
     # --- Input/asset paths and transport ---
-    model_path: "/ws/models/yolov8m.onnx"
-    class_names_path: "/ws/install/deep_object_detection/share/deep_object_detection/config/coco_classes.txt"
+    # model_path and class_names_path are set in the launch file
     use_compressed_images: true  # true for compressed image topics, false for uncompressed/shared memory
 
     # --- Model tensor contract ---
@@ -168,7 +168,7 @@ multi_camera_sync:
   ros__parameters:
     # --- Temporal tracking behavior ---
     frame_rate: 12
-    track_buffer: 120
+    track_buffer: 60
     track_thresh: 0.1
     high_thresh: 0.15
     match_thresh: 0.9
@@ -177,8 +177,17 @@ multi_camera_sync:
     dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
-    output_frame: "lidar_cc"
+    output_frame: "map"
     publish_visualization: true
+
+    # --- Per-class tracking overrides (parallel arrays). Empty = single global tracker. ---
+    # Classes not listed here use the global defaults above.
+    class_tracking:
+      classes: ["car",  "person", "truck", "bus"]
+      match_thresholds: [0.95,   1.5,       0.95,    0.95]
+      high_thresholds: [0.40,   0.35,      0.35,    0.20]
+      track_thresholds: [0.10,   0.25,      0.10,    0.10]
+      dist_metrics: ["IOU",  "CIOU",    "IOU",   "IOU"]
 
     # --- Prediction (Kalman filter future path) ---
     centroid_history_size: 10   # past centroids stored per track
@@ -199,7 +208,7 @@ multi_camera_sync:
     lidar_frame: lidar_cc
     max_detection_cloud_stamp_delta: 0.0
     detection_stamp_fallback_policy: "median_camera_stamp"
-    clustered_cloud_cache_size: 24
+    clustered_cloud_cache_size: 4
     raw_cloud_pending_queue_size: 1
     raw_cloud_latest_only: true
     bbox_markers_use_detection_stamp: false
@@ -207,21 +216,35 @@ multi_camera_sync:
 
     # --- Euclidean clustering (3D proposals from point cloud) ---
     euclid_params:
-      cluster_tolerance: 0.40
-      min_cluster_size: 10
-      max_cluster_size: 600
+      cluster_tolerance: 0.60
+      min_cluster_size: 3
+      max_cluster_size: 1000
       use_adaptive_clustering: true
-      close_threshold: 5.0
+      close_threshold: 10.0
       close_tolerance_mult: 1.0
 
       # Distance-band overrides for adaptive clustering.
+      # With sparse clouds (~31k valid points), far objects need larger tolerance to cluster.
       clustering_bands:
         max_distances: [8.0, 20.0, 40.0, 999.0]
-        tolerance_mults: [1.0, 1.0, 1.5, 2.5]
-        min_cluster_sizes: [10, 6, 3, 2]
+        tolerance_mults: [1.0, 1.2, 1.8, 3.0]
+        min_cluster_sizes: [8, 4, 2, 1]
+
+      # Per-class clustering overrides for class-aware re-clustering.
+      # After initial clustering + 2D association, matched detections are re-clustered
+      # with class-specific params. This is usually for classes smaller than cars that need tighter tolerances
+      class_clustering:
+        classes: ["person", "bicycle", "motorcycle", "stop sign"]
+        cluster_tolerances: [0.60,   0.80,      0.80,       0.20]
+        min_cluster_sizes: [1,      5,         5,            2]
+        max_cluster_sizes: [700,   900,       900,          80]
+        merge_thresholds: [0.4,   0.50,      0.40,         0.05]
+        # Inflate 2D detection box before extracting LiDAR points (compensates for TF misalignment at range).
+        # 1.0 = no inflation, 1.3 = 30% wider/taller box.
+        bbox_inflation_factors: [1.8,   1.15,      1.15,   1.00]
 
     # --- Merge behavior ---
-    merge_threshold: 0.15
+    merge_threshold: 0.60
 
     # --- Cross-camera deduplication ---
     cross_camera_dedup:
@@ -233,22 +256,22 @@ multi_camera_sync:
       min_bev_box_iou_no_class: 0.20
 
     # --- Global detection gates ---
-    object_detection_confidence: 0.2
-    voxel_size: 0.10
+    object_detection_confidence: 0.1
+    voxel_size: 0.05
 
     # --- Quality filtering of 3D boxes ---
     quality_filter_params:
       max_distance: 60.0
       min_points: 1
       min_height: 0.05
-      min_points_default: 3
+      min_points_default: 2
       min_points_far: 1
-      min_points_medium: 2
+      min_points_medium: 1
       min_points_large: 15
       distance_threshold_far: 45.0
       distance_threshold_medium: 30.0
       volume_threshold_large: 8.0
-      min_density: 1.5
+      min_density: 1.0
       max_dimension: 15.0
       max_aspect_ratio: 15.0
 
@@ -265,7 +288,7 @@ multi_camera_sync:
       marker_alpha: 0.2
 
       # --- Base association scoring ---
-      min_iou_threshold: 0.08  # Lower = more permissive association (was 0.15)
+      min_iou_threshold: 0.03  # Lower = more permissive association (was 0.08)
       min_camera_z_distance: 0.4
       detection_score_weight: 0.5
       iou_score_weight: 0.4
@@ -277,7 +300,7 @@ multi_camera_sync:
       orientation_search_step_degrees: 1.0
       orientation_coarse_step_multiplier: 3.0
       orientation_fine_range_multiplier: 4.0
-      use_l_shaped_fitting: true
+      use_l_shaped_fitting: false
       l_shape_energy_variance_weight: 0.7
 
       # --- Outlier rejection and robust extents ---
@@ -302,8 +325,8 @@ multi_camera_sync:
 
       # --- Class-aware threshold scaling ---
       person_inside_fraction_scale: 0.15
-      vehicle_inside_fraction_scale: 0.50
-      person_iou_threshold_scale: 0.03
+      vehicle_inside_fraction_scale: 0.30
+      person_iou_threshold_scale: 0.15
       vehicle_iou_threshold_scale: 0.10
       person_ar_consistency_scale: 0.20
 
@@ -338,20 +361,20 @@ multi_camera_sync:
       quality_vehicle_max_height_m: 4.8
 
       # --- Depth consistency scoring from enriched 3D detections ---
-      depth_score_weight: 0.10
+      depth_score_weight: 0.40
       depth_score_scale: 5.0
 
       # --- Class-aware size prior (pre-match penalty; toggle off to disable entirely) ---
       enable_size_prior: true
-      size_prior_weight: 0.10
-      size_prior_scale: 0.5
-      size_prior_classes:      ["person", "car",  "truck", "bus",  "bicycle", "motorcycle"]
-      size_prior_min_widths:   [0.1,      1.4,    2.0,     2.2,    0.3,       0.4]
-      size_prior_max_widths:   [0.9,      2.2,    3.0,     3.0,    0.8,       1.0]
-      size_prior_min_lengths:  [0.1,      2.5,    5.0,     8.0,    1.2,       1.5]
-      size_prior_max_lengths:  [0.9,      4.0,    12.0,    15.0,   2.0,       2.5]
-      size_prior_min_heights:  [0.4,      1.2,    2.0,     2.5,    0.8,       0.8]
-      size_prior_max_heights:  [3.0,      2.0,    4.5,     4.0,    1.8,       1.8]
+      size_prior_weight: 0.50
+      size_prior_scale: 1.0
+      size_prior_classes: ["person", "car",  "truck", "bus",  "bicycle", "motorcycle", "stop sign"]
+      size_prior_min_widths: [0.01,      1.4,    2.0,     2.2,    0.3,       0.4,          0.1]
+      size_prior_max_widths: [1.0,      2.2,    3.0,     3.0,    0.8,       1.0,          0.8]
+      size_prior_min_lengths: [0.01,      2.5,    5.0,     8.0,    1.2,       1.5,         0.1]
+      size_prior_max_lengths: [1.0,      4.0,    12.0,    15.0,   2.0,       2.5,         0.9]
+      size_prior_min_heights: [0.01,      1.2,    2.0,     2.5,    0.8,       0.8,         0.1]
+      size_prior_max_heights: [4.0,      2.0,    4.5,     4.0,    1.8,       1.8,         2.0]
 
 # =============================================================================
 # Attribute Assigner Node

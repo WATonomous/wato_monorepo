@@ -30,7 +30,7 @@ colcon test-result --all --verbose
 
 ```bash
 source install/setup.bash
-ros2 launch tracking tracking_launch.yaml
+ros2 launch tracking tracking.launch.yaml
 ```
 
 ## Modifying ByteTrack
