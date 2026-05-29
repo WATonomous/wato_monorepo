@@ -426,7 +426,36 @@ future reader can deserialize without knowing about your plugin.
   using the format registry. Loaded keyframes are tracked as prior map keys
   (`prior_map_keys_`) so the system can distinguish them from newly created keyframes.
 
-## 7. Troubleshooting
+## 7. Replaying Old Bags Without EIDOS Topics
+
+If you have a rosbag that was recorded before EIDOS was running (no `slam/pose` or
+`slam/odometry`), you can run EIDOS live alongside playback and it will process the
+raw sensor data from the bag in real time.
+
+**Requirements** — the bag must contain:
+- `/lidar_cc/velodyne_points` (LiSO factor)
+- `/novatel/oem7/imu/data`
+- `/novatel/oem7/fix` (GPS factor)
+
+**Steps:**
+
+```bash
+# Start interfacing + world_modeling in dev mode (also brings up infrastructure)
+./watod -m interfacing:dev world_modeling:dev up -d
+
+# Play the bag with sim time
+./watod bag play <bag_name> --clock
+
+# Verify EIDOS is publishing pose estimates
+./watod -t world_modeling_bringup
+ros2 topic echo /world_modeling/slam/pose
+```
+
+EIDOS will go through its normal `WARMING_UP -> TRACKING` state machine as it
+receives data from the bag. Allow a few seconds for IMU warmup before pose
+estimates appear.
+
+## 8. Troubleshooting
 
 ### Memory growth across restarts
 
