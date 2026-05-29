@@ -47,6 +47,10 @@ ros2 launch interfacing_bringup interfacing_can.launch.yaml test_velocity:=true
 ros2 launch interfacing_bringup interfacing_can.launch.yaml test_steering:=true
 ```
 
+## Internal Architecture
+
+Both nodes are pure timer-driven publishers with no subscribers. A single wall timer fires at `publish_rate` Hz, computes the current waveform value based on elapsed time since node creation, and publishes the message. There are no external inputs, no callbacks, and no lifecycle transitions.
+
 ## After Launching
 
 Confirm the node is publishing at the expected rate:

@@ -58,6 +58,8 @@ Callback data is written under a mutex or via atomics. The ROS subscriber callba
 
 **Steering deadzone:** The Kia Soul EV OSCC steering module has a mechanical deadzone near zero torque. The `steering_torque_deadzone_pos/neg` offsets compensate for this by shifting the command magnitude so small inputs still produce motion.
 
+**OSCC thread model:** The OSCC C library manages its own CAN communication thread internally. If callbacks stop arriving (e.g., `is_armed` stops updating at 100 Hz), the OSCC boards have likely lost power or the CAN bus went down — check `ip link show can0` and the board LEDs.
+
 ## After Launching
 
 1. **Arm the vehicle:**

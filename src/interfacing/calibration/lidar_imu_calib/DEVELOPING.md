@@ -69,6 +69,12 @@ cd scripts/
 
 Each iteration uses the previous result as the initial guess. Results are saved to `scripts/calibration_results.csv`. The script prints a convergence summary at the end.
 
+## Internal Architecture
+
+**RILI algorithm:** Operates in two phases. In the *initialization* phase, IMU preintegration is aligned with LiDAR odometry to estimate rotation and time lag. In the *refinement* phase, Ceres-based optimization jointly refines rotation, translation, and time lag using point-to-plane residuals from an ikd-Tree. Translation is only observable once enough rotation excitation is present — straight-line driving will not produce a valid translation estimate.
+
+**Iterative calibration:** `iterative_calibration.sh` re-runs `li_init` repeatedly, each time seeding the initial guess from the previous result. Convergence is reached when the standard deviation of reported transforms across iterations drops below the thresholds in the Good Result table.
+
 ## After Launching
 
 1. **Drive pattern** — drive in a figure-8 or repeated S-curves. The algorithm requires excitation in all three rotational axes (roll, pitch, yaw). Driving in a straight line provides yaw only and will not fully constrain the rotation.

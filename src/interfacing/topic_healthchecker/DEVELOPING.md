@@ -29,6 +29,8 @@ colcon build --packages-select topic_healthchecker
 
 **HTTP server:** Runs in a separate thread started at node construction. On each `GET /` request it serializes the current per-topic state (last age, rate, status) to JSON and returns it. The per-topic state map is protected by a mutex shared with the subscription callbacks.
 
+**Rate smoothing:** A larger `window_size` reduces rate noise but takes longer to react to actual rate changes. If a topic's reported rate looks wrong despite healthy message delivery, lower `window_size` for less-averaged estimates.
+
 ## After Launching
 
 1. **Verify the HTTP server started** — check the node log for:

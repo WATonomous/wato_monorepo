@@ -62,6 +62,12 @@ colcon build --packages-select oscc_mux
 # Launched by interfacing_bringup/interfacing_can.launch.yaml
 ```
 
+## Internal Architecture
+
+Identical mechanism to `ackermann_mux`, but operating on `roscco_msg/Roscco` instead of `AckermannDriveStamped`. A wall timer runs at `publish_rate_hz`, selects the highest-priority non-masked non-stale input, and publishes its cached command. If all inputs are masked or none has published, the emergency command (`steering=0.0, forward=0.0`) is sent.
+
+Safety gating is typically disabled for `oscc_mux` inputs because the joystick may be legitimately silent when in Ackermann mode (the PID node is publishing instead). If you enable `safety_gating` on an input, the mux will switch to emergency the moment that source exceeds `safety_threshold` seconds of silence.
+
 ## After Launching
 
 1. **Verify output is publishing:**

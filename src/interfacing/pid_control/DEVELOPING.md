@@ -128,6 +128,16 @@ Waiting for ackermann setpoint...
 | `feedforward` topic (FF node only) | Non-zero when vehicle is moving and steering is commanded |
 | Smoother output at step input | Ramps to target within `max_steering_accel` / `max_speed_accel` limits — no instantaneous jumps |
 
+## Internal Architecture
+
+**Control loop:** All three nodes run a wall timer at `update_rate` Hz. The timer reads the latest cached setpoints and feedback values (stored in subscriber callbacks) and computes the output command. The loop does not block waiting for new messages — if a feedback topic is stale, the last received value is reused.
+
+**Velocity source (vel_driven_feedforward_pid_node):** On first activation, the node subscribes to both `velocity_feedback` (Float64 from CAN) and `odom_feedback` (Odometry). Whichever topic publishes first becomes the velocity source for the session. The chosen source is logged at activation. The EMA filter (`velocity.filter_alpha`) smooths the selected velocity before it enters the PID loop — a lower alpha slows the filter response and reduces noise.
+
+**Feedforward model:** The steering feedforward is a polynomial in vehicle speed: `T_ff = (c0 + c1·v + c2·v²) · steering_setpoint + friction_offset · sign(steering_setpoint)`. This compensates for increased tire scrub at higher speeds. Refit the coefficients with `analysis/` scripts whenever vehicle geometry or tire conditions change significantly.
+
+**Smoother:** `ackermann_smoother_node` clips the per-tick rate of change of steering angle and speed, enforcing `max_steering_accel` and `max_speed_accel`. It is a pure rate limiter with no predictive model. Increase the limits if the vehicle is sluggish to respond; decrease them if actuators are commanded faster than they can physically follow.
+
 ## Fitting Feedforward Coefficients
 
 The `analysis/` directory contains Python scripts to fit the polynomial feedforward model from bag data. See `analysis/README.md` for the full pipeline. After fitting, update the `steering.feedforward.coefficients` and `steering.feedforward.friction_offset` parameters in the config file.

@@ -25,6 +25,12 @@ Panorama camera extrinsics are in the same file under the `pano_cameras` macro. 
 3. Set the parent to the nearest physically meaningful frame (`base_link`, `roof_mount`, etc.).
 4. Rebuild — `robot_state_publisher` will broadcast the new frame automatically.
 
+## Internal Architecture
+
+`eve_description` is a data-only package — there is no executable node. Xacro files are expanded by `robot_state_publisher` into a URDF string, which is then broadcast as `/tf_static` transforms. All joints are `fixed`, so transforms are published once on startup and never change during runtime.
+
+If the URDF has a syntax error, `robot_state_publisher` will fail to start and no TF frames will be published — check the node log for Xacro parse errors.
+
 ## After Launching
 
 Verify the full TF tree is being published:

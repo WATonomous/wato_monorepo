@@ -61,6 +61,8 @@ Odometry state (`x`, `y`, `theta`, `last_time`) is only accessed from the CAN re
 - `on_deactivate`: Signals and joins CAN read thread.
 - `on_cleanup`: Closes socket, destroys publishers.
 
+**Socket filter:** The kernel-level CAN filter is set in `on_configure` to pass only IDs `0x2B0` and `0x4B0`. All other frames are rejected in the kernel before reaching userspace, so the read thread only wakes on relevant frames. To add a new CAN signal, register its ID in the filter array in `on_configure`.
+
 ## Design Rationale
 
 CAN frames are read directly via SocketCAN rather than subscribing to OSCC topics because:

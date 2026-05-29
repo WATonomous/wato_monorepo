@@ -121,7 +121,7 @@ Offset update [ne]: old=0.0000 best=0.0120 new=0.0024 score=0.143 gyro_z=0.082
 
 ## Internal Architecture
 
-**Message synchronization:** Uses `message_filters::Synchronizer` with `ApproximateTime` policy across the three lidar streams. When a synchronized triplet arrives, the callback deskews and merges.
+**Message synchronization:** Uses `message_filters::Synchronizer` with `ApproximateTime` policy across the three lidar streams. When a new scan arrives, the synchronizer picks the latest-stamped message as the pivot and searches the other two queues for the closest match within `runtime.max_pair_dt_sec`. If all three match, the callback fires to deskew and merge. Increase `runtime.qos_depth` if scans are being dropped before a match is found.
 
 **IMU buffering:** A deque stores `ImuSample` structs (timestamp, orientation quaternion, gyro_z) with mutex protection. `get_orientation_at_time()` does SLERP interpolation between bracketing samples. `get_rotation_delta()` returns the rotation between two timestamps for deskew.
 

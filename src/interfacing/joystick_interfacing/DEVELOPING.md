@@ -50,6 +50,14 @@ colcon build --packages-select joystick_interfacing
 ros2 launch joystick_interfacing joystick_interfacing.launch.yaml
 ```
 
+## Internal Architecture
+
+**Enable axis:** The node checks `joy.axes[enable_axis]` on every joy message. If the value is > −0.9, the operator is considered not engaged and the node outputs zero commands. This threshold is designed for trigger axes that report +1.0 when unpressed and −1.0 when fully pressed.
+
+**Mode state machine:** Three states: `NULL` (no valid mode set), `ACKERMANN` (publishes on `joystick/ackermann`), `ROSCCO` (publishes on `roscco`). Pressing `toggle_button` cycles between ACKERMANN and ROSCCO. The haptic pulse count (1 pulse → ACKERMANN, 2 pulses → ROSCCO) confirms the new state.
+
+**Command scaling:** Stick axes (−1.0 to +1.0) are linearly scaled by `ackermann_max_steering_angle` and `ackermann_max_speed` (or their ROSCCO equivalents). The `invert_steering` / `invert_throttle` flags negate the axis value before scaling.
+
 ## After Launching
 
 1. **Verify joystick is detected:**

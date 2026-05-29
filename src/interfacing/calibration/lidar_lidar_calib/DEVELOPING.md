@@ -34,6 +34,12 @@ source install/setup.bash
 ros2 launch lidar_lidar_calib lidar_lidar_calib.yaml
 ```
 
+## Internal Architecture
+
+**GICP:** Generalized ICP iteratively estimates the rigid transform between source and target point clouds by minimizing point-to-distribution distances. Each iteration builds per-point covariance matrices, finds correspondences within `max_correspondence_distance`, solves the least-squares update, and repeats until the per-iteration transform change drops below a threshold.
+
+**Convergence basin:** GICP requires the initial guess to be within `max_correspondence_distance` of the true transform. Start with a large value (0.5–1.0 m) and a rough physical measurement as `initial_guess`. As the estimate improves across runs, tighten `max_correspondence_distance` to 0.1–0.2 m for a precision pass.
+
 ## After Launching
 
 1. **Ensure the vehicle is stationary** and the environment has geometric features (walls, objects — not an empty room).

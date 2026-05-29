@@ -74,6 +74,8 @@ The node is a lifecycle node managed by `wato_lifecycle_manager`. It runs a sing
 
 **Mask vs safety gating:** Masking is voluntary (the source says "ignore me"). Safety gating is watchdog-style (the mux stops waiting for a source that has gone silent). Use masking for joystick idle; use safety gating for the joystick overall to catch driver disconnects.
 
+**Publish model:** The output timer runs at `publish_rate_hz` (default 50 Hz) regardless of input arrival — the mux always sends the most recently cached command and never blocks waiting for new input. Increase `publish_rate_hz` if downstream nodes need a faster command stream; decrease `safety_threshold` to react faster to stale inputs.
+
 ## After Launching
 
 1. **Verify output is publishing:**
