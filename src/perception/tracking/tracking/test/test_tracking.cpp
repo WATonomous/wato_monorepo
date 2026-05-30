@@ -24,8 +24,10 @@
 #include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/node_options.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2/utils.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/static_transform_broadcaster.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <wato_test/wato_test.hpp>
 
@@ -233,6 +235,18 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]")
 
   add_node(test_pub);
   add_node(test_sub);
+
+  // TrackingNode requires the "map" frame in the TF tree to process detections.
+  // Without it the node clears track state on every callback and publishes nothing.
+  auto tf_broadcaster_node = std::make_shared<rclcpp::Node>("tf_broadcaster");
+  auto static_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(tf_broadcaster_node);
+  geometry_msgs::msg::TransformStamped map_to_base;
+  map_to_base.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  map_to_base.header.frame_id = "map";
+  map_to_base.child_frame_id = "base_link";
+  map_to_base.transform.rotation.w = 1.0;
+  static_broadcaster->sendTransform(map_to_base);
+  add_node(tf_broadcaster_node);
 
   node->configure();
   node->activate();

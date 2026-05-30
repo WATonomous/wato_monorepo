@@ -21,7 +21,9 @@ namespace wato::test
 
 ROS2Initializer::ROS2Initializer()
 {
-  rclcpp::init(0, nullptr);
+  if (!rclcpp::ok()) {
+    rclcpp::init(0, nullptr);
+  }
 }
 
 ROS2Initializer::~ROS2Initializer()
@@ -35,14 +37,20 @@ TestExecutorFixture::TestExecutorFixture()
 
 TestExecutorFixture::~TestExecutorFixture()
 {
-  // Cancel executor and wait for thread to finish before touching nodes
+  // Shut down ROS first to unblock any blocking wait calls (wait_for_service,
+  // future.wait_for, etc.), ensuring the spin thread exits promptly.
+  // rclcpp::shutdown() is idempotent; ROS2Initializer::~ROS2Initializer() will
+  // call it again safely.
+  if (rclcpp::ok()) {
+    rclcpp::shutdown();
+  }
+
   executor_.cancel();
 
   if (spin_thread_.joinable()) {
     spin_thread_.join();
   }
 
-  // Remove nodes from executor before their objects are freed
   for (auto & node_base : nodes_) {
     if (node_base) {
       executor_.remove_node(node_base);
@@ -50,7 +58,6 @@ TestExecutorFixture::~TestExecutorFixture()
   }
   nodes_.clear();
 
-  // Deactivate lifecycle nodes now that executor is stopped
   for (auto & node : lifecycle_nodes_) {
     if (node && node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
       try {
@@ -79,6 +86,14 @@ MultiThreadedTestFixture::MultiThreadedTestFixture()
 
 MultiThreadedTestFixture::~MultiThreadedTestFixture()
 {
+  // Shut down ROS first to unblock any blocking wait calls (wait_for_service,
+  // future.wait_for, etc.), ensuring the spin thread exits promptly.
+  // rclcpp::shutdown() is idempotent; ROS2Initializer::~ROS2Initializer() will
+  // call it again safely.
+  if (rclcpp::ok()) {
+    rclcpp::shutdown();
+  }
+
   executor_.cancel();
 
   if (spin_thread_.joinable()) {
