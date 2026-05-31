@@ -9,6 +9,7 @@
 
 #include "sensor_msgs/msg/image.hpp"
 #include "isaac_ros_nitros_image_type/nitros_image.hpp"
+#include "camera_debayer/camera_debayer_core.hpp"
 
 #include "cuda_runtime.h"  // NOLINT - include .h without directory
 
@@ -34,6 +35,8 @@ private:
 
   // CUDA stream to process dynamics detection on
   cudaStream_t cuda_stream_;
+  
+  CameraDebayerCore core_;
 };
 
 }  // namespace wato::perception::camera_debayer
