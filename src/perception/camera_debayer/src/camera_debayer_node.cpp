@@ -10,9 +10,11 @@ namespace wato::perception::camera_debayer
 
 CameraDebayerNode::CameraDebayerNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("camera_debayer_node", options),
+  // Subscribes to image_raw
   sub_{create_subscription<sensor_msgs::msg::Image>(
       "image_raw", 10,
       std::bind(&CameraDebayerNode::InputCallback, this, std::placeholders::_1))},
+  // publishes to image_color
   nitros_pub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
         nvidia::isaac_ros::nitros::NitrosImage>>(
       this, "image_color",
@@ -28,10 +30,10 @@ CameraDebayerNode::~CameraDebayerNode() = default;
 
 void CameraDebayerNode::InputCallback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
-  // Get size of image
+  // Get size of image in bytes
   size_t buffer_size{msg->step * msg->height};
 
-  // Allocate CUDA buffer to store image
+  // Allocate CUDA buffer (GPU memory) to store image
   void * buffer;
   CHECK_CUDA_ERROR(
     cudaMallocAsync(&buffer, buffer_size, cuda_stream_),
@@ -44,24 +46,25 @@ void CameraDebayerNode::InputCallback(const sensor_msgs::msg::Image::SharedPtr m
       cuda_stream_),
     "Error copying data to CUDA buffer");
 
-  // Allocate a new buffer for the output BGR image (3 bytes per pixel)
+  // Allocate a new buffer for the output BGR image (3 bytes per pixel for RGB)
   void * bgr_buffer;
   cudaMallocAsync(&bgr_buffer, msg->width * msg->height * 3, cuda_stream_);
 
   NppiSize size = {(int)msg->width, (int)msg->height};
   nppiCFAToRGB_8u_C1C3R(
-    (Npp8u *)buffer,     msg->step,          // input: Bayer
-    (Npp8u *)bgr_buffer, msg->width * 3,     // output: RGB
+    (Npp8u *)buffer,     msg->step,          // input: Bayer (1 channel)
+    (Npp8u *)bgr_buffer, msg->width * 3,     // output: RGB (3 channels)
     size, NPPI_BAYER_BGGR, NPPI_INTER_LINEAR);
 
-    // NPP outputs RGB, but we need BGR — swap channels in-place
+    // NPP outputs RGB, but we need BGR for the rectify node — swap channels in-place
     const int swap[] = {2, 1, 0};
     nppiSwapChannels_8u_C3IR((Npp8u *)bgr_buffer, msg->width * 3, size, swap);
 
-  // Replaced placeholder data
+  // Copies header from imcoming message (timestamp and frame_id)
   std_msgs::msg::Header header;
   header = msg->header;
 
+  // Waits for all GPU operations to finish before moving on
   CHECK_CUDA_ERROR(cudaStreamSynchronize(cuda_stream_), "Error synchronizing CUDA stream");
 
   // Create NitrosImage wrapping CUDA buffer
@@ -77,7 +80,7 @@ void CameraDebayerNode::InputCallback(const sensor_msgs::msg::Image::SharedPtr m
   RCLCPP_INFO(this->get_logger(), "Sent CUDA buffer with memory at: %p", buffer);
 }
 
-}  // namespace wato::perception::camera_debayer
+}
 
 // Register as component
 #include "rclcpp_components/register_node_macro.hpp"
