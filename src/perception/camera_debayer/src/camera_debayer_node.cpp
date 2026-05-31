@@ -3,7 +3,6 @@
 #include "isaac_ros_nitros_image_type/nitros_image_builder.hpp"
 #include "sensor_msgs/image_encodings.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
-#include  <nppi_color_conversion.h>
 
 namespace wato::perception::camera_debayer
 {
@@ -15,7 +14,7 @@ CameraDebayerNode::CameraDebayerNode(const rclcpp::NodeOptions options)
       "image_raw", 10,
       std::bind(&CameraDebayerNode::InputCallback, this, std::placeholders::_1))},
   // publishes to image_color
-  nitros_pub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
+  nitros_pub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosPublisher
         nvidia::isaac_ros::nitros::NitrosImage>>(
       this, "image_color",
       nvidia::isaac_ros::nitros::nitros_image_bgr8_t::supported_type_name)}
@@ -46,19 +45,9 @@ void CameraDebayerNode::InputCallback(const sensor_msgs::msg::Image::SharedPtr m
       cuda_stream_),
     "Error copying data to CUDA buffer");
 
-  // Allocate a new buffer for the output BGR image (3 bytes per pixel for RGB)
-  void * bgr_buffer;
-  cudaMallocAsync(&bgr_buffer, msg->width * msg->height * 3, cuda_stream_);
-
-  NppiSize size = {(int)msg->width, (int)msg->height};
-  nppiCFAToRGB_8u_C1C3R(
-    (Npp8u *)buffer,     msg->step,          // input: Bayer (1 channel)
-    (Npp8u *)bgr_buffer, msg->width * 3,     // output: RGB (3 channels)
-    size, NPPI_BAYER_BGGR, NPPI_INTER_LINEAR);
-
-    // NPP outputs RGB, but we need BGR for the rectify node — swap channels in-place
-    const int swap[] = {2, 1, 0};
-    nppiSwapChannels_8u_C3IR((Npp8u *)bgr_buffer, msg->width * 3, size, swap);
+  // Call core to debayer on GPU (Bayer → BGR)
+  void * bgr_buffer = core_.debayer(
+    buffer, msg->width, msg->height, msg->step, cuda_stream_);
 
   // Copies header from imcoming message (timestamp and frame_id)
   std_msgs::msg::Header header;
@@ -80,7 +69,7 @@ void CameraDebayerNode::InputCallback(const sensor_msgs::msg::Image::SharedPtr m
   RCLCPP_INFO(this->get_logger(), "Sent CUDA buffer with memory at: %p", buffer);
 }
 
-}
+}  // namespace wato::perception::camera_debayer
 
 // Register as component
 #include "rclcpp_components/register_node_macro.hpp"
