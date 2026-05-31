@@ -1,0 +1,58 @@
+---
+attribute_assigner_node:
+  ros__parameters:
+    sync_queue_size: 10   # ApproximateTime sync queue size for image + detections
+
+    # Class ID mappings (YOLOv8 COCO: 9=traffic_light, 2=car, 7=truck, 5=bus)
+    traffic_light_class_ids: ["traffic light"]
+    car_class_ids: ["car"]
+    truck_class_ids: ["truck"]
+    bus_class_ids: ["bus"]
+
+    # Minimum detection confidence to process (detections below this are passed through unchanged)
+    min_detection_confidence: 0.3
+
+    # Traffic light: HSV thresholds for "lit" region (S and V in 0-255, H in 0-180)
+    traffic_light_min_saturation: 60.0
+    traffic_light_min_value: 80.0
+    traffic_light_red_hue_lo: 10.0      # Red: H <= this OR H >= red_hue_hi
+    traffic_light_red_hue_hi: 170.0     # Red: H >= this OR H <= red_hue_lo
+    traffic_light_yellow_hue_hi: 35.0   # Yellow: red_hue_lo < H <= this
+    traffic_light_green_hue_hi: 85.0    # Green: yellow_hue_hi < H < this
+
+    # Car: brake light and amber (turn/hazard) detection thresholds (HSV-based)
+    car_brake_min_brightness: 90.0  # Min V channel for brake light detection
+    car_brake_min_saturation: 40.0 # Min S channel — lower than amber since brake lights wash out on light cars
+    car_red_hue_lo: 10.0            # Brake light red: H <= this
+    car_red_hue_hi: 170.0           # Brake light red: H >= this
+    car_amber_hue_lo: 12.0
+    car_amber_hue_hi: 35.0
+    car_amber_min_saturation: 80.0
+    car_amber_min_value: 100.0
+
+    # QoS Configuration
+    # Subscriber QoS: best_effort for low-latency detection data
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 10                   # Queue depth for incoming messages
+
+    # Publisher QoS: reliable + transient_local for immediate availability
+    # Transient local ensures late-joining subscribers receive the latest
+    # enriched detections immediately
+    qos_publisher_reliability: "reliable"        # Options: "reliable", "best_effort"
+    qos_publisher_durability: "transient_local"  # Options: "transient_local", "volatile"
+    qos_publisher_depth: 10                      # Queue depth for outgoing messages
+
+    # 3D Detection settings
+    input_multi_camera_info_topic: "input_multi_camera_info"  # Topic for camera intrinsics (deep_msgs/MultiCameraInfo)
+    target_frame: "base_link"                                  # Target coordinate frame for 3D detections
+    traffic_light_assumed_depth: 30.0                          # Fallback depth for traffic lights (meters)
+    car_assumed_depth: 20.0                                    # Fallback depth for all vehicles (meters)
+    car_real_width: 1.8                                        # Assumed car width (meters)
+    car_real_height: 1.5                                       # Assumed car height (meters)
+    car_real_length: 4.5                                       # Assumed car length (meters)
+    truck_real_width: 2.5
+    truck_real_height: 3.5
+    truck_real_length: 8.0
+    bus_real_width: 2.5
+    bus_real_height: 3.2
+    bus_real_length: 12.0

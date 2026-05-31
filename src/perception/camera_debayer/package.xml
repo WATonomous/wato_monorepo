@@ -1,0 +1,24 @@
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>camera_debayer</name>
+  <version>4.4.0</version>
+
+  <description>GPU Bayer debayer node for WATonomous camera pipeline</description>
+  <maintainer email="your-email@uwaterloo.ca">Your Name</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>std_msgs</depend>
+  <depend>message_filters</depend>
+  <depend>isaac_ros_managed_nitros</depend>
+  <depend>sensor_msgs</depend>
+  <depend>isaac_ros_nitros_image_type</depend>
+  <depend>isaac_ros_common</depend>
+  
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
