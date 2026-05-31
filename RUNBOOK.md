@@ -58,6 +58,24 @@ When preparing the car for the test track, do the following:
 1. turn car back on, and drive roughly 200m in any direction (so that we can hone in the gps, else localization and pid controls wont work)
 1. proceed to up the entire software start with `watod` (enabling all profiles and upping)
 
+### Power the car with battery/outlets
+#### power with battery
+Follow the procedure below:
+1. turn off the computer
+2. plug the computer to the inverter(blue)
+3. plug the sensor power strip(gray, located next to inverter) to the inverter
+4. plug the monitor to the sensor power strip
+5. turn on the inverter to 1
+6. press the button connected to motherboard to turn on the computer
+
+#### power with outlets
+Follow the procedure below:
+1. turn off the computer
+2. turn off the inverter to 0
+3. plug sensor power strip, computer, monitor to black power strip
+4. plug black power strip to outlets
+5. press the button connected to motherboard to turn on the computer
+
 ## Debugging
 
 ### The car won't turn on
