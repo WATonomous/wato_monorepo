@@ -1,23 +1,26 @@
-# Interfacing Bringup
+# interfacing_bringup
 
-Bringup package used to launch drivers for Eve.
+Meta-package that coordinates launch of all interfacing subsystems for Eve — sensors, CAN/control, and health monitoring.
 
-## Current Drivers
+## Overview
 
-### Novatel GPS Driver
-**Link to GitHub Repo:** https://github.com/novatel/novatel_oem7_driver/tree/humble
-**Usage Pattern:** This driver is available as a rosdep key, usage of this driver consists of depending on the released version in `package.xml` and launching.
+Rather than launching drivers and control nodes individually, this package provides a single entry point. It composes three subsystem launch files and a shared config file so the full stack comes up with one command.
 
-**More documentation on setup:** [GPS Bringup](../sensor_interfacing/docs/gps_bringup.md)
+## Architecture
 
-### Teledyne Blackfly GigE Driver
-**Link to GitHub Repo:** https://github.com/ros-drivers/flir_camera_driver/tree/humble-devel
-**Usage Pattern:** This driver is available as a rosdep key, usage of this driver consists of depending on the released version in `package.xml` and launching.
+```
+interfacing.launch.yaml
+├── interfacing_sensors.launch.yaml     GPS, LiDARs, cameras
+├── interfacing_can.launch.yaml         joystick, mux, PID, OSCC, CAN state estimator
+└── topic_healthchecker                 liveness monitoring over HTTP
+```
 
-**More documentation on setup:** [Camera Bringup](../sensor_interfacing/docs/camera_bringup.md)
+**Sensor drivers** are third-party ROS packages declared as rosdep keys and launched directly:
+- Novatel OEM7 (GPS + IMU)
+- FLIR Blackfly GigE (cameras, 12 total)
+- Velodyne VLP32C / VLP16 (LiDARs, 3 total)
 
-### Velodyne VLP32C/VLP16 Drivers
-**Link to Github Repo:** https://github.com/ros-drivers/velodyne/tree/ros2
-**Usage Pattern** This driver is available as a rosdep key, usage of this driver consists of depending on the released version in `package.xml` and launching.
+**CAN/control stack** is all first-party code in this repo:
+`joy_node` → `joystick_node` → `ackermann_mux` → `ackermann_smoother` → `pid_control` → `oscc_mux` → `oscc_interfacing`
 
-**More documentation on setup:** [LiDAR Bringup](../sensor_interfacing/docs/lidar_bringup.md)
+All parameters for every subsystem are consolidated in `config/interfacing.yaml`.
