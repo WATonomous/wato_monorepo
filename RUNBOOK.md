@@ -7,7 +7,21 @@
   - Located under a metal plate in the middle of the backseat
 - DO NOT TOUCH THE LEADS OF THE SMALL CAR BATTERY AND THE CHASSIS WITH LEFT AND RIGHT HAND, you will die
 
+## DO NOT DO
+The 12V battery will drain if the following is ALL true:
+- the E-stop is not pressed
+- the 12V battery is connected (open the front, connect the red wire to the short metal cylinder)
+
+It is recommended to have both E-stop pressed and 12V battery disconnected.
+
 ## General Procedure
+### Turning on the car
+As we disconnected the 12V battery, we cannot open the front to turn on the car. Therefore, do the following:
+1. pull out the physical key and open the driver seat
+2. press the button under the steering wheel to open the front
+3. connect the 12V battery (red wire to short metal cylinder)
+4. turn on the car
+
 ### Charging
 To charge the car, open the front and use the emergency latch to open the car charging dock.
 
@@ -43,6 +57,24 @@ When preparing the car for the test track, do the following:
 1. **Once at the test track** disconnect the car battery, wait 10 sec, and reconnect the car battery (this is a hack because for some reason our boards start to fault if we've driven the car ourselves for too long, you can use this tactic whenever our teleop setup doesn't work. We need to look into this)
 1. turn car back on, and drive roughly 200m in any direction (so that we can hone in the gps, else localization and pid controls wont work)
 1. proceed to up the entire software start with `watod` (enabling all profiles and upping)
+
+### Power the car with battery/outlets
+#### power with battery
+Follow the procedure below:
+1. turn off the computer
+2. plug the computer to the inverter(blue)
+3. plug the sensor power strip(gray, located next to inverter) to the inverter
+4. plug the monitor to the sensor power strip
+5. turn on the inverter to 1
+6. press the button connected to motherboard to turn on the computer
+
+#### power with outlets
+Follow the procedure below:
+1. turn off the computer
+2. turn off the inverter to 0
+3. plug sensor power strip, computer, monitor to black power strip
+4. plug black power strip to outlets
+5. press the button connected to motherboard to turn on the computer
 
 ## Debugging
 
