@@ -24,6 +24,15 @@ if [ "$INFRASTRUCTURE_CHANGED" == 'true' ]; then
     ALL_CHANGED='true'
 fi
 
+# wato_test is a shared test library — only rebuild the modules whose tests link against it
+if [ "$WATO_TEST_CHANGED" == 'true' ]; then
+    echo "::notice:: Detected wato_test changes - testing modules that depend on it"
+    ACTION_CHANGED='true'
+    INTERFACING_CHANGED='true'
+    PERCEPTION_CHANGED='true'
+    SIMULATION_CHANGED='true'
+fi
+
 # Action
 if [ "$ACTION_CHANGED" == 'true' ] || [ "$ALL_CHANGED" == 'true' ]; then
     echo "Detected action changes"
