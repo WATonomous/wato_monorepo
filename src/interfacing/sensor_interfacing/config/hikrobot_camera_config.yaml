@@ -24,7 +24,7 @@ x-common-settings: &common_settings
     AutoExposureTimeUpperLimit: 15000      # microseconds             ` - limit for motion blur
     GainShutPrior: "Shut"                  # Prioritize shutter speed over gain
     AcquisitionFrameRateEnable: true
-    AcquisitionFrameRate: 12.0
+    AcquisitionFrameRate: 20.0 # Limited to Lidar publish rate (30 may be possible in the future)
   AnalogControl:
     GainAuto: "Continuous"
     AutoGainLowerLimit: 0.0                # dB

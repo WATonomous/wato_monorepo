@@ -62,6 +62,8 @@ launch:
           value: "perception_container"
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "true"
 
   # Load multi-camera sync into the shared container
   - load_composable_node:

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Template to load a single camera pipeline (driver + debayer + rectify) into
+# Template to load a single camera pipeline (NITROS driver + GPU rectify) into
 # an existing component container. Does NOT create a container.
 ---
 launch:
@@ -33,6 +33,11 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
+  - arg:
+      name: "enable_jpeg"
+      default: "true"
+      description: "Load the JPEG encoder (image_rect_compressed). CPU intensive; set false to disable."
+
   - load_composable_node:
       target: $(var container_name)
       composable_node:
@@ -50,39 +55,72 @@ launch:
               value: "$(var camera_name)"
             - name: camera_info_urls
               value: ["$(find-pkg-share camera_calib)/config/$(var camera_name).yaml"]
+            - name: nitros_enable
+              value: true
             - name: $(var camera_name).image_raw.enable_pub_plugins
               value:
                 - "image_transport/raw"
 
-        - pkg: image_proc
-          plugin: image_proc::DebayerNode
-          name: debayer_$(var camera_name)
-          namespace: $(var camera_name)
-          extra_arg:
-            - name: use_intra_process_comms
-              value: "true"
-          param:
-            - name: image_color.enable_pub_plugins
-              value:
-                - "image_transport/raw"
-            - name: image_mono.enable_pub_plugins
-              value:
-                - "image_transport/raw"
-
-        - pkg: image_proc
-          plugin: image_proc::RectifyNode
+        - pkg: isaac_ros_image_proc
+          plugin: nvidia::isaac_ros::image_proc::RectifyNode
           name: rectify_$(var camera_name)
           namespace: $(var camera_name)
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
           param:
-            - name: image_rect.compressed.format
-              value: "jpeg"
-            - name: image_rect.compressed.jpeg_quality
-              value: "90"
+            - name: output_width
+              value: 1280
+            - name: output_height
+              value: 1024
           remap:
-            - from: "image"
-              to: "image_color"
-            - from: "image_rect/compressed"
+            - from: "image_raw"
+              to: "image_raw/nitros"
+
+
+        - pkg: isaac_ros_h264_encoder
+          plugin: nvidia::isaac_ros::h264_encoder::EncoderNode
+          name: encoder_$(var camera_name)
+          namespace: $(var camera_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - name: input_width
+              value: 1280
+            - name: input_height
+              value: 1024
+          remap:
+            - from: "image_raw"
+              to: "image_rect"
+            - from: "image_compressed"
+              to: "image_rect_h264"
+
+  # Standard image_transport JPEG encoder: republishes the raw rectified image
+  # as a compressed (JPEG) CompressedImage on image_rect_compressed. Loaded as a
+  # separate action so it can be toggled via the enable_jpeg arg (CPU intensive).
+  - load_composable_node:
+      if: $(var enable_jpeg)
+      target: $(var container_name)
+      composable_node:
+        - pkg: image_transport
+          plugin: image_transport::Republisher
+          name: jpeg_encoder_$(var camera_name)
+          namespace: $(var camera_name)
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - name: in_transport
+              value: "raw"
+            - name: out_transport
+              value: "compressed"
+            - name: out.compressed.format
+              value: "jpeg"
+            - name: out.compressed.jpeg_quality
+              value: 90
+          remap:
+            - from: "in"
+              to: "image_rect"
+            - from: "out/compressed"
               to: "image_rect_compressed"
