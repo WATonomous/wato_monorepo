@@ -9,8 +9,8 @@ FROM ${BASE_IMAGE} AS source
 WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for perception build
-RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros
-RUN git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros -b nitros-support
+RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
+    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros -b nitros-support
 
 COPY src/perception perception
 
@@ -27,6 +27,9 @@ COPY src/wato_test wato_test
 # NOTE: You should be relying on ROSDEP as much as possible
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
+
+# Use bash with pipefail so piped RUN commands (e.g. curl | gpg) fail loudly.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install TensorRT dependencies for deep_ros
 RUN apt-get update && \
