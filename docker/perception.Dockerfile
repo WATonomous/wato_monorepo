@@ -10,7 +10,7 @@ WORKDIR ${AMENT_WS}/src
 
 # Copy in source code needed for perception build
 RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
-    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros -b nitros-support
+    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros
 
 COPY src/perception perception
 
