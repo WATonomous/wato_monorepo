@@ -37,8 +37,10 @@ ros2 topic hz /lidar_nw/velodyne_points
 ros2 topic hz /novatel/oem7/bestpos
 ros2 topic hz /novatel/oem7/imu/data
 
-# Cameras (repeat for each of the 12 camera namespaces)
-ros2 topic hz /camera_pano_nn/image_raw
+# Cameras (NITROS pipeline; repeat for each of the 12 camera namespaces)
+ros2 topic hz /camera_pano_nn/image_raw           # raw frames
+ros2 topic hz /camera_pano_nn/image_rect          # GPU-rectified (Isaac ROS)
+ros2 topic hz /camera_pano_nn/image_rect_h264     # NVENC H.264
 ```
 
 ## Definition of Good Result
