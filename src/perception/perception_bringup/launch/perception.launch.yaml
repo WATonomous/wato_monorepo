@@ -114,6 +114,25 @@ launch:
           param:
             - from: $(var config_file)
 
+  # Load BEVFusion: Multi-modal LiDAR + Camera detection
+  - load_composable_node:
+      target: perception_container
+      composable_node:
+        - pkg: bevfusion
+          plugin: wato::perception::bevfusion::BEVFusionNode
+          name: bevfusion_node
+          namespace: ""
+          extra_arg:
+            - name: use_intra_process_comms
+              value: "true"
+          param:
+            - from: $(var config_file)
+          # remap:
+          #   - from: input_lidar
+          #     to: /perception/non_ground_cloud
+          #   - from: input_multi_image
+          #     to: /multi_camera_sync/multi_image_compressed
+
   # Load 3D tracking into the shared container
   - load_composable_node:
       target: perception_container
