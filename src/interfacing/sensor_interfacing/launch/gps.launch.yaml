@@ -15,6 +15,10 @@ launch:
       default: "Oem7ReceiverTcp"
       description: "Interface type (Oem7ReceiverTcp or Oem7ReceiverUdp)"
 
+  - set_env:
+      name: "NOVATEL_OEM7_DRIVER_PARAM_OVERRIDES_PATH"
+      value: "$(find-pkg-share sensor_interfacing)/config/novatel_oem7_overrides.yaml"
+
   - include:
       file: "$(find-pkg-share novatel_oem7_driver)/launch/oem7_net.launch.py"
       arg:
