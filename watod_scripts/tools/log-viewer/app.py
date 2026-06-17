@@ -25,8 +25,15 @@ from datetime import datetime, timezone
 TOPIC_HEALTHCHECKER_URL = os.environ.get(
     "TOPIC_HEALTHCHECKER_URL", "http://host.docker.internal:8080"
 )
+LOG_VIEWER_API_KEY = os.environ.get("LOG_VIEWER_API_KEY", "")
 
 app = Flask(__name__)
+
+
+@app.before_request
+def require_api_key():
+    if LOG_VIEWER_API_KEY and request.headers.get("X-API-Key") != LOG_VIEWER_API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
 
 
 # Initialize Docker client with explicit socket path
@@ -159,4 +166,5 @@ def get_topic_health():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8888, debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="127.0.0.1", port=8888, debug=debug)
