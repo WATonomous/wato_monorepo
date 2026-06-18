@@ -263,6 +263,20 @@ private:
   double cross_camera_min_bev_box_iou_{0.16};
   /** Stricter BEV IoU when both hypotheses lack class_id. */
   double cross_camera_min_bev_box_iou_no_class_{0.30};
+
+  /** Self-car masking: frame_id -> {x_min, x_max, y_min, y_max} in normalized coords (0-1). Filters detections in car body regions. */
+  struct MaskRegion
+  {
+    double x_min{0.0};
+    double x_max{1.0};
+    double y_min{0.0};
+    double y_max{1.0};
+  };
+  std::unordered_map<std::string, MaskRegion> self_car_mask_regions_;
+  bool self_car_mask_enabled_{false};
+
+  /** Filters 2D detections that fall within self-car mask regions; modifies @p msg in-place. */
+  void filterDetectionsByMask(deep_msgs::msg::MultiDetection2DArray::SharedPtr msg);
 };
 
 }  // namespace wato::perception::spatial_association

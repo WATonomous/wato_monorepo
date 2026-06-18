@@ -470,6 +470,14 @@ void SpatialAssociationNode::initializeParams()
   declareIfMissing(this, "cross_camera_dedup.min_bev_box_iou", 0.16);
   declareIfMissing(this, "cross_camera_dedup.min_bev_box_iou_no_class", 0.30);
 
+  // Self-car masking: prevent detections on the car body (hood/trunk visible in lower cameras).
+  declareIfMissing(this, "self_car_mask.enabled", false);
+  declareIfMissing(this, "self_car_mask.camera_frames", std::vector<std::string>{});
+  declareIfMissing(this, "self_car_mask.x_min", std::vector<double>{});
+  declareIfMissing(this, "self_car_mask.x_max", std::vector<double>{});
+  declareIfMissing(this, "self_car_mask.y_min", std::vector<double>{});
+  declareIfMissing(this, "self_car_mask.y_max", std::vector<double>{});
+
   declareIfMissing(this, "object_detection_confidence", 0.4f);
 
   declareIfMissing(this, "quality_filter_params.max_distance", 60.0);
@@ -634,6 +642,39 @@ void SpatialAssociationNode::initializeParams()
   cross_camera_min_bev_box_iou_no_class_ =
     this->get_parameter("cross_camera_dedup.min_bev_box_iou_no_class").as_double();
   object_detection_confidence_ = this->get_parameter("object_detection_confidence").as_double();
+
+  // Load self-car mask regions for filtering detections on car body.
+  {
+    self_car_mask_enabled_ = this->get_parameter("self_car_mask.enabled").as_bool();
+    auto mask_frames = this->get_parameter("self_car_mask.camera_frames").as_string_array();
+    auto mask_x_min = this->get_parameter("self_car_mask.x_min").as_double_array();
+    auto mask_x_max = this->get_parameter("self_car_mask.x_max").as_double_array();
+    auto mask_y_min = this->get_parameter("self_car_mask.y_min").as_double_array();
+    auto mask_y_max = this->get_parameter("self_car_mask.y_max").as_double_array();
+
+    self_car_mask_regions_.clear();
+    const size_t n = mask_frames.size();
+    if (
+      self_car_mask_enabled_ && n > 0 && mask_x_min.size() == n && mask_x_max.size() == n &&
+      mask_y_min.size() == n && mask_y_max.size() == n)
+    {
+      for (size_t i = 0; i < n; ++i) {
+        MaskRegion region;
+        region.x_min = std::max(0.0, std::min(1.0, mask_x_min[i]));
+        region.x_max = std::max(0.0, std::min(1.0, mask_x_max[i]));
+        region.y_min = std::max(0.0, std::min(1.0, mask_y_min[i]));
+        region.y_max = std::max(0.0, std::min(1.0, mask_y_max[i]));
+        self_car_mask_regions_[mask_frames[i]] = region;
+      }
+      RCLCPP_INFO(this->get_logger(), "Self-car masking enabled for %zu camera(s)", n);
+    } else if (self_car_mask_enabled_ && n > 0) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "self_car_mask arrays have mismatched lengths (%zu frames); masking disabled",
+        n);
+      self_car_mask_enabled_ = false;
+    }
+  }
 
   debug_logging_ = this->get_parameter("debug_logging").as_bool();
 
@@ -1001,6 +1042,12 @@ void SpatialAssociationNode::multiDetectionCallback(const deep_msgs::msg::MultiD
     }
     return;
   }
+
+  // Apply self-car masking to filter detections on car body regions.
+  if (self_car_mask_enabled_ && !self_car_mask_regions_.empty()) {
+    filterDetectionsByMask(msg);
+  }
+
   {
     std::lock_guard<std::mutex> lock(latest_detections_mutex_);
     latest_detections_ = msg;
@@ -1013,6 +1060,81 @@ void SpatialAssociationNode::detection3DCallback(const vision_msgs::msg::Detecti
 {
   std::lock_guard<std::mutex> lock(det3d_mutex_);
   latest_det3d_ = msg;
+}
+
+void SpatialAssociationNode::filterDetectionsByMask(deep_msgs::msg::MultiDetection2DArray::SharedPtr msg)
+{
+  if (!msg || msg->camera_detections.empty() || self_car_mask_regions_.empty()) {
+    return;
+  }
+
+  size_t total_removed = 0;
+
+  for (auto & camera_dets : msg->camera_detections) {
+    const std::string & frame_id = camera_dets.header.frame_id;
+    auto mask_it = self_car_mask_regions_.find(frame_id);
+    if (mask_it == self_car_mask_regions_.end()) {
+      continue;  // No mask configured for this camera
+    }
+
+    const MaskRegion & mask = mask_it->second;
+    auto & detections = camera_dets.detections;
+
+    // Filter out detections that fall within the masked region.
+    // Normalized coordinates: bbox_center is (center_x + size_x/2) / image_width, similar for y.
+    size_t camera_removed = 0;
+    auto new_end = std::remove_if(detections.begin(), detections.end(), [&](const vision_msgs::msg::Detection2D & det) {
+      // vision_msgs::msg::Detection2D contains:
+      //   - results: array of ObjectHypothesis
+      //   - bbox: BoundingBox2D (center.x, center.y, size_x, size_y)
+      //   - source_img: the image this was detected in
+
+      if (det.bbox.size_x <= 0.0f || det.bbox.size_y <= 0.0f) {
+        return false;  // Invalid bbox, keep it
+      }
+
+      // Compute normalized bbox coordinates
+      // Center position relative to bbox size
+      double left = det.bbox.center.x - det.bbox.size_x / 2.0;
+      double right = det.bbox.center.x + det.bbox.size_x / 2.0;
+      double top = det.bbox.center.y - det.bbox.size_y / 2.0;
+      double bottom = det.bbox.center.y + det.bbox.size_y / 2.0;
+
+      // Normalize to [0, 1] assuming standard image coordinates
+      // Note: This assumes det.bbox uses pixel coordinates; adjust if it's normalized differently
+      // If image_width/height are available from camera_info, divide by those; for now assume pixel space
+      // and normalize by assuming typical image dimensions or use center point directly
+      // For safety, we check if bbox center falls within mask region
+      double norm_x = det.bbox.center.x;
+      double norm_y = det.bbox.center.y;
+
+      // Check if detection center (or majority of bbox) overlaps with mask region
+      bool overlaps_mask = (norm_x >= mask.x_min && norm_x <= mask.x_max && norm_y >= mask.y_min &&
+                            norm_y <= mask.y_max);
+
+      if (overlaps_mask) {
+        camera_removed++;
+        return true;  // Remove this detection
+      }
+      return false;
+    });
+
+    if (camera_removed > 0) {
+      detections.erase(new_end, detections.end());
+      total_removed += camera_removed;
+      if (debug_logging_) {
+        RCLCPP_DEBUG(
+          this->get_logger(),
+          "Filtered %zu detections from camera %s due to self-car mask",
+          camera_removed,
+          frame_id.c_str());
+      }
+    }
+  }
+
+  if (debug_logging_ && total_removed > 0) {
+    RCLCPP_DEBUG(this->get_logger(), "Self-car mask filtered %zu total detections", total_removed);
+  }
 }
 
 void SpatialAssociationNode::runAssociationFromDetections(
