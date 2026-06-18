@@ -22,6 +22,14 @@ launch:
       description: Path to the .map file for localization. Empty string skips loading.
 
   - arg:
+      name: use_eidos
+      default: "true"
+      description: >-
+        Run eidos SLAM/localization. Keep true for custom bag/map runs where
+        there is no CARLA sim to provide odometry and TF. Set false when running
+        against CARLA, which provides ego odometry and the TF tree itself.
+
+  - arg:
       name: use_sim_time
       default: "false"
       description: Use simulation time from /clock topic
@@ -259,9 +267,9 @@ launch:
         - from: goal_point
           to: /goal_point
         - from: ego/odom
-          to: /world_modeling/slam/odometry
+          to: /ego/odom
         - from: ego/odom_incremental
-          to: /world_modeling/liso/odometry_incremental
+          to: /ego/odom
 
   # Behaviour Tree visualization markers
   - node:
@@ -286,8 +294,9 @@ launch:
         - from: markers
           to: behaviour_markers
 
-  # Eidos SLAM Node
+  # Eidos SLAM Node (skipped in CARLA sim via use_eidos:=false)
   - node:
+      if: "$(var use_eidos)"
       pkg: eidos
       exec: eidos_node
       name: eidos_node
@@ -298,6 +307,7 @@ launch:
 
   # Lifecycle Manager
   - node:
+      if: "$(var use_eidos)"
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: world_modeling_lifecycle_manager
@@ -310,6 +320,29 @@ launch:
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
+
+  # Lifecycle Manager (without eidos)
+  - node:
+      unless: "$(var use_eidos)"
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: world_modeling_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/prediction_node
+            - /world_modeling/world_model
+            - /world_modeling/costmap_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
