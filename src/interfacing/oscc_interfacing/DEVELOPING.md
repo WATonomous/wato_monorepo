@@ -37,6 +37,10 @@
 | `enable_steering` | bool | `true` | Enable steering module on arm |
 | `enable_throttle` | bool | `true` | Enable throttle module on arm |
 | `enable_brakes` | bool | `true` | Enable brake module on arm |
+| `enable_graceful_disarm` | bool | `true` | Ramp steering torque to zero on manual disarm before disabling boards |
+| `disarm_ramp_ms` | double | `600.0` | Duration (ms) of the steering torque rampdown on graceful disarm |
+
+See [GRACEFUL_DISENGAGE.md](GRACEFUL_DISENGAGE.md) for the full design and rationale of the disengagement handover.
 
 ## Build & Launch
 

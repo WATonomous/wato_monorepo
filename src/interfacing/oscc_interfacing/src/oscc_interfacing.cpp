@@ -140,6 +140,8 @@ void OsccInterfacingNode::configure()
   this->declare_parameter<bool>("enable_steering", true);
   this->declare_parameter<bool>("enable_throttle", true);
   this->declare_parameter<bool>("enable_brakes", true);
+  this->declare_parameter<bool>("enable_graceful_disarm", true);
+  this->declare_parameter<double>("disarm_ramp_ms", 600.0);
 
   // Read parameters
   is_armed_ = false;
@@ -154,6 +156,13 @@ void OsccInterfacingNode::configure()
   enable_steering_ = this->get_parameter("enable_steering").as_bool();
   enable_throttle_ = this->get_parameter("enable_throttle").as_bool();
   enable_brakes_ = this->get_parameter("enable_brakes").as_bool();
+  enable_graceful_disarm_ = this->get_parameter("enable_graceful_disarm").as_bool();
+  disarm_ramp_ms_ = this->get_parameter("disarm_ramp_ms").as_double();
+
+  if (disarm_ramp_ms_ <= 0.0) {
+    RCLCPP_WARN(this->get_logger(), "disarm_ramp_ms must be > 0, disabling graceful disarm");
+    enable_graceful_disarm_ = false;
+  }
 
   if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
     RCLCPP_ERROR(this->get_logger(), "Steering scaling parameter out of range (0.0, 1.0], resetting to 1.0");
@@ -239,6 +248,15 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
     return;
   }
 
+  // While a graceful disengage is in progress the rampdown owns the steering
+  // actuator. Ignore autonomy commands so the planner cannot re-inject torque
+  // mid-handover.
+  if (disengage_state_ != DisengageState::ENGAGED) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 2000, "Disengage in progress, ignoring roscco message");
+    return;
+  }
+
   float forward = msg->forward;
   float steering = msg->steering;
 
@@ -286,6 +304,9 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   }
   handle_any_errors(oscc_publish_steering_torque(steering_torque));
 
+  // Remember the final torque actually applied (deadzone included) so a graceful
+  // disengage can ramp down from exactly the current command with no initial step.
+  last_steering_torque_cmd_ = steering_torque;
   last_forward_ = forward;
 }
 
@@ -332,6 +353,7 @@ void OsccInterfacingNode::arm_service_callback(
 
     if (all_ok) {
       is_armed_ = true;
+      disengage_state_ = DisengageState::ENGAGED;
       response->success = true;
       response->message = "Vehicle armed successfully (" + enabled_modules + ")";
       RCLCPP_INFO(get_logger(), "Vehicle armed: %s", enabled_modules.c_str());
@@ -341,44 +363,24 @@ void OsccInterfacingNode::arm_service_callback(
       RCLCPP_ERROR(get_logger(), "Failed to arm vehicle");
     }
   } else {
-    bool all_ok = true;
-    std::string disabled_modules;
-
-    if (enable_all_) {
-      if (oscc_disable() != OSCC_OK) {
-        all_ok = false;
-      } else {
-        disabled_modules = "all";
-      }
-    } else {
-      if (enable_steering_) {
-        if (oscc_disable_steering() != OSCC_OK) {
-          all_ok = false;
-          RCLCPP_ERROR(get_logger(), "Failed to disable steering module");
-        } else {
-          disabled_modules += "steering ";
-        }
-      }
-      if (enable_throttle_) {
-        if (oscc_disable_throttle() != OSCC_OK) {
-          all_ok = false;
-          RCLCPP_ERROR(get_logger(), "Failed to disable throttle module");
-        } else {
-          disabled_modules += "throttle ";
-        }
-      }
-      if (enable_brakes_) {
-        if (oscc_disable_brakes() != OSCC_OK) {
-          all_ok = false;
-          RCLCPP_ERROR(get_logger(), "Failed to disable brake module");
-        } else {
-          disabled_modules += "brakes ";
-        }
-      }
+    // Disarm request. When graceful disarm is enabled and steering is currently
+    // under autonomy control, hand over by ramping steering torque to zero rather
+    // than cutting the boards instantly (which jerks the wheel). The actual board
+    // disable happens when the ramp finishes, in tick_disengage().
+    const bool steering_controlled = enable_all_ || enable_steering_;
+    if (enable_graceful_disarm_ && is_armed_ && steering_controlled && disengage_state_ == DisengageState::ENGAGED) {
+      begin_disengage();
+      response->success = true;
+      response->message = "Graceful disengage initiated (steering torque ramping down)";
+      return;
     }
 
-    if (all_ok) {
+    // Immediate disable: graceful disabled, not armed, steering not controlled,
+    // or a disengage is already in progress.
+    std::string disabled_modules;
+    if (disable_modules(disabled_modules)) {
       is_armed_ = false;
+      disengage_state_ = DisengageState::DISABLED;
       response->success = true;
       response->message = "Vehicle disarmed successfully (" + disabled_modules + ")";
       RCLCPP_INFO(get_logger(), "Vehicle disarmed: %s", disabled_modules.c_str());
@@ -388,6 +390,97 @@ void OsccInterfacingNode::arm_service_callback(
       RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
     }
   }
+}
+
+bool OsccInterfacingNode::disable_modules(std::string & disabled_modules)
+{
+  bool all_ok = true;
+
+  if (enable_all_) {
+    if (oscc_disable() != OSCC_OK) {
+      all_ok = false;
+    } else {
+      disabled_modules = "all";
+    }
+  } else {
+    if (enable_steering_) {
+      if (oscc_disable_steering() != OSCC_OK) {
+        all_ok = false;
+        RCLCPP_ERROR(get_logger(), "Failed to disable steering module");
+      } else {
+        disabled_modules += "steering ";
+      }
+    }
+    if (enable_throttle_) {
+      if (oscc_disable_throttle() != OSCC_OK) {
+        all_ok = false;
+        RCLCPP_ERROR(get_logger(), "Failed to disable throttle module");
+      } else {
+        disabled_modules += "throttle ";
+      }
+    }
+    if (enable_brakes_) {
+      if (oscc_disable_brakes() != OSCC_OK) {
+        all_ok = false;
+        RCLCPP_ERROR(get_logger(), "Failed to disable brake module");
+      } else {
+        disabled_modules += "brakes ";
+      }
+    }
+  }
+
+  return all_ok;
+}
+
+void OsccInterfacingNode::begin_disengage()
+{
+  disengage_state_ = DisengageState::DISENGAGING;
+  disengage_initial_torque_ = last_steering_torque_cmd_;
+  disengage_start_time_ = this->now();
+
+  // Cut throttle immediately — we must not keep accelerating during a handover.
+  // Braking authority is left untouched so the vehicle is not destabilised; it is
+  // released together with the boards when the ramp completes.
+  handle_any_errors(oscc_publish_throttle_position(0.0f));
+
+  RCLCPP_INFO(
+    get_logger(),
+    "Graceful disengage initiated: ramping steering torque %.3f -> 0 over %.0f ms",
+    disengage_initial_torque_,
+    disarm_ramp_ms_);
+}
+
+void OsccInterfacingNode::tick_disengage()
+{
+  if (disengage_state_ != DisengageState::DISENGAGING) {
+    return;
+  }
+
+  const double elapsed_ms = (this->now() - disengage_start_time_).seconds() * 1000.0;
+  const double frac = elapsed_ms / disarm_ramp_ms_;
+
+  if (frac >= 1.0) {
+    // Ramp complete: drive torque to exactly zero, then release the boards.
+    handle_any_errors(oscc_publish_steering_torque(0.0f));
+    last_steering_torque_cmd_ = 0.0f;
+
+    std::string disabled_modules;
+    const bool ok = disable_modules(disabled_modules);
+    is_armed_ = false;
+    disengage_state_ = DisengageState::DISABLED;
+    if (ok) {
+      RCLCPP_INFO(get_logger(), "Graceful disengage complete, vehicle disarmed (%s)", disabled_modules.c_str());
+    } else {
+      RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle after graceful disengage");
+    }
+    return;
+  }
+
+  // Linear rampdown toward zero. Because disengage_initial_torque_ includes the
+  // deadzone offset, the deadzone is bled off with it — no residual end step.
+  const float torque = disengage_initial_torque_ * static_cast<float>(1.0 - frac);
+  last_steering_torque_cmd_ = torque;
+  handle_any_errors(oscc_publish_steering_torque(torque));
 }
 
 void OsccInterfacingNode::process_events()
@@ -403,8 +496,11 @@ void OsccInterfacingNode::process_events()
       RCLCPP_INFO(get_logger(), "Steering Operator Override");
     }
 
+    // Operator is physically fighting the actuator — release immediately and
+    // abort any in-progress graceful rampdown. Never ramp against the driver.
     if (oscc_disable() == OSCC_OK) {
       is_armed_ = false;
+      disengage_state_ = DisengageState::DISABLED;
       RCLCPP_INFO(get_logger(), "Vehicle disarmed");
     } else {
       RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle");
@@ -423,14 +519,21 @@ void OsccInterfacingNode::process_events()
     }
 
     if (disable_boards_on_fault_) {
+      // Hardware fault: state is untrusted, release immediately and abort any
+      // in-progress graceful rampdown. Never hold torque through a fault.
       if (oscc_disable() == OSCC_OK) {
         is_armed_ = false;
+        disengage_state_ = DisengageState::DISABLED;
         RCLCPP_INFO(get_logger(), "Vehicle disarmed due to fault");
       } else {
         RCLCPP_FATAL(get_logger(), "!!!!!! Failed to disarm vehicle after fault");
       }
     }
   }
+
+  // Advance an in-progress graceful steering-torque rampdown. Runs after the
+  // override/fault checks so a real abort always wins over the ramp.
+  tick_disengage();
 }
 
 // --- Group B: Feedback publishing (independent of OSCC API) ---
@@ -496,6 +599,7 @@ oscc_result_t OsccInterfacingNode::handle_any_errors(oscc_result_t result)
   }
 
   is_armed_ = false;
+  disengage_state_ = DisengageState::DISABLED;
 
   RCLCPP_ERROR(this->get_logger(), "Error from OSCC API: %d, ATTEMPTING TO DISARM ALL BOARDS", result);
   if (oscc_disable() != OSCC_OK) {

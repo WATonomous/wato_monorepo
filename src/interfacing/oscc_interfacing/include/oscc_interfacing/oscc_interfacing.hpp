@@ -65,6 +65,21 @@ public:
   };
 
   /**
+   * @brief Lifecycle of the steering actuator with respect to disengagement.
+   *
+   * ENGAGED:     normal operation, autonomy commands are applied.
+   * DISENGAGING: a graceful handover is in progress; steering torque is being
+   *              ramped to zero. Autonomy commands are ignored during this phase.
+   * DISABLED:    OSCC boards are disabled, the driver has full control.
+   */
+  enum class DisengageState
+  {
+    ENGAGED,
+    DISENGAGING,
+    DISABLED
+  };
+
+  /**
    * @brief Snapshot of all four wheel speeds for atomic group read/write.
    */
   struct WheelSpeedSnapshot
@@ -141,6 +156,33 @@ private:
    */
   oscc_result_t handle_any_errors(oscc_result_t result);
 
+  /**
+   * @brief Starts a graceful disengage: ramps steering torque to zero over time.
+   *
+   * Captures the currently-applied steering torque and the ramp start time, cuts
+   * throttle immediately, and transitions to DISENGAGING. The ramp itself is
+   * advanced on the event timer via tick_disengage(); this call does not block.
+   */
+  void begin_disengage();
+
+  /**
+   * @brief Advances the steering-torque rampdown by one event-timer tick.
+   *
+   * Computes the linear ramp fraction from the elapsed time and publishes the
+   * scaled steering torque. When the ramp completes, disables the OSCC modules
+   * and transitions to DISABLED. No-op unless state is DISENGAGING.
+   */
+  void tick_disengage();
+
+  /**
+   * @brief Disables the configured OSCC modules immediately (no ramp).
+   *
+   * Honours enable_all_/enable_steering_/enable_throttle_/enable_brakes_.
+   * @param disabled_modules Out param describing which modules were disabled.
+   * @return true if all configured modules disabled successfully.
+   */
+  bool disable_modules(std::string & disabled_modules);
+
   // Callback groups
   rclcpp::CallbackGroup::SharedPtr oscc_api_group_;  // Group A
   rclcpp::CallbackGroup::SharedPtr feedback_group_;  // Group B
@@ -176,8 +218,18 @@ private:
   bool enable_throttle_{true};
   bool enable_brakes_{true};
 
+  // Graceful disengage parameters
+  bool enable_graceful_disarm_{true};  // If false, manual disarm disables boards instantly
+  double disarm_ramp_ms_{600.0};  // Steering torque rampdown duration on graceful disarm
+
   // Command state — protected by Group A serialization
   float last_forward_{0.0};
+  float last_steering_torque_cmd_{0.0};  // Last steering torque actually sent (incl. deadzone)
+
+  // Graceful disengage state — protected by Group A serialization
+  DisengageState disengage_state_{DisengageState::DISABLED};
+  float disengage_initial_torque_{0.0};  // Steering torque at the start of the ramp
+  rclcpp::Time disengage_start_time_;  // When the current ramp began
 };
 
 }  // namespace oscc_interfacing
