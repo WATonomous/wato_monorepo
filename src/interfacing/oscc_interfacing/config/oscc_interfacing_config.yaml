@@ -12,4 +12,4 @@
     enable_throttle: true # Enable throttle module on arm (only used when enable_all is false)
     enable_brakes: true # Enable brake module on arm (only used when enable_all is false)
     enable_graceful_disarm: true # If true, a manual disarm ramps steering torque to zero before disabling boards (smooth handover). Override/fault/error always disable instantly.
-    disarm_ramp_ms: 600.0 # Duration (ms) of the steering torque rampdown on graceful disarm
+    disarm_ramp_ms: 300.0 # Duration (ms) of the steering torque rampdown on graceful disarm

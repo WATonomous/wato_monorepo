@@ -117,7 +117,6 @@ OsccInterfacingNode::OsccInterfacingNode(const rclcpp::NodeOptions & options)
 OsccInterfacingNode::~OsccInterfacingNode()
 {
   g_node_instance.store(nullptr);
-  std::lock_guard<std::mutex> lock(arm_mutex_);
   if (is_armed_) {
     oscc_disable();
   }
@@ -198,6 +197,8 @@ void OsccInterfacingNode::configure()
 
   // Publishers
   is_armed_pub_ = this->create_publisher<std_msgs::msg::Bool>("oscc_interfacing/is_armed", rclcpp::QoS(1));
+  autonomy_state_pub_ =
+    this->create_publisher<roscco_msg::msg::AutonomyState>("oscc_interfacing/autonomy_state", rclcpp::QoS(1));
   wheel_speeds_pub_ =
     this->create_publisher<roscco_msg::msg::WheelSpeeds>("oscc_interfacing/wheel_speeds", rclcpp::QoS(1));
   steering_angle_pub_ =
@@ -212,7 +213,7 @@ void OsccInterfacingNode::configure()
   RCLCPP_INFO(
     this->get_logger(),
     "OsccInterfacingNode configured: armed=%d, is_armed_publish_rate=%d Hz",
-    is_armed_,
+    is_armed_.load(),
     is_armed_publish_rate_hz);
 
   if (oscc_open(oscc_can_bus_) != OSCC_OK) {
@@ -241,8 +242,9 @@ void OsccInterfacingNode::configure()
 
 void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSharedPtr msg)
 {
-  // No arm_mutex_ needed — Group A serialization guarantees arm_service_callback
-  // and process_events cannot run concurrently with this callback
+  // Group A serialization guarantees arm_service_callback and process_events
+  // cannot run concurrently with this callback; is_armed_ is atomic so the
+  // status timer can also read it without a lock.
   if (!is_armed_) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 10000, "Vehicle not armed, Ignoring roscco message");
     return;
@@ -251,7 +253,7 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   // While a graceful disengage is in progress the rampdown owns the steering
   // actuator. Ignore autonomy commands so the planner cannot re-inject torque
   // mid-handover.
-  if (disengage_state_ != DisengageState::ENGAGED) {
+  if (disengage_state_.load() != DisengageState::ENGAGED) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 2000, "Disengage in progress, ignoring roscco message");
     return;
@@ -363,12 +365,11 @@ void OsccInterfacingNode::arm_service_callback(
       RCLCPP_ERROR(get_logger(), "Failed to arm vehicle");
     }
   } else {
-    // Disarm request. When graceful disarm is enabled and steering is currently
-    // under autonomy control, hand over by ramping steering torque to zero rather
-    // than cutting the boards instantly (which jerks the wheel). The actual board
-    // disable happens when the ramp finishes, in tick_disengage().
+    // Disarm request. Hand over by ramping steering torque to zero
     const bool steering_controlled = enable_all_ || enable_steering_;
-    if (enable_graceful_disarm_ && is_armed_ && steering_controlled && disengage_state_ == DisengageState::ENGAGED) {
+    if (
+      enable_graceful_disarm_ && is_armed_ && steering_controlled && disengage_state_.load() == DisengageState::ENGAGED)
+    {
       begin_disengage();
       response->success = true;
       response->message = "Graceful disengage initiated (steering torque ramping down)";
@@ -438,9 +439,7 @@ void OsccInterfacingNode::begin_disengage()
   disengage_initial_torque_ = last_steering_torque_cmd_;
   disengage_start_time_ = this->now();
 
-  // Cut throttle immediately — we must not keep accelerating during a handover.
-  // Braking authority is left untouched so the vehicle is not destabilised; it is
-  // released together with the boards when the ramp completes.
+  // Cut throttle immediately
   handle_any_errors(oscc_publish_throttle_position(0.0f));
 
   RCLCPP_INFO(
@@ -452,7 +451,7 @@ void OsccInterfacingNode::begin_disengage()
 
 void OsccInterfacingNode::tick_disengage()
 {
-  if (disengage_state_ != DisengageState::DISENGAGING) {
+  if (disengage_state_.load() != DisengageState::DISENGAGING) {
     return;
   }
 
@@ -476,8 +475,7 @@ void OsccInterfacingNode::tick_disengage()
     return;
   }
 
-  // Linear rampdown toward zero. Because disengage_initial_torque_ includes the
-  // deadzone offset, the deadzone is bled off with it — no residual end step.
+  // Linear rampdown toward zero
   const float torque = disengage_initial_torque_ * static_cast<float>(1.0 - frac);
   last_steering_torque_cmd_ = torque;
   handle_any_errors(oscc_publish_steering_torque(torque));
@@ -583,11 +581,23 @@ void OsccInterfacingNode::publish_feedback()
 void OsccInterfacingNode::is_armed_timer_callback()
 {
   std_msgs::msg::Bool msg;
-  {
-    std::lock_guard<std::mutex> lock(arm_mutex_);
-    msg.data = is_armed_;
-  }
+  msg.data = is_armed_.load();
   is_armed_pub_->publish(msg);
+
+  roscco_msg::msg::AutonomyState state_msg;
+  state_msg.header.stamp = this->now();
+  switch (disengage_state_.load()) {
+    case DisengageState::ENGAGED:
+      state_msg.state = roscco_msg::msg::AutonomyState::ENGAGED;
+      break;
+    case DisengageState::DISENGAGING:
+      state_msg.state = roscco_msg::msg::AutonomyState::DISENGAGING;
+      break;
+    case DisengageState::DISABLED:
+      state_msg.state = roscco_msg::msg::AutonomyState::DISABLED;
+      break;
+  }
+  autonomy_state_pub_->publish(state_msg);
 }
 
 // --- Error handling ---

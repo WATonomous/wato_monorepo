@@ -12,6 +12,7 @@ OSCC is the low-level by-wire system on Eve. This node wraps the OSCC C library,
 [oscc_mux] ──► /roscco ──► oscc_interfacing_node ──► OSCC C library ──► CAN bus ──► vehicle
                                      │
                                      ├──► /oscc_interfacing/is_armed
+                                     ├──► /oscc_interfacing/autonomy_state
                                      ├──► /oscc_interfacing/wheel_speeds
                                      └──► /oscc_interfacing/steering_angle
 ```

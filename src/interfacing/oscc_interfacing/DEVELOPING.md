@@ -13,6 +13,7 @@
 | Topic | Type | Description |
 |-------|------|-------------|
 | `oscc_interfacing/is_armed` | `std_msgs/Bool` | Current arming state, published at `is_armed_publish_rate_hz` |
+| `oscc_interfacing/autonomy_state` | `roscco_msg/AutonomyState` | Disengage lifecycle state (`ENGAGED`/`DISENGAGING`/`DISABLED`), published at `is_armed_publish_rate_hz`. Use `DISENGAGING` to detect an in-progress graceful handover, since `is_armed` stays `true` until the ramp completes |
 | `oscc_interfacing/wheel_speeds` | `roscco_msg/WheelSpeeds` | Four wheel speeds (NE, NW, SE, SW) in km/h |
 | `oscc_interfacing/steering_angle` | `roscco_msg/SteeringAngle` | Steering wheel angle feedback |
 
@@ -39,8 +40,6 @@
 | `enable_brakes` | bool | `true` | Enable brake module on arm |
 | `enable_graceful_disarm` | bool | `true` | Ramp steering torque to zero on manual disarm before disabling boards |
 | `disarm_ramp_ms` | double | `600.0` | Duration (ms) of the steering torque rampdown on graceful disarm |
-
-See [GRACEFUL_DISENGAGE.md](GRACEFUL_DISENGAGE.md) for the full design and rationale of the disengagement handover.
 
 ## Build & Launch
 

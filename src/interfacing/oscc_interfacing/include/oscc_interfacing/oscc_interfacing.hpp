@@ -25,6 +25,7 @@ extern "C"
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
+#include <roscco_msg/msg/autonomy_state.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/steering_angle.hpp>
 #include <roscco_msg/msg/steering_torque.hpp>
@@ -190,6 +191,7 @@ private:
   // ROS Interfaces
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
+  rclcpp::Publisher<roscco_msg::msg::AutonomyState>::SharedPtr autonomy_state_pub_;
   rclcpp::Publisher<roscco_msg::msg::WheelSpeeds>::SharedPtr wheel_speeds_pub_;
   rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_angle_pub_;
   rclcpp::Publisher<roscco_msg::msg::SteeringTorque>::SharedPtr steering_torque_pub_;
@@ -200,9 +202,9 @@ private:
   rclcpp::TimerBase::SharedPtr event_timer_;
   rclcpp::TimerBase::SharedPtr feedback_timer_;
 
-  // Arm state — protected by arm_mutex_
-  std::mutex arm_mutex_;
-  bool is_armed_{false};
+  // Arm state — atomic so the default-group status timer and the destructor can
+  // read it safely while Group A callbacks mutate it.
+  std::atomic<bool> is_armed_{false};
 
   // Parameters
   int is_armed_publish_rate_hz;
@@ -226,8 +228,9 @@ private:
   float last_forward_{0.0};
   float last_steering_torque_cmd_{0.0};  // Last steering torque actually sent (incl. deadzone)
 
-  // Graceful disengage state — protected by Group A serialization
-  DisengageState disengage_state_{DisengageState::DISABLED};
+  // Graceful disengage state — written only in Group A, but atomic so the
+  // default-group status timer can publish it without a data race.
+  std::atomic<DisengageState> disengage_state_{DisengageState::DISABLED};
   float disengage_initial_torque_{0.0};  // Steering torque at the start of the ramp
   rclcpp::Time disengage_start_time_;  // When the current ramp began
 };
