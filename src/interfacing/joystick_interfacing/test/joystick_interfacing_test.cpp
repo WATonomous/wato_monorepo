@@ -161,13 +161,13 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
       auto state_future = state_sub->expect_next_message();
       auto roscco_future = roscco_sub->expect_next_message();
       auto feedback_on_future = feedback_sub->expect_next_message();
-      send_joy(-1.0, 0.5, 0.5, true);  // Rising edge toggles to /joystick/roscco
+      send_joy(0.0, 0.5, 0.5, true);  // Toggle without deadman (blocked when deadman held)
 
       auto state_msg = state_future.get();
       REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ROSSCO));
 
       auto roscco_msg = roscco_future.get();
-      REQUIRE(roscco_msg.forward == Catch::Approx(1.0));
+      REQUIRE(roscco_msg.forward == Catch::Approx(0.0));  // zero cmd sent on new topic at toggle time
 
       auto fb_on_msg = feedback_on_future.get();
       REQUIRE(fb_on_msg.intensity == Catch::Approx(0.5));
@@ -217,7 +217,7 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
       auto state_future = state_sub->expect_next_message();
       auto ack_future = ack_sub->expect_next_message();
       auto feedback_on_future = feedback_sub->expect_next_message();
-      send_joy(-1.0, 0.0, 0.0, true);
+      send_joy(0.0, 0.0, 0.0, true);  // Toggle without deadman (blocked when deadman held)
 
       auto state_msg = state_future.get();
       REQUIRE(state_msg.data == static_cast<int8_t>(JoystickState::ACKERMANN));

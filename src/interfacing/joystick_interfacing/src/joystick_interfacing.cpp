@@ -393,7 +393,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   }
 
   publish_state(use_roscco_topic_ ? JoystickNode::JoystickState::ROSSCO : JoystickNode::JoystickState::ACKERMANN);
-  publish_ackermann_idle_state(use_roscco_topic_);        // ackermann mux: idle when in ROSCCO mode
+  publish_ackermann_idle_state(use_roscco_topic_);  // ackermann mux: idle when in ROSCCO mode
   publish_roscco_idle_state(!use_roscco_topic_);  // oscc mux: idle when in Ackermann mode
 }
 
