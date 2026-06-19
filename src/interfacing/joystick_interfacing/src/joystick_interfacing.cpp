@@ -76,6 +76,7 @@ JoystickNode::CallbackReturn JoystickNode::on_configure(const rclcpp_lifecycle::
     this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("joystick/ackermann", rclcpp::QoS(10));
   roscco_joystick_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
   idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("joystick/is_idle", rclcpp::QoS(10));
+  roscco_idle_state_pub_ = this->create_publisher<std_msgs::msg::Bool>("joystick/roscco_is_idle", rclcpp::QoS(10));
   state_pub_ = this->create_publisher<std_msgs::msg::Int8>("joystick/state", rclcpp::QoS(10));
   joy_feedback_pub_ = this->create_publisher<sensor_msgs::msg::JoyFeedback>("joy/set_feedback", rclcpp::QoS(10));
 
@@ -133,6 +134,7 @@ JoystickNode::CallbackReturn JoystickNode::on_cleanup(const rclcpp_lifecycle::St
   ackermann_drive_stamped_pub_.reset();
   roscco_joystick_pub_.reset();
   idle_state_pub_.reset();
+  roscco_idle_state_pub_.reset();
   state_pub_.reset();
   joy_feedback_pub_.reset();
   is_armed_sub_.reset();
@@ -164,6 +166,7 @@ JoystickNode::CallbackReturn JoystickNode::on_shutdown(const rclcpp_lifecycle::S
   ackermann_drive_stamped_pub_.reset();
   roscco_joystick_pub_.reset();
   idle_state_pub_.reset();
+  roscco_idle_state_pub_.reset();
   state_pub_.reset();
   joy_feedback_pub_.reset();
   is_armed_sub_.reset();
@@ -190,16 +193,24 @@ bool JoystickNode::get_button(const sensor_msgs::msg::Joy & msg, int button_inde
 
 void JoystickNode::publish_neutral_state(bool is_idle)
 {
-  publish_idle_state(is_idle);
+  publish_ackermann_idle_state(is_idle);
+  publish_roscco_idle_state(true);  // not providing ROSCCO commands when neutral
   publish_state(JoystickState::NULL_STATE);
   publish_zero_command();
 }
 
-void JoystickNode::publish_idle_state(bool is_idle)
+void JoystickNode::publish_ackermann_idle_state(bool is_idle)
 {
   std_msgs::msg::Bool msg;
   msg.data = is_idle;
   idle_state_pub_->publish(msg);
+}
+
+void JoystickNode::publish_roscco_idle_state(bool is_idle)
+{
+  std_msgs::msg::Bool msg;
+  msg.data = is_idle;
+  roscco_idle_state_pub_->publish(msg);
 }
 
 void JoystickNode::publish_state(JoystickState state)
@@ -282,16 +293,22 @@ void JoystickNode::vibration_timer_callback()
 
 void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
 {
-  // Toggle logic (rising edge)
-  const bool toggle_button_pressed = get_button(*msg, toggle_button_);
-  if (toggle_button_pressed && !prev_toggle_button_pressed_) {
-    // Send zero to the current topic before switching to avoid stale commands
-    publish_zero_command();
+  const bool enable_pressed = get_axis(*msg, enable_axis_) <= -0.9;
 
+  // Toggle logic (rising edge) — blocked while deadman is held
+  const bool toggle_button_pressed = get_button(*msg, toggle_button_);
+  if (toggle_button_pressed && !prev_toggle_button_pressed_ && !enable_pressed) {
+    publish_zero_command();  // zero old topic
     use_roscco_topic_ = !use_roscco_topic_;
+    publish_zero_command();  // zero new topic
     RCLCPP_INFO(
       this->get_logger(), "Toggled output topic to: %s", use_roscco_topic_ ? "joystick/roscco" : "joystick/ackermann");
     vibrate(use_roscco_topic_ ? 2 : 1, toggle_vibration_duration_ms_);
+    prev_toggle_button_pressed_ = toggle_button_pressed;
+    publish_state(use_roscco_topic_ ? JoystickNode::JoystickState::ROSSCO : JoystickNode::JoystickState::ACKERMANN);
+    publish_ackermann_idle_state(use_roscco_topic_);
+    publish_roscco_idle_state(!use_roscco_topic_);
+    return;
   }
   prev_toggle_button_pressed_ = toggle_button_pressed;
 
@@ -333,10 +350,7 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   }
   prev_arming_button_pressed_ = arming_button_pressed;
 
-  // Safety gating
-  // enable must be held
-  const bool enable_pressed = get_axis(*msg, enable_axis_) <= -0.9;
-
+  // Safety gating — enable must be held
   // If enable is not held, fully disarm and stop.
   if (!enable_pressed) {
     RCLCPP_WARN_THROTTLE(
@@ -379,7 +393,8 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   }
 
   publish_state(use_roscco_topic_ ? JoystickNode::JoystickState::ROSSCO : JoystickNode::JoystickState::ACKERMANN);
-  publish_idle_state(use_roscco_topic_);  // Idle w.r.t. ackermann mux when in roscco mode
+  publish_ackermann_idle_state(use_roscco_topic_);        // ackermann mux: idle when in ROSCCO mode
+  publish_roscco_idle_state(!use_roscco_topic_);  // oscc mux: idle when in Ackermann mode
 }
 
 }  // namespace joystick_node
