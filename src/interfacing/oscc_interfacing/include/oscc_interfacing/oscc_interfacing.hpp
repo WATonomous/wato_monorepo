@@ -66,16 +66,21 @@ public:
   };
 
   /**
-   * @brief Lifecycle of the steering actuator with respect to disengagement.
+   * @brief Lifecycle of the steering actuator with respect to (dis)engagement.
    *
-   * ENGAGED:     normal operation, autonomy commands are applied.
-   * DISENGAGING: a graceful handover is in progress; steering torque is being
-   *              ramped to zero. Autonomy commands are ignored during this phase.
    * DISABLED:    OSCC boards are disabled, the driver has full control.
+   * ENGAGING:    a graceful handover to autonomy is in progress; command
+   *              authority is being ramped up from zero. Autonomy commands are
+   *              applied but scaled down during this phase.
+   * ENGAGED:     normal operation, autonomy commands are applied at full authority.
+   * DISENGAGING: a graceful handover to the driver is in progress; steering
+   *              torque is being ramped to zero. Autonomy commands are ignored
+   *              during this phase.
    */
   enum class DisengageState
   {
     ENGAGED,
+    ENGAGING,
     DISENGAGING,
     DISABLED
   };
@@ -184,6 +189,33 @@ private:
    */
   bool disable_modules(std::string & disabled_modules);
 
+  /**
+   * @brief Starts a graceful engage: fades autonomy authority in from zero.
+   *
+   * Records the ramp start time and transitions to ENGAGING. Autonomy commands
+   * keep flowing but are scaled by engage_authority_scale() until the ramp
+   * completes, at which point tick_engage() transitions to ENGAGED. This call
+   * does not block; the boards are already enabled by the time it runs.
+   */
+  void begin_engage();
+
+  /**
+   * @brief Completes an in-progress graceful engage once the ramp window elapses.
+   *
+   * Transitions ENGAGING -> ENGAGED when the elapsed time reaches arm_ramp_ms_.
+   * No-op unless state is ENGAGING. Advanced on the event timer.
+   */
+  void tick_engage();
+
+  /**
+   * @brief Current authority scale in [0, 1] applied to autonomy commands.
+   *
+   * Returns 1.0 in steady ENGAGED operation. During ENGAGING it ramps linearly
+   * from 0 to 1 over arm_ramp_ms_ so freshly-applied autonomy commands fade in
+   * instead of stepping. Returns 1.0 for any non-ENGAGING state.
+   */
+  float engage_authority_scale() const;
+
   // Callback groups
   rclcpp::CallbackGroup::SharedPtr oscc_api_group_;  // Group A
   rclcpp::CallbackGroup::SharedPtr feedback_group_;  // Group B
@@ -224,6 +256,10 @@ private:
   bool enable_graceful_disarm_{true};  // If false, manual disarm disables boards instantly
   double disarm_ramp_ms_{600.0};  // Steering torque rampdown duration on graceful disarm
 
+  // Graceful engage parameters
+  bool enable_graceful_arm_{true};  // If false, autonomy gets full authority instantly on arm
+  double arm_ramp_ms_{600.0};  // Authority ramp-up duration on graceful arm
+
   // Command state — protected by Group A serialization
   float last_forward_{0.0};
   float last_steering_torque_cmd_{0.0};  // Last steering torque actually sent (incl. deadzone)
@@ -232,7 +268,8 @@ private:
   // default-group status timer can publish it without a data race.
   std::atomic<DisengageState> disengage_state_{DisengageState::DISABLED};
   float disengage_initial_torque_{0.0};  // Steering torque at the start of the ramp
-  rclcpp::Time disengage_start_time_;  // When the current ramp began
+  rclcpp::Time disengage_start_time_;  // When the current disengage ramp began
+  rclcpp::Time engage_start_time_;  // When the current engage ramp began
 };
 
 }  // namespace oscc_interfacing

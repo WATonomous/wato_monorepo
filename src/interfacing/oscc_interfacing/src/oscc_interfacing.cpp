@@ -141,6 +141,8 @@ void OsccInterfacingNode::configure()
   this->declare_parameter<bool>("enable_brakes", true);
   this->declare_parameter<bool>("enable_graceful_disarm", true);
   this->declare_parameter<double>("disarm_ramp_ms", 600.0);
+  this->declare_parameter<bool>("enable_graceful_arm", true);
+  this->declare_parameter<double>("arm_ramp_ms", 600.0);
 
   // Read parameters
   is_armed_ = false;
@@ -157,10 +159,17 @@ void OsccInterfacingNode::configure()
   enable_brakes_ = this->get_parameter("enable_brakes").as_bool();
   enable_graceful_disarm_ = this->get_parameter("enable_graceful_disarm").as_bool();
   disarm_ramp_ms_ = this->get_parameter("disarm_ramp_ms").as_double();
+  enable_graceful_arm_ = this->get_parameter("enable_graceful_arm").as_bool();
+  arm_ramp_ms_ = this->get_parameter("arm_ramp_ms").as_double();
 
   if (disarm_ramp_ms_ <= 0.0) {
     RCLCPP_WARN(this->get_logger(), "disarm_ramp_ms must be > 0, disabling graceful disarm");
     enable_graceful_disarm_ = false;
+  }
+
+  if (arm_ramp_ms_ <= 0.0) {
+    RCLCPP_WARN(this->get_logger(), "arm_ramp_ms must be > 0, disabling graceful arm");
+    enable_graceful_arm_ = false;
   }
 
   if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
@@ -252,12 +261,17 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
 
   // While a graceful disengage is in progress the rampdown owns the steering
   // actuator. Ignore autonomy commands so the planner cannot re-inject torque
-  // mid-handover.
-  if (disengage_state_.load() != DisengageState::ENGAGED) {
+  // mid-handover. During a graceful engage (ENGAGING) commands ARE applied, but
+  // scaled by the authority ramp below so they fade in instead of stepping.
+  const DisengageState autonomy_state = disengage_state_.load();
+  if (autonomy_state != DisengageState::ENGAGED && autonomy_state != DisengageState::ENGAGING) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 2000, "Disengage in progress, ignoring roscco message");
     return;
   }
+
+  // Authority scale ramps 0 -> 1 during a graceful engage, 1.0 otherwise.
+  const float authority = engage_authority_scale();
 
   float forward = msg->forward;
   float steering = msg->steering;
@@ -288,6 +302,11 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
     brake = -forward;
   }
 
+  // During a graceful engage, fade throttle in with the authority ramp so the
+  // vehicle launches gently. Brake is left at full authority so the planner can
+  // always command full stopping power, even mid-handover.
+  throttle *= authority;
+
   // Smooth transition ordering between throttle and brake
   if (forward > 0.0 && last_forward_ < 0.0) {
     handle_any_errors(oscc_publish_brake_position(brake));
@@ -304,10 +323,14 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   } else if (steering_torque < 0.0) {
     steering_torque -= steering_torque_deadzone_neg_;
   }
+  // Scale the final torque (deadzone included) by the engage authority so a
+  // graceful engage fades in from exactly zero with no initial step.
+  steering_torque *= authority;
   handle_any_errors(oscc_publish_steering_torque(steering_torque));
 
-  // Remember the final torque actually applied (deadzone included) so a graceful
-  // disengage can ramp down from exactly the current command with no initial step.
+  // Remember the final torque actually applied (deadzone + authority scaling) so
+  // a graceful disengage can ramp down from exactly the current command with no
+  // initial step, even if it interrupts an in-progress engage.
   last_steering_torque_cmd_ = steering_torque;
   last_forward_ = forward;
 }
@@ -355,9 +378,17 @@ void OsccInterfacingNode::arm_service_callback(
 
     if (all_ok) {
       is_armed_ = true;
-      disengage_state_ = DisengageState::ENGAGED;
+      // Graceful engage fades autonomy authority in over arm_ramp_ms_ so the
+      // first planner commands don't step the actuators. Needs steering control.
+      const bool steering_controlled = enable_all_ || enable_steering_;
+      if (enable_graceful_arm_ && steering_controlled) {
+        begin_engage();
+        response->message = "Vehicle armed, graceful engage initiated (authority ramping up) (" + enabled_modules + ")";
+      } else {
+        disengage_state_ = DisengageState::ENGAGED;
+        response->message = "Vehicle armed successfully (" + enabled_modules + ")";
+      }
       response->success = true;
-      response->message = "Vehicle armed successfully (" + enabled_modules + ")";
       RCLCPP_INFO(get_logger(), "Vehicle armed: %s", enabled_modules.c_str());
     } else {
       response->success = false;
@@ -365,11 +396,13 @@ void OsccInterfacingNode::arm_service_callback(
       RCLCPP_ERROR(get_logger(), "Failed to arm vehicle");
     }
   } else {
-    // Disarm request. Hand over by ramping steering torque to zero
+    // Disarm request. Hand over by ramping steering torque to zero. A disengage
+    // can start from ENGAGED or from a still-ramping ENGAGING handover.
     const bool steering_controlled = enable_all_ || enable_steering_;
-    if (
-      enable_graceful_disarm_ && is_armed_ && steering_controlled && disengage_state_.load() == DisengageState::ENGAGED)
-    {
+    const DisengageState current_state = disengage_state_.load();
+    const bool engaged_or_engaging =
+      current_state == DisengageState::ENGAGED || current_state == DisengageState::ENGAGING;
+    if (enable_graceful_disarm_ && is_armed_ && steering_controlled && engaged_or_engaging) {
       begin_disengage();
       response->success = true;
       response->message = "Graceful disengage initiated (steering torque ramping down)";
@@ -431,6 +464,44 @@ bool OsccInterfacingNode::disable_modules(std::string & disabled_modules)
   }
 
   return all_ok;
+}
+
+void OsccInterfacingNode::begin_engage()
+{
+  // Boards are already enabled by the caller. Start applying autonomy commands
+  // immediately but at zero authority; the ramp grows it to full over
+  // arm_ramp_ms_. Reset command memory so the ramp (and any disengage that
+  // interrupts it) starts from a clean neutral baseline.
+  disengage_state_ = DisengageState::ENGAGING;
+  engage_start_time_ = this->now();
+  last_steering_torque_cmd_ = 0.0f;
+  last_forward_ = 0.0f;
+
+  RCLCPP_INFO(
+    get_logger(), "Graceful engage initiated: ramping autonomy authority 0 -> 1 over %.0f ms", arm_ramp_ms_);
+}
+
+float OsccInterfacingNode::engage_authority_scale() const
+{
+  if (disengage_state_.load() != DisengageState::ENGAGING) {
+    return 1.0f;
+  }
+  const double elapsed_ms = (this->now() - engage_start_time_).seconds() * 1000.0;
+  const double frac = elapsed_ms / arm_ramp_ms_;
+  return static_cast<float>(std::clamp(frac, 0.0, 1.0));
+}
+
+void OsccInterfacingNode::tick_engage()
+{
+  if (disengage_state_.load() != DisengageState::ENGAGING) {
+    return;
+  }
+
+  const double elapsed_ms = (this->now() - engage_start_time_).seconds() * 1000.0;
+  if (elapsed_ms >= arm_ramp_ms_) {
+    disengage_state_ = DisengageState::ENGAGED;
+    RCLCPP_INFO(get_logger(), "Graceful engage complete, autonomy at full authority");
+  }
 }
 
 void OsccInterfacingNode::begin_disengage()
@@ -529,8 +600,10 @@ void OsccInterfacingNode::process_events()
     }
   }
 
-  // Advance an in-progress graceful steering-torque rampdown. Runs after the
-  // override/fault checks so a real abort always wins over the ramp.
+  // Advance whichever graceful handover is in progress. Runs after the
+  // override/fault checks so a real abort always wins over the ramp. At most one
+  // of these is active at a time, so ordering between them is irrelevant.
+  tick_engage();
   tick_disengage();
 }
 
@@ -589,6 +662,9 @@ void OsccInterfacingNode::is_armed_timer_callback()
   switch (disengage_state_.load()) {
     case DisengageState::ENGAGED:
       state_msg.state = roscco_msg::msg::AutonomyState::ENGAGED;
+      break;
+    case DisengageState::ENGAGING:
+      state_msg.state = roscco_msg::msg::AutonomyState::ENGAGING;
       break;
     case DisengageState::DISENGAGING:
       state_msg.state = roscco_msg::msg::AutonomyState::DISENGAGING;
