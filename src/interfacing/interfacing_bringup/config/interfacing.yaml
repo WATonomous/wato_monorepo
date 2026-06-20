@@ -71,7 +71,7 @@
         topic: joystick/ackermann
         priority: 200
         has_mask: true
-        mask_topic: joystick/is_idle
+        mask_topic: joystick/ackermann_is_idle
         safety_gating: true
 
       action:
@@ -190,7 +190,7 @@
         topic: joystick/roscco
         priority: 100
         has_mask: true
-        mask_topic: joystick/is_idle
+        mask_topic: joystick/roscco_is_idle
         safety_gating: false
 
       pid:
