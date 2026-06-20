@@ -13,6 +13,7 @@
 | Topic | Type | Description |
 |-------|------|-------------|
 | `oscc_interfacing/is_armed` | `std_msgs/Bool` | Current arming state, published at `is_armed_publish_rate_hz` |
+| `oscc_interfacing/autonomy_state` | `roscco_msg/AutonomyState` | Engagement lifecycle state (`DISABLED`/`ENGAGING`/`ENGAGED`/`DISENGAGING`), published at `is_armed_publish_rate_hz`. `ENGAGING` = authority ramping up after arm; `DISENGAGING` = steering torque ramping down before disarm. `is_armed` is `true` throughout both ramps, so use this topic to detect an in-progress graceful handover |
 | `oscc_interfacing/wheel_speeds` | `roscco_msg/WheelSpeeds` | Four wheel speeds (NE, NW, SE, SW) in km/h |
 | `oscc_interfacing/steering_angle` | `roscco_msg/SteeringAngle` | Steering wheel angle feedback |
 
@@ -37,6 +38,10 @@
 | `enable_steering` | bool | `true` | Enable steering module on arm |
 | `enable_throttle` | bool | `true` | Enable throttle module on arm |
 | `enable_brakes` | bool | `true` | Enable brake module on arm |
+| `enable_graceful_disarm` | bool | `true` | Ramp steering torque to zero on manual disarm before disabling boards |
+| `disarm_ramp_ms` | double | `600.0` | Duration (ms) of the steering torque rampdown on graceful disarm |
+| `enable_graceful_arm` | bool | `true` | Fade autonomy authority (steering torque + throttle) in from zero on arm; brake stays at full authority |
+| `arm_ramp_ms` | double | `600.0` | Duration (ms) of the authority ramp-up on graceful arm |
 
 ## Build & Launch
 

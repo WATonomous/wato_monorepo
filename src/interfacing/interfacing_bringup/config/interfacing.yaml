@@ -223,6 +223,10 @@
     enable_steering: true # Enable steering module on arm (only used when enable_all is false)
     enable_throttle: true # Enable throttle module on arm (only used when enable_all is false)
     enable_brakes: true # Enable brake module on arm (only used when enable_all is false)
+    enable_graceful_disarm: true # If true, a manual disarm ramps steering torque to zero before disabling boards (smooth handover). Override/fault/error always disable instantly.
+    disarm_ramp_ms: 300.0 # Duration (ms) of the steering torque rampdown on graceful disarm
+    enable_graceful_arm: true # If true, arming fades autonomy authority (steering torque + throttle) in from zero instead of applying full-authority commands instantly. Brake stays at full authority.
+    arm_ramp_ms: 5000.0 # Duration (ms) of the authority ramp-up on graceful arm (10s is a test value; tune down for production)
 
 # Topic Healthchecker (monitors topic liveness and message rates)
 /**/topic_healthchecker:
