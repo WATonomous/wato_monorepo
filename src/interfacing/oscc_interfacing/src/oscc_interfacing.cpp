@@ -477,8 +477,7 @@ void OsccInterfacingNode::begin_engage()
   last_steering_torque_cmd_ = 0.0f;
   last_forward_ = 0.0f;
 
-  RCLCPP_INFO(
-    get_logger(), "Graceful engage initiated: ramping autonomy authority 0 -> 1 over %.0f ms", arm_ramp_ms_);
+  RCLCPP_INFO(get_logger(), "Graceful engage initiated: ramping autonomy authority 0 -> 1 over %.0f ms", arm_ramp_ms_);
 }
 
 float OsccInterfacingNode::engage_authority_scale() const
