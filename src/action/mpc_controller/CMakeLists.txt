@@ -28,6 +28,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
 find_package(osqp_eigen_vendor REQUIRED)  # sets up CMAKE_PREFIX_PATH for OsqpEigen
 find_package(OsqpEigen REQUIRED)
+find_package(vehicle_models REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(behaviour_msgs REQUIRED)
@@ -40,7 +41,6 @@ find_package(wato_lifecycle_manager REQUIRED)
 
 # Component Library
 add_library(${PROJECT_NAME}_component SHARED
-  src/bicycle_model.cpp
   src/mpc_core.cpp
   src/mpc_controller_node.cpp
 )
@@ -55,6 +55,7 @@ target_link_libraries(${PROJECT_NAME}_component
   PUBLIC
     Eigen3::Eigen
     OsqpEigen::OsqpEigen
+    vehicle_models::vehicle_models
     ${wato_trajectory_msgs_TARGETS}
     ${nav_msgs_TARGETS}
   PRIVATE
@@ -94,21 +95,14 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
+# Canonical MPC parameter defaults. action_bringup configs layer on top of this
+# as deployment-specific overrides (see action_mpc / action_sim launch files).
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
-
-  # Bicycle model test only needs the model, not OSQP
-  add_library(bicycle_model_lib STATIC src/bicycle_model.cpp)
-  target_include_directories(bicycle_model_lib PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  )
-  target_link_libraries(bicycle_model_lib PUBLIC Eigen3::Eigen)
-
-  add_wato_test(test_bicycle_model
-    test/test_bicycle_model.cpp
-    LIBRARIES
-      bicycle_model_lib
-  )
 
   add_wato_test(test_mpc_core
     test/test_mpc_core.cpp

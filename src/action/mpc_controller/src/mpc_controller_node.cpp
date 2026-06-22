@@ -49,6 +49,7 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
   // Control params
   declare_parameter("control_rate_hz", 20.0);
   declare_parameter("wheelbase", 2.5667);
+  declare_parameter("lr", 0.0);  // rear-axle->CoG distance; <=0 defaults to wheelbase/2
   declare_parameter("standby_msg", "standby");
   declare_parameter("standby_speed", 0.0);
   declare_parameter("standby_steering", 0.0);
@@ -63,8 +64,10 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
 
   // MPC cost weights
   declare_parameter("w_lateral", 50.0);
+  declare_parameter("w_long", 5.0);
   declare_parameter("w_heading", 20.0);
   declare_parameter("w_progress", 5.0);
+  declare_parameter("w_speed", 0.0);
   declare_parameter("w_steering", 1.0);
   declare_parameter("w_accel", 1.0);
   declare_parameter("w_dsteering", 100.0);
@@ -82,7 +85,8 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
   declare_parameter("max_jerk", 5.0);
 
   // Solver params
-  declare_parameter("dt_min", 0.5);
+  declare_parameter("dt_max", 0.5);
+  declare_parameter("latency_sec", 0.0);
   declare_parameter("max_solver_iterations", 200);
   declare_parameter("solver_eps_abs", 0.001);
   declare_parameter("solver_eps_rel", 0.001);
@@ -113,12 +117,15 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(const rclcpp_l
   disable_standby_ = get_parameter("disable_standby").as_bool();
 
   // Load MPC config
+  config_.lr = get_parameter("lr").as_double();
   config_.horizon_distance = get_parameter("horizon_distance").as_double();
   config_.point_spacing = get_parameter("point_spacing").as_double();
   config_.max_horizon_steps = get_parameter("max_horizon_steps").as_int();
   config_.w_lateral = get_parameter("w_lateral").as_double();
+  config_.w_long = get_parameter("w_long").as_double();
   config_.w_heading = get_parameter("w_heading").as_double();
   config_.w_progress = get_parameter("w_progress").as_double();
+  config_.w_speed = get_parameter("w_speed").as_double();
   config_.w_steering = get_parameter("w_steering").as_double();
   config_.w_accel = get_parameter("w_accel").as_double();
   config_.w_dsteering = get_parameter("w_dsteering").as_double();
@@ -130,7 +137,8 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(const rclcpp_l
   config_.max_speed = get_parameter("max_speed").as_double();
   config_.max_steering_rate = get_parameter("max_steering_rate").as_double();
   config_.max_jerk = get_parameter("max_jerk").as_double();
-  config_.dt_min = get_parameter("dt_min").as_double();
+  config_.dt_max = get_parameter("dt_max").as_double();
+  config_.latency_sec = get_parameter("latency_sec").as_double();
   config_.max_solver_iterations = get_parameter("max_solver_iterations").as_int();
   config_.solver_eps_abs = get_parameter("solver_eps_abs").as_double();
   config_.solver_eps_rel = get_parameter("solver_eps_rel").as_double();

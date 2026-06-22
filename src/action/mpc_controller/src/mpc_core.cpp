@@ -37,7 +37,7 @@ static double normalize_angle(double angle)
 
 MpcCore::MpcCore(const MpcConfig & config, double wheelbase)
 : config_(config)
-, model_(wheelbase)
+, model_(wheelbase, config.lr)
 , solver_initialized_(false)
 , prev_N_(0)
 , has_prev_solution_(false)
@@ -85,12 +85,14 @@ std::vector<ReferencePoint> MpcCore::sample_reference(
       ReferencePoint rp;
       rp.state << pt.pose.position.x, pt.pose.position.y, yaw, pt.max_speed;
       rp.max_speed = pt.max_speed;
+      rp.curvature = 0.0;
+      rp.u_ref = ControlVec::Zero();
 
       // dt = arc_spacing / max(v, v_floor)
       double v_ref = std::max(pt.max_speed, 0.5);
       rp.dt = config_.point_spacing / v_ref;
       rp.dt = std::max(rp.dt, 0.02);  // minimum 20ms step
-      rp.dt = std::min(rp.dt, config_.dt_min);
+      rp.dt = std::min(rp.dt, config_.dt_max);
 
       reference.push_back(rp);
       next_sample_arc += config_.point_spacing;
@@ -98,6 +100,50 @@ std::vector<ReferencePoint> MpcCore::sample_reference(
     }
 
     if (accumulated_arc >= config_.horizon_distance) break;
+  }
+
+  if (reference.empty()) {
+    return reference;
+  }
+
+  // Unwrap reference headings so they are continuous with the current vehicle
+  // heading. The quadratic heading cost cannot represent the +/-pi wrap, so a
+  // raw atan2 sequence crossing the branch cut would otherwise inject a ~2pi
+  // error and destabilize steering.
+  double prev_heading = current_state(2);
+  for (auto & rp : reference) {
+    double unwrapped = prev_heading + normalize_angle(rp.state(2) - prev_heading);
+    rp.state(2) = unwrapped;
+    prev_heading = unwrapped;
+  }
+
+  // Curvature and feedforward control (linearization operating point). Without
+  // this the model would be linearized about zero steering and assume the path
+  // is locally straight, giving no curvature feedforward on bends.
+  const double L = model_.wheelbase();
+  const size_t n = reference.size();
+  for (size_t k = 0; k < n; ++k) {
+    double kappa;
+    if (k + 1 < n) {
+      double dtheta = reference[k + 1].state(2) - reference[k].state(2);
+      kappa = dtheta / config_.point_spacing;
+    } else {
+      kappa = (k > 0) ? reference[k - 1].curvature : 0.0;
+    }
+    reference[k].curvature = kappa;
+
+    // Feedforward steering from path curvature, clamped to the actuator limit.
+    double delta_ref = std::atan(L * kappa);
+    delta_ref = std::clamp(delta_ref, -config_.max_steering_angle, config_.max_steering_angle);
+
+    // Feedforward acceleration from the reference speed profile.
+    double a_ref = 0.0;
+    if (k + 1 < n && reference[k].dt > 1e-6) {
+      a_ref = (reference[k + 1].state(3) - reference[k].state(3)) / reference[k].dt;
+    }
+    a_ref = std::clamp(a_ref, config_.max_decel, config_.max_accel);
+
+    reference[k].u_ref << delta_ref, a_ref;
   }
 
   return reference;
@@ -114,18 +160,28 @@ MpcSolution MpcCore::solve(
     return result;
   }
 
+  // Latency compensation: roll the initial state forward under the previously
+  // applied command so the QP plans from where the vehicle will actually be
+  // once this command takes effect. No-op when latency_sec is 0.
+  StateVec x0 = current_state;
+  if (config_.latency_sec > 1e-6) {
+    ControlVec u_prev;
+    u_prev << prev_steering, prev_accel;
+    x0 = model_.step(x0, u_prev, config_.latency_sec);
+  }
+
   int N = static_cast<int>(reference.size()) - 1;
   N = std::min(N, config_.max_horizon_steps);
 
-  // Linearize model at each reference point
+  // Linearize the model at each reference point about its feedforward control
+  // (curvature -> steering, speed profile -> acceleration).
   std::vector<LinearizedModel> models;
   models.reserve(N);
   for (int k = 0; k < N; ++k) {
-    ControlVec u_ref = ControlVec::Zero();
-    models.push_back(model_.linearize(reference[k].state, u_ref, reference[k].dt));
+    models.push_back(model_.linearize(reference[k].state, reference[k].u_ref, reference[k].dt));
   }
 
-  return solve_qp(current_state, models, reference, N, prev_steering, prev_accel);
+  return solve_qp(x0, models, reference, N, prev_steering, prev_accel);
 }
 
 MpcSolution MpcCore::solve_qp(
@@ -171,21 +227,44 @@ MpcSolution MpcCore::solve_qp(
   for (int k = 0; k <= N; ++k) {
     int x_offset = k * nx;
     double terminal_mult = (k == N) ? config_.w_terminal : 1.0;
+    const auto & ref = reference[std::min(k, N)];
 
-    // Lateral (y) tracking
-    P_triplets.emplace_back(x_offset + 1, x_offset + 1, config_.w_lateral * terminal_mult);
-    q(x_offset + 1) -= config_.w_lateral * terminal_mult * reference[std::min(k, N)].state(1);
+    // Position tracking in the path frame: penalize cross-track error
+    // (perpendicular to the reference heading) with w_lateral and along-track
+    // error with w_long. This makes tracking independent of the road's
+    // orientation in the world frame.
+    //   W = R^T * diag(w_long, w_lateral) * R,  R = rotation by reference heading
+    const double th = ref.state(2);
+    const double c = std::cos(th);
+    const double s = std::sin(th);
+    const double wl = config_.w_long * terminal_mult;     // along-track
+    const double wt = config_.w_lateral * terminal_mult;  // cross-track
+    const double Wxx = wl * c * c + wt * s * s;
+    const double Wyy = wl * s * s + wt * c * c;
+    const double Wxy = (wl - wt) * c * s;
 
-    // Heading tracking
+    // Hessian block (upper triangular). Always emitted (even when Wxy == 0 on
+    // straights) to keep the sparsity pattern stable across solves.
+    P_triplets.emplace_back(x_offset + 0, x_offset + 0, Wxx);
+    P_triplets.emplace_back(x_offset + 1, x_offset + 1, Wyy);
+    P_triplets.emplace_back(x_offset + 0, x_offset + 1, Wxy);
+
+    // Gradient: q_p -= W * p_ref
+    q(x_offset + 0) -= Wxx * ref.state(0) + Wxy * ref.state(1);
+    q(x_offset + 1) -= Wxy * ref.state(0) + Wyy * ref.state(1);
+
+    // Heading tracking (reference heading is unwrapped, see sample_reference).
     P_triplets.emplace_back(x_offset + 2, x_offset + 2, config_.w_heading * terminal_mult);
-    q(x_offset + 2) -= config_.w_heading * terminal_mult * reference[std::min(k, N)].state(2);
+    q(x_offset + 2) -= config_.w_heading * terminal_mult * ref.state(2);
 
-    // Progress: -w_progress * v[k] (linear in q, encourages speed)
+    // Progress: -w_progress * v[k] (linear reward, encourages speed).
     q(x_offset + 3) -= config_.w_progress;
 
-    // Also track x position
-    P_triplets.emplace_back(x_offset + 0, x_offset + 0, config_.w_lateral * terminal_mult * 0.1);
-    q(x_offset + 0) -= config_.w_lateral * terminal_mult * 0.1 * reference[std::min(k, N)].state(0);
+    // Optional quadratic speed tracking toward the reference speed profile.
+    if (config_.w_speed > 0.0) {
+      P_triplets.emplace_back(x_offset + 3, x_offset + 3, config_.w_speed * terminal_mult);
+      q(x_offset + 3) -= config_.w_speed * terminal_mult * ref.state(3);
+    }
   }
 
   // Control cost
@@ -264,18 +343,17 @@ MpcSolution MpcCore::solve_qp(
       // x_{k+1}
       A_triplets.emplace_back(row + i, xk1 + i, 1.0);
 
-      // -A_k * x_k
+      // -A_k * x_k. Emit every entry (including zeros) so the constraint
+      // matrix sparsity pattern is fixed across solves — OSQP's in-place
+      // update requires an unchanging pattern, but the linearization values
+      // (and which entries are nonzero) vary with the operating point.
       for (int j = 0; j < nx; ++j) {
-        if (std::abs(m.A(i, j)) > 1e-12) {
-          A_triplets.emplace_back(row + i, xk + j, -m.A(i, j));
-        }
+        A_triplets.emplace_back(row + i, xk + j, -m.A(i, j));
       }
 
       // -B_k * u_k
       for (int j = 0; j < nu; ++j) {
-        if (std::abs(m.B(i, j)) > 1e-12) {
-          A_triplets.emplace_back(row + i, uk + j, -m.B(i, j));
-        }
+        A_triplets.emplace_back(row + i, uk + j, -m.B(i, j));
       }
 
       lower(row + i) = m.g(i);
@@ -352,6 +430,37 @@ MpcSolution MpcCore::solve_qp(
   // Solve with OSQP
   bool needs_reinit = !solver_initialized_ || prev_N_ != N;
 
+  if (!needs_reinit) {
+    // In-place update of the existing solver. If any update reports a sparsity
+    // mismatch (return false), fall back to a full re-initialization so a
+    // pattern change can never silently leave a stale problem in the solver.
+    bool ok = solver_->updateHessianMatrix(P) && solver_->updateGradient(q) &&
+              solver_->updateLinearConstraintsMatrix(A_mat) && solver_->updateBounds(lower, upper);
+
+    if (!ok) {
+      needs_reinit = true;
+    } else if (has_prev_solution_ && config_.warm_start) {
+      // Shift previous solution forward for warm-start
+      Eigen::VectorXd warm_primal = Eigen::VectorXd::Zero(n_vars);
+
+      // Shift states: x_k = prev_x_{k+1}
+      for (int k = 0; k < N; ++k) {
+        int src = std::min(k + 1, prev_N_) * nx;
+        warm_primal.segment(k * nx, nx) = prev_primal_.segment(src, nx);
+      }
+      warm_primal.segment(N * nx, nx) = warm_primal.segment((N - 1) * nx, nx);
+
+      // Shift controls: u_k = prev_u_{k+1}
+      for (int k = 0; k < N - 1; ++k) {
+        int src = n_states + std::min(k + 1, prev_N_ - 1) * nu;
+        warm_primal.segment(n_states + k * nu, nu) = prev_primal_.segment(src, nu);
+      }
+      warm_primal.segment(n_states + (N - 1) * nu, nu) = warm_primal.segment(n_states + std::max(0, N - 2) * nu, nu);
+
+      solver_->setPrimalVariable(warm_primal);
+    }
+  }
+
   if (needs_reinit) {
     solver_ = std::make_unique<OsqpEigen::Solver>();
     solver_->settings()->setVerbosity(false);
@@ -374,32 +483,6 @@ MpcSolution MpcCore::solve_qp(
     }
     solver_initialized_ = true;
     prev_N_ = N;
-  } else {
-    solver_->updateHessianMatrix(P);
-    solver_->updateGradient(q);
-    solver_->updateLinearConstraintsMatrix(A_mat);
-    solver_->updateBounds(lower, upper);
-
-    if (has_prev_solution_ && config_.warm_start) {
-      // Shift previous solution forward for warm-start
-      Eigen::VectorXd warm_primal = Eigen::VectorXd::Zero(n_vars);
-
-      // Shift states: x_k = prev_x_{k+1}
-      for (int k = 0; k < N; ++k) {
-        int src = std::min(k + 1, prev_N_) * nx;
-        warm_primal.segment(k * nx, nx) = prev_primal_.segment(src, nx);
-      }
-      warm_primal.segment(N * nx, nx) = warm_primal.segment((N - 1) * nx, nx);
-
-      // Shift controls: u_k = prev_u_{k+1}
-      for (int k = 0; k < N - 1; ++k) {
-        int src = n_states + std::min(k + 1, prev_N_ - 1) * nu;
-        warm_primal.segment(n_states + k * nu, nu) = prev_primal_.segment(src, nu);
-      }
-      warm_primal.segment(n_states + (N - 1) * nu, nu) = warm_primal.segment(n_states + std::max(0, N - 2) * nu, nu);
-
-      solver_->setPrimalVariable(warm_primal);
-    }
   }
 
   auto status = solver_->solveProblem();
