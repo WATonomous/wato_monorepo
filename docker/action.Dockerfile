@@ -12,6 +12,7 @@ WORKDIR ${AMENT_WS}/src
 COPY src/action action
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/wato_test wato_test
+COPY src/common/vehicle_models vehicle_models
 
 COPY src/world_modeling/lanelet_msgs lanelet_msgs
 COPY src/world_modeling/world_model_msgs world_model_msgs

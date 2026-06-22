@@ -21,11 +21,24 @@
 #include <memory>
 #include <vector>
 
-#include "mpc_controller/bicycle_model.hpp"
+#include "vehicle_models/bicycle_model.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
 namespace mpc_controller
 {
+
+// The vehicle model and its state/control types live in the shared
+// vehicle_models package. Re-export them here so the controller code and tests
+// can refer to them unqualified within the mpc_controller namespace.
+using vehicle_models::BicycleModel;
+using vehicle_models::ControlVec;
+using vehicle_models::InputMat;
+using vehicle_models::LinearizedModel;
+using vehicle_models::StateMat;
+using vehicle_models::StateVec;
+using vehicle_models::CONTROL_DIM;
+using vehicle_models::STATE_DIM;
+using vehicle_models::yaw_from_quaternion;
 
 /**
  * @brief All tunable MPC parameters, loaded from ROS params.
@@ -36,6 +49,12 @@ namespace mpc_controller
  */
 struct MpcConfig
 {
+  // ---- Vehicle geometry ----
+
+  // Rear-axle-to-CoG distance for the slip-angle correction (meters).
+  // Values <= 0 default to wheelbase / 2.
+  double lr;
+
   // ---- Horizon ----
 
   // How far ahead MPC looks (meters)
@@ -52,11 +71,17 @@ struct MpcConfig
   // Lateral (cross-track) position tracking weight
   double w_lateral;
 
+  // Longitudinal (along-track) position tracking weight
+  double w_long;
+
   // Heading alignment weight
   double w_heading;
 
-  // Speed encouragement weight (linear cost on velocity)
+  // Speed encouragement weight (linear reward on velocity)
   double w_progress;
+
+  // Quadratic speed-tracking weight toward the reference speed (0 = disabled)
+  double w_speed;
 
   // Steering effort penalty
   double w_steering;
@@ -97,8 +122,12 @@ struct MpcConfig
 
   // ---- Solver ----
 
-  // Maximum dt per step when speed is near zero (seconds)
-  double dt_min;
+  // Maximum dt per step, hit when speed is near zero (seconds).
+  double dt_max;
+
+  // Actuation + compute latency to compensate for by rolling the initial
+  // state forward under the previous command before solving (seconds, 0 = off).
+  double latency_sec;
 
   // OSQP iteration cap
   int max_solver_iterations;
@@ -118,11 +147,19 @@ struct MpcConfig
  */
 struct ReferencePoint
 {
-  // Reference state [x, y, theta, v_ref]
+  // Reference state [x, y, theta, v_ref]. theta is unwrapped to be continuous
+  // with the current vehicle heading (no +/-pi jumps).
   StateVec state;
 
   // Speed limit at this point (m/s)
   double max_speed;
+
+  // Path curvature at this point (1/m), derived from the reference headings.
+  double curvature;
+
+  // Feedforward control [delta_ref, a_ref] used as the linearization operating
+  // point: delta_ref from curvature, a_ref from the reference speed profile.
+  ControlVec u_ref;
 
   // Time step to the next reference point (seconds)
   double dt;
@@ -134,16 +171,16 @@ struct ReferencePoint
 struct MpcSolution
 {
   // Optimal steering command (rad)
-  double steering_angle;
+  double steering_angle = 0.0;
 
   // Optimal acceleration command (m/s^2)
-  double acceleration;
+  double acceleration = 0.0;
 
   // Target speed after applying acceleration (m/s)
-  double target_speed;
+  double target_speed = 0.0;
 
   // Whether the QP solver found a valid solution
-  bool solved;
+  bool solved = false;
 
   // Predicted state trajectory over the horizon
   std::vector<StateVec> predicted_states;
@@ -224,9 +261,6 @@ private:
 
   // Previous primal solution for warm-starting
   Eigen::VectorXd prev_primal_;
-
-  // Previous dual solution (reserved for future use)
-  Eigen::VectorXd prev_dual_;
 
   // Whether a previous solution is available
   bool has_prev_solution_;
