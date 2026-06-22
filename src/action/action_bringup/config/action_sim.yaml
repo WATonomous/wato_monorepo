@@ -102,5 +102,6 @@
 /**/mpc_controller_node:
   ros__parameters:
     disable_standby: true     # sim has no behaviour-tree gating; let MPC drive immediately.
+    invert_steering: true     # CARLA's steering sign is opposite the controller convention.
     max_speed: 10.0           # [1.0 - 30.0] m/s — lower global cap for sim.
     max_steering_rate: 0.5    # [0.1 - 1.5] rad/s — sim platform tolerates quicker steering.

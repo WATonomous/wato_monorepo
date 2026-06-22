@@ -197,6 +197,35 @@ TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - speed limit enforce
   }
 }
 
+TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - feasible when entering above the speed cap", "[mpc]")
+{
+  // Regression: entering above a low speed cap must stay feasible. v_0 is
+  // pinned by the initial-state equality, and a bare hard cap would also demand
+  // an impossible one-step speed drop given the jerk/decel limits. The solver
+  // must instead brake at the comfort limit and converge under the cap, rather
+  // than going infeasible and dropping the node into its open-loop fallback
+  // (the common case when max_speed is set low for testing).
+  auto config = make_test_config();
+  config.max_speed = 2.0;  // low cap for testing
+  config.max_horizon_steps = 20;
+  config.horizon_distance = 25.0;
+  MpcCore mpc(config, 2.5);
+
+  auto traj = make_straight_trajectory(30.0, 0.5, 2.0);
+  StateVec state;
+  state << 0.0, 0.0, 0.0, 4.0;  // entering at 4 m/s, well above the 2 m/s cap
+
+  auto ref = mpc.sample_reference(traj, state);
+  auto sol = mpc.solve(state, ref, 0.0, 0.0);
+
+  REQUIRE(sol.solved);            // must not be infeasible
+  CHECK(sol.acceleration < 0.0);  // brake toward the cap
+  // Braking is rate-limited, so early steps may still exceed the cap; the
+  // horizon must converge under it by the end.
+  REQUIRE(sol.predicted_states.size() >= 2);
+  CHECK(sol.predicted_states.back()(3) <= 2.0 + 0.1);
+}
+
 TEST_CASE_METHOD(test::TestExecutorFixture, "MpcCore solve - stop at zero speed", "[mpc]")
 {
   auto config = make_test_config();

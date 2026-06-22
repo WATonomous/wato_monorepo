@@ -247,14 +247,26 @@ void MpcControllerNode::control_callback()
 {
   std_msgs::msg::Bool idle_msg;
 
-  // Idle checks (same logic as pure pursuit)
+  // Trajectory-availability gating always applies.
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
-                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour_.empty();
+                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_;
 
-  if (is_idle || (!disable_standby_ && bt_requested_behaviour_ == standby_msg_)) {
+  // Behaviour-tree gating (no behaviour received yet, or an explicit standby
+  // request) is skipped entirely when standby is disabled — e.g. in simulation,
+  // where no behaviour tree runs and the topic is never published.
+  if (!disable_standby_) {
+    is_idle = is_idle || bt_requested_behaviour_.empty() || bt_requested_behaviour_ == standby_msg_;
+  }
+
+  if (is_idle) {
     idle_msg.data = true;
     idle_pub_->publish(idle_msg);
     publish_ackermann(base_frame_, standby_speed_, standby_steering_);
+    // Keep the rate-limit reference in sync with what we are actually
+    // commanding, so the first solve after idle isn't rate-limited from a
+    // stale pre-idle command.
+    prev_steering_ = standby_steering_;
+    prev_accel_ = 0.0;
     return;
   }
 
@@ -268,7 +280,7 @@ void MpcControllerNode::control_callback()
     current_state(0) = tf.transform.translation.x;
     current_state(1) = tf.transform.translation.y;
     const auto & q = tf.transform.rotation;
-    current_state(2) = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+    current_state(2) = yaw_from_quaternion(q.x, q.y, q.z, q.w);
     current_state(3) = current_speed_;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
@@ -295,18 +307,17 @@ void MpcControllerNode::control_callback()
     prev_steering_ = solution.steering_angle;
     prev_accel_ = solution.acceleration;
 
-    double speed = solution.target_speed;
-    if (speed <= 0.0) speed = 0.0;
+    // target_speed is already clamped to [0, max_speed] by the solver.
+    publish_ackermann(base_frame_, solution.target_speed, solution.steering_angle);
 
-    publish_ackermann(base_frame_, speed, solution.steering_angle);
-
-    // Publish predicted path for visualization
     if (!solution.predicted_states.empty()) {
       publish_predicted_path(solution.predicted_states);
     }
   } else {
+    // Hold steering and coast one control period under the previous command.
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "MPC solver failed, holding previous command");
-    publish_ackermann(base_frame_, std::max(0.0, current_speed_ + prev_accel_ * 0.05), prev_steering_);
+    double coast_speed = std::max(0.0, current_speed_ + prev_accel_ / control_rate_hz_);
+    publish_ackermann(base_frame_, coast_speed, prev_steering_);
   }
 }
 

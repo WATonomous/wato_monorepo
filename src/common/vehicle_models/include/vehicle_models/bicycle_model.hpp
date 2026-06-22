@@ -15,6 +15,7 @@
 #pragma once
 
 #include <Eigen/Dense>
+#include <cmath>
 
 namespace vehicle_models
 {
@@ -29,6 +30,13 @@ using StateVec = Eigen::Matrix<double, STATE_DIM, 1>;
 using ControlVec = Eigen::Matrix<double, CONTROL_DIM, 1>;
 using StateMat = Eigen::Matrix<double, STATE_DIM, STATE_DIM>;
 using InputMat = Eigen::Matrix<double, STATE_DIM, CONTROL_DIM>;
+
+/// @brief Extract the yaw (heading, the state's theta) from a quaternion's
+/// components. Message-type agnostic so both ROS and ROS-free callers can use it.
+inline double yaw_from_quaternion(double qx, double qy, double qz, double qw)
+{
+  return std::atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz));
+}
 
 /**
  * @brief Result of linearizing the bicycle model at an operating point.

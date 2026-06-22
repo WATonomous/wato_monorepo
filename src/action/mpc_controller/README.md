@@ -58,7 +58,7 @@ The solver is reused across cycles (in-place matrix updates) and warm-started fr
 
 ## Further Reading
 
-See [DEVELOPING.md](DEVELOPING.md) for the full ROS interface, parameter reference, build/launch instructions, verification checklist, and internal architecture.
+See [docs/DEVELOPING.md](docs/DEVELOPING.md) for the full ROS interface, parameter reference, build/launch instructions, verification checklist, and internal architecture.
 
 ## License
 

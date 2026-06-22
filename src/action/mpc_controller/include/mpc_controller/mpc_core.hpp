@@ -38,6 +38,7 @@ using vehicle_models::StateMat;
 using vehicle_models::StateVec;
 using vehicle_models::CONTROL_DIM;
 using vehicle_models::STATE_DIM;
+using vehicle_models::yaw_from_quaternion;
 
 /**
  * @brief All tunable MPC parameters, loaded from ROS params.
@@ -170,16 +171,16 @@ struct ReferencePoint
 struct MpcSolution
 {
   // Optimal steering command (rad)
-  double steering_angle;
+  double steering_angle = 0.0;
 
   // Optimal acceleration command (m/s^2)
-  double acceleration;
+  double acceleration = 0.0;
 
   // Target speed after applying acceleration (m/s)
-  double target_speed;
+  double target_speed = 0.0;
 
   // Whether the QP solver found a valid solution
-  bool solved;
+  bool solved = false;
 
   // Predicted state trajectory over the horizon
   std::vector<StateVec> predicted_states;
@@ -260,9 +261,6 @@ private:
 
   // Previous primal solution for warm-starting
   Eigen::VectorXd prev_primal_;
-
-  // Previous dual solution (reserved for future use)
-  Eigen::VectorXd prev_dual_;
 
   // Whether a previous solution is available
   bool has_prev_solution_;
