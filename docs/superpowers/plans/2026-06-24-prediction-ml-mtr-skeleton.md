@@ -49,7 +49,84 @@ src/world_modeling/prediction_ml/
 └── README.md                      # Task 6
 ```
 
-**Owner map:** A = SceneBuilder (Task 3). B = Inference backend (Task 2). C = Orchestration: converter + runtime + node (Tasks 4, 5, 6). Task 1 is the lead's shared foundation that unblocks all three.
+**Owner map:** A = SceneBuilder (Task 3). B = Inference backend (Task 2). C = Orchestration: converter + runtime + node (Tasks 4, 5, 6). Task 0 is a joint A+B+C verification gate; Task 1 is the lead's shared foundation that unblocks all three.
+
+---
+
+### Task 0: MTR model I/O verification + contract freeze sign-off (GATE before Task 1)
+
+**Why this task exists:** Task 1 *freezes* the tensor representation in `mtr_types.hpp`.
+If those struct fields/dtypes don't match the real MTR model's actual bindings, all three
+people build on a wrong contract and the "frozen" header churns after the fact. This task
+verifies the contract against the real model **once**, before freezing — so any amendment
+lands in Task 1's code, not three branches later.
+
+**Owners:** A + B jointly produce the evidence; A + B + C sign off together.
+
+**Environment note:** This task is NOT runnable in the monorepo Mac checkout (no Python/
+torch/GPU here). Run it where the MTR model lives (the team's training box or a GPU dev
+node). It is a research/verification task, so its "test" is the recorded evidence doc, not
+a gtest.
+
+**Files:**
+- Create: `docs/superpowers/specs/2026-06-24-mtr-io-verification.md`
+- (On amendment) update the header code in Task 1 Step 2 / Step 3 before freezing.
+
+**Interfaces:**
+- Produces: a verified, signed-off field list for `MtrInputTensors`, `MtrOutputTensors`,
+  `MtrTensorSpec`, and `MtrModelContract` — i.e. the exact binding names, dtypes, and
+  shapes Task 1 will freeze.
+
+- [ ] **Step 1: Obtain the model**
+
+Clone the official repo and a checkpoint:
+```bash
+git clone https://github.com/sshaoshuai/MTR.git
+# obtain a pretrained Waymo checkpoint per the repo README, set up its conda env
+```
+
+- [ ] **Step 2: Dump real input/output tensor specs**
+
+Run one forward pass on a sample batch and record, for **every** key, the shape + dtype:
+```python
+# pseudo-runner — adapt to MTR's demo/eval entrypoint
+batch = next(iter(dataloader))['input_dict']
+for k in ['obj_trajs','obj_trajs_mask','obj_trajs_last_pos','track_index_to_predict',
+          'center_objects_type','map_polylines','map_polylines_mask','map_polylines_center']:
+    print(k, tuple(batch[k].shape), batch[k].dtype)
+pred = model(batch)
+for k in ['pred_scores','pred_trajs']:
+    print(k, tuple(pred[k].shape), pred[k].dtype)
+```
+Record the **per-step feature dimension `C` of `obj_trajs`** and the **map polyline feature
+dim** explicitly — these drive Person A's packing and are the most error-prone.
+
+- [ ] **Step 3: If TensorRT is the deploy path, dump engine bindings**
+
+Export to ONNX (this is non-trivial — MTR has no official export; note any custom ops /
+dynamic-shape handling discovered) and list binding names/dtypes/shapes. These become the
+expected `MtrModelContract` that `validateMtrModelContract` checks.
+
+- [ ] **Step 4: Produce the delta table and sign-off doc**
+
+Write `docs/superpowers/specs/2026-06-24-mtr-io-verification.md` containing: a table of each
+tensor (name, real shape, real dtype) vs the proposed `mtr_types.hpp` field; a delta list of
+anything that must change; and an explicit "frozen field list" section that Task 1 copies.
+End with sign-off lines for A, B, C.
+
+- [ ] **Step 5: Amend Task 1 headers if deltas exist**
+
+If the verification found differences (e.g. `center_objects_type` is `int64` not `int32`, or
+`obj_trajs` needs a separate feature-dim field), update the code blocks in Task 1 Step 2/3
+accordingly **before** Task 1 is implemented. Otherwise note "no changes — proposed contract
+verified as-is."
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/superpowers/specs/2026-06-24-mtr-io-verification.md
+git commit -m "docs(prediction_ml): MTR model I/O verification + contract freeze sign-off"
+```
 
 ---
 
@@ -1310,6 +1387,6 @@ builds and runs CPU-only as the CV fallback.
 
 ## Self-Review
 
-- **Spec coverage:** package home (new `prediction_ml`) ✓ Task 1; shared frozen headers ✓ Task 1; null backend + gated TRT + contract validation ✓ Task 2; scene builder ✓ Task 3; output converter ✓ Task 4; async runtime + selectOutput merge ✓ Task 5; node + CV fallback + config/launch + CPU-only green build ✓ Task 6; per-owner tests ✓ Tasks 2/3/5; CMake link-safety (null TU owns gated factory) ✓ Task 2 Step 3; acceptance criteria 1-4 ✓ Task 6 Steps 6-7.
+- **Spec coverage:** contract verified against real model before freeze ✓ Task 0 (gate); package home (new `prediction_ml`) ✓ Task 1; shared frozen headers ✓ Task 1; null backend + gated TRT + contract validation ✓ Task 2; scene builder ✓ Task 3; output converter ✓ Task 4; async runtime + selectOutput merge ✓ Task 5; node + CV fallback + config/launch + CPU-only green build ✓ Task 6; per-owner tests ✓ Tasks 2/3/5; CMake link-safety (null TU owns gated factory) ✓ Task 2 Step 3; acceptance criteria 1-4 ✓ Task 6 Steps 6-7.
 - **Placeholder scan:** all code blocks are complete compiling stubs; `TODO(Person X)` markers are intentional implementation handoffs inside otherwise-complete functions, not plan gaps.
 - **Type consistency:** `MtrConfig.history_rate_hz` used consistently (types + params + node); factory signatures `createNullMtrInferenceEngine(const MtrConfig&)` / `createTensorRtMtrInferenceEngine(const MtrConfig&)` match across header, null TU, gated TU, and runtime; `selectOutput(fallback, now_s)` signature matches between `mtr_runtime.hpp`, its test, and the node call site; `convertMtrOutput(...)` signature matches header and definition.
