@@ -15,6 +15,7 @@
 #include "prediction_ml/prediction_ml_node.hpp"
 
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
