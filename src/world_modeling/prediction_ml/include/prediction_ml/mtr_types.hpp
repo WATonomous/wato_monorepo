@@ -91,12 +91,12 @@ struct MtrBatchSidecar
 struct MtrInputTensors
 {
   std::vector<float> obj_trajs;
-  std::vector<float> obj_trajs_mask;
+  std::vector<uint8_t> obj_trajs_mask;
   std::vector<float> obj_trajs_last_pos;
   std::vector<int32_t> track_index_to_predict;
-  std::vector<int32_t> center_objects_type;
+  std::vector<std::string> center_objects_type;
   std::vector<float> map_polylines;
-  std::vector<float> map_polylines_mask;
+  std::vector<uint8_t> map_polylines_mask;
   std::vector<float> map_polylines_center;
   std::vector<int64_t> obj_trajs_shape;
   std::vector<int64_t> map_polylines_shape;
