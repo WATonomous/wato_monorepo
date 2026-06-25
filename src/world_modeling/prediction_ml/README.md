@@ -24,10 +24,10 @@ updates and they are already reflected in `mtr_types.hpp`:
 - `obj_trajs_mask` and `map_polylines_mask` use `std::vector<uint8_t>` for bool masks.
 - `center_objects_type` uses `std::vector<std::string>` for MTR object-type tokens.
 
-Real forward-pass and TensorRT engine binding sign-off still need to happen in the actual MTR
-model environment.
+Official MTR forward-pass validation has now been exercised in a WSL2 GPU environment. TensorRT
+engine binding sign-off still needs to happen once the deployment engine artifact exists.
 
-Latest local verification was run on Windows through Ubuntu 22.04 WSL1 with ROS Humble.
+Latest local package verification was run on Windows through Ubuntu 22.04 WSL with ROS Humble.
 
 Verification commands:
 
@@ -62,7 +62,7 @@ colcon test-result --verbose
 
 If you are using the normal monorepo Docker/DevContainer flow, enter the world_modeling
 DevContainer first and run the same colcon commands from `/ws`. The `watod` wrapper requires a
-working Docker setup and Linux shell line endings, so it was not used for the Windows WSL1
+working Docker setup and Linux shell line endings, so it was not used for the Windows WSL
 verification above.
 
 For CI-style module testing on a machine with Docker working, the monorepo wrapper command is:
@@ -76,19 +76,43 @@ If local dependencies are not built yet, use `--packages-up-to prediction_ml` in
 
 ## MTR Contract Sign-Off
 
-The remaining model sign-off should be done where the MTR model, checkpoint, processed sample
-data, CUDA, and TensorRT are available.
+WSL2 real-data forward validation was run with:
 
-1. Run one PyTorch forward pass from the official MTR model using a real sample batch.
+- Official MTR clone at `sshaoshuai/MTR@a5ba7bd`.
+- NVIDIA RTX 3060 Ti through WSL2.
+- CUDA Toolkit 12.8 and PyTorch `2.11.0+cu128`.
+- Waymo Motion validation shard `validation.tfrecord-00000-of-00150`.
+- Local compatibility fixes for the current Waymo API and v1.3.1 `driveway` map features.
+
+Validation result:
+
+```text
+processed validation scenarios: 286
+official MTR dataloader dataset_len: 286
+full-shard forward batches: 286
+target agents: 1268
+bad batches: 0
+first output pred_scores: (2, 6)
+first output pred_trajs: (2, 6, 80, 7)
+```
+
+This proves the official MTR CUDA forward path accepts real preprocessed Waymo data and produces
+finite outputs. It is still random-weight validation because no trained checkpoint was available.
+The official Waymo metric step failed after inference due a `metrics_ops.so` ABI mismatch in the
+installed Waymo wheel, so scored validation still needs a clean Waymo metrics environment and a
+trained checkpoint.
+
+The remaining TensorRT sign-off should be done where the TensorRT engine artifact is available.
+
+1. Export or build the TensorRT engine using the intended deployment path.
 2. Print every input key shape and dtype: `obj_trajs`, `obj_trajs_mask`,
    `obj_trajs_last_pos`, `track_index_to_predict`, `center_objects_type`,
    `map_polylines`, `map_polylines_mask`, and `map_polylines_center`.
 3. Print output shape and dtype for `pred_scores` and `pred_trajs`.
-4. Export or build the TensorRT engine using the intended deployment path.
-5. Dump TensorRT binding names, dtypes, static/dynamic dimensions, and input/output order.
-6. Compare those bindings against `MtrInputTensors`, `MtrOutputTensors`, and
+4. Dump TensorRT binding names, dtypes, static/dynamic dimensions, and input/output order.
+5. Compare those bindings against `MtrInputTensors`, `MtrOutputTensors`, and
    `MtrModelContract`.
-7. If there is a mismatch, update the shared contract before Person A/B/C build on top of it.
+6. If there is a mismatch, update the shared contract before Person A/B/C build on top of it.
 
 The sign-off artifact can live outside the repo if it contains machine-specific paths, model
 assets, or large output logs. The repo only needs the final contract changes.
