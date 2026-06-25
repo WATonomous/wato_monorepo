@@ -1,0 +1,18 @@
+---
+# prediction_ml node parameters. Person C owns this header block; Person A and
+# Person B append their own clearly-delimited sub-blocks below.
+prediction_ml_node:
+  ros__parameters:
+    prediction_horizon: 3.0      # seconds — fallback + MTR horizon
+    prediction_time_step: 0.2    # seconds — waypoint spacing
+
+    # --- MTR group (Person B owns engine_path/metadata_path semantics) ---
+    mtr.mode: "disabled"         # disabled | null | tensorrt
+    mtr.engine_path: ""          # injected at launch for deploy
+    mtr.metadata_path: ""        # injected at launch for deploy
+    mtr.cache_ttl_s: 0.5
+    mtr.selected_target_agent_limit: 8
+
+    # --- Scene builder (Person A) ---
+    mtr.history_steps: 11
+    mtr.history_rate_hz: 10.0

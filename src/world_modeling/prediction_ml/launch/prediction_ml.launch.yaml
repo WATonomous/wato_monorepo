@@ -1,0 +1,35 @@
+launch:
+  - arg:
+      name: param_file
+      default: $(find-pkg-share prediction_ml)/config/params.yaml
+      description: Path to config file for prediction_ml node
+  - arg:
+      name: engine_path
+      default: ""
+      description: TensorRT engine path (deploy override)
+  - arg:
+      name: metadata_path
+      default: ""
+      description: MTR model metadata path (deploy override)
+
+  - node:
+      pkg: prediction_ml
+      exec: prediction_ml_node
+      name: prediction_ml_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var param_file)
+        - name: mtr.engine_path
+          value: $(var engine_path)
+        - name: mtr.metadata_path
+          value: $(var metadata_path)
+      remap:
+        - from: tracks_3d
+          to: /perception/tracked_detections_3d
+        - from: ego_pose
+          to: /localization/pose
+        - from: lanelet_ahead
+          to: lanelet/lanelet_ahead
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
