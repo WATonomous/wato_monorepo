@@ -34,7 +34,7 @@ Default remaps (set in `launch/prediction_ml.launch.yaml`):
 
 | Node topic | Remapped to |
 |------------|-------------|
-| `tracks_3d` | `/perception/tracked_detections_3d` |
+| `tracks_3d` | `/perception/detections_3D_tracked` |
 | `ego_pose` | `/localization/pose` |
 | `lanelet_ahead` | `lanelet/lanelet_ahead` |
 | `world_object_seeds` | `/world_modeling/world_object_seeds` |
