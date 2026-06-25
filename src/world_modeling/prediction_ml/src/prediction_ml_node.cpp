@@ -106,6 +106,17 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
 
 PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_lifecycle::State &)
 {
+  tracked_objects_sub_.reset();
+  ego_pose_sub_.reset();
+  lanelet_ahead_sub_.reset();
+  if (world_objects_pub_) {
+    world_objects_pub_->on_deactivate();
+    world_objects_pub_.reset();
+  }
+  scene_builder_.reset();
+  runtime_.reset();
+  ego_pose_.reset();
+  lanelet_ahead_.reset();
   return CallbackReturn::SUCCESS;
 }
 
@@ -139,7 +150,10 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     world_model_msgs::msg::Prediction pred;
     pred.header.frame_id = frame_id;
     pred.conf = 1.0;
-    for (double t = prediction_time_step_; t <= prediction_horizon_; t += prediction_time_step_) {
+    const int num_steps =
+      static_cast<int>(std::round(prediction_horizon_ / prediction_time_step_));
+    for (int i = 1; i <= num_steps; ++i) {
+      const double t = i * prediction_time_step_;
       geometry_msgs::msg::PoseStamped ps;
       ps.header.frame_id = frame_id;
       ps.pose.position.x = x + speed * std::cos(yaw) * t;
@@ -179,7 +193,9 @@ void PredictionMlNode::trackedObjectsCallback(
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
   output.objects = runtime_->selectOutput(fallback, now_s);
-  world_objects_pub_->publish(output);
+  if (world_objects_pub_ && world_objects_pub_->is_activated()) {
+    world_objects_pub_->publish(output);
+  }
 }
 
 }  // namespace prediction_ml
