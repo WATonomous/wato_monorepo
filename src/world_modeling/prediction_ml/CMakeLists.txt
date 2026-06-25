@@ -76,8 +76,8 @@ if(BUILD_TESTING)
   ament_add_gtest(test_contract_compiles test/test_contract_compiles.cpp)
   target_link_libraries(test_contract_compiles prediction_ml_lib)
   # >>> PERSON_B tests
-  # ament_add_gtest(test_backend test/test_backend.cpp)
-  # target_link_libraries(test_backend prediction_ml_lib)
+  ament_add_gtest(test_backend test/test_backend.cpp)
+  target_link_libraries(test_backend prediction_ml_lib)
   # <<< PERSON_B tests
   # >>> PERSON_A tests
   # ament_add_gtest(test_scene_builder test/test_scene_builder.cpp)
