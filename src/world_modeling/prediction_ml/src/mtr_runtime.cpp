@@ -14,12 +14,15 @@
 
 #include "prediction_ml/mtr_runtime.hpp"
 
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace prediction_ml
 {
 
-MtrRuntime::MtrRuntime(MtrConfig config) : config_(std::move(config))
+MtrRuntime::MtrRuntime(MtrConfig config)
+: config_(std::move(config))
 {
   if (config_.mode == MtrMode::TensorRt) {
     engine_ = createTensorRtMtrInferenceEngine(config_);
@@ -31,8 +34,7 @@ MtrRuntime::MtrRuntime(MtrConfig config) : config_(std::move(config))
 MtrRuntime::~MtrRuntime() = default;
 
 void MtrRuntime::submitFrame(
-  const MtrInputTensors & /*input*/, const std::string & /*frame_id*/, double /*horizon_s*/,
-  double /*time_step_s*/)
+  const MtrInputTensors & /*input*/, const std::string & /*frame_id*/, double /*horizon_s*/, double /*time_step_s*/)
 {
   // TODO(Person C): hand latest-only frame to a background worker; on completion,
   // run convertMtrOutput and store results in a per-object TTL cache.
@@ -46,7 +48,10 @@ std::vector<world_model_msgs::msg::WorldObject> MtrRuntime::selectOutput(
   return fallback;
 }
 
-bool MtrRuntime::ready() const { return engine_ && engine_->ready(); }
+bool MtrRuntime::ready() const
+{
+  return engine_ && engine_->ready();
+}
 
 std::string MtrRuntime::lastError() const
 {

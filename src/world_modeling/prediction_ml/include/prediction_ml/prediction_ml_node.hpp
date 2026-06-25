@@ -51,16 +51,14 @@ private:
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   // Constant-velocity straight-line fallback (ported from simple_prediction).
-  std::vector<world_model_msgs::msg::WorldObject> buildFallback(
-    const vision_msgs::msg::Detection3DArray & msg) const;
+  std::vector<world_model_msgs::msg::WorldObject> buildFallback(const vision_msgs::msg::Detection3DArray & msg) const;
 
   MtrConfig loadMtrConfig();
 
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
-  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr
-    world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
 
   std::unique_ptr<SceneBuilder> scene_builder_;
   std::unique_ptr<MtrRuntime> runtime_;

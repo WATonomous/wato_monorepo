@@ -12,22 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "prediction_ml/mtr_backend.hpp"
-
 #include <algorithm>
 #include <cctype>
 #include <memory>
 #include <string>
 #include <utility>
 
+#include "prediction_ml/mtr_backend.hpp"
+
 namespace prediction_ml
 {
 
-NullMtrInferenceEngine::NullMtrInferenceEngine(MtrConfig config) : config_(std::move(config)) {}
+NullMtrInferenceEngine::NullMtrInferenceEngine(MtrConfig config)
+: config_(std::move(config))
+{}
 
-bool NullMtrInferenceEngine::ready() const { return false; }
+bool NullMtrInferenceEngine::ready() const
+{
+  return false;
+}
 
-std::string NullMtrInferenceEngine::lastError() const { return last_error_; }
+std::string NullMtrInferenceEngine::lastError() const
+{
+  return last_error_;
+}
 
 MtrOutputTensors NullMtrInferenceEngine::infer(const MtrInputTensors & /*input*/)
 {

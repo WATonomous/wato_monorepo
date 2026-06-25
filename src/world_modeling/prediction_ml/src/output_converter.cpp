@@ -14,12 +14,17 @@
 
 #include "prediction_ml/output_converter.hpp"
 
+#include <string>
+
 namespace prediction_ml
 {
 
 MtrInferenceResult convertMtrOutput(
-  const MtrOutputTensors & out, const MtrBatchSidecar & /*sidecar*/, const std::string & /*frame_id*/,
-  double /*horizon_s*/, double /*time_step_s*/)
+  const MtrOutputTensors & out,
+  const MtrBatchSidecar & /*sidecar*/,
+  const std::string & /*frame_id*/,
+  double /*horizon_s*/,
+  double /*time_step_s*/)
 {
   MtrInferenceResult result;
   if (!out.valid) {
