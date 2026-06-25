@@ -100,7 +100,8 @@ bbox_publisher:
     include_pedestrians: true
     include_traffic_lights: true
     include_parked_vehicles: true
-    max_distance: 5.0  # Max distance from ego vehicle in meters (-1 = no limit)
+    max_distance: -1.0  # Max distance from ego vehicle in meters (-1 = no limit)
+    moving_speed_threshold: 0.2
 
 # Localization Configuration (TF publisher)
 carla_localization:

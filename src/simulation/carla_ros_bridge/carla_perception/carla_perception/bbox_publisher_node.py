@@ -113,6 +113,13 @@ class BBoxPublisherNode(LifecycleNode):
                 description="Max distance from ego vehicle in meters (-1 = no limit)"
             ),
         )
+        self.declare_parameter(
+            "moving_speed_threshold",
+            0.2,
+            ParameterDescriptor(
+                description="Speed (m/s) above which an actor is labeled 'moving'"
+            ),
+        )
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -490,6 +497,15 @@ class BBoxPublisherNode(LifecycleNode):
             hypothesis.hypothesis.class_id = self._get_class_id(actor.type_id)
             hypothesis.hypothesis.score = 1.0
             detection.results.append(hypothesis)
+
+            # Motion ground truth: label moving/static + speed for MF-MOS
+            velocity = actor.get_velocity()
+            speed = (velocity.x**2 + velocity.y**2 + velocity.z**2) ** 0.5
+            threshold = self.get_parameter("moving_speed_threshold").value
+            motion_hypothesis = ObjectHypothesisWithPose()
+            motion_hypothesis.hypothesis.class_id = "moving" if speed > threshold else "static"
+            motion_hypothesis.hypothesis.score = float(speed)
+            detection.results.append(motion_hypothesis)
 
             # Add vehicle signal state as second hypothesis
             if "vehicle" in actor.type_id:
