@@ -35,9 +35,7 @@ public:
   ~MtrRuntime();
 
   // Hand the latest packed tensors to the (future) async worker.
-  void submitFrame(
-    const MtrInputTensors & input, const std::string & frame_id, double horizon_s,
-    double time_step_s);
+  void submitFrame(const MtrInputTensors & input, const std::string & frame_id, double horizon_s, double time_step_s);
 
   // Start from fallback; replace only objects with fresh valid cached MTR predictions.
   std::vector<world_model_msgs::msg::WorldObject> selectOutput(

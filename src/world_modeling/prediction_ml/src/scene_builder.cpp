@@ -19,7 +19,9 @@
 namespace prediction_ml
 {
 
-SceneBuilder::SceneBuilder(MtrConfig config) : config_(std::move(config)) {}
+SceneBuilder::SceneBuilder(MtrConfig config)
+: config_(std::move(config))
+{}
 
 void SceneBuilder::addFrame(const vision_msgs::msg::Detection3DArray & /*detections*/)
 {

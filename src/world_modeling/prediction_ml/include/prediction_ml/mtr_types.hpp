@@ -135,8 +135,7 @@ MtrMode parseMtrMode(const std::string & mode_str);
 MtrModelContract loadMtrModelContract(const std::string & metadata_path);
 
 // Returns true if actual matches expected; fills error otherwise.
-bool validateMtrModelContract(
-  const MtrModelContract & expected, const MtrModelContract & actual, std::string & error);
+bool validateMtrModelContract(const MtrModelContract & expected, const MtrModelContract & actual, std::string & error);
 
 }  // namespace prediction_ml
 

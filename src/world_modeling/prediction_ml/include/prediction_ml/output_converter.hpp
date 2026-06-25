@@ -24,8 +24,11 @@ namespace prediction_ml
 
 // Convert raw MTR outputs (target frame) into map-frame world_model predictions.
 MtrInferenceResult convertMtrOutput(
-  const MtrOutputTensors & out, const MtrBatchSidecar & sidecar, const std::string & frame_id,
-  double horizon_s, double time_step_s);
+  const MtrOutputTensors & out,
+  const MtrBatchSidecar & sidecar,
+  const std::string & frame_id,
+  double horizon_s,
+  double time_step_s);
 
 }  // namespace prediction_ml
 
