@@ -26,7 +26,7 @@ launch:
           value: $(var metadata_path)
       remap:
         - from: tracks_3d
-          to: /perception/tracked_detections_3d
+          to: /perception/detections_3D_tracked
         - from: ego_pose
           to: /localization/pose
         - from: lanelet_ahead
