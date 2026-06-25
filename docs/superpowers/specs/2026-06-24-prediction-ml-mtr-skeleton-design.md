@@ -116,10 +116,16 @@ src/world_modeling/prediction_ml/
 
 ### The two shared headers (the only cross-person coupling)
 
-`mtr_types.hpp` defines plain structs with no behavior:
+`mtr_types.hpp` defines plain structs with no behavior, plus the free functions that
+parse/load them (declarations only; bodies live in their owner's `.cpp`). Symbol names
+are kept identical to `action_plnan(1).md` so the team can cross-reference:
 
-- `MtrConfig`, `MtrMode` (Disabled / Null / TensorRT) — runtime configuration.
-- `MtrModelContract`, `MtrTensorSpec` — binding names, dtypes, shapes.
+- `MtrConfig`, `MtrMode` (Disabled / Null / TensorRT) — runtime configuration;
+  `parseMtrMode(std::string)` and `loadMtrConfig(node)` build it from ROS params.
+- `MtrModelContract`, `MtrTensorSpec` — binding names, dtypes, shapes;
+  `loadMtrModelContract(metadata_path)` and `validateMtrModelContract(...)` load/validate.
+- `MtrFrameContext` — the per-tick bundle (detections + ego pose + map context +
+  timestamp) handed to the scene builder.
 - `MtrInputTensors` — the packed `obj_trajs*` / `map_polylines*` / `track_index_to_predict`
   / `center_objects_type` buffers (flat `std::vector<float>` + shape metadata).
 - `MtrBatchSidecar`, `MtrTargetSidecar` — index↔detection-id map and map-frame pose
@@ -205,6 +211,53 @@ One test file per person, runnable independently:
   validation accepts/rejects known-good/bad bindings.
 - `test_runtime.cpp`: `selectOutput` returns fallback when no cache; replaces only fresh
   valid objects; respects TTL; never blocks.
+
+## Mapping to `action_plnan(1).md` work packages
+
+The action plan's 6 work packages are preserved one-to-one; this design only re-homes
+them into owner-scoped files. Every named surface symbol is kept verbatim.
+
+| Action-plan WP | Surface symbols | Owner | File(s) |
+|---|---|---|---|
+| WP1 Plumbing & repo setup | `MtrConfig`, `parseMtrMode`, `loadMtrConfig`, `MtrRuntime`, `createNullMtrInferenceEngine`, `createTensorRtMtrInferenceEngine` | C | `prediction_ml_node.*`, `CMakeLists.txt`, `config`, `launch` |
+| WP2 Metadata & contract validation | `MtrTensorSpec`, `MtrModelContract`, `loadMtrModelContract`, `validateMtrModelContract` | B | `mtr_backend.hpp`, `tensorrt_backend.cpp` (structs in shared `mtr_types.hpp`) |
+| WP3 Runtime skeleton & disabled path | `IMtrInferenceEngine`, `NullMtrInferenceEngine`, `MtrInferenceResult`, `MtrRuntime::submitFrame/selectOutput/ready/lastError` | B (null engine) + C (runtime no-op) | `null_backend.cpp` (B), `mtr_runtime.*` (C) |
+| WP4 Scene history & tensor building | `MtrFrameContext`, `MtrInputTensors`, `MtrBatchSidecar`, `MtrTargetSidecar` | A | `scene_builder.*` |
+| WP5 TensorRT backend | `IMtrInferenceEngine`, `MtrInputTensors`, `MtrOutputTensors`, `MtrInferenceResult`, `createTensorRtMtrInferenceEngine` | B | `tensorrt_backend.cpp` |
+| WP6 Async cache, conversion & merge | `MtrOutputTensors`, `MtrObjectPrediction`, `MtrRuntime::selectOutput` | C | `mtr_runtime.*`, `output_converter.*` |
+
+## Differences from `action_plnan(1).md` (and why)
+
+1. **New `prediction_ml` package, not extending `prediction`.** The plan put MTR inside
+   the existing `prediction` node (`include/prediction/mtr.hpp`). Verification showed that
+   node is *not deployed* (commented out in bringup); the live predictor is the separate
+   `simple_prediction` package. Tying MTR to dead code adds 150 params of baggage and no
+   reuse benefit, so MTR gets a clean package. Architecture (async backend + sync fallback)
+   is unchanged.
+2. **Fallback = CV logic ported from `simple_prediction`, not the heavy lanelet predictor.**
+   The plan's "existing fallback predictor" was the heavy `prediction` path; since that
+   isn't what runs, the always-safe path is the trivial constant-velocity logic that *is*
+   deployed. Behaviourally this is what the plan wanted (a synchronous, always-publishable
+   fallback) — just sourced from the real one.
+3. **Files split per owner instead of 3 monolithic files.** The plan's `mtr.hpp` /
+   `mtr.cpp` / `tensorrt_mtr.cpp` would put all three people in `mtr.cpp` at once. Same
+   symbols, more files, drawn on the pipeline seam so the three owners never touch the same
+   `.cpp`. This is the explicit reason the skeleton exists.
+4. **`selectOutput(fallback, now)` → `selectOutput(fallback, cached_mtr, now)`.** Same
+   semantics; the cache is passed explicitly rather than read from a member, which keeps
+   the merge unit-testable in isolation (Person C's `test_runtime.cpp`).
+5. **CMake flag renamed `PREDICTION_ENABLE_TENSORRT` → `PREDICTION_ML_ENABLE_TENSORRT`.**
+   Cosmetic, to match the new package name. Identical behaviour (always build null +
+   `scene_builder` + node; gate `tensorrt_backend.cpp`).
+6. **Added per-owner test files.** The plan didn't specify tests; one test file per person
+   keeps test edits conflict-free too.
+
+Everything else — the optional async backend, never blocking the tick, contract
+validation, TensorRT isolation, latest-only async worker, per-object TTL cache,
+target→map frame conversion, and the disabled-path-equals-fallback guarantee — follows the
+plan directly. (The plan's note "vehicle runtime uses TensorRT plus metadata" is honored:
+the TensorRT engine + `MtrModelContract` metadata is the vehicle/agent runtime; pedestrians
+and cyclists ride the same MTR batched output.)
 
 ## Out of scope (YAGNI for the skeleton)
 
