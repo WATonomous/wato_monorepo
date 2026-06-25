@@ -181,9 +181,16 @@ their own files; nobody touches another's `.cpp`.
 - `CMakeLists.txt`: always builds `scene_builder.cpp`, `null_backend.cpp`,
   `output_converter.cpp`, `mtr_runtime.cpp`, `prediction_ml_node.cpp` into a lib +
   executable. `tensorrt_backend.cpp` is added only under
-  `option(PREDICTION_ML_ENABLE_TENSORRT)`; otherwise `createTensorRtMtrInferenceEngine`
-  resolves to a stub that returns the null engine. A/B add their files at clearly
-  commented lines so edits don't collide.
+  `option(PREDICTION_ML_ENABLE_TENSORRT)`. A/B add their files at clearly commented lines
+  so edits don't collide.
+- **Link safety (CPU-only build).** Everything referenced by always-built code must have
+  an always-built definition. So Person B's always-built `null_backend.cpp` provides:
+  `createNullMtrInferenceEngine`, `NullMtrInferenceEngine`, and — guarded by
+  `#ifndef PREDICTION_ML_ENABLE_TENSORRT` — a stub `createTensorRtMtrInferenceEngine` that
+  returns the null engine. `tensorrt_backend.cpp` provides the real
+  `createTensorRtMtrInferenceEngine` plus `loadMtrModelContract` / `validateMtrModelContract`,
+  which are **only referenced from the TensorRT path**, so their definitions can live in the
+  gated TU without breaking the CPU build.
 - `params.yaml`: top-level node params (horizon, time_step) plus an `mtr:` group
   (`mode`, `engine_path`, `metadata_path`, `cache_ttl_s`, `selected_target_agent_limit`,
   `history_steps`, `history_rate`). Person C owns the file skeleton; A and B append their
