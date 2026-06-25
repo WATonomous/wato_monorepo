@@ -84,8 +84,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_scene_builder prediction_ml_lib)
   # <<< PERSON_A tests
   # >>> PERSON_C tests
-  # ament_add_gtest(test_runtime test/test_runtime.cpp)
-  # target_link_libraries(test_runtime prediction_ml_lib)
+  ament_add_gtest(test_runtime test/test_runtime.cpp)
+  target_link_libraries(test_runtime prediction_ml_lib)
   # <<< PERSON_C tests
 endif()
 
