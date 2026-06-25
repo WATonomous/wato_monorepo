@@ -503,11 +503,13 @@ class BBoxPublisherNode(LifecycleNode):
             speed = (velocity.x**2 + velocity.y**2 + velocity.z**2) ** 0.5
             threshold = self.get_parameter("moving_speed_threshold").value
             motion_hypothesis = ObjectHypothesisWithPose()
-            motion_hypothesis.hypothesis.class_id = "moving" if speed > threshold else "static"
+            motion_hypothesis.hypothesis.class_id = (
+                "moving" if speed > threshold else "static"
+            )
             motion_hypothesis.hypothesis.score = float(speed)
             detection.results.append(motion_hypothesis)
 
-            # Add vehicle signal state as second hypothesis
+            # Add vehicle signal state as another hypothesis
             if "vehicle" in actor.type_id:
                 light_state = actor.get_light_state()
                 signal_flags = [
@@ -597,6 +599,12 @@ class BBoxPublisherNode(LifecycleNode):
             hypothesis.hypothesis.class_id = "vehicle"
             hypothesis.hypothesis.score = 1.0
             detection.results.append(hypothesis)
+
+            # Environment objects (parked cars) are static by definition
+            motion_hypothesis = ObjectHypothesisWithPose()
+            motion_hypothesis.hypothesis.class_id = "static"
+            motion_hypothesis.hypothesis.score = 0.0
+            detection.results.append(motion_hypothesis)
 
             return detection
 
