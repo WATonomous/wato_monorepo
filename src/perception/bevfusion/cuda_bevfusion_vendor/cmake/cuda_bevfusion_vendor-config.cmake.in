@@ -1,0 +1,8 @@
+if(NOT TARGET cuda_bevfusion_vendor::bevfusion_core)
+    add_library(cuda_bevfusion_vendor::bevfusion_core UNKNOWN IMPORTED)
+
+    set_target_properties(cuda_bevfusion_vendor::bevfusion_core PROPERTIES
+        IMPORTED_LOCATION "@CMAKE_INSTALL_PREFIX@/opt/cuda_bevfusion_vendor/lib/libbevfusion_core.so"
+        INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_INSTALL_PREFIX@/opt/cuda_bevfusion_vendor/include"
+    )
+endif()
