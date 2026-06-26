@@ -121,7 +121,7 @@ launch:
       target: perception_container
       composable_node:
         - pkg: bevfusion
-          plugin: wato::perception::bevfusion::bevfusion::BEVFusionNode
+          plugin: wato::perception::bevfusion::BEVFusionNode
           name: bevfusion_node
           namespace: ""
           extra_arg:
