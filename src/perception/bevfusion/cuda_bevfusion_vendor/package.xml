@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>cuda_bevfusion_vendor</name>
+  <version>0.1.0</version>
+  <description>Vendor package for cuda-bevfusion</description>
+  <maintainer email="hello@watonomous.com">WATonomous</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_vendor_package</buildtool_depend>
+  <buildtool_depend>protobuf-compiler</buildtool_depend>
+  <buildtool_depend>git-lfs</buildtool_depend>
+  <build_depend>libprotobuf-dev</build_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
