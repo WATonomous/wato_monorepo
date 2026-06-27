@@ -58,6 +58,7 @@ macro(build_cuda_bevfusion)
     externalproject_add(cuda_bevfusion_src
         GIT_REPOSITORY ${CUDA_BEVFUSION_GIT_REPOSITORY}
         GIT_TAG ${CUDA_BEVFUSION_GIT_TAG}
+        GIT_SHALLOW TRUE
         TIMEOUT 600
 
         # Specify the source directory subdirectory
@@ -149,10 +150,16 @@ macro(build_cuda_bevfusion)
         USE_SOURCE_PERMISSIONS
     )
 
-    # Install cmake config for discovery
+    # Install cmake config to both locations:
+    # 1. Standard ROS 2 location for find_package to discover it
     install(
         FILES ${CMAKE_CURRENT_BINARY_DIR}/cuda_bevfusion_vendor-config.cmake
         DESTINATION share/${PROJECT_NAME}/cmake
+    )
+    # 2. Vendor-specific location (for reference)
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/cuda_bevfusion_vendor-config.cmake
+        DESTINATION ${BEVFUSION_VENDOR_INSTALL_PREFIX}/cmake
     )
 
     # Install package.xml for downstream dependency tracking

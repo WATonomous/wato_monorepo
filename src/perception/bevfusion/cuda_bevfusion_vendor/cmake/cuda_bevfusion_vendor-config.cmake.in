@@ -1,3 +1,12 @@
+@PACKAGE_INIT@
+
+if(cuda_bevfusion_vendor_FOUND)
+    return()
+endif()
+set(cuda_bevfusion_vendor_FOUND TRUE)
+
+check_required_components(cuda_bevfusion_vendor)
+
 if(NOT TARGET cuda_bevfusion_vendor::bevfusion_core)
     add_library(cuda_bevfusion_vendor::bevfusion_core UNKNOWN IMPORTED)
 
@@ -5,4 +14,10 @@ if(NOT TARGET cuda_bevfusion_vendor::bevfusion_core)
         IMPORTED_LOCATION "@CMAKE_INSTALL_PREFIX@/opt/cuda_bevfusion_vendor/lib/libbevfusion_core.so"
         INTERFACE_INCLUDE_DIRECTORIES "@CMAKE_INSTALL_PREFIX@/opt/cuda_bevfusion_vendor/include"
     )
+
+    # Verify library exists
+    get_target_property(_lib_location cuda_bevfusion_vendor::bevfusion_core IMPORTED_LOCATION)
+    if(NOT EXISTS "${_lib_location}")
+        message(FATAL_ERROR "cuda-bevfusion library not found at: ${_lib_location}")
+    endif()
 endif()
