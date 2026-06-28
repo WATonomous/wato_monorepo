@@ -23,6 +23,13 @@
 namespace prediction_ml
 {
 
+#ifdef PREDICTION_ML_ENABLE_TENSORRT
+namespace detail
+{
+std::unique_ptr<IMtrInferenceEngine> createTensorRtMtrInferenceEngine(const MtrConfig & config);
+}  // namespace detail
+#endif
+
 NullMtrInferenceEngine::NullMtrInferenceEngine(MtrConfig config)
 : config_(std::move(config))
 {}
@@ -44,18 +51,17 @@ MtrOutputTensors NullMtrInferenceEngine::infer(const MtrInputTensors & /*input*/
   return out;
 }
 
-std::unique_ptr<IMtrInferenceEngine> createNullMtrInferenceEngine(const MtrConfig & config)
+std::unique_ptr<IMtrInferenceEngine> createMtrInferenceEngine(const MtrConfig & config)
 {
-  return std::make_unique<NullMtrInferenceEngine>(config);
-}
-
-#ifndef PREDICTION_ML_ENABLE_TENSORRT
-std::unique_ptr<IMtrInferenceEngine> createTensorRtMtrInferenceEngine(const MtrConfig & config)
-{
-  // TensorRT not compiled in: behave exactly like the null backend.
-  return std::make_unique<NullMtrInferenceEngine>(config);
-}
+#ifdef PREDICTION_ML_ENABLE_TENSORRT
+  if (config.mode == MtrMode::TensorRt) {
+    return detail::createTensorRtMtrInferenceEngine(config);
+  }
 #endif
+
+  // Disabled, null, and unavailable TensorRT modes all use fallback-only output.
+  return std::make_unique<NullMtrInferenceEngine>(config);
+}
 
 MtrMode parseMtrMode(const std::string & mode_str)
 {

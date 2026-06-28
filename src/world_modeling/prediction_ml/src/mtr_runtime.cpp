@@ -24,11 +24,7 @@ namespace prediction_ml
 MtrRuntime::MtrRuntime(MtrConfig config)
 : config_(std::move(config))
 {
-  if (config_.mode == MtrMode::TensorRt) {
-    engine_ = createTensorRtMtrInferenceEngine(config_);
-  } else {
-    engine_ = createNullMtrInferenceEngine(config_);
-  }
+  engine_ = createMtrInferenceEngine(config_);
 }
 
 MtrRuntime::~MtrRuntime() = default;

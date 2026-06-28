@@ -19,13 +19,16 @@
 // This translation unit is compiled ONLY when PREDICTION_ML_ENABLE_TENSORRT is set.
 namespace prediction_ml
 {
+namespace detail
+{
 
 std::unique_ptr<IMtrInferenceEngine> createTensorRtMtrInferenceEngine(const MtrConfig & config)
 {
   // TODO(Person B): load engine_path, validate bindings against MtrModelContract,
   // implement infer(). For the skeleton, fall back to the null engine so a TRT-enabled
   // build still links and runs.
-  return createNullMtrInferenceEngine(config);
+  return std::make_unique<NullMtrInferenceEngine>(config);
 }
 
+}  // namespace detail
 }  // namespace prediction_ml
