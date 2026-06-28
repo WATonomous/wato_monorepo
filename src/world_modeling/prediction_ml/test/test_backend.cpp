@@ -16,10 +16,24 @@
 
 #include "prediction_ml/mtr_inference_engine.hpp"
 
-TEST(NullBackend, NotReadyAndInvalidOutput)
+TEST(MtrInferenceEngineFactory, DisabledModeReturnsNullEngine)
 {
   prediction_ml::MtrConfig cfg;
-  auto engine = prediction_ml::createNullMtrInferenceEngine(cfg);
+  cfg.mode = prediction_ml::MtrMode::Disabled;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
+  ASSERT_NE(engine, nullptr);
+  EXPECT_FALSE(engine->ready());
+}
+
+TEST(MtrInferenceEngineFactory, NullModeReturnsNullEngine)
+{
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::Null;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
   ASSERT_NE(engine, nullptr);
   EXPECT_FALSE(engine->ready());
   prediction_ml::MtrInputTensors in;
@@ -27,10 +41,13 @@ TEST(NullBackend, NotReadyAndInvalidOutput)
   EXPECT_FALSE(out.valid);
 }
 
-TEST(NullBackend, TensorRtFactoryFallsBackWhenDisabled)
+TEST(MtrInferenceEngineFactory, TensorRtModeReturnsEngine)
 {
   prediction_ml::MtrConfig cfg;
-  auto engine = prediction_ml::createTensorRtMtrInferenceEngine(cfg);
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
   ASSERT_NE(engine, nullptr);
   EXPECT_FALSE(engine->ready());
 }

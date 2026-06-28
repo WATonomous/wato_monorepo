@@ -33,8 +33,7 @@ public:
   virtual MtrOutputTensors infer(const MtrInputTensors & input) = 0;
 };
 
-std::unique_ptr<IMtrInferenceEngine> createNullMtrInferenceEngine(const MtrConfig & config);
-std::unique_ptr<IMtrInferenceEngine> createTensorRtMtrInferenceEngine(const MtrConfig & config);
+std::unique_ptr<IMtrInferenceEngine> createMtrInferenceEngine(const MtrConfig & config);
 
 }  // namespace prediction_ml
 

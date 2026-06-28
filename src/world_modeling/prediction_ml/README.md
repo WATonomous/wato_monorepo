@@ -315,8 +315,11 @@ TensorRT build:
 colcon build --packages-select prediction_ml --cmake-args -DPREDICTION_ML_ENABLE_TENSORRT=ON
 ```
 
-`PREDICTION_ML_ENABLE_TENSORRT` is off by default. When off, `tensorrt_backend.cpp` is excluded
-and `null_backend.cpp` provides a fallback-safe `createTensorRtMtrInferenceEngine`.
+The `PREDICTION_ML_ENABLE_TENSORRT` flag is **OFF by default**. When OFF, `tensorrt_backend.cpp`
+is excluded from the build and `createMtrInferenceEngine` selects the null engine for every
+mode. When ON, the same factory delegates `MtrMode::TensorRt` to the TensorRT backend. The node
+compiles and runs with pure CV fallback on any CPU-only machine (CI, laptops, dev container
+without GPU).
 
 ## Launch
 
