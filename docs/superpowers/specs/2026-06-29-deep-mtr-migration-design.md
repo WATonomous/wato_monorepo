@@ -242,8 +242,9 @@ default remains immutable.
 
 - No custom TensorRT implementation remains in `prediction_ml`.
 - `deep_ros` has no dependency on `lanelet_msgs` or `world_model_msgs`.
-- The default world-modeling launch publishes the same fallback output without a model or GPU
-  inference.
+- The standalone `prediction_ml` launch publishes the same fallback output without a model or GPU
+  inference. Integration into `world_modeling_bringup` remains disabled by default because the
+  current live bringup does not launch either prediction implementation.
 - Enabling the migration skeleton does not fabricate or publish MTR predictions.
 - Documentation assigns future tensor packing, ONNX model integration, inference, and decoding to
   the `deep_mtr` inference owner.
@@ -264,4 +265,3 @@ table:
 `deep_mtr/README.md` states that the package is migration scaffolding and not a working model. Its
 development documentation records the eventual ONNX Runtime/TensorRT-provider path without
 promising model availability.
-
