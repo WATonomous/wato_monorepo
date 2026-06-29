@@ -34,6 +34,7 @@ find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 
 add_library(prediction_ml_lib
+  src/fallback_prediction.cpp
   # >>> PERSON_B sources
   src/null_backend.cpp
   # <<< PERSON_B sources
@@ -87,6 +88,8 @@ if(BUILD_TESTING)
   ament_add_gtest(test_runtime test/test_runtime.cpp)
   target_link_libraries(test_runtime prediction_ml_lib)
   # <<< PERSON_C tests
+  ament_add_gtest(test_fallback_prediction test/test_fallback_prediction.cpp)
+  target_link_libraries(test_fallback_prediction prediction_ml_lib)
 endif()
 
 ament_package()

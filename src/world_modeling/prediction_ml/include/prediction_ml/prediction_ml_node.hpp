@@ -68,6 +68,9 @@ private:
 
   double prediction_horizon_{3.0};
   double prediction_time_step_{0.2};
+  double fallback_vehicle_size_threshold_m_{3.5};
+  double fallback_vehicle_speed_mps_{5.0};
+  double fallback_vru_speed_mps_{1.4};
 };
 
 }  // namespace prediction_ml
