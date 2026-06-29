@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "prediction_ml/fallback_prediction.hpp"
+
 namespace prediction_ml
 {
 
@@ -28,6 +30,9 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
 {
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
+  this->declare_parameter("fallback.vehicle_size_threshold_m", 3.5);
+  this->declare_parameter("fallback.vehicle_speed_mps", 5.0);
+  this->declare_parameter("fallback.vru_speed_mps", 1.4);
   this->declare_parameter("mtr.mode", "disabled");
   this->declare_parameter("mtr.engine_path", "");
   this->declare_parameter("mtr.metadata_path", "");
@@ -55,6 +60,9 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
 {
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
+  fallback_vehicle_size_threshold_m_ = this->get_parameter("fallback.vehicle_size_threshold_m").as_double();
+  fallback_vehicle_speed_mps_ = this->get_parameter("fallback.vehicle_speed_mps").as_double();
+  fallback_vru_speed_mps_ = this->get_parameter("fallback.vru_speed_mps").as_double();
 
   const MtrConfig cfg = loadMtrConfig();
   scene_builder_ = std::make_unique<SceneBuilder>(cfg);
@@ -140,7 +148,8 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     const double z = detection.bbox.center.position.z;
     const auto & q = detection.bbox.center.orientation;
     const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-    const double speed = (detection.bbox.size.x > 3.5) ? 5.0 : 1.4;
+    const double speed = selectFallbackSpeed(
+      detection.bbox.size.x, fallback_vehicle_size_threshold_m_, fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
 
     world_model_msgs::msg::Prediction pred;
     pred.header.frame_id = frame_id;
