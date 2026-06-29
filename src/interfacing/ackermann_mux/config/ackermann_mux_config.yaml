@@ -14,7 +14,7 @@
         topic: joystick/ackermann
         priority: 100
         has_mask: true
-        mask_topic: joystick/is_idle
+        mask_topic: joystick/ackermann_is_idle
         safety_gating: true
 
       action:

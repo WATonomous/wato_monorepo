@@ -25,6 +25,11 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
+  - arg:
+      name: "enable_jpeg"
+      default: "true"
+      description: "Load the per-camera JPEG encoder (image_rect_compressed). CPU intensive; set false to disable."
+
   # Panorama Cameras (8 cameras)
   # camera 0 - pano NN
   - include:
@@ -38,6 +43,8 @@ launch:
           value: "Hikrobot-MV-CU013-80GC-DA8386098"
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
   # camera 1 - pano NE
   - include:
@@ -51,71 +58,83 @@ launch:
           value: "Hikrobot-MV-CU013-80GC-DA8386154"
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 2 - pano EE
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_pano_ee"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386084"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  # camera 2 - pano EE
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_pano_ee"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386084"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 3 - pano SE
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_pano_se"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386152"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  # camera 3 - pano SE
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_pano_se"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386152"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
   # camera 4 - pano SS
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_pano_ss"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386134"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_pano_ss"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386134"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 5 - pano SW
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_pano_sw"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386093"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  # camera 5 - pano SW
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_pano_sw"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386093"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 6 - pano WW
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_pano_ww"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386110"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
+  # camera 6 - pano WW
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_pano_ww"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386110"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
   # camera 7 - pano NW
   - include:
@@ -129,6 +148,8 @@ launch:
           value: "Hikrobot-MV-CU013-80GC-DA8386109"
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
   # # Lower Cameras (4 cameras)
   # # camera 8 - lower NE
@@ -143,6 +164,8 @@ launch:
   #         value: "Hikrobot-MV-CU013-80GC-DA8386132"
   #       - name: "cameras_config_file"
   #         value: "$(var cameras_config_file)"
+  #       - name: "enable_jpeg"
+  #         value: "$(var enable_jpeg)"
 
   # # camera 9 - lower SE
   # - include:
@@ -156,6 +179,8 @@ launch:
   #         value: "Hikrobot-MV-CU013-80GC-DA8386083"
   #       - name: "cameras_config_file"
   #         value: "$(var cameras_config_file)"
+  #       - name: "enable_jpeg"
+  #         value: "$(var enable_jpeg)"
 
   # # camera 10 - lower SW
   # - include:
@@ -169,6 +194,8 @@ launch:
   #         value: "GEV-MV-CU013-80GC-DA8434466"
   #       - name: "cameras_config_file"
   #         value: "$(var cameras_config_file)"
+  #       - name: "enable_jpeg"
+  #         value: "$(var enable_jpeg)"
 
   # # camera 11 - lower NW
   # - include:
@@ -182,3 +209,5 @@ launch:
   #         value: "GEV-MV-CU013-80GC-DA8434479"
   #       - name: "cameras_config_file"
   #         value: "$(var cameras_config_file)"
+  #       - name: "enable_jpeg"
+  #         value: "$(var enable_jpeg)"

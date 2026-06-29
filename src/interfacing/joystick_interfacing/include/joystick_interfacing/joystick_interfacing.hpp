@@ -107,7 +107,12 @@ private:
   /**
    * @brief Publish is idle state if no new input to joystick for a certain time
    */
-  void publish_idle_state(bool is_idle);
+  void publish_ackermann_idle_state(bool is_idle);
+
+  /**
+   * @brief Publish idle state for the ROSCCO mux (true = joystick not providing ROSCCO commands).
+   */
+  void publish_roscco_idle_state(bool is_idle);
 
   /**
    * @brief Publishes the current joystick state.
@@ -141,6 +146,7 @@ private:
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr ackermann_drive_stamped_pub_;
   rclcpp::Publisher<roscco_msg::msg::Roscco>::SharedPtr roscco_joystick_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr idle_state_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr roscco_idle_state_pub_;
   // state status
   rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr state_pub_;
   rclcpp::Publisher<sensor_msgs::msg::JoyFeedback>::SharedPtr joy_feedback_pub_;

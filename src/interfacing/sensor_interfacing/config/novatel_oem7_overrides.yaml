@@ -20,8 +20,17 @@ receiver_init_commands:
   - "LOG BESTVELB ONTIME 0.1"
   - "LOG BESTGNSSVELB ONTIME 0.1"
   - "LOG BESTUTMB ONTIME 1"
-  - "LOG BESTGNSSPOSB ONTIME 0.1"
-  - "LOG PPPPOSB ONTIME 1"
+  # BESTGNSSPOS and PPPPOS are DISABLED: the driver maps their fixed-length,
+  # null-padded `stn_id` char buffer into a std::string field including the
+  # trailing '\0' bytes. fastcdr (used by rmw_zenoh) rejects strings with
+  # embedded nulls (BadParamException), which aborts the whole GPS node ~90ms
+  # after init -- this was the intermittent "GPS won't publish" crash. BESTPOS/
+  # BESTUTM use a fixed int8[4] stn_id and are unaffected. These two topics were
+  # only ever recorded to rosbags (no live subscriber), so dropping them costs
+  # only their presence in future bags. Re-enable only if the driver is patched
+  # to null-terminate stn_id (strnlen) -- see sensor_interfacing notes.
+  # - "LOG BESTGNSSPOSB ONTIME 0.1"
+  # - "LOG PPPPOSB ONTIME 1"
   - "LOG HEADING2B ONNEW"
   - "LOG PSRDOP2B ONCHANGED"
   - "LOG INSPVASB ONTIME 0.02"
