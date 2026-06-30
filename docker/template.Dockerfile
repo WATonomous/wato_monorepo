@@ -102,8 +102,8 @@ RUN existing_user=$(getent passwd ${USER_UID} | cut -d: -f1 || true) \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
     && cp /etc/skel/.bashrc /home/$USERNAME/.bashrc \
     && cp /etc/skel/.profile /home/$USERNAME/.profile \
-    && chown $USERNAME:$USERNAME /home/$USERNAME/.bashrc /home/$USERNAME/.profile \
-    && chown -R "${USERNAME}":"${USERNAME}" "${AMENT_WS}" \
+    && chown $USERNAME:$USER_GID /home/$USERNAME/.bashrc /home/$USERNAME/.profile \
+    && chown -R "${USERNAME}":"${USER_GID}" "${AMENT_WS}" \
     && rm -rf /var/lib/apt/lists/*
 
 USER $USERNAME

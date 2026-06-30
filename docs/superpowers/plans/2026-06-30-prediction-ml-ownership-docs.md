@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Update the concise user-facing README
+## Task 1: Update the concise user-facing README
 
 **Files:**
 - Modify: `src/world_modeling/prediction_ml/README.md`
