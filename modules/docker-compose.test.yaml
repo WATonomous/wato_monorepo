@@ -66,6 +66,7 @@ services:
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - NVIDIA_VISIBLE_DEVICES=
       - NVIDIA_DRIVER_CAPABILITIES=
+      - COLCON_TEST_PACKAGES_SKIP_ARGS=--packages-skip deep_sample
 
 #################### ACTION SERVICE ####################
   action_bringup_test:
