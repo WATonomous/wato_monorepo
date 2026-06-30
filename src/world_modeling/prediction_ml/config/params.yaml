@@ -1,0 +1,15 @@
+---
+# prediction_ml node parameters.
+prediction_ml_node:
+  ros__parameters:
+    prediction_horizon: 3.0      # seconds — fallback + MTR horizon
+    prediction_time_step: 0.2    # seconds — waypoint spacing
+    fallback.vehicle_size_threshold_m: 3.5
+    fallback.vehicle_speed_mps: 5.0
+    fallback.vru_speed_mps: 1.4
+
+    # --- Deep ROS MTR bridge (disabled by default) ---
+    mtr.enabled: false
+    mtr.request_topic: "/mtr/scenes"
+    mtr.result_topic: "/mtr/predictions"
+    mtr.cache_ttl_s: 0.5

@@ -1,0 +1,39 @@
+launch:
+  - arg:
+      name: param_file
+      default: $(find-pkg-share prediction_ml)/config/params.yaml
+      description: Path to config file for prediction_ml node
+  - arg:
+      name: enable_mtr
+      default: "false"
+      description: Publish neutral scenes to the Deep ROS MTR skeleton
+
+  - node:
+      pkg: prediction_ml
+      exec: prediction_ml_node
+      name: prediction_ml_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var param_file)
+        - name: mtr.enabled
+          value: $(var enable_mtr)
+      remap:
+        - from: tracks_3d
+          to: /perception/detections_3D_tracked
+        - from: ego_pose
+          to: /localization/pose
+        - from: lanelet_ahead
+          to: lanelet/lanelet_ahead
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
+
+  - node:
+      if: "$(var enable_mtr)"
+      pkg: deep_mtr
+      exec: deep_mtr_node
+      name: deep_mtr_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(find-pkg-share deep_mtr)/config/deep_mtr.yaml

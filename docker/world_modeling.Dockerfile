@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
+ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.8.1-cudnn-runtime-ubuntu24.04
 
 ################################ Source ################################
 # NOTE: You should add in the source stage in the following order:
@@ -7,6 +7,11 @@ ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:jazzy-ubuntu24.04
 FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
+
+ARG DEEP_ROS_REF
+RUN test -n "${DEEP_ROS_REF}" && \
+    git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
+    git -C deep_ros checkout --detach "${DEEP_ROS_REF}"
 
 # Copy in source code needed for world modeling build
 COPY src/world_modeling world_modeling
@@ -17,3 +22,10 @@ COPY src/wato_test wato_test
 # NOTE: You should be relying on ROSDEP as much as possible
 # Use this stage as a last resort
 FROM ${BASE_IMAGE} AS dependencies
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libnvinfer10 \
+    libnvinfer-plugin10 \
+    libnvonnxparsers10 && \
+    rm -rf /var/lib/apt/lists/*
