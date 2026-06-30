@@ -22,9 +22,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-option(PREDICTION_ML_ENABLE_TENSORRT "Build the TensorRT MTR backend" OFF)
-
 find_package(ament_cmake REQUIRED)
+find_package(deep_msgs REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -35,22 +35,10 @@ find_package(lanelet_msgs REQUIRED)
 
 add_library(prediction_ml_lib
   src/fallback_prediction.cpp
-  # >>> PERSON_B sources
-  src/null_backend.cpp
-  # <<< PERSON_B sources
-  # >>> PERSON_A sources
-  src/scene_builder.cpp
-  # <<< PERSON_A sources
-  # >>> PERSON_C sources
-  src/output_converter.cpp
-  src/mtr_runtime.cpp
-  # <<< PERSON_C sources
+  src/mtr_scene_adapter.cpp
+  src/mtr_result_cache.cpp
+  src/prediction_ml_node.cpp
 )
-
-if(PREDICTION_ML_ENABLE_TENSORRT)
-  target_sources(prediction_ml_lib PRIVATE src/tensorrt_backend.cpp)
-  target_compile_definitions(prediction_ml_lib PRIVATE PREDICTION_ML_ENABLE_TENSORRT)
-endif()
 
 set_target_properties(prediction_ml_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(prediction_ml_lib PUBLIC include)
@@ -62,9 +50,11 @@ target_link_libraries(prediction_ml_lib
   ${vision_msgs_TARGETS}
   ${world_model_msgs_TARGETS}
   ${lanelet_msgs_TARGETS}
+  ${deep_msgs_TARGETS}
+  ${lifecycle_msgs_TARGETS}
 )
 
-add_executable(prediction_ml_node src/prediction_ml_node.cpp)
+add_executable(prediction_ml_node src/prediction_ml_main.cpp)
 target_link_libraries(prediction_ml_node prediction_ml_lib)
 
 install(TARGETS prediction_ml_lib
@@ -74,22 +64,14 @@ install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  ament_add_gtest(test_contract_compiles test/test_contract_compiles.cpp)
-  target_link_libraries(test_contract_compiles prediction_ml_lib)
-  # >>> PERSON_B tests
-  ament_add_gtest(test_backend test/test_backend.cpp)
-  target_link_libraries(test_backend prediction_ml_lib)
-  # <<< PERSON_B tests
-  # >>> PERSON_A tests
-  ament_add_gtest(test_scene_builder test/test_scene_builder.cpp)
-  target_link_libraries(test_scene_builder prediction_ml_lib)
-  # <<< PERSON_A tests
-  # >>> PERSON_C tests
-  ament_add_gtest(test_runtime test/test_runtime.cpp)
-  target_link_libraries(test_runtime prediction_ml_lib)
-  # <<< PERSON_C tests
   ament_add_gtest(test_fallback_prediction test/test_fallback_prediction.cpp)
   target_link_libraries(test_fallback_prediction prediction_ml_lib)
+  ament_add_gtest(test_mtr_scene_adapter test/test_mtr_scene_adapter.cpp)
+  target_link_libraries(test_mtr_scene_adapter prediction_ml_lib)
+  ament_add_gtest(test_mtr_result_cache test/test_mtr_result_cache.cpp)
+  target_link_libraries(test_mtr_result_cache prediction_ml_lib)
+  ament_add_gtest(test_prediction_ml_node test/test_prediction_ml_node.cpp)
+  target_link_libraries(test_prediction_ml_node prediction_ml_lib)
 endif()
 
 ament_package()

@@ -16,12 +16,15 @@
 #define PREDICTION_ML__PREDICTION_ML_NODE_HPP_
 
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "deep_msgs/msg/mtr_prediction_array.hpp"
+#include "deep_msgs/msg/mtr_scene.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
-#include "prediction_ml/mtr_runtime.hpp"
-#include "prediction_ml/scene_builder.hpp"
+#include "prediction_ml/mtr_result_cache.hpp"
+#include "prediction_ml/mtr_scene_adapter.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
@@ -49,19 +52,20 @@ private:
   void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
+  void mtrResultCallback(const deep_msgs::msg::MtrPredictionArray::ConstSharedPtr msg);
 
   // Constant-velocity straight-line fallback (ported from simple_prediction).
   std::vector<world_model_msgs::msg::WorldObject> buildFallback(const vision_msgs::msg::Detection3DArray & msg) const;
-
-  MtrConfig loadMtrConfig();
 
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<deep_msgs::msg::MtrScene>::SharedPtr mtr_scene_pub_;
+  rclcpp::Subscription<deep_msgs::msg::MtrPredictionArray>::SharedPtr mtr_result_sub_;
 
-  std::unique_ptr<SceneBuilder> scene_builder_;
-  std::unique_ptr<MtrRuntime> runtime_;
+  std::unique_ptr<MtrSceneAdapter> scene_adapter_;
+  std::unique_ptr<MtrResultCache> result_cache_;
 
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
   lanelet_msgs::msg::LaneletAhead::SharedPtr lanelet_ahead_;
@@ -71,6 +75,9 @@ private:
   double fallback_vehicle_size_threshold_m_{3.5};
   double fallback_vehicle_speed_mps_{5.0};
   double fallback_vru_speed_mps_{1.4};
+  bool mtr_enabled_{false};
+  std::string mtr_request_topic_{"/mtr/scenes"};
+  std::string mtr_result_topic_{"/mtr/predictions"};
 };
 
 }  // namespace prediction_ml

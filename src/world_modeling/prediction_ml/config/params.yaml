@@ -8,13 +8,8 @@ prediction_ml_node:
     fallback.vehicle_speed_mps: 5.0
     fallback.vru_speed_mps: 1.4
 
-    # --- MTR group ---
-    mtr.mode: "disabled"         # disabled | null | tensorrt
-    mtr.engine_path: ""          # injected at launch for deploy
-    mtr.metadata_path: ""        # injected at launch for deploy
+    # --- Deep ROS MTR bridge (disabled by default) ---
+    mtr.enabled: false
+    mtr.request_topic: "/mtr/scenes"
+    mtr.result_topic: "/mtr/predictions"
     mtr.cache_ttl_s: 0.5
-    mtr.selected_target_agent_limit: 8
-
-    # --- Scene builder ---
-    mtr.history_steps: 11
-    mtr.history_rate_hz: 10.0

@@ -1,4 +1,22 @@
 // Copyright (c) 2025-present WATonomous. All rights reserved.
+// Licensed under the Apache License, Version 2.0.
+
+#include <memory>
+
+#include "prediction_ml/prediction_ml_node.hpp"
+#include "rclcpp/rclcpp.hpp"
+
+int main(int argc, char ** argv)
+{
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<prediction_ml::PredictionMlNode>(rclcpp::NodeOptions());
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  executor.spin();
+  rclcpp::shutdown();
+  return 0;
+}
+// Copyright (c) 2025-present WATonomous. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +30,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gtest/gtest.h>
-
-#include "prediction_ml/scene_builder.hpp"
-
-TEST(SceneBuilder, EmptyFrameProducesInvalidTensors)
-{
-  prediction_ml::MtrConfig cfg;
-  prediction_ml::SceneBuilder builder(cfg);
-  prediction_ml::MtrFrameContext frame;
-  auto tensors = builder.build(frame);
-  EXPECT_FALSE(tensors.valid);
-  EXPECT_TRUE(tensors.sidecar.targets.empty());
-}
+@@

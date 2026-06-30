@@ -41,7 +41,19 @@ launch:
       default: "info"
       description: Log level for behaviour_node
 
+  - arg:
+      name: enable_prediction_ml
+      default: "false"
+      description: Start prediction_ml with the Deep ROS bridge disabled
+
   # ---- Autonomy stack (localization mode only) ----
+
+  - include:
+      if: "$(var enable_prediction_ml)"
+      file: $(find-pkg-share prediction_ml)/launch/prediction_ml.launch.yaml
+      arg:
+        - name: enable_mtr
+          value: "false"
 
   # Prediction - generates trajectory hypotheses for tracked objects
   # - node:
@@ -343,6 +355,26 @@ launch:
           value: $(var eidos_map_path)
 
   # ---- Lifecycle Manager ----
+
+  - node:
+      if: "$(var enable_prediction_ml)"
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: prediction_ml_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/prediction_ml_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
 
   # Full stack lifecycle (localization mode)
   # eidos_transform activates first (broadcasts identity TF), then eidos

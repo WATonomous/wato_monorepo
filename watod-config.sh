@@ -77,6 +77,10 @@
 ## Path to Zenoh session configuration. DEFAULT ="file:///opt/watonomous/rmw_zenoh_session_config.json5"
 # export ZENOH_SESSION_CONFIG_URI=""
 
+# Immutable Deep ROS revision used by world-modeling source builds.
+DEEP_ROS_REF=${DEEP_ROS_REF:-$(tr -d '[:space:]' < "$MONO_DIR/config/deep_ros.ref")}
+export DEEP_ROS_REF
+
 
 ## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
 ## Each user gets a unique domain to prevent cross-talk on shared networks

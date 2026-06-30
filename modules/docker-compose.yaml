@@ -181,6 +181,8 @@ services:
     build:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
+      args:
+        DEEP_ROS_REF: "${DEEP_ROS_REF:?}"
       cache_from:
         - "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
       target: source
@@ -202,6 +204,7 @@ services:
       memlock: -1
     ipc: host
     network_mode: host
+    runtime: nvidia
     build:
       context: ..
       dockerfile: docker/template.Dockerfile
@@ -216,11 +219,20 @@ services:
     command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.yaml"
     volumes:
       - ${MONO_DIR}/maps:/opt/watonomous/maps
+      - ${MONO_DIR}/models:/opt/watonomous/models
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
     depends_on:
       infrastructure_bringup:
         condition: service_started

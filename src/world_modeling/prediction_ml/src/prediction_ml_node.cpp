@@ -25,35 +25,18 @@
 namespace prediction_ml
 {
 
-PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
-: LifecycleNode("prediction_ml_node", options)
+PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options) : LifecycleNode("prediction_ml_node", options)
 {
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
   this->declare_parameter("fallback.vehicle_size_threshold_m", 3.5);
   this->declare_parameter("fallback.vehicle_speed_mps", 5.0);
   this->declare_parameter("fallback.vru_speed_mps", 1.4);
-  this->declare_parameter("mtr.mode", "disabled");
-  this->declare_parameter("mtr.engine_path", "");
-  this->declare_parameter("mtr.metadata_path", "");
+  this->declare_parameter("mtr.enabled", false);
+  this->declare_parameter("mtr.request_topic", "/mtr/scenes");
+  this->declare_parameter("mtr.result_topic", "/mtr/predictions");
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
-  this->declare_parameter("mtr.selected_target_agent_limit", 8);
-  this->declare_parameter("mtr.history_steps", 11);
-  this->declare_parameter("mtr.history_rate_hz", 10.0);
   RCLCPP_INFO(this->get_logger(), "PredictionMlNode created (unconfigured)");
-}
-
-MtrConfig PredictionMlNode::loadMtrConfig()
-{
-  MtrConfig cfg;
-  cfg.mode = parseMtrMode(this->get_parameter("mtr.mode").as_string());
-  cfg.engine_path = this->get_parameter("mtr.engine_path").as_string();
-  cfg.metadata_path = this->get_parameter("mtr.metadata_path").as_string();
-  cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
-  cfg.selected_target_agent_limit = static_cast<int>(this->get_parameter("mtr.selected_target_agent_limit").as_int());
-  cfg.history_steps = static_cast<int>(this->get_parameter("mtr.history_steps").as_int());
-  cfg.history_rate_hz = this->get_parameter("mtr.history_rate_hz").as_double();
-  return cfg;
 }
 
 PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lifecycle::State &)
@@ -63,25 +46,37 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
   fallback_vehicle_size_threshold_m_ = this->get_parameter("fallback.vehicle_size_threshold_m").as_double();
   fallback_vehicle_speed_mps_ = this->get_parameter("fallback.vehicle_speed_mps").as_double();
   fallback_vru_speed_mps_ = this->get_parameter("fallback.vru_speed_mps").as_double();
+  mtr_enabled_ = this->get_parameter("mtr.enabled").as_bool();
+  mtr_request_topic_ = this->get_parameter("mtr.request_topic").as_string();
+  mtr_result_topic_ = this->get_parameter("mtr.result_topic").as_string();
+  const double cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
 
-  const MtrConfig cfg = loadMtrConfig();
-  scene_builder_ = std::make_unique<SceneBuilder>(cfg);
-  runtime_ = std::make_unique<MtrRuntime>(cfg);
+  scene_adapter_ = std::make_unique<MtrSceneAdapter>();
+  result_cache_ = std::make_unique<MtrResultCache>(cache_ttl_s);
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
-  RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs)", prediction_horizon_, prediction_time_step_);
+  if (mtr_enabled_) {
+    mtr_scene_pub_ = this->create_publisher<deep_msgs::msg::MtrScene>(mtr_request_topic_, 10);
+    mtr_result_sub_ = this->create_subscription<deep_msgs::msg::MtrPredictionArray>(
+        mtr_result_topic_, 10, std::bind(&PredictionMlNode::mtrResultCallback, this, std::placeholders::_1));
+  }
+  RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs, mtr=%s)", prediction_horizon_,
+              prediction_time_step_, mtr_enabled_ ? "enabled" : "disabled");
   return CallbackReturn::SUCCESS;
 }
 
 PredictionMlNode::CallbackReturn PredictionMlNode::on_activate(const rclcpp_lifecycle::State &)
 {
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-    "tracks_3d", 10, std::bind(&PredictionMlNode::trackedObjectsCallback, this, std::placeholders::_1));
+      "tracks_3d", 10, std::bind(&PredictionMlNode::trackedObjectsCallback, this, std::placeholders::_1));
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "ego_pose", 10, std::bind(&PredictionMlNode::egoPoseCallback, this, std::placeholders::_1));
+      "ego_pose", 10, std::bind(&PredictionMlNode::egoPoseCallback, this, std::placeholders::_1));
   lanelet_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
-    "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
+      "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
   world_objects_pub_->on_activate();
+  if (mtr_scene_pub_) {
+    mtr_scene_pub_->on_activate();
+  }
   RCLCPP_INFO(this->get_logger(), "Activated");
   return CallbackReturn::SUCCESS;
 }
@@ -92,6 +87,9 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_deactivate(const rclcpp_li
   ego_pose_sub_.reset();
   lanelet_ahead_sub_.reset();
   world_objects_pub_->on_deactivate();
+  if (mtr_scene_pub_) {
+    mtr_scene_pub_->on_deactivate();
+  }
   return CallbackReturn::SUCCESS;
 }
 
@@ -100,9 +98,11 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
   tracked_objects_sub_.reset();
   ego_pose_sub_.reset();
   lanelet_ahead_sub_.reset();
+  mtr_result_sub_.reset();
+  mtr_scene_pub_.reset();
   world_objects_pub_.reset();
-  scene_builder_.reset();
-  runtime_.reset();
+  scene_adapter_.reset();
+  result_cache_.reset();
   ego_pose_.reset();
   lanelet_ahead_.reset();
   return CallbackReturn::SUCCESS;
@@ -113,12 +113,17 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_life
   tracked_objects_sub_.reset();
   ego_pose_sub_.reset();
   lanelet_ahead_sub_.reset();
+  mtr_result_sub_.reset();
+  if (mtr_scene_pub_) {
+    mtr_scene_pub_->on_deactivate();
+    mtr_scene_pub_.reset();
+  }
   if (world_objects_pub_) {
     world_objects_pub_->on_deactivate();
     world_objects_pub_.reset();
   }
-  scene_builder_.reset();
-  runtime_.reset();
+  scene_adapter_.reset();
+  result_cache_.reset();
   ego_pose_.reset();
   lanelet_ahead_.reset();
   return CallbackReturn::SUCCESS;
@@ -134,8 +139,16 @@ void PredictionMlNode::laneletAheadCallback(const lanelet_msgs::msg::LaneletAhea
   lanelet_ahead_ = msg;
 }
 
+void PredictionMlNode::mtrResultCallback(const deep_msgs::msg::MtrPredictionArray::ConstSharedPtr msg)
+{
+  if (!result_cache_ || !result_cache_->accept(*msg, this->get_clock()->now().seconds())) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                         "Rejected stale, unknown, or malformed MTR result");
+  }
+}
+
 std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
-  const vision_msgs::msg::Detection3DArray & msg) const
+    const vision_msgs::msg::Detection3DArray & msg) const
 {
   std::vector<world_model_msgs::msg::WorldObject> objects;
   const std::string & frame_id = msg.header.frame_id;
@@ -148,8 +161,8 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     const double z = detection.bbox.center.position.z;
     const auto & q = detection.bbox.center.orientation;
     const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-    const double speed = selectFallbackSpeed(
-      detection.bbox.size.x, fallback_vehicle_size_threshold_m_, fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
+    const double speed = selectFallbackSpeed(detection.bbox.size.x, fallback_vehicle_size_threshold_m_,
+                                             fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
 
     world_model_msgs::msg::Prediction pred;
     pred.header.frame_id = frame_id;
@@ -174,41 +187,20 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
 void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
 {
   const double now_s = this->get_clock()->now().seconds();
-
   auto fallback = buildFallback(*msg);
 
-  scene_builder_->addFrame(*msg);
-  MtrFrameContext frame;
-  frame.detections = *msg;
-  if (ego_pose_) {
-    frame.ego_pose = *ego_pose_;
-    frame.has_ego = true;
+  if (mtr_enabled_ && mtr_scene_pub_ && mtr_scene_pub_->is_activated()) {
+    auto scene = scene_adapter_->build(*msg, ego_pose_.get(), lanelet_ahead_.get());
+    result_cache_->rememberRequest(scene);
+    mtr_scene_pub_->publish(scene);
   }
-  if (lanelet_ahead_) {
-    frame.lanelet_ahead = *lanelet_ahead_;
-    frame.has_map = true;
-  }
-  frame.timestamp = now_s;
-  MtrInputTensors tensors = scene_builder_->build(frame);
-  runtime_->submitFrame(tensors, msg->header.frame_id, prediction_horizon_, prediction_time_step_);
 
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
-  output.objects = runtime_->selectOutput(fallback, now_s);
+  output.objects = result_cache_->select(fallback, now_s);
   if (world_objects_pub_ && world_objects_pub_->is_activated()) {
     world_objects_pub_->publish(output);
   }
 }
 
 }  // namespace prediction_ml
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  auto node = std::make_shared<prediction_ml::PredictionMlNode>(rclcpp::NodeOptions());
-  rclcpp::executors::MultiThreadedExecutor executor;
-  executor.add_node(node->get_node_base_interface());
-  executor.spin();
-  rclcpp::shutdown();
-  return 0;
-}
