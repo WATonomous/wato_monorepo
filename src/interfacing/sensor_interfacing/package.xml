@@ -11,9 +11,6 @@
 
   <exec_depend>novatel_oem7_driver</exec_depend>
   <exec_depend>velodyne</exec_depend>
-  <exec_depend>camera_calib</exec_depend>
-  <exec_depend>image_transport</exec_depend>
-  <exec_depend>compressed_image_transport</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

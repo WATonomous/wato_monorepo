@@ -1,15 +1,16 @@
 ---
 services:
-#################### INTERFACING SERVICE (BAG RECORDING) ####################
-  interfacing_bringup_bag:
-    profiles: ["interfacing_bag"]
+#################### PERCEPTION SERVICE (BAG RECORDING) ####################
+# Cameras are NITROS nodes, so recording runs in the perception (Isaac ROS)
+# container for zero-copy intra-process image transfer. Run interfacing.launch
+# separately to provide the other sensors (GPS, LiDAR, CAN) over Zenoh.
+  perception_bringup_bag:
+    profiles: ["perception_bag"]
     extends:
       file: ${COMPOSE_EXTEND_FILE}
-      service: interfacing_bringup
-    command: /bin/bash -c "ros2 launch interfacing_bringup interfacing_bag.launch.yaml recording_profile:=${RECORDING_PROFILE:-all_sensors} bag_path:=/bags/recording_$$(date +%Y%m%d_%H%M%S)"
+      service: perception_bringup
+    command: /bin/bash -c "ros2 launch perception_bringup perception_bag.launch.yaml recording_profile:=${RECORDING_PROFILE:-all_sensors} bag_path:=/bags/recording_$$(date +%Y%m%d_%H%M%S)"
     stop_signal: SIGINT
     volumes:
-      - /dev/input:/dev/input
-      - /run/udev:/run/udev:ro
       - ${BAG_DIRECTORY}:/bags
     privileged: true

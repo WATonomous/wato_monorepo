@@ -20,8 +20,8 @@ launch:
 
   - arg:
       name: cameras_config_file
-      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
-      description: "Hikrobot cameras configuration file (for included sensor_interfacing cameras)"
+      default: "$(find-pkg-share perception_bringup)/config/hikrobot_camera_config.yaml"
+      description: "Hikrobot cameras configuration file"
 
   # ===========================================================================
   # Single component container: cameras, camera_sync, deep object detection, tracking, patchwork++
@@ -54,9 +54,9 @@ launch:
             - from: non_ground_cloud
               to: /perception/non_ground_cloud
 
-  # Load all 12 camera pipelines into the shared container (temporarily disabled)
+  # Load all 12 camera pipelines into the shared container
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/all_cameras_composed.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/all_cameras_composed.yaml"
       arg:
         - name: "container_name"
           value: "perception_container"

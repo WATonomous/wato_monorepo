@@ -1,6 +1,10 @@
 # sensor_interfacing
 
-Launch files and configuration for the physical sensors on Eve — GPS/IMU, cameras, and LiDARs.
+Launch files and configuration for the physical sensors on Eve — GPS/IMU and LiDARs.
+
+> The Hikrobot cameras are NITROS nodes that run in the perception container; their
+> launch files and configs live in `perception_bringup`. See its
+> [camera bringup guide](../../perception/perception_bringup/docs/camera_bringup.md).
 
 ## Overview
 
@@ -11,7 +15,6 @@ This package does not contain any custom ROS nodes. It holds launch files, drive
 | Sensor | Driver | Interface |
 |--------|--------|-----------|
 | Novatel OEM7 (GPS + IMU) | `novatel_oem7_driver` | Ethernet |
-| FLIR Blackfly GigE (×12 cameras) | `flir_camera_driver` | GigE |
 | Velodyne VLP32C / VLP16 (×3 LiDARs) | `velodyne` | Ethernet |
 
 ## Bringup Guides
@@ -19,5 +22,5 @@ This package does not contain any custom ROS nodes. It holds launch files, drive
 Step-by-step setup instructions for each sensor are in `docs/`:
 
 - [GPS bringup](docs/gps_bringup.md)
-- [Camera bringup](docs/camera_bringup.md)
 - [LiDAR bringup](docs/lidar_bringup.md)
+- Camera bringup → moved to [perception_bringup](../../perception/perception_bringup/docs/camera_bringup.md)
