@@ -65,33 +65,33 @@ multi_camera_sync:
     # Compressed topics example: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
       - "/camera_pano_ne/image_rect_compressed"
-      # - "/camera_pano_ee/image_rect_compressed"
-      # - "/camera_pano_se/image_rect_compressed"
-      # - "/camera_pano_ss/image_rect_compressed"
-      # - "/camera_pano_sw/image_rect_compressed"
-      # - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_se/image_rect_compressed"
+      - "/camera_pano_ss/image_rect_compressed"
+      - "/camera_pano_sw/image_rect_compressed"
+      - "/camera_pano_ww/image_rect_compressed"
       - "/camera_pano_nw/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
 
     # CameraInfo topics (same order as camera_topics). Required for ~/multi_camera_info.
     camera_info_topics:
       - "/camera_pano_ne/camera_info"
-      # - "/camera_pano_ee/camera_info"
-      # - "/camera_pano_se/camera_info"
-      # - "/camera_pano_ss/camera_info"
-      # - "/camera_pano_sw/camera_info"
-      # - "/camera_pano_ww/camera_info"
+      - "/camera_pano_ee/camera_info"
+      - "/camera_pano_se/camera_info"
+      - "/camera_pano_ss/camera_info"
+      - "/camera_pano_sw/camera_info"
+      - "/camera_pano_ww/camera_info"
       - "/camera_pano_nw/camera_info"
       - "/camera_pano_nn/camera_info"
 
     # Optional camera names (same order). Auto-generated if omitted.
     camera_names:
       - "camera_pano_ne"
-      # - "camera_pano_ee"
-      # - "camera_pano_se"
-      # - "camera_pano_ss"
-      # - "camera_pano_sw"
-      # - "camera_pano_ww"
+      - "camera_pano_ee"
+      - "camera_pano_se"
+      - "camera_pano_ss"
+      - "camera_pano_sw"
+      - "camera_pano_ww"
       - "camera_pano_nw"
       - "camera_pano_nn"
 
@@ -177,7 +177,7 @@ multi_camera_sync:
     dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
-    output_frame: "map"
+    output_frame: "lidar_cc"
     publish_visualization: true
 
     # --- Per-class tracking overrides (parallel arrays). Empty = single global tracker. ---
@@ -450,6 +450,32 @@ multi_camera_sync:
     bus_real_length: 12.0
 
 # =============================================================================
+# BEVFusion Node
+# =============================================================================
+/**/bevfusion_node:
+  ros__parameters:
+    # --- Topic I/O ---
+    # TODO
+    # model_path: "/opt/watonomous/models/bevfusion.engine"
+    # precision: "fp16"
+    # # Input topics (syncing with deep_ros camera_sync)
+    # input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"
+    # input_lidar_topic: "/perception/non_ground_cloud"
+
+    # --- Subscriber QoS ---
+    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
+    qos_subscriber_depth: 5
+
+    # --- Publisher QoS ---
+    qos_publisher_reliability: "reliable"  # Options: "reliable", "best_effort"
+    qos_publisher_durability: "volatile"      # Options: "transient_local", "volatile"
+    qos_publisher_depth: 1
+
+    # --- Message synchronization ---
+    sync_queue_size: 5
+    sync_max_time_diff_ms: 400.0
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
@@ -457,14 +483,14 @@ detection_lifecycle_manager:
     # Manages model inference and attribute enrichment nodes.
     node_names: ["deep_object_detection_node", "attribute_assigner_node"]
     autostart: true
-    transition_timeout_s: 30.0
+    transition_timeout_s: 90.0
     bond_timeout_s: 4.0
     bond_enabled: false
 
 perception_lifecycle_manager:
   ros__parameters:
     # Manages segmentation, association, and tracking pipeline nodes.
-    node_names: ["/perception/patchworkpp_node", "/spatial_association_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node", "/perception/bevfusion_node", "/perception/tracking_node"]
     autostart: true
     autostart_delay_s: 3.0
     transition_timeout_s: 3.0

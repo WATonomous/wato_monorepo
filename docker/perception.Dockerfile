@@ -57,3 +57,11 @@ RUN apt-get update && \
       ros-jazzy-isaac-ros-image-proc \
       ros-jazzy-isaac-ros-h264-encoder && \
     rm -rf /var/lib/apt/lists/*
+
+# Install protobuf and git-lfs for cuda_bevfusion_vendor
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    protobuf-compiler \
+    libprotobuf-dev \
+    git-lfs && \
+    rm -rf /var/lib/apt/lists/*
