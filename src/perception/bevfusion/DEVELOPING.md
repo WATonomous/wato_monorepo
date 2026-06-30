@@ -104,9 +104,9 @@ LiDAR has no Nitros equivalent — `PointCloud2` on CPU is the only option.
 
 ## Parameters
 
-When implemented, parameters will be set in `perception_bringup/config/perception_bringup.yaml` under `/**/bevfusion_node`. The node's own `config/params.yaml` will contain defaults. The table below lists the intended parameters — these are not yet declared in `params.yaml`.
+When implemented, parameters will be set in `perception_bringup/config/perception_bringup.yaml` under `/**/bevfusion_node`. The node's own `config/params.yaml` will contain defaults. The table below lists the planned parameters with suggested defaults — values are not yet validated or declared in `params.yaml`.
 
-| Parameter | Intended Default | Description |
+| Parameter | Possible Default | Description |
 |---|---|---|
 | `model_path` | `""` | Path to TensorRT engine file (place in `/opt/watonomous/models/`) |
 | `camera_names` | `["camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"]` | Frame IDs of the 6 cameras to use |
