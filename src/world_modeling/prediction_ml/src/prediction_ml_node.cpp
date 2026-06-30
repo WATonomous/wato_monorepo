@@ -25,7 +25,8 @@
 namespace prediction_ml
 {
 
-PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options) : LifecycleNode("prediction_ml_node", options)
+PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
+: LifecycleNode("prediction_ml_node", options)
 {
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
@@ -58,21 +59,25 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
   if (mtr_enabled_) {
     mtr_scene_pub_ = this->create_publisher<deep_msgs::msg::MtrScene>(mtr_request_topic_, 10);
     mtr_result_sub_ = this->create_subscription<deep_msgs::msg::MtrPredictionArray>(
-        mtr_result_topic_, 10, std::bind(&PredictionMlNode::mtrResultCallback, this, std::placeholders::_1));
+      mtr_result_topic_, 10, std::bind(&PredictionMlNode::mtrResultCallback, this, std::placeholders::_1));
   }
-  RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs, mtr=%s)", prediction_horizon_,
-              prediction_time_step_, mtr_enabled_ ? "enabled" : "disabled");
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Configured (horizon=%.1fs, step=%.2fs, mtr=%s)",
+    prediction_horizon_,
+    prediction_time_step_,
+    mtr_enabled_ ? "enabled" : "disabled");
   return CallbackReturn::SUCCESS;
 }
 
 PredictionMlNode::CallbackReturn PredictionMlNode::on_activate(const rclcpp_lifecycle::State &)
 {
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
-      "tracks_3d", 10, std::bind(&PredictionMlNode::trackedObjectsCallback, this, std::placeholders::_1));
+    "tracks_3d", 10, std::bind(&PredictionMlNode::trackedObjectsCallback, this, std::placeholders::_1));
   ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "ego_pose", 10, std::bind(&PredictionMlNode::egoPoseCallback, this, std::placeholders::_1));
+    "ego_pose", 10, std::bind(&PredictionMlNode::egoPoseCallback, this, std::placeholders::_1));
   lanelet_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
-      "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
+    "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
   world_objects_pub_->on_activate();
   if (mtr_scene_pub_) {
     mtr_scene_pub_->on_activate();
@@ -142,13 +147,13 @@ void PredictionMlNode::laneletAheadCallback(const lanelet_msgs::msg::LaneletAhea
 void PredictionMlNode::mtrResultCallback(const deep_msgs::msg::MtrPredictionArray::ConstSharedPtr msg)
 {
   if (!result_cache_ || !result_cache_->accept(*msg, this->get_clock()->now().seconds())) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-                         "Rejected stale, unknown, or malformed MTR result");
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "Rejected stale, unknown, or malformed MTR result");
   }
 }
 
 std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
-    const vision_msgs::msg::Detection3DArray & msg) const
+  const vision_msgs::msg::Detection3DArray & msg) const
 {
   std::vector<world_model_msgs::msg::WorldObject> objects;
   const std::string & frame_id = msg.header.frame_id;
@@ -161,8 +166,8 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     const double z = detection.bbox.center.position.z;
     const auto & q = detection.bbox.center.orientation;
     const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-    const double speed = selectFallbackSpeed(detection.bbox.size.x, fallback_vehicle_size_threshold_m_,
-                                             fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
+    const double speed = selectFallbackSpeed(
+      detection.bbox.size.x, fallback_vehicle_size_threshold_m_, fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
 
     world_model_msgs::msg::Prediction pred;
     pred.header.frame_id = frame_id;

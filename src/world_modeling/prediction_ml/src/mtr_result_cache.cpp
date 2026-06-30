@@ -1,10 +1,24 @@
 // Copyright (c) 2025-present WATonomous. All rights reserved.
-// Licensed under the Apache License, Version 2.0.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "prediction_ml/mtr_result_cache.hpp"
 
 #include <cmath>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -27,9 +41,9 @@ bool finitePose(const geometry_msgs::msg::PoseStamped & pose)
 }
 }  // namespace
 
-MtrResultCache::MtrResultCache(const double ttl_s) : ttl_s_(ttl_s)
-{
-}
+MtrResultCache::MtrResultCache(const double ttl_s)
+: ttl_s_(ttl_s)
+{}
 
 void MtrResultCache::rememberRequest(const deep_msgs::msg::MtrScene & scene)
 {
@@ -71,8 +85,10 @@ bool MtrResultCache::accept(const deep_msgs::msg::MtrPredictionArray & result, c
   const Pending & pending = pending_it->second;
   const double result_source_s = seconds(result.header.stamp);
   const double age_s = now_s - pending.source_s;
-  if (result.header.frame_id != pending.frame_id || result_source_s != pending.source_s || age_s < 0.0 ||
-      age_s > ttl_s_ || result.objects.empty()) {
+  if (
+    result.header.frame_id != pending.frame_id || result_source_s != pending.source_s || age_s < 0.0 ||
+    age_s > ttl_s_ || result.objects.empty())
+  {
     return false;
   }
 
@@ -111,7 +127,7 @@ bool MtrResultCache::accept(const deep_msgs::msg::MtrPredictionArray & result, c
 }
 
 std::vector<world_model_msgs::msg::WorldObject> MtrResultCache::select(
-    const std::vector<world_model_msgs::msg::WorldObject> & fallback, const double now_s) const
+  const std::vector<world_model_msgs::msg::WorldObject> & fallback, const double now_s) const
 {
   auto output = fallback;
   std::lock_guard<std::mutex> lock(mutex_);

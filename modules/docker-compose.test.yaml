@@ -51,14 +51,21 @@ services:
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup_test:
     profiles: ["world_modeling_test"]
-    extends:
-      file: ${COMPOSE_EXTEND_FILE}
-      service: world_modeling_bringup
     build:
+      context: ..
+      dockerfile: docker/template.Dockerfile
+      args:
+        MODULE_SOURCE: "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
+        MODULE_DEPS: "${WORLD_MODELING_IMAGE:?}:deps_${TAG}"
       target: build
     image: "${WORLD_MODELING_IMAGE:?}:test_${TAG}"
+    runtime: runc
+    ipc: host
+    network_mode: host
     environment:
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - NVIDIA_VISIBLE_DEVICES=
+      - NVIDIA_DRIVER_CAPABILITIES=
 
 #################### ACTION SERVICE ####################
   action_bringup_test:
