@@ -19,53 +19,119 @@ boundary instead of referring to deleted files.
 
 ## Ownership Model
 
+Paths below are relative to the named repository. Every current MTR-related file has one primary
+owner. Reviews from another owner do not transfer primary ownership.
+
 ### Person A: scene preparation
 
-Person A owns semantic input preparation in the monorepo and model-specific input preparation in
-Deep ROS:
+Person A owns WATO-to-neutral scene adaptation in `wato_monorepo`:
 
-- `prediction_ml/include/prediction_ml/mtr_scene_adapter.hpp`
-- `prediction_ml/src/mtr_scene_adapter.cpp`
-- `prediction_ml/test/test_mtr_scene_adapter.cpp`
-- future `deep_mtr` per-track history and ONNX input-packing components and their tests
+| Current file | Responsibility |
+|---|---|
+| `src/world_modeling/prediction_ml/include/prediction_ml/mtr_scene_adapter.hpp` | Adapter contract |
+| `src/world_modeling/prediction_ml/src/mtr_scene_adapter.cpp` | Detection, ego-pose, and lanelet conversion |
+| `src/world_modeling/prediction_ml/test/test_mtr_scene_adapter.cpp` | Adapter and semantic-map tests |
 
-Person A must keep WATO-specific lanelet conversion in `prediction_ml` and model-specific history
-and tensor layout in `deep_mtr`.
+Person A owns the Deep ROS input messages and the model-specific preprocessing modules that must be
+created in `deep_ros`:
+
+| Current Deep ROS file | Responsibility |
+|---|---|
+| `deep_msgs/msg/MapPolyline.msg` | Neutral map representation |
+| `deep_msgs/msg/MtrScene.msg` | MTR request/input contract |
+
+| New Deep ROS file to create | Responsibility |
+|---|---|
+| `deep_mtr/include/deep_mtr/mtr_scene_history.hpp` | Per-track temporal history contract |
+| `deep_mtr/src/mtr_scene_history.cpp` | History accumulation and reset behavior |
+| `deep_mtr/test/test_mtr_scene_history.cpp` | History correctness tests |
+| `deep_mtr/include/deep_mtr/mtr_input_packer.hpp` | Verified ONNX input-packing contract |
+| `deep_mtr/src/mtr_input_packer.cpp` | History/map-to-tensor packing |
+| `deep_mtr/test/test_mtr_input_packer.cpp` | Tensor shape, dtype, ordering, and mask tests |
+
+Person A must keep WATO-specific lanelet conversion in `prediction_ml` and MTR tensor layout in
+`deep_mtr`.
 
 ### Person B: inference and decoding
 
-Person B owns the working learned-inference path in `deep_ros/deep_mtr`:
+Person B owns the Deep ROS node, backend use, model contract, and output decoding. The following
+current `deep_ros` files are Person B's starting surface:
 
-- integration with `DeepNodeBase::run_inference`
-- ONNX model configuration and the `onnxruntime_gpu` backend with TensorRT execution provider
-- output validation and decoding into `deep_msgs/MtrPredictionArray`
-- model-contract, correctness, and GPU tests
+| Current Deep ROS file | Responsibility |
+|---|---|
+| `deep_msgs/msg/MtrTrajectory.msg` | One decoded modal trajectory |
+| `deep_msgs/msg/MtrObjectPrediction.msg` | Per-object decoded result |
+| `deep_msgs/msg/MtrPredictionArray.msg` | Correlated result contract |
+| `deep_mtr/include/deep_mtr/deep_mtr_node.hpp` | Lifecycle-node and orchestration contract |
+| `deep_mtr/src/deep_mtr_node.cpp` | Subscription, inference orchestration, and publication |
+| `deep_mtr/config/deep_mtr.yaml` | Model and backend configuration |
+| `deep_mtr/launch/deep_mtr.launch.yaml` | Standalone Deep MTR launch |
+| `deep_mtr/CMakeLists.txt` | Deep MTR targets and tests |
+| `deep_mtr/package.xml` | Deep MTR dependencies |
+| `deep_mtr/test/test_deep_mtr_node.cpp` | Lifecycle and no-fabricated-output tests |
+| `deep_mtr/README.md` | User-facing Deep MTR status |
+| `deep_mtr/DEVELOPING.md` | Deep MTR implementation boundary |
 
-The current `deep_mtr_node.hpp`, `deep_mtr_node.cpp`, configuration, launch file, build metadata,
-and skeleton test are Person B's starting surface. Person B should extract preprocessing modules
-owned by Person A as the package grows. Person B must not introduce direct serialized TensorRT
-engine loading.
+Person B creates and owns these files when implementing inference:
+
+| New Deep ROS file to create | Responsibility |
+|---|---|
+| `deep_mtr/include/deep_mtr/mtr_model_contract.hpp` | Input/output tensor names, dtypes, and dimensions |
+| `deep_mtr/test/test_mtr_model_contract.cpp` | Exported-model contract verification |
+| `deep_mtr/include/deep_mtr/mtr_output_decoder.hpp` | Decoder contract |
+| `deep_mtr/src/mtr_output_decoder.cpp` | Tensor-to-`MtrPredictionArray` decoding |
+| `deep_mtr/test/test_mtr_output_decoder.cpp` | Confidence, trajectory, and invalid-output tests |
+| `deep_mtr/test/test_mtr_inference.cpp` | Real-model correctness and backend integration tests |
+
+Person B calls `DeepNodeBase::run_inference` through `onnxruntime_gpu` with the TensorRT execution
+provider. Person B must not add a custom backend or direct serialized TensorRT engine loader.
+
+In `wato_monorepo`, Person B owns the external inference dependency surface:
+
+| Current file | Responsibility |
+|---|---|
+| `config/deep_ros.ref` | Reviewed immutable Deep ROS revision |
+| `docker/world_modeling.Dockerfile` | Deep ROS checkout and inference runtime dependencies |
 
 ### Person C: WATO runtime integration and fallback
 
-Person C owns the monorepo runtime and deployment-facing integration:
+Person C owns all remaining `prediction_ml` runtime, selection, build, and package files in
+`wato_monorepo`:
 
-- fallback prediction header, source, and test
-- MTR result cache header, source, and test
-- lifecycle node header/source/main and node test
-- `prediction_ml` parameters, launch file, `CMakeLists.txt`, and `package.xml`
-- world-modeling launch integration and the reviewed `config/deep_ros.ref` pin update after Deep ROS
-  work merges
+| Current file group | Files |
+|---|---|
+| Fallback | `include/prediction_ml/fallback_prediction.hpp`, `src/fallback_prediction.cpp`, `test/test_fallback_prediction.cpp` |
+| Result selection | `include/prediction_ml/mtr_result_cache.hpp`, `src/mtr_result_cache.cpp`, `test/test_mtr_result_cache.cpp` |
+| Lifecycle node | `include/prediction_ml/prediction_ml_node.hpp`, `src/prediction_ml_node.cpp`, `src/prediction_ml_main.cpp`, `test/test_prediction_ml_node.cpp` |
+| Package wiring | `config/params.yaml`, `launch/prediction_ml.launch.yaml`, `CMakeLists.txt`, `package.xml` |
+| Package docs | `README.md`, `DEVELOPING.md` |
 
-Person C preserves synchronous fallback output, validates/correlates returned predictions, and
-ensures MTR remains disabled by default until the learned path satisfies its acceptance criteria.
+All paths in that table are under `src/world_modeling/prediction_ml/`. Person C also owns these
+monorepo integration files:
 
-### Coordinated contracts
+| Current file | Responsibility |
+|---|---|
+| `src/world_modeling/world_modeling_bringup/launch/world_modeling.launch.yaml` | World-modeling launch integration |
+| `modules/docker-compose.yaml` | GPU/device service configuration |
+| `watod-config.sh` | Deep ROS build/ref argument wiring |
 
-Changes to `deep_msgs` MTR messages affect both repositories. Person A proposes input-contract
-changes, Person B proposes output-contract changes, and Person C reviews compatibility with the
-WATO bridge. Contract changes require agreement from all affected owners before either repository
-depends on them.
+Person C preserves synchronous fallback output, validates and correlates returned predictions, and
+keeps MTR disabled by default until the learned path meets its acceptance criteria.
+
+In `deep_ros`, Person C owns build-level verification of the shared MTR message boundary:
+
+| Current Deep ROS file | Responsibility |
+|---|---|
+| `deep_msgs/CMakeLists.txt` | MTR interface generation and contract-test registration |
+| `deep_msgs/package.xml` | Shared message dependencies |
+| `deep_msgs/test/test_mtr_messages.cpp` | End-to-end request/result correlation contract |
+
+### Coordinated changes
+
+Person A is the primary owner of input messages and Person B is the primary owner of output
+messages. Person C verifies that all message changes remain consumable by the WATO bridge. A change
+to a `deep_msgs` MTR message requires review from Person C and from the owner on the other side of
+the request/result boundary when correlation semantics change.
 
 ## Documentation Changes
 
@@ -82,14 +148,17 @@ depends on them.
 2. Person A implements history and input packing in `deep_mtr` while maintaining the WATO scene
    adapter.
 3. Person B implements inference and decoding and proves real-model behavior in Deep ROS.
-4. Person C pins the merged Deep ROS revision, verifies bridge correlation/fallback behavior, and
-   enables deployment only after the learned path meets its acceptance criteria.
+4. Person B updates the monorepo's Deep ROS pin and image dependencies after the Deep ROS work
+   merges.
+5. Person C verifies bridge correlation/fallback behavior and enables deployment only after the
+   learned path meets its acceptance criteria.
 
 ## Verification
 
-- Every current `prediction_ml` production and test file is assigned or explicitly coordinated.
-- Deep ROS assignments name only files present at the pinned revision and label future modules as
-  future files.
+- Every current `prediction_ml` production, test, build, configuration, and documentation file is
+  assigned to Person A or Person C.
+- Every current Deep ROS MTR source, message, test, build, configuration, launch, and documentation
+  file is assigned to Person A, B, or C; proposed modules are explicitly labeled as new files.
 - README and development-guide status statements agree that migration scaffolding exists but
   working MTR inference does not.
 - No documentation claims direct `.engine` loading or enabled-by-default MTR deployment.
