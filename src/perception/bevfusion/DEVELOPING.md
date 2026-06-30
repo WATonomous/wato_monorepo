@@ -4,28 +4,26 @@
 
 **BEVFusion** is a ROS 2 lifecycle composable node that fuses camera and LiDAR data into a unified Bird's-Eye View (BEV) representation for 3D object detection and map segmentation.
 
-Rather than forcing cameras to see in 3D or LiDAR to see in 2D, both are converted into a top-down BEV grid where they are fused and processed together. This compensates for individual sensor weaknesses — cameras struggle in low light, LiDAR struggles in rain.
+Rather than forcing cameras to see in 3D or LiDAR to see in 2D, both are converted into a top-down BEV grid where they are fused and processed together. This maintains both geometric structure and semantic density, and compensates for individual sensor weaknesses — cameras struggle in low light, LiDAR struggles in poor weather.
 
 Given synchronized camera images and a merged LiDAR point cloud, the node:
 
-1. **Preprocesses cameras** — decompresses, resizes, normalizes, and builds camera matrices (intrinsic + extrinsic) for each of the 6 cameras
+1. **Preprocesses cameras** — resizes, normalizes, and builds camera matrices (intrinsic + extrinsic) for each of the 6 cameras
 2. **Preprocesses LiDAR** — range-filters and voxelizes the merged point cloud
 3. **Runs TensorRT inference** — using the CUDA-BEVFusion library (NVIDIA-AI-IOT)
 4. **Publishes 3D bounding boxes** — for detected objects (vehicles, pedestrians, etc.)
 5. **Publishes visualization markers** — for debugging in Foxglove
-
-> BEVFusion does **not** output tracks. Tracking is handled downstream by the `tracking` node.
 
 ## Architecture
 
 ```
 Sensor Inputs
 ─────────────
-/multi_camera_sync/multi_image_compressed   ──┐
-(6 cameras, pre-synced)                       │
-                                              ├──► BEVFusionNode (lifecycle composable)
-/lidar/all/points_merged                      │         │
-(3 LiDARs pre-merged)                       ──┘         │
+/camera_pano_[nn|ne|nw|ss|se|sw]/image_rect/nitros  ──┐
+(6 cameras, NitrosImage, stored in GPU memory)         │
+                                                       ├──► BEVFusionNode (lifecycle composable)
+/lidar/all/points_merged                               │         │
+(3 LiDARs pre-merged)                               ──┘         │
                                                          ▼
                                               BEVFusionCore
                                               ├── Camera preprocessing
@@ -66,17 +64,36 @@ Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`). They are pre-mer
 
 ## Topics
 
-### Subscribed
+### Subscribed — Camera Images (Nitros zero-copy)
+
+BEVFusion subscribes to 6 individual Nitros topics, one per camera. These keep images stored in GPU memory from capture all the way through inference — no CPU copies or compression roundtrip.
 
 | Topic | Type | Description |
 |---|---|---|
-| `/multi_camera_sync/multi_image_compressed` | `deep_msgs/MultiImageCompressed` | All 6 camera images bundled in one message, pre-synchronized |
+| `/camera_pano_nn/image_rect/nitros` | `nvidia::isaac_ros::nitros::NitrosImage` | Front camera, rectified, stored in GPU memory |
+| `/camera_pano_ne/image_rect/nitros` | `nvidia::isaac_ros::nitros::NitrosImage` | Front-right camera, rectified, stored in GPU memory |
+| `/camera_pano_nw/image_rect/nitros` | `nvidia::isaac_ros::nitros::NitrosImage` | Front-left camera, rectified, stored in GPU memory |
+| `/camera_pano_ss/image_rect/nitros` | `nvidia::isaac_ros::nitros::NitrosImage` | Back camera, rectified, stored in GPU memory |
+| `/camera_pano_se/image_rect/nitros` | `nvidia::isaac_ros::nitros::NitrosImage` | Back-right camera, rectified, stored in GPU memory |
+| `/camera_pano_sw/image_rect/nitros` | `nvidia::isaac_ros::nitros::NitrosImage` | Back-left camera, rectified, stored in GPU memory |
+
+**Why `image_rect/nitros` and not other camera topics:**
+Each camera also publishes `image_rect` (`sensor_msgs/Image`, CPU) and the batched `/multi_camera_sync/multi_image_compressed` (JPEG, CPU) used by other perception nodes. BEVFusion uses `image_rect/nitros` because it is both rectified (lens distortion removed, required for BEVFusion's camera matrix math) and stored in GPU memory (no CPU copy needed before feeding into TensorRT). The `/nitros` topic is published automatically by the Isaac ROS Nitros framework alongside every standard topic from a Nitros node.
+
+**Time synchronization:** Because these arrive as 6 separate streams, the node uses `message_filters::ApproximateTimeSynchronizer` to match them by timestamp — ensuring each inference call receives 6 camera images and 1 LiDAR scan that all correspond to the same moment in time. The maximum allowed time difference between matched messages is configurable via `sync_max_time_diff_ms`.
+
+**Fallback:** If Nitros subscriber integration proves too complex initially, subscribe to `/multi_camera_sync/multi_image_compressed` (`deep_msgs/MultiImageCompressed`) — all 6 cameras pre-batched and pre-synced in one message, already used by `attribute_assigner` and `spatial_association`, but at the cost of a JPEG CPU roundtrip.
+
+### Subscribed — Other
+
+| Topic | Type | Description |
+|---|---|---|
+| `/lidar/all/points_merged` | `sensor_msgs/PointCloud2` | All 3 LiDARs pre-merged into one point cloud |
 | `/multi_camera_sync/multi_camera_info` | `deep_msgs/MultiCameraInfo` | Camera intrinsics for all cameras (cached, not time-synced) |
-| `/lidar/all/points_merged` | `sensor_msgs/PointCloud2` | All 3 LiDARs merged into one point cloud |
 
-Camera images and LiDAR point cloud are synchronized using `message_filters` ApproximateTime.
+LiDAR has no Nitros equivalent — `PointCloud2` on CPU is the only option.
 
-Camera extrinsics (physical mounting position and orientation of each camera relative to the car) are looked up from TF at runtime — frame IDs match camera names (e.g. `camera_pano_nn`) and are transformed to `base_link`.
+**Camera extrinsics via TF:** The physical mounting position and orientation of each camera (extrinsics) are looked up at runtime from the ROS 2 TF tree using `tf2_ros::Buffer` and `tf2_ros::TransformListener`. The node requests the transform from each camera's frame ID (e.g. `camera_pano_nn`) to `base_link`. Since camera mounts are fixed, these transforms are *static* — they are published once on `/tf_static` by the sensor launch infrastructure (from the camera calibration files in `camera_calib`). The node does not subscribe to `/tf_static` directly; `tf2_ros::TransformListener` creates that subscription internally and caches all available transforms in the `Buffer`.
 
 ### Published
 
@@ -87,12 +104,12 @@ Camera extrinsics (physical mounting position and orientation of each camera rel
 
 ## Parameters
 
-All parameters are set in `perception_bringup/config/perception_bringup.yaml` under `/**/bevfusion_node`. The node's own `config/params.yaml` contains defaults.
+When implemented, parameters will be set in `perception_bringup/config/perception_bringup.yaml` under `/**/bevfusion_node`. The node's own `config/params.yaml` will contain defaults. The table below lists the intended parameters — these are not yet declared in `params.yaml`.
 
-| Parameter | Default | Description |
+| Parameter | Intended Default | Description |
 |---|---|---|
 | `model_path` | `""` | Path to TensorRT engine file (place in `/opt/watonomous/models/`) |
-| `camera_names` | see above | List of 6 camera frame IDs to use |
+| `camera_names` | `["camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"]` | Frame IDs of the 6 cameras to use |
 | `sync_max_time_diff_ms` | `200.0` | Max time difference for ApproximateTime sync (ms) |
 | `sync_queue_size` | `10` | Queue depth for message synchronization |
 | `detection_score_threshold` | `0.3` | Minimum score to publish a bounding box |
@@ -100,14 +117,6 @@ All parameters are set in `perception_bringup/config/perception_bringup.yaml` un
 | `qos_publisher_reliability` | `"reliable"` | Publisher QoS reliability |
 
 ## Implementation Notes
-
-### Why batched topics instead of individual camera topics
-
-Each camera also publishes individually (e.g. `/camera_pano_nn/image_rect`). We subscribe to the pre-batched `/multi_camera_sync/multi_image_compressed` instead because:
-- All 6 images arrive in one message with one shared timestamp — no need to sync 6 separate streams
-- This is the same pattern used by every other perception node (`attribute_assigner`, `spatial_association`, etc.)
-
-The camera pipeline is fully Nitros-based (GPU rectification via `isaac_ros_image_proc::RectifyNode`), outputting `image_rect` as a Nitros tensor and `image_rect_compressed` as JPEG. The `multi_camera_sync` node batches the JPEG outputs into `MultiImageCompressed`. Subscribing directly to individual Nitros `image_rect` topics is a future optimization if needed to hit 20 Hz.
 
 ### TensorRT + FP16
 
@@ -122,7 +131,9 @@ Inference uses TensorRT with FP16 precision. INT8 is deferred — it requires ca
 ## Building
 
 ```bash
-colcon build --packages-select bevfusion
+colcon build --packages-select cuda_bevfusion_vendor bevfusion
 ```
 
-Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filters`, `vision_msgs`, `visualization_msgs`, `deep_msgs`, `sensor_msgs`, `geometry_msgs`, `tf2_ros`, `tf2_geometry_msgs`, `diagnostic_updater`, `OpenCV`, CUDA-BEVFusion (NVIDIA-AI-IOT)
+`cuda_bevfusion_vendor` must be built first — it clones and compiles the CUDA-BEVFusion library from source. `bevfusion` depends on it. Colcon resolves this order automatically when both are specified.
+
+Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filters`, `vision_msgs`, `visualization_msgs`, `deep_msgs`, `sensor_msgs`, `geometry_msgs`, `tf2_ros`, `tf2_geometry_msgs`, `diagnostic_updater`, `OpenCV`, `cuda_bevfusion_vendor`
