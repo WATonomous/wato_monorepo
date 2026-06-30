@@ -43,6 +43,24 @@ requires a named multi-tensor Deep ROS extension before `deep_mtr` can call the 
 Packing unrelated inputs into one anonymous tensor is rejected because it erases dtype, name, and
 shape validation at the backend boundary.
 
+The export spike must also resolve official MTR's custom CUDA attention/KNN operations before the
+team treats ONNX Runtime or its TensorRT execution provider as viable. The repository must not
+claim working MTR based only on a graph that exports but cannot execute with the deployment
+provider.
+
+The semantic ROS boundary intentionally does not carry model tensors, so Person A must define and
+test these preprocessing policies inside `deep_mtr`:
+
+- derive velocity and acceleration from timestamped per-track history when detections do not carry
+  those fields;
+- map WATO detection classes to numeric vehicle, pedestrian, and cyclist IDs;
+- represent the ego vehicle as the official MTR SDC input using ego-pose history and documented
+  defaults for unavailable dimensions;
+- select target agents deterministically when a scene contains more objects than the exported
+  model contract accepts; and
+- convert the three available WATO lanelet semantics into the verified exported map-feature IDs
+  without pretending the bridge supplies every Waymo roadgraph feature.
+
 ## Ownership Model
 
 Paths below are relative to the named repository. Every current MTR-related file has one primary
@@ -175,6 +193,15 @@ monorepo integration files:
 Person C preserves synchronous fallback output, validates and correlates returned predictions, and
 keeps MTR disabled by default until the learned path meets its acceptance criteria.
 
+Person C creates and owns a WATO-side result adapter so Deep ROS can publish the model-native MTR
+horizon while the monorepo retains consumer-specific output policy:
+
+| New monorepo file to create | Responsibility |
+|---|---|
+| `src/world_modeling/prediction_ml/include/prediction_ml/mtr_result_adapter.hpp` | Native-result-to-WATO horizon conversion contract |
+| `src/world_modeling/prediction_ml/src/mtr_result_adapter.cpp` | Timestamp-aware truncation/resampling to `prediction_horizon` and `prediction_time_step` |
+| `src/world_modeling/prediction_ml/test/test_mtr_result_adapter.cpp` | Horizon, interpolation, frame, and malformed-timestamp tests |
+
 In `deep_ros`, Person C owns build-level verification of the shared MTR message boundary:
 
 | Current Deep ROS file | Responsibility |
@@ -206,13 +233,14 @@ the request/result boundary when correlation semantics change.
 2. Person B adds backward-compatible named multi-tensor execution to Deep ROS and verifies CPU,
    CUDA, and TensorRT-provider behavior.
 3. Person A implements history plus agent/map input packing against the verified exported contract
-   while maintaining the WATO scene adapter.
+   while maintaining the WATO scene adapter. This includes derived motion state, numeric type
+   mapping, ego/SDC representation, and deterministic target selection.
 4. Person B implements decoding, including the official center-to-world transform, and proves
    real-model behavior in Deep ROS.
 5. Person B updates the monorepo's Deep ROS pin and image dependencies after the Deep ROS work
    merges.
-6. Person C verifies bridge correlation/fallback behavior and enables deployment only after the
-   learned path meets its acceptance criteria.
+6. Person C adds WATO horizon conversion, verifies bridge correlation/fallback behavior, and
+   enables deployment only after the learned path meets its acceptance criteria.
 
 ## Verification
 
