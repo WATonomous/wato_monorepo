@@ -4,10 +4,16 @@
 always computes a synchronous constant-velocity fallback and can optionally bridge semantic scene
 data to `deep_ros/deep_mtr`.
 
-The Deep ROS node is currently a non-inferencing skeleton. Enabling the bridge publishes
-`deep_msgs/MtrScene` requests, but does not produce learned predictions until inference is
-implemented in `deep_mtr`. Fallback output remains available whether MTR is disabled, silent, or
-unavailable.
+## Current status
+
+The cross-repository migration is complete: WATO-specific adaptation remains here, while the
+model-specific inference path lives in `deep_ros/deep_mtr`. The Deep ROS node is still a
+non-inferencing skeleton, so constant-velocity fallback is currently the only deployable output
+and MTR remains disabled by default.
+
+Official MTR requires multiple named inputs and outputs, while the pinned Deep ROS inference API
+currently supports one input and one output tensor. The next inference milestone is therefore a
+verified ONNX export plus backward-compatible named multi-tensor execution in Deep ROS.
 
 ## ROS interface
 
@@ -64,4 +70,13 @@ model and selects the TensorRT execution provider through the standard Deep ROS 
 | `mtr.result_topic` | `/mtr/predictions` | Neutral prediction result topic |
 | `mtr.cache_ttl_s` | `0.5` | Maximum result age in seconds |
 
-See [DEVELOPING.md](DEVELOPING.md) for ownership, testing, and architecture details.
+## Ownership and next work
+
+| Owner | Area | Next deliverable |
+|---|---|---|
+| Person A | Scene history and official-MTR input preparation | History plus agent/map tensor packers in `deep_ros/deep_mtr` |
+| Person B | Model export, Deep ROS inference, and decoding | Verified ONNX contract, named multi-tensor execution, and world-frame results |
+| Person C | WATO runtime, fallback, and deployment integration | WATO horizon adaptation, end-to-end validation, and safe enablement |
+
+See [DEVELOPING.md](DEVELOPING.md) for exact file ownership, implementation gates, testing, and
+cross-repository handoffs.
