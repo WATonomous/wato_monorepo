@@ -18,7 +18,7 @@ launch:
       default: "$(find-pkg-share interfacing_bringup)/config/interfacing.yaml"
       description: "Path to the CAN/control configuration file"
 
-  # Sensors (GPS, LiDAR, cameras, TF)
+  # Sensors (GPS, LiDAR, TF) — cameras run in the perception container
   - include:
       file: "$(find-pkg-share interfacing_bringup)/launch/interfacing_sensors.launch.yaml"
 
