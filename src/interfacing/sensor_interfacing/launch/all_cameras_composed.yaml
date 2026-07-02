@@ -151,63 +151,63 @@ launch:
         - name: "enable_jpeg"
           value: "$(var enable_jpeg)"
 
-  # # Lower Cameras (4 cameras)
-  # # camera 8 - lower NE
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_lower_ne"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386132"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
-  #       - name: "enable_jpeg"
-  #         value: "$(var enable_jpeg)"
+  # Lower Cameras (4 cameras)
+  # camera 8 - lower NE
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_lower_ne"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386132"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 9 - lower SE
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_lower_se"
-  #       - name: "guid"
-  #         value: "Hikrobot-MV-CU013-80GC-DA8386083"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
-  #       - name: "enable_jpeg"
-  #         value: "$(var enable_jpeg)"
+  # camera 9 - lower SE
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_lower_se"
+        - name: "guid"
+          value: "Hikrobot-MV-CU013-80GC-DA8386083"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 10 - lower SW
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_lower_sw"
-  #       - name: "guid"
-  #         value: "GEV-MV-CU013-80GC-DA8434466"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
-  #       - name: "enable_jpeg"
-  #         value: "$(var enable_jpeg)"
+  # camera 10 - lower SW
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_lower_sw"
+        - name: "guid"
+          value: "GEV-MV-CU013-80GC-DA8434466"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
 
-  # # camera 11 - lower NW
-  # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
-  #     arg:
-  #       - name: "container_name"
-  #         value: "$(var container_name)"
-  #       - name: "camera_name"
-  #         value: "camera_lower_nw"
-  #       - name: "guid"
-  #         value: "GEV-MV-CU013-80GC-DA8434479"
-  #       - name: "cameras_config_file"
-  #         value: "$(var cameras_config_file)"
-  #       - name: "enable_jpeg"
-  #         value: "$(var enable_jpeg)"
+  # camera 11 - lower NW
+  - include:
+      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      arg:
+        - name: "container_name"
+          value: "$(var container_name)"
+        - name: "camera_name"
+          value: "camera_lower_nw"
+        - name: "guid"
+          value: "GEV-MV-CU013-80GC-DA8434479"
+        - name: "cameras_config_file"
+          value: "$(var cameras_config_file)"
+        - name: "enable_jpeg"
+          value: "$(var enable_jpeg)"
