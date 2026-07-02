@@ -82,15 +82,31 @@ prepares MTR inputs, `MtrRuntime` owns asynchronous inference and its result cac
 
 ## Collaboration Boundaries
 
-The package was initially divided across three parallel work areas. Keep changes within an owned
-area unless a shared interface change is agreed by the group.
+### Ownership by pipeline stage
 
-| Area | Owned files | Tests to update |
-|------|-------------|-----------------|
-| Scene builder | `include/prediction_ml/scene_builder.hpp`, `src/scene_builder.cpp` | `test/test_scene_builder.cpp` |
-| Inference backend | `include/prediction_ml/mtr_backend.hpp`, `src/null_backend.cpp`, `src/tensorrt_backend.cpp` | `test/test_backend.cpp` |
-| Runtime and node integration | `include/prediction_ml/mtr_runtime.hpp`, `include/prediction_ml/output_converter.hpp`, `include/prediction_ml/prediction_ml_node.hpp`, `src/mtr_runtime.cpp`, `src/output_converter.cpp`, `src/prediction_ml_node.cpp`, `config/params.yaml`, `launch/prediction_ml.launch.yaml`, `CMakeLists.txt` | `test/test_runtime.cpp`, `test/test_fallback_prediction.cpp` |
-| Shared contracts | `include/prediction_ml/mtr_types.hpp`, `include/prediction_ml/mtr_inference_engine.hpp` | `test/test_contract_compiles.cpp` |
+- **Person A — Input / Scene → Tensor** (`scene_builder.*`, `test_scene_builder.cpp`):
+  maintain MTR-only per-object history keyed by detection id (pose, dims, heading,
+  velocity, type, timestamp, validity); resample to a fixed step and mask missing
+  samples; select target agents up to a limit; pack target + context agents into
+  `obj_trajs*` and `track_index_to_predict` / `center_objects_type`; convert lanelet
+  context into `map_polylines*`; populate the sidecar. Depends only on `mtr_types.hpp`.
+
+- **Person B — Inference backend** (`null_backend.cpp`, `tensorrt_backend.cpp`,
+  `mtr_backend.hpp`, `test_backend.cpp`): implement `IMtrInferenceEngine`. Null engine
+  is always built and returns an empty/invalid result so the runtime falls back.
+  TensorRT engine loads the `.engine` from `engine_path`, validates bindings against
+  `MtrModelContract`, runs `infer`. Compiled only when `PREDICTION_ML_ENABLE_TENSORRT`
+  is set. Depends only on the two shared headers — can develop against the null engine
+  with zero input from A or C.
+
+- **Person C — Orchestration / Output** (`prediction_ml_node.*`, `mtr_runtime.*`,
+  `output_converter.*`, `config`, `launch`, `CMakeLists.txt`, `package.xml`,
+  `test_runtime.cpp`): the lifecycle node (subs/pubs/params/wiring); the CV fallback
+  predictor (ported from `simple_prediction`); `MtrRuntime` (latest-only async worker,
+  per-object TTL cache, `submitFrame`, `selectOutput`, `ready`/`lastError`);
+  `OutputConverter` (validate `pred_scores`/`pred_trajs`, rotate/translate target frame
+  → map frame, infer yaw from consecutive points, emit `world_model_msgs/Prediction`).
+  Owns the build/config/launch integration spine.
 
 Treat the shared contract headers as frozen on parallel owner branches. Coordinate required
 contract changes before editing them.
