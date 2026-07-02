@@ -65,7 +65,7 @@ private:
   double lookahead_distance_;
   double min_lookahead_distance_;
   double lookahead_gain_;
-  double steering_angle_gain;
+  double steering_angle_gain_;
   double max_speed_;
   double min_speed_;
   double standby_speed_;
@@ -96,7 +96,7 @@ private:
   // State
   wato_trajectory_msgs::msg::Trajectory::SharedPtr latest_trajectory_;
   rclcpp::Time last_trajectory_time_;
-  std::string bt_requested_behaviour;
+  std::string bt_requested_behaviour_;
   double current_speed_{0.0};
 };
 

@@ -34,11 +34,13 @@ Parameters are loaded from `config/params.yaml` under the namespace `action/pure
 | `rear_axle_frame` | string | `"rear_axle"` | Rear axle TF frame for wheelbase measurement |
 | `front_axle_frame` | string | `"front_axle"` | Front axle TF frame for wheelbase measurement |
 | `standby_msg` | string | `"standby"` | Behaviour string that triggers standby output |
-| `lookahead_distance` | double | `3.5` | Target lookahead distance for pure pursuit (m) |
+| `lookahead_distance` | double | `5.0` | Maximum lookahead distance for pure pursuit (m) |
 | `min_lookahead_distance` | double | `2.0` | Minimum accepted lookahead distance (m) |
+| `lookahead_gain` | double | `0.5` | Speed-proportional gain for adaptive lookahead (`ld = gain · speed`, clamped to min/max) |
+| `speed_lookahead_distance` | double | `1.0` | Distance ahead of ego used to sample the target speed (m) |
 | `max_speed` | double | `5.0` | Maximum commanded speed (m/s) |
-| `min_speed` | double | `0.5` | Minimum commanded speed while tracking (m/s) |
-| `standby_speed` | double | `0.0` | Speed commanded during standby (m/s) |
+| `min_speed` | double | `0.0` | Minimum commanded speed while tracking (m/s) |
+| `standby_speed` | double | `-0.5` | Speed commanded during standby (m/s) |
 | `standby_steering` | double | `0.0` | Steering angle commanded during standby (rad) |
 | `control_rate_hz` | double | `20.0` | Frequency at which control commands are published (Hz) |
 | `wheelbase_fallback` | double | `2.5667` | Fallback wheelbase if TF lookup fails (m) |

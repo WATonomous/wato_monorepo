@@ -21,6 +21,7 @@
 #include <string>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -70,7 +71,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   lookahead_distance_ = get_parameter("lookahead_distance").as_double();
   min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
   lookahead_gain_ = get_parameter("lookahead_gain").as_double();
-  steering_angle_gain = get_parameter("steering_angle_gain").as_double();
+  steering_angle_gain_ = get_parameter("steering_angle_gain").as_double();
   max_speed_ = get_parameter("max_speed").as_double();
   min_speed_ = get_parameter("min_speed").as_double();
   standby_speed_ = get_parameter("standby_speed").as_double();
@@ -195,7 +196,7 @@ double PurePursuitNode::getWheelbase()
 
 void PurePursuitNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
 {
-  bt_requested_behaviour = msg->behaviour;
+  bt_requested_behaviour_ = msg->behaviour;
 }
 
 void PurePursuitNode::controlCallback()
@@ -204,9 +205,9 @@ void PurePursuitNode::controlCallback()
 
   // Check for stale or missing trajectory
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
-                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour.empty();
+                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour_.empty();
 
-  if (is_idle || (!disable_standby_ && bt_requested_behaviour == standby_msg_)) {
+  if (is_idle || (!disable_standby_ && bt_requested_behaviour_ == standby_msg_)) {
     idle_msg.data = true;
     idle_pub_->publish(idle_msg);
     publishAckermannMsg(base_frame_, standby_speed_, standby_steering_, invert_steering_);
@@ -222,7 +223,7 @@ void PurePursuitNode::controlCallback()
   // Adaptive lookahead: scale with speed, clamp to [min, max]
   double adaptive_lookahead =
     std::clamp(lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
-  RCLCPP_INFO(
+  RCLCPP_DEBUG(
     get_logger(),
     "Lookahead: %.2f m (speed=%.2f, gain=%.2f, raw=%.2f, min=%.2f, max=%.2f)",
     adaptive_lookahead,
@@ -242,22 +243,24 @@ void PurePursuitNode::controlCallback()
   bool found_speed_point = false;
   bool found_lookahead = false;
 
+  // Look up the trajectory -> base_frame transform once per cycle and reuse it for every
+  // point. This avoids O(N) TF lookups at the control rate and fails atomically: if the
+  // transform is unavailable we skip the whole cycle instead of aborting mid-loop.
+  geometry_msgs::msg::TransformStamped traj_to_base_tf;
+  try {
+    traj_to_base_tf = tf_buffer_->lookupTransform(base_frame_, traj.header.frame_id, tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000, "Cannot transform trajectory to base frame: %s", ex.what());
+    return;
+  }
+
   for (const auto & pt : traj.points) {
-    geometry_msgs::msg::PoseStamped pose_in_traj;
-    pose_in_traj.header = traj.header;
-    pose_in_traj.pose = pt.pose;
+    geometry_msgs::msg::Pose pose_in_base;
+    tf2::doTransform(pt.pose, pose_in_base, traj_to_base_tf);
 
-    geometry_msgs::msg::PoseStamped pose_in_base;
-    try {
-      pose_in_base = tf_buffer_->transform(pose_in_traj, base_frame_);
-    } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 2000, "Cannot transform trajectory point to base frame: %s", ex.what());
-      return;
-    }
-
-    double dx = pose_in_base.pose.position.x;
-    double dy = pose_in_base.pose.position.y;
+    double dx = pose_in_base.position.x;
+    double dy = pose_in_base.position.y;
     double dist = std::hypot(dx, dy);
 
     // Use speed from the point ~1m ahead of ego
@@ -285,7 +288,7 @@ void PurePursuitNode::controlCallback()
   // Pure pursuit math
   double ld_sq = lookahead_x * lookahead_x + lookahead_y * lookahead_y;
   double curvature = 2.0 * lookahead_y / ld_sq;
-  double steering_angle = steering_angle_gain * std::atan(wheelbase * curvature);
+  double steering_angle = steering_angle_gain_ * std::atan(wheelbase * curvature);
 
   // Clamp steering
   steering_angle = std::clamp(steering_angle, -max_steering_angle_, max_steering_angle_);

@@ -5,11 +5,15 @@ action:
       bt_topic: "execute_behaviour"
       ackermann_topic: "ackermann"
       idle_topic: "is_idle"
+      odom_topic: "odom"
       base_frame: "base_footprint"
       rear_axle_frame: "rear_axle"
       front_axle_frame: "front_axle"
+      standby_msg: "standby"
       lookahead_distance: 5.0
       min_lookahead_distance: 2.0
+      lookahead_gain: 0.5
+      speed_lookahead_distance: 1.0
       steering_angle_gain: 1.0
       max_speed: 5.0
       min_speed: 0.0
