@@ -7,12 +7,12 @@ scene builder/runtime/output-converter stubs, lifecycle node, and constant-veloc
 real TensorRT predictor is not implemented yet. Intentional TODOs in the owner files are handoff
 points for that work.
 
-This branch is the preserved **pre-deep_ros baseline**: MTR inference scaffolding still lives
-inside the monorepo. The alternative direction — moving inference ownership into
-`WATonomous/deep_ros` (`deep_msgs` scene/result interfaces + a `deep_mtr` lifecycle node) while
-`prediction_ml` keeps only the WATO adapter, result selection, and CV fallback — is preserved on
-the `ryan/prediction-ml-skeleton` branch (`feat(prediction_ml): integrate deep ROS MTR bridge`).
-Refer to that branch for the deep_ros migration design and ownership split.
+This is the **active working branch**: MTR inference scaffolding lives inside the monorepo. The
+alternative deep_ros direction — moving inference ownership into `WATonomous/deep_ros` (`deep_msgs`
+scene/result interfaces + a `deep_mtr` lifecycle node) while `prediction_ml` keeps only the WATO
+adapter, result selection, and CV fallback — is **preserved for reference** on the
+`ryan/prediction-ml-skeleton` branch (`feat(prediction_ml): integrate deep ROS MTR bridge`). Refer
+to that branch for the deep_ros migration design and ownership split.
 
 Source-level MTR I/O verification established that:
 
