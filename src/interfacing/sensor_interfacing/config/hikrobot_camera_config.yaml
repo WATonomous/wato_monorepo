@@ -69,15 +69,21 @@ camera_pano_nw:
 camera_lower_ne:
   ros__parameters:
     <<: *common_settings
+    # Mask the lower band where the ego vehicle appears in this camera.
+    # Format: "stream_name:x,y,width,height".
+    mask_regions: "stream0:0,760,1280,264"
 
 camera_lower_se:
   ros__parameters:
     <<: *common_settings
+    mask_regions: "stream0:0,760,1280,264"
 
 camera_lower_sw:
   ros__parameters:
     <<: *common_settings
+    mask_regions: "stream0:0,760,1280,264"
 
 camera_lower_nw:
   ros__parameters:
     <<: *common_settings
+    mask_regions: "stream0:0,760,1280,264"
