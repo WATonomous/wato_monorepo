@@ -13,7 +13,7 @@
 Execute this plan in a clean `deep_ros` worktree. Do not work in the temporary planning clone. The
 resulting PR must merge before executing the monorepo integration plan.
 
-### Task 1: Define the neutral MTR message contract
+## Task 1: Define the neutral MTR message contract
 
 **Files:**
 - Create: `deep_msgs/msg/MapPolyline.msg`
