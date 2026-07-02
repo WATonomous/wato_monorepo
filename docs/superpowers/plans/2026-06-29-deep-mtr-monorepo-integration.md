@@ -15,7 +15,7 @@ Prerequisite: complete and merge the `deep_ros` plan first. Execute this plan in
 and changes. Replace the current working-tree review edits only where this plan explicitly names
 the same `prediction_ml` files.
 
-### Task 1: Add semantic scene adaptation
+## Task 1: Add semantic scene adaptation
 
 **Files:**
 - Create: `src/world_modeling/prediction_ml/include/prediction_ml/mtr_scene_adapter.hpp`
