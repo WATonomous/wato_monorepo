@@ -21,4 +21,4 @@ On each publish tick the node:
 
 **Safety gating** monitors command age on critical inputs (typically the joystick). If the joystick stops sending within `safety_threshold` seconds, the mux publishes the emergency command (brake) rather than holding the last known command.
 
-**Input masking** lets a source signal that it is voluntarily idle (e.g., `joystick/is_idle` when the enable trigger is released) so lower-priority inputs can take over without triggering a safety trip.
+**Input masking** lets a source signal that it is voluntarily idle (e.g., `joystick/ackermann_is_idle` when the enable trigger is released) so lower-priority inputs can take over without triggering a safety trip.

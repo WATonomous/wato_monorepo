@@ -46,7 +46,7 @@ ackermann_mux:
         topic: /joystick/ackermann
         priority: 200
         has_mask: true
-        mask_topic: /joystick/is_idle
+        mask_topic: /joystick/ackermann_is_idle
         safety_gating: true
       action:
         topic: /action/ackermann

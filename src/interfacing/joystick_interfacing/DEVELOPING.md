@@ -15,7 +15,8 @@
 |-------|------|-------------|
 | `joystick/ackermann` | `ackermann_msgs/AckermannDriveStamped` | Ackermann commands (active in ACKERMANN mode) |
 | `roscco` | `roscco_msg/Roscco` | ROSCCO commands (active in ROSCCO mode) |
-| `joystick/is_idle` | `std_msgs/Bool` | `true` when enable axis is not pressed |
+| `joystick/ackermann_is_idle` | `std_msgs/Bool` | `true` when not actively providing Ackermann commands (ROSCCO mode or deadman released) |
+| `joystick/roscco_is_idle` | `std_msgs/Bool` | `true` when not actively providing ROSCCO commands (Ackermann mode or deadman released) |
 | `joystick/state` | `std_msgs/Int8` | Current mode: 0 = NULL, 1 = ACKERMANN, 2 = ROSCCO |
 | `joy/set_feedback` | `sensor_msgs/JoyFeedback` | Haptic rumble commands |
 
@@ -54,7 +55,7 @@ ros2 launch joystick_interfacing joystick_interfacing.launch.yaml
 
 **Enable axis:** The node checks `joy.axes[enable_axis]` on every joy message. If the value is > −0.9, the operator is considered not engaged and the node outputs zero commands. This threshold is designed for trigger axes that report +1.0 when unpressed and −1.0 when fully pressed.
 
-**Mode state machine:** Three states: `NULL` (no valid mode set), `ACKERMANN` (publishes on `joystick/ackermann`), `ROSCCO` (publishes on `roscco`). Pressing `toggle_button` cycles between ACKERMANN and ROSCCO. The haptic pulse count (1 pulse → ACKERMANN, 2 pulses → ROSCCO) confirms the new state.
+**Mode state machine:** Three states: `NULL` (no valid mode set), `ACKERMANN` (publishes on `joystick/ackermann`), `ROSCCO` (publishes on `joystick/roscco`). Pressing `toggle_button` cycles between ACKERMANN and ROSCCO — **only when the deadman is not held**. The haptic pulse count (1 pulse → ACKERMANN, 2 pulses → ROSCCO) confirms the new state. On toggle, a zero command is sent to both the old and new topic before switching, and each mux is notified via its respective idle topic.
 
 **Command scaling:** Stick axes (−1.0 to +1.0) are linearly scaled by `ackermann_max_steering_angle` and `ackermann_max_speed` (or their ROSCCO equivalents). The `invert_steering` / `invert_throttle` flags negate the axis value before scaling.
 
@@ -70,12 +71,12 @@ ros2 launch joystick_interfacing joystick_interfacing.launch.yaml
 
 ```bash
    ros2 topic echo /joystick/ackermann
-   ros2 topic echo /joystick/is_idle   # should be false while enable held
+   ros2 topic echo /joystick/ackermann_is_idle   # should be false while enable held
    ```
 
 1. **Release enable trigger** — `is_idle` should go `true` and commands should go to zero.
 
-2. **Test mode toggle** — press `toggle_button` (default: button 0). The joystick should vibrate (2 pulses → ROSCCO, 1 pulse → ACKERMANN) and `/joystick/state` should change value.
+2. **Test mode toggle** — **release the enable trigger first**, then press `toggle_button` (default: button 1 / B on Xbox). The joystick should vibrate (2 pulses → ROSCCO, 1 pulse → ACKERMANN) and `/joystick/state` should change value. Toggling while the deadman is held is intentionally ignored.
 
 3. **Test arming** — press `arming_button`. The node calls `/oscc_interfacing/arm`. If OSCC is running, expect 2 vibration pulses on success.
 
@@ -85,7 +86,7 @@ ros2 launch joystick_interfacing joystick_interfacing.launch.yaml
 |-------|----------|
 | Enable held, stick at max | `steering_angle` = `±ackermann_max_steering_angle` (default ±0.5 rad) |
 | Enable held, throttle at max | `speed` = `ackermann_max_speed` (default 2.0 m/s) |
-| Enable released | `speed = 0.0`, `steering_angle = 0.0`, `is_idle = true` |
+| Enable released | `speed = 0.0`, `steering_angle = 0.0`, `ackermann_is_idle = true`, `roscco_is_idle = true` |
 | Mode toggle to ROSCCO | `state = 2`, 2 vibration pulses |
 | Mode toggle to ACKERMANN | `state = 1`, 1 vibration pulse |
 | Arm success | 2 vibration pulses, `/oscc_interfacing/is_armed = true` |

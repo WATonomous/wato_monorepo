@@ -46,7 +46,7 @@ oscc_mux:
         topic: /joystick/roscco
         priority: 100
         has_mask: true
-        mask_topic: /joystick/is_idle
+        mask_topic: /joystick/ackermann_is_idle
         safety_gating: false   # joystick may be silent when in Ackermann mode
       pid:
         topic: /pid/roscco

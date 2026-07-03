@@ -51,7 +51,7 @@ bag_recorder:
         - /interfacing/joy
         - /interfacing/joy/set_feedback
         - /interfacing/joystick/ackermann
-        - /interfacing/joystick/is_idle
+        - /interfacing/joystick/ackermann_is_idle
         - /interfacing/joystick/state
         - /interfacing/joystick_node/transition_event
         - /interfacing/oscc_interfacing/is_armed
