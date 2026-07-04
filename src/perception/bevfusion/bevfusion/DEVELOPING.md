@@ -23,11 +23,13 @@ graph TD
   * **Purpose:** Loads the custom layer-normalization library via `dlopen`, configures model architecture parameters, creates a CUDA stream, and deserializes the five `.plan` / `.onnx` TensorRT engines into GPU memory.
   * **Why:** Deserializing the models takes a few seconds and allocates substantial GPU memory. By doing this once in a dedicated method, we can trigger it during the ROS `on_configure` state before any real data starts flowing.
   * **Key steps inside the function:**
+
         1. `dlopen("libcustom_layernorm.so", RTLD_NOW)` — **Why:** The detection head uses a custom Layer Normalization layer not natively supported by vanilla TensorRT. Without loading this shared object first, the TRT engine deserializer will fail to parse `head.bbox.plan`.
-        2. Build configuration parameters (`NormalizationParameter`, `VoxelizationParameter`, `SCNParameter`, `GeometryParameter`, `TransBBoxParameter`) using your `Config`.
+        2. Build configuration parameters (`NormalizationParameter`, `VoxelizationParameter`, `SCNParameter`, `GeometryParameter`, `TransBBoxParameter`) using the `Config`.
         3. *Note:* Hardcode `normalization.interpolation = bevfusion::camera::Interpolation::Bilinear;` since bilinear interpolation is universally standard for deep learning resize operations.
         4. Call `bevfusion::create_core(param)` and store it in `core_`.
         5. Create a CUDA stream: `cudaStreamCreate(&stream_)` — **Why:** CUDA operations execute asynchronously. Creating a dedicated stream ensures memory transfers and network execution for BEVFusion happen in order inside their own queue, without blocking the rest of the application's GPU operations.
+
 * **`updateCalibration(...)`**
   * **Purpose:** Updates the GPU geometry-mapping kernels with the `6 x 4 x 4` camera extrinsics, intrinsics, and image augmentation/downscaling matrices.
   * **Why:** Since the camera positions on the vehicle are fixed, we only need to compute and upload these transformation matrices once at startup (or whenever camera calibrations update), rather than doing it on every frame.
@@ -67,9 +69,11 @@ graph TD
         5. Publishes the results.
   * **Why:** Fusing data requires temporal alignment (messages must represent the same moment in time). We process only when we have a matching set of camera and LiDAR frames.
 
-### How do you pass in the video feed?
+# Other Helpful Notes
 
-**Frame by frame, as raw image pointers.** The CUDA-BEVFusion `Core::forward()` API ([bevfusion.hpp](file:///home/ashish/Documents/Lidar_AI_Solution/CUDA-BEVFusion/src/bevfusion/bevfusion.hpp#L52-L53)) expects:
+## How do we pass in the video feed?
+
+**Frame by frame, as raw image pointers.** The CUDA-BEVFusion `Core::forward()` API ([bevfusion.hpp](https://github.com/WATonomous/wato-cuda-bevfusion/blob/master/CUDA-BEVFusion/src/bevfusion/bevfusion.hpp)) expects:
 
 ```cpp
 std::vector<BoundingBox> forward(
@@ -80,9 +84,9 @@ std::vector<BoundingBox> forward(
 );
 ```
 
-### Which topics to publish detections to
+## Which topics to publish detections to
 
-**Two topics, matching your [DEVELOPING.md](file:///home/ashish/Documents/wato_monorepo/src/perception/bevfusion/DEVELOPING.md#L98-L103):**
+**Two topics, matching DEVELOPING.md:**
 
 | Topic | Type | Purpose |
 |---|---|---|
@@ -90,15 +94,14 @@ std::vector<BoundingBox> forward(
 | `/perception/bev_detection_markers` | `visualization_msgs/MarkerArray` | Visualization → Foxglove |
 
 **Why these specific topics:**
-* The tracking node subscribes to `vision_msgs/Detection3DArray` ([tracking.cpp L57](file:///home/ashish/Documents/wato_monorepo/src/perception/tracking/tracking/src/tracking.cpp#L57)), and in the [perception launch](file:///home/ashish/Documents/wato_monorepo/src/perception/perception_bringup/launch/perception.launch.yaml#L150-L151) it's remapped from `input_detections` → `/perception/detections_3D`. You could publish directly to `/perception/detections_3D` (same topic spatial_association publishes to), or use a separate topic `/perception/detections_3d_bev` and remap at launch time. **I recommend the separate topic** so you can run both pipelines (2D→spatial_association→3D and BEVFusion→3D) in parallel and choose which one feeds tracking via launch config.
-* For Foxglove: `MarkerArray` is the standard. Foxglove's 3D panel natively renders `visualization_msgs/MarkerArray` as 3D cubes/wireframes. You create `Marker::CUBE` markers with the bounding box pose and dimensions. **This is the only thing you need for Foxglove visualization** — no custom panels required.
+* The tracking node subscribes to `vision_msgs/Detection3DArray`, and in the `perception.launch.yaml` it's remapped from `input_detections` → `/perception/detections_3D`. We could publish directly to `/perception/detections_3D` (same topic spatial_association publishes to), or use a separate topic `/perception/detections_3d_bev` and remap at launch time. We should have a seperate topic for this so that we can run both pipelines (2D→spatial_association→3D and BEVFusion→3D) in parallel and choose which one feeds tracking via launch config.
+* For Foxglove: `MarkerArray` is the standard. Foxglove's 3D panel natively renders `visualization_msgs/MarkerArray` as 3D cubes/wireframes. We create `Marker::CUBE` markers with the bounding box pose and dimensions. **This is the only thing we need for Foxglove visualization** — no custom panels required.
 
-> [!TIP]
-> Foxglove also supports `vision_msgs/Detection3DArray` directly in its 3D panel, but `MarkerArray` gives you more control over color, opacity, label text, and lifetime. Publish both.
+> TIP: Foxglove also supports `vision_msgs/Detection3DArray` directly in its 3D panel, but `MarkerArray` gives us more control over color, opacity, label text, and lifetime. Publish both.
 
 ---
 
-#### Converting `BoundingBox` → `Detection3DArray`
+## Converting `BoundingBox` → `Detection3DArray`
 
 Each [BoundingBox](file:///home/ashish/Documents/Lidar_AI_Solution/CUDA-BEVFusion/src/bevfusion/head-transbbox.hpp#L60-L67) has:
 
@@ -114,14 +117,14 @@ struct BoundingBox {
 ```
 
 Map to `vision_msgs::Detection3D`:
-* `detection.header.frame_id = "base_link"` (or your lidar frame)
+* `detection.header.frame_id = "base_link"` (or the lidar frame)
 * `detection.bbox.center.position.x/y/z = position.x/y/z`
 * `detection.bbox.center.orientation = quaternion_from_yaw(z_rotation)` — use `tf2::Quaternion` with roll=0, pitch=0, yaw=z_rotation
 * `detection.bbox.size.x = size.l`, `.y = size.w`, `.z = size.h` (check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
 * `detection.results[0].hypothesis.class_id = std::to_string(id)`
 * `detection.results[0].hypothesis.score = score`
 
-##### Converting `BoundingBox` → `MarkerArray` (for Foxglove)
+### Converting `BoundingBox` → `MarkerArray` (for Foxglove)
 
 For each bbox, create a `visualization_msgs::Marker`:
 * `marker.type = Marker::CUBE`
@@ -133,21 +136,20 @@ For each bbox, create a `visualization_msgs::Marker`:
 * `marker.id = unique per bbox per frame`
 * `marker.header.frame_id = "base_link"`
 
-> [!TIP]
-> Add `marker.text = class_name + " " + score` for Foxglove to show labels on hover.
+> TIP: Add `marker.text = class_name + " " + score` for Foxglove to show labels on hover.
 
 ---
 
-### Phase 3: Calibration Matrix Computation
+## Calibration Matrix Computation
 
-This is the hardest part unique to your codebase. CUDA-BEVFusion's `Core::update()` expects four flat matrices, each `6 × 4 × 4` (num_cameras × 4 × 4):
+This is the hardest part unique to the codebase. CUDA-BEVFusion's `Core::update()` expects four flat matrices, each `6 × 4 × 4` (num_cameras × 4 × 4):
 
-| Matrix | What it is | Where you get it |
+| Matrix | What it is | Where we get it |
 |---|---|---|
 | `camera2lidar` | 4×4 transform from each camera frame to lidar frame | TF tree: `tf_buffer_->lookupTransform("base_link", camera_frame_id)` → invert to get camera→lidar. Or directly `lookupTransform(lidar_frame, camera_frame)`. |
 | `camera_intrinsics` | 3×3 camera K matrix, padded to 4×4 | From `MultiCameraInfo` → each `CameraInfo.k` (3×3 row-major). Pad to 4×4 with identity bottom-right. |
 | `lidar2image` | 4×4 projection from lidar to each camera's image plane | `lidar2image = camera_intrinsics @ extrinsic_lidar2camera`. Compute from the above two. |
-| `img_aug_matrix` | 4×4 augmentation matrix (resize + crop applied to images) | Depends on your image preprocessing. For the standard BEVFusion resize (resize_lim=0.48 on a 900→256 image), this is a scale+translate matrix. If you feed full-resolution images (1600×900), compute it from your resize parameters. |
+| `img_aug_matrix` | 4×4 augmentation matrix (resize + crop applied to images) | Depends on the image preprocessing. For the standard BEVFusion resize (resize_lim=0.48 on a 900→256 image), this is a scale+translate matrix. If we feed full-resolution images (1600×900), compute it from the resize parameters. |
 
 **For `img_aug_matrix`:** The nuScenes BEVFusion preprocessing resizes images by `resize_lim` then crops. The augmentation matrix captures that transform:
 
@@ -158,20 +160,19 @@ scale = resize_lim * (output_height / image_height)
        resize_ratio = output_height / (image_height * resize_lim) ?
 ```
 
-Look at how [main.cpp](file:///home/ashish/Documents/Lidar_AI_Solution/CUDA-BEVFusion/src/main.cpp#L249) loads `img_aug_matrix.tensor` from the example data. The example data has it pre-computed. **For your car, you need to compute this from your camera resolution and the model's expected input size.** The normalization stage in CUDA-BEVFusion handles the actual resize — the `img_aug_matrix` tells the geometry computation how image coordinates map back to 3D.
+Look at how [main.cpp](https://github.com/WATonomous/wato-cuda-bevfusion/blob/c07c91afc31d6cbeed91448e419b81717658e41a/CUDA-BEVFusion/src/main.cpp#L249) loads `img_aug_matrix.tensor` from the example data. The example data has it pre-computed. **For the car, we need to compute this from the camera resolution and the model's expected input size.** The normalization stage in CUDA-BEVFusion handles the actual resize — the `img_aug_matrix` tells the geometry computation how image coordinates map back to 3D.
 
-> [!IMPORTANT]
-> Getting the calibration matrices right is critical. Wrong matrices = detections in wrong positions. I recommend first testing with the CUDA-BEVFusion example data to verify your `BEVFusionCore` wrapper works, then tackle the ROS calibration matrix computation.
+> IMPORTANT: Getting the calibration matrices right is critical. Wrong matrices = detections in wrong positions. We should probably first test with the CUDA-BEVFusion example data to verify the `BEVFusionCore` wrapper works, then tackle the ROS calibration matrix computation.
 
 ---
 
-1. **CUDA Streams**: `Core::forward()` takes a `cudaStream_t`. To create and destroy it, your node calls `cudaStreamCreate(&stream_)` and `cudaStreamDestroy(stream_)`. These require `<cuda_runtime.h>` and linking against the CUDA runtime (`cudart`).
-2. **FP16 Types**: The library expects LiDAR points as `nvtype::half*`. This is a wrapper around CUDA's `__half` type from `<cuda_fp16.h>`. Your compiler needs the CUDA headers to use this type and the intrinsics for converting standard 32-bit `float` to 16-bit `half`.
+## CUDA info
+1. **CUDA Streams**: `Core::forward()` takes a `cudaStream_t`. To create and destroy it, the node calls `cudaStreamCreate(&stream_)` and `cudaStreamDestroy(stream_)`. These require `<cuda_runtime.h>` and linking against the CUDA runtime (`cudart`).
+2. **FP16 Types**: The library expects LiDAR points as `nvtype::half*`. This is a wrapper around CUDA's `__half` type from `<cuda_fp16.h>`. the compiler needs the CUDA headers to use this type and the intrinsics for converting standard 32-bit `float` to 16-bit `half`.
 
-### Phase 5: Config and Launch
+## Config and Launch
 
-#### [config/params.yaml](file:///home/ashish/Documents/wato_monorepo/src/perception/bevfusion/bevfusion/config/params.yaml) — Currently empty
-
+### params.yaml
 Fill in all defaults:
 
 ```yaml
@@ -193,9 +194,9 @@ bevfusion_node:
     qos_publisher_reliability: "reliable"
 ```
 
-#### [perception.launch.yaml](file:///home/ashish/Documents/wato_monorepo/src/perception/perception_bringup/launch/perception.launch.yaml#L119-L137)
+### perception.launch.yaml
 
-The BEVFusion section is already there (L119-L137). You'll need to add remaps once your node declares topic parameters:
+The BEVFusion section is already there (L119-L137). We'll need to add remaps once the node declares topic parameters:
 
 ```yaml
 remap:
@@ -204,28 +205,6 @@ remap:
   - from: output_markers
     to: /perception/bev_detection_markers
 ```
-
-## Implementation Order (recommended)
-
-1. **`BEVFusionCore`** — Get inference working standalone first
-   * Write `Config`, `initialize()`, `infer()`, `updateCalibration()`
-   * Test with CUDA-BEVFusion example data (copy `example-data/` into a test, hardcode matrices)
-   * Verify you get the same bounding boxes as running the original `main.cpp`
-
-2. **`BEVFusionNode` lifecycle** — Wire up ROS around the core
-   * `on_configure`: load core, create pubs
-   * `on_activate`: create subs, compute calibration
-   * Start with `MultiImageCompressed` + `PointCloud2` (Path A — simpler)
-
-3. **Calibration** — Compute matrices from CameraInfo + TF
-   * This is the trickiest ROS-specific part
-   * `img_aug_matrix` requires understanding the exact resize pipeline
-
-4. **Output conversion** — `BoundingBox` → `Detection3DArray` + `MarkerArray`
-
-5. **Test in Foxglove** — Open 3D panel, add `/perception/bev_detection_markers`
-
-6. **Optimize** — Move to raw `sensor_msgs/Image` subscribers if JPEG decode is a bottleneck
 
 ---
 
@@ -252,21 +231,21 @@ Use these for setting `class_id` in Detection3D and marker colors.
 
 ## Key Gotchas
 
-1. **Image format**: CUDA-BEVFusion expects **RGB** `unsigned char*`. OpenCV decodes to **BGR**. You need `cv::cvtColor(img, img, cv::COLOR_BGR2RGB)`.
+1. **Image format**: CUDA-BEVFusion expects **RGB** `unsigned char*`. OpenCV decodes to **BGR**. We need `cv::cvtColor(img, img, cv::COLOR_BGR2RGB)`.
 
-2. **Image resolution**: The normalization expects `1600×900` images (nuScenes default). Your cameras are `1280×1024`. You'll need to either:
-   * Update `NormalizationParameter.image_width/image_height` to match your cameras
+2. **Image resolution**: The normalization expects `1600×900` images (nuScenes default). the cameras are `1280×1024`. We'll need to either:
+   * Update `NormalizationParameter.image_width/image_height` to match the cameras
    * Or resize to 1600×900 before passing (wasteful)
-   * The model was trained on 1600×900 → 704×256, so you may need to retrain or adjust the aug matrix
+   * The model was trained on 1600×900 → 704×256, so we may need to retrain or adjust the aug matrix
 
-3. **Lidar point format and iterators**: Use `#include <sensor_msgs/point_cloud2_iterator.hpp>` and `sensor_msgs::PointCloud2ConstIterator<float>` to safely extract points without manual byte math. `PointCloud2` has fields like `x, y, z, intensity`. You **must** extract exactly 5 features per point as `nvtype::half` (x, y, z, intensity, ring). If your merged cloud lacks a `ring` channel, you must allocate 5 floats per point and pad the 5th value with `0.0f`. Passing 4 features breaks CUDA memory alignment and causes crashes.
+3. **Lidar point format and iterators**: Use `#include <sensor_msgs/point_cloud2_iterator.hpp>` and `sensor_msgs::PointCloud2ConstIterator<float>` to safely extract points without manual byte math. `PointCloud2` has fields like `x, y, z, intensity`. We **must** extract exactly 5 features per point as `nvtype::half` (x, y, z, intensity, ring). If the merged cloud lacks a `ring` channel, we must allocate 5 floats per point and pad the 5th value with `0.0f`. Passing 4 features breaks CUDA memory alignment and causes crashes.
 
 4. **Thread safety**: The CUDA-BEVFusion `Core` is **not thread-safe**. Don't call `forward()` from multiple callbacks simultaneously. Use a mutex or ensure single-threaded execution.
 
 5. **`dlopen` for custom_layernorm**: Must be called before `create_core()`. Include `<dlfcn.h>` in `bevfusion_core.cpp`. If it fails silently, TRT will fail to deserialize the head.bbox engine. Always check the return value.
 
-6. **Frame IDs and Base Link**: BEVFusion outputs bounding boxes in the **same coordinate frame as the input LiDAR points**. If your input `PointCloud2` is in `lidar_merged`, the output boxes are relative to `lidar_merged`. However, downstream tracking expects detections in `base_link`. You have two choices:
+6. **Frame IDs and Base Link**: BEVFusion outputs bounding boxes in the **same coordinate frame as the input LiDAR points**. If the input `PointCloud2` is in `lidar_merged`, the output boxes are relative to `lidar_merged`. However, downstream tracking expects detections in `base_link`. We have two choices:
    1. Transform the output 3D bounding boxes from `lidar_merged` to `base_link` *after* inference using `tf2`.
-   2. **(Recommended)** Transform the LiDAR points into `base_link` *before* passing them to BEVFusion, and ensure your `camera2lidar` matrix is actually `camera2base_link`. BEVFusion treats the "lidar" frame as just a central origin, so if everything is fed in `base_link`, it outputs in `base_link`.
+   2. **(Recommended)** Transform the LiDAR points into `base_link` *before* passing them to BEVFusion, and ensure the `camera2lidar` matrix is actually `camera2base_link`. BEVFusion treats the "lidar" frame as just a central origin, so if everything is fed in `base_link`, it outputs in `base_link`.
 
 7. **First inference is slow**: TRT engine deserialization + warmup takes 5-15 seconds. Consider calling `core_->infer()` once with dummy data during `on_configure()` or `on_activate()` so the first real frame isn't delayed.
