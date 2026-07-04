@@ -74,6 +74,9 @@ void BEVFusionCore::updateCalibration(
  *           the BEVFusion Core (pipeline_). This is done by calling pipeline_->update() with the appropriate
  *           parameters. Note: Extrinsic and instrinsics are static, so only run this once at startup or when calibration
  *           changes. MUST be called before the first forward() call.
+ *
+ * Call core_->update(camera2lidar.data(), camera_intrinsics.data(), lidar2image.data(), img_aug_matrix.data(), stream_)
+ * and that I think that should be it.
  */
 }
 
