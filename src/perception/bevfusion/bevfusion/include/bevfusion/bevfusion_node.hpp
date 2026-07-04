@@ -44,6 +44,7 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
 // clang-format on
@@ -183,7 +184,7 @@ private:
   // Camera info
   rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
   bool camera_info_received_ = false;
-  std::vector<sensor_msgs : msg::CameraInfo> cached_camera_infos_;
+  std::vector<sensor_msgs::msg::CameraInfo> cached_camera_infos_;
 
   // Calibration
   bool calibration_initialized_ = false;
