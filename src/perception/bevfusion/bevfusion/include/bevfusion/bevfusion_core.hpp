@@ -26,17 +26,114 @@ namespace wato::perception::bevfusion
 {
 
 /**
+ * @brief Input parameters for CUDA-BEVFusion
+ */
+struct Config
+{
+  //  --- Model Files (paths to TensorRT .plan files and ONNX model) ---
+  std::string camera_backbone_plan;  // Extracts image features
+  std::string camera_vtransform_plan;  // Projects image features to BEV
+  std::string fuser_plan;  // Fuses image and LiDAR BEV features
+  std::string head_bbox_plan;  // Predicts 3D bounding boxes
+  std::string lidar_backbone_onnx;  // Extracts LiDAR features
+  std::string precision = "fp16";  // "fp16" or "int8". Used by LiDAR ONNX parser.
+
+  // --- Camera Normalization & Preprocessing ---
+  int image_width = 1600;  // Input image resolution
+  int image_height = 900;
+  int norm_output_width = 704;  // Output resolution after resize (Network input)
+  int norm_output_height = 256;
+  int num_cameras = 6;
+  float resize_lim = 0.48f;  // Min scaling ratio limit
+    // Resizes image so that the shortest side becomes at
+    //      least 48% of the original shortest side (900).
+  std::string interpolation = "bilinear";  // Interpolation method for resizing
+  std::vector<float> norm_mean = {0.485f, 0.456f, 0.406f};  // Mean subtraction value per RGB channel
+  std::vector<float> norm_std = {0.229f, 0.224f, 0.225f};  // Std deviation value per RGB channel
+  float norm_scale = 1.0f / 255.0f;  // Input image pixel scaling factor ([0,255] -> [0,1])
+  float norm_bias = 0.0f;  // Bias offset applied to normalized pixels
+
+  // --- Lidar Voxelization & SCN ---
+  std::vector<float> min_range = {-54.0f, -54.0f, -5.0f};  // Min 3D range (x,y,z) in meters for voxelization
+  std::vector<float> max_range = {54.0f, 54.0f, 3.0f};  // Max 3D range
+  std::vector<float> voxel_size = {0.075f, 0.075f, 0.2f};  // Size of each voxel (x,y,z) in meters
+  int max_points_per_voxel = 10;  // Max # of points to sample in 1 voxel
+  int max_points = 300000;  // Upper limit on total # of lidar points processed
+  int max_voxels = 160000;  // Upper limit on total # of voxels generated on the grid
+  int num_features = 5;  // Dimensions per lidar point (x, y, z, intensity, ring)
+  std::string scn_order = "XYZ";  // SCN coordinate order constraint
+
+  // --- Camera Geometry Mapping (Depth & Grid) ---
+  std::vector<float> xbound = {-54.0f, 54.0f, 0.3f};  // BEV grid X limits [min, max, step] in meters
+  std::vector<float> ybound = {-54.0f, 54.0f, 0.3f};  // BEV grid Y limits
+  std::vector<float> zbound = {-10.0f, 10.0f, 20.0f};  // BEV grid Z limits
+  std::vector<float> dbound = {1.0f, 60.0f, 0.5f};  // Depth bin limits for feature projection
+  std::vector<int> geometry_dim = {360, 360, 80};  // Voxel dimensions (width, height, depth_bin) in BEV space
+  int feat_width = 88;  // Feature map width after projection (by camera backbone)
+  int feat_height = 32;  // Feature map height after projection (by camera backbone)
+
+  // --- Bounding Box Post-processing & Head ---
+  int out_size_factor = 8;  // Resolution downsampling factor of the detection head output relative to voxels
+  std::vector<float> transbbox_pc_range = {
+    -54.0f, -54.0f};  // 2D point cloud start boundary [min_x, min_y] for the head
+  std::vector<float> transbbox_voxel_size = {0.075f, 0.075f};  // 2D voxel size [dX, dY] in the horizontal plane
+  std::vector<float> post_center_range_start = {-61.2f, -61.2f, -10.0f};  // BBox center filter lower boundary [X, Y, Z]
+  std::vector<float> post_center_range_end = {61.2f, 61.2f, 10.0f};  // BBox center filter upper boundary [X, Y, Z]
+  float confidence_threshold = 0.3f;  // Detection score threshold (detections below this score are discarded)
+  bool sorted_bboxes = true;  // True to sort bounding boxes descending by confidence score
+};
+
+/**
  * @brief Core logic for BEVFusion.
  */
 class BEVFusionCore
 {
 public:
   /**
-   * @brief Construct the core
+   * @brief Construct the core with a configuration
+   * @param config Configuration for BEVFusion
    */
-  explicit BEVFusionCore();
+  explicit BEVFusionCore(const Config & config);
+
+  /**
+   * @brief Create the CUDA-BEVFusion pipeline and deserialize TensorRT engines.
+   * @return true if initialization was successful, false otherwise
+   */
+  bool initialize();
+
+  /**
+   * @brief Main inference entry point. Processes one synchronized frame of camera and LiDAR data.
+   * @param camera_images Vector of camera images
+   * @param lidar_points Vector of LiDAR points
+   * @param num_points Number of LiDAR points
+   * @return Vector of detected 3D bounding boxes
+   */
+  std::vector<bevfusion::head::transbbox::BoundingBox> infer(
+    const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
+
+  /**
+   * @brief Update the tansformation matrices mapping cameras to LiDARs
+   * @param camera_to_lidar 4x4 camera to LiDAR transformation matrix
+   * @param camera_instrinsics 3x3 camera intrinsics matrix
+   * @param lidar_to_camera 4x4 LiDAR to camera transformation matrix
+   * @param img_aug_matrix 4x4 image augmentation matrix
+   */
+  void updateCalibration(
+    const std::vector<float> & camera_to_lidar,
+    const std::vector<float> & camera_intrinsics,
+    const std::vector<float> & lidar_to_camera,
+    const std::vector<float> & img_aug_matrix)
+
+    /**
+   * @brief Check if the core is initialized
+   * @return true if initialized, false otherwise
+   */
+    bool isInitialized() const;
 
 private:
+  Config config_;
+  bool initialized_ = false;
+  cudastream_t stream_ = nullptr;  // TODO(ashish) Is this needed????
 };
 
 }  // namespace wato::perception::bevfusion
