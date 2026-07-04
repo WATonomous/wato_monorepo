@@ -112,6 +112,28 @@ private:
   void declareParameters();
 
   /**
+   * TODO(bevfusion_team) - not sure if we need multiimagecompressed or something else.
+   * @brief Main processing callback for synced camera and LiDAR data.
+   * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
+   * @param point_cloud_msg PointCloud2 containing point cloud data
+   */
+  void syncedCallback(
+    const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg);
+
+  /**
+   * @brief Camera info callback to initialize calibration.
+   * @param multi_camera_info_msg MultiCameraInfo containing camera calibration data
+   */
+  void cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg);
+
+  /**
+   * @brief Computes calibration matrices from camera info messages.
+   * @details This method is called by the camera info callback and should not be called directly.
+   */
+  void computeCalibrationMatrices();
+
+  /**
    * @brief Log total processed messages and average processing time.
    */
   void logStatistics() const;
@@ -153,6 +175,33 @@ private:
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
+
+  // TF
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+  // Camera info
+  rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
+  bool camera_info_received_ = false;
+  std::vector<sensor_msgs : msg::CameraInfo> cached_camera_infos_;
+
+  // Calibration
+  bool calibration_initialized_ = false;
+
+  // Publishers
+  rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+
+  // Subscribers
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
+
+  // TODO(bevfusion_team) - probably should use /camera_pano_nn/image_rect instead for example. Not sure.
+  rclcpp::Subscription<deep_msgs::msg::MultiImageCompressed>::SharedPtr camera_sub_;
+
+  // TODO(bevfusion_team) - need to sync camera and lidar. So either cache lidar until we get all cameras
+  // or cache cameras until we get lidar. Create a mutex as needed.
+  sensor_msgs::msg::PointCloud2::ConstSharedPtr latest_lidar_;
+  std::mutex lidar_mutex_;
 
   // QoS profiles
   rclcpp::QoS subscriber_qos_;

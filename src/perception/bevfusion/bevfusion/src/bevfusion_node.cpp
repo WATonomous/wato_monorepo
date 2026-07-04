@@ -54,6 +54,55 @@ void BEVFusionNode::declareParameters()
 {
   BEVFusionInputConfig config;
   core_ = std::make_unique<BEVFusionCore>(config);
+  /**
+   * TODO(bevfusion_team)
+   * Declare all ROS 2 parameters (like model paths, camera topic names, and
+   * confidence thresholds) and instantiates the BEVFusionCore with default parameters.
+   *
+   * Declare all parameters from the DEVELOPING.md parameters table plus the core config params:
+      model_dir              (string)  — directory containing .plan and .onnx files
+      camera_names           (string[]) — ["camera_pano_nn", ...]
+      confidence_threshold   (double)  — 0.3
+      sync_max_time_diff_ms  (double)  — 200.0
+      sync_queue_size        (int)     — 10
+      qos_subscriber_reliability (string) — "best_effort"
+      qos_publisher_reliability  (string) — "reliable"
+   */
+}
+
+void BEVFusionNode::syncedCallback(
+  const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
+{
+  /**
+   * TODO(bevfusion_team)
+   * Synchronized callback — the main processing loop
+   * When you receive a synced set of camera images + lidar:
+   * 1. Extract camera images: Decode from CompressedImage → cv::Mat (BGR) → convert to RGB
+   *    unsigned char* buffers (CUDA-BEVFusion expects RGB, see NormalizationParameter)
+   * 2. Extract lidar points: Parse PointCloud2 → extract (x, y, z, intensity, ring) per
+   *    point → flatten to std::vector<float> then convert to nvtype::half
+   * 3. Call core_->infer(images, lidar_points, num_points)
+   * 4. Convert results: BoundingBox → vision_msgs::Detection3DArray +
+   *    visualization_msgs::MarkerArray
+   * 5. Publish
+   */
+  multi_image_msg_count_++;
+  lidar_msg_count_++;
+  synced_msg_count_++;
+
+  if (!core_) {
+    RCLCPP_WARN(this->get_logger(), "[SYNC] Core not initialized; skipping");
+    return;
+  }
+
+  const auto start = std::chrono::steady_clock::now();
+
+  const auto end = std::chrono::steady_clock::now();
+  const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
+  updateStatistics(time_taken);
+
+  // updateDiagnostics();
 }
 
 void BEVFusionNode::updateStatistics(double time_taken)
@@ -157,7 +206,7 @@ void BEVFusionNode::diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapp
   const double last_time = last_processing_time_ms_.load();
 
   if (processed == 0) {
-    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "No ___TODO(ashish)____ processed yet");
+    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "No ___TODO(bevfusion_team)____ processed yet");
   } else if (avg_time > 50.0) {
     stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "High processing latency");
   } else if (last_time > 100.0) {
@@ -178,6 +227,17 @@ void BEVFusionNode::diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapp
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFusionNode::on_configure(
   const rclcpp_lifecycle::State & /* prev_state */)
 {
+  /**
+   * TODO(bevfusion_team):
+   * Initialize everything
+   *    1. Read parameters, build BEVFusionCore::Config
+   *    2. Create BEVFusionCore with config
+   *    3. Call core_->initialize() — this loads all TRT engines (takes seconds, logs will show)
+   *    4. Set up TF buffer/listener
+   *    5. Prepare subscribers and publishers
+   *    6. Set up diagnostics
+   */
+
   RCLCPP_INFO(this->get_logger(), "Configuring BEVFusion node");
 
   try {
@@ -186,7 +246,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     // Log configuration
     RCLCPP_INFO(this->get_logger(), "Configuration summary: (EMPTY RIGHT NOW)");
 
-    // TODO(ashish): Declare topic name parameters (for message_filters - remapping doesn't work automatically)
+    // TODO(bevfusion_team): Declare topic name parameters (for message_filters - remapping doesn't work automatically)
 
     // Declare and configure QoS parameters
     this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");
@@ -236,20 +296,36 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFusionNode::on_activate(
   const rclcpp_lifecycle::State & prev_state)
 {
+  /**
+   * TODO(bevfusion_team):
+   * Start subscriptions
+   * 1. Wait for camera info to be received (or fail)
+   * 2. Compute calibration matrices from camera intrinsics + TF extrinsics
+   * 3. Call core_->updateCalibration(...)
+   * 4. Set calibration_initialized_ = true
+   * 5. Create image + lidar subscriptions
+   * 6. Activate publishers
+   */
   RCLCPP_INFO(this->get_logger(), "Activating BEVFusion node");
   RCLCPP_INFO(this->get_logger(), "Previous state: %s", prev_state.label().c_str());
   RCLCPP_INFO(this->get_logger(), "=============================================");
 
   try {
-    // TODO(ashish): Create message_filters subscribers for ApproximateTime sync
+    // TODO(bevfusion_team): Create message_filters subscribers for ApproximateTime sync
     RCLCPP_INFO(this->get_logger(), "Creating subscribers:");
+
+    // TODO(bevfusion_team):
+    sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *detections_sub_);
+    sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
+    sync_->registerCallback(
+      std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
     RCLCPP_INFO(this->get_logger(), "Subscribed to:");
-    // TODO(ashish)
+    // TODO(bevfusion_team)
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
-    // TODO(ashish)
+    // TODO(bevfusion_team)
     RCLCPP_INFO(
       this->get_logger(),
       "[SYNC] ApproximateTime sync (queue=%d, max=%.3fs)",
@@ -281,10 +357,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up BEVFusion node");
 
-  // TODO(ashish)
+  // TODO(bevfusion_team)
 
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
-  // TODO(ashish)
+  // TODO(bevfusion_team)
   core_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
@@ -309,7 +385,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "  - Total processing time: %.3f ms", total_time);
   RCLCPP_INFO(this->get_logger(), "  - Average processing time: %.3f ms", avg_time);
   RCLCPP_INFO(this->get_logger(), "Message statistics:");
-  // TODO(ashish)
+  // TODO(bevfusion_team)
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
 
