@@ -33,6 +33,11 @@
 #include <rclcpp/qos.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -87,9 +92,10 @@ void BEVFusionNode::syncedCallback(
    *    visualization_msgs::MarkerArray
    * 5. Publish
    */
-  multi_image_msg_count_++;
-  lidar_msg_count_++;
-  synced_msg_count_++;
+
+  // multi_image_msg_count_++;
+  // lidar_msg_count_++;
+  // synced_msg_count_++;
 
   if (!core_) {
     RCLCPP_WARN(this->get_logger(), "[SYNC] Core not initialized; skipping");
@@ -314,11 +320,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     // TODO(bevfusion_team): Create message_filters subscribers for ApproximateTime sync
     RCLCPP_INFO(this->get_logger(), "Creating subscribers:");
 
-    // TODO(bevfusion_team):
-    sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *detections_sub_);
-    sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
-    sync_->registerCallback(
-      std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
+    // TODO(bevfusion_team): Setup a message_filters sync once subscriber members are declared
+    // sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *detections_sub_);
+    // sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
+    // sync_->registerCallback(
+    //   std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
