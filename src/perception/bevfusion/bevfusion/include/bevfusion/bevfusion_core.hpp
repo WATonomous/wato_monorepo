@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include <bevfusion/bevfusion.hpp>
 #include <opencv2/core/mat.hpp>
 #include <vision_msgs/msg/detection2_d.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
@@ -46,9 +47,7 @@ struct BEVFusionInputConfig
   int norm_output_width = 704;  // Output resolution after resize (Network input)
   int norm_output_height = 256;
   int num_cameras = 6;
-  float resize_lim = 0.48f;  // Min scaling ratio limit
-    // Resizes image so that the shortest side becomes at
-    //      least 48% of the original shortest side (900).
+  float resize_lim = 0.48f;  // Min scaling ratio limit - the shortest side is resized to at least 48% of original side
   std::string interpolation = "bilinear";  // Interpolation method for resizing
   std::vector<float> norm_mean = {0.485f, 0.456f, 0.406f};  // Mean subtraction value per RGB channel
   std::vector<float> norm_std = {0.229f, 0.224f, 0.225f};  // Std deviation value per RGB channel
@@ -124,6 +123,9 @@ struct BoundingBox
 
 /**
  * @brief Core logic for BEVFusion.
+ *
+ * Note: Use ::bevfusion when referencing anything from the original CUDA-BEVFusion repository.
+ * Use wato::perception::bevfusion (handled by namespaces) when referencing anything from wato's bevfusion node.
  */
 class BEVFusionCore
 {
@@ -173,6 +175,8 @@ private:
   BEVFusionInputConfig config_;
   bool initialized_ = false;
   cudaStream_t stream_ = nullptr;
+  std::shared_ptr<::bevfusion::Core>
+    pipeline_;  // Reference to CUDA-BEVFusion pipeline, not wato's BEVFusionCore class.
 };
 
 }  // namespace wato::perception::bevfusion
