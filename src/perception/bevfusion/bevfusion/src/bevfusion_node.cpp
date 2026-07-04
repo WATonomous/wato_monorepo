@@ -52,7 +52,8 @@ BEVFusionNode::BEVFusionNode(const rclcpp::NodeOptions & options)
 
 void BEVFusionNode::declareParameters()
 {
-  core_ = std::make_unique<BEVFusionCore>();
+  BEVFusionInputParams config;
+  core_ = std::make_unique<BEVFusionCore>(config);
 }
 
 void BEVFusionNode::updateStatistics(double time_taken)

@@ -22,13 +22,15 @@
 #include <vision_msgs/msg/detection2_d.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 
+#include <bevfusion/head-transbbox.hpp>
+
 namespace wato::perception::bevfusion
 {
 
 /**
  * @brief Input parameters for CUDA-BEVFusion
  */
-struct Config
+struct BEVFusionInputParams
 {
   //  --- Model Files (paths to TensorRT .plan files and ONNX model) ---
   std::string camera_backbone_plan;  // Extracts image features
@@ -93,7 +95,7 @@ public:
    * @brief Construct the core with a configuration
    * @param config Configuration for BEVFusion
    */
-  explicit BEVFusionCore(const Config & config);
+  explicit BEVFusionCore(const BEVFusionInputParams & config);
 
   /**
    * @brief Create the CUDA-BEVFusion pipeline and deserialize TensorRT engines.
@@ -108,7 +110,7 @@ public:
    * @param num_points Number of LiDAR points
    * @return Vector of detected 3D bounding boxes
    */
-  std::vector<bevfusion::head::transbbox::BoundingBox> infer(
+  std::vector<::bevfusion::head::transbbox::BoundingBox> infer(
     const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
 
   /**
@@ -122,18 +124,18 @@ public:
     const std::vector<float> & camera_to_lidar,
     const std::vector<float> & camera_intrinsics,
     const std::vector<float> & lidar_to_camera,
-    const std::vector<float> & img_aug_matrix)
+    const std::vector<float> & img_aug_matrix);
 
-    /**
+  /**
    * @brief Check if the core is initialized
    * @return true if initialized, false otherwise
    */
-    bool isInitialized() const;
+  bool isInitialized() const;
 
 private:
-  Config config_;
+  BEVFusionInputParams config_;
   bool initialized_ = false;
-  cudastream_t stream_ = nullptr;  // TODO(ashish) Is this needed????
+  void * stream_ = nullptr;
 };
 
 }  // namespace wato::perception::bevfusion
