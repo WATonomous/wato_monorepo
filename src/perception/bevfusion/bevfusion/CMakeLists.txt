@@ -41,20 +41,26 @@ find_package(deep_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
+enable_language(CUDA)
+find_package(CUDAToolkit REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(cuda_bevfusion_vendor REQUIRED)
 
 # ---- Core library ----
-add_library(${PROJECT_NAME}_ros_core SHARED
+add_library(${PROJECT_NAME}_wato_core SHARED
   src/bevfusion_core.cpp
 )
-target_include_directories(${PROJECT_NAME}_ros_core
+target_include_directories(${PROJECT_NAME}_wato_core
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(${PROJECT_NAME}_ros_core
+target_link_libraries(${PROJECT_NAME}_wato_core
   PUBLIC
     cuda_bevfusion_vendor::bevfusion_core
+    CUDA::cudart
+    CUDA::cuda_driver
+    ${cv_bridge_LIBRARIES}
     ${vision_msgs_TARGETS}
     ${OpenCV_LIBS}
 )
@@ -84,7 +90,7 @@ target_link_libraries(${PROJECT_NAME}_node
     ${deep_msgs_TARGETS}
     tf2_ros::tf2_ros
     ${tf2_geometry_msgs_TARGETS}
-    ${PROJECT_NAME}_ros_core
+    ${PROJECT_NAME}_wato_core
   PRIVATE
     rclcpp_components::component
     ${diagnostic_msgs_TARGETS}
@@ -118,7 +124,7 @@ target_link_libraries(${PROJECT_NAME}_exe
 # ---- Install ----
 install(
   TARGETS
-    ${PROJECT_NAME}_ros_core
+    ${PROJECT_NAME}_wato_core
     ${PROJECT_NAME}_node
   EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib

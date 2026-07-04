@@ -25,7 +25,7 @@
 namespace wato::perception::bevfusion
 {
 
-BEVFusionCore::BEVFusionCore(const BEVFusionInputParams & config)
+BEVFusionCore::BEVFusionCore(const BEVFusionInputConfig & config)
 : config_(config)
 {}
 
