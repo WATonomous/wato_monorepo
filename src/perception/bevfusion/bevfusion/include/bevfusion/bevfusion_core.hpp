@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cuda_runtime.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,15 +24,13 @@
 #include <vision_msgs/msg/detection2_d.hpp>
 #include <vision_msgs/msg/detection2_d_array.hpp>
 
-#include <bevfusion/head-transbbox.hpp>
-
 namespace wato::perception::bevfusion
 {
 
 /**
  * @brief Input parameters for CUDA-BEVFusion
  */
-struct BEVFusionInputParams
+struct BEVFusionInputConfig
 {
   //  --- Model Files (paths to TensorRT .plan files and ONNX model) ---
   std::string camera_backbone_plan;  // Extracts image features
@@ -86,6 +86,43 @@ struct BEVFusionInputParams
 };
 
 /**
+ * @brief 3D position of the bounding box
+ */
+struct Position
+{
+  float x, y, z;
+};
+
+/**
+ * @brief Dimensions of the bounding box
+ */
+struct Size
+{
+  float w, l, h;  // x, y, z
+};
+
+/**
+ * @brief Velocity of the bounding box
+ */
+struct Velocity
+{
+  float vx, vy;
+};
+
+/**
+ * @brief 3D bounding box
+ */
+struct BoundingBox
+{
+  Position position;
+  Size size;
+  Velocity velocity;
+  float z_rotation;
+  float score;
+  int id;
+};
+
+/**
  * @brief Core logic for BEVFusion.
  */
 class BEVFusionCore
@@ -95,7 +132,7 @@ public:
    * @brief Construct the core with a configuration
    * @param config Configuration for BEVFusion
    */
-  explicit BEVFusionCore(const BEVFusionInputParams & config);
+  explicit BEVFusionCore(const BEVFusionInputConfig & config);
 
   /**
    * @brief Create the CUDA-BEVFusion pipeline and deserialize TensorRT engines.
@@ -110,7 +147,7 @@ public:
    * @param num_points Number of LiDAR points
    * @return Vector of detected 3D bounding boxes
    */
-  std::vector<::bevfusion::head::transbbox::BoundingBox> infer(
+  std::vector<BoundingBox> infer(
     const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
 
   /**
@@ -133,9 +170,9 @@ public:
   bool isInitialized() const;
 
 private:
-  BEVFusionInputParams config_;
+  BEVFusionInputConfig config_;
   bool initialized_ = false;
-  void * stream_ = nullptr;
+  cudaStream_t stream_ = nullptr;
 };
 
 }  // namespace wato::perception::bevfusion
