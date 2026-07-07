@@ -56,6 +56,19 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("footprint_y_min", -1.2);
   declare_parameter("footprint_x_max", 3.5);
   declare_parameter("footprint_y_max", 1.2);
+
+  // Elastic band obstacle avoidance — laterally deforms the path around obstacles before
+  // velocity profiling. Falls back to the existing stop-before-collision behaviour when the
+  // band cannot find a clear deformation.
+  declare_parameter("elastic_band_enabled", true);
+  declare_parameter("eb_max_iterations", 50);
+  declare_parameter("eb_step_size", 0.2);
+  declare_parameter("eb_smooth_weight", 0.5);
+  declare_parameter("eb_obstacle_weight", 1.5);
+  declare_parameter("eb_anchor_weight", 0.1);
+  declare_parameter("eb_influence_radius", 2.5);
+  declare_parameter("eb_max_deviation", 1.5);
+  declare_parameter("eb_convergence_tol", 0.01);
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -89,6 +102,16 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   // aligned with path pose orientation at runtime
   std::string footprint_frame = get_parameter("footprint_frame").as_string();
   (void)footprint_frame;  // used as configuration documentation; TF lookup deferred
+
+  config.elastic_band_enabled = get_parameter("elastic_band_enabled").as_bool();
+  config.eb_max_iterations = static_cast<int>(get_parameter("eb_max_iterations").as_int());
+  config.eb_step_size = get_parameter("eb_step_size").as_double();
+  config.eb_smooth_weight = get_parameter("eb_smooth_weight").as_double();
+  config.eb_obstacle_weight = get_parameter("eb_obstacle_weight").as_double();
+  config.eb_anchor_weight = get_parameter("eb_anchor_weight").as_double();
+  config.eb_influence_radius = get_parameter("eb_influence_radius").as_double();
+  config.eb_max_deviation = get_parameter("eb_max_deviation").as_double();
+  config.eb_convergence_tol = get_parameter("eb_convergence_tol").as_double();
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
@@ -196,8 +219,12 @@ void TrajectoryPlannerNode::update_trajectory()
     return;
   }
 
-  // Transform path to costmap frame if the frames differ
+  // Transform path to costmap frame if the frames differ. Remember the path->costmap transform
+  // (and whether one was needed) so the computed trajectory — which may have been laterally
+  // deformed by the elastic band in the costmap frame — can be transformed back afterwards.
   nav_msgs::msg::Path transformed_path = *latest_path_;
+  bool frames_differ = false;
+  geometry_msgs::msg::TransformStamped path_to_costmap_transform;
   if (latest_path_->header.frame_id != latest_costmap_->header.frame_id) {
     try {
       // Check if transform is available before attempting lookup
@@ -218,12 +245,13 @@ void TrajectoryPlannerNode::update_trajectory()
       transformed_path.header.frame_id = latest_costmap_->header.frame_id;
       transformed_path.poses.clear();
 
-      geometry_msgs::msg::TransformStamped transform = tf_buffer_->lookupTransform(
+      path_to_costmap_transform = tf_buffer_->lookupTransform(
         latest_costmap_->header.frame_id, latest_path_->header.frame_id, tf2::TimePointZero);
+      frames_differ = true;
 
       for (const auto & pose : latest_path_->poses) {
         geometry_msgs::msg::PoseStamped transformed_pose;
-        tf2::doTransform(pose, transformed_pose, transform);
+        tf2::doTransform(pose, transformed_pose, path_to_costmap_transform);
         transformed_path.poses.push_back(transformed_pose);
       }
     } catch (const tf2::TransformException & ex) {
@@ -237,10 +265,28 @@ void TrajectoryPlannerNode::update_trajectory()
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
-  // Publish trajectory in the original path frame (map) so it doesn't drift with the ego frame
+  // Publish trajectory in the original path frame (e.g. map) so it doesn't drift with the ego
+  // frame. The trajectory was computed in the costmap frame (and may have been laterally
+  // deformed there by the elastic band), so when the frames differ we must transform the
+  // computed poses back with the inverse of the path->costmap transform rather than discarding
+  // them in favour of the original path poses — otherwise any deformation would be lost.
   traj.header.frame_id = latest_path_->header.frame_id;
-  for (size_t i = 0; i < traj.points.size() && i < latest_path_->poses.size(); ++i) {
-    traj.points[i].pose = latest_path_->poses[i].pose;
+  if (frames_differ) {
+    tf2::Transform tf2_path_to_costmap;
+    tf2::fromMsg(path_to_costmap_transform.transform, tf2_path_to_costmap);
+
+    geometry_msgs::msg::TransformStamped costmap_to_path_transform;
+    costmap_to_path_transform.header.frame_id = latest_path_->header.frame_id;
+    costmap_to_path_transform.child_frame_id = latest_costmap_->header.frame_id;
+    costmap_to_path_transform.transform = tf2::toMsg(tf2_path_to_costmap.inverse());
+
+    for (auto & point : traj.points) {
+      geometry_msgs::msg::PoseStamped in_pose;
+      in_pose.pose = point.pose;
+      geometry_msgs::msg::PoseStamped out_pose;
+      tf2::doTransform(in_pose, out_pose, costmap_to_path_transform);
+      point.pose = out_pose.pose;
+    }
   }
 
   // Publish trajectory
@@ -254,6 +300,27 @@ void TrajectoryPlannerNode::update_trajectory()
     visualization_msgs::msg::Marker delete_marker;
     delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
     markers.markers.push_back(delete_marker);
+
+    // Elastic band deformed path geometry, rendered as a green line strip so the deviation from
+    // the original (undeformed) path is visible in RViz. LINE_STRIP requires >= 2 points.
+    if (traj.points.size() >= 2) {
+      visualization_msgs::msg::Marker band_line;
+      band_line.header = traj.header;
+      band_line.ns = "elastic_band_path";
+      band_line.id = 0;
+      band_line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+      band_line.action = visualization_msgs::msg::Marker::ADD;
+      band_line.pose.orientation.w = 1.0;
+      band_line.scale.x = 0.1;
+      band_line.color.r = 0.0f;
+      band_line.color.g = 1.0f;
+      band_line.color.b = 0.0f;
+      band_line.color.a = 0.8f;
+      for (const auto & point : traj.points) {
+        band_line.points.push_back(point.pose.position);
+      }
+      markers.markers.push_back(band_line);
+    }
 
     // Create a sphere marker for each point
     int id = 0;
