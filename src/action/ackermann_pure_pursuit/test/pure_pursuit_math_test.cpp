@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "ackermann_pure_pursuit/pure_pursuit_math.hpp"
+
 #include <cmath>
 #include <vector>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
-#include "ackermann_pure_pursuit/pure_pursuit_math.hpp"
 
 using ackermann_pure_pursuit::math::Vec2;
 using Catch::Approx;
@@ -92,6 +92,90 @@ TEST_CASE("lookahead ignores points behind the vehicle", "[lookahead]")
   REQUIRE(r.found);
   CHECK(r.point.x == Approx(2.0));
   CHECK(r.point.x > 0.0);
+}
+
+TEST_CASE("lookahead interpolates across the behind-to-forward boundary", "[lookahead]")
+{
+  // The segment (-3,0) -> (3,0) crosses the lookahead circle at (2.5, 0); the
+  // target must not snap to the vertex (3, 0).
+  std::vector<Vec2> path{{-3.0, 0.0}, {3.0, 0.0}};
+  auto r = ppm::findLookaheadPoint(path, 2.5, 0.5);
+  REQUIRE(r.found);
+  CHECK(r.point.x == Approx(2.5));
+  CHECK(r.point.y == Approx(0.0));
+  CHECK(r.distance == Approx(2.5));
+}
+
+TEST_CASE("lookahead start index skips an earlier path lobe", "[lookahead]")
+{
+  // A stale/overlapping first point sits beyond ld; anchoring the search past it
+  // must pick the crossing on the later portion of the path instead.
+  std::vector<Vec2> path{{3.0, 3.0}, {0.5, 0.0}, {1.0, 0.0}, {2.0, 0.0}, {3.0, 0.0}};
+  auto stale = ppm::findLookaheadPoint(path, 2.5, 0.5);
+  REQUIRE(stale.found);
+  CHECK(stale.point.y == Approx(3.0));  // without anchoring, matches the stale lobe
+
+  auto anchored = ppm::findLookaheadPoint(path, 2.5, 0.5, 1);
+  REQUIRE(anchored.found);
+  CHECK(anchored.point.x == Approx(2.5));
+  CHECK(anchored.point.y == Approx(0.0));
+}
+
+TEST_CASE("min speed within horizon does not skip a stop inside it", "[speed]")
+{
+  std::vector<Vec2> path{{1.0, 0.0}, {2.0, 0.0}, {3.0, 0.0}, {4.0, 0.0}, {5.0, 0.0}};
+  std::vector<double> speeds{5.0, 0.0, 5.0, 5.0, 5.0};
+  // A commanded stop at x=2 lies inside the 4 m horizon: min must be 0.
+  CHECK(ppm::minSpeedWithinHorizon(path, speeds, 4.0, 99.0) == Approx(0.0));
+
+  // All-fast path: min equals the commanded speed, not the fallback.
+  std::vector<double> fast{3.0, 3.0, 3.0, 3.0, 3.0};
+  CHECK(ppm::minSpeedWithinHorizon(path, fast, 4.0, 99.0) == Approx(3.0));
+
+  // Sampling stops at the first point past the horizon: a slow point beyond it
+  // does not drag the result down.
+  std::vector<double> slow_later{3.0, 3.0, 3.0, 3.0, 0.5};
+  CHECK(ppm::minSpeedWithinHorizon(path, slow_later, 2.5, 99.0) == Approx(3.0));
+}
+
+TEST_CASE("min speed within horizon respects an end-of-path stop", "[speed]")
+{
+  // Path ends inside the horizon; the tapering-to-zero speeds must bound the
+  // result instead of falling back to max speed.
+  std::vector<Vec2> path{{1.0, 0.0}, {2.0, 0.0}, {3.0, 0.0}};
+  std::vector<double> speeds{2.0, 1.0, 0.0};
+  CHECK(ppm::minSpeedWithinHorizon(path, speeds, 10.0, 99.0) == Approx(0.0));
+
+  // No forward points at all -> fallback.
+  std::vector<Vec2> behind{{-2.0, 0.0}, {-1.0, 0.0}};
+  std::vector<double> bspeeds{1.0, 1.0};
+  CHECK(ppm::minSpeedWithinHorizon(behind, bspeeds, 10.0, 99.0) == Approx(99.0));
+}
+
+TEST_CASE("arc-length curvature is insensitive to waypoint density", "[curvature]")
+{
+  // Sample a radius-5 left-turning circle at two densities; both estimates
+  // should recover kappa = +0.2.
+  auto make_circle = [](double step_rad, int n) {
+    std::vector<Vec2> path;
+    for (int i = 0; i < n; ++i) {
+      double a = i * step_rad;
+      path.push_back({5.0 * std::sin(a), 5.0 * (1.0 - std::cos(a))});
+    }
+    return path;
+  };
+  auto dense = make_circle(0.02, 100);  // ~0.1 m spacing
+  auto sparse = make_circle(0.2, 10);  // ~1.0 m spacing
+
+  double k_dense = ppm::curvatureByArc(dense, 50, 1.5);
+  double k_sparse = ppm::curvatureByArc(sparse, 5, 1.5);
+  CHECK(k_dense == Approx(0.2).margin(0.01));
+  CHECK(k_sparse == Approx(0.2).margin(0.01));
+
+  // Straight path -> zero curvature; window clamps at the path ends.
+  std::vector<Vec2> straight{{0, 0}, {1, 0}, {2, 0}, {3, 0}};
+  CHECK(ppm::curvatureByArc(straight, 0, 1.5) == Approx(0.0));
+  CHECK(ppm::curvatureByArc(straight, 3, 1.5) == Approx(0.0));
 }
 
 TEST_CASE("curvature-limited speed respects the lateral-accel budget", "[speed]")

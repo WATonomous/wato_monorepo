@@ -50,6 +50,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("min_lookahead_distance", 2.0);
   declare_parameter("lookahead_time", 1.5);
   declare_parameter("curvature_lookahead_gain", 2.0);
+  declare_parameter("curvature_est_arc", 1.5);
   declare_parameter("speed_lookahead_distance", 1.0);
   declare_parameter("speed_lookahead_time", 2.0);
 
@@ -100,7 +101,8 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
 
   idle_pub_ = create_publisher<std_msgs::msg::Bool>(idle_topic_, rclcpp::QoS(10));
 
-  status_pub_ = create_publisher<wato_trajectory_msgs::msg::ControllerStatus>(controller_status_topic_, rclcpp::QoS(10));
+  status_pub_ =
+    create_publisher<wato_trajectory_msgs::msg::ControllerStatus>(controller_status_topic_, rclcpp::QoS(10));
 
   trajectory_sub_ = create_subscription<wato_trajectory_msgs::msg::Trajectory>(
     trajectory_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::trajectoryCallback, this, std::placeholders::_1));
@@ -113,7 +115,8 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
       current_speed_ = msg->twist.twist.linear.x;
     });
 
-  RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz, reference frame '%s'", control_rate_hz_, rear_axle_frame_.c_str());
+  RCLCPP_INFO(
+    get_logger(), "Configured: control at %.1f Hz, reference frame '%s'", control_rate_hz_, rear_axle_frame_.c_str());
   return CallbackReturn::SUCCESS;
 }
 
@@ -133,6 +136,7 @@ void PurePursuitNode::loadParameters()
   min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
   lookahead_time_ = get_parameter("lookahead_time").as_double();
   curvature_lookahead_gain_ = get_parameter("curvature_lookahead_gain").as_double();
+  curvature_est_arc_ = get_parameter("curvature_est_arc").as_double();
   speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
   speed_lookahead_time_ = get_parameter("speed_lookahead_time").as_double();
 
@@ -382,15 +386,19 @@ void PurePursuitNode::controlCallback()
   // --- Tracking error (Phase 1) ---
   math::TrackingError err = math::computeTrackingError(path);
 
+  // Anchor forward searches at the nearest path segment so a self-crossing or
+  // looping path cannot match a target on an earlier lobe.
+  const std::size_t search_start = err.valid ? err.nearest_idx : 0;
+
   // --- Adaptive lookahead (Phase 2) ---
   // Time-headway schedule, clamped to [min, max].
   double ld = std::clamp(lookahead_time_ * v, min_lookahead_distance_, lookahead_distance_);
   // Estimate upcoming curvature at a preliminary lookahead, then shrink ld in curves.
-  math::LookaheadResult prelim = math::findLookaheadPoint(path, ld, min_lookahead_distance_);
-  double kappa_ahead = prelim.found ? math::curvatureAround(path, prelim.segment_idx, 2) : 0.0;
+  math::LookaheadResult prelim = math::findLookaheadPoint(path, ld, min_lookahead_distance_, search_start);
+  double kappa_ahead = prelim.found ? math::curvatureByArc(path, prelim.segment_idx, curvature_est_arc_) : 0.0;
   double ld_eff = ld / (1.0 + curvature_lookahead_gain_ * std::abs(kappa_ahead));
   ld_eff = std::clamp(ld_eff, min_lookahead_distance_, lookahead_distance_);
-  math::LookaheadResult look = math::findLookaheadPoint(path, ld_eff, min_lookahead_distance_);
+  math::LookaheadResult look = math::findLookaheadPoint(path, ld_eff, min_lookahead_distance_, search_start);
 
   // --- Desired steering / speed for this cycle ---
   double desired_steering = 0.0;
@@ -405,7 +413,7 @@ void PurePursuitNode::controlCallback()
     desired_steering = 0.0;
     desired_speed = disengage_speed_;
   } else {
-    kappa_ahead = math::curvatureAround(path, look.segment_idx, 2);
+    kappa_ahead = math::curvatureByArc(path, look.segment_idx, curvature_est_arc_);
 
     // Pure pursuit steering about the rear axle.
     double pp_curv = math::pursuitCurvature(look.point);
@@ -419,15 +427,11 @@ void PurePursuitNode::controlCallback()
     }
     desired_steering = std::clamp(desired_steering, -max_steering_angle_, max_steering_angle_);
 
-    // Target speed sampled at a decoupled, speed-scaled horizon (Phase 2d).
+    // Target speed: the minimum commanded speed over a decoupled, speed-scaled
+    // horizon (Phase 2d), so a stop inside the horizon (or at the path end) is
+    // never skipped over.
     double speed_horizon = std::max(speed_lookahead_distance_, speed_lookahead_time_ * v);
-    double path_speed = max_speed_;
-    for (std::size_t i = 0; i < path.size(); ++i) {
-      if (path[i].x > 0.0 && math::norm(path[i]) >= speed_horizon) {
-        path_speed = speeds[i];
-        break;
-      }
-    }
+    double path_speed = math::minSpeedWithinHorizon(path, speeds, speed_horizon, max_speed_, search_start);
 
     // Curvature-limited speed (Phase 3a): keep lateral accel within budget.
     double v_curve = math::curvatureLimitedSpeed(max_lateral_accel_, kappa_ahead, max_speed_);

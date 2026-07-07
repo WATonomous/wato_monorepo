@@ -17,7 +17,6 @@
 
 #include <memory>
 #include <string>
-
 #include <vector>
 
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
@@ -81,12 +80,13 @@ private:
   std::string standby_msg_;
 
   // Parameters — lookahead (Phase 2)
-  double lookahead_distance_;        // max lookahead (m)
-  double min_lookahead_distance_;    // min lookahead (m)
-  double lookahead_time_;            // time-headway: ld = lookahead_time * speed (s)
+  double lookahead_distance_;  // max lookahead (m)
+  double min_lookahead_distance_;  // min lookahead (m)
+  double lookahead_time_;  // time-headway: ld = lookahead_time * speed (s)
   double curvature_lookahead_gain_;  // shrink factor on curvature: ld_eff = ld / (1 + gain*|kappa|)
+  double curvature_est_arc_;  // half-window arc length for curvature estimation (m)
   double speed_lookahead_distance_;  // minimum distance ahead used to sample target speed (m)
-  double speed_lookahead_time_;      // time-headway for the speed sample horizon (s)
+  double speed_lookahead_time_;  // time-headway for the speed sample horizon (s)
 
   // Parameters — steering
   double steering_angle_gain_;
@@ -97,8 +97,8 @@ private:
   double max_speed_;
   double min_speed_;
   double max_lateral_accel_;  // m/s^2, curvature-limited speed budget
-  double max_accel_;          // m/s^2 command slew up
-  double max_decel_;          // m/s^2 command slew down
+  double max_accel_;  // m/s^2 command slew up
+  double max_decel_;  // m/s^2 command slew down
 
   // Parameters — Stanley low-speed blend (Phase 3d)
   bool enable_stanley_blend_;

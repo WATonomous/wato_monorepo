@@ -18,6 +18,7 @@ action:
       min_lookahead_distance: 2.0       # minimum lookahead (m)
       lookahead_time: 1.5               # time-headway: ld = lookahead_time * speed (s)
       curvature_lookahead_gain: 2.0     # shrink ld in curves: ld_eff = ld / (1 + gain*|kappa|)
+      curvature_est_arc: 1.5            # half-window arc length for curvature estimation (m)
       speed_lookahead_distance: 1.0     # minimum distance ahead used to sample target speed (m)
       speed_lookahead_time: 2.0         # time-headway for the speed sample horizon (s)
 

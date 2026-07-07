@@ -60,7 +60,7 @@ inline double cross2(const Vec2 & a, const Vec2 & b)
 struct TrackingError
 {
   double cross_track{0.0};  // signed lateral distance to nearest segment (m); vehicle-left of path is positive
-  double heading{0.0};      // signed angle of path tangent in vehicle frame (rad)
+  double heading{0.0};  // signed angle of path tangent in vehicle frame (rad)
   std::size_t nearest_idx{0};
   bool valid{false};
 };
@@ -145,6 +145,40 @@ inline double curvatureAround(const std::vector<Vec2> & path, std::size_t idx, s
   return curvatureFromPoints(path[lo], path[mid], path[hi]);
 }
 
+// Estimate the signed path curvature near `idx` from points roughly `half_arc`
+// metres of arc length on either side. Unlike a fixed vertex span this is
+// insensitive to waypoint density; the window clamps to the path ends.
+inline double curvatureByArc(const std::vector<Vec2> & path, std::size_t idx, double half_arc)
+{
+  if (path.size() < 3) {
+    return 0.0;
+  }
+  idx = std::min(idx, path.size() - 1);
+
+  std::size_t lo = idx;
+  double acc = 0.0;
+  while (lo > 0 && acc < half_arc) {
+    acc += std::hypot(path[lo].x - path[lo - 1].x, path[lo].y - path[lo - 1].y);
+    --lo;
+  }
+  std::size_t hi = idx;
+  acc = 0.0;
+  while (hi + 1 < path.size() && acc < half_arc) {
+    acc += std::hypot(path[hi + 1].x - path[hi].x, path[hi + 1].y - path[hi].y);
+    ++hi;
+  }
+  // Need three distinct vertices; widen a degenerate window at the path ends.
+  if (hi - lo < 2) {
+    lo = (lo > 0) ? lo - 1 : 0;
+    hi = std::min(hi + 1, path.size() - 1);
+    if (hi - lo < 2) {
+      return 0.0;
+    }
+  }
+  std::size_t mid = std::clamp(idx, lo + 1, hi - 1);
+  return curvatureFromPoints(path[lo], path[mid], path[hi]);
+}
+
 // --------------------------------------------------------------------------
 // Lookahead point selection
 // --------------------------------------------------------------------------
@@ -158,22 +192,27 @@ struct LookaheadResult
 
 // Find the point on the forward path (x > 0) at Euclidean distance `ld` from the
 // vehicle. When a segment crosses the lookahead circle the exact intersection is
-// interpolated so the target is continuous rather than snapping between vertices.
+// interpolated so the target is continuous rather than snapping between vertices;
+// this includes segments whose start lies behind the vehicle (x <= 0).
+// `start_idx` skips earlier path points (e.g. anchor at the nearest segment) so a
+// self-crossing path cannot match a target on an earlier lobe.
 // If no forward point reaches `ld`, the last forward point is returned.
-inline LookaheadResult findLookaheadPoint(const std::vector<Vec2> & path, double ld, double min_ld)
+inline LookaheadResult findLookaheadPoint(
+  const std::vector<Vec2> & path, double ld, double min_ld, std::size_t start_idx = 0)
 {
   LookaheadResult result;
-  bool have_prev_forward = false;
-  Vec2 prev_forward{};
-  std::size_t prev_idx = 0;
+  bool have_prev = false;
+  Vec2 prev{};  // previous path point; may be behind the vehicle
   Vec2 last_forward{};
   std::size_t last_idx = 0;
   bool have_last = false;
 
-  for (std::size_t i = 0; i < path.size(); ++i) {
+  for (std::size_t i = start_idx; i < path.size(); ++i) {
     const Vec2 & p = path[i];
     if (p.x <= 0.0) {
-      continue;  // ignore points behind the vehicle
+      prev = p;  // behind the vehicle: not a target, but still a segment start
+      have_prev = true;
+      continue;
     }
     double dist = norm(p);
     last_forward = p;
@@ -181,13 +220,13 @@ inline LookaheadResult findLookaheadPoint(const std::vector<Vec2> & path, double
     have_last = true;
 
     if (dist >= min_ld && dist >= ld) {
-      if (have_prev_forward && norm(prev_forward) < ld) {
-        // Segment prev_forward -> p crosses the lookahead circle; solve for the
-        // intersection point at radius ld.
-        Vec2 d{p.x - prev_forward.x, p.y - prev_forward.y};
+      // The segment prev -> p crosses radius ld when prev is inside the circle or
+      // behind the vehicle; interpolate the crossing so the target is continuous.
+      if (have_prev && (norm(prev) < ld || prev.x <= 0.0)) {
+        Vec2 d{p.x - prev.x, p.y - prev.y};
         double aa = d.x * d.x + d.y * d.y;
-        double bb = 2.0 * (prev_forward.x * d.x + prev_forward.y * d.y);
-        double cc = prev_forward.x * prev_forward.x + prev_forward.y * prev_forward.y - ld * ld;
+        double bb = 2.0 * (prev.x * d.x + prev.y * d.y);
+        double cc = prev.x * prev.x + prev.y * prev.y - ld * ld;
         double disc = bb * bb - 4.0 * aa * cc;
         double t = 1.0;
         if (aa > 1e-9 && disc >= 0.0) {
@@ -196,7 +235,9 @@ inline LookaheadResult findLookaheadPoint(const std::vector<Vec2> & path, double
           // Prefer the root inside the segment moving outward.
           t = (t1 >= 0.0 && t1 <= 1.0) ? t1 : std::clamp((-bb - sq) / (2.0 * aa), 0.0, 1.0);
         }
-        result.point = Vec2{prev_forward.x + t * d.x, prev_forward.y + t * d.y};
+        Vec2 cand{prev.x + t * d.x, prev.y + t * d.y};
+        // Only keep the interpolated crossing if it is ahead of the vehicle.
+        result.point = (cand.x > 0.0) ? cand : p;
         result.distance = norm(result.point);
         result.segment_idx = i;
       } else {
@@ -208,11 +249,9 @@ inline LookaheadResult findLookaheadPoint(const std::vector<Vec2> & path, double
       return result;
     }
 
-    prev_forward = p;
-    prev_idx = i;
-    have_prev_forward = true;
+    prev = p;
+    have_prev = true;
   }
-  (void)prev_idx;
 
   // No forward point reached ld: fall back to the last forward point.
   if (have_last) {
@@ -237,6 +276,35 @@ inline double pursuitCurvature(const Vec2 & lookahead)
 // --------------------------------------------------------------------------
 // Speed / command shaping
 // --------------------------------------------------------------------------
+
+// Minimum commanded speed over the forward path (x > 0) from `start_idx` out to
+// the first point at or beyond `horizon`. Taking the min (rather than sampling a
+// single point) means a commanded stop inside the horizon is not skipped over;
+// when the path ends inside the horizon the remaining forward speeds still bound
+// the result, so an end-of-path stop is respected. Returns `fallback` when there
+// are no forward points.
+inline double minSpeedWithinHorizon(
+  const std::vector<Vec2> & path,
+  const std::vector<double> & speeds,
+  double horizon,
+  double fallback,
+  std::size_t start_idx = 0)
+{
+  double result = fallback;
+  bool found = false;
+  const std::size_t n = std::min(path.size(), speeds.size());
+  for (std::size_t i = start_idx; i < n; ++i) {
+    if (path[i].x <= 0.0) {
+      continue;
+    }
+    result = found ? std::min(result, speeds[i]) : speeds[i];
+    found = true;
+    if (norm(path[i]) >= horizon) {
+      break;
+    }
+  }
+  return result;
+}
 
 // Maximum speed that keeps lateral acceleration within a_lat_max on a path of
 // curvature kappa: v = sqrt(a_lat_max / |kappa|), capped at v_cap.
