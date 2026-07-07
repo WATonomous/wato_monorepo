@@ -27,7 +27,7 @@
 namespace fake_planner
 {
 
-// Replays a predefined trajectory (waypoints loaded from a maneuver CSV) at a fixed rate so a
+// Replays a predefined trajectory (expanded from a maneuver JSON segment list) at a fixed rate so a
 // controller can be exercised without the real planner stack. Also publishes an
 // execute_behaviour heartbeat so the controller leaves standby. Environment-agnostic: the
 // same node works in the CARLA sim and on the vehicle — only the odom/command topics differ
@@ -46,8 +46,9 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // Parses a maneuver CSV (x,y,speed rows) into wp_x_/wp_y_/wp_speed_. Returns false and sets
-  // `error` on any I/O or parse failure. Blank lines, '#' comments, and the header are skipped.
+  // Parses a maneuver JSON (segment list), expands the segments into a smooth path and resamples
+  // it to uniform spacing in wp_x_/wp_y_/wp_speed_. Returns false and sets `error` on any I/O,
+  // JSON, or schema failure.
   bool loadManeuver(const std::string & path, std::string & error);
   // Builds trajectory_ from the loaded waypoints, applying the current anchor transform.
   void buildTrajectory();
@@ -65,7 +66,7 @@ private:
   bool anchor_to_first_pose_{true};
   std::string maneuver_file_;
 
-  // Raw waypoints as parsed from the maneuver CSV (parallel arrays; relative to the anchor pose).
+  // Waypoints expanded from the maneuver segments (parallel arrays; relative to the anchor pose).
   std::vector<double> wp_x_;
   std::vector<double> wp_y_;
   std::vector<double> wp_speed_;

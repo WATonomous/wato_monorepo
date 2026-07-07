@@ -1,0 +1,14 @@
+{
+  "name": "sine_with_dwell",
+  "description": "Swerve out, cross over to the far side, HOLD at the far peak (dwell), then return to centre; probes lateral transient response and recovery from a sustained offset. Each shift is a smooth (raised-cosine) lateral move.",
+  "sample_spacing_m": 0.1,
+  "default_speed": 4.0,
+  "segments": [
+    { "straight": { "length": 6.0 } },
+    { "shift":    { "lateral":  1.5, "length": 4.0 } },
+    { "shift":    { "lateral": -3.0, "length": 8.0 } },
+    { "dwell":    { "length": 2.0 } },
+    { "shift":    { "lateral":  1.5, "length": 4.0 } },
+    { "straight": { "length": 8.0, "end_speed": 0.0 } }
+  ]
+}

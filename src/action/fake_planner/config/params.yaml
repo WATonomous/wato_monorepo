@@ -1,6 +1,7 @@
-# Operational parameters for the fake planner. The maneuver (waypoints) lives in a CSV under
-# the package's maneuvers/ folder, selected via the `maneuver_file` param (set in the launch
-# file). The wildcard node key matches the node regardless of namespace.
+# Operational parameters for the fake planner. The maneuver is a JSON segment list under the
+# package's maneuvers/ folder, selected via the `maneuver_file` param (set in the launch file);
+# the node expands + resamples it into waypoints. The wildcard node key matches the node
+# regardless of namespace.
 /**/fake_planner_node:
   ros__parameters:
     # Topic names (before launch remaps). Keep these matching the controller's inputs.

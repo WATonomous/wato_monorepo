@@ -1,7 +1,7 @@
 # fake_planner.launch.yaml
 #
 # Environment-agnostic controller test rig. Brings up:
-#   - fake_planner_node  : replays a predefined maneuver (from a maneuver CSV) + an
+#   - fake_planner_node  : replays a predefined maneuver (from a maneuver JSON segment list) + an
 #                          execute_behaviour heartbeat
 #   - pure_pursuit_node  : the ackermann_pure_pursuit controller under test
 #   - lifecycle manager  : configures + activates both
@@ -17,7 +17,7 @@
 #         odom_topic:=/world_modeling/transform/odometry \
 #         ackermann_topic:=/action/ackermann
 #
-# Pick a maneuver with maneuver_file:=... (or add a new CSV under maneuvers/).
+# Pick a maneuver with maneuver_file:=... (or add a new .json under maneuvers/).
 
 launch:
   - arg:
@@ -37,8 +37,8 @@ launch:
 
   - arg:
       name: maneuver_file
-      default: "$(find-pkg-share fake_planner)/maneuvers/steady_state_slalom.csv"
-      description: Maneuver CSV to replay (one maneuver per file; x,y,speed rows)
+      default: "$(find-pkg-share fake_planner)/maneuvers/steady_state_slalom.json"
+      description: Maneuver JSON to replay (one maneuver per file; a segment list)
 
   - arg:
       name: autostart
