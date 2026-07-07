@@ -1,0 +1,89 @@
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#pragma once
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "behaviour_msgs/msg/execute_behaviour.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "wato_trajectory_msgs/msg/trajectory.hpp"
+
+namespace fake_planner
+{
+
+// Replays a predefined trajectory (waypoints loaded from a maneuver CSV) at a fixed rate so a
+// controller can be exercised without the real planner stack. Also publishes an
+// execute_behaviour heartbeat so the controller leaves standby. Environment-agnostic: the
+// same node works in the CARLA sim and on the vehicle — only the odom/command topics differ
+// (set via remaps in the launch file).
+class FakePlannerNode : public rclcpp_lifecycle::LifecycleNode
+{
+public:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  explicit FakePlannerNode(const rclcpp::NodeOptions & options);
+
+  CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+  CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
+
+private:
+  // Parses a maneuver CSV (x,y,speed rows) into wp_x_/wp_y_/wp_speed_. Returns false and sets
+  // `error` on any I/O or parse failure. Blank lines, '#' comments, and the header are skipped.
+  bool loadManeuver(const std::string & path, std::string & error);
+  // Builds trajectory_ from the loaded waypoints, applying the current anchor transform.
+  void buildTrajectory();
+  void timerCallback();
+  void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
+
+  // Parameters
+  std::string trajectory_topic_;
+  std::string behaviour_topic_;
+  std::string odom_topic_;
+  std::string frame_id_;
+  double publish_rate_hz_{10.0};
+  bool publish_behaviour_{true};
+  std::string behaviour_{"lane_follow"};
+  bool anchor_to_first_pose_{true};
+  std::string maneuver_file_;
+
+  // Raw waypoints as parsed from the maneuver CSV (parallel arrays; relative to the anchor pose).
+  std::vector<double> wp_x_;
+  std::vector<double> wp_y_;
+  std::vector<double> wp_speed_;
+
+  // Prepared message (rebuilt once the anchor pose is known).
+  wato_trajectory_msgs::msg::Trajectory trajectory_;
+  bool trajectory_ready_{false};
+
+  // Anchor pose (SE(2), in frame_id_) that the waypoints are laid out from.
+  bool anchored_{false};
+  double anchor_x_{0.0};
+  double anchor_y_{0.0};
+  double anchor_yaw_{0.0};
+
+  rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+};
+
+}  // namespace fake_planner

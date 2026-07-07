@@ -1,0 +1,25 @@
+# Operational parameters for the fake planner. The maneuver (waypoints) lives in a CSV under
+# the package's maneuvers/ folder, selected via the `maneuver_file` param (set in the launch
+# file). The wildcard node key matches the node regardless of namespace.
+/**/fake_planner_node:
+  ros__parameters:
+    # Topic names (before launch remaps). Keep these matching the controller's inputs.
+    trajectory_topic: "trajectory"
+    behaviour_topic: "execute_behaviour"
+    odom_topic: "odom"
+
+    # Frame the trajectory is published in. Must be TF-connected to the controller's
+    # rear_axle frame (map/odom both work in the standard stack).
+    frame_id: "odom"
+
+    # Republish rate. Must stay well under the controller's idle_timeout_sec (2.0 s).
+    publish_rate_hz: 10.0
+
+    # Publish a non-"standby" execute_behaviour heartbeat so the controller engages without
+    # the world_modeling behaviour stack. Set false to use a real behaviour source instead.
+    publish_behaviour: true
+    behaviour: "lane_follow"
+
+    # Lay the waypoints out from the vehicle's pose at launch (captured from the first odom),
+    # so the path starts at the car wherever it is. Set false to publish file coords verbatim.
+    anchor_to_first_pose: true

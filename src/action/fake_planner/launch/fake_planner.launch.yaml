@@ -1,0 +1,108 @@
+# fake_planner.launch.yaml
+#
+# Environment-agnostic controller test rig. Brings up:
+#   - fake_planner_node  : replays a predefined maneuver (from a maneuver CSV) + an
+#                          execute_behaviour heartbeat
+#   - pure_pursuit_node  : the ackermann_pure_pursuit controller under test
+#   - lifecycle manager  : configures + activates both
+#
+# The only difference between sim and the real car is the odom source and where the command
+# goes, both exposed as launch args:
+#
+#   CARLA sim (defaults):
+#     ros2 launch fake_planner fake_planner.launch.yaml
+#
+#   Real vehicle:
+#     ros2 launch fake_planner fake_planner.launch.yaml \
+#         odom_topic:=/world_modeling/transform/odometry \
+#         ackermann_topic:=/action/ackermann
+#
+# Pick a maneuver with maneuver_file:=... (or add a new CSV under maneuvers/).
+
+launch:
+  - arg:
+      name: odom_topic
+      default: "/ego/odom"
+      description: Odometry source (controller speed + trajectory anchoring)
+
+  - arg:
+      name: ackermann_topic
+      default: "/carla/ackermann_control/command"
+      description: Where the controller publishes AckermannDriveStamped commands
+
+  - arg:
+      name: frame_id
+      default: "odom"
+      description: Frame the trajectory is published in (must be TF-connected to rear_axle)
+
+  - arg:
+      name: maneuver_file
+      default: "$(find-pkg-share fake_planner)/maneuvers/steady_state_slalom.csv"
+      description: Maneuver CSV to replay (one maneuver per file; x,y,speed rows)
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  # Fake Planner
+  - node:
+      pkg: "fake_planner"
+      exec: "fake_planner_node"
+      name: "fake_planner_node"
+      namespace: "action/fake_planner"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share fake_planner)/config/params.yaml"
+        - name: "maneuver_file"
+          value: "$(var maneuver_file)"
+        - name: "frame_id"
+          value: "$(var frame_id)"
+      remap:
+        - from: "trajectory"
+          to: "/action/fake_planner/trajectory"
+        - from: "execute_behaviour"
+          to: "/action/fake_planner/execute_behaviour"
+        - from: "odom"
+          to: "$(var odom_topic)"
+
+  # Pure Pursuit Controller (under test)
+  - node:
+      pkg: "ackermann_pure_pursuit"
+      exec: "pure_pursuit_node"
+      name: "pure_pursuit_node"
+      namespace: "action"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+      remap:
+        # Subscribers
+        - from: "trajectory"
+          to: "/action/fake_planner/trajectory"
+        - from: "execute_behaviour"
+          to: "/action/fake_planner/execute_behaviour"
+        - from: "odom"
+          to: "$(var odom_topic)"
+        # Publishers
+        - from: "ackermann"
+          to: "$(var ackermann_topic)"
+
+  # Lifecycle Manager
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "fake_planner_lifecycle_manager"
+      namespace: "action"
+      param:
+        - name: "node_names"
+          value:
+            - /action/fake_planner/fake_planner_node
+            - /action/pure_pursuit_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false
