@@ -25,6 +25,7 @@ extern "C"
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
+#include <roscco_msg/msg/autonomy_state.hpp>
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/steering_angle.hpp>
 #include <roscco_msg/msg/steering_torque.hpp>
@@ -62,6 +63,26 @@ public:
     BRAKE_FAULT,
     STEERING_FAULT,
     THROTTLE_FAULT
+  };
+
+  /**
+   * @brief Lifecycle of the steering actuator with respect to (dis)engagement.
+   *
+   * DISABLED:    OSCC boards are disabled, the driver has full control.
+   * ENGAGING:    a graceful handover to autonomy is in progress; command
+   *              authority is being ramped up from zero. Autonomy commands are
+   *              applied but scaled down during this phase.
+   * ENGAGED:     normal operation, autonomy commands are applied at full authority.
+   * DISENGAGING: a graceful handover to the driver is in progress; steering
+   *              torque is being ramped to zero. Autonomy commands are ignored
+   *              during this phase.
+   */
+  enum class DisengageState
+  {
+    ENGAGED,
+    ENGAGING,
+    DISENGAGING,
+    DISABLED
   };
 
   /**
@@ -141,6 +162,60 @@ private:
    */
   oscc_result_t handle_any_errors(oscc_result_t result);
 
+  /**
+   * @brief Starts a graceful disengage: ramps steering torque to zero over time.
+   *
+   * Captures the currently-applied steering torque and the ramp start time, cuts
+   * throttle immediately, and transitions to DISENGAGING. The ramp itself is
+   * advanced on the event timer via tick_disengage(); this call does not block.
+   */
+  void begin_disengage();
+
+  /**
+   * @brief Advances the steering-torque rampdown by one event-timer tick.
+   *
+   * Computes the linear ramp fraction from the elapsed time and publishes the
+   * scaled steering torque. When the ramp completes, disables the OSCC modules
+   * and transitions to DISABLED. No-op unless state is DISENGAGING.
+   */
+  void tick_disengage();
+
+  /**
+   * @brief Disables the configured OSCC modules immediately (no ramp).
+   *
+   * Honours enable_all_/enable_steering_/enable_throttle_/enable_brakes_.
+   * @param disabled_modules Out param describing which modules were disabled.
+   * @return true if all configured modules disabled successfully.
+   */
+  bool disable_modules(std::string & disabled_modules);
+
+  /**
+   * @brief Starts a graceful engage: fades autonomy authority in from zero.
+   *
+   * Records the ramp start time and transitions to ENGAGING. Autonomy commands
+   * keep flowing but are scaled by engage_authority_scale() until the ramp
+   * completes, at which point tick_engage() transitions to ENGAGED. This call
+   * does not block; the boards are already enabled by the time it runs.
+   */
+  void begin_engage();
+
+  /**
+   * @brief Completes an in-progress graceful engage once the ramp window elapses.
+   *
+   * Transitions ENGAGING -> ENGAGED when the elapsed time reaches arm_ramp_ms_.
+   * No-op unless state is ENGAGING. Advanced on the event timer.
+   */
+  void tick_engage();
+
+  /**
+   * @brief Current authority scale in [0, 1] applied to autonomy commands.
+   *
+   * Returns 1.0 in steady ENGAGED operation. During ENGAGING it ramps linearly
+   * from 0 to 1 over arm_ramp_ms_ so freshly-applied autonomy commands fade in
+   * instead of stepping. Returns 1.0 for any non-ENGAGING state.
+   */
+  float engage_authority_scale() const;
+
   // Callback groups
   rclcpp::CallbackGroup::SharedPtr oscc_api_group_;  // Group A
   rclcpp::CallbackGroup::SharedPtr feedback_group_;  // Group B
@@ -148,6 +223,7 @@ private:
   // ROS Interfaces
   rclcpp::Subscription<roscco_msg::msg::Roscco>::SharedPtr roscco_sub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr is_armed_pub_;
+  rclcpp::Publisher<roscco_msg::msg::AutonomyState>::SharedPtr autonomy_state_pub_;
   rclcpp::Publisher<roscco_msg::msg::WheelSpeeds>::SharedPtr wheel_speeds_pub_;
   rclcpp::Publisher<roscco_msg::msg::SteeringAngle>::SharedPtr steering_angle_pub_;
   rclcpp::Publisher<roscco_msg::msg::SteeringTorque>::SharedPtr steering_torque_pub_;
@@ -158,9 +234,9 @@ private:
   rclcpp::TimerBase::SharedPtr event_timer_;
   rclcpp::TimerBase::SharedPtr feedback_timer_;
 
-  // Arm state — protected by arm_mutex_
-  std::mutex arm_mutex_;
-  bool is_armed_{false};
+  // Arm state — atomic so the default-group status timer and the destructor can
+  // read it safely while Group A callbacks mutate it.
+  std::atomic<bool> is_armed_{false};
 
   // Parameters
   int is_armed_publish_rate_hz;
@@ -176,8 +252,24 @@ private:
   bool enable_throttle_{true};
   bool enable_brakes_{true};
 
+  // Graceful disengage parameters
+  bool enable_graceful_disarm_{true};  // If false, manual disarm disables boards instantly
+  double disarm_ramp_ms_{600.0};  // Steering torque rampdown duration on graceful disarm
+
+  // Graceful engage parameters
+  bool enable_graceful_arm_{true};  // If false, autonomy gets full authority instantly on arm
+  double arm_ramp_ms_{600.0};  // Authority ramp-up duration on graceful arm
+
   // Command state — protected by Group A serialization
   float last_forward_{0.0};
+  float last_steering_torque_cmd_{0.0};  // Last steering torque actually sent (incl. deadzone)
+
+  // Graceful disengage state — written only in Group A, but atomic so the
+  // default-group status timer can publish it without a data race.
+  std::atomic<DisengageState> disengage_state_{DisengageState::DISABLED};
+  float disengage_initial_torque_{0.0};  // Steering torque at the start of the ramp
+  rclcpp::Time disengage_start_time_;  // When the current disengage ramp began
+  rclcpp::Time engage_start_time_;  // When the current engage ramp began
 };
 
 }  // namespace oscc_interfacing
