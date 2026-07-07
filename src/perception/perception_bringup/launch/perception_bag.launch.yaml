@@ -27,8 +27,13 @@ launch:
 
   - arg:
       name: "bag_path"
-      default: "/bags"
+      default: "/ws/bags/"
       description: "Output directory for bag files"
+
+  - arg:
+      name: "record_start_delay"
+      default: "10.0"
+      description: "Seconds to wait before starting the recorder, so all camera nodes finish NITROS negotiation and advertise their topics first (avoids missed topics)"
 
   - arg:
       name: "cameras_config_file"
@@ -51,17 +56,23 @@ launch:
         - name: "cameras_config_file"
           value: "$(var cameras_config_file)"
 
-  # Bag recorder (intra-process with cameras, inter-process with other sensors via Zenoh)
-  - load_composable_node:
-      target: cameras_and_recorder
-      composable_node:
-        - pkg: rosbag2_transport
-          plugin: rosbag2_transport::Recorder
-          name: bag_recorder
-          extra_arg:
-            - name: use_intra_process_comms
-              value: "true"
-          param:
-            - from: "$(find-pkg-share perception_bringup)/config/bag_recorder/$(var recording_profile).yaml"
-            - name: storage.uri
-              value: "$(var bag_path)"
+  # Bag recorder (intra-process with cameras, inter-process with other sensors via
+  # Zenoh). Loaded after record_start_delay so every camera composable node has
+  # finished NITROS negotiation and advertised its topics before the recorder runs
+  # its topic discovery.
+  - timer:
+      period: "$(var record_start_delay)"
+      children:
+        - load_composable_node:
+            target: cameras_and_recorder
+            composable_node:
+              - pkg: rosbag2_transport
+                plugin: rosbag2_transport::Recorder
+                name: bag_recorder
+                extra_arg:
+                  - name: use_intra_process_comms
+                    value: "true"
+                param:
+                  - from: "$(find-pkg-share perception_bringup)/config/bag_recorder/$(var recording_profile).yaml"
+                  - name: storage.uri
+                    value: "$(var bag_path)sensors_$(command 'date +%Y_%m_%d-%H_%M_%S')"
