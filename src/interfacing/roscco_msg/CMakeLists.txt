@@ -28,6 +28,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/WheelSpeeds.msg"
   "msg/SteeringAngle.msg"
   "msg/SteeringTorque.msg"
+  "msg/AutonomyState.msg"
   DEPENDENCIES std_msgs
 )
 
