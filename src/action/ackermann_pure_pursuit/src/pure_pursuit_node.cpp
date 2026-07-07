@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -32,57 +33,66 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("pure_pursuit_node", options)
 , last_trajectory_time_(0, 0, RCL_ROS_TIME)
 {
+  // Topics / frames
   declare_parameter("trajectory_topic", "trajectory");
   declare_parameter("bt_topic", "execute_behaviour");
   declare_parameter("ackermann_topic", "/action/ackermann");
   declare_parameter("idle_topic", "/action/is_idle");
+  declare_parameter("controller_status_topic", "controller_status");
+  declare_parameter("odom_topic", "odom");
   declare_parameter("base_frame", "base_footprint");
+  declare_parameter("reference_frame", "rear_axle");
   declare_parameter("rear_axle_frame", "rear_axle");
   declare_parameter("front_axle_frame", "front_axle");
   declare_parameter("standby_msg", "standby");
+
+  // Lookahead (Phase 2)
   declare_parameter("lookahead_distance", 5.0);
   declare_parameter("min_lookahead_distance", 2.0);
-  declare_parameter("lookahead_gain", 0.5);
+  declare_parameter("lookahead_time", 1.5);
+  declare_parameter("curvature_lookahead_gain", 2.0);
+  declare_parameter("speed_lookahead_distance", 1.0);
+  declare_parameter("speed_lookahead_time", 2.0);
+
+  // Steering
   declare_parameter("steering_angle_gain", 1.0);
+  declare_parameter("max_steering_angle", 0.5);
+  declare_parameter("max_steering_rate", 1.0);
+
+  // Speed (Phase 3)
   declare_parameter("max_speed", 5.0);
   declare_parameter("min_speed", 0.5);
+  declare_parameter("max_lateral_accel", 2.5);
+  declare_parameter("max_accel", 1.5);
+  declare_parameter("max_decel", 3.0);
+
+  // Stanley low-speed blend (Phase 3d)
+  declare_parameter("enable_stanley_blend", false);
+  declare_parameter("stanley_gain", 0.5);
+  declare_parameter("stanley_softening", 1.0);
+  declare_parameter("stanley_speed_threshold", 2.0);
+
+  // Disengage monitor (Phase 4)
+  declare_parameter("enable_disengage", true);
+  declare_parameter("max_cross_track_error", 1.5);
+  declare_parameter("max_heading_error", 0.6);
+  declare_parameter("disengage_debounce_sec", 0.5);
+  declare_parameter("disengage_latch", false);
+  declare_parameter("disengage_speed", 0.0);
+
+  // Standby / misc
   declare_parameter("standby_speed", 0.0);
   declare_parameter("standby_steering", 0.0);
   declare_parameter("control_rate_hz", 20.0);
   declare_parameter("wheelbase_fallback", 2.5667);
-  declare_parameter("max_steering_angle", 0.5);
   declare_parameter("idle_timeout_sec", 2.0);
   declare_parameter("invert_steering", false);
-  declare_parameter("odom_topic", "odom");
   declare_parameter("disable_standby", false);
-  declare_parameter("speed_lookahead_distance", 1.0);
 }
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
 {
-  trajectory_topic_ = get_parameter("trajectory_topic").as_string();
-  bt_topic_ = get_parameter("bt_topic").as_string();
-  ackermann_topic_ = get_parameter("ackermann_topic").as_string();
-  idle_topic_ = get_parameter("idle_topic").as_string();
-  base_frame_ = get_parameter("base_frame").as_string();
-  rear_axle_frame_ = get_parameter("rear_axle_frame").as_string();
-  front_axle_frame_ = get_parameter("front_axle_frame").as_string();
-  standby_msg_ = get_parameter("standby_msg").as_string();
-  lookahead_distance_ = get_parameter("lookahead_distance").as_double();
-  min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
-  lookahead_gain_ = get_parameter("lookahead_gain").as_double();
-  steering_angle_gain_ = get_parameter("steering_angle_gain").as_double();
-  max_speed_ = get_parameter("max_speed").as_double();
-  min_speed_ = get_parameter("min_speed").as_double();
-  standby_speed_ = get_parameter("standby_speed").as_double();
-  standby_steering_ = get_parameter("standby_steering").as_double();
-  control_rate_hz_ = get_parameter("control_rate_hz").as_double();
-  wheelbase_fallback_ = get_parameter("wheelbase_fallback").as_double();
-  max_steering_angle_ = get_parameter("max_steering_angle").as_double();
-  idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
-  invert_steering_ = get_parameter("invert_steering").as_bool();
-  disable_standby_ = get_parameter("disable_standby").as_bool();
-  speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
+  loadParameters();
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -90,6 +100,8 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   ackermann_pub_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>(ackermann_topic_, rclcpp::QoS(10));
 
   idle_pub_ = create_publisher<std_msgs::msg::Bool>(idle_topic_, rclcpp::QoS(10));
+
+  status_pub_ = create_publisher<wato_trajectory_msgs::msg::ControllerStatus>(controller_status_topic_, rclcpp::QoS(10));
 
   trajectory_sub_ = create_subscription<wato_trajectory_msgs::msg::Trajectory>(
     trajectory_topic_, rclcpp::QoS(10), std::bind(&PurePursuitNode::trajectoryCallback, this, std::placeholders::_1));
@@ -102,14 +114,113 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
       current_speed_ = msg->twist.twist.linear.x;
     });
 
-  RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz", control_rate_hz_);
+  // Allow the tuning knobs to be adjusted live without a relaunch.
+  param_callback_handle_ =
+    add_on_set_parameters_callback(std::bind(&PurePursuitNode::onParameterChange, this, std::placeholders::_1));
+
+  RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz, reference frame '%s'", control_rate_hz_, reference_frame_.c_str());
   return CallbackReturn::SUCCESS;
+}
+
+void PurePursuitNode::loadParameters()
+{
+  trajectory_topic_ = get_parameter("trajectory_topic").as_string();
+  bt_topic_ = get_parameter("bt_topic").as_string();
+  ackermann_topic_ = get_parameter("ackermann_topic").as_string();
+  idle_topic_ = get_parameter("idle_topic").as_string();
+  controller_status_topic_ = get_parameter("controller_status_topic").as_string();
+  base_frame_ = get_parameter("base_frame").as_string();
+  reference_frame_ = get_parameter("reference_frame").as_string();
+  rear_axle_frame_ = get_parameter("rear_axle_frame").as_string();
+  front_axle_frame_ = get_parameter("front_axle_frame").as_string();
+  standby_msg_ = get_parameter("standby_msg").as_string();
+
+  lookahead_distance_ = get_parameter("lookahead_distance").as_double();
+  min_lookahead_distance_ = get_parameter("min_lookahead_distance").as_double();
+  lookahead_time_ = get_parameter("lookahead_time").as_double();
+  curvature_lookahead_gain_ = get_parameter("curvature_lookahead_gain").as_double();
+  speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
+  speed_lookahead_time_ = get_parameter("speed_lookahead_time").as_double();
+
+  steering_angle_gain_ = get_parameter("steering_angle_gain").as_double();
+  max_steering_angle_ = get_parameter("max_steering_angle").as_double();
+  max_steering_rate_ = get_parameter("max_steering_rate").as_double();
+
+  max_speed_ = get_parameter("max_speed").as_double();
+  min_speed_ = get_parameter("min_speed").as_double();
+  max_lateral_accel_ = get_parameter("max_lateral_accel").as_double();
+  max_accel_ = get_parameter("max_accel").as_double();
+  max_decel_ = get_parameter("max_decel").as_double();
+
+  enable_stanley_blend_ = get_parameter("enable_stanley_blend").as_bool();
+  stanley_gain_ = get_parameter("stanley_gain").as_double();
+  stanley_softening_ = get_parameter("stanley_softening").as_double();
+  stanley_speed_threshold_ = get_parameter("stanley_speed_threshold").as_double();
+
+  enable_disengage_ = get_parameter("enable_disengage").as_bool();
+  max_cross_track_error_ = get_parameter("max_cross_track_error").as_double();
+  max_heading_error_ = get_parameter("max_heading_error").as_double();
+  disengage_debounce_sec_ = get_parameter("disengage_debounce_sec").as_double();
+  disengage_latch_ = get_parameter("disengage_latch").as_bool();
+  disengage_speed_ = get_parameter("disengage_speed").as_double();
+
+  standby_speed_ = get_parameter("standby_speed").as_double();
+  standby_steering_ = get_parameter("standby_steering").as_double();
+  control_rate_hz_ = get_parameter("control_rate_hz").as_double();
+  wheelbase_fallback_ = get_parameter("wheelbase_fallback").as_double();
+  idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
+  invert_steering_ = get_parameter("invert_steering").as_bool();
+  disable_standby_ = get_parameter("disable_standby").as_bool();
+}
+
+rcl_interfaces::msg::SetParametersResult PurePursuitNode::onParameterChange(
+  const std::vector<rclcpp::Parameter> & params)
+{
+  // Update the numeric/boolean tuning knobs live. Topic/frame names are only
+  // consumed at configure time, so changing them here has no effect until reconfigure.
+  for (const auto & p : params) {
+    const auto & name = p.get_name();
+    if (name == "lookahead_distance") lookahead_distance_ = p.as_double();
+    else if (name == "min_lookahead_distance") min_lookahead_distance_ = p.as_double();
+    else if (name == "lookahead_time") lookahead_time_ = p.as_double();
+    else if (name == "curvature_lookahead_gain") curvature_lookahead_gain_ = p.as_double();
+    else if (name == "speed_lookahead_distance") speed_lookahead_distance_ = p.as_double();
+    else if (name == "speed_lookahead_time") speed_lookahead_time_ = p.as_double();
+    else if (name == "steering_angle_gain") steering_angle_gain_ = p.as_double();
+    else if (name == "max_steering_angle") max_steering_angle_ = p.as_double();
+    else if (name == "max_steering_rate") max_steering_rate_ = p.as_double();
+    else if (name == "max_speed") max_speed_ = p.as_double();
+    else if (name == "min_speed") min_speed_ = p.as_double();
+    else if (name == "max_lateral_accel") max_lateral_accel_ = p.as_double();
+    else if (name == "max_accel") max_accel_ = p.as_double();
+    else if (name == "max_decel") max_decel_ = p.as_double();
+    else if (name == "enable_stanley_blend") enable_stanley_blend_ = p.as_bool();
+    else if (name == "stanley_gain") stanley_gain_ = p.as_double();
+    else if (name == "stanley_softening") stanley_softening_ = p.as_double();
+    else if (name == "stanley_speed_threshold") stanley_speed_threshold_ = p.as_double();
+    else if (name == "enable_disengage") enable_disengage_ = p.as_bool();
+    else if (name == "max_cross_track_error") max_cross_track_error_ = p.as_double();
+    else if (name == "max_heading_error") max_heading_error_ = p.as_double();
+    else if (name == "disengage_debounce_sec") disengage_debounce_sec_ = p.as_double();
+    else if (name == "disengage_latch") disengage_latch_ = p.as_bool();
+    else if (name == "disengage_speed") disengage_speed_ = p.as_double();
+    else if (name == "standby_speed") standby_speed_ = p.as_double();
+    else if (name == "standby_steering") standby_steering_ = p.as_double();
+    else if (name == "idle_timeout_sec") idle_timeout_sec_ = p.as_double();
+    else if (name == "invert_steering") invert_steering_ = p.as_bool();
+    else if (name == "disable_standby") disable_standby_ = p.as_bool();
+  }
+
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  return result;
 }
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   ackermann_pub_->on_activate();
   idle_pub_->on_activate();
+  status_pub_->on_activate();
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
   control_timer_ = create_wall_timer(
@@ -124,6 +235,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_deactivate(const rclcpp_life
   control_timer_.reset();
   ackermann_pub_->on_deactivate();
   idle_pub_->on_deactivate();
+  status_pub_->on_deactivate();
 
   RCLCPP_INFO(get_logger(), "Deactivated");
   return CallbackReturn::SUCCESS;
@@ -133,6 +245,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_cleanup(const rclcpp_lifecyc
 {
   ackermann_pub_.reset();
   idle_pub_.reset();
+  status_pub_.reset();
   trajectory_sub_.reset();
   bt_sub_.reset();
   tf_listener_.reset();
@@ -149,6 +262,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(const rclcpp_lifecy
   control_timer_.reset();
   ackermann_pub_.reset();
   idle_pub_.reset();
+  status_pub_.reset();
   trajectory_sub_.reset();
   bt_sub_.reset();
   tf_listener_.reset();
@@ -199,111 +313,234 @@ void PurePursuitNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::C
   bt_requested_behaviour_ = msg->behaviour;
 }
 
-void PurePursuitNode::controlCallback()
+bool PurePursuitNode::buildPathInReferenceFrame(
+  const wato_trajectory_msgs::msg::Trajectory & traj,
+  std::vector<math::Vec2> & path_out,
+  std::vector<double> & speeds_out)
+{
+  // One TF lookup per cycle (trajectory frame -> controller reference frame),
+  // applied to every point. Fails atomically if the transform is unavailable.
+  geometry_msgs::msg::TransformStamped tf;
+  try {
+    tf = tf_buffer_->lookupTransform(reference_frame_, traj.header.frame_id, tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000, "Cannot transform trajectory to %s: %s", reference_frame_.c_str(), ex.what());
+    return false;
+  }
+
+  path_out.clear();
+  speeds_out.clear();
+  path_out.reserve(traj.points.size());
+  speeds_out.reserve(traj.points.size());
+  for (const auto & pt : traj.points) {
+    geometry_msgs::msg::Pose p;
+    tf2::doTransform(pt.pose, p, tf);
+    path_out.push_back(math::Vec2{p.position.x, p.position.y});
+    speeds_out.push_back(pt.max_speed);
+  }
+  return true;
+}
+
+bool PurePursuitNode::updateDisengage(bool over, const std::string & reason, const rclcpp::Time & t_now)
+{
+  if (!enable_disengage_) {
+    over_threshold_active_ = false;
+    disengaged_latched_ = false;
+    disengage_reason_.clear();
+    return false;
+  }
+
+  if (over) {
+    if (!over_threshold_active_) {
+      over_threshold_active_ = true;
+      over_threshold_since_ = t_now;
+    }
+    disengage_reason_ = reason;
+    // Trip only after the error has been sustained past the debounce window.
+    if ((t_now - over_threshold_since_).seconds() >= disengage_debounce_sec_) {
+      disengaged_latched_ = true;
+    }
+  } else {
+    over_threshold_active_ = false;
+    if (!disengage_latch_) {
+      disengaged_latched_ = false;
+      disengage_reason_.clear();
+    }
+  }
+  return disengaged_latched_;
+}
+
+void PurePursuitNode::publishStandby()
 {
   std_msgs::msg::Bool idle_msg;
+  idle_msg.data = true;
+  idle_pub_->publish(idle_msg);
+  publishAckermannMsg(base_frame_, standby_speed_, standby_steering_, invert_steering_);
 
-  // Check for stale or missing trajectory
+  wato_trajectory_msgs::msg::ControllerStatus status;
+  status.header.stamp = now();
+  status.header.frame_id = reference_frame_;
+  status.commanded_speed = standby_speed_;
+  status.commanded_steering = invert_steering_ ? -standby_steering_ : standby_steering_;
+  status.disengaged = false;
+  status.reason = "idle";
+  status_pub_->publish(status);
+
+  // Reset command-shaping state so re-engagement starts smoothly from standby.
+  prev_speed_cmd_ = standby_speed_;
+  prev_steering_cmd_ = standby_steering_;
+  last_control_time_ = status.header.stamp;
+  have_last_control_ = true;
+}
+
+void PurePursuitNode::controlCallback()
+{
+  // --- Idle / standby gate ---
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
                  (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour_.empty();
 
   if (is_idle || (!disable_standby_ && bt_requested_behaviour_ == standby_msg_)) {
-    idle_msg.data = true;
-    idle_pub_->publish(idle_msg);
-    publishAckermannMsg(base_frame_, standby_speed_, standby_steering_, invert_steering_);
+    publishStandby();
     return;
   }
-
-  idle_msg.data = false;
-  idle_pub_->publish(idle_msg);
 
   const auto & traj = *latest_trajectory_;
-  double wheelbase = getWheelbase();
+  const double wheelbase = getWheelbase();
 
-  // Adaptive lookahead: scale with speed, clamp to [min, max]
-  double adaptive_lookahead =
-    std::clamp(lookahead_gain_ * current_speed_, min_lookahead_distance_, lookahead_distance_);
-  RCLCPP_DEBUG(
-    get_logger(),
-    "Lookahead: %.2f m (speed=%.2f, gain=%.2f, raw=%.2f, min=%.2f, max=%.2f)",
-    adaptive_lookahead,
-    current_speed_,
-    lookahead_gain_,
-    lookahead_gain_ * current_speed_,
-    min_lookahead_distance_,
-    lookahead_distance_);
-
-  // Transform trajectory points into base_frame and find lookahead point
-  const double SPEED_LOOKAHEAD_M = speed_lookahead_distance_;
-
-  double lookahead_x = 0.0;
-  double lookahead_y = 0.0;
-  double target_speed = max_speed_;
-  double speed_ahead = max_speed_;
-  bool found_speed_point = false;
-  bool found_lookahead = false;
-
-  // Look up the trajectory -> base_frame transform once per cycle and reuse it for every
-  // point. This avoids O(N) TF lookups at the control rate and fails atomically: if the
-  // transform is unavailable we skip the whole cycle instead of aborting mid-loop.
-  geometry_msgs::msg::TransformStamped traj_to_base_tf;
-  try {
-    traj_to_base_tf = tf_buffer_->lookupTransform(base_frame_, traj.header.frame_id, tf2::TimePointZero);
-  } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000, "Cannot transform trajectory to base frame: %s", ex.what());
+  // --- Transform trajectory into the controller reference frame (rear axle) once ---
+  std::vector<math::Vec2> path;
+  std::vector<double> speeds;
+  if (!buildPathInReferenceFrame(traj, path, speeds) || path.size() < 2) {
+    publishStandby();  // cannot evaluate this cycle: hold safe
     return;
   }
 
-  for (const auto & pt : traj.points) {
-    geometry_msgs::msg::Pose pose_in_base;
-    tf2::doTransform(pt.pose, pose_in_base, traj_to_base_tf);
-
-    double dx = pose_in_base.position.x;
-    double dy = pose_in_base.position.y;
-    double dist = std::hypot(dx, dy);
-
-    // Use speed from the point ~1m ahead of ego
-    if (!found_speed_point && dx > 0.0 && dist >= SPEED_LOOKAHEAD_M) {
-      speed_ahead = pt.max_speed;
-      found_speed_point = true;
+  // --- Cycle timing for slew / rate limiting ---
+  const rclcpp::Time t_now = now();
+  double dt = 1.0 / control_rate_hz_;
+  if (have_last_control_) {
+    double measured = (t_now - last_control_time_).seconds();
+    if (measured > 1e-3 && measured < 1.0) {
+      dt = measured;
     }
+  }
 
-    // Only consider points ahead of the vehicle (positive x in base frame)
-    if (dx > 0.0 && dist >= min_lookahead_distance_) {
-      if (dist >= adaptive_lookahead || &pt == &traj.points.back()) {
-        lookahead_x = dx;
-        lookahead_y = dy;
-        target_speed = speed_ahead;
-        found_lookahead = true;
+  const double v = std::max(0.0, current_speed_);
+
+  // --- Tracking error (Phase 1) ---
+  math::TrackingError err = math::computeTrackingError(path);
+
+  // --- Adaptive lookahead (Phase 2) ---
+  // Time-headway schedule, clamped to [min, max].
+  double ld = std::clamp(lookahead_time_ * v, min_lookahead_distance_, lookahead_distance_);
+  // Estimate upcoming curvature at a preliminary lookahead, then shrink ld in curves.
+  math::LookaheadResult prelim = math::findLookaheadPoint(path, ld, min_lookahead_distance_);
+  double kappa_ahead = prelim.found ? math::curvatureAround(path, prelim.segment_idx, 2) : 0.0;
+  double ld_eff = ld / (1.0 + curvature_lookahead_gain_ * std::abs(kappa_ahead));
+  ld_eff = std::clamp(ld_eff, min_lookahead_distance_, lookahead_distance_);
+  math::LookaheadResult look = math::findLookaheadPoint(path, ld_eff, min_lookahead_distance_);
+
+  // --- Desired steering / speed for this cycle ---
+  double desired_steering = 0.0;
+  double desired_speed = 0.0;
+  bool over = false;
+  std::string reason = "ok";
+
+  if (!look.found) {
+    // Ran off the end of the path / nothing ahead: treat as a tracking failure.
+    over = true;
+    reason = "no_lookahead_point";
+    desired_steering = 0.0;
+    desired_speed = disengage_speed_;
+  } else {
+    kappa_ahead = math::curvatureAround(path, look.segment_idx, 2);
+
+    // Pure pursuit steering about the rear axle.
+    double pp_curv = math::pursuitCurvature(look.point);
+    desired_steering = steering_angle_gain_ * std::atan(wheelbase * pp_curv);
+
+    // Optional low-speed cross-track feedback (Phase 3d): ramps in below the threshold speed.
+    if (enable_stanley_blend_ && err.valid) {
+      double blend = std::clamp(1.0 - v / std::max(1e-3, stanley_speed_threshold_), 0.0, 1.0);
+      desired_steering +=
+        blend * math::crossTrackSteerCorrection(err.cross_track, v, stanley_gain_, stanley_softening_);
+    }
+    desired_steering = std::clamp(desired_steering, -max_steering_angle_, max_steering_angle_);
+
+    // Target speed sampled at a decoupled, speed-scaled horizon (Phase 2d).
+    double speed_horizon = std::max(speed_lookahead_distance_, speed_lookahead_time_ * v);
+    double path_speed = max_speed_;
+    for (std::size_t i = 0; i < path.size(); ++i) {
+      if (path[i].x > 0.0 && math::norm(path[i]) >= speed_horizon) {
+        path_speed = speeds[i];
         break;
       }
     }
+
+    // Curvature-limited speed (Phase 3a): keep lateral accel within budget.
+    double v_curve = math::curvatureLimitedSpeed(max_lateral_accel_, kappa_ahead, max_speed_);
+    if (path_speed <= 0.0) {
+      desired_speed = 0.0;  // path commands a stop
+    } else {
+      desired_speed = std::clamp(std::min(path_speed, v_curve), min_speed_, max_speed_);
+    }
+
+    // Tracking-threshold checks feed the disengage monitor.
+    if (err.valid && std::abs(err.cross_track) > max_cross_track_error_) {
+      over = true;
+      reason = "cte_exceeded";
+    } else if (err.valid && std::abs(err.heading) > max_heading_error_) {
+      over = true;
+      reason = "heading_exceeded";
+    }
   }
 
-  if (!found_lookahead) {
-    return;
+  // --- Disengage monitor (Phase 4) ---
+  bool disengaged = updateDisengage(over, reason, t_now);
+  if (disengaged) {
+    // Safe output: straighten and decelerate; yield to the mux via is_idle.
+    desired_steering = 0.0;
+    desired_speed = disengage_speed_;
   }
 
-  // Pure pursuit math
-  double ld_sq = lookahead_x * lookahead_x + lookahead_y * lookahead_y;
-  double curvature = 2.0 * lookahead_y / ld_sq;
-  double steering_angle = steering_angle_gain_ * std::atan(wheelbase * curvature);
-
-  // Clamp steering
-  steering_angle = std::clamp(steering_angle, -max_steering_angle_, max_steering_angle_);
-
-  // Reduce speed proportional to steering magnitude
-  double steering_ratio = std::abs(steering_angle) / max_steering_angle_;
-  double speed = target_speed * (1.0 - 0.5 * steering_ratio);
-  speed = std::clamp(speed, min_speed_, max_speed_);
-
-  // If target trajectory point says stop, stop
-  if (target_speed <= 0.0) {
-    speed = 0.0;
+  // --- Command shaping (Phase 3b/3c): accel/decel and steering-rate slew limits ---
+  double steering = desired_steering;
+  double speed = desired_speed;
+  if (have_last_control_) {
+    steering = math::slewLimit(prev_steering_cmd_, desired_steering, max_steering_rate_ * dt);
+    if (desired_speed >= prev_speed_cmd_) {
+      speed = std::min(desired_speed, prev_speed_cmd_ + max_accel_ * dt);
+    } else {
+      speed = std::max(desired_speed, prev_speed_cmd_ - max_decel_ * dt);
+    }
   }
 
-  publishAckermannMsg(base_frame_, speed, steering_angle, invert_steering_);
+  // --- Publish command + idle + status ---
+  std_msgs::msg::Bool idle_msg;
+  idle_msg.data = disengaged;
+  idle_pub_->publish(idle_msg);
+
+  publishAckermannMsg(base_frame_, speed, steering, invert_steering_);
+
+  wato_trajectory_msgs::msg::ControllerStatus status;
+  status.header.stamp = t_now;
+  status.header.frame_id = reference_frame_;
+  status.cross_track_error = err.valid ? err.cross_track : 0.0;
+  status.heading_error = err.valid ? err.heading : 0.0;
+  status.lookahead_distance = ld_eff;
+  status.path_curvature = kappa_ahead;
+  status.commanded_speed = speed;
+  status.commanded_steering = invert_steering_ ? -steering : steering;
+  status.disengaged = disengaged;
+  status.reason = disengaged ? disengage_reason_ : reason;
+  status_pub_->publish(status);
+
+  // Save state for next cycle.
+  prev_speed_cmd_ = speed;
+  prev_steering_cmd_ = steering;
+  last_control_time_ = t_now;
+  have_last_control_ = true;
 }
 
 void PurePursuitNode::publishAckermannMsg(

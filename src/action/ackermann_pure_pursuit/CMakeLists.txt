@@ -84,4 +84,10 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+  add_wato_test(pure_pursuit_math_test test/pure_pursuit_math_test.cpp)
+  target_include_directories(pure_pursuit_math_test PRIVATE include)
+endif()
+
 ament_package()
