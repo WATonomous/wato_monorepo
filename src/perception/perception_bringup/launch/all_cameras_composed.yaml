@@ -22,7 +22,7 @@ launch:
 
   - arg:
       name: "cameras_config_file"
-      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
+      default: "$(find-pkg-share perception_bringup)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
   - arg:
@@ -33,7 +33,7 @@ launch:
   # Panorama Cameras (8 cameras)
   # camera 0 - pano NN
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -48,7 +48,7 @@ launch:
 
   # camera 1 - pano NE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -63,7 +63,7 @@ launch:
 
   # camera 2 - pano EE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -78,7 +78,7 @@ launch:
 
   # camera 3 - pano SE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -93,7 +93,7 @@ launch:
 
   # camera 4 - pano SS
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -108,7 +108,7 @@ launch:
 
   # camera 5 - pano SW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -123,7 +123,7 @@ launch:
 
   # camera 6 - pano WW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -138,7 +138,7 @@ launch:
 
   # camera 7 - pano NW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -154,7 +154,7 @@ launch:
   # # Lower Cameras (4 cameras)
   # # camera 8 - lower NE
   # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
   #     arg:
   #       - name: "container_name"
   #         value: "$(var container_name)"
@@ -169,7 +169,7 @@ launch:
 
   # # camera 9 - lower SE
   # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
   #     arg:
   #       - name: "container_name"
   #         value: "$(var container_name)"
@@ -184,7 +184,7 @@ launch:
 
   # # camera 10 - lower SW
   # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
   #     arg:
   #       - name: "container_name"
   #         value: "$(var container_name)"
@@ -199,7 +199,7 @@ launch:
 
   # # camera 11 - lower NW
   # - include:
-  #     file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+  #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
   #     arg:
   #       - name: "container_name"
   #         value: "$(var container_name)"

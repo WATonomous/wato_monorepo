@@ -1,9 +1,17 @@
 # Camera Bringup
 
-To publish raw frames from all Hikrobot cameras, run:
+The Hikrobot cameras are NITROS nodes and run inside the perception component
+container. They are launched as part of the perception stack:
 
 ```sh
-ros2 launch sensor_interfacing all_cameras_composed.yaml
+ros2 launch perception_bringup perception.launch.yaml
+```
+
+To load the cameras into an existing component container on their own (e.g. for
+debugging or bag recording), use the camera launch directly:
+
+```sh
+ros2 launch perception_bringup all_cameras_composed.yaml container_name:=<container>
 ```
 
 > NOTE: Because ROS2 does serialization/deserialization regardless of middleware (even with Zenoh SHM), using 12 cameras at once is not possible without having them inside the same component container alongside any nodes that require camera data. As a result, cameras are launched inside the perception docker container alongside any perception nodes. This makes it so that all nodes that require camera do not do any serialization/deserialization to get images.
@@ -37,4 +45,4 @@ To configure permanent settings for cameras, use the MVS tool located at:
 
 We use [camera_aravis2](https://github.com/FraunhoferIOSB/camera_aravis2) to communicate with Hikrobot cameras throught the GenICam standard interface.
 
-The config file located at sensor_interfacing/config/MV-CU013-80GC_master_config.mfs can be loaded in the MVS software to ensure camera settings are consistent.
+The config file located at perception_bringup/config/MV-CU013-80GC_master_config.mfs can be loaded in the MVS software to ensure camera settings are consistent.
