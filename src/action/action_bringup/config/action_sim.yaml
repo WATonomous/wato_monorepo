@@ -76,6 +76,18 @@
     footprint_x_max: 3.5
     footprint_y_max: 1.2
 
+    # Elastic band obstacle avoidance — laterally deforms the path around obstacles before
+    # velocity profiling. Falls back to stopping when the band cannot find a clear deformation.
+    elastic_band_enabled: true
+    eb_max_iterations: 50
+    eb_step_size: 0.2
+    eb_smooth_weight: 0.5
+    eb_obstacle_weight: 1.5
+    eb_anchor_weight: 0.1
+    eb_influence_radius: 2.5
+    eb_max_deviation: 1.5
+    eb_convergence_tol: 0.01
+
 # =============================================================================
 # Lattice Planning Markers
 # =============================================================================

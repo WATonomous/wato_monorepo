@@ -31,3 +31,16 @@ trajectory_planner_node:
     footprint_y_min: -1.2    # right side
     footprint_x_max: 3.5     # front bumper
     footprint_y_max: 1.2     # left side
+
+    # Elastic band obstacle avoidance — laterally deforms the path around obstacles before
+    # velocity profiling. Falls back to stopping (see stop_distance above) when the band cannot
+    # find a clear deformation.
+    elastic_band_enabled: true
+    eb_max_iterations: 50        # max gradient-descent iterations per deformation
+    eb_step_size: 0.2            # gradient step applied to the combined force each iteration
+    eb_smooth_weight: 0.5        # internal contraction force pulling points onto a smooth curve
+    eb_obstacle_weight: 1.5      # repulsion force pushing points away from nearby obstacles
+    eb_anchor_weight: 0.1        # force pulling points back toward the original path
+    eb_influence_radius: 2.5     # (m) obstacle repulsion falls off to zero beyond this range
+    eb_max_deviation: 1.5        # (m) cap on lateral deviation from the original path
+    eb_convergence_tol: 0.01     # (m) stop iterating once max per-iteration displacement is below this
