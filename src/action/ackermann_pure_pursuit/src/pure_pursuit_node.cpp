@@ -41,7 +41,6 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("controller_status_topic", "controller_status");
   declare_parameter("odom_topic", "odom");
   declare_parameter("base_frame", "base_footprint");
-  declare_parameter("reference_frame", "rear_axle");
   declare_parameter("rear_axle_frame", "rear_axle");
   declare_parameter("front_axle_frame", "front_axle");
   declare_parameter("standby_msg", "standby");
@@ -114,11 +113,7 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
       current_speed_ = msg->twist.twist.linear.x;
     });
 
-  // Allow the tuning knobs to be adjusted live without a relaunch.
-  param_callback_handle_ =
-    add_on_set_parameters_callback(std::bind(&PurePursuitNode::onParameterChange, this, std::placeholders::_1));
-
-  RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz, reference frame '%s'", control_rate_hz_, reference_frame_.c_str());
+  RCLCPP_INFO(get_logger(), "Configured: control at %.1f Hz, reference frame '%s'", control_rate_hz_, rear_axle_frame_.c_str());
   return CallbackReturn::SUCCESS;
 }
 
@@ -130,7 +125,6 @@ void PurePursuitNode::loadParameters()
   idle_topic_ = get_parameter("idle_topic").as_string();
   controller_status_topic_ = get_parameter("controller_status_topic").as_string();
   base_frame_ = get_parameter("base_frame").as_string();
-  reference_frame_ = get_parameter("reference_frame").as_string();
   rear_axle_frame_ = get_parameter("rear_axle_frame").as_string();
   front_axle_frame_ = get_parameter("front_axle_frame").as_string();
   standby_msg_ = get_parameter("standby_msg").as_string();
@@ -171,49 +165,6 @@ void PurePursuitNode::loadParameters()
   idle_timeout_sec_ = get_parameter("idle_timeout_sec").as_double();
   invert_steering_ = get_parameter("invert_steering").as_bool();
   disable_standby_ = get_parameter("disable_standby").as_bool();
-}
-
-rcl_interfaces::msg::SetParametersResult PurePursuitNode::onParameterChange(
-  const std::vector<rclcpp::Parameter> & params)
-{
-  // Update the numeric/boolean tuning knobs live. Topic/frame names are only
-  // consumed at configure time, so changing them here has no effect until reconfigure.
-  for (const auto & p : params) {
-    const auto & name = p.get_name();
-    if (name == "lookahead_distance") lookahead_distance_ = p.as_double();
-    else if (name == "min_lookahead_distance") min_lookahead_distance_ = p.as_double();
-    else if (name == "lookahead_time") lookahead_time_ = p.as_double();
-    else if (name == "curvature_lookahead_gain") curvature_lookahead_gain_ = p.as_double();
-    else if (name == "speed_lookahead_distance") speed_lookahead_distance_ = p.as_double();
-    else if (name == "speed_lookahead_time") speed_lookahead_time_ = p.as_double();
-    else if (name == "steering_angle_gain") steering_angle_gain_ = p.as_double();
-    else if (name == "max_steering_angle") max_steering_angle_ = p.as_double();
-    else if (name == "max_steering_rate") max_steering_rate_ = p.as_double();
-    else if (name == "max_speed") max_speed_ = p.as_double();
-    else if (name == "min_speed") min_speed_ = p.as_double();
-    else if (name == "max_lateral_accel") max_lateral_accel_ = p.as_double();
-    else if (name == "max_accel") max_accel_ = p.as_double();
-    else if (name == "max_decel") max_decel_ = p.as_double();
-    else if (name == "enable_stanley_blend") enable_stanley_blend_ = p.as_bool();
-    else if (name == "stanley_gain") stanley_gain_ = p.as_double();
-    else if (name == "stanley_softening") stanley_softening_ = p.as_double();
-    else if (name == "stanley_speed_threshold") stanley_speed_threshold_ = p.as_double();
-    else if (name == "enable_disengage") enable_disengage_ = p.as_bool();
-    else if (name == "max_cross_track_error") max_cross_track_error_ = p.as_double();
-    else if (name == "max_heading_error") max_heading_error_ = p.as_double();
-    else if (name == "disengage_debounce_sec") disengage_debounce_sec_ = p.as_double();
-    else if (name == "disengage_latch") disengage_latch_ = p.as_bool();
-    else if (name == "disengage_speed") disengage_speed_ = p.as_double();
-    else if (name == "standby_speed") standby_speed_ = p.as_double();
-    else if (name == "standby_steering") standby_steering_ = p.as_double();
-    else if (name == "idle_timeout_sec") idle_timeout_sec_ = p.as_double();
-    else if (name == "invert_steering") invert_steering_ = p.as_bool();
-    else if (name == "disable_standby") disable_standby_ = p.as_bool();
-  }
-
-  rcl_interfaces::msg::SetParametersResult result;
-  result.successful = true;
-  return result;
 }
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
@@ -322,10 +273,10 @@ bool PurePursuitNode::buildPathInReferenceFrame(
   // applied to every point. Fails atomically if the transform is unavailable.
   geometry_msgs::msg::TransformStamped tf;
   try {
-    tf = tf_buffer_->lookupTransform(reference_frame_, traj.header.frame_id, tf2::TimePointZero);
+    tf = tf_buffer_->lookupTransform(rear_axle_frame_, traj.header.frame_id, tf2::TimePointZero);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000, "Cannot transform trajectory to %s: %s", reference_frame_.c_str(), ex.what());
+      get_logger(), *get_clock(), 2000, "Cannot transform trajectory to %s: %s", rear_axle_frame_.c_str(), ex.what());
     return false;
   }
 
@@ -380,7 +331,7 @@ void PurePursuitNode::publishStandby()
 
   wato_trajectory_msgs::msg::ControllerStatus status;
   status.header.stamp = now();
-  status.header.frame_id = reference_frame_;
+  status.header.frame_id = rear_axle_frame_;
   status.commanded_speed = standby_speed_;
   status.commanded_steering = invert_steering_ ? -standby_steering_ : standby_steering_;
   status.disengaged = false;
@@ -496,13 +447,12 @@ void PurePursuitNode::controlCallback()
     }
   }
 
-  // --- Disengage monitor (Phase 4) ---
+  // --- Disengage monitor (Phase 4): advisory only ---
+  // Detects (debounced) that tracking has degraded and reports it via
+  // ControllerStatus.disengaged. It deliberately does NOT alter the command or mask
+  // the controller out of the mux — acting on the recommendation (driver takeover /
+  // OSCC disable) is left to a higher-level supervisor.
   bool disengaged = updateDisengage(over, reason, t_now);
-  if (disengaged) {
-    // Safe output: straighten and decelerate; yield to the mux via is_idle.
-    desired_steering = 0.0;
-    desired_speed = disengage_speed_;
-  }
 
   // --- Command shaping (Phase 3b/3c): accel/decel and steering-rate slew limits ---
   double steering = desired_steering;
@@ -517,15 +467,17 @@ void PurePursuitNode::controlCallback()
   }
 
   // --- Publish command + idle + status ---
+  // Actively tracking: not idle. The disengage recommendation is advisory (see below)
+  // and must not mask the controller, so is_idle stays false here regardless.
   std_msgs::msg::Bool idle_msg;
-  idle_msg.data = disengaged;
+  idle_msg.data = false;
   idle_pub_->publish(idle_msg);
 
   publishAckermannMsg(base_frame_, speed, steering, invert_steering_);
 
   wato_trajectory_msgs::msg::ControllerStatus status;
   status.header.stamp = t_now;
-  status.header.frame_id = reference_frame_;
+  status.header.frame_id = rear_axle_frame_;
   status.cross_track_error = err.valid ? err.cross_track : 0.0;
   status.heading_error = err.valid ? err.heading : 0.0;
   status.lookahead_distance = ld_eff;

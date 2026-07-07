@@ -4,7 +4,7 @@ ROS2 lifecycle node that tracks a trajectory using the pure pursuit algorithm, p
 
 ## Overview
 
-The pure pursuit node receives a planned trajectory, transforms each waypoint into the vehicle's **rear-axle reference frame** (once per cycle), selects a lookahead point, and computes the steering angle and speed via the pure pursuit geometric algorithm. The lookahead distance is adapted to speed and path curvature, speed is limited by a lateral-acceleration budget, and the steering/speed commands are rate-limited for smoothness. Each cycle it measures cross-track and heading error and, if either exceeds a tunable threshold for a sustained window, **disengages** — commanding a safe output and yielding to the ackermann mux — while publishing a rich `ControllerStatus` telemetry message. It publishes an idle signal and standby Ackermann commands when no valid trajectory is available, the trajectory has gone stale, or the behaviour tree requests standby.
+The pure pursuit node receives a planned trajectory, transforms each waypoint into the vehicle's **rear-axle reference frame** (once per cycle), selects a lookahead point, and computes the steering angle and speed via the pure pursuit geometric algorithm. The lookahead distance is adapted to speed and path curvature, speed is limited by a lateral-acceleration budget, and the steering/speed commands are rate-limited for smoothness. Each cycle it measures cross-track and heading error and, if either exceeds a tunable threshold for a sustained window, **raises a disengage recommendation** in its `ControllerStatus` telemetry. This is advisory only: the controller keeps tracking normally and does not alter its command, yield the mux, or talk to the OSCC layer — acting on the recommendation is left to a higher-level supervisor. It publishes an idle signal and standby Ackermann commands when no valid trajectory is available, the trajectory has gone stale, or the behaviour tree requests standby.
 
 **Current Status**: Adaptive pure pursuit controller with rear-axle geometry, TF-based wheelbase measurement, model-aware variable lookahead, curvature/accel-limited speed control, command-rate limiting, an optional low-speed Stanley cross-track blend, a debounced disengage monitor, and live-reconfigurable parameters.
 
@@ -22,7 +22,7 @@ The pure pursuit node receives a planned trajectory, transforms each waypoint in
 | Topic | Type | Description |
 |-------|------|-------------|
 | `/action/ackermann` | `ackermann_msgs/AckermannDriveStamped` | Steering angle and speed command |
-| `/action/is_idle` | `std_msgs/Bool` | `true` when idle, in standby, or disengaged |
+| `/action/is_idle` | `std_msgs/Bool` | `true` when idle or in standby (the disengage monitor does **not** raise this) |
 | `controller_status` | `wato_trajectory_msgs/ControllerStatus` | Per-cycle tracking error, effective lookahead, path curvature, commands, and disengage state/reason |
 
 Also subscribes to `odom` (`nav_msgs/Odometry`) for the current longitudinal speed used by the adaptive lookahead and speed scheduling.
@@ -31,7 +31,7 @@ Also subscribes to `odom` (`nav_msgs/Odometry`) for the current longitudinal spe
 
 Parameters are loaded from `config/params.yaml` under the namespace `action/pure_pursuit_node/ros__parameters`.
 
-Parameters can be adjusted live via a parameter callback (`ros2 param set`) without relaunching; topic/frame names take effect only on (re)configure.
+Parameters are read once in `on_configure`. To change them at runtime, transition the lifecycle node back through `cleanup` → `configure` (which reloads `config/params.yaml`), as with the other action nodes.
 
 **Topics / frames**
 
@@ -39,8 +39,8 @@ Parameters can be adjusted live via a parameter callback (`ros2 param set`) with
 |-----------|------|---------|-------------|
 | `controller_status_topic` | string | `"controller_status"` | Topic for the `ControllerStatus` telemetry |
 | `base_frame` | string | `"base_footprint"` | Frame stamped on published Ackermann commands |
-| `reference_frame` | string | `"rear_axle"` | Frame the pure-pursuit geometry and tracking error are computed in |
-| `rear_axle_frame` / `front_axle_frame` | string | `"rear_axle"` / `"front_axle"` | Frames for the TF wheelbase measurement |
+| `rear_axle_frame` | string | `"rear_axle"` | Frame the pure-pursuit geometry and tracking error are computed in; also one end of the TF wheelbase measurement |
+| `front_axle_frame` | string | `"front_axle"` | Other end of the TF wheelbase measurement |
 | `standby_msg` | string | `"standby"` | Behaviour string that triggers standby output |
 
 **Adaptive lookahead**
@@ -83,7 +83,7 @@ Parameters can be adjusted live via a parameter callback (`ros2 param set`) with
 | `max_heading_error` | double | `0.6` | Heading error that (sustained) trips a disengage (rad) |
 | `disengage_debounce_sec` | double | `0.5` | How long the error must be exceeded before tripping (s) |
 | `disengage_latch` | bool | `false` | `true` = stay disengaged until reconfigured; `false` = auto-recover |
-| `disengage_speed` | double | `0.0` | Safe speed target once disengaged (m/s) |
+| `disengage_speed` | double | `0.0` | Safe speed commanded when no valid lookahead point exists (m/s) |
 
 **Standby / misc**
 
@@ -102,11 +102,11 @@ Parameters can be adjusted live via a parameter callback (`ros2 param set`) with
 ### Control Flow
 
 1. **Idle / standby** — if no/empty/stale trajectory, empty behaviour string, or (unless `disable_standby`) the behaviour equals `standby_msg`, publish `is_idle = true`, a standby Ackermann command, and a `ControllerStatus` with `reason = "idle"`; the command-shaping state is reset so re-engagement is smooth.
-2. **Track** — otherwise transform the trajectory into `reference_frame` (one TF lookup) and run the pipeline below.
+2. **Track** — otherwise transform the trajectory into `rear_axle_frame` (one TF lookup) and run the pipeline below.
 
 ### Rear-axle geometry
 
-Trajectory points are transformed into `reference_frame` (default `rear_axle`), the textbook reference point for pure pursuit — the rear axle traces the arc to the lookahead point. Measuring from `base_footprint` would add the base-to-axle offset and bias curvature, worst in tight turns.
+Trajectory points are transformed into `rear_axle_frame` (default `rear_axle`), the textbook reference point for pure pursuit — the rear axle traces the arc to the lookahead point. Measuring from `base_footprint` would add the base-to-axle offset and bias curvature, worst in tight turns.
 
 ### Tracking error
 
@@ -124,7 +124,7 @@ Steering is then the pure-pursuit law about the rear axle:
 
 $$\delta = k_\delta \cdot \arctan\left(L \cdot \frac{2y}{x^2 + y^2}\right)$$
 
-where $L$ is the wheelbase, $(x, y)$ is the lookahead point in `reference_frame`, and $k_\delta$ is `steering_angle_gain`. Steering is clamped to `±max_steering_angle` and slew-limited by `max_steering_rate`.
+where $L$ is the wheelbase, $(x, y)$ is the lookahead point in `rear_axle_frame`, and $k_\delta$ is `steering_angle_gain`. Steering is clamped to `±max_steering_angle` and slew-limited by `max_steering_rate`.
 
 ### Speed control
 
@@ -136,7 +136,7 @@ When `enable_stanley_blend` is set, a Stanley-style cross-track correction `-ata
 
 ### Disengage monitor
 
-If cross-track or heading error exceeds its threshold continuously for `disengage_debounce_sec`, the controller disengages: it commands a straightened, decelerating-to-`disengage_speed` output, sets `is_idle = true` (so the [ackermann_mux](../../interfacing/ackermann_mux) priority/emergency path takes over), and publishes `ControllerStatus.disengaged = true` with the tripping `reason`. The debounce rejects single-cycle spikes from TF/localization jitter. With `disengage_latch = false` the controller auto-recovers when error returns within bounds; with `true` it stays disengaged until reconfigured.
+If cross-track or heading error exceeds its threshold continuously for `disengage_debounce_sec`, the monitor raises a disengage **recommendation**: it publishes `ControllerStatus.disengaged = true` with the tripping `reason`. This is **advisory only** — the controller keeps tracking normally and does *not* alter its command, raise `is_idle`, yield to the [ackermann_mux](../../interfacing/ackermann_mux), or talk to the OSCC layer. Acting on the recommendation (driver takeover, OSCC disable, mux handoff) is left to a higher-level supervisor that consumes the flag. The debounce rejects single-cycle spikes from TF/localization jitter. With `disengage_latch = false` the flag clears when error returns within bounds; with `true` it stays raised until reconfigured.
 
 ### Wheelbase Measurement
 

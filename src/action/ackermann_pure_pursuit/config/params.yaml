@@ -9,9 +9,8 @@ action:
       controller_status_topic: "controller_status"
       odom_topic: "odom"
       base_frame: "base_footprint"
-      reference_frame: "rear_axle"      # frame the pure-pursuit geometry is computed in
-      rear_axle_frame: "rear_axle"
-      front_axle_frame: "front_axle"
+      rear_axle_frame: "rear_axle"      # pure-pursuit geometry is computed in this frame; also one end of the wheelbase TF
+      front_axle_frame: "front_axle"    # other end of the wheelbase TF measurement
       standby_msg: "standby"
 
       # --- Adaptive lookahead ---
@@ -41,7 +40,7 @@ action:
       stanley_speed_threshold: 2.0      # blend fades out above this speed (m/s)
 
       # --- Disengage monitor ---
-      enable_disengage: true
+      enable_disengage: false            # just publishes a disengage message for now
       max_cross_track_error: 1.5        # m
       max_heading_error: 0.6            # rad
       disengage_debounce_sec: 0.5       # sustained-error window before tripping (s)

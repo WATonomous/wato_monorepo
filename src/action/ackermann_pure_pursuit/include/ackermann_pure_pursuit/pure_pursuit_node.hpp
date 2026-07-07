@@ -25,7 +25,6 @@
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
@@ -59,9 +58,8 @@ private:
   void publishAckermannMsg(std::string frame_id, double speed, double steering_angle, bool invert_steering = false);
   void publishStandby();
   void loadParameters();
-  rcl_interfaces::msg::SetParametersResult onParameterChange(const std::vector<rclcpp::Parameter> & params);
 
-  // Transform the trajectory into `reference_frame_`. Returns false if the TF is unavailable.
+  // Transform the trajectory into `rear_axle_frame_`. Returns false if the TF is unavailable.
   bool buildPathInReferenceFrame(
     const wato_trajectory_msgs::msg::Trajectory & traj,
     std::vector<math::Vec2> & path_out,
@@ -78,7 +76,6 @@ private:
   std::string idle_topic_;
   std::string controller_status_topic_;
   std::string base_frame_;
-  std::string reference_frame_;
   std::string rear_axle_frame_;
   std::string front_axle_frame_;
   std::string standby_msg_;
@@ -141,7 +138,6 @@ private:
   rclcpp::Subscription<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr bt_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::TimerBase::SharedPtr control_timer_;
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
 
   // State
   wato_trajectory_msgs::msg::Trajectory::SharedPtr latest_trajectory_;
