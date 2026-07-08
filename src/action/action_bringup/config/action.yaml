@@ -132,29 +132,61 @@
 # =============================================================================
 /**/pure_pursuit_node:
   ros__parameters:
+    # Topics / frames
     trajectory_topic: "trajectory"
     bt_topic: "execute_behaviour"
     ackermann_topic: "ackermann"
     idle_topic: "is_idle"
+    controller_status_topic: "controller_status"
+    odom_topic: "odom"
     base_frame: "base_footprint"
     rear_axle_frame: "rear_axle"
     front_axle_frame: "front_axle"
-    odom_topic: "odom"
-    lookahead_distance: 30.0
-    min_lookahead_distance: 2.5
-    lookahead_gain: 2.0
-    steering_angle_gain: 1.0
-    max_speed: 6.0
-    min_speed: 0.0
+    standby_msg: "standby"
+
+    # --- Adaptive lookahead ---
+    lookahead_distance: 10.0           # maximum lookahead (m)
+    min_lookahead_distance: 3.0       # minimum lookahead (m)
+    lookahead_time: 1.5               # time-headway: ld = lookahead_time * speed (s)
+    curvature_lookahead_gain: 2.0     # shrink ld in curves: ld_eff = ld / (1 + gain*|kappa|)
+    curvature_est_arc: 1.5            # half-window arc length for curvature estimation (m)
+    speed_lookahead_distance: 1.0     # minimum distance ahead used to sample target speed (m)
+    speed_lookahead_time: 2.0         # time-headway for the speed sample horizon (s)
+
+    # --- Steering ---
+    steering_angle_gain: 0.5
+    max_steering_angle: 0.5           # rad
+    max_steering_rate: 0.3            # rad/s
+
+    # --- Speed ---
+    max_speed: 5.0                    # m/s
+    min_speed: 0.0                    # m/s
+    max_lateral_accel: 2.0            # m/s^2, cornering-speed budget
+    max_accel: 1.5                    # m/s^2, command slew up
+    max_decel: 3.0                    # m/s^2, command slew down
+
+    # --- Low-speed cross-track blend (Stanley) ---
+    enable_stanley_blend: false
+    stanley_gain: 0.5
+    stanley_softening: 1.0
+    stanley_speed_threshold: 2.0      # blend fades out above this speed (m/s)
+
+    # --- Disengage monitor (advisory only) ---
+    enable_disengage: false
+    max_cross_track_error: 1.5        # m
+    max_heading_error: 0.6            # rad
+    disengage_debounce_sec: 0.5
+    disengage_latch: false
+    disengage_speed: 0.0
+
+    # --- Standby / misc (eve car values) ---
     standby_speed: -0.5
     standby_steering: 0.0
     control_rate_hz: 20.0
     wheelbase_fallback: 2.5667
-    max_steering_angle: 2.0
     idle_timeout_sec: 2.0
     invert_steering: true
     disable_standby: false
-    speed_lookahead_distance: 0.1  # Distance (m) ahead of ego to sample trajectory speed
 
 # =============================================================================
 # MPC Controller (used by action_mpc.launch.yaml)
