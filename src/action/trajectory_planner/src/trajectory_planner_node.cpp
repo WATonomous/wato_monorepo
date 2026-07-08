@@ -56,6 +56,13 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("footprint_y_min", -1.2);
   declare_parameter("footprint_x_max", 3.5);
   declare_parameter("footprint_y_max", 1.2);
+
+  // Naive lateral obstacle avoidance (elastic shift). max_lateral_shift == 0.0 disables it.
+  declare_parameter("max_lateral_shift", 0.8);
+  declare_parameter("lateral_search_step", 0.1);
+  declare_parameter("lateral_clearance_margin", 0.3);
+  declare_parameter("lateral_transition_distance", 5.0);
+  declare_parameter("lateral_preferred_side", std::string("left"));
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -89,6 +96,13 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   // aligned with path pose orientation at runtime
   std::string footprint_frame = get_parameter("footprint_frame").as_string();
   (void)footprint_frame;  // used as configuration documentation; TF lookup deferred
+
+  config.max_lateral_shift = get_parameter("max_lateral_shift").as_double();
+  config.lateral_search_step = get_parameter("lateral_search_step").as_double();
+  config.lateral_clearance_margin = get_parameter("lateral_clearance_margin").as_double();
+  config.lateral_transition_distance = get_parameter("lateral_transition_distance").as_double();
+  std::string lateral_preferred_side = get_parameter("lateral_preferred_side").as_string();
+  config.lateral_preferred_side_sign = (lateral_preferred_side == "right") ? -1.0 : 1.0;
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
@@ -198,7 +212,8 @@ void TrajectoryPlannerNode::update_trajectory()
 
   // Transform path to costmap frame if the frames differ
   nav_msgs::msg::Path transformed_path = *latest_path_;
-  if (latest_path_->header.frame_id != latest_costmap_->header.frame_id) {
+  const bool frames_differ = latest_path_->header.frame_id != latest_costmap_->header.frame_id;
+  if (frames_differ) {
     try {
       // Check if transform is available before attempting lookup
       if (!tf_buffer_->canTransform(
@@ -237,10 +252,26 @@ void TrajectoryPlannerNode::update_trajectory()
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
-  // Publish trajectory in the original path frame (map) so it doesn't drift with the ego frame
+  // Publish trajectory in the original path frame. If the path was transformed into the
+  // costmap frame above, the (possibly laterally-deformed) trajectory points computed by
+  // core_ are in that same costmap frame — transform them back rather than substituting the
+  // original, undeformed path poses, which would silently erase any lateral shift.
   traj.header.frame_id = latest_path_->header.frame_id;
-  for (size_t i = 0; i < traj.points.size() && i < latest_path_->poses.size(); ++i) {
-    traj.points[i].pose = latest_path_->poses[i].pose;
+  if (frames_differ) {
+    try {
+      geometry_msgs::msg::TransformStamped inverse_transform = tf_buffer_->lookupTransform(
+        latest_path_->header.frame_id, latest_costmap_->header.frame_id, tf2::TimePointZero);
+      for (auto & point : traj.points) {
+        geometry_msgs::msg::PoseStamped in_pose;
+        in_pose.pose = point.pose;
+        geometry_msgs::msg::PoseStamped out_pose;
+        tf2::doTransform(in_pose, out_pose, inverse_transform);
+        point.pose = out_pose.pose;
+      }
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_ERROR(get_logger(), "Inverse transform error: %s", ex.what());
+      return;
+    }
   }
 
   // Publish trajectory

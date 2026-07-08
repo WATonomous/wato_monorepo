@@ -36,6 +36,16 @@ struct TrajectoryConfig
   double footprint_y_min;  // right extent (m)
   double footprint_x_max;  // front extent (m)
   double footprint_y_max;  // left extent (m)
+
+  // Naive lateral obstacle avoidance ("elastic" shift). 0.0 disables the feature and
+  // reproduces exact longitudinal-only behavior — also the safe default for these
+  // otherwise-uninitialized POD fields when a test constructs TrajectoryConfig{} without
+  // setting them.
+  double max_lateral_shift{0.0};           // max lateral deviation from centerline (m)
+  double lateral_search_step{0.1};         // step size for the perpendicular clearance search (m)
+  double lateral_clearance_margin{0.3};    // extra buffer beyond the lethal cell (m)
+  double lateral_transition_distance{5.0}; // arc length over which the shift ramps in/out (m)
+  double lateral_preferred_side_sign{1.0}; // +1 = prefer left on an exact tie, -1 = prefer right
 };
 
 class TrajectoryCore
@@ -69,7 +79,31 @@ public:
     const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap);
 
 private:
-  int8_t get_max_footprint_cost(double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap) const;
+  int8_t get_max_footprint_cost(
+    double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap,
+    double lateral_margin = 0.0) const;
+
+  /**
+   * @brief Per-point signed lateral offset (left-positive, relative to path tangent) needed
+   * to clear a lethal obstacle; 0.0 where the point is already clear. Contiguous blocked
+   * points are resolved to a single avoidance side per run.
+   */
+  std::vector<double> compute_required_lateral_offsets(
+    const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap) const;
+
+  /**
+   * @brief Slope-limited dilation of raw_offsets so the shift ramps in/out over
+   * config_.lateral_transition_distance without ever undershooting the raw requirement.
+   */
+  std::vector<double> smooth_lateral_offsets(
+    const nav_msgs::msg::Path & path, const std::vector<double> & raw_offsets) const;
+
+  /**
+   * @brief Applies smoothed per-point lateral offsets to produce shifted (x, y), and
+   * recomputes yaw/orientation from the shifted point sequence itself.
+   */
+  nav_msgs::msg::Path apply_lateral_offsets(
+    const nav_msgs::msg::Path & path, const std::vector<double> & smoothed_offsets) const;
 
   TrajectoryConfig config_;
 };

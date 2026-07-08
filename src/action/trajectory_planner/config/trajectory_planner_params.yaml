@@ -31,3 +31,11 @@ trajectory_planner_node:
     footprint_y_min: -1.2    # right side
     footprint_x_max: 3.5     # front bumper
     footprint_y_max: 1.2     # left side
+
+    # Lateral obstacle avoidance (naive elastic shift). Costmap-only — not lanelet/HD-map
+    # aware. Set max_lateral_shift to 0.0 to disable and fall back to pure braking.
+    max_lateral_shift: 0.8            # Max lateral deviation from centerline (m)
+    lateral_search_step: 0.1          # Step size for the perpendicular clearance search (m)
+    lateral_clearance_margin: 0.3     # Extra buffer beyond the lethal cell (m)
+    lateral_transition_distance: 5.0  # Arc length over which the shift ramps in/out (m)
+    lateral_preferred_side: "left"    # Tie-break side when both directions clear equally ("left"/"right")

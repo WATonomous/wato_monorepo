@@ -40,11 +40,22 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
   wato_trajectory_msgs::msg::Trajectory trajectory;
   trajectory.header = path.header;
 
-  std::optional<double> obstacle_dist = find_first_collision(path, costmap);
-
   if (path.poses.empty()) {
     return trajectory;
   }
+
+  // Naive (costmap-only) lateral obstacle avoidance: shift waypoints away from lethal
+  // costmap cells and re-smooth back to the original centerline afterward. Disabled by
+  // config_.max_lateral_shift == 0.0, which reproduces the exact prior longitudinal-only
+  // behavior.
+  nav_msgs::msg::Path working_path = path;
+  if (config_.max_lateral_shift > 0.0) {
+    auto raw_offsets = compute_required_lateral_offsets(path, costmap);
+    auto smoothed_offsets = smooth_lateral_offsets(path, raw_offsets);
+    working_path = apply_lateral_offsets(path, smoothed_offsets);
+  }
+
+  std::optional<double> obstacle_dist = find_first_collision(working_path, costmap);
 
   auto yaw_from_pose = [](const geometry_msgs::msg::Pose & p) {
     const auto & q = p.orientation;
@@ -54,10 +65,10 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
   double effective_max_speed = std::max(0.0, limit_speed);
   double dist_along_path = 0.0;
   double prev_speed = current_speed;
-  auto prev_pos = path.poses.front().pose.position;
+  auto prev_pos = working_path.poses.front().pose.position;
 
-  for (size_t i = 0; i < path.poses.size(); ++i) {
-    const auto & pos = path.poses[i].pose.position;
+  for (size_t i = 0; i < working_path.poses.size(); ++i) {
+    const auto & pos = working_path.poses[i].pose.position;
 
     double curr_dx = pos.x - prev_pos.x;
     double curr_dy = pos.y - prev_pos.y;
@@ -77,8 +88,8 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     }
 
     if (i > 0 && segment_dist > 1e-9) {
-      double yaw_curr = yaw_from_pose(path.poses[i].pose);
-      double yaw_prev = yaw_from_pose(path.poses[i - 1].pose);
+      double yaw_curr = yaw_from_pose(working_path.poses[i].pose);
+      double yaw_prev = yaw_from_pose(working_path.poses[i - 1].pose);
       double delta_theta = std::fabs(std::remainder(yaw_curr - yaw_prev, 2.0 * M_PI));
       if (delta_theta > 1e-6) {
         double radius = segment_dist / delta_theta;
@@ -109,7 +120,7 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     }
 
     // Scale speed down for non-lethal costmap costs
-    double yaw = yaw_from_pose(path.poses[i].pose);
+    double yaw = yaw_from_pose(working_path.poses[i].pose);
     int8_t cost = get_max_footprint_cost(pos.x, pos.y, yaw, costmap);
     if (cost > 0 && cost < LETHAL_COST) {
       double cost_scale = 1.0 - static_cast<double>(cost) / LETHAL_COST;
@@ -120,7 +131,7 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     prev_speed = target_speed;
 
     wato_trajectory_msgs::msg::TrajectoryPoint point;
-    point.pose = path.poses[i].pose;
+    point.pose = working_path.poses[i].pose;
     point.max_speed = target_speed;
     trajectory.points.push_back(point);
   }
@@ -129,8 +140,8 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
   // in advance of curves, obstacles, and stops instead of braking suddenly.
   if (trajectory.points.size() >= 2) {
     for (int i = static_cast<int>(trajectory.points.size()) - 2; i >= 0; --i) {
-      double dx = path.poses[i + 1].pose.position.x - path.poses[i].pose.position.x;
-      double dy = path.poses[i + 1].pose.position.y - path.poses[i].pose.position.y;
+      double dx = working_path.poses[i + 1].pose.position.x - working_path.poses[i].pose.position.x;
+      double dy = working_path.poses[i + 1].pose.position.y - working_path.poses[i].pose.position.y;
       double seg = std::hypot(dx, dy);
       if (seg > 1e-9) {
         double next_speed = trajectory.points[i + 1].max_speed;
@@ -212,7 +223,8 @@ std::optional<double> TrajectoryCore::find_first_collision(
 }
 
 int8_t TrajectoryCore::get_max_footprint_cost(
-  double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap) const
+  double x, double y, double yaw, const nav_msgs::msg::OccupancyGrid & costmap,
+  double lateral_margin) const
 {
   double map_ox = costmap.info.origin.position.x;
   double map_oy = costmap.info.origin.position.y;
@@ -236,21 +248,252 @@ int8_t TrajectoryCore::get_max_footprint_cost(
     return get_cost(wx, wy);
   };
 
+  const double y_min = config_.footprint_y_min - lateral_margin;
+  const double y_max = config_.footprint_y_max + lateral_margin;
+
   int8_t max_cost = 0;
 
   // Sample the four corners
-  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, config_.footprint_y_max));
-  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, config_.footprint_y_min));
-  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_min, config_.footprint_y_max));
-  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_min, config_.footprint_y_min));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, y_max));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, y_min));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_min, y_max));
+  max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_min, y_min));
 
   // Sample along the front edge
-  for (double ly = config_.footprint_y_min; ly <= config_.footprint_y_max + 1e-9; ly += res) {
-    double clamped_ly = std::min(ly, config_.footprint_y_max);
+  for (double ly = y_min; ly <= y_max + 1e-9; ly += res) {
+    double clamped_ly = std::min(ly, y_max);
     max_cost = std::max(max_cost, footprint_cost(config_.footprint_x_max, clamped_ly));
   }
 
   return max_cost;
+}
+
+std::vector<double> TrajectoryCore::compute_required_lateral_offsets(
+  const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap) const
+{
+  const size_t n = path.poses.size();
+  std::vector<double> need(n, 0.0);
+  if (n == 0) {
+    return need;
+  }
+
+  // Tangent yaw at each point via central difference of the ORIGINAL path positions.
+  std::vector<double> yaw(n, 0.0);
+  for (size_t i = 0; i < n; ++i) {
+    size_t a = (i == 0) ? 0 : i - 1;
+    size_t b = (i + 1 < n) ? i + 1 : n - 1;
+    double dx = path.poses[b].pose.position.x - path.poses[a].pose.position.x;
+    double dy = path.poses[b].pose.position.y - path.poses[a].pose.position.y;
+    yaw[i] = (std::hypot(dx, dy) > 1e-9) ? std::atan2(dy, dx) : 0.0;
+  }
+
+  std::vector<bool> blocked(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    const auto & pos = path.poses[i].pose.position;
+    blocked[i] = get_max_footprint_cost(pos.x, pos.y, yaw[i], costmap) >= LETHAL_COST;
+  }
+
+  // Signed-offset magnitude (>=0) needed at point i on a given side (+1 left, -1 right) to
+  // clear the footprint (with clearance margin), or nullopt if not clearable within
+  // max_lateral_shift.
+  auto required_offset_on_side = [&](size_t i, double side) -> std::optional<double> {
+    const auto & pos = path.poses[i].pose.position;
+    double nx = -std::sin(yaw[i]);
+    double ny = std::cos(yaw[i]);
+    for (double d = config_.lateral_search_step; d <= config_.max_lateral_shift + 1e-9;
+         d += config_.lateral_search_step)
+    {
+      double shifted_x = pos.x + side * d * nx;
+      double shifted_y = pos.y + side * d * ny;
+      if (get_max_footprint_cost(shifted_x, shifted_y, yaw[i], costmap, config_.lateral_clearance_margin) <
+          LETHAL_COST)
+      {
+        return d;
+      }
+    }
+    return std::nullopt;
+  };
+
+  size_t i = 0;
+  while (i < n) {
+    if (!blocked[i]) {
+      ++i;
+      continue;
+    }
+
+    size_t run_start = i;
+    size_t run_end = i;
+    while (run_end + 1 < n && blocked[run_end + 1]) {
+      ++run_end;
+    }
+    const size_t run_len = run_end - run_start + 1;
+
+    // Resolve ONE avoidance side for the whole run so a single obstacle never produces
+    // conflicting left/right offsets. Prefer whichever side needs the smaller max offset to
+    // fully clear the run; fall back to lateral_preferred_side_sign only on an exact tie, or
+    // to whichever side clears more of the run if neither fully clears within
+    // max_lateral_shift (the residual lethal cells are still caught by find_first_collision
+    // on the deformed path, so braking still engages).
+    double left_max = 0.0, right_max = 0.0;
+    size_t left_cleared = 0, right_cleared = 0;
+    std::vector<double> left_needed(run_len, config_.max_lateral_shift);
+    std::vector<double> right_needed(run_len, config_.max_lateral_shift);
+
+    for (size_t k = run_start; k <= run_end; ++k) {
+      size_t idx = k - run_start;
+      if (auto left = required_offset_on_side(k, 1.0)) {
+        left_needed[idx] = *left;
+        left_max = std::max(left_max, *left);
+        ++left_cleared;
+      }
+      if (auto right = required_offset_on_side(k, -1.0)) {
+        right_needed[idx] = *right;
+        right_max = std::max(right_max, *right);
+        ++right_cleared;
+      }
+    }
+
+    const bool left_full = (left_cleared == run_len);
+    const bool right_full = (right_cleared == run_len);
+
+    bool use_left;
+    if (left_full && right_full) {
+      use_left =
+        (left_max < right_max) || (left_max == right_max && config_.lateral_preferred_side_sign >= 0.0);
+    } else if (left_full) {
+      use_left = true;
+    } else if (right_full) {
+      use_left = false;
+    } else {
+      use_left = left_cleared >= right_cleared;
+    }
+
+    for (size_t k = run_start; k <= run_end; ++k) {
+      size_t idx = k - run_start;
+      double magnitude = use_left ? left_needed[idx] : right_needed[idx];
+      need[k] = (use_left ? 1.0 : -1.0) * magnitude;
+    }
+
+    i = run_end + 1;
+  }
+
+  return need;
+}
+
+std::vector<double> TrajectoryCore::smooth_lateral_offsets(
+  const nav_msgs::msg::Path & path, const std::vector<double> & raw_offsets) const
+{
+  const size_t n = raw_offsets.size();
+  std::vector<double> smoothed(n, 0.0);
+  if (n == 0) {
+    return smoothed;
+  }
+
+  const double slope = (config_.lateral_transition_distance > 1e-9)
+    ? config_.max_lateral_shift / config_.lateral_transition_distance
+    : std::numeric_limits<double>::max();
+
+  auto seg_dist = [&](size_t a, size_t b) {
+    double dx = path.poses[b].pose.position.x - path.poses[a].pose.position.x;
+    double dy = path.poses[b].pose.position.y - path.poses[a].pose.position.y;
+    return std::hypot(dx, dy);
+  };
+
+  // Forward pass: decays magnitude at `slope` per meter traveled since the nearest run,
+  // carrying the run's sign forward with it. Guarantees fwd_mag[i] >= |raw_offsets[i]|.
+  std::vector<double> fwd_mag(n, 0.0), fwd_sign(n, 0.0);
+  double running_mag = 0.0, running_sign = 0.0;
+  for (size_t i = 0; i < n; ++i) {
+    double magnitude = std::fabs(raw_offsets[i]);
+    if (i > 0) {
+      running_mag = std::max(running_mag - slope * seg_dist(i - 1, i), 0.0);
+    }
+    if (magnitude >= running_mag) {
+      running_mag = magnitude;
+      if (raw_offsets[i] != 0.0) {
+        running_sign = (raw_offsets[i] > 0.0) ? 1.0 : -1.0;
+      }
+    }
+    fwd_mag[i] = running_mag;
+    fwd_sign[i] = running_sign;
+  }
+
+  // Backward pass: identical logic, iterating from the end.
+  std::vector<double> bwd_mag(n, 0.0), bwd_sign(n, 0.0);
+  running_mag = 0.0;
+  running_sign = 0.0;
+  for (size_t idx = 0; idx < n; ++idx) {
+    size_t i = n - 1 - idx;
+    double magnitude = std::fabs(raw_offsets[i]);
+    if (idx > 0) {
+      running_mag = std::max(running_mag - slope * seg_dist(i, i + 1), 0.0);
+    }
+    if (magnitude >= running_mag) {
+      running_mag = magnitude;
+      if (raw_offsets[i] != 0.0) {
+        running_sign = (raw_offsets[i] > 0.0) ? 1.0 : -1.0;
+      }
+    }
+    bwd_mag[i] = running_mag;
+    bwd_sign[i] = running_sign;
+  }
+
+  // Combine: envelope is the max of the two independent monotone-decay passes. This
+  // guarantees |smoothed[i]| >= |raw_offsets[i]| everywhere (no undershoot at any
+  // originally-blocked point) and a bounded ramp rate between consecutive points.
+  for (size_t i = 0; i < n; ++i) {
+    smoothed[i] = (fwd_mag[i] >= bwd_mag[i]) ? fwd_sign[i] * fwd_mag[i] : bwd_sign[i] * bwd_mag[i];
+  }
+
+  return smoothed;
+}
+
+nav_msgs::msg::Path TrajectoryCore::apply_lateral_offsets(
+  const nav_msgs::msg::Path & path, const std::vector<double> & smoothed_offsets) const
+{
+  nav_msgs::msg::Path shifted = path;
+  const size_t n = shifted.poses.size();
+  if (n == 0) {
+    return shifted;
+  }
+
+  // Tangent yaw from the ORIGINAL path (matches compute_required_lateral_offsets).
+  std::vector<double> yaw(n, 0.0);
+  for (size_t i = 0; i < n; ++i) {
+    size_t a = (i == 0) ? 0 : i - 1;
+    size_t b = (i + 1 < n) ? i + 1 : n - 1;
+    double dx = path.poses[b].pose.position.x - path.poses[a].pose.position.x;
+    double dy = path.poses[b].pose.position.y - path.poses[a].pose.position.y;
+    yaw[i] = (std::hypot(dx, dy) > 1e-9) ? std::atan2(dy, dx) : 0.0;
+  }
+
+  for (size_t i = 0; i < n; ++i) {
+    double nx = -std::sin(yaw[i]);
+    double ny = std::cos(yaw[i]);
+    shifted.poses[i].pose.position.x = path.poses[i].pose.position.x + smoothed_offsets[i] * nx;
+    shifted.poses[i].pose.position.y = path.poses[i].pose.position.y + smoothed_offsets[i] * ny;
+  }
+
+  // Recompute yaw/orientation from the SHIFTED sequence itself (central difference) so
+  // downstream curvature-based lateral-accel speed limiting sees orientation consistent
+  // with the new geometry. Quaternion built manually to keep this file free of ROS/tf2
+  // dependencies (pure computation, per the class's existing design).
+  double prev_yaw = yaw[0];
+  for (size_t i = 0; i < n; ++i) {
+    size_t a = (i == 0) ? 0 : i - 1;
+    size_t b = (i + 1 < n) ? i + 1 : n - 1;
+    double dx = shifted.poses[b].pose.position.x - shifted.poses[a].pose.position.x;
+    double dy = shifted.poses[b].pose.position.y - shifted.poses[a].pose.position.y;
+    double new_yaw = (std::hypot(dx, dy) > 1e-9) ? std::atan2(dy, dx) : prev_yaw;
+    prev_yaw = new_yaw;
+
+    shifted.poses[i].pose.orientation.x = 0.0;
+    shifted.poses[i].pose.orientation.y = 0.0;
+    shifted.poses[i].pose.orientation.z = std::sin(new_yaw / 2.0);
+    shifted.poses[i].pose.orientation.w = std::cos(new_yaw / 2.0);
+  }
+
+  return shifted;
 }
 
 }  // namespace trajectory_planner
