@@ -5,9 +5,11 @@
 | File | Purpose |
 |------|---------|
 | `interfacing.launch.yaml` | Full stack: sensors + CAN/control + healthchecker |
-| `interfacing_sensors.launch.yaml` | GPS, LiDARs, cameras only |
+| `interfacing_sensors.launch.yaml` | GPS, LiDARs, TF |
 | `interfacing_can.launch.yaml` | Joystick, mux, PID, OSCC, CAN state estimator |
-| `interfacing_bag.launch.yaml` | Bag recording launch for various sensor configs |
+
+> Bag recording lives in `perception_bringup` (`perception_bag.launch.yaml`),
+> since the cameras are NITROS nodes that run in the perception container.
 
 ### interfacing_can.launch.yaml arguments
 
@@ -98,5 +100,5 @@ Third-party drivers are available as rosdep keys — no source build needed:
 | Sensor | rosdep key | Setup guide |
 |--------|-----------|-------------|
 | Novatel OEM7 | `novatel-oem7-driver` | [GPS bringup](../sensor_interfacing/docs/gps_bringup.md) |
-| FLIR Blackfly GigE | `flir-camera-driver` | [Camera bringup](../sensor_interfacing/docs/camera_bringup.md) |
+| FLIR Blackfly GigE | `flir-camera-driver` | [Camera bringup](../../perception/perception_bringup/docs/camera_bringup.md) |
 | Velodyne VLP32C/VLP16 | `velodyne` | [LiDAR bringup](../sensor_interfacing/docs/lidar_bringup.md) |
