@@ -54,6 +54,13 @@
     toggle_vibration_intensity: 1.0
     toggle_vibration_duration_ms: 150
 
+    # deadman press/release smoothing (steering only — throttle stays instant
+    # for safety). Independent of the OSCC arm/disarm ramp in oscc_interfacing.
+    enable_deadman_ramp: true
+    deadman_engage_ramp_ms: 600.0
+    deadman_disengage_ramp_ms: 600.0
+    ramp_timer_hz: 50.0
+
 # Ackermann Mux
 /**/ackermann_mux:
   ros__parameters:
@@ -184,6 +191,12 @@
     emergency:
       steering: 0.0
       forward: 0.0
+
+    # Handover smoothing: blends from the previous winner's last published
+    # command to the new winner's live command whenever priority handover
+    # changes (e.g. PID creep -> joystick), instead of stepping instantly.
+    enable_handover_ramp: true
+    handover_ramp_ms: 600.0
 
     inputs:
       joystick:

@@ -228,13 +228,12 @@ void VelDrivenFeedforwardPidNode::steering_feedback_callback(const roscco_msg::m
 
 void VelDrivenFeedforwardPidNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
-  if (velocity_source_ == VelocitySource::ODOM) {
-    return;  // Locked to odometry source
-  }
-
-  if (velocity_source_ == VelocitySource::NONE) {
+  // CAN is always authoritative: (re)claim the source on every CAN message,
+  // even if odom_feedback_callback() won a startup race and claimed it first.
+  // Once CAN has published, odom_feedback_callback() permanently ignores odometry.
+  if (velocity_source_ != VelocitySource::CAN) {
     velocity_source_ = VelocitySource::CAN;
-    RCLCPP_INFO(this->get_logger(), "Velocity source locked to CAN (Float64)");
+    RCLCPP_INFO(this->get_logger(), "Velocity source (re)locked to CAN (Float64)");
   }
 
   velocity_meas_ = msg->data;
@@ -244,13 +243,15 @@ void VelDrivenFeedforwardPidNode::velocity_feedback_callback(const std_msgs::msg
 
 void VelDrivenFeedforwardPidNode::odom_feedback_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
+  // Odometry is a bootstrap fallback only, used before the first CAN sample
+  // arrives. Once CAN has ever published, permanently ignore odometry.
   if (velocity_source_ == VelocitySource::CAN) {
-    return;  // Locked to CAN source
+    return;
   }
 
   if (velocity_source_ == VelocitySource::NONE) {
     velocity_source_ = VelocitySource::ODOM;
-    RCLCPP_INFO(this->get_logger(), "Velocity source locked to Odometry");
+    RCLCPP_INFO(this->get_logger(), "Velocity source locked to Odometry (CAN not yet available)");
   }
 
   double vx = msg->twist.twist.linear.x;

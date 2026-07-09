@@ -15,6 +15,7 @@
 #include "joystick_interfacing/joystick_interfacing.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <memory>
 
@@ -45,6 +46,11 @@ JoystickNode::JoystickNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("toggle_vibration_intensity", 0.5);
   this->declare_parameter<int>("toggle_vibration_duration_ms", 100);
 
+  this->declare_parameter<bool>("enable_deadman_ramp", true);
+  this->declare_parameter<double>("deadman_engage_ramp_ms", 600.0);
+  this->declare_parameter<double>("deadman_disengage_ramp_ms", 600.0);
+  this->declare_parameter<double>("ramp_timer_hz", 50.0);
+
   RCLCPP_INFO(this->get_logger(), "JoystickNode created (unconfigured)");
 }
 
@@ -70,6 +76,16 @@ JoystickNode::CallbackReturn JoystickNode::on_configure(const rclcpp_lifecycle::
 
   toggle_vibration_intensity_ = this->get_parameter("toggle_vibration_intensity").as_double();
   toggle_vibration_duration_ms_ = this->get_parameter("toggle_vibration_duration_ms").as_int();
+
+  enable_deadman_ramp_ = this->get_parameter("enable_deadman_ramp").as_bool();
+  deadman_engage_ramp_ms_ = this->get_parameter("deadman_engage_ramp_ms").as_double();
+  deadman_disengage_ramp_ms_ = this->get_parameter("deadman_disengage_ramp_ms").as_double();
+  ramp_timer_hz_ = this->get_parameter("ramp_timer_hz").as_double();
+
+  if (deadman_engage_ramp_ms_ <= 0.0 || deadman_disengage_ramp_ms_ <= 0.0 || ramp_timer_hz_ <= 0.0) {
+    RCLCPP_WARN(this->get_logger(), "deadman ramp params must be > 0, disabling deadman ramp");
+    enable_deadman_ramp_ = false;
+  }
 
   // Setup publishers
   ackermann_drive_stamped_pub_ =
@@ -109,6 +125,12 @@ JoystickNode::CallbackReturn JoystickNode::on_configure(const rclcpp_lifecycle::
 JoystickNode::CallbackReturn JoystickNode::on_activate(const rclcpp_lifecycle::State & /*state*/)
 {
   RCLCPP_INFO(this->get_logger(), "Activated");
+
+  const auto period = std::chrono::duration<double>(1.0 / ramp_timer_hz_);
+  ramp_timer_ = this->create_wall_timer(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+    std::bind(&JoystickNode::ramp_timer_callback, this));
+
   return CallbackReturn::SUCCESS;
 }
 
@@ -120,6 +142,11 @@ JoystickNode::CallbackReturn JoystickNode::on_deactivate(const rclcpp_lifecycle:
   if (vibration_timer_) {
     vibration_timer_->cancel();
     vibration_timer_.reset();
+  }
+
+  if (ramp_timer_) {
+    ramp_timer_->cancel();
+    ramp_timer_.reset();
   }
 
   return CallbackReturn::SUCCESS;
@@ -140,6 +167,7 @@ JoystickNode::CallbackReturn JoystickNode::on_cleanup(const rclcpp_lifecycle::St
   is_armed_sub_.reset();
   arm_client_.reset();
   vibration_timer_.reset();
+  ramp_timer_.reset();
 
   // Reset state
   use_roscco_topic_ = false;
@@ -148,6 +176,14 @@ JoystickNode::CallbackReturn JoystickNode::on_cleanup(const rclcpp_lifecycle::St
   prev_arming_button_pressed_ = false;
   vibration_pulses_remaining_ = 0;
   vibration_on_ = false;
+
+  deadman_state_ = DeadmanState::DISABLED;
+  steering_authority_ = 0.0f;
+  engage_initial_scale_ = 0.0f;
+  disengage_initial_scale_ = 0.0f;
+  prev_enable_pressed_ = false;
+  last_steer_raw_ = 0.0;
+  last_throttle_raw_ = 0.0;
 
   return CallbackReturn::SUCCESS;
 }
@@ -160,6 +196,10 @@ JoystickNode::CallbackReturn JoystickNode::on_shutdown(const rclcpp_lifecycle::S
   if (vibration_timer_) {
     vibration_timer_->cancel();
     vibration_timer_.reset();
+  }
+  if (ramp_timer_) {
+    ramp_timer_->cancel();
+    ramp_timer_.reset();
   }
 
   joy_sub_.reset();
@@ -191,12 +231,110 @@ bool JoystickNode::get_button(const sensor_msgs::msg::Joy & msg, int button_inde
   return msg.buttons[button_index] != 0;
 }
 
-void JoystickNode::publish_neutral_state(bool is_idle)
+void JoystickNode::begin_engage()
 {
-  publish_ackermann_idle_state(is_idle);
-  publish_roscco_idle_state(true);  // not providing ROSCCO commands when neutral
-  publish_state(JoystickState::NULL_STATE);
-  publish_zero_command();
+  if (!enable_deadman_ramp_) {
+    deadman_state_ = DeadmanState::ENGAGED;
+    steering_authority_ = 1.0f;
+    return;
+  }
+  engage_initial_scale_ = steering_authority_;  // resume from current authority, don't restart from 0
+  engage_start_time_ = this->now();
+  deadman_state_ = DeadmanState::ENGAGING;
+}
+
+void JoystickNode::begin_disengage()
+{
+  if (!enable_deadman_ramp_) {
+    deadman_state_ = DeadmanState::DISABLED;
+    steering_authority_ = 0.0f;
+    return;
+  }
+  disengage_initial_scale_ = steering_authority_;
+  disengage_start_time_ = this->now();
+  deadman_state_ = DeadmanState::DISENGAGING;
+}
+
+void JoystickNode::tick_engage()
+{
+  if (deadman_state_ != DeadmanState::ENGAGING) {
+    return;
+  }
+  const double elapsed_ms = (this->now() - engage_start_time_).seconds() * 1000.0;
+  const double frac = std::clamp(elapsed_ms / deadman_engage_ramp_ms_, 0.0, 1.0);
+  steering_authority_ =
+    static_cast<float>(engage_initial_scale_ + (1.0 - engage_initial_scale_) * frac);
+  if (frac >= 1.0) {
+    steering_authority_ = 1.0f;
+    deadman_state_ = DeadmanState::ENGAGED;
+  }
+}
+
+void JoystickNode::tick_disengage()
+{
+  if (deadman_state_ != DeadmanState::DISENGAGING) {
+    return;
+  }
+  const double elapsed_ms = (this->now() - disengage_start_time_).seconds() * 1000.0;
+  const double frac = std::clamp(elapsed_ms / deadman_disengage_ramp_ms_, 0.0, 1.0);
+  steering_authority_ = static_cast<float>(disengage_initial_scale_ * (1.0 - frac));
+  if (frac >= 1.0) {
+    steering_authority_ = 0.0f;
+    deadman_state_ = DeadmanState::DISABLED;
+  }
+}
+
+float JoystickNode::engage_authority_scale() const
+{
+  return steering_authority_;
+}
+
+bool JoystickNode::is_deadman_idle() const
+{
+  return deadman_state_ == DeadmanState::DISABLED;
+}
+
+void JoystickNode::publish_scaled_command(double steer_raw, double throttle_raw, bool enable_held)
+{
+  const bool idle = is_deadman_idle();
+  const float steer_scale = engage_authority_scale();
+
+  if (use_roscco_topic_) {
+    const double steering_angle = std::clamp(steer_raw, -1.0, 1.0) * roscco_max_steering_angle_ * steer_scale;
+    const double speed = enable_held ? std::clamp(throttle_raw, -1.0, 1.0) * roscco_max_speed_ : 0.0;
+
+    roscco_msg::msg::Roscco cmd_stamped;
+    cmd_stamped.header.stamp = this->now();
+    cmd_stamped.steering = steering_angle;
+    cmd_stamped.forward = speed;
+    roscco_joystick_pub_->publish(cmd_stamped);
+  } else {
+    const double steering_angle = std::clamp(steer_raw, -1.0, 1.0) * ackermann_max_steering_angle_ * steer_scale;
+    const double speed = enable_held ? std::clamp(throttle_raw, -1.0, 1.0) * ackermann_max_speed_ : 0.0;
+
+    ackermann_msgs::msg::AckermannDriveStamped cmd_stamped;
+    cmd_stamped.header.stamp = this->now();
+    cmd_stamped.drive.steering_angle = steering_angle;
+    cmd_stamped.drive.speed = speed;
+    ackermann_drive_stamped_pub_->publish(cmd_stamped);
+  }
+
+  publish_state(
+    idle ? JoystickState::NULL_STATE : (use_roscco_topic_ ? JoystickState::ROSSCO : JoystickState::ACKERMANN));
+  // Idle/mask topics track steering-ramp completion, not the raw deadman bit, so
+  // oscc_mux/ackermann_mux keep relaying this input until the ramp-down finishes.
+  publish_ackermann_idle_state(use_roscco_topic_ || idle);
+  publish_roscco_idle_state(!use_roscco_topic_ || idle);
+}
+
+void JoystickNode::ramp_timer_callback()
+{
+  if (deadman_state_ != DeadmanState::ENGAGING && deadman_state_ != DeadmanState::DISENGAGING) {
+    return;  // steady state — joy_callback already publishes on message arrival
+  }
+  tick_engage();
+  tick_disengage();
+  publish_scaled_command(last_steer_raw_, last_throttle_raw_, prev_enable_pressed_);
 }
 
 void JoystickNode::publish_ackermann_idle_state(bool is_idle)
@@ -350,16 +488,8 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
   }
   prev_arming_button_pressed_ = arming_button_pressed;
 
-  // Safety gating — enable must be held
-  // If enable is not held, fully disarm and stop.
-  if (!enable_pressed) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 10000, "Safety not met (enable_axis=false) -> publishing zero command");
-    publish_neutral_state(true);
-    return;
-  }
-
-  // Read + process axes
+  // Read + process axes (unconditionally — throttle needs this even while
+  // disabled so it can react instantly the moment enable is (re)pressed).
   double steer = get_axis(*msg, steering_axis_);
   double throttle = get_axis(*msg, throttle_axis_);
 
@@ -371,30 +501,25 @@ void JoystickNode::joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg)
     throttle = -throttle;
   }
 
-  if (use_roscco_topic_) {
-    // Scale to physical commands
-    const double steering_angle = std::clamp(steer, -1.0, 1.0) * roscco_max_steering_angle_;
-    const double speed = std::clamp(throttle, -1.0, 1.0) * roscco_max_speed_;
+  last_steer_raw_ = steer;
+  last_throttle_raw_ = throttle;
 
-    roscco_msg::msg::Roscco cmd_stamped;
-    cmd_stamped.header.stamp = this->now();
-    cmd_stamped.steering = steering_angle;
-    cmd_stamped.forward = speed;
-    roscco_joystick_pub_->publish(cmd_stamped);
-  } else {
-    // Scale to physical commands
-    const double steering_angle = std::clamp(steer, -1.0, 1.0) * ackermann_max_steering_angle_;
-    const double speed = std::clamp(throttle, -1.0, 1.0) * ackermann_max_speed_;
-    ackermann_msgs::msg::AckermannDriveStamped cmd_stamped;
-    cmd_stamped.header.stamp = this->now();
-    cmd_stamped.drive.steering_angle = steering_angle;
-    cmd_stamped.drive.speed = speed;
-    ackermann_drive_stamped_pub_->publish(cmd_stamped);
+  // Deadman (enable-axis) edge detection drives a steering-only smoothing ramp,
+  // independent of arm/disarm. Throttle is NOT ramped — it must cut instantly on
+  // release and resume instantly on press, since the deadman switch's core job is
+  // an immediate propulsion cutoff (see begin_engage/begin_disengage doc comments).
+  if (enable_pressed && !prev_enable_pressed_) {
+    begin_engage();
+  } else if (!enable_pressed && prev_enable_pressed_) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 10000, "Safety not met (enable_axis=false) -> ramping steering to zero");
+    begin_disengage();
   }
+  prev_enable_pressed_ = enable_pressed;
 
-  publish_state(use_roscco_topic_ ? JoystickNode::JoystickState::ROSSCO : JoystickNode::JoystickState::ACKERMANN);
-  publish_ackermann_idle_state(use_roscco_topic_);  // ackermann mux: idle when in ROSCCO mode
-  publish_roscco_idle_state(!use_roscco_topic_);  // oscc mux: idle when in Ackermann mode
+  tick_engage();
+  tick_disengage();
+  publish_scaled_command(last_steer_raw_, last_throttle_raw_, enable_pressed);
 }
 
 }  // namespace joystick_node
