@@ -1,3 +1,34 @@
 ---
 bevfusion_node:
   ros__parameters:
+    # Directory containing all TensorRT .plan and .onnx engine files
+    # Place model files at: /opt/watonomous/models/bevfusion/resnet50/
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50"
+
+    # Camera frame IDs — must match the 6 nuScenes-layout cameras on Eve
+    camera_names:
+      - "camera_pano_nn"
+      - "camera_pano_ne"
+      - "camera_pano_nw"
+      - "camera_pano_ss"
+      - "camera_pano_se"
+      - "camera_pano_sw"
+
+    # Detection confidence threshold — boxes below this score are discarded
+    confidence_threshold: 0.3
+
+    # Subscriber topic names
+    topic_multi_image: "/multi_camera_sync/multi_image_compressed"
+    topic_lidar: "/lidar/all/points_merged"
+    topic_camera_info: "/multi_camera_sync/multi_camera_info"
+
+    # ApproximateTime synchronization
+    sync_queue_size: 10
+    sync_max_time_diff_ms: 200.0
+
+    # QoS
+    qos_subscriber_reliability: "best_effort"
+    qos_subscriber_depth: 10
+    qos_publisher_reliability: "reliable"
+    qos_publisher_durability: "transient_local"
+    qos_publisher_depth: 10

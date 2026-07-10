@@ -173,4 +173,14 @@ ament_export_dependencies(
   OpenCV
 )
 
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+  add_wato_test(test_bevfusion_params
+    test/test_bevfusion_params.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_node
+      ${PROJECT_NAME}_wato_core
+  )
+endif()
+
 ament_package()

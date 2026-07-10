@@ -57,8 +57,6 @@ BEVFusionNode::BEVFusionNode(const rclcpp::NodeOptions & options)
 
 void BEVFusionNode::declareParameters()
 {
-  BEVFusionInputConfig config;
-  core_ = std::make_unique<BEVFusionCore>(config);
   /**
    * TODO(bevfusion_team)
    * Declare all ROS 2 parameters (like model paths, camera topic names, and
@@ -73,6 +71,46 @@ void BEVFusionNode::declareParameters()
       qos_subscriber_reliability (string) — "best_effort"
       qos_publisher_reliability  (string) — "reliable"
    */
+
+  // Precondition:  Node is in unconfigured state; no parameters declared yet; core_ is null.
+  // Postcondition: BEVFusion-specific ROS 2 parameters declared with defaults; core_ constructed
+  //                with a BEVFusionInputConfig whose plan paths are derived from model_dir and
+  //                whose confidence_threshold matches the declared parameter.
+  //                sync/QoS params are handled separately in on_configure.
+  // Testing:       Construct node with rclcpp::NodeOptions().append_parameter_override(...),
+  //                call on_configure(), then verify get_parameter("model_dir").as_string()
+  //                returns the override and core_ is non-null. See test/test_bevfusion_params.cpp.
+
+  // Directory containing all .plan and .onnx engine files for the model
+  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50");
+  const std::string model_dir = this->get_parameter("model_dir").as_string();
+
+  // Detection confidence — bounding boxes below this score are discarded
+  this->declare_parameter<double>("confidence_threshold", 0.3);
+  const double confidence_threshold = this->get_parameter("confidence_threshold").as_double();
+
+  // Camera frame IDs — used by on_activate for TF lookups and subscriber topic construction
+  this->declare_parameter<std::vector<std::string>>(
+    "camera_names",
+    std::vector<std::string>{
+      "camera_pano_nn", "camera_pano_ne", "camera_pano_nw",
+      "camera_pano_ss", "camera_pano_se", "camera_pano_sw"});
+
+  // Subscriber topic names — must be explicit params because message_filters ignores ROS remapping
+  this->declare_parameter<std::string>("topic_multi_image", "/multi_camera_sync/multi_image_compressed");
+  this->declare_parameter<std::string>("topic_lidar", "/lidar/all/points_merged");
+  this->declare_parameter<std::string>("topic_camera_info", "/multi_camera_sync/multi_camera_info");
+
+  // Derive plan file paths from model_dir using standard CUDA-BEVFusion filenames
+  BEVFusionInputConfig config;
+  config.camera_backbone_plan  = model_dir + "/camera.backbone.plan";
+  config.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
+  config.fuser_plan            = model_dir + "/fuser.plan";
+  config.head_bbox_plan        = model_dir + "/head.bbox.plan";
+  config.lidar_backbone_onnx   = model_dir + "/lidar.backbone.onnx";
+  config.confidence_threshold  = static_cast<float>(confidence_threshold);
+
+  core_ = std::make_unique<BEVFusionCore>(config);
 }
 
 void BEVFusionNode::syncedCallback(
