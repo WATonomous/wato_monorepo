@@ -34,5 +34,11 @@ setup(
         "console_scripts": [
             "scenario_server = carla_scenarios.scenario_server_node:main",
         ],
+        "carla_scenarios.plugins": [
+            "default_scenario = carla_scenarios.scenarios.default_scenario:DefaultScenario",
+            "empty_scenario = carla_scenarios.scenarios.empty_scenario:EmptyScenario",
+            "light_traffic_scenario = carla_scenarios.scenarios.light_traffic_scenario:LightTrafficScenario",
+            "heavy_traffic_scenario = carla_scenarios.scenarios.heavy_traffic_scenario:HeavyTrafficScenario",
+        ],
     },
 )

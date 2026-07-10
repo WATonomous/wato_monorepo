@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib
+from importlib.metadata import entry_points
 from typing import Optional, Dict
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
@@ -396,14 +397,17 @@ class ScenarioServerNode(LifecycleNode):
         return response
 
     def _discover_scenarios(self):
-        """Discover available scenarios."""
-        builtin_scenarios = {
-            "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
-            "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
-            "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
-            "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
-        }
-        self.available_scenarios.update(builtin_scenarios)
+        """Discover available scenarios from all installed packages via entry points."""
+        eps = entry_points(group="carla_scenarios.plugins")
+        for ep in eps:
+            try:
+                cls = ep.load()
+                # ep.value is "module.path:ClassName" — extract the module path as the key
+                module_path = ep.value.split(":")[0]
+                description = cls().get_description()
+                self.available_scenarios[module_path] = description
+            except Exception as e:
+                self.get_logger().warn(f"Failed to load scenario plugin '{ep.name}': {e}")
 
         self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
 
