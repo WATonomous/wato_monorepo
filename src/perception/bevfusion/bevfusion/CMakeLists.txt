@@ -179,7 +179,6 @@ if(BUILD_TESTING)
     test/test_bevfusion_params.cpp
     LIBRARIES
       ${PROJECT_NAME}_node
-      ${PROJECT_NAME}_wato_core
   )
 endif()
 
