@@ -36,6 +36,7 @@ struct RclcppGuard
       rclcpp::init(0, nullptr);
     }
   }
+
   ~RclcppGuard()
   {
     if (rclcpp::ok()) {

@@ -71,8 +71,7 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<std::string>>(
     "camera_names",
     std::vector<std::string>{
-      "camera_pano_nn", "camera_pano_ne", "camera_pano_nw",
-      "camera_pano_ss", "camera_pano_se", "camera_pano_sw"});
+      "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"});
 
   // Subscriber topic names; explicit params because message_filters ignores ROS remapping
   this->declare_parameter<std::string>("topic_multi_image", "/multi_camera_sync/multi_image_compressed");
@@ -81,7 +80,7 @@ void BEVFusionNode::declareParameters()
 
   // Derive plan file paths from model_dir using standard CUDA-BEVFusion filenames
   BEVFusionInputConfig config;
-  config.camera_backbone_plan  = model_dir + "/camera.backbone.plan";
+  config.camera_backbone_plan = model_dir + "/camera.backbone.plan";
   config.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
   config.fuser_plan = model_dir + "/fuser.plan";
   config.head_bbox_plan = model_dir + "/head.bbox.plan";
