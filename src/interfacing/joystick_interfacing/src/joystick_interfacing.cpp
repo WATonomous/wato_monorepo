@@ -128,8 +128,7 @@ JoystickNode::CallbackReturn JoystickNode::on_activate(const rclcpp_lifecycle::S
 
   const auto period = std::chrono::duration<double>(1.0 / ramp_timer_hz_);
   ramp_timer_ = this->create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-    std::bind(&JoystickNode::ramp_timer_callback, this));
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&JoystickNode::ramp_timer_callback, this));
 
   return CallbackReturn::SUCCESS;
 }
@@ -262,8 +261,7 @@ void JoystickNode::tick_engage()
   }
   const double elapsed_ms = (this->now() - engage_start_time_).seconds() * 1000.0;
   const double frac = std::clamp(elapsed_ms / deadman_engage_ramp_ms_, 0.0, 1.0);
-  steering_authority_ =
-    static_cast<float>(engage_initial_scale_ + (1.0 - engage_initial_scale_) * frac);
+  steering_authority_ = static_cast<float>(engage_initial_scale_ + (1.0 - engage_initial_scale_) * frac);
   if (frac >= 1.0) {
     steering_authority_ = 1.0f;
     deadman_state_ = DeadmanState::ENGAGED;
