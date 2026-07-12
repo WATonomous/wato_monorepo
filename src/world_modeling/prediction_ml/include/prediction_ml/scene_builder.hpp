@@ -15,6 +15,7 @@
 #ifndef PREDICTION_ML__SCENE_BUILDER_HPP_
 #define PREDICTION_ML__SCENE_BUILDER_HPP_
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -66,17 +67,42 @@ private:
     std::string frame_id;
   };
 
+  struct ResampledTrack
+  {
+    std::string detection_id;
+    std::vector<std::optional<HistorySample>> samples;
+  };
+
+  struct TargetCandidate
+  {
+    HistorySample sample;
+    double distance_sq{0.0};
+    bool in_forward_region{false};
+  };
+
   static std::optional<double> timestampFromHeader(const vision_msgs::msg::Detection3DArray & detections);
   static double yawFromQuaternion(const geometry_msgs::msg::Quaternion & q);
   static std::optional<MtrObjectClass> parseObjectClass(const vision_msgs::msg::Detection3D & detection);
   static std::optional<HistorySample> sampleFromDetection(
     const vision_msgs::msg::Detection3D & detection, double timestamp, const std::string & frame_id);
+  static double clampForwardHalfAngleDeg(double half_angle_deg);
 
   void addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray & detections, double timestamp);
   void addSample(const HistorySample & sample);
   void pruneHistory(double current_time);
+  std::vector<double> desiredSampleTimes(double current_time) const;
+  std::optional<HistorySample> nearestSampleForSlot(
+    const std::vector<HistorySample> & samples, double desired_time) const;
+  std::vector<ResampledTrack> resampleTracks(
+    const std::vector<std::string> & track_ids, const std::vector<double> & desired_times) const;
+  std::vector<TargetCandidate> selectTargets(
+    const vision_msgs::msg::Detection3DArray & detections, double current_time, const geometry_msgs::msg::PoseStamped & ego_pose)
+    const;
   std::vector<std::string> orderedTrackIds() const;
-  bool hasRetainedHistory() const;
+  static int findTrackIndex(const std::vector<std::string> & track_ids, const std::string & detection_id);
+  void fillTargetContextOutputs(
+    const std::vector<TargetCandidate> & targets, const std::vector<std::string> & context_track_ids,
+    const std::vector<ResampledTrack> & resampled_tracks, MtrInputTensors & tensors) const;
 
   MtrConfig config_;
   bool config_valid_{false};
