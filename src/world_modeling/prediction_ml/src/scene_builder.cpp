@@ -18,6 +18,8 @@
 #include <array>
 #include <cmath>
 #include <cctype>
+#include <cstdint>
+#include <iterator>
 #include <string>
 #include <utility>
 
@@ -27,6 +29,8 @@ namespace
 {
 
 constexpr double kUnsetTimestamp = 0.0;
+constexpr double kPi = 3.14159265358979323846;
+constexpr double kDegToRad = kPi / 180.0;
 
 bool isFinite(const double value)
 {
@@ -97,7 +101,7 @@ void SceneBuilder::addFrame(const vision_msgs::msg::Detection3DArray & detection
 
 MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
 {
-  MtrInputTensors tensors;
+  MtrInputTensors tensors{};
   tensors.sidecar.frame_id = frame.detections.header.frame_id;
 
   if (!config_valid_) {
@@ -115,7 +119,25 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
   }
 
   pruneHistory(*current_time);
-  tensors.valid = hasRetainedHistory();
+
+  if (!frame.has_ego) {
+    return tensors;
+  }
+
+  const auto targets = selectTargets(frame.detections, *current_time, frame.ego_pose);
+  if (targets.empty()) {
+    return tensors;
+  }
+
+  const auto context_track_ids = orderedTrackIds();
+  if (context_track_ids.empty()) {
+    return tensors;
+  }
+
+  const auto desired_times = desiredSampleTimes(*current_time);
+  const auto resampled_tracks = resampleTracks(context_track_ids, desired_times);
+  fillTargetContextOutputs(targets, context_track_ids, resampled_tracks, tensors);
+  tensors.valid = !tensors.sidecar.targets.empty();
   return tensors;
 }
 
@@ -209,6 +231,17 @@ std::optional<SceneBuilder::HistorySample> SceneBuilder::sampleFromDetection(
   return sample;
 }
 
+double SceneBuilder::clampForwardHalfAngleDeg(const double half_angle_deg)
+{
+  if (!isFinite(half_angle_deg) || half_angle_deg < 0.0) {
+    return 0.0;
+  }
+  if (half_angle_deg > 180.0) {
+    return 180.0;
+  }
+  return half_angle_deg;
+}
+
 void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray & detections, const double timestamp)
 {
   if (!config_valid_ || !isUsableTimestamp(timestamp)) {
@@ -261,6 +294,150 @@ void SceneBuilder::pruneHistory(const double current_time)
   }
 }
 
+std::vector<double> SceneBuilder::desiredSampleTimes(const double current_time) const
+{
+  std::vector<double> times;
+  if (!config_valid_ || !isUsableTimestamp(current_time)) {
+    return times;
+  }
+
+  times.reserve(static_cast<std::size_t>(config_.history_steps));
+  for (int i = 0; i < config_.history_steps; ++i) {
+    const double steps_from_current = static_cast<double>(config_.history_steps - 1 - i);
+    times.push_back(current_time - steps_from_current / config_.history_rate_hz);
+  }
+  return times;
+}
+
+std::optional<SceneBuilder::HistorySample> SceneBuilder::nearestSampleForSlot(
+  const std::vector<HistorySample> & samples, const double desired_time) const
+{
+  if (samples.empty() || !isUsableTimestamp(desired_time)) {
+    return std::nullopt;
+  }
+
+  const double tolerance = 0.5 / config_.history_rate_hz;
+  const auto first_after = std::lower_bound(
+    samples.begin(), samples.end(), desired_time, [](const HistorySample & sample, const double timestamp) {
+      return sample.timestamp < timestamp;
+    });
+
+  const HistorySample * best = nullptr;
+  double best_delta = 0.0;
+
+  const auto consider = [&](const HistorySample & sample) {
+    const double delta = std::abs(sample.timestamp - desired_time);
+    if (delta > tolerance) {
+      return;
+    }
+    if (best == nullptr || delta < best_delta || (delta == best_delta && sample.timestamp > best->timestamp)) {
+      best = &sample;
+      best_delta = delta;
+    }
+  };
+
+  if (first_after != samples.end()) {
+    consider(*first_after);
+  }
+  if (first_after != samples.begin()) {
+    consider(*std::prev(first_after));
+  }
+
+  if (best == nullptr) {
+    return std::nullopt;
+  }
+  return *best;
+}
+
+std::vector<SceneBuilder::ResampledTrack> SceneBuilder::resampleTracks(
+  const std::vector<std::string> & track_ids, const std::vector<double> & desired_times) const
+{
+  std::vector<ResampledTrack> tracks;
+  tracks.reserve(track_ids.size());
+
+  for (const auto & track_id : track_ids) {
+    const auto history_it = history_.find(track_id);
+    if (history_it != history_.end()) {
+      ResampledTrack track;
+      track.detection_id = track_id;
+      track.samples.reserve(desired_times.size());
+      for (const double desired_time : desired_times) {
+        track.samples.push_back(nearestSampleForSlot(history_it->second, desired_time));
+      }
+      tracks.push_back(std::move(track));
+    }
+  }
+
+  return tracks;
+}
+
+std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
+  const vision_msgs::msg::Detection3DArray & detections, const double current_time,
+  const geometry_msgs::msg::PoseStamped & ego_pose) const
+{
+  std::vector<TargetCandidate> candidates;
+  candidates.reserve(detections.detections.size());
+
+  const auto & ego_position = ego_pose.pose.position;
+  if (!isFinite(ego_position.x) || !isFinite(ego_position.y)) {
+    return candidates;
+  }
+
+  const auto & ego_orientation = ego_pose.pose.orientation;
+  if (!isFiniteQuaternion(ego_orientation)) {
+    return candidates;
+  }
+
+  const double ego_yaw = yawFromQuaternion(ego_orientation);
+  const double cos_yaw = std::cos(ego_yaw);
+  const double sin_yaw = std::sin(ego_yaw);
+  const double half_angle_rad =
+    clampForwardHalfAngleDeg(config_.target_forward_half_angle_deg) * kDegToRad;
+
+  for (const auto & detection : detections.detections) {
+    const auto sample = sampleFromDetection(detection, current_time, detections.header.frame_id);
+    if (!sample.has_value()) {
+      continue;
+    }
+
+    if (history_.find(sample->detection_id) == history_.end()) {
+      continue;
+    }
+
+    const double dx = sample->x - ego_position.x;
+    const double dy = sample->y - ego_position.y;
+    // Ego-frame: +lon along heading, +lat to the left.
+    const double lon = dx * cos_yaw + dy * sin_yaw;
+    const double lat = -dx * sin_yaw + dy * cos_yaw;
+    const double bearing_abs = std::abs(std::atan2(lat, lon));
+
+    TargetCandidate candidate;
+    candidate.sample = *sample;
+    candidate.distance_sq = dx * dx + dy * dy;
+    candidate.in_forward_region = bearing_abs <= half_angle_rad;
+    candidates.push_back(std::move(candidate));
+  }
+
+  std::sort(candidates.begin(), candidates.end(), [](const TargetCandidate & lhs, const TargetCandidate & rhs) {
+    if (lhs.in_forward_region != rhs.in_forward_region) {
+      return lhs.in_forward_region;
+    }
+    return lhs.distance_sq < rhs.distance_sq;
+  });
+
+  if (config_.selected_target_agent_limit < 0) {
+    candidates.clear();
+    return candidates;
+  }
+
+  const auto limit = static_cast<std::size_t>(config_.selected_target_agent_limit);
+  if (candidates.size() > limit) {
+    candidates.resize(limit);
+  }
+
+  return candidates;
+}
+
 std::vector<std::string> SceneBuilder::orderedTrackIds() const
 {
   std::vector<std::string> ids;
@@ -272,9 +449,63 @@ std::vector<std::string> SceneBuilder::orderedTrackIds() const
   return ids;
 }
 
-bool SceneBuilder::hasRetainedHistory() const
+int SceneBuilder::findTrackIndex(const std::vector<std::string> & track_ids, const std::string & detection_id)
 {
-  return !history_.empty();
+  const auto it = std::find(track_ids.begin(), track_ids.end(), detection_id);
+  if (it == track_ids.end()) {
+    return -1;
+  }
+  return static_cast<int>(std::distance(track_ids.begin(), it));
+}
+
+void SceneBuilder::fillTargetContextOutputs(
+  const std::vector<TargetCandidate> & targets, const std::vector<std::string> & context_track_ids,
+  const std::vector<ResampledTrack> & resampled_tracks, MtrInputTensors & tensors) const
+{
+  const std::size_t num_targets = targets.size();
+  const std::size_t num_context = context_track_ids.size();
+  const std::size_t num_steps = static_cast<std::size_t>(config_.history_steps);
+
+  tensors.obj_trajs_mask.assign(num_targets * num_context * num_steps, 0U);
+  tensors.obj_trajs_last_pos.assign(num_targets * num_context * 3U, 0.0F);
+
+  for (std::size_t target_idx = 0; target_idx < num_targets; ++target_idx) {
+    const auto & target = targets[target_idx];
+    const int track_index = findTrackIndex(context_track_ids, target.sample.detection_id);
+    if (track_index < 0) {
+      continue;
+    }
+
+    MtrTargetSidecar sidecar;
+    sidecar.detection_id = target.sample.detection_id;
+    sidecar.track_index = track_index;
+    sidecar.center_x = target.sample.x;
+    sidecar.center_y = target.sample.y;
+    sidecar.center_heading = target.sample.heading;
+    tensors.sidecar.targets.push_back(sidecar);
+    tensors.track_index_to_predict.push_back(static_cast<int32_t>(track_index));
+
+    for (std::size_t context_idx = 0; context_idx < resampled_tracks.size(); ++context_idx) {
+      const auto & track = resampled_tracks[context_idx];
+      for (std::size_t step_idx = 0; step_idx < track.samples.size(); ++step_idx) {
+        const std::size_t mask_idx = target_idx * num_context * num_steps + context_idx * num_steps + step_idx;
+        tensors.obj_trajs_mask[mask_idx] = track.samples[step_idx].has_value() ? 1U : 0U;
+      }
+
+      for (auto sample_it = track.samples.rbegin(); sample_it != track.samples.rend(); ++sample_it) {
+        if (!sample_it->has_value()) {
+          continue;
+        }
+
+        const auto & sample = **sample_it;
+        const std::size_t pos_idx = target_idx * num_context * 3U + context_idx * 3U;
+        tensors.obj_trajs_last_pos[pos_idx] = static_cast<float>(sample.x);
+        tensors.obj_trajs_last_pos[pos_idx + 1U] = static_cast<float>(sample.y);
+        tensors.obj_trajs_last_pos[pos_idx + 2U] = static_cast<float>(sample.z);
+        break;
+      }
+    }
+  }
 }
 
 }  // namespace prediction_ml
