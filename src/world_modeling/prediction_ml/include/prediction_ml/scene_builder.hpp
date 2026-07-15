@@ -67,6 +67,13 @@ private:
     std::string frame_id;
   };
 
+  // A context track ranked by ego-frame distance for the 128-row obj_trajs dimension.
+  struct ContextTrack
+  {
+    std::string detection_id;
+    double distance_sq{0.0};
+  };
+
   struct ResampledTrack
   {
     std::string detection_id;
@@ -89,6 +96,9 @@ private:
 
   void addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray & detections, double timestamp);
   void addSample(const HistorySample & sample);
+  // Append the ego pose as an SDC track sample; velocity is finite-differenced from the
+  // previous ego sample (eventually move to odom).
+  void addEgoSample(const geometry_msgs::msg::PoseStamped & ego_pose, double timestamp);
   void pruneHistory(double current_time);
   std::vector<double> desiredSampleTimes(double current_time) const;
   std::optional<HistorySample> nearestSampleForSlot(
@@ -98,11 +108,16 @@ private:
   std::vector<TargetCandidate> selectTargets(
     const vision_msgs::msg::Detection3DArray & detections, double current_time, const geometry_msgs::msg::PoseStamped & ego_pose)
     const;
-  std::vector<std::string> orderedTrackIds() const;
+  // Rank every retained track (incl. ego) by ego-frame 2D distance_sq and return the closest
+  // kContextCapacity ids, tie-broken by detection_id ascending.
+  std::vector<std::string> contextTrackIds(const geometry_msgs::msg::PoseStamped & ego_pose) const;
   static int findTrackIndex(const std::vector<std::string> & track_ids, const std::string & detection_id);
-  void fillTargetContextOutputs(
+  // Pack obj_trajs / masks / last_pos / center_* to the fixed [8,128,T,F] contract. Returns false
+  // (hard frame failure) if any selected target is absent from the context list.
+  bool packObjectTensors(
     const std::vector<TargetCandidate> & targets, const std::vector<std::string> & context_track_ids,
-    const std::vector<ResampledTrack> & resampled_tracks, MtrInputTensors & tensors) const;
+    const std::vector<ResampledTrack> & resampled_tracks, const std::vector<double> & desired_times,
+    double current_time, MtrInputTensors & tensors) const;
 
   MtrConfig config_;
   bool config_valid_{false};
