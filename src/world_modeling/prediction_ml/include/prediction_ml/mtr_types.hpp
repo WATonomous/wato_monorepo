@@ -108,6 +108,7 @@ struct MtrInputTensors
   std::vector<float> obj_trajs_last_pos;
   std::vector<int64_t> track_index_to_predict;
   std::vector<int64_t> center_type_ids;
+  std::vector<std::string> center_objects_type;
   std::vector<float> map_polylines;
   std::vector<uint8_t> map_polylines_mask;
   std::vector<float> map_polylines_center;
