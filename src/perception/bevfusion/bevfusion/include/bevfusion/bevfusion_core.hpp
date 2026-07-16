@@ -136,6 +136,7 @@ public:
    * @param config Configuration for BEVFusion
    */
   explicit BEVFusionCore(const BEVFusionInputConfig & config);
+  ~BEVFusionCore();
 
   /**
    * @brief Create the CUDA-BEVFusion pipeline and deserialize TensorRT engines.
