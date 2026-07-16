@@ -36,6 +36,31 @@ struct TrajectoryConfig
   double footprint_y_min;  // right extent (m)
   double footprint_x_max;  // front extent (m)
   double footprint_y_max;  // left extent (m)
+
+  // A point is only considered for lateral deformation if its footprint cost exceeds this
+  // (0-99, below LETHAL_COST). Keeps the vehicle on the centerline when nothing is in the way.
+  double deformation_trigger_cost;
+  // How far left/right of centre a triggered point is allowed to search for a clear spot (m).
+  double max_lateral_shift;
+  // Spacing between candidate offsets checked during that search (m). E.g. with
+  // max_lateral_shift=0.5 and lateral_search_step=0.1, offsets -0.5, -0.4, ..., 0.5 are tried.
+  double lateral_search_step;
+
+  // How many times each point is nudged toward its neighbours' average and toward its target
+  // offset before the deformed path is finalized.
+  int deformation_iterations;
+  // If the largest change across all points in one pass is smaller than this (m), stop early
+  // instead of running the remaining iterations.
+  double deformation_convergence_tol;
+  // How strongly a point is pulled toward the average of its two neighbours each iteration.
+  // Higher values produce a smoother curve but take longer to reach the target offset.
+  double smoothing_gain;
+  // How strongly a point is pulled toward its own target offset (from the search above) each
+  // iteration. Higher values reach the target faster but with less smoothing along the way.
+  double pull_gain;
+  // Cap on how far a point's offset may change in a single iteration (m), regardless of how
+  // large smoothing_gain and pull_gain push it. Keeps the loop from overshooting or oscillating.
+  double max_step;
 };
 
 class TrajectoryCore
@@ -66,6 +91,18 @@ public:
    * @return std::optional<double> Distance in meters, or nullopt if no obstacle.
    */
   std::optional<double> find_first_collision(
+    const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap);
+
+  /**
+   * @brief Laterally deforms a path around slight costmap obstacles, then relaxes it back
+   * toward the centerline. Operates purely on a per-point lateral offset (along the local
+   * left-normal), so arc-length spacing between points is preserved.
+   *
+   * @param path The input path to deform.
+   * @param costmap The costmap used to locate obstacles.
+   * @return nav_msgs::msg::Path The deformed path (same size/header as the input).
+   */
+  nav_msgs::msg::Path deform_path(
     const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap);
 
 private:

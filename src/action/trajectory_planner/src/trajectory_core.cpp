@@ -27,6 +27,28 @@ namespace trajectory_planner
 
 static constexpr int8_t LETHAL_COST = 100;
 
+// Extracts yaw from a pose's quaternion, assuming a planar (roll = pitch = 0) orientation.
+// Shared by compute_trajectory (curvature-based speed limiting) and deform_path (computing
+// each point's left-normal direction), so it's pulled out here instead of duplicated.
+static double yaw_from_pose(const geometry_msgs::msg::Pose & p)
+{
+  const auto & q = p.orientation;
+  return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+}
+
+// Builds a planar (roll = pitch = 0) quaternion representing a rotation of `yaw` (radians)
+// about the z-axis — the inverse of yaw_from_pose above. Used by deform_path to rebuild each
+// point's orientation after its position has moved.
+static geometry_msgs::msg::Quaternion quaternion_from_yaw(double yaw)
+{
+  geometry_msgs::msg::Quaternion q;
+  q.x = 0.0;
+  q.y = 0.0;
+  q.z = std::sin(yaw * 0.5);
+  q.w = std::cos(yaw * 0.5);
+  return q;
+}
+
 TrajectoryCore::TrajectoryCore(const TrajectoryConfig & config)
 : config_(config)
 {}
@@ -40,24 +62,24 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
   wato_trajectory_msgs::msg::Trajectory trajectory;
   trajectory.header = path.header;
 
-  std::optional<double> obstacle_dist = find_first_collision(path, costmap);
-
   if (path.poses.empty()) {
     return trajectory;
   }
 
-  auto yaw_from_pose = [](const geometry_msgs::msg::Pose & p) {
-    const auto & q = p.orientation;
-    return std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-  };
+  // Nudge the path laterally around any slight obstacles first. Everything below — collision
+  // distance, braking, curvature-based speed limiting, the output poses — then operates on
+  // this deformed geometry instead of the raw planner output.
+  const nav_msgs::msg::Path deformed_path = deform_path(path, costmap);
+
+  std::optional<double> obstacle_dist = find_first_collision(deformed_path, costmap);
 
   double effective_max_speed = std::max(0.0, limit_speed);
   double dist_along_path = 0.0;
   double prev_speed = current_speed;
-  auto prev_pos = path.poses.front().pose.position;
+  auto prev_pos = deformed_path.poses.front().pose.position;
 
-  for (size_t i = 0; i < path.poses.size(); ++i) {
-    const auto & pos = path.poses[i].pose.position;
+  for (size_t i = 0; i < deformed_path.poses.size(); ++i) {
+    const auto & pos = deformed_path.poses[i].pose.position;
 
     double curr_dx = pos.x - prev_pos.x;
     double curr_dy = pos.y - prev_pos.y;
@@ -77,8 +99,8 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     }
 
     if (i > 0 && segment_dist > 1e-9) {
-      double yaw_curr = yaw_from_pose(path.poses[i].pose);
-      double yaw_prev = yaw_from_pose(path.poses[i - 1].pose);
+      double yaw_curr = yaw_from_pose(deformed_path.poses[i].pose);
+      double yaw_prev = yaw_from_pose(deformed_path.poses[i - 1].pose);
       double delta_theta = std::fabs(std::remainder(yaw_curr - yaw_prev, 2.0 * M_PI));
       if (delta_theta > 1e-6) {
         double radius = segment_dist / delta_theta;
@@ -109,7 +131,7 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     }
 
     // Scale speed down for non-lethal costmap costs
-    double yaw = yaw_from_pose(path.poses[i].pose);
+    double yaw = yaw_from_pose(deformed_path.poses[i].pose);
     int8_t cost = get_max_footprint_cost(pos.x, pos.y, yaw, costmap);
     if (cost > 0 && cost < LETHAL_COST) {
       double cost_scale = 1.0 - static_cast<double>(cost) / LETHAL_COST;
@@ -120,7 +142,7 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     prev_speed = target_speed;
 
     wato_trajectory_msgs::msg::TrajectoryPoint point;
-    point.pose = path.poses[i].pose;
+    point.pose = deformed_path.poses[i].pose;
     point.max_speed = target_speed;
     trajectory.points.push_back(point);
   }
@@ -129,8 +151,8 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
   // in advance of curves, obstacles, and stops instead of braking suddenly.
   if (trajectory.points.size() >= 2) {
     for (int i = static_cast<int>(trajectory.points.size()) - 2; i >= 0; --i) {
-      double dx = path.poses[i + 1].pose.position.x - path.poses[i].pose.position.x;
-      double dy = path.poses[i + 1].pose.position.y - path.poses[i].pose.position.y;
+      double dx = deformed_path.poses[i + 1].pose.position.x - deformed_path.poses[i].pose.position.x;
+      double dy = deformed_path.poses[i + 1].pose.position.y - deformed_path.poses[i].pose.position.y;
       double seg = std::hypot(dx, dy);
       if (seg > 1e-9) {
         double next_speed = trajectory.points[i + 1].max_speed;
@@ -209,6 +231,137 @@ std::optional<double> TrajectoryCore::find_first_collision(
   }
 
   return std::nullopt;
+}
+
+nav_msgs::msg::Path TrajectoryCore::deform_path(
+  const nav_msgs::msg::Path & path, const nav_msgs::msg::OccupancyGrid & costmap)
+{
+  // Endpoints are always pinned in place, so we need at least one interior point to move.
+  if (path.poses.size() < 3) {
+    return path;
+  }
+
+  const size_t n = path.poses.size();
+
+  // Per-point lateral offset along the left-normal, in metres. Positive = left, negative =
+  // right. Starts at zero everywhere; the endpoints (index 0 and n-1) are never touched below,
+  // so they stay pinned to zero throughout.
+  std::vector<double> offset(n, 0.0);
+
+  // Left-normal direction at each point, derived from the path's own heading. Rotating the
+  // tangent (cos(yaw), sin(yaw)) by +90 degrees gives (-sin(yaw), cos(yaw)).
+  std::vector<std::pair<double, double>> normal(n);
+  for (size_t i = 0; i < n; ++i) {
+    double yaw = yaw_from_pose(path.poses[i].pose);
+    normal[i] = {-std::sin(yaw), std::cos(yaw)};
+  }
+
+  // For each interior point, find the offset it should end up at: 0 if the point is already
+  // clear, or the cheapest non-lethal spot found by checking candidates across the full
+  // allowed range if it isn't. This runs once, up front — not repeated every smoothing
+  // iteration below — since it only depends on the original path and the costmap, neither of
+  // which change during smoothing.
+  std::vector<double> desired(n, 0.0);
+  for (size_t i = 1; i + 1 < n; ++i) {
+    const auto & pos = path.poses[i].pose.position;
+    double yaw = yaw_from_pose(path.poses[i].pose);
+
+    int8_t cost_here = get_max_footprint_cost(pos.x, pos.y, yaw, costmap);
+    if (cost_here <= config_.deformation_trigger_cost) {
+      continue;  // already clear enough — desired[i] stays 0
+    }
+
+    double best_offset = 0.0;
+    int8_t best_cost = cost_here;
+    for (double candidate = -config_.max_lateral_shift; candidate <= config_.max_lateral_shift;
+         candidate += config_.lateral_search_step)
+    {
+      double cx = pos.x + candidate * normal[i].first;
+      double cy = pos.y + candidate * normal[i].second;
+      int8_t cost = get_max_footprint_cost(cx, cy, yaw, costmap);
+      if (cost >= LETHAL_COST) {
+        continue;  // never move somewhere that would collide
+      }
+      bool cheaper = cost < best_cost;
+      bool tied_but_closer_to_centre = cost == best_cost && std::fabs(candidate) < std::fabs(best_offset);
+      if (cheaper || tied_but_closer_to_centre) {
+        best_cost = cost;
+        best_offset = candidate;
+      }
+    }
+    desired[i] = best_offset;
+  }
+
+  // Relax offset[] toward desired[] over several passes. Each point is nudged by two forces:
+  // a smoothing term that pulls it toward the average of its two neighbours (prevents kinks),
+  // and a pull term that pulls it toward its own target offset found above. A per-point safety
+  // check then rejects any single step that would land the point somewhere lethal, reverting
+  // it to its previous (already-checked-safe) offset instead.
+  for (int iter = 0; iter < config_.deformation_iterations; ++iter) {
+    double max_disp = 0.0;
+    for (size_t i = 1; i + 1 < n; ++i) {
+      double smoothing_force = config_.smoothing_gain * (offset[i - 1] + offset[i + 1] - 2.0 * offset[i]);
+      double pull_force = config_.pull_gain * (desired[i] - offset[i]);
+      double step = std::clamp(smoothing_force + pull_force, -config_.max_step, config_.max_step);
+      double new_offset = std::clamp(offset[i] + step, -config_.max_lateral_shift, config_.max_lateral_shift);
+
+      const auto & pos = path.poses[i].pose.position;
+      double yaw = yaw_from_pose(path.poses[i].pose);
+      double nx = pos.x + new_offset * normal[i].first;
+      double ny = pos.y + new_offset * normal[i].second;
+      if (get_max_footprint_cost(nx, ny, yaw, costmap) >= LETHAL_COST) {
+        new_offset = offset[i];  // this step would collide — stay at the previous, safe offset
+      }
+
+      max_disp = std::max(max_disp, std::fabs(new_offset - offset[i]));
+      offset[i] = new_offset;
+    }
+    if (max_disp < config_.deformation_convergence_tol) {
+      break;  // nothing moved meaningfully this pass — converged early
+    }
+  }
+
+  // Skip rebuilding the path if every offset is still at its initial value of zero — the
+  // common case, since offset[i] only moves for points that were triggered above.
+  double max_offset = 0.0;
+  for (double d : offset) {
+    max_offset = std::max(max_offset, std::fabs(d));
+  }
+  if (max_offset < 1e-6) {
+    return path;
+  }
+
+  // Shift every point by its final offset along its normal. Positions are done first, in their
+  // own pass, because the heading recomputed below for point i depends on point i-1 and i+1's
+  // new positions — those need to already be final before any heading is computed.
+  nav_msgs::msg::Path deformed = path;
+  for (size_t i = 0; i < n; ++i) {
+    deformed.poses[i].pose.position.x = path.poses[i].pose.position.x + offset[i] * normal[i].first;
+    deformed.poses[i].pose.position.y = path.poses[i].pose.position.y + offset[i] * normal[i].second;
+  }
+
+  // The original heading no longer matches the new tangent direction once points have moved,
+  // so recompute it from the new positions: forward difference at the first point, backward
+  // difference at the last, and a central difference (using both neighbours) everywhere else.
+  for (size_t i = 0; i < n; ++i) {
+    double yaw;
+    if (i == 0) {
+      const auto & a = deformed.poses[0].pose.position;
+      const auto & b = deformed.poses[1].pose.position;
+      yaw = std::atan2(b.y - a.y, b.x - a.x);
+    } else if (i == n - 1) {
+      const auto & a = deformed.poses[i - 1].pose.position;
+      const auto & b = deformed.poses[i].pose.position;
+      yaw = std::atan2(b.y - a.y, b.x - a.x);
+    } else {
+      const auto & a = deformed.poses[i - 1].pose.position;
+      const auto & b = deformed.poses[i + 1].pose.position;
+      yaw = std::atan2(b.y - a.y, b.x - a.x);
+    }
+    deformed.poses[i].pose.orientation = quaternion_from_yaw(yaw);
+  }
+
+  return deformed;
 }
 
 int8_t TrajectoryCore::get_max_footprint_cost(

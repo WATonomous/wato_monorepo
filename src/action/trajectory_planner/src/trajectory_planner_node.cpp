@@ -56,6 +56,16 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("footprint_y_min", -1.2);
   declare_parameter("footprint_x_max", 3.5);
   declare_parameter("footprint_y_max", 1.2);
+
+  // Elastic lateral deformation
+  declare_parameter("deformation_trigger_cost", 10.0);
+  declare_parameter("max_lateral_shift", 0.5);
+  declare_parameter("lateral_search_step", 0.1);
+  declare_parameter("deformation_iterations", 20);
+  declare_parameter("deformation_convergence_tol", 0.01);
+  declare_parameter("smoothing_gain", 0.3);
+  declare_parameter("pull_gain", 0.5);
+  declare_parameter("max_step", 0.05);
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -89,6 +99,15 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   // aligned with path pose orientation at runtime
   std::string footprint_frame = get_parameter("footprint_frame").as_string();
   (void)footprint_frame;  // used as configuration documentation; TF lookup deferred
+
+  config.deformation_trigger_cost = get_parameter("deformation_trigger_cost").as_double();
+  config.max_lateral_shift = get_parameter("max_lateral_shift").as_double();
+  config.lateral_search_step = get_parameter("lateral_search_step").as_double();
+  config.deformation_iterations = static_cast<int>(get_parameter("deformation_iterations").as_int());
+  config.deformation_convergence_tol = get_parameter("deformation_convergence_tol").as_double();
+  config.smoothing_gain = get_parameter("smoothing_gain").as_double();
+  config.pull_gain = get_parameter("pull_gain").as_double();
+  config.max_step = get_parameter("max_step").as_double();
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
@@ -237,10 +256,26 @@ void TrajectoryPlannerNode::update_trajectory()
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
-  // Publish trajectory in the original path frame (map) so it doesn't drift with the ego frame
+  // Publish trajectory in the original path frame (e.g. map) so it doesn't drift with the ego
+  // frame. The trajectory was computed in the costmap frame — and may have been laterally
+  // deformed there — so when the frames differ, transform the computed poses back into the
+  // path frame instead of discarding them in favour of the original (un-deformed) path poses.
   traj.header.frame_id = latest_path_->header.frame_id;
-  for (size_t i = 0; i < traj.points.size() && i < latest_path_->poses.size(); ++i) {
-    traj.points[i].pose = latest_path_->poses[i].pose;
+  if (latest_path_->header.frame_id != latest_costmap_->header.frame_id) {
+    try {
+      geometry_msgs::msg::TransformStamped costmap_to_path = tf_buffer_->lookupTransform(
+        latest_path_->header.frame_id, latest_costmap_->header.frame_id, tf2::TimePointZero);
+      for (auto & point : traj.points) {
+        geometry_msgs::msg::PoseStamped in_pose;
+        in_pose.pose = point.pose;
+        geometry_msgs::msg::PoseStamped out_pose;
+        tf2::doTransform(in_pose, out_pose, costmap_to_path);
+        point.pose = out_pose.pose;
+      }
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_ERROR(get_logger(), "Transform error: %s", ex.what());
+      return;
+    }
   }
 
   // Publish trajectory
