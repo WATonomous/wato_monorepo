@@ -76,17 +76,13 @@
     footprint_x_max: 3.5
     footprint_y_max: 1.2
 
-    # Elastic band obstacle avoidance — laterally deforms the path around obstacles before
-    # velocity profiling. Falls back to stopping when the band cannot find a clear deformation.
+    # Deterministic costmap-only lateral obstacle avoidance with atomic braking fallback.
     elastic_band_enabled: true
-    eb_max_iterations: 50
-    eb_step_size: 0.2
-    eb_smooth_weight: 0.5
-    eb_obstacle_weight: 1.5
-    eb_anchor_weight: 0.1
-    eb_influence_radius: 2.5
-    eb_max_deviation: 1.5
-    eb_convergence_tol: 0.01
+    eb_max_deviation: 0.8
+    eb_lateral_search_step: 0.1
+    eb_clearance_margin: 0.3
+    eb_transition_distance: 5.0
+    eb_preferred_side: "left"
 
 # =============================================================================
 # Lattice Planning Markers

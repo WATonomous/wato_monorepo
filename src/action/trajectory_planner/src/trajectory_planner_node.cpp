@@ -57,18 +57,13 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("footprint_x_max", 3.5);
   declare_parameter("footprint_y_max", 1.2);
 
-  // Elastic band obstacle avoidance — laterally deforms the path around obstacles before
-  // velocity profiling. Falls back to the existing stop-before-collision behaviour when the
-  // band cannot find a clear deformation.
+  // Deterministic costmap-only lateral obstacle avoidance.
   declare_parameter("elastic_band_enabled", true);
-  declare_parameter("eb_max_iterations", 50);
-  declare_parameter("eb_step_size", 0.2);
-  declare_parameter("eb_smooth_weight", 0.5);
-  declare_parameter("eb_obstacle_weight", 1.5);
-  declare_parameter("eb_anchor_weight", 0.1);
-  declare_parameter("eb_influence_radius", 2.5);
-  declare_parameter("eb_max_deviation", 1.5);
-  declare_parameter("eb_convergence_tol", 0.01);
+  declare_parameter("eb_max_deviation", 0.8);
+  declare_parameter("eb_lateral_search_step", 0.1);
+  declare_parameter("eb_clearance_margin", 0.3);
+  declare_parameter("eb_transition_distance", 5.0);
+  declare_parameter("eb_preferred_side", std::string("left"));
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -104,14 +99,16 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   (void)footprint_frame;  // used as configuration documentation; TF lookup deferred
 
   config.elastic_band_enabled = get_parameter("elastic_band_enabled").as_bool();
-  config.eb_max_iterations = static_cast<int>(get_parameter("eb_max_iterations").as_int());
-  config.eb_step_size = get_parameter("eb_step_size").as_double();
-  config.eb_smooth_weight = get_parameter("eb_smooth_weight").as_double();
-  config.eb_obstacle_weight = get_parameter("eb_obstacle_weight").as_double();
-  config.eb_anchor_weight = get_parameter("eb_anchor_weight").as_double();
-  config.eb_influence_radius = get_parameter("eb_influence_radius").as_double();
   config.eb_max_deviation = get_parameter("eb_max_deviation").as_double();
-  config.eb_convergence_tol = get_parameter("eb_convergence_tol").as_double();
+  config.eb_lateral_search_step = get_parameter("eb_lateral_search_step").as_double();
+  config.eb_clearance_margin = get_parameter("eb_clearance_margin").as_double();
+  config.eb_transition_distance = get_parameter("eb_transition_distance").as_double();
+  const std::string preferred_side = get_parameter("eb_preferred_side").as_string();
+  if (preferred_side != "left" && preferred_side != "right") {
+    RCLCPP_ERROR(get_logger(), "eb_preferred_side must be either 'left' or 'right'");
+    return CallbackReturn::FAILURE;
+  }
+  config.eb_preferred_side_sign = preferred_side == "left" ? 1.0 : -1.0;
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
@@ -335,7 +332,7 @@ void TrajectoryPlannerNode::update_trajectory()
 
       // Size correlates with speed
       // Base size 0.1m, scales up to 0.5m at max speed
-      double speed_ratio = std::max(0.0, std::min(1.0, point.max_speed / limit_speed));
+      double speed_ratio = limit_speed > 0.0 ? std::clamp(point.max_speed / limit_speed, 0.0, 1.0) : 0.0;
       double diameter = 0.1 + (0.4 * speed_ratio);
 
       // Only add labels for every 4th point to avoid clutter

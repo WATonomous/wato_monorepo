@@ -1,26 +1,30 @@
 # WATO Trajectory Planner
 
-The `trajectory_planner` package refines a geometric path into a velocity-profiled trajectory. Before profiling, it can laterally deform the path around obstacles with a discrete elastic band, and it checks for obstacles along the (possibly deformed) path using a vehicle footprint, smoothly decelerating when a collision is imminent.
+The `trajectory_planner` package refines a geometric path into a velocity-profiled trajectory. Before profiling, it can deterministically shift the path laterally around lethal costmap obstacles. It then checks the complete path with the vehicle footprint and smoothly decelerates when a collision remains.
 
 ## Overview
 
-The node subscribes to a path (from `local_planning`) and a costmap (from `world_modeling`). It transforms the path into the costmap frame, optionally runs the elastic band deformation stage (see below), interpolates the path at a fixed resolution, sweeps the vehicle footprint at each point, and finds the distance to the first lethal obstacle. Velocity at each point is then limited by kinematics-based braking: `v = sqrt(2 * max_tangential_accel * braking_distance)`, ensuring the vehicle can always stop in time given its current speed and max deceleration.
+The node subscribes to a path (normally from `lattice_planning`) and a costmap (from `world_modeling`). It transforms the path into the costmap frame, optionally runs the elastic trajectory stage described below, sweeps the vehicle footprint along the result, and finds the distance to the first lethal obstacle. Velocity at each point is limited by kinematics-based braking: `v = sqrt(2 * max_tangential_accel * braking_distance)`.
 
 The lane speed limit from `/world_modeling/lanelet/lane_context` further caps velocity when available.
 
-## Elastic band obstacle avoidance
+## Naive elastic trajectory obstacle avoidance
 
-Before velocity profiling, the node can run a discrete elastic band (Quinlan-Khatib style) over the path to nudge it laterally around obstacles that intersect it in the costmap, instead of only slowing down and stopping. The band is a set of interior path points, each pulled by three forces every iteration:
+When enabled, the planner:
 
-- **Smoothing force**: contracts the band toward a smooth curve through its neighbours (`eb_smooth_weight`).
-- **Obstacle repulsion force**: pushes points away from the nearest lethal costmap cell within `eb_influence_radius`, falling off linearly with distance (`eb_obstacle_weight`).
-- **Anchor force**: pulls each point back toward its original (un-deformed) position (`eb_anchor_weight`).
+1. Resamples the input at `interpolation_resolution`, preserving the exact endpoint positions.
+2. Groups intersecting lethal cells into collision clusters. Clusters whose transition regions overlap are merged so a maneuver cannot oscillate between left and right.
+3. Searches left and right in `eb_lateral_search_step` increments, up to `eb_max_deviation`. It takes the smallest clear shift and uses `eb_preferred_side` only for a tie.
+4. Applies cubic smoothstep transitions over `eb_transition_distance`, holds a constant offset beside the cluster, and returns to the original centerline. Both endpoints remain anchored.
+5. Recomputes yaw from the deformed geometry and validates the full swept footprint with `eb_clearance_margin`.
 
-Each point is stepped by `eb_step_size` times the combined force, then clamped so it never strays more than `eb_max_deviation` from the original path. The first and last points never move. Iteration stops early once the largest per-point displacement in an iteration drops below `eb_convergence_tol`, or after `eb_max_iterations`. Pose orientations are recomputed from the deformed tangent direction afterward.
+Deformation is atomic. If any cluster has no valid offset, lacks room for its transitions, or the final swept path collides, the entire deformation is discarded. Velocity profiling then uses the resampled centerline, so the existing stop-before-obstacle behavior remains the fallback. Disabling `elastic_band_enabled` bypasses both deformation and resampling, preserving the legacy geometry and waypoint count.
 
-The deformed path feeds directly into the existing collision check and velocity profiler, so if the band cannot find a clear deformation (e.g. a fully blocked corridor), `find_first_collision` still detects the obstacle on the deformed path and the vehicle stops before it — the elastic band is a best-effort refinement layered on top of the existing stop-before-collision safety behaviour, never a replacement for it.
+Only costmap cells with lethal cost `100` trigger lateral deformation. Costs `1–99` continue to reduce the velocity profile without causing a path shift.
 
-The deformed path is visualized as a green line strip (`elastic_band_path` marker namespace) alongside the speed-colored spheres, so the deviation from the original path is visible in RViz.
+This is deliberately a naive, costmap-only planner. It does not consult HD-map lane boundaries, assess whether a shift is legal, predict dynamic obstacles, or remember a side choice between planning cycles. Keep `eb_max_deviation` conservative and do not treat a geometrically clear shift as proof that it is road-legal.
+
+The selected geometry is visualized as a green line strip (`elastic_band_path` marker namespace) alongside the speed-colored spheres.
 
 ## Usage
 
@@ -29,14 +33,15 @@ ros2 launch trajectory_planner trajectory_planner.launch.yaml
 ```
 
 Topic remappings:
-- `input_path` → `/action/local_planning/path`
+
+- `input_path` → `/action/lattice_planning/path`
 - `costmap` → `/world_modeling/costmap`
 - `trajectory` → `/action/trajectory_planning/trajectory`
 - `lane_context` → `/world_modeling/lanelet/lane_context`
 
 ## Visualization
 
-Publishes `visualization_msgs/MarkerArray` on `~trajectory_markers`. Each point is rendered as a purple sphere whose diameter scales with target speed (larger = faster). The deformed path geometry is additionally rendered as a green line strip (`elastic_band_path` namespace).
+The node publishes `visualization_msgs/MarkerArray` on `~trajectory_markers`. Each point is rendered as a purple sphere whose diameter scales with target speed. The selected path geometry is additionally rendered as a green line strip in the `elastic_band_path` namespace.
 
 ## Configuration
 
@@ -46,37 +51,34 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 |-----------|---------|-------------|
 | `stop_distance` | 2.0 m | Distance to obstacle where vehicle must be fully stopped. |
 | `max_speed` | 20.0 m/s | Maximum speed when no lanelet limit is available. |
-| `max_tangential_accel` | 1.0 m/s^2 | Comfort braking deceleration for normal obstacle avoidance. |
-| `max_emergency_accel` | 5.0 m/s^2 | Emergency braking deceleration when comfort braking is insufficient. |
-| `max_lateral_accel` | 0.5 m/s^2 | Maximum lateral acceleration to slow down in curves. |
-| `interpolation_resolution` | 0.1 m | Point spacing along path for collision checking. |
-| `footprint_frame` | `base_link` | Frame in which the footprint is defined. |
-| `footprint_x_min` | -0.5 m | Rear extent of vehicle. |
-| `footprint_x_max` | 3.5 m | Front extent of vehicle (front bumper). |
-| `footprint_y_min` | -1.2 m | Right extent of vehicle. |
-| `footprint_y_max` | 1.2 m | Left extent of vehicle. |
-| `elastic_band_enabled` | true | Enables the elastic band path deformation stage described above. |
-| `eb_max_iterations` | 50 | Max gradient-descent iterations per deformation. |
-| `eb_step_size` | 0.2 | Gradient step applied to the combined force each iteration. |
-| `eb_smooth_weight` | 0.5 | Internal contraction force pulling points onto a smooth curve. |
-| `eb_obstacle_weight` | 1.5 | Repulsion force pushing points away from nearby obstacles. |
-| `eb_anchor_weight` | 0.1 | Force pulling points back toward the original path. |
-| `eb_influence_radius` | 2.5 m | Obstacle repulsion falls off to zero beyond this range. |
-| `eb_max_deviation` | 1.5 m | Cap on lateral deviation from the original path. |
-| `eb_convergence_tol` | 0.01 m | Stop iterating once max per-iteration displacement is below this. |
+| `max_tangential_accel` | 1.0 m/s² | Comfort braking deceleration. |
+| `max_emergency_accel` | 5.0 m/s² | Emergency braking deceleration when comfort braking is insufficient. |
+| `max_lateral_accel` | 0.5 m/s² | Maximum lateral acceleration used to limit curve speed. |
+| `interpolation_resolution` | 0.1 m | Spacing of the resampled path when elastic planning is enabled. |
+| `footprint_frame` | `base_link` | Frame in which the footprint extents are defined. |
+| `footprint_x_min` | -0.5 m | Rear extent of the vehicle. |
+| `footprint_x_max` | 3.5 m | Front extent of the vehicle. |
+| `footprint_y_min` | -1.2 m | Right extent of the vehicle. |
+| `footprint_y_max` | 1.2 m | Left extent of the vehicle. |
+| `elastic_band_enabled` | true | Enables resampling and deterministic lateral deformation. |
+| `eb_max_deviation` | 0.8 m | Maximum lateral shift from the input centerline. |
+| `eb_lateral_search_step` | 0.1 m | Increment used to search for the smallest clear left/right offset. |
+| `eb_clearance_margin` | 0.3 m | Extra lateral footprint clearance used during search and final validation. |
+| `eb_transition_distance` | 5.0 m | Cubic smoothstep distance before and after each collision cluster. |
+| `eb_preferred_side` | `left` | Tie-break when equal left and right offsets are valid (`left` or `right`). |
 
-### Tuning Guide
+### Tuning guide
 
-1. **Car stops too early/late**: Adjust `stop_distance` or the `footprint_x_max` to match actual front bumper position.
+1. **Car stops too early or late**: Adjust `stop_distance` or `footprint_x_max` to match the front bumper.
 2. **Car is too jerky**: Decrease `max_tangential_accel` for gentler braking.
-3. **Car clips obstacles on the sides**: Increase `footprint_y_min`/`footprint_y_max` to widen the safety corridor.
-4. **High CPU usage**: Increase `interpolation_resolution` (e.g. 0.2 m), but avoid missing narrow obstacles.
-5. **Band should dodge obstacles earlier/wider**: Raise `eb_obstacle_weight` and/or `eb_influence_radius` so points feel the repulsion sooner and more strongly.
-6. **Band leaves the intended lane/corridor**: Lower `eb_max_deviation` to bound how far it is allowed to stray from the original path — when a clear deformation would require exceeding it, the band stops short and the existing stop-before-collision fallback (`stop_distance`, `max_emergency_accel`) takes over instead.
-7. **Disable path deformation entirely**: Set `elastic_band_enabled: false` to restore the original velocity-profiler-only behaviour.
+3. **Car clips obstacles on the sides**: Correct the footprint extents or increase `eb_clearance_margin`.
+4. **High CPU usage**: Increase `interpolation_resolution`, while ensuring narrow obstacles are not skipped.
+5. **The maneuver is too abrupt**: Increase `eb_transition_distance`. If the path lacks enough room, deformation will be rejected and braking will take over.
+6. **The path shifts too far**: Lower `eb_max_deviation`; an obstacle that cannot be cleared within the bound will use the braking fallback.
+7. **Disable path deformation entirely**: Set `elastic_band_enabled: false` to restore velocity profiling on the original geometry and waypoint count.
 
 ## Troubleshooting
 
-- **No trajectory output**: Verify `input_path` and `costmap` topics are publishing and remapped correctly.
-- **"TrajectoryCore: Empty path"**: The upstream local planner is not producing a path.
-- **Collisions not detected**: Confirm the costmap contains lethal cells (cost > 100) and that TF transforms between the path frame and costmap frame are available.
+- **No trajectory output**: Verify that the input path and costmap topics are publishing and remapped correctly.
+- **Collisions are not detected**: Confirm the costmap contains lethal cells with cost `100` and that TF is available between the path and costmap frames.
+- **Planner brakes instead of shifting**: Check for a full-width obstacle, insufficient transition room near an endpoint, a required shift greater than `eb_max_deviation`, or a collision along either smoothstep ramp.
