@@ -249,3 +249,15 @@ Use these for setting `class_id` in Detection3D and marker colors.
    2. **(Recommended)** Transform the LiDAR points into `base_link` *before* passing them to BEVFusion, and ensure the `camera2lidar` matrix is actually `camera2base_link`. BEVFusion treats the "lidar" frame as just a central origin, so if everything is fed in `base_link`, it outputs in `base_link`.
 
 7. **First inference is slow**: TRT engine deserialization + warmup takes 5-15 seconds. Consider calling `core_->infer()` once with dummy data during `on_configure()` or `on_activate()` so the first real frame isn't delayed.
+
+---
+
+## Testing
+
+```bash
+colcon build --packages-up-to bevfusion --cmake-args -DBUILD_TESTING=ON
+colcon test --packages-select bevfusion
+colcon test-result --verbose
+```
+
+> **Note:** Build warnings from `bevfusion_core.cpp` (`no return statement` in stub functions) are expected until `initialize()` and `infer()` are implemented.
