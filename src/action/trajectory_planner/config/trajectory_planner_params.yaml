@@ -31,3 +31,14 @@ trajectory_planner_node:
     footprint_y_min: -1.2    # right side
     footprint_x_max: 3.5     # front bumper
     footprint_y_max: 1.2     # left side
+
+    # Elastic lateral deformation — nudges the path sideways around slight costmap obstacles
+    # before velocity profiling, then relaxes back toward the centerline
+    deformation_trigger_cost: 10.0     # costmap cost (0-99) above which a point is considered for deformation
+    max_lateral_shift: 0.5             # (m) how far from centre a triggered point may search/move
+    lateral_search_step: 0.1           # (m) candidate offset resolution for the target search
+    deformation_iterations: 20         # max smoothing/relaxation iterations
+    deformation_convergence_tol: 0.01  # (m) stop early once max per-iteration displacement is below this
+    smoothing_gain: 0.3                # pull toward the average of neighbouring offsets each iteration
+    pull_gain: 0.5                     # pull toward the target offset found by the search each iteration
+    max_step: 0.05                     # (m) cap on how far an offset may change in a single iteration

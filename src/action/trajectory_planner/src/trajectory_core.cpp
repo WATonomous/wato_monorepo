@@ -18,6 +18,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <utility>
 
 // For pure C++ logging without node dependency, we can use iostream or rclcpp::Logger if passed.
 // For now, let's stick to safe defaults.
@@ -273,7 +274,7 @@ nav_msgs::msg::Path TrajectoryCore::deform_path(
 
     double best_offset = 0.0;
     int8_t best_cost = cost_here;
-    for (double candidate = -config_.max_lateral_shift; candidate <= config_.max_lateral_shift;
+    for (double candidate = -config_.max_lateral_shift; candidate <= config_.max_lateral_shift + 1e-9;
          candidate += config_.lateral_search_step)
     {
       double cx = pos.x + candidate * normal[i].first;
