@@ -57,22 +57,87 @@ BEVFusionNode::BEVFusionNode(const rclcpp::NodeOptions & options)
 
 void BEVFusionNode::declareParameters()
 {
+  // sync/QoS params are intentionally declared in on_configure() to avoid re-declaring already-registered parameters.
+
+  // Directory containing all .plan and .onnx engine files for the model
+  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50");
+
+  // Detection confidence, bounding boxes below threshold are discarded
+  this->declare_parameter<double>("confidence_threshold", 0.3);
+
+  // camera_names used by on_activate for TF lookups; num_cameras is derived from its size
+  this->declare_parameter<std::vector<std::string>>(
+    "camera_names",
+    std::vector<std::string>{
+      "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"});
+  this->declare_parameter<int>("image_width", 1600);
+  this->declare_parameter<int>("image_height", 900);
+  this->declare_parameter<int>("norm_output_width", 704);
+  this->declare_parameter<int>("norm_output_height", 256);
+
+  // LiDAR voxelization parameters
+  this->declare_parameter<std::vector<double>>("min_range", std::vector<double>{-54.0, -54.0, -5.0});
+  this->declare_parameter<std::vector<double>>("max_range", std::vector<double>{54.0, 54.0, 3.0});
+  this->declare_parameter<std::vector<double>>("voxel_size", std::vector<double>{0.075, 0.075, 0.2});
+  this->declare_parameter<int>("max_points_per_voxel", 10);
+  this->declare_parameter<int>("max_points", 300000);
+  this->declare_parameter<int>("max_voxels", 160000);
+
+  // BEV Fusion grid geometry
+  this->declare_parameter<std::vector<double>>("xbound", std::vector<double>{-54.0, 54.0, 0.3});
+  this->declare_parameter<std::vector<double>>("ybound", std::vector<double>{-54.0, 54.0, 0.3});
+  this->declare_parameter<std::vector<double>>("zbound", std::vector<double>{-10.0, 10.0, 20.0});
+  this->declare_parameter<std::vector<double>>("dbound", std::vector<double>{1.0, 60.0, 0.5});
+
+  // Detection post-processing parameters
+  this->declare_parameter<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
+  this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
+
+  // Build BEVFusionInputConfig from declared parameters
+  const std::string model_dir = this->get_parameter("model_dir").as_string();
+  const auto camera_names = this->get_parameter("camera_names").as_string_array();
+
+  // ROS params use double; BEVFusionInputConfig uses float — convert on read
+  const auto to_float_vec = [this](const std::string & name) {
+    const auto d = this->get_parameter(name).as_double_array();
+    return std::vector<float>(d.begin(), d.end());
+  };
+
   BEVFusionInputConfig config;
+
+  config.camera_backbone_plan = model_dir + "/camera.backbone.plan";
+  config.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
+  config.fuser_plan = model_dir + "/fuser.plan";
+  config.head_bbox_plan = model_dir + "/head.bbox.plan";
+  config.lidar_backbone_onnx = model_dir + "/lidar.backbone.onnx";
+  config.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
+
+  config.num_cameras = static_cast<int>(camera_names.size());
+  config.image_width = this->get_parameter("image_width").as_int();
+  config.image_height = this->get_parameter("image_height").as_int();
+  config.norm_output_width = this->get_parameter("norm_output_width").as_int();
+  config.norm_output_height = this->get_parameter("norm_output_height").as_int();
+
+  config.min_range = to_float_vec("min_range");
+  config.max_range = to_float_vec("max_range");
+  config.voxel_size = to_float_vec("voxel_size");
+  config.max_points_per_voxel = this->get_parameter("max_points_per_voxel").as_int();
+  config.max_points = this->get_parameter("max_points").as_int();
+  config.max_voxels = this->get_parameter("max_voxels").as_int();
+
+  config.xbound = to_float_vec("xbound");
+  config.ybound = to_float_vec("ybound");
+  config.zbound = to_float_vec("zbound");
+  config.dbound = to_float_vec("dbound");
+
+  config.post_center_range_start = to_float_vec("post_center_range_start");
+  config.post_center_range_end = to_float_vec("post_center_range_end");
+
+  // transbbox_pc_range and transbbox_voxel_size are the XY projections of min_range and voxel_size
+  config.transbbox_pc_range = {config.min_range[0], config.min_range[1]};
+  config.transbbox_voxel_size = {config.voxel_size[0], config.voxel_size[1]};
+
   core_ = std::make_unique<BEVFusionCore>(config);
-  /**
-   * TODO(bevfusion_team)
-   * Declare all ROS 2 parameters (like model paths, camera topic names, and
-   * confidence thresholds) and instantiates the BEVFusionCore with default parameters.
-   *
-   * Declare all parameters from the DEVELOPING.md parameters table plus the core config params:
-      model_dir              (string)  — directory containing .plan and .onnx files
-      camera_names           (string[]) — ["camera_pano_nn", ...]
-      confidence_threshold   (double)  — 0.3
-      sync_max_time_diff_ms  (double)  — 200.0
-      sync_queue_size        (int)     — 10
-      qos_subscriber_reliability (string) — "best_effort"
-      qos_publisher_reliability  (string) — "reliable"
-   */
 }
 
 void BEVFusionNode::syncedCallback(
