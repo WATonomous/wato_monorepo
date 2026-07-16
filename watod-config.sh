@@ -36,7 +36,7 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="simulation world_modeling:dev action:dev infrastructure"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Install Claude Code in dev containers. Set to "false" to skip installation.
@@ -57,7 +57,7 @@
 # export TAG=""
 
 # Docker Registry to pull/push images. DEFAULT = "ghcr.io/watonomous/wato_monorepo"
-# export REGISTRY_URL=""
+export REGISTRY_URL="ghcr.io/watonomous/wato_monorepo"
 
 # Directory where bags are stored and read. DEFAULT = "$MONO_DIR/bags"
 # export BAG_DIRECTORY=""
@@ -90,4 +90,4 @@
 ## CARLA rendering mode: "gpu" for GPU-accelerated rendering, "no_gpu" for headless/software rendering
 ## Use "no_gpu" when running on machines without a GPU or when GPU resources are limited
 ## DEFAULT = "no_gpu"
-# export CARLA_RENDER_MODE="no_gpu"
+export CARLA_RENDER_MODE="no_gpu"
