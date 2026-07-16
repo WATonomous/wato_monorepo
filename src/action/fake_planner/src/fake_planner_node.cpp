@@ -197,9 +197,14 @@ FakePlannerNode::FakePlannerNode(const rclcpp::NodeOptions & options)
   declare_parameter("behaviour", "lane_follow");
   declare_parameter("anchor_to_first_pose", true);
 
+  // Whether activation starts the trajectory immediately. Set false to bring the stack up
+  // with the vehicle held in standby and release it later with the start_trajectory service.
+  declare_parameter("start_on_activate", true);
+
   // Maneuver JSON (a segment list, expanded + resampled into waypoints at load; authored in
-  // frame_id relative to the anchor pose). One maneuver per file, selected from the package's
-  // maneuvers/ folder via the launch.
+  // frame_id relative to the anchor pose, or from an absolute "start" pose when the file
+  // supplies one). One maneuver per file, selected from the package's maneuvers/ folder via
+  // the launch.
   declare_parameter("maneuver_file", std::string(""));
 }
 
@@ -213,6 +218,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   publish_behaviour_ = get_parameter("publish_behaviour").as_bool();
   behaviour_ = get_parameter("behaviour").as_string();
   anchor_to_first_pose_ = get_parameter("anchor_to_first_pose").as_bool();
+  start_on_activate_ = get_parameter("start_on_activate").as_bool();
   maneuver_file_ = get_parameter("maneuver_file").as_string();
 
   if (publish_rate_hz_ <= 0.0) {
@@ -240,6 +246,13 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
     behaviour_pub_ = create_publisher<behaviour_msgs::msg::ExecuteBehaviour>(behaviour_topic_, rclcpp::QoS(10));
   }
 
+  start_srv_ = create_service<std_srvs::srv::Trigger>(
+    "~/start_trajectory",
+    std::bind(&FakePlannerNode::startTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+  stop_srv_ = create_service<std_srvs::srv::Trigger>(
+    "~/stop_trajectory",
+    std::bind(&FakePlannerNode::stopTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+
   // Anchoring lays the waypoints out from the vehicle's pose at launch, so the same file
   // works regardless of where odom's origin is (sim spawn vs. accumulated odom on the car).
   // Without it, waypoints are published verbatim in frame_id.
@@ -258,14 +271,35 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
 
   RCLCPP_INFO(
     get_logger(),
-    "Configured: %zu waypoints from '%s', frame '%s', %.1f Hz, anchor=%s, behaviour=%s",
+    "Configured: %zu waypoints from '%s', frame '%s', %.1f Hz, anchor=%s, behaviour=%s, start_on_activate=%s",
     wp_x_.size(),
     maneuver_file_.c_str(),
     frame_id_.c_str(),
     publish_rate_hz_,
     anchor_to_first_pose_ ? "true" : "false",
-    publish_behaviour_ ? behaviour_.c_str() : "(disabled)");
+    publish_behaviour_ ? behaviour_.c_str() : "(disabled)",
+    start_on_activate_ ? "true" : "false");
   return CallbackReturn::SUCCESS;
+}
+
+void FakePlannerNode::startTrajectory(
+  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/,
+  std_srvs::srv::Trigger::Response::SharedPtr response)
+{
+  trajectory_started_ = true;
+  response->success = true;
+  response->message = "Trajectory started";
+  RCLCPP_INFO(get_logger(), "Trajectory started via service");
+}
+
+void FakePlannerNode::stopTrajectory(
+  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/,
+  std_srvs::srv::Trigger::Response::SharedPtr response)
+{
+  trajectory_started_ = false;
+  response->success = true;
+  response->message = "Trajectory stopped; controller will fall back to standby";
+  RCLCPP_INFO(get_logger(), "Trajectory stopped via service");
 }
 
 bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error)
@@ -303,6 +337,22 @@ bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error
   const double fine = std::min(0.05, spacing);
   Path fine_path;
   Cursor cursor;
+
+  // Optional absolute start pose. Segments are normally authored from the origin and laid
+  // out relative to the vehicle (anchor_to_first_pose). A maneuver that must land on real
+  // surveyed geometry instead -- e.g. a specific lane of the oval track -- sets "start" and
+  // runs with anchor_to_first_pose=false, so it is published verbatim in frame_id.
+  if (doc.contains("start")) {
+    const nlohmann::json & start = doc["start"];
+    if (!start.is_object()) {
+      error = "'start' must be an object with x/y/yaw";
+      return false;
+    }
+    cursor.x = start.value("x", 0.0);
+    cursor.y = start.value("y", 0.0);
+    cursor.theta = start.value("yaw", 0.0);
+  }
+
   double current_speed = default_speed;  // carried between segments for speed continuity
 
   std::size_t idx = 0;
@@ -374,11 +424,21 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_activate(const rclcpp_lifecy
     behaviour_pub_->on_activate();
   }
 
+  trajectory_started_ = start_on_activate_;
+
   const auto period =
     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / publish_rate_hz_));
   timer_ = create_wall_timer(period, std::bind(&FakePlannerNode::timerCallback, this));
 
-  RCLCPP_INFO(get_logger(), "Activated: publishing trajectory at %.1f Hz", publish_rate_hz_);
+  if (trajectory_started_) {
+    RCLCPP_INFO(get_logger(), "Activated: publishing trajectory at %.1f Hz", publish_rate_hz_);
+  } else {
+    RCLCPP_INFO(
+      get_logger(),
+      "Activated: holding in standby. Call the start service to drive:\n"
+      "  ros2 service call %s/start_trajectory std_srvs/srv/Trigger",
+      get_fully_qualified_name());
+  }
   return CallbackReturn::SUCCESS;
 }
 
@@ -399,6 +459,8 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_cleanup(const rclcpp_lifecyc
   trajectory_pub_.reset();
   behaviour_pub_.reset();
   odom_sub_.reset();
+  start_srv_.reset();
+  stop_srv_.reset();
   trajectory_ready_ = false;
   anchored_ = false;
   RCLCPP_INFO(get_logger(), "Cleaned up");
@@ -411,6 +473,8 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_shutdown(const rclcpp_lifecy
   trajectory_pub_.reset();
   behaviour_pub_.reset();
   odom_sub_.reset();
+  start_srv_.reset();
+  stop_srv_.reset();
   RCLCPP_INFO(get_logger(), "Shut down");
   return CallbackReturn::SUCCESS;
 }
@@ -480,6 +544,14 @@ void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr
 
 void FakePlannerNode::timerCallback()
 {
+  // Publish nothing until started: with no trajectory and no behaviour heartbeat the
+  // controller stays in standby rather than driving off on bringup.
+  if (!trajectory_started_) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(), *get_clock(), 5000, "Holding: waiting for the start_trajectory service.");
+    return;
+  }
+
   if (!trajectory_ready_) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 2000, "Waiting for first odom on '%s' to anchor trajectory...", odom_topic_.c_str());

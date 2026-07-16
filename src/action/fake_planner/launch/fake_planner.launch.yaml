@@ -45,6 +45,36 @@ launch:
       default: "true"
       description: Automatically configure and activate managed nodes
 
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: >-
+        Use /clock. Required in CARLA: the bridge stamps odom/TF with sim time, and a
+        wall-clock trajectory stamp cannot be transformed against a sim-time TF tree --
+        pure pursuit then aborts every cycle and never publishes a command.
+
+  - arg:
+      name: standby_speed
+      default: "-0.5"
+      description: >-
+        Speed the controller commands while in standby. The package default (-0.5) is a
+        reverse creep, which walks the car backwards off the road if it is held in standby
+        for any length of time -- set 0.0 to actually hold still.
+
+  - arg:
+      name: start_on_activate
+      default: "true"
+      description: >-
+        Publish as soon as the node activates. Set false to bring the stack up with the
+        vehicle held in standby, then release it with the start_trajectory service.
+
+  - arg:
+      name: anchor_to_first_pose
+      default: "true"
+      description: >-
+        Lay the maneuver out from the vehicle's pose at launch. Set false for maneuvers
+        authored in absolute frame_id coordinates (those supplying a "start" pose).
+
   # Fake Planner
   - node:
       pkg: "fake_planner"
@@ -58,6 +88,12 @@ launch:
           value: "$(var maneuver_file)"
         - name: "frame_id"
           value: "$(var frame_id)"
+        - name: "anchor_to_first_pose"
+          value: "$(var anchor_to_first_pose)"
+        - name: "start_on_activate"
+          value: "$(var start_on_activate)"
+        - name: "use_sim_time"
+          value: "$(var use_sim_time)"
       remap:
         - from: "trajectory"
           to: "/action/fake_planner/trajectory"
@@ -75,6 +111,10 @@ launch:
       output: "screen"
       param:
         - from: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+        - name: "standby_speed"
+          value: "$(var standby_speed)"
+        - name: "use_sim_time"
+          value: "$(var use_sim_time)"
       remap:
         # Subscribers
         - from: "trajectory"

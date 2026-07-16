@@ -22,6 +22,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "std_srvs/srv/trigger.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
 namespace fake_planner
@@ -54,6 +55,12 @@ private:
   void buildTrajectory();
   void timerCallback();
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
+  void startTrajectory(
+    const std_srvs::srv::Trigger::Request::SharedPtr request,
+    std_srvs::srv::Trigger::Response::SharedPtr response);
+  void stopTrajectory(
+    const std_srvs::srv::Trigger::Request::SharedPtr request,
+    std_srvs::srv::Trigger::Response::SharedPtr response);
 
   // Parameters
   std::string trajectory_topic_;
@@ -64,6 +71,7 @@ private:
   bool publish_behaviour_{true};
   std::string behaviour_{"lane_follow"};
   bool anchor_to_first_pose_{true};
+  bool start_on_activate_{true};
   std::string maneuver_file_;
 
   // Waypoints expanded from the maneuver segments (parallel arrays; relative to the anchor pose).
@@ -75,6 +83,12 @@ private:
   wato_trajectory_msgs::msg::Trajectory trajectory_;
   bool trajectory_ready_{false};
 
+  // Gates publishing. When false the node stays silent (no trajectory, no behaviour), which
+  // leaves the controller in standby, so the whole stack can be brought up and settled before
+  // the vehicle is asked to move. Toggled by the start/stop services; seeded from
+  // start_on_activate on activation.
+  bool trajectory_started_{true};
+
   // Anchor pose (SE(2), in frame_id_) that the waypoints are laid out from.
   bool anchored_{false};
   double anchor_x_{0.0};
@@ -85,6 +99,8 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_srv_;
 };
 
 }  // namespace fake_planner

@@ -28,6 +28,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(behaviour_msgs REQUIRED)
 find_package(wato_trajectory_msgs REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # Component Library
 add_library(${PROJECT_NAME}_nodes SHARED
@@ -48,6 +49,7 @@ target_link_libraries(${PROJECT_NAME}_nodes PUBLIC
   ${behaviour_msgs_TARGETS}
   ${wato_trajectory_msgs_TARGETS}
   nlohmann_json::nlohmann_json
+  ${std_srvs_TARGETS}
 )
 
 # Register Component

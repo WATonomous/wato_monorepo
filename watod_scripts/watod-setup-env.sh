@@ -159,6 +159,10 @@ CLAUDE_CODE=${CLAUDE_CODE:-"true"}
 
 ################################  Simulation  ########################################
 CARLA_RENDER_MODE=${CARLA_RENDER_MODE:-"no_gpu"}
+# Scenario the scenario_server loads on startup. Set to
+# carla_scenarios.scenarios.oval_track_scenario to build the oval track world from
+# maps/osm/oval_track_4_lane.xodr (see tools/generate_oval_track.py).
+CARLA_SCENARIO=${CARLA_SCENARIO:-"carla_scenarios.scenarios.oval_track_scenario"}
 # Enable pygame HUD when running without GPU (provides web-based visualization fallback)
 if [[ "$CARLA_RENDER_MODE" == "no_gpu" ]]; then
   PYGAME_HUD_ENABLED=${PYGAME_HUD_ENABLED:-"true"}
@@ -208,6 +212,7 @@ append "CLAUDE_CODE" "$CLAUDE_CODE"
 # Simulation
 append "CARLA_RENDER_MODE" "$CARLA_RENDER_MODE"
 append "PYGAME_HUD_ENABLED" "$PYGAME_HUD_ENABLED"
+append "CARLA_SCENARIO" "$CARLA_SCENARIO"
 
 append "REGISTRY" "$REGISTRY"
 append "REPOSITORY" "$REPOSITORY"

@@ -16,6 +16,13 @@ launch:
       name: pygame_web_port
       default: "5000"
       description: "Port for the pygame HUD web server"
+  - arg:
+      name: scenario
+      default: "carla_scenarios.scenarios.oval_track_scenario"
+      description: >-
+        Scenario module the scenario_server loads on startup, and the sole source of
+        initial_scenario (the config files no longer set it). Override with e.g.
+        carla_scenarios.scenarios.light_traffic_scenario for a stock Town.
 
   # Scenario Server Node
   # Note: scenario_server uses wall time since it's the /clock source
@@ -31,6 +38,8 @@ launch:
         - from: $(var config_file)
         - name: carla_port
           value: $(var carla_port)
+        - name: initial_scenario
+          value: $(var scenario)
 
   # Lifecycle Manager - waits for scenario_server to connect to CARLA, then brings up all nodes
   # Note: lifecycle_manager uses wall time since it orchestrates before /clock is available

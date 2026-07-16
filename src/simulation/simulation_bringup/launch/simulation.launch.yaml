@@ -12,6 +12,13 @@ launch:
       name: pygame_web_port
       default: "5000"
       description: "Port for the pygame HUD web server"
+  - arg:
+      name: scenario
+      default: "carla_scenarios.scenarios.oval_track_scenario"
+      description: >-
+        Scenario module to load on startup. Defaults to the oval track (built from
+        maps/osm/oval_track_4_lane.xodr). Override with e.g.
+        carla_scenarios.scenarios.light_traffic_scenario for a stock Town.
 
   # Eve Robot Description
   - include:
@@ -29,3 +36,5 @@ launch:
           value: $(var pygame_hud_enabled)
         - name: pygame_web_port
           value: $(var pygame_web_port)
+        - name: scenario
+          value: $(var scenario)
