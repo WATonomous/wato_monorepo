@@ -1,0 +1,34 @@
+---
+inputs:
+  - name: obj_trajs
+    dtype: float32
+    shape: [8, 128, 11, 29]
+  - name: obj_trajs_mask
+    dtype: bool
+    shape: [8, 128, 11]
+  - name: obj_trajs_last_pos
+    dtype: float32
+    shape: [8, 128, 3]
+  - name: map_polylines
+    dtype: float32
+    shape: [8, 768, 20, 9]
+  - name: map_polylines_mask
+    dtype: bool
+    shape: [8, 768, 20]
+  - name: map_polylines_center
+    dtype: float32
+    shape: [8, 768, 3]
+  - name: track_index_to_predict
+    dtype: int64
+    shape: [8]
+  - name: center_type_ids
+    dtype: int64
+    shape: [8]
+
+outputs:
+  - name: pred_scores
+    dtype: float32
+    shape: [8, 6]
+  - name: pred_trajs
+    dtype: float32
+    shape: [8, 6, 80, 7]
