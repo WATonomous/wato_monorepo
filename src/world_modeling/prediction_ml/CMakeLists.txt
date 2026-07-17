@@ -48,8 +48,80 @@ add_library(prediction_ml_lib
 )
 
 if(PREDICTION_ML_ENABLE_TENSORRT)
-  target_sources(prediction_ml_lib PRIVATE src/tensorrt_backend.cpp)
-  target_compile_definitions(prediction_ml_lib PRIVATE PREDICTION_ML_ENABLE_TENSORRT)
+  # target_sources(prediction_ml_lib PRIVATE src/tensorrt_backend.cpp)
+  # target_compile_definitions(prediction_ml_lib PRIVATE PREDICTION_ML_ENABLE_TENSORRT)
+  find_package(CUDAToolkit REQUIRED)
+
+  find_path(
+    TENSORRT_INCLUDE_DIR
+    NAMES NvInfer.h
+    HINTS
+      $ENV{TENSORRT_ROOT}
+      /usr
+      /usr/local/TensorRT
+    PATH_SUFFIXES
+      include
+      include/x86_64-linux-gnu
+      include/aarch64-linux-gnu
+  )
+
+  find_library(
+    TENSORRT_NVINFER_LIBRARY
+    NAMES nvinfer
+    HINTS
+      $ENV{TENSORRT_ROOT}
+      /usr
+      /usr/local/TensorRT
+    PATH_SUFFIXES
+      lib
+      lib64
+      lib/x86_64-linux-gnu
+      lib/aarch64-linux-gnu
+  )
+
+  if(NOT TENSORRT_INCLUDE_DIR)
+    message(
+      FATAL_ERROR
+      "PREDICTION_ML_ENABLE_TENSORRT=ON but NvInfer.h was not found. "
+      "Install TensorRT or set TENSORRT_ROOT."
+    )
+  endif()
+
+  if(NOT TENSORRT_NVINFER_LIBRARY)
+    message(
+      FATAL_ERROR
+      "PREDICTION_ML_ENABLE_TENSORRT=ON but libnvinfer was not found. "
+      "Install TensorRT or set TENSORRT_ROOT."
+    )
+  endif()
+
+  message(STATUS "TensorRT include: ${TENSORRT_INCLUDE_DIR}")
+  message(STATUS "TensorRT library: ${TENSORRT_NVINFER_LIBRARY}")
+
+  target_sources(
+    prediction_ml_lib
+    PRIVATE
+      src/tensorrt_backend.cpp
+  )
+
+  target_compile_definitions(
+    prediction_ml_lib
+    PRIVATE
+      PREDICTION_ML_ENABLE_TENSORRT
+  )
+
+  target_include_directories(
+    prediction_ml_lib
+    PRIVATE
+      ${TENSORRT_INCLUDE_DIR}
+  )
+
+  target_link_libraries(
+    prediction_ml_lib
+    PRIVATE
+      CUDA::cudart
+      ${TENSORRT_NVINFER_LIBRARY}
+  )
 endif()
 
 set_target_properties(prediction_ml_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -79,6 +151,13 @@ if(BUILD_TESTING)
   # >>> PERSON_B tests
   ament_add_gtest(test_backend test/test_backend.cpp)
   target_link_libraries(test_backend prediction_ml_lib)
+  if(PREDICTION_ML_ENABLE_TENSORRT)
+    target_compile_definitions(
+      test_backend
+      PRIVATE
+        PREDICTION_ML_ENABLE_TENSORRT
+    )
+  endif()
   # <<< PERSON_B tests
   # >>> PERSON_A tests
   ament_add_gtest(test_scene_builder test/test_scene_builder.cpp)
