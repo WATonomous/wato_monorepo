@@ -309,6 +309,17 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
    *    6. Set up diagnostics
    */
 
+   /*
+      TODO comments, 
+      1. I am not sure what you mean by build BevFusionCore::Config. I don't see the function declared in BevFusionCore. 
+      2. I believe this got done in declareParameters() function.
+      3. Done
+      4. Done
+      5. Done
+      6. Already present in the code
+
+
+  */
   RCLCPP_INFO(this->get_logger(), "Configuring BEVFusion node");
 
   try {
@@ -351,6 +362,42 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       sync_max_time_diff_sec_);
     RCLCPP_INFO(this->get_logger(), "  - Synchronization method: ApproximateTime");
 
+
+    if (!core_) {
+      throw std::runtime_error("BEVFusion core was not constructed from parameters");
+    }
+
+    if (!core_->initialize()) {
+      throw std::runtime_error("Failed to initialize BEVFusion core");
+    }
+
+    // inside on_configure()
+    if (!tf_buffer_) {
+      tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    }
+
+    if (!tf_listener_) {
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    }
+
+    // Create subscribers
+    lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      "/lidar/all/points_merged", subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+
+    // What's the topic for multi camerag image compressed? I don't see it in the parameters. For now, hardcoding it to /camera_pano_nn/image_rect
+    camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
+      "/camera_pano_nn/image_rect", subscriber_qos_,
+      std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
+
+    
+    // Create publishers
+    detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(
+      "/perception/detections_3d_bev", publisher_qos_);
+
+    marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+      "/perception/bev_detection_markers", publisher_qos_);
+
+    
     // Initialize diagnostics
     diagnostic_updater_ = std::make_unique<diagnostic_updater::Updater>(this);
     diagnostic_updater_->setHardwareID("bevfusion");
