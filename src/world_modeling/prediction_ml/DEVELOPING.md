@@ -17,7 +17,8 @@ to that branch for the deep_ros migration design and ownership split.
 Source-level MTR I/O verification established that:
 
 - `obj_trajs_mask` and `map_polylines_mask` use `std::vector<uint8_t>` for boolean masks.
-- `center_objects_type` uses `std::vector<std::string>` for MTR object-type tokens.
+- `center_type_ids` uses `std::vector<int64_t>` for MTR object-type codes
+  (`TYPE_VEHICLE=0`, `TYPE_PEDESTRIAN=1`, `TYPE_CYCLIST=2`).
 
 ### Real-data MTR forward validation
 
