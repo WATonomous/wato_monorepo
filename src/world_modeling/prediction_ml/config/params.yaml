@@ -14,7 +14,14 @@ prediction_ml_node:
     mtr.metadata_path: ""        # injected at launch for deploy
     mtr.cache_ttl_s: 0.5
     mtr.selected_target_agent_limit: 8
+    # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
+    mtr.target_forward_half_angle_deg: 90.0
 
     # --- Scene builder ---
     mtr.history_steps: 11
     mtr.history_rate_hz: 10.0
+    # Static ego bounding-box footprint (metres) for the SDC row in obj_trajs.
+    # Kia Soul EV chassis (eve_description/eve_chassis.xacro).
+    mtr.ego_length: 4.0936
+    mtr.ego_width: 1.3579
+    mtr.ego_height: 1.4090

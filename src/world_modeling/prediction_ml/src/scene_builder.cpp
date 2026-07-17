@@ -33,7 +33,7 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & /*frame*/)
 {
   // TODO(Person A): resample history, select target agents up to
   // config_.selected_target_agent_limit, pack obj_trajs* / track_index_to_predict /
-  // center_objects_type, convert lanelet context to map_polylines*, fill sidecar.
+  // center_type_ids, convert lanelet context to map_polylines*, fill sidecar.
   MtrInputTensors tensors;
   tensors.valid = false;
   return tensors;
