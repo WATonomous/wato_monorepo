@@ -15,6 +15,7 @@
 #ifndef PREDICTION_ML__SCENE_BUILDER_HPP_
 #define PREDICTION_ML__SCENE_BUILDER_HPP_
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -29,7 +30,7 @@
 namespace prediction_ml
 {
 
-// Maintains per-object history and packs MTR input tensors. (Person A)
+// Maintains per-object history and packs MTR input tensors.
 class SceneBuilder
 {
 public:
@@ -87,6 +88,35 @@ private:
     bool in_forward_region{false};
   };
 
+  // One scene-frame map point: position + (backward-diff, normalized) direction.
+  struct MapPoint
+  {
+    double x{0.0};
+    double y{0.0};
+    double z{0.0};
+    double dir_x{0.0};
+    double dir_y{0.0};
+    double dir_z{0.0};
+  };
+
+  // One fixed-length polyline chunk (<= kNumPointsPerPolyline real points) plus its scene-frame
+  // center (mean of real points), used for per-target closest-chunk selection.
+  struct MapPolyline
+  {
+    std::vector<MapPoint> points;
+    double center_x{0.0};
+    double center_y{0.0};
+    double center_z{0.0};
+  };
+
+  // A map chunk transformed into one target's local frame: packed 9-column rows (real points only)
+  // plus the polyline center. Pure geometry; packMapTensors copies this into the flat buffers.
+  struct TransformedMapChunk
+  {
+    std::vector<std::array<float, 9>> points;  // 9 = map feature columns (see packMapTensors layout)
+    std::array<float, 3> center{};             // mean of target-centered point positions
+  };
+
   static std::optional<double> timestampFromHeader(const vision_msgs::msg::Detection3DArray & detections);
   static double yawFromQuaternion(const geometry_msgs::msg::Quaternion & q);
   static std::optional<MtrObjectClass> parseObjectClass(const vision_msgs::msg::Detection3D & detection);
@@ -97,7 +127,7 @@ private:
   void addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray & detections, double timestamp);
   void addSample(const HistorySample & sample);
   // Append the ego pose as an SDC track sample; velocity is finite-differenced from the
-  // previous ego sample (eventually move to odom).
+  // previous ego sample.
   void addEgoSample(const geometry_msgs::msg::PoseStamped & ego_pose, double timestamp);
   void pruneHistory(double current_time);
   std::vector<double> desiredSampleTimes(double current_time) const;
@@ -118,6 +148,19 @@ private:
     const std::vector<TargetCandidate> & targets, const std::vector<std::string> & context_track_ids,
     const std::vector<ResampledTrack> & resampled_tracks, const std::vector<double> & desired_times,
     double current_time, MtrInputTensors & tensors) const;
+  // Convert lanelet centerlines into fixed-length scene-frame polyline chunks
+  std::vector<MapPolyline> buildMapPolylines(const lanelet_msgs::msg::LaneletAhead & lanelet_ahead) const;
+  // Rank map chunks by distance to the target-forward offset and return the closest
+  // kNumSrcPolylines indices (deterministic, insertion order breaks ties).
+  std::vector<std::size_t> rankMapChunksForTarget(
+    const std::vector<MapPolyline> & polylines, const HistorySample & center) const;
+  // Transform one chunk into the target's local frame (positions, directions, pre-points, center).
+  TransformedMapChunk transformMapChunk(const MapPolyline & polyline, const HistorySample & center) const;
+  // Pack map_polylines / mask / center to the fixed [8,768,20,9] contract, target-centered. Buffers
+  // are always sized to capacity; returns true iff at least one real map point was written.
+  bool packMapTensors(
+    const std::vector<TargetCandidate> & targets, const std::vector<MapPolyline> & polylines,
+    MtrInputTensors & tensors) const;
 
   MtrConfig config_;
   bool config_valid_{false};
