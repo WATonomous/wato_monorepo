@@ -177,7 +177,7 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
   }
 
   // Ego joins history as the SDC track before pruning/context so it can be resampled
-  addEgoSample(frame.ego_pose, *current_time);
+  addEgoSample(frame.ego_pose, frame.ego_velocity, frame.has_ego_velocity, *current_time);
   pruneHistory(*current_time);
 
   const auto targets = selectTargets(frame.detections, *current_time, frame.ego_pose);
@@ -335,7 +335,9 @@ void SceneBuilder::addSample(const HistorySample & sample)
   });
 }
 
-void SceneBuilder::addEgoSample(const geometry_msgs::msg::PoseStamped & ego_pose, const double timestamp)
+void SceneBuilder::addEgoSample(
+  const geometry_msgs::msg::PoseStamped & ego_pose, const geometry_msgs::msg::Twist & ego_velocity,
+  const bool has_ego_velocity, const double timestamp)
 {
   if (!config_valid_ || !isUsableTimestamp(timestamp)) {
     return;
@@ -360,20 +362,35 @@ void SceneBuilder::addEgoSample(const geometry_msgs::msg::PoseStamped & ego_pose
   sample.x = position.x;
   sample.y = position.y;
   sample.z = position.z;
-  // Ego bbox dims are unknown from a bare pose; leave zero until an ego-footprint config exists.
+  // Static ego footprint from config so the SDC row carries a real box like every other agent.
+  sample.dx = config_.ego_length;
+  sample.dy = config_.ego_width;
+  sample.dz = config_.ego_height;
   sample.heading = heading;
   sample.object_class = MtrObjectClass::Vehicle;
   sample.frame_id = ego_pose.header.frame_id;
 
-  // Finite-difference ego velocity from the previous ego sample.
-  const auto it = history_.find(kEgoTrackId);
-  if (it != history_.end() && !it->second.empty()) {
-    const auto & prev = it->second.back();
-    const double dt = timestamp - prev.timestamp;
-    if (isFinite(dt) && dt > 0.0) {
-      sample.vx = (position.x - prev.x) / dt;
-      sample.vy = (position.y - prev.y) / dt;
-      sample.vz = (position.z - prev.z) / dt;
+  const auto & linear = ego_velocity.linear;
+  const bool velocity_finite = isFinite(linear.x) && isFinite(linear.y) && isFinite(linear.z);
+  if (has_ego_velocity && velocity_finite) {
+    // Odom twist is body frame (base_link); rotate linear x/y into the scene frame by ego heading
+    // so it matches how tracker velocities are stored. z is frame-independent.
+    const double cos_h = std::cos(heading);
+    const double sin_h = std::sin(heading);
+    sample.vx = linear.x * cos_h - linear.y * sin_h;
+    sample.vy = linear.x * sin_h + linear.y * cos_h;
+    sample.vz = linear.z;
+  } else {
+    // Fallback: finite-difference ego velocity from the previous ego sample.
+    const auto it = history_.find(kEgoTrackId);
+    if (it != history_.end() && !it->second.empty()) {
+      const auto & prev = it->second.back();
+      const double dt = timestamp - prev.timestamp;
+      if (isFinite(dt) && dt > 0.0) {
+        sample.vx = (position.x - prev.x) / dt;
+        sample.vy = (position.y - prev.y) / dt;
+        sample.vz = (position.z - prev.z) / dt;
+      }
     }
   }
 
