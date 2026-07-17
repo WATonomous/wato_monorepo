@@ -128,7 +128,12 @@ private:
   void addSample(const HistorySample & sample);
   // Append the ego pose as an SDC track sample; velocity is finite-differenced from the
   // previous ego sample.
-  void addEgoSample(const geometry_msgs::msg::PoseStamped & ego_pose, double timestamp);
+  // Append the ego pose as an SDC track sample. When has_ego_velocity is true, the body-frame
+  // odom twist is rotated into the scene frame; otherwise velocity is finite-differenced from the
+  // previous ego sample.
+  void addEgoSample(
+    const geometry_msgs::msg::PoseStamped & ego_pose, const geometry_msgs::msg::Twist & ego_velocity,
+    bool has_ego_velocity, double timestamp);
   void pruneHistory(double current_time);
   std::vector<double> desiredSampleTimes(double current_time) const;
   std::optional<HistorySample> nearestSampleForSlot(
