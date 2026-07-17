@@ -380,16 +380,16 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     }
 
     // Create subscribers
+
+    multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
+      camera_info_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
+
     lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/lidar/all/points_merged",
-      subscriber_qos_,
-      std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+      lidar_topic, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
 
     // What's the topic for multi camerag image compressed? I don't see it in the parameters. For now, hardcoding it to /camera_pano_nn/image_rect
     camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
-      "/camera_pano_nn/image_rect",
-      subscriber_qos_,
-      std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
+      multi_image_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
 
     // Create publishers
     detection_pub_ =
