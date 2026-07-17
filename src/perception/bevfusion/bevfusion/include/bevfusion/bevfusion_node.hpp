@@ -135,6 +135,18 @@ private:
   void computeCalibrationMatrices();
 
   /**
+   * @brief Camera callback to cache the latest images.
+   * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
+   */
+  void BEVFusionNode::cameraCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg);
+
+  /**
+   * @brief LiDAR callback to cache the latest point cloud.
+   * @param point_cloud_msg PointCloud2 containing point cloud data
+   */
+  void BEVFusionNode::lidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg);
+
+  /**
    * @brief Log total processed messages and average processing time.
    */
   void logStatistics() const;
