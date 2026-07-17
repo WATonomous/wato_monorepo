@@ -41,9 +41,9 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.target_forward_half_angle_deg", 90.0);
   this->declare_parameter("mtr.history_steps", 11);
   this->declare_parameter("mtr.history_rate_hz", 10.0);
-  this->declare_parameter("mtr.ego_length", 4.8);
-  this->declare_parameter("mtr.ego_width", 2.0);
-  this->declare_parameter("mtr.ego_height", 1.5);
+  this->declare_parameter("mtr.ego_length", 4.0936);
+  this->declare_parameter("mtr.ego_width", 1.3579);
+  this->declare_parameter("mtr.ego_height", 1.4090);
   RCLCPP_INFO(this->get_logger(), "PredictionMlNode created (unconfigured)");
 }
 
