@@ -210,6 +210,7 @@ private:
 
   // TODO(bevfusion_team) - probably should use /camera_pano_nn/image_rect instead for example. Not sure.
   rclcpp::Subscription<deep_msgs::msg::MultiImageCompressed>::SharedPtr camera_sub_;
+  deep_msgs::msg::MultiImageCompressed::ConstSharedPtr latest_multi_image_;
 
   // TODO(bevfusion_team) - need to sync camera and lidar. So either cache lidar until we get all cameras
   // or cache cameras until we get lidar. Create a mutex as needed.
