@@ -20,6 +20,7 @@
 #include <cctype>
 #include <cstdint>
 #include <iterator>
+#include <numeric>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -41,11 +42,22 @@ constexpr char kEgoTrackId[] = "__ego__";
 constexpr std::size_t kTargetCapacity = 8;    // obj_trajs dim 0
 constexpr std::size_t kContextCapacity = 128;  // obj_trajs dim 1
 
-// Frozen map-tensor shape [8, 768, 20, 9]; the map buffers are not packed yet but the shape is
-// published now so binding validation is stable.
+// Frozen map-tensor shape [8, 768, 20, 9].
 constexpr int64_t kNumSrcPolylines = 768;
 constexpr int64_t kNumPointsPerPolyline = 20;
 constexpr int64_t kMapFeatureDim = 9;
+
+// Generic lane-centerline global_type token
+constexpr float kMapLaneCenterlineType = 0.0F;
+// Forward offset (target frame, along the target heading) used only to RANK map chunks when the
+// count exceeds the 768 cap: it biases which chunks are kept toward the road ahead. This is a
+// selection heuristic, never geometry -- selected chunks are still packed at their true positions,
+// and MTR treats the 768 polylines as an unordered set. Value (30, 0) is inherited from official
+// MTR Waymo preprocessing (center_offset_of_map) so the engine input matches its training
+// distribution; do not "improve" it for curves without accepting that mismatch. Currently inert:
+// forward-BFS LaneletAhead almost always yields < 768 chunks, so ranking never actually trims.
+constexpr double kMapCenterOffsetX = 30.0;
+constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
 constexpr int64_t kTypeVehicle = 0;
@@ -186,6 +198,11 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
   if (!packObjectTensors(targets, context_track_ids, resampled_tracks, desired_times, *current_time, tensors)) {
     return tensors;
   }
+
+  // Buffers are always sized to the fixed contract regardless of whether a usable map exists.
+  const auto polylines =
+    frame.has_map ? buildMapPolylines(frame.lanelet_ahead) : std::vector<MapPolyline>{};
+  packMapTensors(targets, polylines, tensors);
 
   tensors.valid = !tensors.sidecar.targets.empty();
   return tensors;
@@ -348,7 +365,7 @@ void SceneBuilder::addEgoSample(const geometry_msgs::msg::PoseStamped & ego_pose
   sample.object_class = MtrObjectClass::Vehicle;
   sample.frame_id = ego_pose.header.frame_id;
 
-  // Finite-difference ego velocity from the previous ego sample (odom is the future upgrade path).
+  // Finite-difference ego velocity from the previous ego sample.
   const auto it = history_.find(kEgoTrackId);
   if (it != history_.end() && !it->second.empty()) {
     const auto & prev = it->second.back();
@@ -616,7 +633,6 @@ bool SceneBuilder::packObjectTensors(
   tensors.obj_trajs_last_pos.assign(kTargetCapacity * kContextCapacity * 3U, 0.0F);
   tensors.track_index_to_predict.assign(kTargetCapacity, 0);
   tensors.center_type_ids.assign(kTargetCapacity, 0);
-  tensors.center_objects_type.assign(kTargetCapacity, std::string{});
   tensors.obj_trajs_shape = {
     static_cast<int64_t>(kTargetCapacity), static_cast<int64_t>(kContextCapacity),
     static_cast<int64_t>(num_steps), static_cast<int64_t>(feature_dim)};
@@ -632,30 +648,25 @@ bool SceneBuilder::packObjectTensors(
     const double sin_h = std::sin(center.heading);
 
     int64_t type_code = kTypeVehicle;
-    std::string type_token = "TYPE_VEHICLE";
     switch (center.object_class) {
       case MtrObjectClass::Vehicle:
         type_code = kTypeVehicle;
-        type_token = "TYPE_VEHICLE";
         break;
       case MtrObjectClass::Pedestrian:
         type_code = kTypePedestrian;
-        type_token = "TYPE_PEDESTRIAN";
         break;
       case MtrObjectClass::Cyclist:
         type_code = kTypeCyclist;
-        type_token = "TYPE_CYCLIST";
         break;
     }
 
     tensors.track_index_to_predict[t] = static_cast<int64_t>(target_track_index[t]);
     tensors.center_type_ids[t] = type_code;
-    tensors.center_objects_type[t] = type_token;
 
     MtrTargetSidecar sidecar;
     sidecar.detection_id = center.detection_id;
     sidecar.track_index = static_cast<int>(target_track_index[t]);
-    sidecar.center_x = center.x;   // scene frame, so Person C can rotate predictions back
+    sidecar.center_x = center.x;   // scene frame, so predictions can be rotated back
     sidecar.center_y = center.y;
     sidecar.center_heading = center.heading;
     tensors.sidecar.targets.push_back(sidecar);
@@ -764,6 +775,202 @@ bool SceneBuilder::packObjectTensors(
   }
 
   return true;
+}
+
+std::vector<SceneBuilder::MapPolyline> SceneBuilder::buildMapPolylines(
+  const lanelet_msgs::msg::LaneletAhead & lanelet_ahead) const
+{
+  std::vector<MapPolyline> polylines;
+  const auto points_per_polyline = static_cast<std::size_t>(kNumPointsPerPolyline);
+
+  for (const auto & lanelet : lanelet_ahead.lanelets) {
+    const auto & centerline = lanelet.centerline;
+    if (centerline.size() < 2) {
+      continue;  // need at least two points to form a direction / a segment
+    }
+
+    // Skip any centerline holding a non-finite coordinate rather than poisoning the tensor.
+    bool finite = true;
+    for (const auto & pt : centerline) {
+      if (!isFinite(pt.x) || !isFinite(pt.y) || !isFinite(pt.z)) {
+        finite = false;
+      }
+    }
+    if (!finite) {
+      continue;
+    }
+
+    // Direction per point = normalized backward diff (matches the mtr repo)
+    std::vector<MapPoint> scene_points;
+    scene_points.reserve(centerline.size());
+    for (std::size_t i = 0; i < centerline.size(); ++i) {
+      MapPoint mp;
+      mp.x = centerline[i].x;
+      mp.y = centerline[i].y;
+      mp.z = centerline[i].z;
+      if (i > 0) {
+        const double ddx = centerline[i].x - centerline[i - 1].x;
+        const double ddy = centerline[i].y - centerline[i - 1].y;
+        const double ddz = centerline[i].z - centerline[i - 1].z;
+        const double norm = std::sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+        if (norm > 1.0e-6) {
+          mp.dir_x = ddx / norm;
+          mp.dir_y = ddy / norm;
+          mp.dir_z = ddz / norm;
+        }
+      }
+      scene_points.push_back(mp);
+    }
+
+    // Fixed 20-point contiguous windows, the last chunk is padded 
+    for (std::size_t start = 0; start < scene_points.size(); start += points_per_polyline) {
+      const std::size_t end = std::min(start + points_per_polyline, scene_points.size());
+      MapPolyline polyline;
+      polyline.points.assign(scene_points.begin() + start, scene_points.begin() + end);
+
+      double sum_x = 0.0;
+      double sum_y = 0.0;
+      double sum_z = 0.0;
+      for (const auto & mp : polyline.points) {
+        sum_x += mp.x;
+        sum_y += mp.y;
+        sum_z += mp.z;
+      }
+      const double count = static_cast<double>(polyline.points.size());
+      polyline.center_x = sum_x / count;
+      polyline.center_y = sum_y / count;
+      polyline.center_z = sum_z / count;
+      polylines.push_back(std::move(polyline));
+    }
+  }
+
+  return polylines;
+}
+
+std::vector<std::size_t> SceneBuilder::rankMapChunksForTarget(
+  const std::vector<MapPolyline> & polylines, const HistorySample & center) const
+{
+  const double cos_h = std::cos(center.heading);
+  const double sin_h = std::sin(center.heading);
+  // Forward offset point in the scene frame: target position + (30,0) rotated by target heading.
+  const double offset_x = center.x + (kMapCenterOffsetX * cos_h - kMapCenterOffsetY * sin_h);
+  const double offset_y = center.y + (kMapCenterOffsetX * sin_h + kMapCenterOffsetY * cos_h);
+
+  const auto dist_sq = [&](std::size_t i) {
+    const double dx = polylines[i].center_x - offset_x;
+    const double dy = polylines[i].center_y - offset_y;
+    return dx * dx + dy * dy;
+  };
+
+  // Rank by distance to the offset point; stable_sort keeps insertion order on ties (deterministic).
+  std::vector<std::size_t> order(polylines.size());
+  std::iota(order.begin(), order.end(), std::size_t{0});
+  std::stable_sort(order.begin(), order.end(), [&](std::size_t lhs, std::size_t rhs) {
+    return dist_sq(lhs) < dist_sq(rhs);
+  });
+
+  const auto capacity = static_cast<std::size_t>(kNumSrcPolylines);
+  if (order.size() > capacity) {
+    order.resize(capacity);
+  }
+  return order;
+}
+
+SceneBuilder::TransformedMapChunk SceneBuilder::transformMapChunk(
+  const MapPolyline & polyline, const HistorySample & center) const
+{
+  const double cos_h = std::cos(center.heading);
+  const double sin_h = std::sin(center.heading);
+  const std::size_t num_pts =
+    std::min(polyline.points.size(), static_cast<std::size_t>(kNumPointsPerPolyline));
+
+  TransformedMapChunk chunk;
+  chunk.points.reserve(num_pts);
+  double sum_x = 0.0;
+  double sum_y = 0.0;
+  double sum_z = 0.0;
+
+  for (std::size_t j = 0; j < num_pts; ++j) {
+    const auto & pt = polyline.points[j];
+    // Target-centered position, rotated by -heading.
+    const double px = pt.x - center.x;
+    const double py = pt.y - center.y;
+    const double rx = px * cos_h + py * sin_h;
+    const double ry = -px * sin_h + py * cos_h;
+    const double rz = pt.z - center.z;
+    // Direction rotated by -heading (dir_z left unrotated, matching object velocity handling).
+    const double rdx = pt.dir_x * cos_h + pt.dir_y * sin_h;
+    const double rdy = -pt.dir_x * sin_h + pt.dir_y * cos_h;
+
+    // pre_x/pre_y: target-centered position of the previous point in the chunk; 
+    // the first point copies its own position 
+    double pre_x = rx;
+    double pre_y = ry;
+    if (j > 0) {
+      const auto & prev = polyline.points[j - 1];
+      const double ppx = prev.x - center.x;
+      const double ppy = prev.y - center.y;
+      pre_x = ppx * cos_h + ppy * sin_h;
+      pre_y = -ppx * sin_h + ppy * cos_h;
+    }
+
+    // Packed 9-column row: [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y].
+    chunk.points.push_back({static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz),
+                            static_cast<float>(rdx), static_cast<float>(rdy),
+                            static_cast<float>(pt.dir_z), kMapLaneCenterlineType,
+                            static_cast<float>(pre_x), static_cast<float>(pre_y)});
+    sum_x += rx;
+    sum_y += ry;
+    sum_z += rz;
+  }
+
+  if (num_pts > 0) {
+    const double count = static_cast<double>(num_pts);
+    chunk.center = {static_cast<float>(sum_x / count), static_cast<float>(sum_y / count),
+                    static_cast<float>(sum_z / count)};
+  }
+  return chunk;
+}
+
+bool SceneBuilder::packMapTensors(
+  const std::vector<TargetCandidate> & targets, const std::vector<MapPolyline> & polylines,
+  MtrInputTensors & tensors) const
+{
+  const auto num_polylines = static_cast<std::size_t>(kNumSrcPolylines);
+  const auto num_points = static_cast<std::size_t>(kNumPointsPerPolyline);
+  const auto feature_dim = static_cast<std::size_t>(kMapFeatureDim);
+
+  // Always size to the fixed contract; unused target/polyline/point slots stay zero + mask false.
+  tensors.map_polylines.assign(kTargetCapacity * num_polylines * num_points * feature_dim, 0.0F);
+  tensors.map_polylines_mask.assign(kTargetCapacity * num_polylines * num_points, 0U);
+  tensors.map_polylines_center.assign(kTargetCapacity * num_polylines * 3U, 0.0F);
+
+  const std::size_t num_real_targets = std::min(targets.size(), kTargetCapacity);
+  bool wrote_any = false;
+
+  for (std::size_t t = 0; t < num_real_targets; ++t) {
+    const auto & center = targets[t].sample;
+    const auto selected = rankMapChunksForTarget(polylines, center);
+
+    // Pure stuffing: transform each selected chunk, then copy its rows into the flat buffers.
+    for (std::size_t p = 0; p < selected.size(); ++p) {
+      const auto chunk = transformMapChunk(polylines[selected[p]], center);
+      if (chunk.points.empty()) {
+        continue;
+      }
+
+      for (std::size_t j = 0; j < chunk.points.size(); ++j) {
+        const std::size_t row = (t * num_polylines + p) * num_points + j;
+        std::copy(chunk.points[j].begin(), chunk.points[j].end(), &tensors.map_polylines[row * feature_dim]);
+        tensors.map_polylines_mask[row] = 1U;
+      }
+      const std::size_t center_idx = (t * num_polylines + p) * 3U;
+      std::copy(chunk.center.begin(), chunk.center.end(), &tensors.map_polylines_center[center_idx]);
+      wrote_any = true;
+    }
+  }
+
+  return wrote_any;
 }
 
 }  // namespace prediction_ml
