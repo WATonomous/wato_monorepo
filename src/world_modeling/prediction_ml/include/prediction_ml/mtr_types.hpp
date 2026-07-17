@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 #include "world_model_msgs/msg/prediction.hpp"
@@ -42,8 +43,17 @@ struct MtrConfig
   std::string metadata_path;
   double cache_ttl_s{0.5};
   int selected_target_agent_limit{8};
+  // Half-angle from ego heading that counts as "forward" for target priority (degrees).
+  // 90 => front hemisphere, including agents beside the car at ±90°.
+  double target_forward_half_angle_deg{90.0};
   int history_steps{11};
   double history_rate_hz{10.0};
+  // Static ego (SDC) bounding-box dimensions (metres). Used to give the ego row a real
+  // footprint in obj_trajs instead of a zero-size box, matching MTR training. Defaults are
+  // the Kia Soul EV chassis from eve_description (eve_chassis.xacro).
+  double ego_length{4.0936};
+  double ego_width{1.3579};
+  double ego_height{1.4090};
 };
 
 // One engine binding (name + dtype + shape) used for contract validation.
@@ -65,9 +75,12 @@ struct MtrFrameContext
 {
   vision_msgs::msg::Detection3DArray detections;
   geometry_msgs::msg::PoseStamped ego_pose;
+  // Raw odometry twist, body frame (base_link).
+  geometry_msgs::msg::Twist ego_velocity;
   lanelet_msgs::msg::LaneletAhead lanelet_ahead;
   double timestamp{0.0};
   bool has_ego{false};
+  bool has_ego_velocity{false};
   bool has_map{false};
 };
 
@@ -93,8 +106,8 @@ struct MtrInputTensors
   std::vector<float> obj_trajs;
   std::vector<uint8_t> obj_trajs_mask;
   std::vector<float> obj_trajs_last_pos;
-  std::vector<int32_t> track_index_to_predict;
-  std::vector<std::string> center_objects_type;
+  std::vector<int64_t> track_index_to_predict;
+  std::vector<int64_t> center_type_ids;
   std::vector<float> map_polylines;
   std::vector<uint8_t> map_polylines_mask;
   std::vector<float> map_polylines_center;

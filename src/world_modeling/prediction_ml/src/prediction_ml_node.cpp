@@ -38,8 +38,12 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.metadata_path", "");
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
   this->declare_parameter("mtr.selected_target_agent_limit", 8);
+  this->declare_parameter("mtr.target_forward_half_angle_deg", 90.0);
   this->declare_parameter("mtr.history_steps", 11);
   this->declare_parameter("mtr.history_rate_hz", 10.0);
+  this->declare_parameter("mtr.ego_length", 4.8);
+  this->declare_parameter("mtr.ego_width", 2.0);
+  this->declare_parameter("mtr.ego_height", 1.5);
   RCLCPP_INFO(this->get_logger(), "PredictionMlNode created (unconfigured)");
 }
 
@@ -51,8 +55,12 @@ MtrConfig PredictionMlNode::loadMtrConfig()
   cfg.metadata_path = this->get_parameter("mtr.metadata_path").as_string();
   cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
   cfg.selected_target_agent_limit = static_cast<int>(this->get_parameter("mtr.selected_target_agent_limit").as_int());
+  cfg.target_forward_half_angle_deg = this->get_parameter("mtr.target_forward_half_angle_deg").as_double();
   cfg.history_steps = static_cast<int>(this->get_parameter("mtr.history_steps").as_int());
   cfg.history_rate_hz = this->get_parameter("mtr.history_rate_hz").as_double();
+  cfg.ego_length = this->get_parameter("mtr.ego_length").as_double();
+  cfg.ego_width = this->get_parameter("mtr.ego_width").as_double();
+  cfg.ego_height = this->get_parameter("mtr.ego_height").as_double();
   return cfg;
 }
 
