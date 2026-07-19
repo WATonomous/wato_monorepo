@@ -118,9 +118,8 @@ if(PREDICTION_ML_ENABLE_TENSORRT)
 
   target_link_libraries(
     prediction_ml_lib
-    PRIVATE
-      CUDA::cudart
-      ${TENSORRT_NVINFER_LIBRARY}
+    CUDA::cudart
+    ${TENSORRT_NVINFER_LIBRARY}
   )
 endif()
 
