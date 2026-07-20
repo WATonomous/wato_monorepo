@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <NvInfer.h>
 #include <cuda_runtime_api.h>
+#include <NvInfer.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -57,7 +57,10 @@ public:
     }
   }
 
-  const std::string & lastMessage() const { return last_message_; }
+  const std::string & lastMessage() const
+  {
+    return last_message_;
+  }
 
 private:
   std::string last_message_;
@@ -71,7 +74,8 @@ public:
   DeviceBuffer & operator=(const DeviceBuffer &) = delete;
 
   DeviceBuffer(DeviceBuffer && other) noexcept
-  : data_(std::exchange(other.data_, nullptr)), bytes_(std::exchange(other.bytes_, 0))
+  : data_(std::exchange(other.data_, nullptr))
+  , bytes_(std::exchange(other.bytes_, 0))
   {}
 
   DeviceBuffer & operator=(DeviceBuffer && other) noexcept
@@ -84,7 +88,10 @@ public:
     return *this;
   }
 
-  ~DeviceBuffer() { reset(); }
+  ~DeviceBuffer()
+  {
+    reset();
+  }
 
   cudaError_t allocate(const std::size_t bytes)
   {
@@ -96,8 +103,15 @@ public:
     return cudaMalloc(&data_, bytes_);
   }
 
-  void * data() const { return data_; }
-  std::size_t bytes() const { return bytes_; }
+  void * data() const
+  {
+    return data_;
+  }
+
+  std::size_t bytes() const
+  {
+    return bytes_;
+  }
 
 private:
   void reset()
@@ -127,8 +141,15 @@ public:
     }
   }
 
-  cudaError_t create() { return cudaStreamCreate(&stream_); }
-  cudaStream_t get() const { return stream_; }
+  cudaError_t create()
+  {
+    return cudaStreamCreate(&stream_);
+  }
+
+  cudaStream_t get() const
+  {
+    return stream_;
+  }
 
 private:
   cudaStream_t stream_{nullptr};
@@ -265,17 +286,12 @@ public:
     const std::unordered_map<std::string, HostInputView> input_views{
       {"obj_trajs", {input.obj_trajs.data(), input.obj_trajs.size() * sizeof(float)}},
       {"obj_trajs_mask", {input.obj_trajs_mask.data(), input.obj_trajs_mask.size()}},
-      {"obj_trajs_last_pos", {
-        input.obj_trajs_last_pos.data(), input.obj_trajs_last_pos.size() * sizeof(float)}},
-      {"map_polylines", {
-        input.map_polylines.data(), input.map_polylines.size() * sizeof(float)}},
+      {"obj_trajs_last_pos", {input.obj_trajs_last_pos.data(), input.obj_trajs_last_pos.size() * sizeof(float)}},
+      {"map_polylines", {input.map_polylines.data(), input.map_polylines.size() * sizeof(float)}},
       {"map_polylines_mask", {input.map_polylines_mask.data(), input.map_polylines_mask.size()}},
-      {"map_polylines_center", {
-        input.map_polylines_center.data(), input.map_polylines_center.size() * sizeof(float)}},
-      {"track_index_to_predict", {
-        track_indices.data(), track_indices.size() * sizeof(int64_t)}},
-      {"center_type_ids", {
-        center_type_ids.data(), center_type_ids.size() * sizeof(int64_t)}}};
+      {"map_polylines_center", {input.map_polylines_center.data(), input.map_polylines_center.size() * sizeof(float)}},
+      {"track_index_to_predict", {track_indices.data(), track_indices.size() * sizeof(int64_t)}},
+      {"center_type_ids", {center_type_ids.data(), center_type_ids.size() * sizeof(int64_t)}}};
 
     std::unordered_map<std::string, DeviceBuffer> device_buffers;
     device_buffers.reserve(static_cast<std::size_t>(engine_->getNbIOTensors()));
@@ -283,7 +299,8 @@ public:
     if (!prepareInputs(input_views, device_buffers)) {
       return output;
     }
-    if (!prepareOutput("pred_scores", output.scores_shape, output.pred_scores, device_buffers) ||
+    if (
+      !prepareOutput("pred_scores", output.scores_shape, output.pred_scores, device_buffers) ||
       !prepareOutput("pred_trajs", output.trajs_shape, output.pred_trajs, device_buffers))
     {
       return output;
@@ -293,7 +310,8 @@ public:
       setError("TensorRT enqueueV3 failed: " + logger_.lastMessage());
       return output;
     }
-    if (!copyOutput("pred_scores", output.pred_scores, device_buffers) ||
+    if (
+      !copyOutput("pred_scores", output.pred_scores, device_buffers) ||
       !copyOutput("pred_trajs", output.pred_trajs, device_buffers))
     {
       // enqueueV3 may still be using these buffers. Synchronize before their
@@ -426,10 +444,8 @@ private:
 
   bool validateEightTargetContract()
   {
-    const std::vector<int64_t> obj_shape{
-      kTargetCapacity, kContextAgentCapacity, kHistorySteps, kObjectFeatureCount};
-    const std::vector<int64_t> map_shape{
-      kTargetCapacity, kMapPolylineCapacity, kPointsPerPolyline, kMapFeatureCount};
+    const std::vector<int64_t> obj_shape{kTargetCapacity, kContextAgentCapacity, kHistorySteps, kObjectFeatureCount};
+    const std::vector<int64_t> map_shape{kTargetCapacity, kMapPolylineCapacity, kPointsPerPolyline, kMapFeatureCount};
 
     if (tensorRtDimsToVector(engine_->getTensorShape("obj_trajs")) != obj_shape) {
       setError("obj_trajs does not use the fixed 8-target shape");
@@ -442,9 +458,7 @@ private:
     return true;
   }
 
-  bool encodeCenterObjectTypes(
-    const std::vector<std::string> & object_types,
-    std::vector<int64_t> & type_ids)
+  bool encodeCenterObjectTypes(const std::vector<std::string> & object_types, std::vector<int64_t> & type_ids)
   {
     type_ids.clear();
     type_ids.reserve(object_types.size());
@@ -463,16 +477,13 @@ private:
     return true;
   }
 
-  template<typename T>
-  bool requireElements(
-    const std::string & name,
-    const std::vector<T> & values,
-    const std::size_t expected)
+  template <typename T>
+  bool requireElements(const std::string & name, const std::vector<T> & values, const std::size_t expected)
   {
     if (values.size() != expected) {
       setError(
-        name + " element count mismatch: expected " + std::to_string(expected) +
-        ", got " + std::to_string(values.size()));
+        name + " element count mismatch: expected " + std::to_string(expected) + ", got " +
+        std::to_string(values.size()));
       return false;
     }
     return true;
@@ -491,13 +502,15 @@ private:
     constexpr std::size_t points_per_polyline = static_cast<std::size_t>(kPointsPerPolyline);
     constexpr std::size_t map_features = static_cast<std::size_t>(kMapFeatureCount);
 
-    if (input.obj_trajs_shape !=
+    if (
+      input.obj_trajs_shape !=
       std::vector<int64_t>{kTargetCapacity, kContextAgentCapacity, kHistorySteps, kObjectFeatureCount})
     {
       setError("obj_trajs_shape does not match [8, 128, 11, 29]");
       return false;
     }
-    if (input.map_polylines_shape !=
+    if (
+      input.map_polylines_shape !=
       std::vector<int64_t>{kTargetCapacity, kMapPolylineCapacity, kPointsPerPolyline, kMapFeatureCount})
     {
       setError("map_polylines_shape does not match [8, 768, 20, 9]");
@@ -508,24 +521,16 @@ private:
       return false;
     }
 
-    if (!requireElements(
-        "obj_trajs", input.obj_trajs,
-        target_capacity * context_capacity * history_steps * object_features) ||
+    if (
       !requireElements(
-        "obj_trajs_mask", input.obj_trajs_mask,
-        target_capacity * context_capacity * history_steps) ||
+        "obj_trajs", input.obj_trajs, target_capacity * context_capacity * history_steps * object_features) ||
+      !requireElements("obj_trajs_mask", input.obj_trajs_mask, target_capacity * context_capacity * history_steps) ||
+      !requireElements("obj_trajs_last_pos", input.obj_trajs_last_pos, target_capacity * context_capacity * 3) ||
       !requireElements(
-        "obj_trajs_last_pos", input.obj_trajs_last_pos,
-        target_capacity * context_capacity * 3) ||
+        "map_polylines", input.map_polylines, target_capacity * map_capacity * points_per_polyline * map_features) ||
       !requireElements(
-        "map_polylines", input.map_polylines,
-        target_capacity * map_capacity * points_per_polyline * map_features) ||
-      !requireElements(
-        "map_polylines_mask", input.map_polylines_mask,
-        target_capacity * map_capacity * points_per_polyline) ||
-      !requireElements(
-        "map_polylines_center", input.map_polylines_center,
-        target_capacity * map_capacity * 3) ||
+        "map_polylines_mask", input.map_polylines_mask, target_capacity * map_capacity * points_per_polyline) ||
+      !requireElements("map_polylines_center", input.map_polylines_center, target_capacity * map_capacity * 3) ||
       !requireElements("track_index_to_predict", track_indices, target_capacity) ||
       !requireElements("center_type_ids", center_type_ids, target_capacity))
     {
@@ -537,9 +542,7 @@ private:
       setError("obj_trajs_mask must contain only 0 or 1");
       return false;
     }
-    if (!std::all_of(
-        input.map_polylines_mask.begin(), input.map_polylines_mask.end(), is_boolean))
-    {
+    if (!std::all_of(input.map_polylines_mask.begin(), input.map_polylines_mask.end(), is_boolean)) {
       setError("map_polylines_mask must contain only 0 or 1");
       return false;
     }
@@ -563,9 +566,8 @@ private:
         setError(cudaErrorMessage("cudaMalloc(" + spec.name + ")", allocation_status));
         return false;
       }
-      const cudaError_t copy_status = cudaMemcpyAsync(
-        buffer.data(), input->second.data, input->second.bytes,
-        cudaMemcpyHostToDevice, stream_.get());
+      const cudaError_t copy_status =
+        cudaMemcpyAsync(buffer.data(), input->second.data, input->second.bytes, cudaMemcpyHostToDevice, stream_.get());
       if (copy_status != cudaSuccess) {
         setError(cudaErrorMessage("cudaMemcpyAsync(" + spec.name + ")", copy_status));
         return false;
@@ -625,9 +627,8 @@ private:
       return false;
     }
 
-    const cudaError_t copy_status = cudaMemcpyAsync(
-      host_buffer.data(), device_buffer->second.data(), bytes,
-      cudaMemcpyDeviceToHost, stream_.get());
+    const cudaError_t copy_status =
+      cudaMemcpyAsync(host_buffer.data(), device_buffer->second.data(), bytes, cudaMemcpyDeviceToHost, stream_.get());
     if (copy_status != cudaSuccess) {
       setError(cudaErrorMessage("cudaMemcpyAsync(" + name + ")", copy_status));
       return false;
