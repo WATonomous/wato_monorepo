@@ -69,21 +69,26 @@ camera_pano_nw:
 camera_lower_ne:
   ros__parameters:
     <<: *common_settings
-    # Mask the lower band where the ego vehicle appears in this camera.
-    # Format: "stream_name:x,y,width,height".
-    mask_regions: "stream0:0,760,1280,264"
+    # Mask the ego-vehicle wedge. Format: "stream_name:x,y,width,height"
+    # (multiple regions joined by ';'). Steep triangle anchored to the RIGHT edge
+    # (x = 1280 - width): tapers from a point at the top to 1/3-width (427px) at
+    # the bottom, over the full image height (16 x 64px strips, y=0..1024).
+    mask_regions: "stream0:1253,0,27,64;stream0:1227,64,53,64;stream0:1200,128,80,64;stream0:1173,192,107,64;stream0:1147,256,133,64;stream0:1120,320,160,64;stream0:1093,384,187,64;stream0:1067,448,213,64;stream0:1040,512,240,64;stream0:1013,576,267,64;stream0:987,640,293,64;stream0:960,704,320,64;stream0:933,768,347,64;stream0:907,832,373,64;stream0:880,896,400,64;stream0:853,960,427,64"
 
 camera_lower_se:
   ros__parameters:
     <<: *common_settings
-    mask_regions: "stream0:0,760,1280,264"
+    # LEFT-anchored steep triangle (1/3-width, 16 x 64px strips).
+    mask_regions: "stream0:0,0,27,64;stream0:0,64,53,64;stream0:0,128,80,64;stream0:0,192,107,64;stream0:0,256,133,64;stream0:0,320,160,64;stream0:0,384,187,64;stream0:0,448,213,64;stream0:0,512,240,64;stream0:0,576,267,64;stream0:0,640,293,64;stream0:0,704,320,64;stream0:0,768,347,64;stream0:0,832,373,64;stream0:0,896,400,64;stream0:0,960,427,64"
 
 camera_lower_sw:
   ros__parameters:
     <<: *common_settings
-    mask_regions: "stream0:0,760,1280,264"
+    # RIGHT-anchored steep triangle (x = 1280 - width, 1/3-width, 16 x 64px strips).
+    mask_regions: "stream0:1253,0,27,64;stream0:1227,64,53,64;stream0:1200,128,80,64;stream0:1173,192,107,64;stream0:1147,256,133,64;stream0:1120,320,160,64;stream0:1093,384,187,64;stream0:1067,448,213,64;stream0:1040,512,240,64;stream0:1013,576,267,64;stream0:987,640,293,64;stream0:960,704,320,64;stream0:933,768,347,64;stream0:907,832,373,64;stream0:880,896,400,64;stream0:853,960,427,64"
 
 camera_lower_nw:
   ros__parameters:
     <<: *common_settings
-    mask_regions: "stream0:0,760,1280,264"
+    # LEFT-anchored steep triangle (same as se; 1/3-width, 16 x 64px strips).
+    mask_regions: "stream0:0,0,27,64;stream0:0,64,53,64;stream0:0,128,80,64;stream0:0,192,107,64;stream0:0,256,133,64;stream0:0,320,160,64;stream0:0,384,187,64;stream0:0,448,213,64;stream0:0,512,240,64;stream0:0,576,267,64;stream0:0,640,293,64;stream0:0,704,320,64;stream0:0,768,347,64;stream0:0,832,373,64;stream0:0,896,400,64;stream0:0,960,427,64"

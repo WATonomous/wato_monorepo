@@ -154,7 +154,7 @@ launch:
   # Lower Cameras (4 cameras)
   # camera 8 - lower NE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -169,7 +169,7 @@ launch:
 
   # camera 9 - lower SE
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -184,7 +184,7 @@ launch:
 
   # camera 10 - lower SW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
@@ -199,7 +199,7 @@ launch:
 
   # camera 11 - lower NW
   - include:
-      file: "$(find-pkg-share sensor_interfacing)/launch/template_camera_load.yaml"
+      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
           value: "$(var container_name)"
