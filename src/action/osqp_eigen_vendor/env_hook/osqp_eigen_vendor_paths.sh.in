@@ -4,3 +4,7 @@ PREFIX=$(dirname $(dirname $(dirname $HERE)))
 
 # Fixed path at build time
 ament_prepend_unique_value CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/osqp_eigen_vendor"
+
+# The vendored libraries live under an opt/ prefix that no standard hook covers, so
+# without this, anything linking OsqpEigen fails to dlopen at runtime.
+ament_prepend_unique_value LD_LIBRARY_PATH "@CMAKE_INSTALL_PREFIX@/opt/osqp_eigen_vendor/lib"

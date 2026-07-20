@@ -14,11 +14,11 @@ launch:
       description: "Port for the pygame HUD web server"
   - arg:
       name: scenario
-      default: "carla_scenarios.scenarios.oval_track_scenario"
+      default: "carla_scenarios.scenarios.light_traffic_scenario"
       description: >-
-        Scenario module to load on startup. Defaults to the oval track (built from
-        maps/osm/oval_track_4_lane.xodr). Override with e.g.
-        carla_scenarios.scenarios.light_traffic_scenario for a stock Town.
+        Scenario module to load on startup. Set to
+        carla_scenarios.scenarios.oval_track_scenario for the oval track (the fake-planner
+        demo) -- usually via CARLA_SCENARIO in watod-config.local.sh.
 
   # Eve Robot Description
   - include:

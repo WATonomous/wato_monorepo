@@ -206,6 +206,11 @@ FakePlannerNode::FakePlannerNode(const rclcpp::NodeOptions & options)
   // supplies one). One maneuver per file, selected from the package's maneuvers/ folder via
   // the launch.
   declare_parameter("maneuver_file", std::string(""));
+
+  // Trajectory visualization, mirroring trajectory_planner: a MarkerArray of speed-sized
+  // spheres + speed labels, published with the trajectory whenever someone subscribes.
+  // Same param name and default topic as the real planner.
+  declare_parameter("marker_pub_topic", "trajectory_markers");
 }
 
 FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifecycle::State & /*state*/)
@@ -220,6 +225,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   anchor_to_first_pose_ = get_parameter("anchor_to_first_pose").as_bool();
   start_on_activate_ = get_parameter("start_on_activate").as_bool();
   maneuver_file_ = get_parameter("maneuver_file").as_string();
+  marker_topic_ = get_parameter("marker_pub_topic").as_string();
 
   if (publish_rate_hz_ <= 0.0) {
     RCLCPP_ERROR(get_logger(), "publish_rate_hz must be > 0 (got %.3f)", publish_rate_hz_);
@@ -245,6 +251,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   if (publish_behaviour_) {
     behaviour_pub_ = create_publisher<behaviour_msgs::msg::ExecuteBehaviour>(behaviour_topic_, rclcpp::QoS(10));
   }
+  marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(marker_topic_, rclcpp::QoS(10));
 
   start_srv_ = create_service<std_srvs::srv::Trigger>(
     "~/start_trajectory",
@@ -338,10 +345,8 @@ bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error
   Path fine_path;
   Cursor cursor;
 
-  // Optional absolute start pose. Segments are normally authored from the origin and laid
-  // out relative to the vehicle (anchor_to_first_pose). A maneuver that must land on real
-  // surveyed geometry instead -- e.g. a specific lane of the oval track -- sets "start" and
-  // runs with anchor_to_first_pose=false, so it is published verbatim in frame_id.
+  // Optional absolute start pose: a maneuver on fixed geometry (e.g. an oval lane) sets
+  // "start" and runs with anchor_to_first_pose=false, publishing verbatim in frame_id.
   if (doc.contains("start")) {
     const nlohmann::json & start = doc["start"];
     if (!start.is_object()) {
@@ -423,6 +428,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_activate(const rclcpp_lifecy
   if (behaviour_pub_) {
     behaviour_pub_->on_activate();
   }
+  marker_pub_->on_activate();
 
   trajectory_started_ = start_on_activate_;
 
@@ -449,6 +455,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_deactivate(const rclcpp_life
   if (behaviour_pub_) {
     behaviour_pub_->on_deactivate();
   }
+  marker_pub_->on_deactivate();
   RCLCPP_INFO(get_logger(), "Deactivated");
   return CallbackReturn::SUCCESS;
 }
@@ -458,6 +465,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_cleanup(const rclcpp_lifecyc
   timer_.reset();
   trajectory_pub_.reset();
   behaviour_pub_.reset();
+  marker_pub_.reset();
   odom_sub_.reset();
   start_srv_.reset();
   stop_srv_.reset();
@@ -472,6 +480,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_shutdown(const rclcpp_lifecy
   timer_.reset();
   trajectory_pub_.reset();
   behaviour_pub_.reset();
+  marker_pub_.reset();
   odom_sub_.reset();
   start_srv_.reset();
   stop_srv_.reset();
@@ -520,6 +529,90 @@ void FakePlannerNode::buildTrajectory()
   trajectory_ready_ = true;
 }
 
+// Same marker scheme as trajectory_planner's visualization: wipe, then a sphere per point
+// sized by speed with a text label on every 4th marker. The only difference is the speed
+// that saturates the sphere size: the real planner normalizes by the lane speed limit,
+// which the fake planner doesn't have, so the maneuver's top speed stands in for it.
+void FakePlannerNode::publishMarkers()
+{
+  if (!marker_pub_ || !marker_pub_->is_activated() || !trajectory_ready_) {
+    return;
+  }
+  if (marker_pub_->get_subscription_count() == 0) {
+    return;
+  }
+
+  double limit_speed = 0.0;
+  for (const auto & point : trajectory_.points) {
+    limit_speed = std::max(limit_speed, static_cast<double>(point.max_speed));
+  }
+  if (limit_speed <= 0.0) {
+    limit_speed = 1.0;
+  }
+
+  auto header = trajectory_.header;
+  header.stamp = now();
+
+  visualization_msgs::msg::MarkerArray markers;
+
+  // Delete all previous markers first
+  visualization_msgs::msg::Marker delete_marker;
+  delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+  markers.markers.push_back(delete_marker);
+
+  // Create a sphere marker for each point
+  int id = 0;
+  for (const auto & point : trajectory_.points) {
+    visualization_msgs::msg::Marker sphere;
+    sphere.header = header;
+    sphere.ns = "trajectory_velocity";
+    sphere.id = id++;
+    sphere.type = visualization_msgs::msg::Marker::SPHERE;
+    sphere.action = visualization_msgs::msg::Marker::ADD;
+    sphere.pose = point.pose;
+
+    // Size correlates with speed: base 0.1 m, up to 0.5 m at the top speed.
+    const double speed_ratio = std::max(0.0, std::min(1.0, point.max_speed / limit_speed));
+    const double diameter = 0.1 + (0.4 * speed_ratio);
+
+    // Only add labels for every 4th point to avoid clutter
+    if (id % 4 == 0) {
+      visualization_msgs::msg::Marker label;
+      label.header = header;
+      label.ns = "trajectory_speed_labels";
+      label.id = id++;
+      label.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+      label.action = visualization_msgs::msg::Marker::ADD;
+      label.pose = point.pose;
+      label.pose.position.y += 0.8;
+      label.pose.position.z += 0.5;
+      label.scale.z = 0.4;
+      label.color.r = 1.0f;
+      label.color.g = 1.0f;
+      label.color.b = 1.0f;
+      label.color.a = 1.0f;
+
+      const std::string speed_str = std::to_string(point.max_speed);
+      label.text = speed_str.substr(0, speed_str.find(".") + 2) + " m/s";
+      markers.markers.push_back(label);
+    }
+
+    sphere.scale.x = diameter;
+    sphere.scale.y = diameter;
+    sphere.scale.z = diameter;
+
+    // Uniform color (Purple)
+    sphere.color.r = 0.6f;
+    sphere.color.g = 0.2f;
+    sphere.color.b = 0.8f;
+    sphere.color.a = 0.8f;
+
+    markers.markers.push_back(sphere);
+  }
+
+  marker_pub_->publish(markers);
+}
+
 void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
 {
   if (anchored_) {
@@ -544,9 +637,11 @@ void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr
 
 void FakePlannerNode::timerCallback()
 {
-  // Publish nothing until started: with no trajectory and no behaviour heartbeat the
-  // controller stays in standby rather than driving off on bringup.
+  // Publish nothing until started (except the marker preview, so the maneuver can be
+  // inspected before releasing the car): with no trajectory and no behaviour heartbeat
+  // the controller stays in standby rather than driving off on bringup.
   if (!trajectory_started_) {
+    publishMarkers();
     RCLCPP_INFO_THROTTLE(
       get_logger(), *get_clock(), 5000, "Holding: waiting for the start_trajectory service.");
     return;
@@ -560,6 +655,7 @@ void FakePlannerNode::timerCallback()
 
   trajectory_.header.stamp = now();
   trajectory_pub_->publish(trajectory_);
+  publishMarkers();
 
   if (behaviour_pub_) {
     behaviour_msgs::msg::ExecuteBehaviour beh;

@@ -19,23 +19,20 @@ Generate the 4-lane oval track as a single source of truth.
 the track. It emits three artifacts that are guaranteed to share one geometry:
 
   1. maps/osm/oval_track_4_lane.osm   Lanelet2 map    -> world_model (visualisation / routing)
-  2. maps/osm/oval_track_4_lane.xodr  OpenDRIVE       -> CARLA (the drivable road mesh)
+  2. maps/osm/oval_track_4_lane.xodr  OpenDRIVE       -> CARLA (road mesh + ground pad)
   3. src/action/fake_planner/maneuvers/oval_track.json
                                       fake_planner maneuver -> the lane centreline to drive
 
-Geometry: a true "stadium" oval -- two parallel straights joined by two tangent
-semicircular caps, so curvature is continuous at every junction:
+The .xodr additionally carries a "ground pad": a slab of wide shoulder lanes under and
+around the whole track, so that leaving the drawn lanes drops the car ~PAD_DROP onto
+flat ground instead of into the void (CARLA only builds mesh where OpenDRIVE lanes
+are). The pad is physics/visual only -- it is deliberately NOT in the .osm, where the
+lanes exist purely as lane context, and its lanes are non-driving so CARLA's waypoint
+API (project_to_road, lane_type=Driving) never snaps the ego or scenarios onto it.
 
-           <------------- straight L ------------->
-        ***                                         ***
-      **                                               **
-     *          cap centre (-L/2, 0)   (+L/2, 0)         *     inner edge radius R
-      **                                               **
-        ***                                         ***
-           <------------- straight L ------------->
-
-All boundaries are concentric offsets of that shape, so lanes have exactly
-constant width everywhere.
+Geometry: a true "stadium" oval -- two parallel straights (length L, at +/-INNER_RADIUS)
+joined by two tangent semicircular caps centred at (+/-L/2, 0), so curvature is continuous.
+All lane boundaries are concentric offsets of that shape, giving exactly constant lane width.
 
 Frames
 ------
@@ -67,11 +64,20 @@ CRUISE_SPEED = 5.0  # m/s, constant so the controller laps continuously
 SPEED_LIMIT_KMH = 50
 NODE_SPACING = 2.0  # metres, OSM boundary discretisation
 
+# Ground pad (OpenDRIVE only; see module docstring). Several moderate lanes triangulate
+# better than one enormous one, and the slight drop avoids z-fighting with the track mesh.
+PAD_MARGIN = 20.0  # metres of flat runoff beyond the track envelope on every side
+PAD_LANE_WIDTH = 10.0  # metres, per pad shoulder lane
+PAD_DROP = 0.03  # metres the pad sits below the road surface
+
 # Derived
 OUTER_RADIUS = INNER_RADIUS + NUM_LANES * LANE_WIDTH  # 49.0
 CAP_CENTRE_X = STRAIGHT_LENGTH / 2.0  # 42.0
 EXTENT_X = CAP_CENTRE_X + OUTER_RADIUS  # 91.0  -> 182 m wide
 EXTENT_Y = OUTER_RADIUS  # 49.0  -> 98 m tall
+PAD_HALF_LENGTH = EXTENT_X + PAD_MARGIN  # 111.0 (x extent of the pad)
+PAD_LANES_PER_SIDE = int(math.ceil((EXTENT_Y + PAD_MARGIN) / PAD_LANE_WIDTH))  # 7
+PAD_HALF_WIDTH = PAD_LANES_PER_SIDE * PAD_LANE_WIDTH  # 70.0 (y extent of the pad)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OSM_OUT = os.path.join(REPO, "maps", "osm", "oval_track_4_lane.osm")
@@ -278,6 +284,10 @@ def build_xodr():
 
     The reference line is the inner edge (radius INNER_RADIUS); the 4 driving lanes
     are on the right of it (ids -1..-4), i.e. outward, and carry traffic along +s.
+
+    Plus road 3, the ground pad: an unlinked straight road along the spine whose
+    shoulder lanes form a flat slab covering the track envelope + PAD_MARGIN, sitting
+    PAD_DROP below the road so leaving the lanes never falls out of the world.
     """
     cap_len = math.pi * INNER_RADIUS
     curv = 1.0 / INNER_RADIUS  # positive == counter-clockwise (left)
@@ -356,12 +366,52 @@ def build_xodr():
         r.append("  </road>")
         return "\n".join(r)
 
+    def pad_road(rid):
+        def pad_lane(lane_id):
+            return (
+                '          <lane id="%d" type="shoulder" level="false">\n'
+                '            <width sOffset="0.0" a="%.4f" b="0.0" c="0.0" d="0.0"/>\n'
+                "          </lane>" % (lane_id, PAD_LANE_WIDTH)
+            )
+
+        r = []
+        r.append(
+            '  <road name="ground_pad" length="%.10f" id="%d" junction="-1">'
+            % (2.0 * PAD_HALF_LENGTH, rid)
+        )
+        r.append("    <planView>")
+        r.append(
+            '      <geometry s="0.0" x="%.10f" y="0.0" hdg="0.0" length="%.10f">'
+            "<line/></geometry>" % (-PAD_HALF_LENGTH, 2.0 * PAD_HALF_LENGTH)
+        )
+        r.append("    </planView>")
+        r.append("    <elevationProfile>")
+        r.append('      <elevation s="0.0" a="%.4f" b="0.0" c="0.0" d="0.0"/>' % -PAD_DROP)
+        r.append("    </elevationProfile>")
+        r.append("    <lanes>")
+        r.append('      <laneSection s="0.0">')
+        r.append("        <left>")
+        for i in range(PAD_LANES_PER_SIDE, 0, -1):
+            r.append(pad_lane(i))
+        r.append("        </left>")
+        r.append("        <center>")
+        r.append('          <lane id="0" type="none" level="false"/>')
+        r.append("        </center>")
+        r.append("        <right>")
+        for i in range(1, PAD_LANES_PER_SIDE + 1):
+            r.append(pad_lane(-i))
+        r.append("        </right>")
+        r.append("      </laneSection>")
+        r.append("    </lanes>")
+        r.append("  </road>")
+        return "\n".join(r)
+
     out = ['<?xml version="1.0" standalone="yes"?>']
     out.append("<OpenDRIVE>")
     out.append(
         '  <header revMajor="1" revMinor="4" name="oval_track_4_lane" version="1.00" '
         'date="generated" north="%.4f" south="%.4f" east="%.4f" west="%.4f" '
-        'vendor="WATonomous">' % (EXTENT_Y, -EXTENT_Y, EXTENT_X, -EXTENT_X)
+        'vendor="WATonomous">' % (PAD_HALF_WIDTH, -PAD_HALF_WIDTH, PAD_HALF_LENGTH, -PAD_HALF_LENGTH)
     )
     out.append(
         "    <geoReference><![CDATA[+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 "
@@ -385,6 +435,8 @@ def build_xodr():
             math.pi,
         )
     )
+    # road 3: the ground pad under and around everything
+    out.append(pad_road(3))
     out.append("</OpenDRIVE>")
     return "\n".join(out) + "\n"
 
@@ -540,6 +592,21 @@ def verify(nodes, ways, rels):
     check(
         "envelope == %.0f x %.0f m" % (2 * EXTENT_X, 2 * EXTENT_Y),
         abs(EXTENT_X - 91.0) < 1e-9 and abs(EXTENT_Y - 49.0) < 1e-9,
+    )
+
+    # The ground pad must bury the whole track envelope with real runoff on every side,
+    # and its shoulder lanes must never be mistaken for drivable road.
+    xodr = build_xodr()
+    check(
+        "ground pad covers envelope + >= 15 m runoff",
+        PAD_HALF_LENGTH >= EXTENT_X + 15.0 and PAD_HALF_WIDTH >= EXTENT_Y + 15.0,
+        "(pad %.0f x %.0f m)" % (2 * PAD_HALF_LENGTH, 2 * PAD_HALF_WIDTH),
+    )
+    check(
+        "ground pad lanes are non-driving shoulders",
+        xodr.count('type="shoulder"') == 2 * PAD_LANES_PER_SIDE
+        and 'name="ground_pad"' in xodr,
+        "(%d shoulder lanes)" % (2 * PAD_LANES_PER_SIDE),
     )
 
     # The maneuver must trace the drive lane's centreline exactly. Replays the same

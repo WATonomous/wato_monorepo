@@ -6,9 +6,9 @@
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 10.0
-    # NOTE: initial_scenario is intentionally NOT set here -- it is chosen solely by the
-    # scenario:= launch arg (default CARLA_SCENARIO, set in watod-setup-env.sh). Keeping it
-    # out of the config keeps a single source of truth and avoids a stale hard-coded scenario.
+    # Don't set initial_scenario here: this /** block silently overrides the scenario:= launch
+    # arg / CARLA_SCENARIO. Uncomment only to hard-pin a scenario regardless of them.
+    # initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
     # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
     carla_fps: 60.0                  # Sets fixed_delta_seconds = 1/fps
     synchronous_mode: true           # Server waits for client tick

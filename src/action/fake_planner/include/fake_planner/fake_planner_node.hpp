@@ -23,6 +23,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "std_srvs/srv/trigger.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
 
 namespace fake_planner
@@ -53,6 +54,9 @@ private:
   bool loadManeuver(const std::string & path, std::string & error);
   // Builds trajectory_ from the loaded waypoints, applying the current anchor transform.
   void buildTrajectory();
+  // Publishes the trajectory as a MarkerArray, mirroring trajectory_planner's visualization
+  // (speed-sized spheres + speed labels on `trajectory_markers`, only when subscribed).
+  void publishMarkers();
   void timerCallback();
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
   void startTrajectory(
@@ -73,6 +77,7 @@ private:
   bool anchor_to_first_pose_{true};
   bool start_on_activate_{true};
   std::string maneuver_file_;
+  std::string marker_topic_;
 
   // Waypoints expanded from the maneuver segments (parallel arrays; relative to the anchor pose).
   std::vector<double> wp_x_;
@@ -83,10 +88,8 @@ private:
   wato_trajectory_msgs::msg::Trajectory trajectory_;
   bool trajectory_ready_{false};
 
-  // Gates publishing. When false the node stays silent (no trajectory, no behaviour), which
-  // leaves the controller in standby, so the whole stack can be brought up and settled before
-  // the vehicle is asked to move. Toggled by the start/stop services; seeded from
-  // start_on_activate on activation.
+  // Gates publishing: when false the node stays silent so the controller holds in standby.
+  // Toggled by the start/stop services; seeded from start_on_activate on activation.
   bool trajectory_started_{true};
 
   // Anchor pose (SE(2), in frame_id_) that the waypoints are laid out from.
@@ -98,6 +101,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_srv_;

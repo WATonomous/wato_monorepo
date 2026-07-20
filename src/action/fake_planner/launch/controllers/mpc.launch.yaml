@@ -1,0 +1,82 @@
+# controllers/mpc.launch.yaml -- the MPC controller as the controller under test.
+#
+# Included by fake_planner.launch.yaml via controller:=mpc; one file per controller so
+# `controller:=` can pick the file by name. Also brings the lifecycle manager, which lives
+# here because it must list the controller node by its concrete name.
+#
+# The MPC tuning comes from action_bringup's action.yaml (the same config the real stack
+# uses -- see its tuning guide); visualize /action/mpc/predicted_path against the fake
+# planner's trajectory markers to see what MPC plans vs what it is asked to follow.
+
+launch:
+  - arg:
+      name: odom_topic
+      default: "/ego/odom"
+      description: Odometry source for the controller
+
+  - arg:
+      name: ackermann_topic
+      default: "/carla/ackermann_control/command"
+      description: Where the controller publishes AckermannDriveStamped commands
+
+  - arg:
+      name: standby_speed
+      default: "-0.5"
+      description: Controller speed in standby. The action.yaml default -0.5 reverses; use 0.0 to hold still.
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  # MPC Controller (under test)
+  - node:
+      pkg: "mpc_controller"
+      exec: "mpc_controller_node"
+      name: "mpc_controller_node"
+      namespace: "action"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
+        - name: "standby_speed"
+          value: "$(var standby_speed)"
+        - name: "use_sim_time"
+          value: "$(var use_sim_time)"
+      remap:
+        # Subscribers
+        - from: "trajectory"
+          to: "/action/fake_planner/trajectory"
+        - from: "execute_behaviour"
+          to: "/action/fake_planner/execute_behaviour"
+        - from: "odom"
+          to: "$(var odom_topic)"
+        # Publishers
+        - from: "ackermann"
+          to: "$(var ackermann_topic)"
+        - from: "predicted_path"
+          to: "/action/mpc/predicted_path"
+
+  # Lifecycle Manager
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "fake_planner_lifecycle_manager"
+      namespace: "action"
+      param:
+        - name: "node_names"
+          value:
+            - /action/fake_planner/fake_planner_node
+            - /action/mpc_controller_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

@@ -2,8 +2,9 @@
 #
 # Environment-agnostic controller test rig. Brings up:
 #   - fake_planner_node  : replays a predefined maneuver (from a maneuver JSON segment list) + an
-#                          execute_behaviour heartbeat
-#   - pure_pursuit_node  : the ackermann_pure_pursuit controller under test
+#                          execute_behaviour heartbeat, and publishes trajectory_markers
+#                          (the same MarkerArray visualization as the real trajectory_planner)
+#   - the controller under test (selected via controller:=, see launch/controllers/)
 #   - lifecycle manager  : configures + activates both
 #
 # The only difference between sim and the real car is the odom source and where the command
@@ -17,7 +18,9 @@
 #         odom_topic:=/world_modeling/transform/odometry \
 #         ackermann_topic:=/action/ackermann
 #
-# Pick a maneuver with maneuver_file:=... (or add a new .json under maneuvers/).
+# Pick the controller with controller:=pure_pursuit|mpc and the maneuver with
+# maneuver:=<name> (a .json under maneuvers/, e.g. maneuver:=brake_in_curve), or point
+# maneuver_file:= at any JSON path directly.
 
 launch:
   - arg:
@@ -36,9 +39,19 @@ launch:
       description: Frame the trajectory is published in (must be TF-connected to rear_axle)
 
   - arg:
+      name: controller
+      default: "pure_pursuit"
+      description: "Controller under test: pure_pursuit or mpc (picks launch/controllers/<controller>.launch.yaml)"
+
+  - arg:
+      name: maneuver
+      default: "steady_state_slalom"
+      description: Maneuver to replay, by name under the package's maneuvers/ folder (without .json)
+
+  - arg:
       name: maneuver_file
-      default: "$(find-pkg-share fake_planner)/maneuvers/steady_state_slalom.json"
-      description: Maneuver JSON to replay (one maneuver per file; a segment list)
+      default: "$(find-pkg-share fake_planner)/maneuvers/$(var maneuver).json"
+      description: Full path to the maneuver JSON; overrides `maneuver` when set explicitly
 
   - arg:
       name: autostart
@@ -48,32 +61,22 @@ launch:
   - arg:
       name: use_sim_time
       default: "false"
-      description: >-
-        Use /clock. Required in CARLA: the bridge stamps odom/TF with sim time, and a
-        wall-clock trajectory stamp cannot be transformed against a sim-time TF tree --
-        pure pursuit then aborts every cycle and never publishes a command.
+      description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
 
   - arg:
       name: standby_speed
       default: "-0.5"
-      description: >-
-        Speed the controller commands while in standby. The package default (-0.5) is a
-        reverse creep, which walks the car backwards off the road if it is held in standby
-        for any length of time -- set 0.0 to actually hold still.
+      description: Controller speed in standby. Package default -0.5 reverses; use 0.0 to hold still.
 
   - arg:
       name: start_on_activate
       default: "true"
-      description: >-
-        Publish as soon as the node activates. Set false to bring the stack up with the
-        vehicle held in standby, then release it with the start_trajectory service.
+      description: Publish on activate. Set false to hold until the start_trajectory service.
 
   - arg:
       name: anchor_to_first_pose
       default: "true"
-      description: >-
-        Lay the maneuver out from the vehicle's pose at launch. Set false for maneuvers
-        authored in absolute frame_id coordinates (those supplying a "start" pose).
+      description: Lay the maneuver from the launch pose. Set false for absolute maneuvers (with a "start" pose).
 
   # Fake Planner
   - node:
@@ -102,47 +105,17 @@ launch:
         - from: "odom"
           to: "$(var odom_topic)"
 
-  # Pure Pursuit Controller (under test)
-  - node:
-      pkg: "ackermann_pure_pursuit"
-      exec: "pure_pursuit_node"
-      name: "pure_pursuit_node"
-      namespace: "action"
-      output: "screen"
-      param:
-        - from: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
-        - name: "standby_speed"
-          value: "$(var standby_speed)"
-        - name: "use_sim_time"
-          value: "$(var use_sim_time)"
-      remap:
-        # Subscribers
-        - from: "trajectory"
-          to: "/action/fake_planner/trajectory"
-        - from: "execute_behaviour"
-          to: "/action/fake_planner/execute_behaviour"
-        - from: "odom"
-          to: "$(var odom_topic)"
-        # Publishers
-        - from: "ackermann"
-          to: "$(var ackermann_topic)"
-
-  # Lifecycle Manager
-  - node:
-      pkg: "wato_lifecycle_manager"
-      exec: "wato_lifecycle_manager_node"
-      name: "fake_planner_lifecycle_manager"
-      namespace: "action"
-      param:
-        - name: "node_names"
-          value:
-            - /action/fake_planner/fake_planner_node
-            - /action/pure_pursuit_node
+  # Controller under test + the lifecycle manager that drives both nodes.
+  - include:
+      file: "$(find-pkg-share fake_planner)/launch/controllers/$(var controller).launch.yaml"
+      arg:
+        - name: odom_topic
+          value: $(var odom_topic)
+        - name: ackermann_topic
+          value: $(var ackermann_topic)
+        - name: standby_speed
+          value: $(var standby_speed)
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - name: autostart
           value: $(var autostart)
-        - name: transition_timeout_s
-          value: 10.0
-        - name: bond_timeout_s
-          value: 4.0
-        - name: bond_enabled
-          value: false

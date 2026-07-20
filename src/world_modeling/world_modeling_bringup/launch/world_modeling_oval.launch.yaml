@@ -12,29 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# world_modeling_oval.launch.yaml
-#
-# The FULL world_modeling stack (world_model + behaviour + costmap + prediction +
-# markers + SLAM) running on the oval track -- i.e. world_modeling_sim.launch.yaml
-# with the oval map instead of Town10HD.
-#
-# Use this when you want the REAL planning stack to drive the map:
-#     world_model -> behaviour -> lattice_planning -> trajectory_planner -> controller
-# rather than the fake_planner replaying a maneuver.
-#
-# The oval's lanelet2 routing graph is verified to connect all the way around the lap,
-# so route_ahead / lanelet_ahead resolve and lattice_planning has centerlines to follow.
-#
-# Compare with world_model_oval.launch.yaml, which is the MAP-ONLY bringup (world_model
-# + map markers) used by the lightweight fake_planner demo.
-#
-# Usage:
-#   1. CARLA with the oval world:
-#        CARLA_SCENARIO=carla_scenarios.scenarios.oval_track_scenario watod up
-#   2. This stack:
-#        ros2 launch world_modeling_bringup world_modeling_oval.launch.yaml
-#   3. The action stack (lattice + trajectory_planner + pure_pursuit):
-#        ros2 launch action_bringup action.launch.yaml
+# world_modeling_oval.launch.yaml -- the FULL world_modeling stack on the oval track
+# (world_modeling_sim.launch.yaml with the oval map). Use for the real planning stack
+# (world_model -> behaviour -> lattice_planning -> trajectory_planner -> controller);
+# pair with `ros2 launch action_bringup action.launch.yaml`. See world_model_oval.launch.yaml
+# for the lighter map-only bringup.
 ---
 launch:
   - arg:
@@ -60,10 +42,7 @@ launch:
   - arg:
       name: eidos_map_path
       default: ""
-      description: >-
-        Prior SLAM map for localization; empty skips loading. Defaulted to empty here
-        because the sim bringup's default is a test-track map that does not correspond
-        to the oval -- there is no prior eidos map for this track.
+      description: Prior SLAM map; empty skips loading (no prior eidos map exists for the oval).
 
   - include:
       file: $(find-pkg-share world_modeling_bringup)/launch/world_modeling_sim.launch.yaml

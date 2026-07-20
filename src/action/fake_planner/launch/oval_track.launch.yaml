@@ -1,36 +1,16 @@
-# oval_track.launch.yaml
+# oval_track.launch.yaml -- fake planner on the oval track: replays maneuvers/oval_track.json
+# so the controller under test drives continuous laps. This is fake_planner.launch.yaml with
+# the oval maneuver and anchor_to_first_pose:=false (the maneuver is in absolute track coords,
+# so it must not be anchored to the spawn pose). The oval MAP (world_model) lives in a separate
+# container and is optional -- the fake planner doesn't consume it.
 #
-# Runs the fake planner on the oval track: replays maneuvers/oval_track.json so the
-# pure-pursuit controller drives continuous laps.
-#
-# This is fake_planner.launch.yaml with the two oval-specific settings baked in:
-#   - maneuver_file        := maneuvers/oval_track.json
-#   - anchor_to_first_pose := false
-# The oval maneuver is authored in ABSOLUTE track coordinates (it carries a "start"
-# pose on the lane), so it must NOT be anchored to the spawn pose -- it lands on the
-# real lane wherever the ego starts. Anchoring would let a fraction of a degree of
-# spawn yaw throw the far side of the 400 m lap off the road.
-#
-# Everything comes from tools/generate_oval_track.py: this maneuver, the lanelet map
-# world_model loads, and the OpenDRIVE road CARLA drives all share one geometry.
-#
-# SCOPE: this launch is action-only. The oval MAP lives in the world_modeling image
-# (a separate container), so it is launched there, not here:
-#     ros2 launch world_modeling_bringup world_model_oval.launch.yaml
-# The fake planner does not consume the map -- it is only for visualisation, so the
-# map bringup is entirely optional for driving.
-#
-# Requires CARLA running the oval world (it supplies /ego/odom and the
-# odom -> base_footprint TF that pure pursuit needs, and accepts the ackermann command):
-#     CARLA_SCENARIO=carla_scenarios.scenarios.oval_track_scenario watod up
-#
-#   CARLA sim (defaults):
+# Requires CARLA running the oval world (supplies /ego/odom + TF, takes the ackermann cmd):
+#     watod up   # with CARLA_SCENARIO=oval in watod-config.local.sh
 #     ros2 launch fake_planner oval_track.launch.yaml
-#
-#   Real vehicle:
-#     ros2 launch fake_planner oval_track.launch.yaml \
-#         odom_topic:=/world_modeling/transform/odometry \
-#         ackermann_topic:=/action/ackermann
+#   Pick the controller:   controller:=pure_pursuit (default) or controller:=mpc
+#   Watch the trajectory:  /action/fake_planner/trajectory_markers (MarkerArray, same format
+#                          as the real trajectory_planner), published even while holding.
+#   Real vehicle: odom_topic:=/world_modeling/transform/odometry ackermann_topic:=/action/ackermann
 ---
 launch:
   - arg:
@@ -49,6 +29,16 @@ launch:
       description: Frame the trajectory is published in (must be TF-connected to base_footprint)
 
   - arg:
+      name: controller
+      default: "pure_pursuit"
+      description: "Controller under test: pure_pursuit or mpc"
+
+  - arg:
+      name: maneuver
+      default: "oval_track"
+      description: Maneuver to replay. Anchoring is off here, so it must carry an absolute "start" pose on the track.
+
+  - arg:
       name: autostart
       default: "true"
       description: Automatically configure and activate managed nodes
@@ -56,31 +46,26 @@ launch:
   - arg:
       name: start_on_activate
       default: "false"
-      description: >-
-        Held in standby by default: bring the stack up, let it settle, then drive with
-          ros2 service call /action/fake_planner/fake_planner_node/start_trajectory \
-              std_srvs/srv/Trigger
+      description: Held in standby by default; call the start_trajectory service to drive.
 
   - arg:
       name: use_sim_time
       default: "true"
-      description: >-
-        Defaults true because this launch targets the CARLA sim, whose odom/TF are
-        stamped with sim time. Set false when running on the real vehicle.
+      description: CARLA stamps odom/TF with sim time; set false on the real vehicle.
 
   - arg:
       name: standby_speed
       default: "0.0"
-      description: >-
-        Hold still while waiting for the start service. The controller's default standby
-        is a -0.5 m/s reverse creep, which reverses the car off the track while held.
+      description: Hold still (0.0) in standby; the controller's -0.5 default reverses off the track.
 
-  # Fake planner (oval maneuver, absolute coords) + pure pursuit + lifecycle manager.
+  # Fake planner (oval maneuver, absolute coords) + controller + lifecycle manager.
   - include:
       file: $(find-pkg-share fake_planner)/launch/fake_planner.launch.yaml
       arg:
-        - name: maneuver_file
-          value: $(find-pkg-share fake_planner)/maneuvers/oval_track.json
+        - name: maneuver
+          value: $(var maneuver)
+        - name: controller
+          value: $(var controller)
         - name: odom_topic
           value: $(var odom_topic)
         - name: ackermann_topic
