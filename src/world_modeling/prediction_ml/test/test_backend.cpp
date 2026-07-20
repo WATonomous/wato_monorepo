@@ -34,8 +34,7 @@ public:
   explicit TemporaryMetadataFile(const std::string & contents)
   {
     const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
-    path_ = std::filesystem::temp_directory_path() /
-      ("prediction_ml_mtr_contract_" + std::to_string(suffix) + ".yaml");
+    path_ = std::filesystem::temp_directory_path() / ("prediction_ml_mtr_contract_" + std::to_string(suffix) + ".yaml");
     std::ofstream output(path_);
     output << contents;
     output.close();
@@ -53,7 +52,10 @@ public:
     std::filesystem::remove(path_, error);
   }
 
-  std::string path() const { return path_.string(); }
+  std::string path() const
+  {
+    return path_.string();
+  }
 
 private:
   std::filesystem::path path_;
@@ -97,12 +99,8 @@ outputs:
 prediction_ml::MtrModelContract makeSmallContract()
 {
   prediction_ml::MtrModelContract contract;
-  contract.inputs = {
-    {"obj_trajs", "float32", {8, 128, 11, 29}},
-    {"obj_trajs_mask", "bool", {8, 128, 11}}};
-  contract.outputs = {
-    {"pred_scores", "float32", {8, 6}},
-    {"pred_trajs", "float32", {8, 6, 80, 7}}};
+  contract.inputs = {{"obj_trajs", "float32", {8, 128, 11, 29}}, {"obj_trajs_mask", "bool", {8, 128, 11}}};
+  contract.outputs = {{"pred_scores", "float32", {8, 6}}, {"pred_trajs", "float32", {8, 6, 80, 7}}};
   return contract;
 }
 
@@ -234,9 +232,7 @@ outputs:
 TEST(MtrModelContractLoader, RejectsEmptyOrMissingPath)
 {
   EXPECT_THROW(prediction_ml::loadMtrModelContract(""), std::runtime_error);
-  EXPECT_THROW(
-    prediction_ml::loadMtrModelContract("/path/that/does/not/exist/mtr.yaml"),
-    std::runtime_error);
+  EXPECT_THROW(prediction_ml::loadMtrModelContract("/path/that/does/not/exist/mtr.yaml"), std::runtime_error);
 }
 
 TEST(MtrModelContractLoader, RejectsIncompleteTensorEntry)
