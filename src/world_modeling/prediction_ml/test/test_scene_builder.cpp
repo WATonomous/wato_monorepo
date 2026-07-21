@@ -637,6 +637,41 @@ TEST(SceneBuilder, EgoContextRowIsSdc)
   EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(row), T - 1, is_sdc_off)], 0.0F);
 }
 
+TEST(SceneBuilder, EgoRowCarriesConfigFootprint)
+{
+  // The ego (SDC) row must carry the configured box dims, not a zero-size box. Box dims are the
+  // untransformed features [3..5].
+  SceneBuilder builder{MtrConfig{}};
+  const auto arr = makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  const MtrConfig defaults{};
+  const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, 3)], static_cast<float>(defaults.ego_length));
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, 4)], static_cast<float>(defaults.ego_width));
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, 5)], static_cast<float>(defaults.ego_height));
+}
+
+TEST(SceneBuilder, EgoVelocityFromOdomRotatedToScene)
+{
+  // Odom twist is body frame. With ego heading pi/2, a body-forward velocity (2, 0) rotates to
+  // scene (0, 2). The target has heading 0, so its frame equals the scene frame and the ego row's
+  // relative velocity features (F-4 = vx, F-3 = vy) read the scene-frame velocity directly.
+  SceneBuilder builder{MtrConfig{}};
+  const auto arr = makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+  auto frame = makeFrame(arr, makePose(0, 0, kPi / 2.0));
+  frame.ego_velocity.linear.x = 2.0;
+  frame.has_ego_velocity = true;
+  auto tensors = builder.build(frame);
+
+  const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+  const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+  EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, F - 4)], 0.0F, 1e-4);
+  EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, F - 3)], 2.0F, 1e-4);
+}
+
 TEST(SceneBuilder, IsCenterObjectSetForTargetRowOnly)
 {
   SceneBuilder builder{MtrConfig{}};
