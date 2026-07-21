@@ -16,8 +16,8 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <numeric>
@@ -35,11 +35,11 @@ constexpr double kUnsetTimestamp = 0.0;
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kDegToRad = kPi / 180.0;
 
-// Reserved history key for the ego / self-driving-car track (is_sdc row). 
+// Reserved history key for the ego / self-driving-car track (is_sdc row).
 constexpr char kEgoTrackId[] = "__ego__";
 
 // Fixed TRT engine contract capacities (leading dims of the input tensors).
-constexpr std::size_t kTargetCapacity = 8;    // obj_trajs dim 0
+constexpr std::size_t kTargetCapacity = 8;  // obj_trajs dim 0
 constexpr std::size_t kContextCapacity = 128;  // obj_trajs dim 1
 
 // Frozen map-tensor shape [8, 768, 20, 9].
@@ -140,7 +140,8 @@ double wrapToPi(double angle)
 }  // namespace
 
 SceneBuilder::SceneBuilder(MtrConfig config)
-: config_(std::move(config)), config_valid_(isHistoryConfigValid(config_))
+: config_(std::move(config))
+, config_valid_(isHistoryConfigValid(config_))
 {}
 
 void SceneBuilder::addFrame(const vision_msgs::msg::Detection3DArray & detections)
@@ -200,8 +201,7 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
   }
 
   // Buffers are always sized to the fixed contract regardless of whether a usable map exists.
-  const auto polylines =
-    frame.has_map ? buildMapPolylines(frame.lanelet_ahead) : std::vector<MapPolyline>{};
+  const auto polylines = frame.has_map ? buildMapPolylines(frame.lanelet_ahead) : std::vector<MapPolyline>{};
   packMapTensors(targets, polylines, tensors);
 
   tensors.valid = !tensors.sidecar.targets.empty();
@@ -265,8 +265,8 @@ std::optional<SceneBuilder::HistorySample> SceneBuilder::sampleFromDetection(
 
   if (
     !isFinite(position.x) || !isFinite(position.y) || !isFinite(position.z) || !isFiniteQuaternion(orientation) ||
-    !isFinite(size.x) || !isFinite(size.y) || !isFinite(size.z) || size.x <= 0.0 || size.y <= 0.0 ||
-    size.z <= 0.0) {
+    !isFinite(size.x) || !isFinite(size.y) || !isFinite(size.z) || size.x <= 0.0 || size.y <= 0.0 || size.z <= 0.0)
+  {
     return std::nullopt;
   }
 
@@ -336,8 +336,10 @@ void SceneBuilder::addSample(const HistorySample & sample)
 }
 
 void SceneBuilder::addEgoSample(
-  const geometry_msgs::msg::PoseStamped & ego_pose, const geometry_msgs::msg::Twist & ego_velocity,
-  const bool has_ego_velocity, const double timestamp)
+  const geometry_msgs::msg::PoseStamped & ego_pose,
+  const geometry_msgs::msg::Twist & ego_velocity,
+  const bool has_ego_velocity,
+  const double timestamp)
 {
   if (!config_valid_ || !isUsableTimestamp(timestamp)) {
     return;
@@ -345,9 +347,7 @@ void SceneBuilder::addEgoSample(
 
   const auto & position = ego_pose.pose.position;
   const auto & orientation = ego_pose.pose.orientation;
-  if (
-    !isFinite(position.x) || !isFinite(position.y) || !isFinite(position.z) ||
-    !isFiniteQuaternion(orientation)) {
+  if (!isFinite(position.x) || !isFinite(position.y) || !isFinite(position.z) || !isFiniteQuaternion(orientation)) {
     return;
   }
 
@@ -504,7 +504,8 @@ std::vector<SceneBuilder::ResampledTrack> SceneBuilder::resampleTracks(
 }
 
 std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
-  const vision_msgs::msg::Detection3DArray & detections, const double current_time,
+  const vision_msgs::msg::Detection3DArray & detections,
+  const double current_time,
   const geometry_msgs::msg::PoseStamped & ego_pose) const
 {
   std::vector<TargetCandidate> candidates;
@@ -523,8 +524,7 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
   const double ego_yaw = yawFromQuaternion(ego_orientation);
   const double cos_yaw = std::cos(ego_yaw);
   const double sin_yaw = std::sin(ego_yaw);
-  const double half_angle_rad =
-    clampForwardHalfAngleDeg(config_.target_forward_half_angle_deg) * kDegToRad;
+  const double half_angle_rad = clampForwardHalfAngleDeg(config_.target_forward_half_angle_deg) * kDegToRad;
 
   // One detection_id cannot occupy two target slots.
   std::unordered_set<std::string> accepted_ids;
@@ -624,9 +624,12 @@ int SceneBuilder::findTrackIndex(const std::vector<std::string> & track_ids, con
 }
 
 bool SceneBuilder::packObjectTensors(
-  const std::vector<TargetCandidate> & targets, const std::vector<std::string> & context_track_ids,
-  const std::vector<ResampledTrack> & resampled_tracks, const std::vector<double> & desired_times,
-  const double current_time, MtrInputTensors & tensors) const
+  const std::vector<TargetCandidate> & targets,
+  const std::vector<std::string> & context_track_ids,
+  const std::vector<ResampledTrack> & resampled_tracks,
+  const std::vector<double> & desired_times,
+  const double current_time,
+  MtrInputTensors & tensors) const
 {
   const std::size_t num_steps = static_cast<std::size_t>(config_.history_steps);
   const std::size_t feature_dim = num_steps + 18;  // generated MTR layout: 6+5+(T+1)+2+2+2
@@ -651,8 +654,10 @@ bool SceneBuilder::packObjectTensors(
   tensors.track_index_to_predict.assign(kTargetCapacity, 0);
   tensors.center_type_ids.assign(kTargetCapacity, 0);
   tensors.obj_trajs_shape = {
-    static_cast<int64_t>(kTargetCapacity), static_cast<int64_t>(kContextCapacity),
-    static_cast<int64_t>(num_steps), static_cast<int64_t>(feature_dim)};
+    static_cast<int64_t>(kTargetCapacity),
+    static_cast<int64_t>(kContextCapacity),
+    static_cast<int64_t>(num_steps),
+    static_cast<int64_t>(feature_dim)};
   tensors.map_polylines_shape = {
     static_cast<int64_t>(kTargetCapacity), kNumSrcPolylines, kNumPointsPerPolyline, kMapFeatureDim};
 
@@ -683,7 +688,7 @@ bool SceneBuilder::packObjectTensors(
     MtrTargetSidecar sidecar;
     sidecar.detection_id = center.detection_id;
     sidecar.track_index = static_cast<int>(target_track_index[t]);
-    sidecar.center_x = center.x;   // scene frame, so predictions can be rotated back
+    sidecar.center_x = center.x;  // scene frame, so predictions can be rotated back
     sidecar.center_y = center.y;
     sidecar.center_heading = center.heading;
     tensors.sidecar.targets.push_back(sidecar);
@@ -764,7 +769,7 @@ bool SceneBuilder::packObjectTensors(
         feat[kOneHotOffset + 2] = (smp.object_class == MtrObjectClass::Cyclist) ? 1.0F : 0.0F;
         feat[kOneHotOffset + 3] = is_center ? 1.0F : 0.0F;
         feat[kOneHotOffset + 4] = is_sdc ? 1.0F : 0.0F;
-        feat[kTimeOffset + s] = 1.0F;                                             // time one-hot
+        feat[kTimeOffset + s] = 1.0F;  // time one-hot
         feat[scalar_time_idx] = static_cast<float>(desired_times[s] - current_time);  // scalar time
         feat[scalar_time_idx + 1] = static_cast<float>(std::sin(rel_heading));
         feat[scalar_time_idx + 2] = static_cast<float>(std::cos(rel_heading));
@@ -839,7 +844,7 @@ std::vector<SceneBuilder::MapPolyline> SceneBuilder::buildMapPolylines(
       scene_points.push_back(mp);
     }
 
-    // Fixed 20-point contiguous windows, the last chunk is padded 
+    // Fixed 20-point contiguous windows, the last chunk is padded
     for (std::size_t start = 0; start < scene_points.size(); start += points_per_polyline) {
       const std::size_t end = std::min(start + points_per_polyline, scene_points.size());
       MapPolyline polyline;
@@ -882,9 +887,8 @@ std::vector<std::size_t> SceneBuilder::rankMapChunksForTarget(
   // Rank by distance to the offset point; stable_sort keeps insertion order on ties (deterministic).
   std::vector<std::size_t> order(polylines.size());
   std::iota(order.begin(), order.end(), std::size_t{0});
-  std::stable_sort(order.begin(), order.end(), [&](std::size_t lhs, std::size_t rhs) {
-    return dist_sq(lhs) < dist_sq(rhs);
-  });
+  std::stable_sort(
+    order.begin(), order.end(), [&](std::size_t lhs, std::size_t rhs) { return dist_sq(lhs) < dist_sq(rhs); });
 
   const auto capacity = static_cast<std::size_t>(kNumSrcPolylines);
   if (order.size() > capacity) {
@@ -898,8 +902,7 @@ SceneBuilder::TransformedMapChunk SceneBuilder::transformMapChunk(
 {
   const double cos_h = std::cos(center.heading);
   const double sin_h = std::sin(center.heading);
-  const std::size_t num_pts =
-    std::min(polyline.points.size(), static_cast<std::size_t>(kNumPointsPerPolyline));
+  const std::size_t num_pts = std::min(polyline.points.size(), static_cast<std::size_t>(kNumPointsPerPolyline));
 
   TransformedMapChunk chunk;
   chunk.points.reserve(num_pts);
@@ -919,8 +922,8 @@ SceneBuilder::TransformedMapChunk SceneBuilder::transformMapChunk(
     const double rdx = pt.dir_x * cos_h + pt.dir_y * sin_h;
     const double rdy = -pt.dir_x * sin_h + pt.dir_y * cos_h;
 
-    // pre_x/pre_y: target-centered position of the previous point in the chunk; 
-    // the first point copies its own position 
+    // pre_x/pre_y: target-centered position of the previous point in the chunk;
+    // the first point copies its own position
     double pre_x = rx;
     double pre_y = ry;
     if (j > 0) {
@@ -932,10 +935,16 @@ SceneBuilder::TransformedMapChunk SceneBuilder::transformMapChunk(
     }
 
     // Packed 9-column row: [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y].
-    chunk.points.push_back({static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz),
-                            static_cast<float>(rdx), static_cast<float>(rdy),
-                            static_cast<float>(pt.dir_z), kMapLaneCenterlineType,
-                            static_cast<float>(pre_x), static_cast<float>(pre_y)});
+    chunk.points.push_back(
+      {static_cast<float>(rx),
+       static_cast<float>(ry),
+       static_cast<float>(rz),
+       static_cast<float>(rdx),
+       static_cast<float>(rdy),
+       static_cast<float>(pt.dir_z),
+       kMapLaneCenterlineType,
+       static_cast<float>(pre_x),
+       static_cast<float>(pre_y)});
     sum_x += rx;
     sum_y += ry;
     sum_z += rz;
@@ -943,14 +952,15 @@ SceneBuilder::TransformedMapChunk SceneBuilder::transformMapChunk(
 
   if (num_pts > 0) {
     const double count = static_cast<double>(num_pts);
-    chunk.center = {static_cast<float>(sum_x / count), static_cast<float>(sum_y / count),
-                    static_cast<float>(sum_z / count)};
+    chunk.center = {
+      static_cast<float>(sum_x / count), static_cast<float>(sum_y / count), static_cast<float>(sum_z / count)};
   }
   return chunk;
 }
 
 bool SceneBuilder::packMapTensors(
-  const std::vector<TargetCandidate> & targets, const std::vector<MapPolyline> & polylines,
+  const std::vector<TargetCandidate> & targets,
+  const std::vector<MapPolyline> & polylines,
   MtrInputTensors & tensors) const
 {
   const auto num_polylines = static_cast<std::size_t>(kNumSrcPolylines);
