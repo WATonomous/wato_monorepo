@@ -53,9 +53,19 @@ geometry_msgs::msg::Quaternion yawQuat(double yaw)
 
 // Build a Detection3D with a class hypothesis and (optionally) a linear_velocity hypothesis.
 vision_msgs::msg::Detection3D makeDetection(
-  const std::string & id, const std::string & label, double x, double y, double z, double yaw,
-  bool with_velocity = false, double vx = 0.0, double vy = 0.0, double vz = 0.0,
-  double dx = 4.0, double dy = 2.0, double dz = 1.5)
+  const std::string & id,
+  const std::string & label,
+  double x,
+  double y,
+  double z,
+  double yaw,
+  bool with_velocity = false,
+  double vx = 0.0,
+  double vy = 0.0,
+  double vz = 0.0,
+  double dx = 4.0,
+  double dy = 2.0,
+  double dz = 1.5)
 {
   vision_msgs::msg::Detection3D det;
   det.id = id;
@@ -85,8 +95,7 @@ vision_msgs::msg::Detection3D makeDetection(
 }
 
 vision_msgs::msg::Detection3DArray makeArray(
-  double stamp_s, const std::vector<vision_msgs::msg::Detection3D> & dets,
-  const std::string & frame_id = "map")
+  double stamp_s, const std::vector<vision_msgs::msg::Detection3D> & dets, const std::string & frame_id = "map")
 {
   vision_msgs::msg::Detection3DArray arr;
   setStamp(arr.header.stamp, stamp_s);
@@ -104,8 +113,7 @@ geometry_msgs::msg::PoseStamped makePose(double x, double y, double yaw)
   return pose;
 }
 
-MtrFrameContext makeFrame(
-  const vision_msgs::msg::Detection3DArray & dets, const geometry_msgs::msg::PoseStamped & ego)
+MtrFrameContext makeFrame(const vision_msgs::msg::Detection3DArray & dets, const geometry_msgs::msg::PoseStamped & ego)
 {
   MtrFrameContext frame;
   frame.detections = dets;
@@ -129,7 +137,8 @@ lanelet_msgs::msg::Lanelet makeLanelet(const std::vector<std::array<double, 3>> 
 }
 
 MtrFrameContext makeFrameWithMap(
-  const vision_msgs::msg::Detection3DArray & dets, const geometry_msgs::msg::PoseStamped & ego,
+  const vision_msgs::msg::Detection3DArray & dets,
+  const geometry_msgs::msg::PoseStamped & ego,
   const std::vector<lanelet_msgs::msg::Lanelet> & lanelets)
 {
   auto frame = makeFrame(dets, ego);
@@ -215,8 +224,8 @@ TEST(SceneBuilder, ValidSupportedDetectionCreatesRetainedHistory)
   SceneBuilder builder{MtrConfig{}};
   builder.addFrame(makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)}));
 
-  auto tensors = builder.build(makeFrame(
-    makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)}), makePose(0, 0, 0)));
+  auto tensors = builder.build(
+    makeFrame(makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)}), makePose(0, 0, 0)));
 
   EXPECT_TRUE(tensors.valid);
   ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
@@ -227,8 +236,7 @@ TEST(SceneBuilder, EmptyIdDetectionIsSkipped)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto dets = makeArray(
-    100.0, {makeDetection("", "vehicle", 5.0, 0.0, 0.0, 0.0),
-            makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+    100.0, {makeDetection("", "vehicle", 5.0, 0.0, 0.0, 0.0), makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
   builder.addFrame(dets);
   auto tensors = builder.build(makeFrame(dets, makePose(0, 0, 0)));
 
@@ -242,8 +250,9 @@ TEST(SceneBuilder, UnsupportedClassIsSkipped)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto dets = makeArray(
-    100.0, {makeDetection("obj_1", "traffic_cone", 5.0, 0.0, 0.0, 0.0),
-            makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("obj_1", "traffic_cone", 5.0, 0.0, 0.0, 0.0),
+     makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
   builder.addFrame(dets);
   auto tensors = builder.build(makeFrame(dets, makePose(0, 0, 0)));
   ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
@@ -255,8 +264,9 @@ TEST(SceneBuilder, MalformedDimensionsAreSkipped)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto dets = makeArray(
-    100.0, {makeDetection("bad", "vehicle", 5.0, 0.0, 0.0, 0.0, false, 0, 0, 0, 0.0, 2.0, 1.5),
-            makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("bad", "vehicle", 5.0, 0.0, 0.0, 0.0, false, 0, 0, 0, 0.0, 2.0, 1.5),
+     makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
   builder.addFrame(dets);
   auto tensors = builder.build(makeFrame(dets, makePose(0, 0, 0)));
   ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
@@ -269,8 +279,8 @@ TEST(SceneBuilder, NaNPositionIsSkipped)
   SceneBuilder builder{MtrConfig{}};
   const double nan = std::numeric_limits<double>::quiet_NaN();
   const auto dets = makeArray(
-    100.0, {makeDetection("bad", "vehicle", nan, 0.0, 0.0, 0.0),
-            makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("bad", "vehicle", nan, 0.0, 0.0, 0.0), makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
   builder.addFrame(dets);
   auto tensors = builder.build(makeFrame(dets, makePose(0, 0, 0)));
   ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
@@ -283,8 +293,7 @@ TEST(SceneBuilder, NonFiniteVelocityRetainsSampleWithZeroVelocity)
   // A bad velocity hypothesis must not erase a valid position observation.
   SceneBuilder builder{MtrConfig{}};
   const double inf = std::numeric_limits<double>::infinity();
-  const auto dets = makeArray(
-    100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0, true, inf, 0.0, 0.0)});
+  const auto dets = makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0, true, inf, 0.0, 0.0)});
   builder.addFrame(dets);
   auto tensors = builder.build(makeFrame(dets, makePose(0, 0, 0)));
 
@@ -353,8 +362,8 @@ TEST(SceneBuilder, DisappearedObjectRemainsInContextUntilPruned)
 {
   SceneBuilder builder{MtrConfig{}};
   builder.addFrame(makeArray(
-    100.0, {makeDetection("stay", "vehicle", 10.0, 0.0, 0.0, 0.0),
-            makeDetection("gone", "vehicle", 12.0, 0.0, 0.0, 0.0)}));
+    100.0,
+    {makeDetection("stay", "vehicle", 10.0, 0.0, 0.0, 0.0), makeDetection("gone", "vehicle", 12.0, 0.0, 0.0, 0.0)}));
 
   // 0.3 s later, "gone" is no longer visible but still inside the history window: ego + stay + gone.
   const auto near_frame = makeArray(100.3, {makeDetection("stay", "vehicle", 10.0, 0.0, 0.0, 0.0)});
@@ -390,9 +399,10 @@ TEST(SceneBuilder, ClosestForwardTargetSelectedFirst)
   SceneBuilder builder{MtrConfig{}};
   // near_front closest & forward; behind is closer in |x| but behind ego -> lower priority.
   const auto arr = makeArray(
-    100.0, {makeDetection("behind", "vehicle", -5.0, 0.0, 0.0, 0.0),
-            makeDetection("near_front", "vehicle", 8.0, 0.0, 0.0, 0.0),
-            makeDetection("far_front", "vehicle", 30.0, 0.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("behind", "vehicle", -5.0, 0.0, 0.0, 0.0),
+     makeDetection("near_front", "vehicle", 8.0, 0.0, 0.0, 0.0),
+     makeDetection("far_front", "vehicle", 30.0, 0.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -407,8 +417,8 @@ TEST(SceneBuilder, DuplicateDetectionIdsTakeOneTargetSlot)
   // Two detections sharing an id must not occupy two target slots.
   SceneBuilder builder{MtrConfig{}};
   const auto arr = makeArray(
-    100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0),
-            makeDetection("veh_1", "vehicle", 11.0, 0.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0), makeDetection("veh_1", "vehicle", 11.0, 0.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -473,8 +483,7 @@ TEST(SceneBuilder, TargetCenteredTransformHeadingZero)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto arr = makeArray(
-    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, 0.0),
-            makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0)});
+    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, 0.0), makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -492,8 +501,8 @@ TEST(SceneBuilder, TargetCenteredTransformHeadingHalfPi)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto arr = makeArray(
-    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, kPi / 2.0),
-            makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, kPi / 2.0), makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -510,8 +519,7 @@ TEST(SceneBuilder, HeadingNormalizationWrapsToPi)
   SceneBuilder builder{MtrConfig{}};
   // Target heading = -3.0 rad, object B heading = 3.0 rad. rel = wrap(6.0) = 6.0 - 2pi ~= -0.2832.
   const auto arr = makeArray(
-    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, -3.0),
-            makeDetection("B", "vehicle", 13.0, 0.0, 0.0, 3.0)});
+    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, -3.0), makeDetection("B", "vehicle", 13.0, 0.0, 0.0, 3.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -522,8 +530,10 @@ TEST(SceneBuilder, HeadingNormalizationWrapsToPi)
   const double expected = 6.0 - 2.0 * kPi;
   const std::size_t sin_off = F - 6;  // 12 + T
   const std::size_t cos_off = F - 5;  // 13 + T
-  EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(b_row), T - 1, sin_off)], std::sin(expected), 1e-4);
-  EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(b_row), T - 1, cos_off)], std::cos(expected), 1e-4);
+  EXPECT_NEAR(
+    tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(b_row), T - 1, sin_off)], std::sin(expected), 1e-4);
+  EXPECT_NEAR(
+    tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(b_row), T - 1, cos_off)], std::cos(expected), 1e-4);
 }
 
 TEST(SceneBuilder, VelocityIsRotatedIntoTargetFrame)
@@ -532,8 +542,9 @@ TEST(SceneBuilder, VelocityIsRotatedIntoTargetFrame)
   // B moves +x in scene; target A heading pi/2 => rel v = (vy_scene rotated): rvx = vy=0? compute.
   // v=(2,0). heading pi/2: rvx = vx*cos+vy*sin = 0; rvy = -vx*sin+vy*cos = -2.
   const auto arr = makeArray(
-    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, kPi / 2.0),
-            makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0, true, 2.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, kPi / 2.0),
+     makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0, true, 2.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -551,8 +562,7 @@ TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.
   SceneBuilder builder{MtrConfig{}};
-  const auto arr = makeArray(
-    100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0, true, 5.0, 1.0, 0.0)});
+  const auto arr = makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0, true, 5.0, 1.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -608,9 +618,10 @@ TEST(SceneBuilder, CenterTypeIdsMapCorrectly)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto arr = makeArray(
-    100.0, {makeDetection("v", "car", 8.0, 0.0, 0.0, 0.0),
-            makeDetection("p", "pedestrian", 9.0, 0.0, 0.0, 0.0),
-            makeDetection("c", "bicycle", 10.0, 0.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("v", "car", 8.0, 0.0, 0.0, 0.0),
+     makeDetection("p", "pedestrian", 9.0, 0.0, 0.0, 0.0),
+     makeDetection("c", "bicycle", 10.0, 0.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -690,8 +701,7 @@ TEST(SceneBuilder, ObjTrajsLastPosIsTargetCentered)
 {
   SceneBuilder builder{MtrConfig{}};
   const auto arr = makeArray(
-    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, 0.0),
-            makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0)});
+    100.0, {makeDetection("A", "vehicle", 10.0, 0.0, 0.0, 0.0), makeDetection("B", "vehicle", 13.0, 2.0, 0.0, 0.0)});
   builder.addFrame(arr);
   auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
 
@@ -708,8 +718,8 @@ TEST(SceneBuilder, DeterministicAcrossRepeatedBuilds)
   SceneBuilder a{cfg};
   SceneBuilder b{cfg};
   const auto arr = makeArray(
-    100.0, {makeDetection("A", "vehicle", 10.0, 1.0, 0.0, 0.2),
-            makeDetection("B", "pedestrian", 12.0, -1.0, 0.0, 0.0)});
+    100.0,
+    {makeDetection("A", "vehicle", 10.0, 1.0, 0.0, 0.2), makeDetection("B", "pedestrian", 12.0, -1.0, 0.0, 0.0)});
   a.addFrame(arr);
   b.addFrame(arr);
   auto ta = a.build(makeFrame(arr, makePose(0, 0, 0)));
@@ -734,10 +744,10 @@ TEST(SceneBuilder, EmptyMapStillValid)
   EXPECT_EQ(tensors.map_polylines.size(), 8U * 768U * 20U * 9U);
   EXPECT_EQ(tensors.map_polylines_mask.size(), 8U * 768U * 20U);
   EXPECT_EQ(tensors.map_polylines_center.size(), 8U * 768U * 3U);
-  EXPECT_TRUE(std::all_of(tensors.map_polylines.begin(), tensors.map_polylines.end(),
-                          [](float v) { return v == 0.0F; }));
-  EXPECT_TRUE(std::all_of(tensors.map_polylines_mask.begin(), tensors.map_polylines_mask.end(),
-                          [](uint8_t m) { return m == 0U; }));
+  EXPECT_TRUE(
+    std::all_of(tensors.map_polylines.begin(), tensors.map_polylines.end(), [](float v) { return v == 0.0F; }));
+  EXPECT_TRUE(std::all_of(
+    tensors.map_polylines_mask.begin(), tensors.map_polylines_mask.end(), [](uint8_t m) { return m == 0U; }));
 }
 
 TEST(SceneBuilder, StraightCenterlineProducesExpectedPointFeatures)
@@ -753,7 +763,7 @@ TEST(SceneBuilder, StraightCenterlineProducesExpectedPointFeatures)
   ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
   // Target-centered x = scene x - 10; single chunk lands in poly row 0.
   EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 0, 0)], -10.0F);  // point 0 rx
-  EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 0)], -9.0F);   // point 1 rx
+  EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 0)], -9.0F);  // point 1 rx
   // Direction of point 1 = normalized (+x): dir_x=1, dir_y=0.
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 3)], 1.0F, 1e-5);
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 4)], 0.0F, 1e-5);

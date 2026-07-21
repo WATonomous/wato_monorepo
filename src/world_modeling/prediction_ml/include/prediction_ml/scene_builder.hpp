@@ -24,8 +24,8 @@
 
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "prediction_ml/mtr_types.hpp"
-#include "vision_msgs/msg/detection3_d_array.hpp"
 #include "vision_msgs/msg/detection3_d.hpp"
+#include "vision_msgs/msg/detection3_d_array.hpp"
 
 namespace prediction_ml
 {
@@ -114,7 +114,7 @@ private:
   struct TransformedMapChunk
   {
     std::vector<std::array<float, 9>> points;  // 9 = map feature columns (see packMapTensors layout)
-    std::array<float, 3> center{};             // mean of target-centered point positions
+    std::array<float, 3> center{};  // mean of target-centered point positions
   };
 
   static std::optional<double> timestampFromHeader(const vision_msgs::msg::Detection3DArray & detections);
@@ -132,8 +132,10 @@ private:
   // odom twist is rotated into the scene frame; otherwise velocity is finite-differenced from the
   // previous ego sample.
   void addEgoSample(
-    const geometry_msgs::msg::PoseStamped & ego_pose, const geometry_msgs::msg::Twist & ego_velocity,
-    bool has_ego_velocity, double timestamp);
+    const geometry_msgs::msg::PoseStamped & ego_pose,
+    const geometry_msgs::msg::Twist & ego_velocity,
+    bool has_ego_velocity,
+    double timestamp);
   void pruneHistory(double current_time);
   std::vector<double> desiredSampleTimes(double current_time) const;
   std::optional<HistorySample> nearestSampleForSlot(
@@ -141,8 +143,9 @@ private:
   std::vector<ResampledTrack> resampleTracks(
     const std::vector<std::string> & track_ids, const std::vector<double> & desired_times) const;
   std::vector<TargetCandidate> selectTargets(
-    const vision_msgs::msg::Detection3DArray & detections, double current_time, const geometry_msgs::msg::PoseStamped & ego_pose)
-    const;
+    const vision_msgs::msg::Detection3DArray & detections,
+    double current_time,
+    const geometry_msgs::msg::PoseStamped & ego_pose) const;
   // Rank every retained track (incl. ego) by ego-frame 2D distance_sq and return the closest
   // kContextCapacity ids, tie-broken by detection_id ascending.
   std::vector<std::string> contextTrackIds(const geometry_msgs::msg::PoseStamped & ego_pose) const;
@@ -150,9 +153,12 @@ private:
   // Pack obj_trajs / masks / last_pos / center_* to the fixed [8,128,T,F] contract. Returns false
   // (hard frame failure) if any selected target is absent from the context list.
   bool packObjectTensors(
-    const std::vector<TargetCandidate> & targets, const std::vector<std::string> & context_track_ids,
-    const std::vector<ResampledTrack> & resampled_tracks, const std::vector<double> & desired_times,
-    double current_time, MtrInputTensors & tensors) const;
+    const std::vector<TargetCandidate> & targets,
+    const std::vector<std::string> & context_track_ids,
+    const std::vector<ResampledTrack> & resampled_tracks,
+    const std::vector<double> & desired_times,
+    double current_time,
+    MtrInputTensors & tensors) const;
   // Convert lanelet centerlines into fixed-length scene-frame polyline chunks
   std::vector<MapPolyline> buildMapPolylines(const lanelet_msgs::msg::LaneletAhead & lanelet_ahead) const;
   // Rank map chunks by distance to the target-forward offset and return the closest
@@ -164,7 +170,8 @@ private:
   // Pack map_polylines / mask / center to the fixed [8,768,20,9] contract, target-centered. Buffers
   // are always sized to capacity; returns true iff at least one real map point was written.
   bool packMapTensors(
-    const std::vector<TargetCandidate> & targets, const std::vector<MapPolyline> & polylines,
+    const std::vector<TargetCandidate> & targets,
+    const std::vector<MapPolyline> & polylines,
     MtrInputTensors & tensors) const;
 
   MtrConfig config_;
