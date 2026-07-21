@@ -1,11 +1,28 @@
 {
   "name": "brake_in_curve",
-  "description": "Enter a constant-radius left arc at speed, brake through the corner (speed ramps to end_speed across the arc), then stop; probes controller stability while steering and decelerating at the same time.",
-  "sample_spacing_m": 0.1,
+  "description":
+    "Enter a constant-radius left arc at speed, brake through the corner (speed ramps to end_speed across the arc), then stop; probes controller stability while steering and decelerating at the same time.",
+  "sample_spacing_m": 1.0,
   "default_speed": 5.0,
   "segments": [
-    { "straight": { "length": 8.0 } },
-    { "arc":      { "radius": 18.0, "angle": 100.0, "dir": "left", "end_speed": 1.5 } },
-    { "straight": { "length": 4.0, "end_speed": 0.0 } }
+    {
+      "straight": {
+        "length": 8.0
+      }
+    },
+    {
+      "arc": {
+        "radius": 18.0,
+        "angle": 100.0,
+        "dir": "left",
+        "end_speed": 1.5
+      }
+    },
+    {
+      "straight": {
+        "length": 4.0,
+        "end_speed": 0.0
+      }
+    }
   ]
 }

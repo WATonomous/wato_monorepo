@@ -3,7 +3,10 @@
 # Environment-agnostic controller test rig. Brings up:
 #   - fake_planner_node  : replays a predefined maneuver (from a maneuver JSON segment list) + an
 #                          execute_behaviour heartbeat, and publishes trajectory_markers
-#                          (the same MarkerArray visualization as the real trajectory_planner)
+#                          (the same MarkerArray visualization as the real trajectory_planner).
+#                          Like the real stack it publishes a rolling ~30 m horizon around the
+#                          vehicle rather than the whole route, and an open maneuver ends in a
+#                          braked stop (a "closed": true maneuver laps instead).
 #   - the controller under test (selected via controller:=, see launch/controllers/)
 #   - lifecycle manager  : configures + activates both
 #
@@ -60,8 +63,8 @@ launch:
 
   - arg:
       name: use_sim_time
-      default: "false"
-      description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
+      default: "true"
+      description: Use /clock. Required in CARLA, else the controller can't transform the trajectory. Set false on the real car.
 
   - arg:
       name: standby_speed

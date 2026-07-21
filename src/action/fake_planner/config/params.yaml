@@ -24,3 +24,22 @@
     # Lay the waypoints out from the vehicle's pose at launch (captured from the first odom),
     # so the path starts at the car wherever it is. Set false to publish file coords verbatim.
     anchor_to_first_pose: true
+
+    # Rolling window published each tick, sized to match the real stack as configured for sim in
+    # action_bringup/config/action_sim.yaml: centreline_horizon (35 m) ahead, and the lattice
+    # planner's PATH_START_OFFSET (2 m) of path behind the car so pure pursuit doesn't creep. The
+    # maneuver as a whole can be far longer -- only this slice goes out, which is why the markers
+    # show a horizon rather than the entire route.
+    #
+    # Waypoint spacing is set per maneuver (sample_spacing_m) and follows the MAP, because
+    # nothing in the real lane-following pipeline resamples: the lanelet centreline goes through
+    # lattice_planning and trajectory_planner untouched. Measured centreline spacing:
+    # oval_track_4_lane.osm 2.0 m, Town10HD.osm 1.0 m -- so oval_track.json uses 2.0 and the
+    # town maneuvers use 1.0.
+    horizon_m: 35.0
+    trail_m: 2.0
+
+    # Pose jump (m between consecutive odom messages) that counts as a respawn rather than
+    # driving, after which the node re-anchors the maneuver at the new pose on its own. This is
+    # what makes "respawn ego" a one-click reset in Foxglove. Set 0 to disable.
+    respawn_jump_m: 5.0

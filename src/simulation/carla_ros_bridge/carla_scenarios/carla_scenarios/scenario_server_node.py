@@ -203,6 +203,13 @@ class ScenarioServerNode(LifecycleNode):
             callback_group=self.service_cb_group,
         )
 
+        self.reset_ego_service = self.create_service(
+            Trigger,
+            "~/reset_ego",
+            self.reset_ego_callback,
+            callback_group=self.service_cb_group,
+        )
+
         # Create client for lifecycle manager's prepare_for_scenario_switch service
         # Uses namespace-relative path - both nodes share the same namespace
         self.client_cb_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
@@ -386,6 +393,66 @@ class ScenarioServerNode(LifecycleNode):
             if success
             else "Failed to switch scenario"
         )
+
+        return response
+
+    def reset_ego_callback(self, request, response):
+        """
+        Put the ego back at the pose the scenario spawned it at.
+
+        This is the cheap reset: it teleports the existing actor rather than reloading the
+        scenario, so the map stays loaded and the managed lifecycle nodes are never torn down
+        (no odom gap, no re-configure). It resets the ego only -- NPC traffic and anything else
+        the scenario spawned keeps running. Use switch_scenario for a full world reset.
+        """
+        if not self.current_scenario:
+            response.success = False
+            response.message = "No scenario loaded"
+            return response
+
+        ego = getattr(self.current_scenario, "ego_vehicle", None)
+        spawn_point = getattr(self.current_scenario, "ego_spawn_point", None)
+        if ego is None or spawn_point is None:
+            response.success = False
+            response.message = "Scenario did not record an ego spawn pose"
+            return response
+
+        try:
+            if not ego.is_alive:
+                response.success = False
+                response.message = "Ego actor is no longer alive; use switch_scenario"
+                return response
+
+            # Kill the vehicle's motion before moving it. A teleport alone keeps the previous
+            # linear/angular velocity and any throttle the controller had applied, so the car
+            # would arrive at the spawn point already rolling.
+            ego.set_target_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+            ego.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+            try:
+                ego.apply_control(
+                    carla.VehicleControl(throttle=0.0, steer=0.0, brake=1.0)
+                )
+            except Exception:
+                # Not fatal: some actors reject control while in autopilot.
+                pass
+
+            ego.set_transform(spawn_point)
+
+            # Let the teleport take effect before we report success, so anything that reacts to
+            # the service returning sees the new pose rather than the old one.
+            if self.carla_world and self.get_parameter("synchronous_mode").value:
+                self.carla_world.tick()
+
+            loc = spawn_point.location
+            response.success = True
+            response.message = (
+                f"Ego reset to spawn pose ({loc.x:.2f}, {loc.y:.2f}, {loc.z:.2f})"
+            )
+            self.get_logger().info(response.message)
+        except Exception as e:
+            response.success = False
+            response.message = f"Failed to reset ego: {e}"
+            self.get_logger().error(response.message)
 
         return response
 

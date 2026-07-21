@@ -13,10 +13,15 @@
 # limitations under the License.
 
 # world_modeling_oval.launch.yaml -- the FULL world_modeling stack on the oval track
-# (world_modeling_sim.launch.yaml with the oval map). Use for the real planning stack
+# (world_modeling_sim.launch.yaml with the oval map): world_model + behaviour + costmap +
+# prediction + eidos + markers, 15 nodes. Use this when the REAL planner is under test
 # (world_model -> behaviour -> lattice_planning -> trajectory_planner -> controller);
-# pair with `ros2 launch action_bringup action.launch.yaml`. See world_model_oval.launch.yaml
-# for the lighter map-only bringup.
+# pair with `ros2 launch action_bringup action.launch.yaml`.
+#
+# Testing a controller with the fake planner instead? Use world_modeling_oval_map_only.launch.yaml
+# -- the fake planner replaces this whole chain, so these nodes are confounds rather than
+# dependencies. Note eidos_map_path defaults to empty here because no prior SLAM map exists for
+# the oval.
 ---
 launch:
   - arg:

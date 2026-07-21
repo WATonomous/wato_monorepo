@@ -12,10 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# world_model_oval.launch.yaml -- loads + visualizes the oval lanelet map
-# (maps/osm/oval_track_4_lane.osm) via world_model + map markers. Map-only bringup,
-# composed by fake_planner/launch/oval_track.launch.yaml.
-#   ros2 launch world_modeling_bringup world_model_oval.launch.yaml
+# world_modeling_oval_map_only.launch.yaml -- loads + visualizes the oval lanelet map
+# (maps/osm/oval_track_4_lane.osm) via world_model + map markers. Three nodes, no behaviour,
+# costmap, prediction or SLAM.
+#
+# This is the bringup to pair with the fake planner: the fake planner publishes its own
+# trajectory and its own execute_behaviour heartbeat, so it consumes nothing from world_modeling
+# and needs only /ego/odom + TF from CARLA. The map here is purely visual -- it puts the lane
+# geometry under the trajectory markers in Foxglove. Nothing includes this file; run it yourself
+# alongside fake_planner/launch/oval_track.launch.yaml, or skip it entirely.
+#
+# For the real planning chain on the oval (behaviour -> lattice -> trajectory_planner), use
+# world_modeling_oval.launch.yaml instead -- that is the full 15-node stack.
+#
+#   ros2 launch world_modeling_bringup world_modeling_oval_map_only.launch.yaml
 ---
 launch:
   - arg:

@@ -1,11 +1,27 @@
 {
   "name": "steady_state_slalom",
-  "description": "Sustained constant-speed sinusoidal weave; reveals the lateral controller's steady-state amplitude attenuation and phase lag (its frequency response).",
-  "sample_spacing_m": 0.1,
+  "description":
+    "Sustained constant-speed sinusoidal weave; reveals the lateral controller's steady-state amplitude attenuation and phase lag (its frequency response).",
+  "sample_spacing_m": 1.0,
   "default_speed": 4.0,
   "segments": [
-    { "straight": { "length": 6.0 } },
-    { "slalom":   { "amplitude": 1.0, "wavelength": 12.0, "cycles": 5 } },
-    { "straight": { "length": 6.0, "end_speed": 0.0 } }
+    {
+      "straight": {
+        "length": 6.0
+      }
+    },
+    {
+      "slalom": {
+        "amplitude": 1.0,
+        "wavelength": 12.0,
+        "cycles": 5
+      }
+    },
+    {
+      "straight": {
+        "length": 6.0,
+        "end_speed": 0.0
+      }
+    }
   ]
 }

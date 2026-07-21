@@ -30,6 +30,10 @@ class ScenarioBase(ABC):
         self.client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None
         self.logger = None  # Set by scenario server
+        # Recorded at spawn so the ego can be put back exactly where the scenario started it
+        # without reloading the map. See ScenarioServerNode.reset_ego_callback.
+        self.ego_vehicle: Optional["carla.Vehicle"] = None
+        self.ego_spawn_point: Optional["carla.Transform"] = None
 
     def _log(self, msg: str, level: str = "info") -> None:
         """Log using ROS logger if available, otherwise print."""
@@ -116,6 +120,23 @@ class ScenarioBase(ABC):
         if ego_vehicle is None:
             self._log("Failed to spawn ego vehicle", "error")
             return None
+
+        # Keep the pose by value: carla.Transform is reused/mutated by callers (the oval
+        # scenario adds a z offset to the waypoint transform it passes in), so storing the
+        # reference would let the saved spawn pose drift.
+        self.ego_vehicle = ego_vehicle
+        self.ego_spawn_point = carla.Transform(
+            carla.Location(
+                x=spawn_point.location.x,
+                y=spawn_point.location.y,
+                z=spawn_point.location.z,
+            ),
+            carla.Rotation(
+                pitch=spawn_point.rotation.pitch,
+                yaw=spawn_point.rotation.yaw,
+                roll=spawn_point.rotation.roll,
+            ),
+        )
 
         return ego_vehicle
 

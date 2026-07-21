@@ -13,8 +13,8 @@
 # limitations under the License.
 
 # Oval track config: world_model_sim.yaml with the oval map. Kept complete (costmap + all
-# markers) so it serves both the map-only bringup (world_model_oval.launch.yaml) and the
-# full stack (world_modeling_oval.launch.yaml).
+# markers) so it serves both the map-only bringup (world_modeling_oval_map_only.launch.yaml)
+# and the full stack (world_modeling_oval.launch.yaml).
 
 # =============================================================================
 # World Model Node -- oval track (maps/osm/oval_track_4_lane.osm)

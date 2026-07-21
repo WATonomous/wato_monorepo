@@ -52,19 +52,27 @@ private:
   // it to uniform spacing in wp_x_/wp_y_/wp_speed_. Returns false and sets `error` on any I/O,
   // JSON, or schema failure.
   bool loadManeuver(const std::string & path, std::string & error);
-  // Builds trajectory_ from the loaded waypoints, applying the current anchor transform.
+  // Builds full_traj_ from the loaded waypoints, applying the current anchor transform.
   void buildTrajectory();
+  // Slices the rolling window out of full_traj_ around the vehicle's current position into
+  // trajectory_, mirroring what the real planner emits (a short horizon, not the whole route).
+  void updateWindow();
+  // Index of the full-path point closest to (veh_x_, veh_y_), searched forward from the last
+  // match so a self-intersecting maneuver doesn't snap back to an earlier lap.
+  std::size_t nearestIndex() const;
   // Publishes the trajectory as a MarkerArray, mirroring trajectory_planner's visualization
   // (speed-sized spheres + speed labels on `trajectory_markers`, only when subscribed).
   void publishMarkers();
   void timerCallback();
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
   void startTrajectory(
-    const std_srvs::srv::Trigger::Request::SharedPtr request,
-    std_srvs::srv::Trigger::Response::SharedPtr response);
+    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
   void stopTrajectory(
-    const std_srvs::srv::Trigger::Request::SharedPtr request,
-    std_srvs::srv::Trigger::Response::SharedPtr response);
+    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
+  // Re-runs the maneuver from wherever the car currently sits, without a relaunch: rewinds the
+  // window and (when anchoring) re-lays the path from the next odom pose.
+  void resetTrajectory(
+    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
 
   // Parameters
   std::string trajectory_topic_;
@@ -78,15 +86,25 @@ private:
   bool start_on_activate_{true};
   std::string maneuver_file_;
   std::string marker_topic_;
+  double horizon_m_{30.0};
+  double trail_m_{2.0};
+  double respawn_jump_m_{5.0};
+
+  // Set from the maneuver's "closed" flag: a closed circuit laps forever (the window wraps
+  // past the end), an open maneuver ends in a stop.
+  bool closed_{false};
 
   // Waypoints expanded from the maneuver segments (parallel arrays; relative to the anchor pose).
   std::vector<double> wp_x_;
   std::vector<double> wp_y_;
   std::vector<double> wp_speed_;
 
-  // Prepared message (rebuilt once the anchor pose is known).
+  // The whole anchored maneuver (built once the anchor pose is known), and the rolling window
+  // of it that actually gets published each tick.
+  wato_trajectory_msgs::msg::Trajectory full_traj_;
   wato_trajectory_msgs::msg::Trajectory trajectory_;
   bool trajectory_ready_{false};
+  std::size_t window_start_{0};
 
   // Gates publishing: when false the node stays silent so the controller holds in standby.
   // Toggled by the start/stop services; seeded from start_on_activate on activation.
@@ -98,6 +116,11 @@ private:
   double anchor_y_{0.0};
   double anchor_yaw_{0.0};
 
+  // Latest vehicle position in frame_id_, tracked continuously to slide the window.
+  bool have_pose_{false};
+  double veh_x_{0.0};
+  double veh_y_{0.0};
+
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
@@ -105,6 +128,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;
 };
 
 }  // namespace fake_planner

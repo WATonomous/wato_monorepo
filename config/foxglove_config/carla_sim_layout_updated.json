@@ -1,0 +1,188 @@
+{
+  "configById": {
+    "3D!30zmknt": {
+      "cameraState": {
+        "distance": 25.847108697966828,
+        "perspective": true,
+        "phi": 48.86340560134671,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          92.76359837789165,
+          41.6860437039564,
+          -5.69264520747043e-15
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 159.35728805898788,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "labelSize": 0.04
+        }
+      },
+      "transforms": {
+        "frame:base_footprint": {
+          "visible": true
+        },
+        "frame:base_link": {
+          "visible": true
+        }
+      },
+      "topics": {
+        "/robot_description": {
+          "visible": true
+        },
+        "/hd_route_map": {
+          "visible": true
+        },
+        "/hd_map_viz": {
+          "visible": true
+        },
+        "/action/fake_planner/trajectory_markers": {
+          "visible": true
+        },
+        "/action/fake_planner/trajectory": {
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "06c1c74f-ecd4-4a93-bb3c-91295451c7c2",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "b278370c-35a1-4d82-ab6a-028ce85869b1": {
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": true,
+          "opacity": 0.77,
+          "visible": true,
+          "frameLocked": true,
+          "instanceId": "b278370c-35a1-4d82-ab6a-028ce85869b1",
+          "label": "URDF",
+          "layerId": "foxglove.Urdf",
+          "sourceType": "topic",
+          "url": "",
+          "filePath":
+            "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
+          "parameter": "",
+          "topic": "/robot_description_viz",
+          "framePrefix": "",
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/world_modeling/fixed_ego_pose",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "map",
+      "synchronize": false
+    },
+    "RawMessages!gwbiuj": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/carla/ackermann_control/command",
+      "fontSize": 12,
+      "defaultExpanded": false
+    },
+    "RawMessages!tklr0r": {
+      "expansion": {
+        "header": "e"
+      },
+      "defaultExpanded": true,
+      "topicPath": "/ego/odom"
+    },
+    "CallService!fpstart": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 30,
+      "serviceName": "/action/fake_planner/fake_planner_node/start_trajectory",
+      "title": "START"
+    },
+    "CallService!fpstop": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 30,
+      "serviceName": "/action/fake_planner/fake_planner_node/stop_trajectory",
+      "title": "STOP"
+    },
+    "CallService!fpreset": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 30,
+      "serviceName": "/carla/scenario_server/reset_ego",
+      "title": "RESET"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "CallService!fpstart",
+      "second": {
+        "first": "CallService!fpstop",
+        "second": "CallService!fpreset",
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "direction": "column",
+      "splitPercentage": 33
+    },
+    "second": {
+      "first": "3D!30zmknt",
+      "second": {
+        "first": "RawMessages!gwbiuj",
+        "second": "RawMessages!tklr0r",
+        "direction": "column",
+        "splitPercentage": 50
+      },
+      "direction": "row",
+      "splitPercentage": 72
+    },
+    "direction": "row",
+    "splitPercentage": 16
+  }
+}

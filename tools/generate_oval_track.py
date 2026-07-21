@@ -57,7 +57,9 @@ import os
 # --- Track definition (the single source of truth) ---------------------------
 LANE_WIDTH = 3.5  # metres, per lane
 NUM_LANES = 4
-INNER_RADIUS = 35.0  # metres, inner edge of the innermost lane == cap radius of the reference line
+INNER_RADIUS = (
+    35.0  # metres, inner edge of the innermost lane == cap radius of the reference line
+)
 STRAIGHT_LENGTH = 84.0  # metres, length of each of the two straights
 DRIVE_LANE = 0  # 0 == innermost lane; the lane the fake_planner maneuver follows
 CRUISE_SPEED = 5.0  # m/s, constant so the controller laps continuously
@@ -295,7 +297,7 @@ def build_xodr():
 
     def lanes_block():
         b = []
-        b.append('        <center>')
+        b.append("        <center>")
         b.append('          <lane id="0" type="none" level="false">')
         b.append(
             '            <roadMark sOffset="0.0" type="solid" weight="standard" '
@@ -386,7 +388,9 @@ def build_xodr():
         )
         r.append("    </planView>")
         r.append("    <elevationProfile>")
-        r.append('      <elevation s="0.0" a="%.4f" b="0.0" c="0.0" d="0.0"/>' % -PAD_DROP)
+        r.append(
+            '      <elevation s="0.0" a="%.4f" b="0.0" c="0.0" d="0.0"/>' % -PAD_DROP
+        )
         r.append("    </elevationProfile>")
         r.append("    <lanes>")
         r.append('      <laneSection s="0.0">')
@@ -411,7 +415,8 @@ def build_xodr():
     out.append(
         '  <header revMajor="1" revMinor="4" name="oval_track_4_lane" version="1.00" '
         'date="generated" north="%.4f" south="%.4f" east="%.4f" west="%.4f" '
-        'vendor="WATonomous">' % (PAD_HALF_WIDTH, -PAD_HALF_WIDTH, PAD_HALF_LENGTH, -PAD_HALF_LENGTH)
+        'vendor="WATonomous">'
+        % (PAD_HALF_WIDTH, -PAD_HALF_WIDTH, PAD_HALF_LENGTH, -PAD_HALF_LENGTH)
     )
     out.append(
         "    <geoReference><![CDATA[+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 "
@@ -455,7 +460,12 @@ def build_maneuver():
             "Requires anchor_to_first_pose:=false so it lands on the real track."
             % (DRIVE_LANE, r, lap, CRUISE_SPEED)
         ),
-        "sample_spacing_m": 0.5,
+        # Match the map, not a round number. For lane following the real trajectory is the
+        # lanelet centreline passed through untouched (lattice_planning collects centreline
+        # points to the horizon; trajectory_planner emits one TrajectoryPoint per pose), so the
+        # planner's waypoint spacing IS the map's node spacing. Deriving it from NODE_SPACING
+        # keeps the replayed maneuver in step with the map this same script emits.
+        "sample_spacing_m": NODE_SPACING,
         "default_speed": CRUISE_SPEED,
         "start": {"x": -CAP_CENTRE_X, "y": -r, "yaw": 0.0},
         "segments": [
@@ -478,11 +488,15 @@ def expand_maneuver(doc):
     cx, cy, cth = st.get("x", 0.0), st.get("y", 0.0), st.get("yaw", 0.0)
 
     def append(u, v):
-        pts.append((cx + u * math.cos(cth) - v * math.sin(cth),
-                    cy + u * math.sin(cth) + v * math.cos(cth)))
+        pts.append(
+            (
+                cx + u * math.cos(cth) - v * math.sin(cth),
+                cy + u * math.sin(cth) + v * math.cos(cth),
+            )
+        )
 
     for i, seg in enumerate(doc["segments"]):
-        (kind, p), = seg.items()
+        ((kind, p),) = seg.items()
         if i == 0:
             append(0.0, 0.0)
         if kind in ("straight", "dwell"):
@@ -642,7 +656,15 @@ def main():
 
     print(
         "Oval track: %d lanes x %.1f m, inner radius %.1f m, straights %.1f m, "
-        "envelope %.0f x %.0f m" % (NUM_LANES, LANE_WIDTH, INNER_RADIUS, STRAIGHT_LENGTH, 2 * EXTENT_X, 2 * EXTENT_Y)
+        "envelope %.0f x %.0f m"
+        % (
+            NUM_LANES,
+            LANE_WIDTH,
+            INNER_RADIUS,
+            STRAIGHT_LENGTH,
+            2 * EXTENT_X,
+            2 * EXTENT_Y,
+        )
     )
     r = lane_centre_radius(DRIVE_LANE)
     print(

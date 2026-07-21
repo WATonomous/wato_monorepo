@@ -21,6 +21,7 @@
 #include <exception>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -177,6 +178,51 @@ Path resampleUniform(const Path & in, double spacing)
   return out;
 }
 
+// Deceleration used to ramp an open maneuver down to a standstill. Matches
+// trajectory_planner's max_tangential_accel so the fake stop feels like the real one.
+constexpr double kMaxDecel = 1.0;
+
+// How far past the last authored point the zero-speed pad extends. Pure pursuit only steers to
+// points *ahead* of the vehicle and simply returns (holding its last command) when it runs out,
+// so the path has to stay populated past the stop line or the car drives off the end. Comfortably
+// longer than the controller's max lookahead.
+constexpr double kStopPadM = 10.0;
+
+// Terminate an open maneuver in a standstill: extend the final heading with zero-speed points,
+// then propagate that zero backwards at kMaxDecel so the speed profile brakes into it. Same
+// backward pass trajectory_planner runs, just with a known terminal speed instead of an obstacle.
+void appendStopPad(Path & path, double spacing)
+{
+  if (path.x.size() < 2) {
+    return;
+  }
+  const double dx = path.x.back() - path.x[path.x.size() - 2];
+  const double dy = path.y.back() - path.y[path.y.size() - 2];
+  const double norm = std::hypot(dx, dy);
+  if (norm < 1e-9) {
+    return;
+  }
+
+  const double end_x = path.x.back();
+  const double end_y = path.y.back();
+  const int pad_points = static_cast<int>(std::ceil(kStopPadM / spacing));
+  for (int k = 1; k <= pad_points; ++k) {
+    const double t = spacing * k;
+    path.x.push_back(end_x + dx / norm * t);
+    path.y.push_back(end_y + dy / norm * t);
+    path.speed.push_back(0.0);
+  }
+  // The last authored point is the stop line itself.
+  path.speed.back() = 0.0;
+  path.speed[path.speed.size() - pad_points - 1] = 0.0;
+
+  for (int i = static_cast<int>(path.speed.size()) - 2; i >= 0; --i) {
+    const double seg = std::hypot(path.x[i + 1] - path.x[i], path.y[i + 1] - path.y[i]);
+    const double v_max = std::sqrt(path.speed[i + 1] * path.speed[i + 1] + 2.0 * kMaxDecel * seg);
+    path.speed[i] = std::min(path.speed[i], v_max);
+  }
+}
+
 }  // namespace
 
 namespace fake_planner
@@ -196,6 +242,20 @@ FakePlannerNode::FakePlannerNode(const rclcpp::NodeOptions & options)
   declare_parameter("publish_behaviour", true);
   declare_parameter("behaviour", "lane_follow");
   declare_parameter("anchor_to_first_pose", true);
+
+  // Rolling window. The real planner never publishes the whole route: the lattice planner emits
+  // a ~30 m horizon starting 2 m behind the vehicle, replanned as it drives. Publishing the full
+  // maneuver instead makes both the markers and the controller's search look nothing like the
+  // real thing, so the fake planner slides the same window along its maneuver.
+  declare_parameter("horizon_m", 35.0);
+  declare_parameter("trail_m", 2.0);
+
+  // Respawn detection. A pose that jumps this far between two odom messages is a teleport, not
+  // driving -- in sim that means the ego was destroyed and respawned. Continuing to publish a
+  // path anchored to the old pose after that is never right, so the node re-anchors itself and
+  // the demo resets with a single "respawn ego" click rather than a click-in-the-right-order
+  // dance. Set 0 to disable (e.g. if a localization jump on the real car would trip it).
+  declare_parameter("respawn_jump_m", 5.0);
 
   // Whether activation starts the trajectory immediately. Set false to bring the stack up
   // with the vehicle held in standby and release it later with the start_trajectory service.
@@ -226,6 +286,9 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   start_on_activate_ = get_parameter("start_on_activate").as_bool();
   maneuver_file_ = get_parameter("maneuver_file").as_string();
   marker_topic_ = get_parameter("marker_pub_topic").as_string();
+  horizon_m_ = get_parameter("horizon_m").as_double();
+  trail_m_ = get_parameter("trail_m").as_double();
+  respawn_jump_m_ = get_parameter("respawn_jump_m").as_double();
 
   if (publish_rate_hz_ <= 0.0) {
     RCLCPP_ERROR(get_logger(), "publish_rate_hz must be > 0 (got %.3f)", publish_rate_hz_);
@@ -242,8 +305,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   }
   // loadManeuver fills x/y/speed together, so the arrays are equal-length by construction.
   if (wp_x_.size() < 2) {
-    RCLCPP_ERROR(
-      get_logger(), "Maneuver '%s' has %zu waypoint(s); need >= 2.", maneuver_file_.c_str(), wp_x_.size());
+    RCLCPP_ERROR(get_logger(), "Maneuver '%s' has %zu waypoint(s); need >= 2.", maneuver_file_.c_str(), wp_x_.size());
     return CallbackReturn::FAILURE;
   }
 
@@ -259,6 +321,14 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   stop_srv_ = create_service<std_srvs::srv::Trigger>(
     "~/stop_trajectory",
     std::bind(&FakePlannerNode::stopTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+  reset_srv_ = create_service<std_srvs::srv::Trigger>(
+    "~/reset", std::bind(&FakePlannerNode::resetTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+
+  // Odom is needed either way: to anchor the layout (optionally) and to slide the rolling window
+  // as the vehicle drives.
+  have_pose_ = false;
+  odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+    odom_topic_, rclcpp::QoS(10), std::bind(&FakePlannerNode::odomCallback, this, std::placeholders::_1));
 
   // Anchoring lays the waypoints out from the vehicle's pose at launch, so the same file
   // works regardless of where odom's origin is (sim spawn vs. accumulated odom on the car).
@@ -266,8 +336,6 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   if (anchor_to_first_pose_) {
     anchored_ = false;
     trajectory_ready_ = false;
-    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      odom_topic_, rclcpp::QoS(10), std::bind(&FakePlannerNode::odomCallback, this, std::placeholders::_1));
   } else {
     anchor_x_ = 0.0;
     anchor_y_ = 0.0;
@@ -290,8 +358,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
 }
 
 void FakePlannerNode::startTrajectory(
-  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/,
-  std_srvs::srv::Trigger::Response::SharedPtr response)
+  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/, std_srvs::srv::Trigger::Response::SharedPtr response)
 {
   trajectory_started_ = true;
   response->success = true;
@@ -300,13 +367,33 @@ void FakePlannerNode::startTrajectory(
 }
 
 void FakePlannerNode::stopTrajectory(
-  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/,
-  std_srvs::srv::Trigger::Response::SharedPtr response)
+  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/, std_srvs::srv::Trigger::Response::SharedPtr response)
 {
   trajectory_started_ = false;
   response->success = true;
   response->message = "Trajectory stopped; controller will fall back to standby";
   RCLCPP_INFO(get_logger(), "Trajectory stopped via service");
+}
+
+void FakePlannerNode::resetTrajectory(
+  const std_srvs::srv::Trigger::Request::SharedPtr /*request*/, std_srvs::srv::Trigger::Response::SharedPtr response)
+{
+  // Rewind the window. When anchoring, drop the anchor too so the next odom re-lays the whole
+  // maneuver from wherever the car ended up -- that is what makes a re-run possible after the
+  // car has driven to the end and stopped. Absolute maneuvers keep their fixed geometry and
+  // just re-acquire the nearest point.
+  window_start_ = 0;
+  if (anchor_to_first_pose_) {
+    anchored_ = false;
+    trajectory_ready_ = false;
+  }
+
+  // Match a fresh activate: resume immediately or hold, per start_on_activate.
+  trajectory_started_ = start_on_activate_;
+
+  response->success = true;
+  response->message = anchor_to_first_pose_ ? "Reset; re-anchoring on next odom" : "Reset to nearest point";
+  RCLCPP_INFO(get_logger(), "Reset via service (%s)", response->message.c_str());
 }
 
 bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error)
@@ -329,8 +416,18 @@ bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error
     return false;
   }
 
-  const double spacing = doc.value("sample_spacing_m", 0.1);
+  // Spacing is a property of the MAP, not of the planner. For lane following nothing in the
+  // real pipeline resamples: lattice_planning walks the lanelet centreline out to the horizon
+  // and hands those points over verbatim (centreline_to_path_points), and trajectory_planner
+  // emits one TrajectoryPoint per input pose. So the trajectory's waypoint spacing is just the
+  // lanelet centreline node spacing of whatever map is loaded. Measured from maps/osm:
+  //   oval_track_4_lane.osm  2.00 m   (generated at NODE_SPACING by tools/generate_oval_track.py)
+  //   Town10HD.osm           1.00 m
+  // path_gen.path_steps does NOT set this -- that only discretises the cubic spirals used for
+  // lane CHANGES, which lane-following never goes through.
+  const double spacing = doc.value("sample_spacing_m", 1.0);
   const double default_speed = doc.value("default_speed", 2.0);
+  closed_ = doc.value("closed", false);
   if (spacing <= 0.0) {
     error = "sample_spacing_m must be > 0";
     return false;
@@ -387,12 +484,17 @@ bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error
       if (type == "straight" || type == "dwell") {
         buildStraight(fine_path, cursor, p.at("length").get<double>(), s0, s1, fine);
       } else if (type == "shift") {
-        buildShift(
-          fine_path, cursor, p.at("lateral").get<double>(), p.at("length").get<double>(), s0, s1, fine);
+        buildShift(fine_path, cursor, p.at("lateral").get<double>(), p.at("length").get<double>(), s0, s1, fine);
       } else if (type == "slalom") {
         buildSlalom(
-          fine_path, cursor, p.at("amplitude").get<double>(), p.at("wavelength").get<double>(),
-          p.at("cycles").get<double>(), s0, s1, fine);
+          fine_path,
+          cursor,
+          p.at("amplitude").get<double>(),
+          p.at("wavelength").get<double>(),
+          p.at("cycles").get<double>(),
+          s0,
+          s1,
+          fine);
       } else if (type == "arc") {
         const std::string dir = p.value("dir", std::string("left"));
         if (dir != "left" && dir != "right") {
@@ -401,8 +503,14 @@ bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error
         }
         const double dir_sign = (dir == "left") ? 1.0 : -1.0;
         buildArc(
-          fine_path, cursor, p.at("radius").get<double>(), p.at("angle").get<double>() * kPi / 180.0,
-          dir_sign, s0, s1, fine);
+          fine_path,
+          cursor,
+          p.at("radius").get<double>(),
+          p.at("angle").get<double>() * kPi / 180.0,
+          dir_sign,
+          s0,
+          s1,
+          fine);
       } else {
         error = "segment " + std::to_string(idx) + ": unknown type '" + type + "'";
         return false;
@@ -415,7 +523,11 @@ bool FakePlannerNode::loadManeuver(const std::string & path, std::string & error
     current_speed = s1;
   }
 
-  const Path resampled = resampleUniform(fine_path, spacing);
+  Path resampled = resampleUniform(fine_path, spacing);
+  // A closed circuit laps forever, so it has no end to stop at; everything else does.
+  if (!closed_) {
+    appendStopPad(resampled, spacing);
+  }
   wp_x_ = resampled.x;
   wp_y_ = resampled.y;
   wp_speed_ = resampled.speed;
@@ -469,6 +581,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_cleanup(const rclcpp_lifecyc
   odom_sub_.reset();
   start_srv_.reset();
   stop_srv_.reset();
+  reset_srv_.reset();
   trajectory_ready_ = false;
   anchored_ = false;
   RCLCPP_INFO(get_logger(), "Cleaned up");
@@ -484,6 +597,7 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_shutdown(const rclcpp_lifecy
   odom_sub_.reset();
   start_srv_.reset();
   stop_srv_.reset();
+  reset_srv_.reset();
   RCLCPP_INFO(get_logger(), "Shut down");
   return CallbackReturn::SUCCESS;
 }
@@ -525,8 +639,87 @@ void FakePlannerNode::buildTrajectory()
     traj.points.push_back(pt);
   }
 
-  trajectory_ = traj;
+  full_traj_ = traj;
+  window_start_ = 0;
   trajectory_ready_ = true;
+  updateWindow();
+}
+
+std::size_t FakePlannerNode::nearestIndex() const
+{
+  const std::size_t n = full_traj_.points.size();
+  // Search a bounded stretch ahead of the last match rather than the whole path: a slalom or a
+  // closed lap passes near its own earlier points, and a global search would jump back to them.
+  constexpr std::size_t kSearchAhead = 400;
+  const std::size_t span = std::min(kSearchAhead, n);
+
+  std::size_t best = window_start_;
+  double best_dist = std::numeric_limits<double>::max();
+  for (std::size_t k = 0; k < span; ++k) {
+    const std::size_t i = closed_ ? (window_start_ + k) % n : std::min(window_start_ + k, n - 1);
+    const auto & p = full_traj_.points[i].pose.position;
+    const double d = std::hypot(p.x - veh_x_, p.y - veh_y_);
+    if (d < best_dist) {
+      best_dist = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+// Slice the published horizon out of the full maneuver: trail_m_ behind the vehicle (so pure
+// pursuit always has path starting behind it and doesn't creep) through horizon_m_ ahead. On a
+// closed circuit the window wraps and the car laps; on an open one it runs into the zero-speed
+// stop pad and holds there.
+void FakePlannerNode::updateWindow()
+{
+  const std::size_t n = full_traj_.points.size();
+  if (n == 0) {
+    return;
+  }
+  if (!have_pose_) {
+    trajectory_ = full_traj_;
+    return;
+  }
+
+  const std::size_t nearest = nearestIndex();
+  window_start_ = nearest;
+
+  wato_trajectory_msgs::msg::Trajectory window;
+  window.header = full_traj_.header;
+
+  // Walk backwards from the nearest point to lay down the trailing stub.
+  std::size_t first = nearest;
+  double trailed = 0.0;
+  while (trailed < trail_m_) {
+    const std::size_t prev = (first == 0) ? (closed_ ? n - 1 : 0) : first - 1;
+    if (prev == first) {
+      break;  // open path, already at the start
+    }
+    const auto & a = full_traj_.points[prev].pose.position;
+    const auto & b = full_traj_.points[first].pose.position;
+    trailed += std::hypot(b.x - a.x, b.y - a.y);
+    first = prev;
+  }
+
+  double covered = 0.0;
+  std::size_t i = first;
+  for (std::size_t k = 0; k < n; ++k) {
+    window.points.push_back(full_traj_.points[i]);
+    const std::size_t next = (i + 1 == n) ? (closed_ ? 0 : i) : i + 1;
+    if (next == i) {
+      break;  // open path, ran off the end
+    }
+    const auto & a = full_traj_.points[i].pose.position;
+    const auto & b = full_traj_.points[next].pose.position;
+    covered += std::hypot(b.x - a.x, b.y - a.y);
+    i = next;
+    if (covered >= trailed + horizon_m_) {
+      break;
+    }
+  }
+
+  trajectory_ = window;
 }
 
 // Same marker scheme as trajectory_planner's visualization: wipe, then a sphere per point
@@ -615,7 +808,29 @@ void FakePlannerNode::publishMarkers()
 
 void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
 {
+  const double new_x = msg->pose.pose.position.x;
+  const double new_y = msg->pose.pose.position.y;
+
+  // A teleport between consecutive odom messages means the vehicle was respawned underneath us.
+  // Re-anchor instead of steering toward a path laid out from a pose that no longer exists.
+  const bool teleported =
+    have_pose_ && anchored_ && respawn_jump_m_ > 0.0 && std::hypot(new_x - veh_x_, new_y - veh_y_) > respawn_jump_m_;
+
+  veh_x_ = new_x;
+  veh_y_ = new_y;
+  have_pose_ = true;
+
+  if (teleported) {
+    RCLCPP_INFO(get_logger(), "Pose jumped to (%.2f, %.2f) -- treating as a respawn and re-anchoring", new_x, new_y);
+    window_start_ = 0;
+    trajectory_started_ = start_on_activate_;
+    if (anchor_to_first_pose_) {
+      anchored_ = false;  // falls through to the anchoring path below
+    }
+  }
+
   if (anchored_) {
+    updateWindow();
     return;
   }
   anchor_x_ = msg->pose.pose.position.x;
@@ -642,8 +857,7 @@ void FakePlannerNode::timerCallback()
   // the controller stays in standby rather than driving off on bringup.
   if (!trajectory_started_) {
     publishMarkers();
-    RCLCPP_INFO_THROTTLE(
-      get_logger(), *get_clock(), 5000, "Holding: waiting for the start_trajectory service.");
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000, "Holding: waiting for the start_trajectory service.");
     return;
   }
 
