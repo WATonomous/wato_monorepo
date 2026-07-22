@@ -51,6 +51,7 @@ bool BEVFusionCore::initialize()
     return false;
   }
 
+  // Camera normalization: resize + mean/std normalization applied to each input image before the backbone
   ::bevfusion::camera::NormalizationParameter norm;
   norm.image_width = config_.image_width;
   norm.image_height = config_.image_height;
@@ -63,6 +64,7 @@ bool BEVFusionCore::initialize()
   norm.method = ::bevfusion::camera::NormMethod::mean_std(
     config_.norm_mean.data(), config_.norm_std.data(), config_.norm_scale, config_.norm_bias);
 
+  // Camera geometry: BEV grid bounds and feature map dimensions for lifting image features into 3D space
   ::bevfusion::camera::GeometryParameter geom;
   geom.xbound = {config_.xbound[0], config_.xbound[1], config_.xbound[2]};
   geom.ybound = {config_.ybound[0], config_.ybound[1], config_.ybound[2]};
@@ -75,6 +77,7 @@ bool BEVFusionCore::initialize()
   geom.image_height = config_.image_height;
   geom.num_camera = config_.num_cameras;
 
+  // LiDAR voxelization: divides the point cloud into a 3D grid; grid_size is derived from range and voxel size
   nvtype::Float3 min_range = {config_.min_range[0], config_.min_range[1], config_.min_range[2]};
   nvtype::Float3 max_range = {config_.max_range[0], config_.max_range[1], config_.max_range[2]};
   nvtype::Float3 voxel_size = {config_.voxel_size[0], config_.voxel_size[1], config_.voxel_size[2]};
@@ -94,12 +97,14 @@ bool BEVFusionCore::initialize()
   const auto precision =
     (config_.precision == "int8") ? ::bevfusion::lidar::Precision::Int8 : ::bevfusion::lidar::Precision::Float16;
 
+  // Sparse conv backbone (SCN): processes only non-empty voxels for efficient LiDAR feature extraction
   ::bevfusion::lidar::SCNParameter scn;
   scn.voxelization = voxel;
   scn.model = config_.lidar_backbone_onnx;
   scn.order = scn_order;
   scn.precision = precision;
 
+  // Detection head: decodes BEV feature map into 3D bounding boxes and filters by confidence + center range
   ::bevfusion::head::transbbox::TransBBoxParameter transbbox;
   transbbox.model = config_.head_bbox_plan;
   transbbox.out_size_factor = config_.out_size_factor;
@@ -112,6 +117,7 @@ bool BEVFusionCore::initialize()
   transbbox.confidence_threshold = config_.confidence_threshold;
   transbbox.sorted_bboxes = config_.sorted_bboxes;
 
+  // Deserialize all TensorRT engines and allocate GPU buffers for the full pipeline
   ::bevfusion::CoreParameter param;
   param.camera_model = config_.camera_backbone_plan;
   param.camera_vtransform = config_.camera_vtransform_plan;
