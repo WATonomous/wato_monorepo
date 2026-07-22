@@ -40,6 +40,7 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
   this->declare_parameter("mtr.selected_target_agent_limit", 8);
   this->declare_parameter("mtr.target_forward_half_angle_deg", 90.0);
+  this->declare_parameter("mtr.model_time_step_s", 0.1);
   this->declare_parameter("mtr.ego_length", 4.0936);
   this->declare_parameter("mtr.ego_width", 1.3579);
   this->declare_parameter("mtr.ego_height", 1.4090);
@@ -58,6 +59,7 @@ MtrConfig PredictionMlNode::loadMtrConfig()
   cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
   cfg.selected_target_agent_limit = static_cast<int>(this->get_parameter("mtr.selected_target_agent_limit").as_int());
   cfg.target_forward_half_angle_deg = this->get_parameter("mtr.target_forward_half_angle_deg").as_double();
+  cfg.model_time_step_s = this->get_parameter("mtr.model_time_step_s").as_double();
   cfg.ego_length = this->get_parameter("mtr.ego_length").as_double();
   cfg.ego_width = this->get_parameter("mtr.ego_width").as_double();
   cfg.ego_height = this->get_parameter("mtr.ego_height").as_double();
@@ -76,16 +78,21 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
   ego_velocity_child_frame_ = this->get_parameter("mtr.ego_velocity_child_frame").as_string();
 
   const MtrConfig cfg = loadMtrConfig();
+  const bool valid_model_time_step = std::isfinite(cfg.model_time_step_s) && cfg.model_time_step_s > 0.0;
+  const double cadence_ratio = valid_model_time_step ? prediction_time_step_ / cfg.model_time_step_s : 0.0;
+  const bool valid_prediction_cadence = std::isfinite(prediction_time_step_) && prediction_time_step_ > 0.0 &&
+                                        std::isfinite(cadence_ratio) && cadence_ratio >= 1.0 &&
+                                        std::abs(cadence_ratio - std::round(cadence_ratio)) <= 1.0e-9;
   const bool valid_config =
-    std::isfinite(prediction_horizon_) && prediction_horizon_ > 0.0 && std::isfinite(prediction_time_step_) &&
-    prediction_time_step_ > 0.0 && std::isfinite(fallback_vehicle_size_threshold_m_) &&
-    fallback_vehicle_size_threshold_m_ >= 0.0 && std::isfinite(fallback_vehicle_speed_mps_) &&
-    fallback_vehicle_speed_mps_ >= 0.0 && std::isfinite(fallback_vru_speed_mps_) && fallback_vru_speed_mps_ >= 0.0 &&
-    std::isfinite(cfg.cache_ttl_s) && cfg.cache_ttl_s >= 0.0 && cfg.selected_target_agent_limit >= 0 &&
-    std::isfinite(cfg.target_forward_half_angle_deg) && std::isfinite(cfg.ego_length) && cfg.ego_length > 0.0 &&
-    std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) && cfg.ego_height > 0.0 &&
-    !ego_velocity_child_frame_.empty() && cfg.history_steps > 0 && std::isfinite(cfg.history_rate_hz) &&
-    cfg.history_rate_hz > 0.0;
+    std::isfinite(prediction_horizon_) && prediction_horizon_ > 0.0 && valid_prediction_cadence &&
+    std::isfinite(fallback_vehicle_size_threshold_m_) && fallback_vehicle_size_threshold_m_ >= 0.0 &&
+    std::isfinite(fallback_vehicle_speed_mps_) && fallback_vehicle_speed_mps_ >= 0.0 &&
+    std::isfinite(fallback_vru_speed_mps_) && fallback_vru_speed_mps_ >= 0.0 && std::isfinite(cfg.cache_ttl_s) &&
+    cfg.cache_ttl_s >= 0.0 && cfg.selected_target_agent_limit >= 0 &&
+    std::isfinite(cfg.target_forward_half_angle_deg) && valid_model_time_step && std::isfinite(cfg.ego_length) &&
+    cfg.ego_length > 0.0 && std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) &&
+    cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && cfg.history_steps > 0 &&
+    std::isfinite(cfg.history_rate_hz) && cfg.history_rate_hz > 0.0;
   if (!valid_config) {
     RCLCPP_ERROR(this->get_logger(), "Invalid prediction_ml timing, fallback, or MTR parameters");
     return CallbackReturn::FAILURE;

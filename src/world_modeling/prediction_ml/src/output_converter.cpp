@@ -85,6 +85,7 @@ MtrInferenceResult convertMtrOutput(
   const std::string & frame_id,
   const double source_time_s,
   const double horizon_s,
+  const double model_time_step_s,
   const double time_step_s)
 {
   MtrInferenceResult result;
@@ -96,7 +97,8 @@ MtrInferenceResult convertMtrOutput(
   const std::string output_frame = frame_id.empty() ? sidecar.frame_id : frame_id;
   if (
     output_frame.empty() || !std::isfinite(source_time_s) || source_time_s < 0.0 || !std::isfinite(horizon_s) ||
-    horizon_s <= 0.0 || !std::isfinite(time_step_s) || time_step_s <= 0.0)
+    horizon_s <= 0.0 || !std::isfinite(model_time_step_s) || model_time_step_s <= 0.0 || !std::isfinite(time_step_s) ||
+    time_step_s <= 0.0)
   {
     result.error = "invalid output frame or timing configuration";
     return result;
@@ -130,9 +132,20 @@ MtrInferenceResult convertMtrOutput(
     return result;
   }
 
+  const double stride_ratio = time_step_s / model_time_step_s;
+  const auto model_stride = static_cast<std::size_t>(std::llround(stride_ratio));
+  constexpr double kStrideTolerance = 1.0e-9;
+  if (
+    model_stride == 0U || std::abs(stride_ratio - static_cast<double>(model_stride)) >
+                            kStrideTolerance * std::max(1.0, std::abs(stride_ratio)))
+  {
+    result.error = "prediction time step must be a whole multiple of the MTR model time step";
+    return result;
+  }
+
   const auto requested_steps =
     static_cast<std::size_t>(std::floor(horizon_s / time_step_s + std::numeric_limits<double>::epsilon() * 8.0));
-  const std::size_t emitted_steps = std::min(model_steps, requested_steps);
+  const std::size_t emitted_steps = std::min(model_steps / model_stride, requested_steps);
   if (emitted_steps == 0U) {
     result.error = "mtr output contains no steps inside the requested horizon";
     return result;
@@ -160,7 +173,11 @@ MtrInferenceResult convertMtrOutput(
       positions.reserve(emitted_steps);
       bool valid_mode = true;
       for (std::size_t step_index = 0; step_index < emitted_steps; ++step_index) {
-        const std::size_t offset = (((target_index * num_modes + mode_index) * model_steps + step_index) * channels);
+        // MTR's first trajectory entry is at model_time_step_s. For a 0.2 s
+        // published cadence over native 0.1 s output, select indices 1, 3, 5, ... .
+        const std::size_t model_step_index = (step_index + 1U) * model_stride - 1U;
+        const std::size_t offset =
+          (((target_index * num_modes + mode_index) * model_steps + model_step_index) * channels);
         const double local_x = out.pred_trajs[offset];
         const double local_y = out.pred_trajs[offset + 1U];
         if (!std::isfinite(local_x) || !std::isfinite(local_y)) {

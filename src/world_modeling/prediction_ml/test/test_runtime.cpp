@@ -108,6 +108,7 @@ TEST(MtrRuntime, FreshResultReplacesMatchingFallbackAndExpiresBySourceTime)
 {
   prediction_ml::MtrConfig cfg;
   cfg.cache_ttl_s = 0.5;
+  cfg.model_time_step_s = 0.5;
   auto engine = std::make_unique<ImmediateEngine>(makeOutput());
   prediction_ml::MtrRuntime runtime(cfg, std::move(engine));
 
@@ -140,6 +141,7 @@ TEST(MtrRuntime, FreshResultReplacesMatchingFallbackAndExpiresBySourceTime)
 TEST(MtrRuntime, InvalidSubmissionNeverStartsInference)
 {
   prediction_ml::MtrConfig cfg;
+  cfg.model_time_step_s = 0.5;
   auto engine = std::make_unique<ImmediateEngine>(makeOutput());
   prediction_ml::MtrRuntime runtime(cfg, std::move(engine));
   auto input = makeInput("target");

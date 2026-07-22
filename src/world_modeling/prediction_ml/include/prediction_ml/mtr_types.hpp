@@ -46,6 +46,8 @@ struct MtrConfig
   // Half-angle from ego heading that counts as "forward" for target priority (degrees).
   // 90 => front hemisphere, including agents beside the car at ±90°.
   double target_forward_half_angle_deg{90.0};
+  // Native interval between consecutive future trajectory samples emitted by MTR.
+  double model_time_step_s{0.1};
   int history_steps{11};
   double history_rate_hz{10.0};
   // Static ego (SDC) bounding-box dimensions (metres). Used to give the ego row a real
