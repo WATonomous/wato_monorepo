@@ -16,6 +16,7 @@
   <depend>vision_msgs</depend>
   <depend>world_model_msgs</depend>
   <depend>lanelet_msgs</depend>
+  <depend>nav_msgs</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
