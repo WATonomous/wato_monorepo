@@ -2,10 +2,10 @@
 
 ## Skeleton and Model Status
 
-The package currently provides the MTR contracts, null backend, TensorRT-gated backend stub,
-scene builder/runtime/output-converter stubs, lifecycle node, and constant-velocity fallback. The
-real TensorRT predictor is not implemented yet. Intentional TODOs in the owner files are handoff
-points for that work.
+The package currently provides the MTR contracts, null and TensorRT-gated inference backends,
+scene builder, asynchronous latest-frame runtime with a per-object TTL cache, validated output
+conversion, lifecycle node, and constant-velocity fallback. The TensorRT backend is implemented;
+deployment-engine and GPU validation remain outstanding.
 
 This is the **active working branch**: MTR inference scaffolding lives inside the monorepo. The
 alternative deep_ros direction — moving inference ownership into `WATonomous/deep_ros` (`deep_msgs`
@@ -19,6 +19,9 @@ Source-level MTR I/O verification established that:
 - `obj_trajs_mask` and `map_polylines_mask` use `std::vector<uint8_t>` for boolean masks.
 - `center_type_ids` uses `std::vector<int64_t>` for MTR object-type codes
   (`TYPE_VEHICLE=0`, `TYPE_PEDESTRIAN=1`, `TYPE_CYCLIST=2`).
+- `track_index_to_predict` also uses an `int64_t` engine binding.
+- Ego dimensions come from configuration, and body-frame odometry twist is rotated into the map
+  frame by the scene builder before target-relative packing.
 
 ### Real-data MTR forward validation
 
@@ -69,9 +72,9 @@ constant-velocity fallback predictions.
 ## Architecture
 
 ```text
-tracks_3d ─┐
-ego_pose ──┼─▶ SceneBuilder ──MtrInputTensors──▶ MtrRuntime ──▶ IMtrInferenceEngine
-lanelet ───┘                      + sidecar                         │
+tracks_3d ─────────┐
+ego_pose/odometry ─┼─▶ SceneBuilder ──MtrInputTensors──▶ MtrRuntime ──▶ IMtrInferenceEngine
+lanelet ───────────┘                      + sidecar                         │
                                                                     ▼
                                                             MtrOutputTensors
                                                                     │
@@ -96,7 +99,7 @@ prepares MTR inputs, `MtrRuntime` owns asynchronous inference and its result cac
   maintain MTR-only per-object history keyed by detection id (pose, dims, heading,
   velocity, type, timestamp, validity); resample to a fixed step and mask missing
   samples; select target agents up to a limit; pack target + context agents into
-  `obj_trajs*` and `track_index_to_predict` / `center_objects_type`; convert lanelet
+  `obj_trajs*` and `track_index_to_predict` / `center_type_ids`; convert lanelet
   context into `map_polylines*`; populate the sidecar. Depends only on `mtr_types.hpp`.
 
 - **Person B — Inference backend** (`null_backend.cpp`, `tensorrt_backend.cpp`,
@@ -134,11 +137,10 @@ colcon build --packages-select prediction_ml \
   --cmake-args -DPREDICTION_ML_ENABLE_TENSORRT=ON
 ```
 
-`PREDICTION_ML_ENABLE_TENSORRT` remains off by default because `tensorrt_backend.cpp` is currently
-a placeholder that returns the null engine; it does not perform TensorRT inference yet. The
-repository deploy image runs `colcon build` without this CMake option, so the current deploy build
-excludes that placeholder translation unit. When the real backend and its dependencies are added,
-the deploy build must explicitly enable the option or the project must revisit the default.
+`PREDICTION_ML_ENABLE_TENSORRT` remains off by default. The integrated backend implements engine
+loading, binding validation, CUDA buffer management, and enqueue/copy logic, but still needs a
+TensorRT-enabled GPU sign-off with the deployment engine. The repository deploy image runs
+`colcon build` without this CMake option, so deployment must explicitly enable the option.
 
 Runtime selection is separate from compile-time inclusion. `mtr.mode: "tensorrt"` requests the
 TensorRT engine only in a build that includes it; otherwise the factory returns the null engine and
@@ -152,4 +154,4 @@ colcon test-result --verbose
 ```
 
 The package test targets cover shared contracts, inference backend selection, scene building,
-runtime selection, and fallback speed selection.
+runtime selection and TTL behavior, output conversion, and fallback speed selection.

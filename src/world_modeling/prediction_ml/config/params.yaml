@@ -16,12 +16,13 @@ prediction_ml_node:
     mtr.selected_target_agent_limit: 8
     # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
     mtr.target_forward_half_angle_deg: 90.0
+    # EVE dimensions from eve_description/urdf/eve_chassis.xacro.
+    mtr.ego_length: 4.0936
+    mtr.ego_width: 1.3579
+    mtr.ego_height: 1.4090
+    # nav_msgs/Odometry expresses twist in child_frame_id; Eidos defaults to base_footprint.
+    mtr.ego_velocity_child_frame: "base_footprint"
 
     # --- Scene builder ---
     mtr.history_steps: 11
     mtr.history_rate_hz: 10.0
-    # Static ego bounding-box footprint (metres) for the SDC row in obj_trajs.
-    # Kia Soul EV chassis (eve_description/eve_chassis.xacro).
-    mtr.ego_length: 4.0936
-    mtr.ego_width: 1.3579
-    mtr.ego_height: 1.4090
