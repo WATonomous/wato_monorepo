@@ -149,7 +149,13 @@ void MtrRuntime::workerLoop()
     try {
       const MtrOutputTensors output = engine_->infer(frame.input);
       converted = convertMtrOutput(
-        output, frame.input.sidecar, frame.frame_id, frame.source_time_s, frame.horizon_s, frame.time_step_s);
+        output,
+        frame.input.sidecar,
+        frame.frame_id,
+        frame.source_time_s,
+        frame.horizon_s,
+        config_.model_time_step_s,
+        frame.time_step_s);
     } catch (const std::exception & error) {
       converted.ok = false;
       converted.error = std::string("mtr inference threw: ") + error.what();

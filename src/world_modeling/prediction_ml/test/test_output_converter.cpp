@@ -50,7 +50,7 @@ prediction_ml::MtrOutputTensors makeTwoModeOutput()
 
 TEST(OutputConverter, RotatesTranslatesSortsAndTimestampsModes)
 {
-  const auto result = prediction_ml::convertMtrOutput(makeTwoModeOutput(), makeSidecar(), "map", 12.0, 1.5, 0.5);
+  const auto result = prediction_ml::convertMtrOutput(makeTwoModeOutput(), makeSidecar(), "map", 12.0, 1.5, 0.5, 0.5);
 
   ASSERT_TRUE(result.ok) << result.error;
   ASSERT_EQ(result.objects.size(), 1U);
@@ -71,7 +71,7 @@ TEST(OutputConverter, RejectsShapeAndBufferMismatch)
 {
   auto output = makeTwoModeOutput();
   output.pred_trajs.pop_back();
-  const auto result = prediction_ml::convertMtrOutput(output, makeSidecar(), "map", 12.0, 1.5, 0.5);
+  const auto result = prediction_ml::convertMtrOutput(output, makeSidecar(), "map", 12.0, 1.5, 0.5, 0.5);
   EXPECT_FALSE(result.ok);
   EXPECT_EQ(result.error, "mtr output buffer size mismatch");
 }
@@ -80,9 +80,33 @@ TEST(OutputConverter, DropsInvalidModeButKeepsValidObject)
 {
   auto output = makeTwoModeOutput();
   output.pred_trajs[0] = std::numeric_limits<float>::quiet_NaN();
-  const auto result = prediction_ml::convertMtrOutput(output, makeSidecar(), "map", 12.0, 1.5, 0.5);
+  const auto result = prediction_ml::convertMtrOutput(output, makeSidecar(), "map", 12.0, 1.5, 0.5, 0.5);
   ASSERT_TRUE(result.ok) << result.error;
   ASSERT_EQ(result.objects.size(), 1U);
   ASSERT_EQ(result.objects[0].predictions.size(), 1U);
   EXPECT_DOUBLE_EQ(result.objects[0].predictions[0].conf, 0.75);
+}
+
+TEST(OutputConverter, DownsamplesNativeModelCadenceWithoutStretchingTime)
+{
+  auto output = makeTwoModeOutput();
+  output.scores_shape = {1, 1};
+  output.trajs_shape = {1, 1, 6, 2};
+  output.pred_scores = {1.0F};
+  output.pred_trajs = {1.0F, 0.0F, 2.0F, 0.0F, 3.0F, 0.0F, 4.0F, 0.0F, 5.0F, 0.0F, 6.0F, 0.0F};
+
+  const auto result = prediction_ml::convertMtrOutput(output, makeSidecar(), "map", 12.0, 0.6, 0.1, 0.2);
+
+  ASSERT_TRUE(result.ok) << result.error;
+  ASSERT_EQ(result.objects.size(), 1U);
+  ASSERT_EQ(result.objects[0].predictions.size(), 1U);
+  const auto & poses = result.objects[0].predictions[0].poses;
+  ASSERT_EQ(poses.size(), 3U);
+  EXPECT_NEAR(poses[0].pose.position.y, 22.0, 1.0e-6);
+  EXPECT_NEAR(poses[1].pose.position.y, 24.0, 1.0e-6);
+  EXPECT_NEAR(poses[2].pose.position.y, 26.0, 1.0e-6);
+  EXPECT_EQ(poses[0].header.stamp.sec, 12);
+  EXPECT_EQ(poses[0].header.stamp.nanosec, 200000000U);
+  EXPECT_EQ(poses[2].header.stamp.sec, 12);
+  EXPECT_EQ(poses[2].header.stamp.nanosec, 600000000U);
 }
