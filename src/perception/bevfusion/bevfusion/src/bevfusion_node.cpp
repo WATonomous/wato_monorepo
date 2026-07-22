@@ -309,9 +309,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
    *    6. Set up diagnostics
    */
 
-   /*
-      TODO comments, 
-      1. I am not sure what you mean by build BevFusionCore::Config. I don't see the function declared in BevFusionCore. 
+  /*
+      TODO comments,
+      1. I am not sure what you mean by build BevFusionCore::Config. I don't see the function declared in BevFusionCore.
       2. I believe this got done in declareParameters() function.
       3. Done
       4. Done
@@ -362,7 +362,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       sync_max_time_diff_sec_);
     RCLCPP_INFO(this->get_logger(), "  - Synchronization method: ApproximateTime");
 
-
     if (!core_) {
       throw std::runtime_error("BEVFusion core was not constructed from parameters");
     }
@@ -381,23 +380,24 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     }
 
     // Create subscribers
+
+    multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
+      camera_info_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
+
     lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      "/lidar/all/points_merged", subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+      lidar_topic, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
 
     // What's the topic for multi camerag image compressed? I don't see it in the parameters. For now, hardcoding it to /camera_pano_nn/image_rect
     camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
-      "/camera_pano_nn/image_rect", subscriber_qos_,
-      std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
+      multi_image_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
 
-    
     // Create publishers
-    detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(
-      "/perception/detections_3d_bev", publisher_qos_);
+    detection_pub_ =
+      this->create_publisher<vision_msgs::msg::Detection3DArray>("/perception/detections_3d_bev", publisher_qos_);
 
-    marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
-      "/perception/bev_detection_markers", publisher_qos_);
+    marker_pub_ =
+      this->create_publisher<visualization_msgs::msg::MarkerArray>("/perception/bev_detection_markers", publisher_qos_);
 
-    
     // Initialize diagnostics
     diagnostic_updater_ = std::make_unique<diagnostic_updater::Updater>(this);
     diagnostic_updater_->setHardwareID("bevfusion");
@@ -519,6 +519,17 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
 
-}  // namespace wato::perception::bevfusion
+BEVFusionNode::lidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg)
+{
+  // Store the latest LiDAR message
+  latest_lidar_ = point_cloud_msg;
+}
+
+BEVFusionNode::cameraCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg)
+{
+  // Store the latest camera message
+  latest_multi_image_ = multi_image_msg;
+}
+// namespace wato::perception::bevfusion
 
 RCLCPP_COMPONENTS_REGISTER_NODE(wato::perception::bevfusion::BEVFusionNode)
