@@ -32,6 +32,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(Threads REQUIRED)
 
 add_library(prediction_ml_lib
   src/fallback_prediction.cpp
@@ -133,6 +135,8 @@ target_link_libraries(prediction_ml_lib
   ${vision_msgs_TARGETS}
   ${world_model_msgs_TARGETS}
   ${lanelet_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  Threads::Threads
 )
 
 add_executable(prediction_ml_node src/prediction_ml_node.cpp)
@@ -165,6 +169,8 @@ if(BUILD_TESTING)
   # >>> PERSON_C tests
   ament_add_gtest(test_runtime test/test_runtime.cpp)
   target_link_libraries(test_runtime prediction_ml_lib)
+  ament_add_gtest(test_output_converter test/test_output_converter.cpp)
+  target_link_libraries(test_output_converter prediction_ml_lib)
   # <<< PERSON_C tests
   ament_add_gtest(test_fallback_prediction test/test_fallback_prediction.cpp)
   target_link_libraries(test_fallback_prediction prediction_ml_lib)

@@ -29,6 +29,8 @@ launch:
           to: /perception/detections_3D_tracked
         - from: ego_pose
           to: /localization/pose
+        - from: ego_odometry
+          to: /world_modeling/transform/odometry
         - from: lanelet_ahead
           to: lanelet/lanelet_ahead
         - from: world_object_seeds

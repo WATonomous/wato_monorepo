@@ -126,8 +126,6 @@ private:
 
   void addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray & detections, double timestamp);
   void addSample(const HistorySample & sample);
-  // Append the ego pose as an SDC track sample; velocity is finite-differenced from the
-  // previous ego sample.
   // Append the ego pose as an SDC track sample. When has_ego_velocity is true, the body-frame
   // odom twist is rotated into the scene frame; otherwise velocity is finite-differenced from the
   // previous ego sample.

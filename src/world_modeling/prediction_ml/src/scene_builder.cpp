@@ -89,7 +89,9 @@ bool isUsableTimestamp(const double timestamp)
 
 bool isHistoryConfigValid(const MtrConfig & config)
 {
-  return config.history_steps > 0 && config.history_rate_hz > 0.0 && isFinite(config.history_rate_hz);
+  return config.history_steps > 0 && config.history_rate_hz > 0.0 && isFinite(config.history_rate_hz) &&
+         isFinite(config.ego_length) && config.ego_length > 0.0 && isFinite(config.ego_width) &&
+         config.ego_width > 0.0 && isFinite(config.ego_height) && config.ego_height > 0.0;
 }
 
 std::string lowerAscii(std::string value)
@@ -373,8 +375,8 @@ void SceneBuilder::addEgoSample(
   const auto & linear = ego_velocity.linear;
   const bool velocity_finite = isFinite(linear.x) && isFinite(linear.y) && isFinite(linear.z);
   if (has_ego_velocity && velocity_finite) {
-    // Odom twist is body frame (base_link); rotate linear x/y into the scene frame by ego heading
-    // so it matches how tracker velocities are stored. z is frame-independent.
+    // The node validates the odometry child frame as the configured body frame. Rotate body FLU
+    // linear x/y into the scene frame by ego heading; z is unchanged.
     const double cos_h = std::cos(heading);
     const double sin_h = std::sin(heading);
     sample.vx = linear.x * cos_h - linear.y * sin_h;

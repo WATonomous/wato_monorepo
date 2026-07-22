@@ -16,10 +16,12 @@
 #define PREDICTION_ML__PREDICTION_ML_NODE_HPP_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "lanelet_msgs/msg/lanelet_ahead.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "prediction_ml/mtr_runtime.hpp"
 #include "prediction_ml/scene_builder.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -48,15 +50,18 @@ protected:
 private:
   void trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg);
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void egoOdometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
 
   // Constant-velocity straight-line fallback (ported from simple_prediction).
-  std::vector<world_model_msgs::msg::WorldObject> buildFallback(const vision_msgs::msg::Detection3DArray & msg) const;
+  std::vector<world_model_msgs::msg::WorldObject> buildFallback(
+    const vision_msgs::msg::Detection3DArray & msg, const rclcpp::Time & source_time) const;
 
   MtrConfig loadMtrConfig();
 
   rclcpp::Subscription<vision_msgs::msg::Detection3DArray>::SharedPtr tracked_objects_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ego_pose_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odometry_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
 
@@ -64,7 +69,10 @@ private:
   std::unique_ptr<MtrRuntime> runtime_;
 
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
+  nav_msgs::msg::Odometry::SharedPtr ego_odometry_;
   lanelet_msgs::msg::LaneletAhead::SharedPtr lanelet_ahead_;
+
+  std::string ego_velocity_child_frame_{"base_footprint"};
 
   double prediction_horizon_{3.0};
   double prediction_time_step_{0.2};

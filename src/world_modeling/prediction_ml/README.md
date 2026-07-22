@@ -18,6 +18,7 @@ predictions.
 |-------|------|-------------|
 | `tracks_3d` | `vision_msgs/Detection3DArray` | Tracked agents from perception |
 | `ego_pose` | `geometry_msgs/PoseStamped` | Optional ego vehicle pose used by the MTR path |
+| `ego_odometry` | `nav_msgs/Odometry` | Optional ego body-frame twist used by the MTR path |
 | `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Optional reachable lanelets used by the MTR path |
 
 Default remaps in `launch/prediction_ml.launch.yaml`:
@@ -26,6 +27,7 @@ Default remaps in `launch/prediction_ml.launch.yaml`:
 |------------|-------------|
 | `tracks_3d` | `/perception/detections_3D_tracked` |
 | `ego_pose` | `/localization/pose` |
+| `ego_odometry` | `/world_modeling/transform/odometry` |
 | `lanelet_ahead` | `lanelet/lanelet_ahead` |
 | `world_object_seeds` | `/world_modeling/world_object_seeds` |
 
@@ -73,6 +75,11 @@ Parameters in `config/params.yaml`:
 | `mtr.metadata_path` | `""` | MTR model metadata path |
 | `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds |
 | `mtr.selected_target_agent_limit` | `8` | Maximum target agents per MTR batch |
+| `mtr.target_forward_half_angle_deg` | `90.0` | Ego-heading half-angle used to prioritize forward targets |
+| `mtr.ego_length` | `4.0936` | Ego vehicle length in metres |
+| `mtr.ego_width` | `1.3579` | Ego vehicle width in metres |
+| `mtr.ego_height` | `1.4090` | Ego vehicle height in metres |
+| `mtr.ego_velocity_child_frame` | `"base_footprint"` | Required odometry child frame for body-frame twist |
 | `mtr.history_steps` | `11` | History steps fed to the scene builder |
 | `mtr.history_rate_hz` | `10.0` | Expected history sample rate |
 
@@ -82,6 +89,20 @@ When `mtr.mode` is `disabled`, or the MTR path is not ready, the node publishes 
 constant-velocity straight-line trajectory per detection. By default, detections with
 `bbox.size.x > 3.5 m` use `5.0 m/s`; all other detections use `1.4 m/s`. The parameters above can
 adjust this heuristic without recompiling the package.
+
+## Runtime Selection
+
+MTR inference runs on a latest-frame-only background worker. A newer submission replaces queued
+work and invalidates any older in-flight result. Successful predictions are cached by detection ID
+and replace only the matching fallback trajectory while their source frame is no older than
+`mtr.cache_ttl_s`. Invalid tensors, backend errors, malformed outputs, and stale results leave the
+synchronous fallback unchanged.
+
+The ego odometry callback accepts only finite twist whose `child_frame_id` matches
+`mtr.ego_velocity_child_frame`. Eidos publishes `/world_modeling/transform/odometry` with
+body-frame twist and defaults that child frame to `base_footprint`. The scene builder rotates the
+linear velocity into map coordinates once; until valid odometry arrives, it falls back to pose
+finite differences.
 
 Build, architecture, backend status, model validation, testing, and contribution details are in
 [DEVELOPING.md](DEVELOPING.md).

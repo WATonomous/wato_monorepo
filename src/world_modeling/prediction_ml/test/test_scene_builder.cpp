@@ -824,5 +824,54 @@ TEST(SceneBuilder, MapTargetCenteredTransformHeadingHalfPi)
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 4)], 0.0F, 1e-4);
 }
 
+TEST(SceneBuilder, UsesConfiguredEgoDimensionsAndRotatesBodyVelocityToMap)
+{
+  MtrConfig cfg;
+  cfg.history_steps = 1;
+  cfg.selected_target_agent_limit = 1;
+  cfg.ego_length = 4.0936;
+  cfg.ego_width = 1.3579;
+  cfg.ego_height = 1.4090;
+  SceneBuilder builder(cfg);
+
+  vision_msgs::msg::Detection3DArray detections;
+  detections.header.frame_id = "map";
+  detections.header.stamp.sec = 10;
+  vision_msgs::msg::Detection3D target;
+  target.id = "target";
+  target.bbox.center.position.x = 5.0;
+  target.bbox.center.orientation.w = 1.0;
+  target.bbox.size.x = 4.0;
+  target.bbox.size.y = 2.0;
+  target.bbox.size.z = 1.5;
+  vision_msgs::msg::ObjectHypothesisWithPose classification;
+  classification.hypothesis.class_id = "vehicle";
+  classification.hypothesis.score = 1.0;
+  target.results.push_back(classification);
+  detections.detections.push_back(target);
+  builder.addFrame(detections);
+
+  MtrFrameContext frame;
+  frame.detections = detections;
+  frame.ego_pose.header.frame_id = "map";
+  frame.ego_pose.pose.orientation.z = std::sqrt(0.5);
+  frame.ego_pose.pose.orientation.w = std::sqrt(0.5);
+  frame.ego_velocity.linear.x = 2.0;
+  frame.has_ego = true;
+  frame.has_ego_velocity = true;
+
+  const auto tensors = builder.build(frame);
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_GE(tensors.obj_trajs.size(), 19U);
+  // Ego is context row 0. Its dimensions occupy features [3..5]. A +2 m/s
+  // body-X velocity at 90-degree ego yaw becomes map velocity (0,+2), and the
+  // target heading is zero, so packed relative velocity is also (0,+2).
+  EXPECT_NEAR(tensors.obj_trajs[3], cfg.ego_length, 1.0e-5);
+  EXPECT_NEAR(tensors.obj_trajs[4], cfg.ego_width, 1.0e-5);
+  EXPECT_NEAR(tensors.obj_trajs[5], cfg.ego_height, 1.0e-5);
+  EXPECT_NEAR(tensors.obj_trajs[15], 0.0, 1.0e-5);
+  EXPECT_NEAR(tensors.obj_trajs[16], 2.0, 1.0e-5);
+}
+
 }  // namespace
 }  // namespace prediction_ml

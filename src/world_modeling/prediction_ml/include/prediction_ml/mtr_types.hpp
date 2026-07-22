@@ -75,7 +75,8 @@ struct MtrFrameContext
 {
   vision_msgs::msg::Detection3DArray detections;
   geometry_msgs::msg::PoseStamped ego_pose;
-  // Raw odometry twist, body frame (base_link).
+  // Body-frame twist from the validated Odometry.child_frame_id. SceneBuilder rotates linear
+  // velocity into the map frame using ego_pose before packing target-relative features.
   geometry_msgs::msg::Twist ego_velocity;
   lanelet_msgs::msg::LaneletAhead lanelet_ahead;
   double timestamp{0.0};
