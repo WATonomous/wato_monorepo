@@ -269,17 +269,7 @@ public:
       return output;
     }
 
-    std::vector<int64_t> track_indices;
-    track_indices.reserve(input.track_index_to_predict.size());
-    for (const int32_t track_index : input.track_index_to_predict) {
-      track_indices.push_back(static_cast<int64_t>(track_index));
-    }
-
-    std::vector<int64_t> center_type_ids;
-    if (!encodeCenterObjectTypes(input.center_objects_type, center_type_ids)) {
-      return output;
-    }
-    if (!validateInput(input, track_indices, center_type_ids)) {
+    if (!validateInput(input)) {
       return output;
     }
 
@@ -290,8 +280,9 @@ public:
       {"map_polylines", {input.map_polylines.data(), input.map_polylines.size() * sizeof(float)}},
       {"map_polylines_mask", {input.map_polylines_mask.data(), input.map_polylines_mask.size()}},
       {"map_polylines_center", {input.map_polylines_center.data(), input.map_polylines_center.size() * sizeof(float)}},
-      {"track_index_to_predict", {track_indices.data(), track_indices.size() * sizeof(int64_t)}},
-      {"center_type_ids", {center_type_ids.data(), center_type_ids.size() * sizeof(int64_t)}}};
+      {"track_index_to_predict",
+       {input.track_index_to_predict.data(), input.track_index_to_predict.size() * sizeof(int64_t)}},
+      {"center_type_ids", {input.center_type_ids.data(), input.center_type_ids.size() * sizeof(int64_t)}}};
 
     std::unordered_map<std::string, DeviceBuffer> device_buffers;
     device_buffers.reserve(static_cast<std::size_t>(engine_->getNbIOTensors()));
@@ -458,25 +449,6 @@ private:
     return true;
   }
 
-  bool encodeCenterObjectTypes(const std::vector<std::string> & object_types, std::vector<int64_t> & type_ids)
-  {
-    type_ids.clear();
-    type_ids.reserve(object_types.size());
-    for (const auto & object_type : object_types) {
-      if (object_type.empty() || object_type == "TYPE_VEHICLE") {
-        type_ids.push_back(0);
-      } else if (object_type == "TYPE_PEDESTRIAN") {
-        type_ids.push_back(1);
-      } else if (object_type == "TYPE_CYCLIST") {
-        type_ids.push_back(2);
-      } else {
-        setError("unsupported center object type '" + object_type + "'");
-        return false;
-      }
-    }
-    return true;
-  }
-
   template <typename T>
   bool requireElements(const std::string & name, const std::vector<T> & values, const std::size_t expected)
   {
@@ -489,10 +461,7 @@ private:
     return true;
   }
 
-  bool validateInput(
-    const MtrInputTensors & input,
-    const std::vector<int64_t> & track_indices,
-    const std::vector<int64_t> & center_type_ids)
+  bool validateInput(const MtrInputTensors & input)
   {
     constexpr std::size_t target_capacity = static_cast<std::size_t>(kTargetCapacity);
     constexpr std::size_t context_capacity = static_cast<std::size_t>(kContextAgentCapacity);
@@ -531,8 +500,8 @@ private:
       !requireElements(
         "map_polylines_mask", input.map_polylines_mask, target_capacity * map_capacity * points_per_polyline) ||
       !requireElements("map_polylines_center", input.map_polylines_center, target_capacity * map_capacity * 3) ||
-      !requireElements("track_index_to_predict", track_indices, target_capacity) ||
-      !requireElements("center_type_ids", center_type_ids, target_capacity))
+      !requireElements("track_index_to_predict", input.track_index_to_predict, target_capacity) ||
+      !requireElements("center_type_ids", input.center_type_ids, target_capacity))
     {
       return false;
     }
