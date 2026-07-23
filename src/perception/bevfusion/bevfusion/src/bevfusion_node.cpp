@@ -397,7 +397,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     // sync_->registerCallback(
     //   std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
 
-     // Create subscribers
+    // Create subscribers
 
     multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
       camera_info_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
@@ -414,7 +414,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 
     marker_pub_ =
       this->create_publisher<visualization_msgs::msg::MarkerArray>("/perception/bev_detection_markers", publisher_qos_);
-
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
