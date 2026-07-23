@@ -42,6 +42,7 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
 
@@ -279,7 +280,7 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
 {
   visualization_msgs::msg::Marker marker;
 
-  marker.type = Marker::CUBE;
+  marker.type = visualization_msgs::msg::Marker::CUBE;
   marker.pose.position.x = bbox.position.x;
   marker.pose.position.y = bbox.position.y;
   marker.pose.position.z = bbox.position.z;
@@ -321,7 +322,7 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   return marker;
 }
 
-vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const
 {
   vision_msgs::msg::Detection3D detection;
 
@@ -329,7 +330,14 @@ vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_
   detection.bbox.center.position.x = bbox.position.x;
   detection.bbox.center.position.y = bbox.position.y;
   detection.bbox.center.position.z = bbox.position.z;
-  detection.bbox.center.orientation = tf2::Quaternion(0, 0, bbox.z_rotation);
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, bbox.z_rotation);
+
+  detection.bbox.center.orientation.x = q.x();
+  detection.bbox.center.orientation.y = q.y();
+  detection.bbox.center.orientation.z = q.z();
+  detection.bbox.center.orientation.w = q.w();  
+
   detection.bbox.size.x = bbox.size.l;
   detection.bbox.size.y = bbox.size.w;
   detection.bbox.size.z = bbox.size.h;
@@ -344,11 +352,11 @@ vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_
 void BEVFusionNode::processLidar(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data)
 {
-  sensor_msgs::PointCloud2ConstIterator<float> iter_x(lidar_msg, "x");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_y(lidar_msg, "y");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_z(lidar_msg, "z");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(lidar_msg, "intensity");
-  sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(lidar_msg, "ring");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_x(*lidar_msg, "x");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_y(*lidar_msg, "y");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*lidar_msg, "intensity");
+  sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(*lidar_msg, "ring");
 
   for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_ring) {
     float x = *iter_x;
