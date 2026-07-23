@@ -33,6 +33,7 @@ find_package(visualization_msgs REQUIRED)
 
 # Component Library
 add_library(${PROJECT_NAME}_nodes SHARED
+  src/fake_planner_core.cpp
   src/fake_planner_node.cpp
 )
 

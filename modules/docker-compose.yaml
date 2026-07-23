@@ -343,7 +343,7 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
       - ZENOH_ROUTER_CONFIG_URI=${ZENOH_ROUTER_CONFIG_URI}
       - ZENOH_SESSION_CONFIG_URI=${ZENOH_SESSION_CONFIG_URI}
-    command: /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml carla_port:=${CARLA_PORT} pygame_hud_enabled:=${PYGAME_HUD_ENABLED} pygame_web_port:=${PYGAME_HUD_PORT} scenario:=${CARLA_SCENARIO}"
+    command: /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml carla_port:=${CARLA_PORT} pygame_hud_enabled:=${PYGAME_HUD_ENABLED} pygame_web_port:=${PYGAME_HUD_PORT}"
     depends_on:
       infrastructure_bringup:
         condition: service_started

@@ -1,0 +1,136 @@
+# fake_planner_vehicle.launch.yaml
+#
+# The controller test rig on the real car. Thin wrapper over fake_planner.launch.yaml (which holds
+# the actual nodes) that swaps CARLA's plumbing for the vehicle's and flips the defaults that are
+# merely convenient in sim but wrong on hardware. Every other arg is forwarded untouched.
+#
+#     ros2 launch fake_planner fake_planner_vehicle.launch.yaml
+#     ros2 launch fake_planner fake_planner_vehicle.launch.yaml maneuver:=sine_with_dwell
+#
+# THIS DRIVES A REAL VEHICLE. Before launching:
+#   - Bring up world_modeling far enough to publish /world_modeling/transform/odometry and the TF
+#     chain odom -> base_footprint -> rear_axle. Without odom the node never anchors and publishes
+#     nothing; without TF the controller can't transform the trajectory.
+#   - Check the maneuver fits the space you have. Speeds are baked into the maneuver JSON, not
+#     settable here: the shipped maneuvers run at 4-5 m/s and need 50-100 m of clear run, and
+#     brake_in_curve sweeps a 100 degree arc at an 18 m radius. Author a slower JSON for a first pass.
+#   - Confirm the ackermann mux is arming /action/ackermann and that a manual override can win.
+#
+# Nothing moves on launch: start_on_activate is false here, so the stack comes up configured and
+# activated but silent, with the controller held in standby. Release it deliberately:
+#     ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
+# and to put it back in standby (the controller falls back to standby_speed):
+#     ros2 service call /action/fake_planner/fake_planner_node/stop_trajectory std_srvs/srv/Trigger
+# The trajectory markers publish even while held, so the path can be inspected in Foxglove on
+# /action/fake_planner/trajectory_markers before anything is released.
+
+launch:
+  # -- Vehicle plumbing. These are what make this the vehicle launch.
+  - arg:
+      name: odom_topic
+      default: "/world_modeling/transform/odometry"
+      description: The vehicle's fused odometry (controller speed + trajectory anchoring)
+
+  - arg:
+      name: ackermann_topic
+      default: "/action/ackermann"
+      description: Command topic into the ackermann mux, same as the real action stack uses
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: Wall clock. There is no /clock publisher on the car.
+
+  # There is no respawn on a real vehicle. A jump this size in fused odometry is a localization
+  # correction, and re-laying the maneuver from the corrected pose mid-run would swing the path
+  # under the car while it is driving. Off here; sim leaves it on for one-click ego resets.
+  - arg:
+      name: respawn_jump_m
+      default: "0.0"
+      description: Disabled on the vehicle. Non-zero re-anchors the maneuver on an odom jump that large.
+
+  # Come up silent and let a person release the car, rather than driving on bringup.
+  - arg:
+      name: start_on_activate
+      default: "false"
+      description: Hold in standby until the start_trajectory service is called.
+
+  # -- Everything else is environment-neutral and just forwarded to the rig.
+  - arg:
+      name: trajectory_topic
+      default: "/action/fake_planner/trajectory"
+      description: Trajectory topic, from the fake planner to the controller
+
+  - arg:
+      name: behaviour_topic
+      default: "/action/fake_planner/execute_behaviour"
+      description: Behaviour heartbeat topic, from the fake planner to the controller
+
+  - arg:
+      name: frame_id
+      default: "odom"
+      description: Frame the trajectory is published in (must be TF-connected to rear_axle)
+
+  - arg:
+      name: controller
+      default: "pure_pursuit"
+      description: "Controller under test: pure_pursuit or mpc"
+
+  - arg:
+      name: maneuver
+      default: "steady_state_slalom"
+      description: Maneuver to replay, by name under the package's maneuvers/ folder (without .json)
+
+  - arg:
+      name: maneuver_file
+      default: "$(find-pkg-share fake_planner)/maneuvers/$(var maneuver).json"
+      description: Full path to the maneuver JSON; overrides `maneuver` when set explicitly
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Configure and activate the managed nodes. Publishing is still gated by start_on_activate.
+
+  # The oval maneuver is in absolute CARLA track coords and has no meaning here, so anchoring
+  # stays on: every maneuver is laid out from wherever the car is standing at launch.
+  - arg:
+      name: anchor_to_first_pose
+      default: "true"
+      description: Lay the maneuver from the pose the car is sitting at when it launches.
+
+  - arg:
+      name: standby_speed
+      default: "0.0"
+      description: Hold still in standby. The controllers' own -0.5 default reverses the car.
+
+  - include:
+      file: "$(find-pkg-share fake_planner)/launch/fake_planner.launch.yaml"
+      arg:
+        - name: odom_topic
+          value: "$(var odom_topic)"
+        - name: ackermann_topic
+          value: "$(var ackermann_topic)"
+        - name: trajectory_topic
+          value: "$(var trajectory_topic)"
+        - name: behaviour_topic
+          value: "$(var behaviour_topic)"
+        - name: frame_id
+          value: "$(var frame_id)"
+        - name: controller
+          value: "$(var controller)"
+        - name: maneuver
+          value: "$(var maneuver)"
+        - name: maneuver_file
+          value: "$(var maneuver_file)"
+        - name: use_sim_time
+          value: "$(var use_sim_time)"
+        - name: autostart
+          value: "$(var autostart)"
+        - name: start_on_activate
+          value: "$(var start_on_activate)"
+        - name: anchor_to_first_pose
+          value: "$(var anchor_to_first_pose)"
+        - name: standby_speed
+          value: "$(var standby_speed)"
+        - name: respawn_jump_m
+          value: "$(var respawn_jump_m)"

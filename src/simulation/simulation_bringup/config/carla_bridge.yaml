@@ -7,7 +7,7 @@
     carla_host: "localhost"
     carla_timeout: 10.0
     # Don't set initial_scenario here: this /** block silently overrides the scenario:= launch
-    # arg / CARLA_SCENARIO. Uncomment only to hard-pin a scenario regardless of them.
+    # arg. Uncomment only to hard-pin a scenario regardless of it.
     # initial_scenario: "carla_scenarios.scenarios.light_traffic_scenario"
     # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
     carla_fps: 60.0                  # Sets fixed_delta_seconds = 1/fps

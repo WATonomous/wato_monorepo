@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# world_modeling_oval.launch.yaml -- the FULL world_modeling stack on the oval track
-# (world_modeling_sim.launch.yaml with the oval map): world_model + behaviour + costmap +
-# prediction + eidos + markers, 15 nodes. Use this when the REAL planner is under test
-# (world_model -> behaviour -> lattice_planning -> trajectory_planner -> controller);
-# pair with `ros2 launch action_bringup action.launch.yaml`.
+# world_modeling_oval.launch.yaml -- world_modeling_sim.launch.yaml with the oval map
+# (maps/osm/oval_track_4_lane.osm). Argument binding only; all nodes live in the sim launch.
 #
-# Testing a controller with the fake planner instead? Use world_modeling_oval_map_only.launch.yaml
-# -- the fake planner replaces this whole chain, so these nodes are confounds rather than
-# dependencies. Note eidos_map_path defaults to empty here because no prior SLAM map exists for
-# the oval.
+#   Full stack (real planner under test):  ros2 launch world_modeling_bringup world_modeling_oval.launch.yaml
+#     -> world_model -> behaviour -> lattice_planning -> trajectory_planner -> controller,
+#        15 nodes; pair with `ros2 launch action_bringup action.launch.yaml`.
+#
+#   Map + markers only (fake planner):     ros2 launch world_modeling_bringup world_modeling_oval.launch.yaml map_only:=true
+#     -> world_model + map markers, 3 nodes. The fake planner replaces the planning chain,
+#        so the rest would be confounds rather than dependencies.
+#
+# eidos_map_path defaults to empty because no prior SLAM map exists for the oval.
 ---
 launch:
   - arg:
@@ -33,6 +35,11 @@ launch:
       name: use_sim_time
       default: "true"
       description: Use simulation time from /clock topic
+
+  - arg:
+      name: map_only
+      default: "false"
+      description: Run only world_model + lanelet map markers (pairs with the fake planner)
 
   - arg:
       name: bond_enabled
@@ -56,6 +63,8 @@ launch:
           value: $(find-pkg-share world_modeling_bringup)/config/world_model_oval.yaml
         - name: eidos_map_path
           value: $(var eidos_map_path)
+        - name: map_only
+          value: $(var map_only)
         - name: autostart
           value: $(var autostart)
         - name: use_sim_time

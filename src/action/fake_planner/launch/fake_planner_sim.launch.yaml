@@ -1,0 +1,125 @@
+# fake_planner_sim.launch.yaml
+#
+# The controller test rig in CARLA. Thin wrapper over fake_planner.launch.yaml (which holds the
+# actual nodes) that pins the simulation-side plumbing: the bridge's odom, the bridge's ackermann
+# command topic, and sim time off /clock. Every other arg is forwarded untouched, so anything the
+# rig accepts works here:
+#
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
+#
+# Oval track laps (needs the oval scenario loaded in CARLA -- set scenario:= on the simulation
+# launch, or initial_scenario in simulation_bringup/config/carla_bridge.yaml). The oval maneuver is in absolute
+# track coords, so anchoring is off, and it is held until the start_trajectory service:
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml \
+#         maneuver:=oval_track anchor_to_first_pose:=false start_on_activate:=false
+#
+# For the real car use fake_planner_vehicle.launch.yaml instead -- do not reach for this file with
+# topic overrides, since the whole point of the split is that the filename decides the environment.
+
+launch:
+  # -- Simulation plumbing. These are what make this the sim launch.
+  - arg:
+      name: odom_topic
+      default: "/ego/odom"
+      description: Odometry from the CARLA bridge (controller speed + trajectory anchoring)
+
+  - arg:
+      name: ackermann_topic
+      default: "/carla/ackermann_control/command"
+      description: The CARLA bridge's ackermann control input
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
+
+  # Ego respawns are a sim-only event, and re-anchoring on them is what makes "respawn ego" a
+  # one-click reset in Foxglove. Left on here; the vehicle launch turns it off.
+  - arg:
+      name: respawn_jump_m
+      default: "5.0"
+      description: Odom jump (m) treated as an ego respawn, after which the maneuver re-anchors. 0 disables.
+
+  # -- Everything else is environment-neutral and just forwarded to the rig.
+  - arg:
+      name: trajectory_topic
+      default: "/action/fake_planner/trajectory"
+      description: Trajectory topic, from the fake planner to the controller
+
+  - arg:
+      name: behaviour_topic
+      default: "/action/fake_planner/execute_behaviour"
+      description: Behaviour heartbeat topic, from the fake planner to the controller
+
+  - arg:
+      name: frame_id
+      default: "odom"
+      description: Frame the trajectory is published in (must be TF-connected to rear_axle)
+
+  - arg:
+      name: controller
+      default: "pure_pursuit"
+      description: "Controller under test: pure_pursuit or mpc"
+
+  - arg:
+      name: maneuver
+      default: "steady_state_slalom"
+      description: Maneuver to replay, by name under the package's maneuvers/ folder (without .json)
+
+  - arg:
+      name: maneuver_file
+      default: "$(find-pkg-share fake_planner)/maneuvers/$(var maneuver).json"
+      description: Full path to the maneuver JSON; overrides `maneuver` when set explicitly
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: start_on_activate
+      default: "true"
+      description: Publish on activate. Set false to hold until the start_trajectory service.
+
+  - arg:
+      name: anchor_to_first_pose
+      default: "true"
+      description: Lay the maneuver from the launch pose. Set false for absolute maneuvers (e.g. oval_track).
+
+  - arg:
+      name: standby_speed
+      default: "0.0"
+      description: Controller speed in standby. 0.0 holds still; the controllers' own -0.5 default reverses.
+
+  - include:
+      file: "$(find-pkg-share fake_planner)/launch/fake_planner.launch.yaml"
+      arg:
+        - name: odom_topic
+          value: "$(var odom_topic)"
+        - name: ackermann_topic
+          value: "$(var ackermann_topic)"
+        - name: trajectory_topic
+          value: "$(var trajectory_topic)"
+        - name: behaviour_topic
+          value: "$(var behaviour_topic)"
+        - name: frame_id
+          value: "$(var frame_id)"
+        - name: controller
+          value: "$(var controller)"
+        - name: maneuver
+          value: "$(var maneuver)"
+        - name: maneuver_file
+          value: "$(var maneuver_file)"
+        - name: use_sim_time
+          value: "$(var use_sim_time)"
+        - name: autostart
+          value: "$(var autostart)"
+        - name: start_on_activate
+          value: "$(var start_on_activate)"
+        - name: anchor_to_first_pose
+          value: "$(var anchor_to_first_pose)"
+        - name: standby_speed
+          value: "$(var standby_speed)"
+        - name: respawn_jump_m
+          value: "$(var respawn_jump_m)"

@@ -1,29 +1,44 @@
 # fake_planner.launch.yaml
 #
-# Environment-agnostic controller test rig. Brings up:
-#   - fake_planner_node  : replays a predefined maneuver (from a maneuver JSON segment list) + an
-#                          execute_behaviour heartbeat, and publishes trajectory_markers
-#                          (the same MarkerArray visualization as the real trajectory_planner).
-#                          Like the real stack it publishes a rolling ~30 m horizon around the
+# The controller test rig, shared by every environment and every controller -- what changes
+# between them is the topics and the maneuver, so those are launch args. Brings up:
+#   - fake_planner_node  : replays a maneuver (a JSON segment list under maneuvers/) plus an
+#                          execute_behaviour heartbeat, and publishes trajectory_markers (the
+#                          same MarkerArray visualization as the real trajectory_planner).
+#                          Like the real stack it publishes a rolling ~35 m horizon around the
 #                          vehicle rather than the whole route, and an open maneuver ends in a
 #                          braked stop (a "closed": true maneuver laps instead).
-#   - the controller under test (selected via controller:=, see launch/controllers/)
-#   - lifecycle manager  : configures + activates both
+#   - the controller under test : pure pursuit (default) or MPC, picked with controller:=.
+#                          MPC's tuning comes from action_bringup's action.yaml -- the same
+#                          config the real stack uses -- and it publishes its plan on
+#                          /action/mpc/predicted_path, worth watching against the markers.
+#   - lifecycle manager  : configures + activates both.
 #
-# The only difference between sim and the real car is the odom source and where the command
-# goes, both exposed as launch args:
+# This file is the rig itself, and its defaults are CARLA's. Prefer launching one of the two
+# environment wrappers beside it, which set every topic/clock/safety arg explicitly so the file
+# you launch is what decides where the commands go:
+#     fake_planner_sim.launch.yaml       CARLA
+#     fake_planner_vehicle.launch.yaml   the real car
+# Both forward every arg below, so any recipe here works through them too.
 #
-#   CARLA sim (defaults):
-#     ros2 launch fake_planner fake_planner.launch.yaml
+# Recipes
+#   CARLA sim, slalom from wherever the ego sits (defaults):
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml
 #
-#   Real vehicle:
-#     ros2 launch fake_planner fake_planner.launch.yaml \
-#         odom_topic:=/world_modeling/transform/odometry \
-#         ackermann_topic:=/action/ackermann
+#   Any other maneuver / the MPC instead:
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
-# Pick the controller with controller:=pure_pursuit|mpc and the maneuver with
-# maneuver:=<name> (a .json under maneuvers/, e.g. maneuver:=brake_in_curve), or point
-# maneuver_file:= at any JSON path directly.
+#   Oval track laps (needs the oval scenario loaded in CARLA: set scenario:= on the simulation
+#   launch, or initial_scenario in simulation_bringup/config/carla_bridge.yaml).
+#   The oval maneuver is in absolute track coords, so anchoring is off; it is held in standby
+#   until you call the start_trajectory service:
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml \
+#         maneuver:=oval_track anchor_to_first_pose:=false start_on_activate:=false
+#
+# Handy while running:
+#   /action/fake_planner/trajectory_markers  -- the path, published even while held in standby
+#   ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
+#   ...same for /stop_trajectory and /reset
 
 launch:
   - arg:
@@ -37,14 +52,25 @@ launch:
       description: Where the controller publishes AckermannDriveStamped commands
 
   - arg:
+      name: trajectory_topic
+      default: "/action/fake_planner/trajectory"
+      description: Trajectory topic, from the fake planner to the controller
+
+  - arg:
+      name: behaviour_topic
+      default: "/action/fake_planner/execute_behaviour"
+      description: Behaviour heartbeat topic, from the fake planner to the controller
+
+  - arg:
       name: frame_id
       default: "odom"
       description: Frame the trajectory is published in (must be TF-connected to rear_axle)
 
+  # -- What to run
   - arg:
       name: controller
       default: "pure_pursuit"
-      description: "Controller under test: pure_pursuit or mpc (picks launch/controllers/<controller>.launch.yaml)"
+      description: "Controller under test: pure_pursuit or mpc"
 
   - arg:
       name: maneuver
@@ -56,20 +82,16 @@ launch:
       default: "$(find-pkg-share fake_planner)/maneuvers/$(var maneuver).json"
       description: Full path to the maneuver JSON; overrides `maneuver` when set explicitly
 
-  - arg:
-      name: autostart
-      default: "true"
-      description: Automatically configure and activate managed nodes
-
+  # -- Behaviour knobs
   - arg:
       name: use_sim_time
       default: "true"
       description: Use /clock. Required in CARLA, else the controller can't transform the trajectory. Set false on the real car.
 
   - arg:
-      name: standby_speed
-      default: "-0.5"
-      description: Controller speed in standby. Package default -0.5 reverses; use 0.0 to hold still.
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
 
   - arg:
       name: start_on_activate
@@ -79,7 +101,27 @@ launch:
   - arg:
       name: anchor_to_first_pose
       default: "true"
-      description: Lay the maneuver from the launch pose. Set false for absolute maneuvers (with a "start" pose).
+      description: Lay the maneuver from the launch pose. Set false for absolute maneuvers (the ones with a "start" pose, e.g. oval_track).
+
+  - arg:
+      name: standby_speed
+      default: "0.0"
+      description: Controller speed in standby. 0.0 holds still; the controllers' own -0.5 default reverses.
+
+  # A pose jump this large between two odom messages is read as a respawn, and the node re-anchors
+  # itself at the new pose. That is what makes "respawn ego" a one-click reset in sim. On the real
+  # car there is nothing to respawn, and a localization jump of this size is a correction to keep
+  # driving through -- not a cue to re-lay the maneuver mid-run -- so the vehicle launch sets 0.
+  - arg:
+      name: respawn_jump_m
+      default: "5.0"
+      description: Odom jump (m) treated as a respawn, after which the maneuver re-anchors. 0 disables.
+
+  # Everything controller-specific keys off this one flag, so the node that runs and the node
+  # the lifecycle manager waits for can't drift apart.
+  - let:
+      name: is_mpc
+      value: "$(equals $(var controller) mpc)"
 
   # Fake Planner
   - node:
@@ -98,27 +140,84 @@ launch:
           value: "$(var anchor_to_first_pose)"
         - name: "start_on_activate"
           value: "$(var start_on_activate)"
+        - name: "respawn_jump_m"
+          value: "$(var respawn_jump_m)"
         - name: "use_sim_time"
           value: "$(var use_sim_time)"
       remap:
         - from: "trajectory"
-          to: "/action/fake_planner/trajectory"
+          to: "$(var trajectory_topic)"
         - from: "execute_behaviour"
-          to: "/action/fake_planner/execute_behaviour"
+          to: "$(var behaviour_topic)"
         - from: "odom"
           to: "$(var odom_topic)"
 
-  # Controller under test + the lifecycle manager that drives both nodes.
-  - include:
-      file: "$(find-pkg-share fake_planner)/launch/controllers/$(var controller).launch.yaml"
-      arg:
-        - name: odom_topic
-          value: $(var odom_topic)
-        - name: ackermann_topic
-          value: $(var ackermann_topic)
-        - name: standby_speed
-          value: $(var standby_speed)
-        - name: use_sim_time
-          value: $(var use_sim_time)
+  # Pure Pursuit Controller (under test, default)
+  - node:
+      unless: "$(var is_mpc)"
+      pkg: "ackermann_pure_pursuit"
+      exec: "pure_pursuit_node"
+      name: "pure_pursuit_node"
+      namespace: "action"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+        - name: "standby_speed"
+          value: "$(var standby_speed)"
+        - name: "use_sim_time"
+          value: "$(var use_sim_time)"
+      remap:
+        - from: "trajectory"
+          to: "$(var trajectory_topic)"
+        - from: "execute_behaviour"
+          to: "$(var behaviour_topic)"
+        - from: "odom"
+          to: "$(var odom_topic)"
+        - from: "ackermann"
+          to: "$(var ackermann_topic)"
+
+  # MPC Controller (under test, controller:=mpc)
+  - node:
+      if: "$(var is_mpc)"
+      pkg: "mpc_controller"
+      exec: "mpc_controller_node"
+      name: "mpc_controller_node"
+      namespace: "action"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
+        - name: "standby_speed"
+          value: "$(var standby_speed)"
+        - name: "use_sim_time"
+          value: "$(var use_sim_time)"
+      remap:
+        - from: "trajectory"
+          to: "$(var trajectory_topic)"
+        - from: "execute_behaviour"
+          to: "$(var behaviour_topic)"
+        - from: "odom"
+          to: "$(var odom_topic)"
+        - from: "ackermann"
+          to: "$(var ackermann_topic)"
+        - from: "predicted_path"
+          to: "/action/mpc/predicted_path"
+
+  # Lifecycle Manager. Names the controller explicitly, so it follows controller:=.
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "fake_planner_lifecycle_manager"
+      namespace: "action"
+      param:
+        - name: "node_names"
+          value:
+            - "/action/fake_planner/fake_planner_node"
+            - "$(if $(var is_mpc) /action/mpc_controller_node /action/pure_pursuit_node)"
         - name: autostart
           value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

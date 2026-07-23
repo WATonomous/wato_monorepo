@@ -18,7 +18,7 @@ launch:
       description: >-
         Scenario module to load on startup. Set to
         carla_scenarios.scenarios.oval_track_scenario for the oval track (the fake-planner
-        demo) -- usually via CARLA_SCENARIO in watod-config.local.sh.
+        demo), either here or via config/carla_bridge.yaml.
 
   # Eve Robot Description
   - include:
