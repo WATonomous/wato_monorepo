@@ -191,6 +191,19 @@ private:
   using SyncPolicy = message_filters::sync_policies::
     ApproximateTime<deep_msgs::msg::MultiImageCompressed, sensor_msgs::msg::PointCloud2>;
   using Synchronizer = message_filters::Synchronizer<SyncPolicy>;
+  /**
+   * @brief Decompress a CompressedImage to cv::Mat in BGR format.
+   * @param compressed_img The compressed image message
+   * @return Decompressed BGR cv::Mat (empty on error)
+   */
+  cv::Mat decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const;
+
+  /**
+   * @brief Process a PointCloud2 message and extract LiDAR points.
+   * @param lidar_msg The PointCloud2 message
+   * @param lidar_data Output vector to flatten andstore extracted LiDAR points
+   */
+  void processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;

@@ -56,6 +56,19 @@ BEVFusionNode::BEVFusionNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
 }
 
+// Copied from attribute assigner. I'll be honest I don't fully understrand this CV library syntax.
+cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
+{
+  try {
+    cv::Mat bgr = cv::imdecode(cv::Mat(compressed_img.data), cv::IMREAD_COLOR);
+    return bgr;  // Returns empty Mat on failure
+  } catch (const cv::Exception & e) {
+    RCLCPP_ERROR_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "OpenCV exception during decompression: %s", e.what());
+    return cv::Mat();
+  }
+}
+
 void BEVFusionNode::declareParameters()
 {
   // sync/QoS params are intentionally declared in on_configure() to avoid re-declaring already-registered parameters.
@@ -175,6 +188,45 @@ void BEVFusionNode::syncedCallback(
 
   const auto start = std::chrono::steady_clock::now();
 
+  if (!multi_image_msg || multi_image_msg->images.empty()) {
+    RCLCPP_WARN(this->get_logger(), "[SYNC] Received empty MultiImage; skipping");
+    // return;
+  }
+
+  // I am assuming multi_image_msg->images is a vector of CompressedImage messages, one from each of the 6 cameras.
+  // So size() should ideally be 6.
+  std::vector<const unsigned char *> camera_images;
+  std::vector<cv::Mat> rgb_images;
+  camera_images.reserve(multi_image_msg->images.size());
+  rgb_images.reserve(multi_image_msg->images.size());
+
+  // From what i understand from attribute_assigner, frame_id tells us which camera the image is from.
+  for (size_t i = 0; i < multi_image_msg->images.size(); ++i) {
+    const auto & frame_id = multi_image_msg->images[i].header.frame_id;
+    cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
+    if (bgr.empty()) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "Failed to decompress image for frame_id '%s'",
+        multi_image_msg->images[i].header.frame_id.c_str());
+      continue;
+    }
+
+    rgb_images.emplace_back();
+    cv::cvtColor(bgr, rgb_images.back(), cv::COLOR_BGR2RGB);
+    camera_images.push_back(rgb_images.back().data);
+  }
+
+  std::vector<float> lidar_data;
+
+  processLidar(lidar_msg, lidar_data);
+
+  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+
+  core_->infer(camera_images, lidar_data, lidar_data.size() / 5);
+
   const auto end = std::chrono::steady_clock::now();
   const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
   updateStatistics(time_taken);
@@ -206,6 +258,30 @@ void BEVFusionNode::computeCalibrationMatrices()
    * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
    * 5. Set calibration_initialized_ = true.
    */
+
+}
+
+void BEVFusionNode::processLidar(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data)
+{
+  sensor_msgs::PointCloud2ConstIterator<float> iter_x(lidar_msg, "x");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_y(lidar_msg, "y");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_z(lidar_msg, "z");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(lidar_msg, "intensity");
+  sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(lidar_msg, "ring");
+
+  for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_ring) {
+    float x = *iter_x;
+    float y = *iter_y;
+    float z = *iter_z;
+    float intensity = *iter_intensity;
+    uint16_t ring = *iter_ring;
+    lidar_data.push_back(x);
+    lidar_data.push_back(y);
+    lidar_data.push_back(z);
+    lidar_data.push_back(intensity);
+    lidar_data.push_back(static_cast<float>(ring));
+  }
 }
 
 void BEVFusionNode::updateStatistics(double time_taken)
