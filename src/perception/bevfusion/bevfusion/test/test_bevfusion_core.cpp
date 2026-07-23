@@ -54,3 +54,15 @@ TEST_CASE("BEVFusionCore: infer returns empty vector when not initialized", "[co
   BEVFusionCore core(make_test_config());
   REQUIRE(core.infer({}, {}, 0).empty());
 }
+
+// =============================================================================
+// TEST 3: updateCalibration() guard before initialize()
+// WHY: updateCalibration() calls pipeline_->update(), which requires pipeline_
+//      to be live. Calling it before initialize() would dereference a null
+//      pipeline_. This verifies the guard silently no-ops instead of crashing.
+// =============================================================================
+TEST_CASE("BEVFusionCore: updateCalibration does not crash when not initialized", "[core][fast]")
+{
+  BEVFusionCore core(make_test_config());
+  REQUIRE_NOTHROW(core.updateCalibration({}, {}, {}, {}));
+}

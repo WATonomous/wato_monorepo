@@ -183,16 +183,9 @@ void BEVFusionCore::updateCalibration(
   const std::vector<float> & lidar_to_camera,
   const std::vector<float> & img_aug_matrix)
 {
-  /**
- * TODO(bevfusion_team)
- * Overview: Feed the current physical positions of the cameras (extrinsics) and lens properties (instrinsics) to
- *           the BEVFusion Core (pipeline_). This is done by calling pipeline_->update() with the appropriate
- *           parameters. Note: Extrinsic and instrinsics are static, so only run this once at startup or when calibration
- *           changes. MUST be called before the first forward() call.
- *
- * Call core_->update(camera2lidar.data(), camera_intrinsics.data(), lidar2image.data(), img_aug_matrix.data(), stream_)
- * and that I think that should be it.
- */
+  if (!initialized_) return;
+  pipeline_->update(
+    camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_camera.data(), img_aug_matrix.data(), stream_);
 }
 
 }  // namespace wato::perception::bevfusion
