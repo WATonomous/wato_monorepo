@@ -205,6 +205,24 @@ private:
    */
   void processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
 
+  /**
+   * @brief Convert a BoundingBox to a Detection3D message.
+   * @param bbox The BoundingBox to convert
+   * @param header The header to use for the Detection3D message
+   * @return Detection3D message
+   */
+  vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const;
+
+  /**
+   * @brief Convert a BoundingBox to a Marker message.
+   * @param bbox The BoundingBox to convert
+   * @param header The header to use for the Marker message
+   * @param marker_id The ID to assign to the Marker message
+   * @return Marker message
+   */
+  visualization_msgs::msg::Marker toMarker(
+    const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const;
+
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
 

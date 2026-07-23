@@ -43,6 +43,8 @@
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include "bevfusion/bevfusion_core.hpp"
+
 namespace wato::perception::bevfusion
 {
 
@@ -225,7 +227,18 @@ void BEVFusionNode::syncedCallback(
 
   // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
 
-  core_->infer(camera_images, lidar_data, lidar_data.size() / 5);
+  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, lidar_data.size() / 5);
+
+  vision_msgs::msg::Detection3DArray detections_3d;
+  visualization_msgs::msg::MarkerArray markers;
+
+  for (const auto & bbox : bboxes) {
+    detections_3d.detections.push_back(toDetection3D(bbox, multi_image_msg->header));
+    markers.markers.push_back(toMarker(bbox, multi_image_msg->header, markers.markers.size()));
+  }
+
+  detection_pub_->publish(detections_3d);
+  marker_pub_->publish(markers);
 
   const auto end = std::chrono::steady_clock::now();
   const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
@@ -259,6 +272,73 @@ void BEVFusionNode::computeCalibrationMatrices()
    * 5. Set calibration_initialized_ = true.
    */
 
+}
+
+visualization_msgs::msg::Marker BEVFusionNode::toMarker(
+  const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const
+{
+  visualization_msgs::msg::Marker marker;
+
+  marker.type = Marker::CUBE;
+  marker.pose.position.x = bbox.position.x;
+  marker.pose.position.y = bbox.position.y;
+  marker.pose.position.z = bbox.position.z;
+
+  // Set scale (size)
+  marker.scale.x = bbox.size.l;
+  marker.scale.y = bbox.size.w;
+  marker.scale.z = bbox.size.h;
+  // Color by class (e.g., cars=green, pedestrians=yellow, trucks=blue)
+  switch (bbox.id) {
+    case 0:  // Car
+      marker.color.r = 0.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      break;
+    case 1:  // Pedestrian
+      marker.color.r = 1.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      break;
+    case 2:  // Truck
+      marker.color.r = 0.0f;
+      marker.color.g = 0.0f;
+      marker.color.b = 1.0f;
+      break;
+    default:
+      marker.color.r = 1.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 1.0f;
+      break;
+  }
+  marker.lifetime = rclcpp::Duration(0, 100'000'000);  // 0.1s (so old markers disappear)
+
+  // not sure what top do for these
+  // marker.ns = "bevfusion_detections"
+  // marker.id = unique per bbox per frame
+  // marker.header.frame_id = "base_link"
+
+  return marker;
+}
+
+vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+{
+  vision_msgs::msg::Detection3D detection;
+
+  detection.header.frame_id = "base_link";  // (or the lidar frame)
+  detection.bbox.center.position.x = bbox.position.x;
+  detection.bbox.center.position.y = bbox.position.y;
+  detection.bbox.center.position.z = bbox.position.z;
+  detection.bbox.center.orientation = tf2::Quaternion(0, 0, bbox.z_rotation);
+  detection.bbox.size.x = bbox.size.l;
+  detection.bbox.size.y = bbox.size.w;
+  detection.bbox.size.z = bbox.size.h;
+  //(check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
+
+  detection.results[0].hypothesis.class_id = std::to_string(bbox.id);
+  detection.results[0].hypothesis.score = bbox.score;
+
+  return detection;
 }
 
 void BEVFusionNode::processLidar(
