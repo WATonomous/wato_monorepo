@@ -298,28 +298,6 @@ void BEVFusionNode::diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapp
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFusionNode::on_configure(
   const rclcpp_lifecycle::State & /* prev_state */)
 {
-  /**
-   * TODO(bevfusion_team):
-   * Initialize everything
-   *    1. Read parameters, build BEVFusionCore::Config
-   *    2. Create BEVFusionCore with config
-   *    3. Call core_->initialize() — this loads all TRT engines (takes seconds, logs will show)
-   *    4. Set up TF buffer/listener
-   *    5. Prepare subscribers and publishers
-   *    6. Set up diagnostics
-   */
-
-  /*
-      TODO comments,
-      1. I am not sure what you mean by build BevFusionCore::Config. I don't see the function declared in BevFusionCore.
-      2. I believe this got done in declareParameters() function.
-      3. Done
-      4. Done
-      5. Done
-      6. Already present in the code
-
-
-  */
   RCLCPP_INFO(this->get_logger(), "Configuring BEVFusion node");
 
   try {
@@ -379,25 +357,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     }
 
-    // Create subscribers
-
-    multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
-      camera_info_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
-
-    lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      lidar_topic, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
-
-    // What's the topic for multi camerag image compressed? I don't see it in the parameters. For now, hardcoding it to /camera_pano_nn/image_rect
-    camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
-      multi_image_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
-
-    // Create publishers
-    detection_pub_ =
-      this->create_publisher<vision_msgs::msg::Detection3DArray>("/perception/detections_3d_bev", publisher_qos_);
-
-    marker_pub_ =
-      this->create_publisher<visualization_msgs::msg::MarkerArray>("/perception/bev_detection_markers", publisher_qos_);
-
     // Initialize diagnostics
     diagnostic_updater_ = std::make_unique<diagnostic_updater::Updater>(this);
     diagnostic_updater_->setHardwareID("bevfusion");
@@ -437,6 +396,25 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     // sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
     // sync_->registerCallback(
     //   std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+     // Create subscribers
+
+    multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
+      camera_info_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
+
+    lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+      lidar_topic, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+
+    camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
+      multi_image_topic, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
+
+    // Create publishers
+    detection_pub_ =
+      this->create_publisher<vision_msgs::msg::Detection3DArray>("/perception/detections_3d_bev", publisher_qos_);
+
+    marker_pub_ =
+      this->create_publisher<visualization_msgs::msg::MarkerArray>("/perception/bev_detection_markers", publisher_qos_);
+
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
