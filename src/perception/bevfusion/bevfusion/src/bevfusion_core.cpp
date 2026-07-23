@@ -142,24 +142,24 @@ bool BEVFusionCore::initialize()
   return true;
 }
 
-//Convert data to required format and feed it to GPU pipeline (needs LiDAR data to be FP16)
-//preconditions: initialize() called and returned true; pipeline_ and stream_ are live
+// Convert data to required format and feed it to GPU pipeline (needs LiDAR data to be FP16)
+// preconditions: initialize() called and returned true; pipeline_ and stream_ are live
 //               updateCalibration() called at least once; pipeline needs camera extrinsics/intrinsics before its first forward pass to relate cameras to the LiDAR
 std::vector<BoundingBox> BEVFusionCore::infer(
   const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points)
 {
-  if (!initialized_) return {};  //guard check, return empty vector if pipeline is not initialized
+  if (!initialized_) return {};  // guard check, return empty vector if pipeline is not initialized
 
-  //fp16 conversion
+  // fp16 conversion
   std::vector<nvtype::half> lidar_half(
-    lidar_points.size());  //size() - total # of floats in flat array of 5 features per lidar point
+    lidar_points.size());  // size() - total # of floats in flat array of 5 features per lidar point
   for (size_t i = 0; i < lidar_points.size(); ++i) {
     lidar_half[i] = __float2half(lidar_points[i]);
   }
 
   // bevfusion forward pass call
   auto detections =
-    pipeline_->forward(camera_images.data(), lidar_half.data(), num_points, stream_);  //.data() for underlying array
+    pipeline_->forward(camera_images.data(), lidar_half.data(), num_points, stream_);  // .data() for underlying array
 
   // map vendor type to our bounding box type
   std::vector<BoundingBox> result;
