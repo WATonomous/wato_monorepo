@@ -204,7 +204,14 @@ void BEVFusionNode::cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::Co
 
 void BEVFusionNode::computeCalibrationMatrices()
 {
-  // TODO(bevfusion_team) - implement camera calibration
+  /**
+   * TODO(bevfusion_team):
+   * 1. Extract camera intrinsics K from cached_camera_infos_.
+   * 2. Look up TF extrinsics (LiDAR <-> Camera frames) using tf_buffer_.
+   * 3. Compute camera_to_lidar, camera_intrinsics, lidar_to_camera, and img_aug_matrix vectors.
+   * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
+   * 5. Set calibration_initialized_ = true.
+   */
 }
 
 void BEVFusionNode::updateStatistics(double time_taken)
@@ -423,14 +430,25 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   const rclcpp_lifecycle::State & prev_state)
 {
   /**
-   * TODO(bevfusion_team):
-   * Start subscriptions
-   * 1. Wait for camera info to be received (or fail)
-   * 2. Compute calibration matrices from camera intrinsics + TF extrinsics
-   * 3. Call core_->updateCalibration(...)
-   * 4. Set calibration_initialized_ = true
-   * 5. Create image + lidar subscriptions
-   * 6. Activate publishers
+   * TODO(bevfusion_team)
+   *
+   * 1. [TODO] Check & Trigger Calibration:
+   *    - Verify camera intrinsics are available (`cached_camera_infos_` / `camera_info_received_`).
+   *    - Call `computeCalibrationMatrices()`, which looks up TF extrinsics, formats matrices,
+   *      and invokes `core_->updateCalibration(...)`.
+   *    - Ensure `calibration_initialized_ == true` before proceeding.
+   *
+   * 2. [TODO] Setup Message Synchronization:
+   *    - Initialize `message_filters::Subscriber` instances for camera images and LiDAR point clouds.
+   *    - Instantiate `message_filters::Synchronizer` with `ApproximateTime` policy.
+   *    - Register `BEVFusionNode::syncedCallback` to handle synced pairs of (MultiImageCompressed, PointCloud2).
+   *
+   * 3. [DONE] Create Subscriptions & Publishers:
+   *    - Subscriptions created for `multi_camera_info_sub_`, `lidar_sub_`, and `camera_sub_`.
+   *    - Publishers instantiated for `detection_pub_` and `marker_pub_`.
+   *
+   * 4. [TODO] Lifecycle Publisher Activation:
+   *    - Call `detection_pub_->on_activate()` and `marker_pub_->on_activate()` to enable output publishing.
    */
   RCLCPP_INFO(this->get_logger(), "Activating BEVFusion node");
   RCLCPP_INFO(this->get_logger(), "Previous state: %s", prev_state.label().c_str());
