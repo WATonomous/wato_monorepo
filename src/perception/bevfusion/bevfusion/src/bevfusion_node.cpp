@@ -191,7 +191,7 @@ void BEVFusionNode::cameraCallback(const deep_msgs::msg::MultiImageCompressed::C
 
 void BEVFusionNode::cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
 {
-  if (!camera_info_received_) {
+  if (camera_info_received_) {
     return;
   }
 
