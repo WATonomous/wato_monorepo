@@ -66,6 +66,12 @@ public:
    */
   explicit BEVFusionNode(const rclcpp::NodeOptions & options);
 
+  static constexpr auto kCameraInfoTopic = "/multi_camera_sync/multi_camera_info";
+  static constexpr auto kLidarTopic = "/lidar/all/points_merged";
+  static constexpr auto kMultiImageTopic = "/multi_camera_sync/multi_image_compressed";
+  static constexpr auto kOutputDetectionsTopic = "/perception/detections_3d_bev";
+  static constexpr auto kOutputMarkersTopic = "/perception/bev_detection_markers";
+
   /**
    * @brief Lifecycle: configure parameters, core, QoS, and diagnostics.
    * @param previous_state Previous lifecycle state
@@ -192,6 +198,13 @@ private:
   // TF
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+  // Topic names
+  std::string camera_info_topic_;
+  std::string lidar_topic_;
+  std::string multi_image_topic_;
+  std::string output_detections_topic_;
+  std::string output_markers_topic_;
 
   // Camera info
   rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;

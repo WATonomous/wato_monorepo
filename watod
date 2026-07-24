@@ -386,10 +386,10 @@ if [[ ${#CLI_MODULES[@]} -gt 0 ]]; then
 elif [[ -z ${ACTIVE_MODULES+x} ]]; then
   # ACTIVE_MODULES not set, initialize as empty array
   ACTIVE_MODULES=()
-elif ! declare -p ACTIVE_MODULES 2>/dev/null | grep -Eq '^declare -[aA]'; then
+elif [[ ! ${ACTIVE_MODULES@a} =~ a ]]; then
   # ACTIVE_MODULES is set but not an array, convert it
   # shellcheck disable=SC2128
-  IFS=' ' read -r -a ACTIVE_MODULES <<< "${ACTIVE_MODULES:-}"
+  read -ra ACTIVE_MODULES <<<"$ACTIVE_MODULES"
 fi
 
 # Check if any modules were specified

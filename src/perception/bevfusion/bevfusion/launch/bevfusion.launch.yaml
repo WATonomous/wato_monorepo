@@ -15,6 +15,14 @@ launch:
       name: camera_info_topic
       default: /multi_camera_sync/multi_camera_info
       description: Synchronized multi-camera info topic
+  - arg:
+      name: output_detections_topic
+      default: /perception/detections_3d_bev
+      description: Output 3D BEV detections topic
+  - arg:
+      name: output_markers_topic
+      default: /perception/bev_detection_markers
+      description: Output BEV detection markers topic
 
   - node:
       pkg: bevfusion
@@ -23,10 +31,13 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share bevfusion)/config/params.yaml
-      remap:
-        - from: multi_image
-          to: $(var multi_image_topic)
-        - from: lidar
-          to: $(var lidar_topic)
-        - from: camera_info
-          to: $(var camera_info_topic)
+        - name: multi_image_topic
+          value: $(var multi_image_topic)
+        - name: lidar_topic
+          value: $(var lidar_topic)
+        - name: camera_info_topic
+          value: $(var camera_info_topic)
+        - name: output_detections_topic
+          value: $(var output_detections_topic)
+        - name: output_markers_topic
+          value: $(var output_markers_topic)
