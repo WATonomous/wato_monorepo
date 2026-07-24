@@ -8,11 +8,13 @@
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
-# Oval track laps (needs the oval scenario loaded in CARLA -- set scenario:= on the simulation
-# launch, or initial_scenario in simulation_bringup/config/carla_bridge.yaml). The oval maneuver is in absolute
-# track coords, so anchoring is off, and it is held until the start_trajectory service:
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml \
-#         maneuver:=oval_track anchor_to_first_pose:=false start_on_activate:=false
+# Nothing moves on launch -- see the rig's header for the hold/release protocol and the service
+# calls. Pass start_on_activate:=true to go back to driving straight off bringup. Sim-only wrinkle:
+# a respawned ego re-arms the hold, so after "respawn ego" in Foxglove the maneuver re-anchors at
+# the new pose and waits for start_trajectory again.
+#
+# Oval track laps need the oval scenario loaded in CARLA -- set scenario:= on the simulation launch,
+# or initial_scenario in simulation_bringup/config/carla_bridge.yaml.
 #
 # For the real car use fake_planner_vehicle.launch.yaml instead -- do not reach for this file with
 # topic overrides, since the whole point of the split is that the filename decides the environment.
@@ -41,6 +43,15 @@ launch:
       default: "5.0"
       description: Odom jump (m) treated as an ego respawn, after which the maneuver re-anchors. 0 disables.
 
+  # Come up silent and let a person release the car, rather than driving on bringup -- same as the
+  # vehicle launch and the rig's own default. A rig that starts driving the moment it launches is a
+  # surprise in either environment, and the markers publish while held so the path can be checked
+  # first. Note this composes with the respawn handling above: a respawn re-arms the hold.
+  - arg:
+      name: start_on_activate
+      default: "false"
+      description: Hold in standby until the start_trajectory service is called. True drives on activate.
+
   # -- Everything else is environment-neutral and just forwarded to the rig.
   - arg:
       name: trajectory_topic
@@ -62,6 +73,13 @@ launch:
       default: "pure_pursuit"
       description: "Controller under test: pure_pursuit or mpc"
 
+  # Left at the rig default, the package's own params: that is the tuning the sim is set up
+  # against. The vehicle launch points this at action.yaml instead.
+  - arg:
+      name: pure_pursuit_config
+      default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+      description: Pure pursuit parameter file
+
   - arg:
       name: maneuver
       default: "steady_state_slalom"
@@ -78,14 +96,9 @@ launch:
       description: Automatically configure and activate managed nodes
 
   - arg:
-      name: start_on_activate
-      default: "true"
-      description: Publish on activate. Set false to hold until the start_trajectory service.
-
-  - arg:
-      name: anchor_to_first_pose
-      default: "true"
-      description: Lay the maneuver from the launch pose. Set false for absolute maneuvers (e.g. oval_track).
+      name: anchoring
+      default: "auto"
+      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (e.g. oval_track) where they were drawn.
 
   - arg:
       name: standby_speed
@@ -107,6 +120,8 @@ launch:
           value: "$(var frame_id)"
         - name: controller
           value: "$(var controller)"
+        - name: pure_pursuit_config
+          value: "$(var pure_pursuit_config)"
         - name: maneuver
           value: "$(var maneuver)"
         - name: maneuver_file
@@ -117,8 +132,8 @@ launch:
           value: "$(var autostart)"
         - name: start_on_activate
           value: "$(var start_on_activate)"
-        - name: anchor_to_first_pose
-          value: "$(var anchor_to_first_pose)"
+        - name: anchoring
+          value: "$(var anchoring)"
         - name: standby_speed
           value: "$(var standby_speed)"
         - name: respawn_jump_m

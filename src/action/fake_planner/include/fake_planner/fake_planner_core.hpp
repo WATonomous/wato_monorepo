@@ -87,6 +87,22 @@ public:
     return closed_;
   }
 
+  // Set when the maneuver carried a "start" pose: its waypoints are authored on fixed geometry in
+  // absolute frame_id coordinates, not relative to the vehicle. Anchoring one of those to the
+  // launch pose slides it off the road it was drawn for, which is why the node's `anchoring`
+  // parameter takes its default decision from here.
+  bool hasAbsoluteStart() const
+  {
+    return has_absolute_start_;
+  }
+
+  // Path distance from the vehicle's current place on the maneuver to the stop line -- the last
+  // authored waypoint, where the braking profile brings the speed to zero (the trailing stop pad
+  // continues past it, see appendStopPad). 0 once the vehicle is at or past it. Infinity on a
+  // closed circuit, which has no end, and before anchoring. Lets the node tell "arrived at the
+  // end" apart from "still driving", without duplicating the path geometry.
+  double distanceToEnd() const;
+
   // Whether a trajectory has been anchored and is ready to publish.
   bool ready() const
   {
@@ -101,11 +117,18 @@ private:
   FakePlannerConfig config_;
 
   bool closed_{false};
+  bool has_absolute_start_{false};
 
   // Waypoints expanded from the maneuver segments (parallel arrays; relative to the anchor pose).
   std::vector<double> wp_x_;
   std::vector<double> wp_y_;
   std::vector<double> wp_speed_;
+
+  // Arc length along the maneuver at each waypoint, and the index of the stop line (the first
+  // zero-speed waypoint of the terminal pad). Both are computed once at load: anchoring is a
+  // rigid SE(2) transform, so it moves the path without changing any distance along it.
+  std::vector<double> cum_s_;
+  std::size_t stop_index_{0};
 
   // The whole anchored maneuver (built once the anchor pose is known), and the rolling window of
   // it that actually gets published each tick.

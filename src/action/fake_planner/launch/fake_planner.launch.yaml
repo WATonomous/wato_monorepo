@@ -12,6 +12,9 @@
 #                          MPC's tuning comes from action_bringup's action.yaml -- the same
 #                          config the real stack uses -- and it publishes its plan on
 #                          /action/mpc/predicted_path, worth watching against the markers.
+#                          Pure pursuit's comes from its own package by default, which is what
+#                          the sim is tuned against; the vehicle launch points it at action.yaml
+#                          instead so the car tests the controller as it is actually deployed.
 #   - lifecycle manager  : configures + activates both.
 #
 # This file is the rig itself, and its defaults are CARLA's. Prefer launching one of the two
@@ -21,24 +24,26 @@
 #     fake_planner_vehicle.launch.yaml   the real car
 # Both forward every arg below, so any recipe here works through them too.
 #
+# Nothing drives on bringup anywhere: start_on_activate is false, so the rig comes up activated
+# but silent with the controller in standby, and a person releases it with the start_trajectory
+# service. The markers publish while held, so the path can be inspected first.
+#
 # Recipes
-#   CARLA sim, slalom from wherever the ego sits (defaults):
+#   CARLA sim, slalom from wherever the ego sits (defaults), then release it:
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml
+#     ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
 #
 #   Any other maneuver / the MPC instead:
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
 #   Oval track laps (needs the oval scenario loaded in CARLA: set scenario:= on the simulation
 #   launch, or initial_scenario in simulation_bringup/config/carla_bridge.yaml).
-#   The oval maneuver is in absolute track coords, so anchoring is off; it is held in standby
-#   until you call the start_trajectory service:
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml \
-#         maneuver:=oval_track anchor_to_first_pose:=false start_on_activate:=false
+#   The oval maneuver is in absolute track coords; anchoring turns itself off for it:
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=oval_track
 #
 # Handy while running:
 #   /action/fake_planner/trajectory_markers  -- the path, published even while held in standby
-#   ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
-#   ...same for /stop_trajectory and /reset
+#   the node's /stop_trajectory and /reset services, called the same way as /start_trajectory above
 
 launch:
   - arg:
@@ -72,6 +77,16 @@ launch:
       default: "pure_pursuit"
       description: "Controller under test: pure_pursuit or mpc"
 
+  # Pure pursuit's tuning differs a lot between the two files -- lookahead 5 m vs 30 m, gain 0.5 vs
+  # 2.0, steering clamp 0.5 rad vs 2.0 -- so which one is loaded decides what the run actually
+  # measures. The package's own params are the CARLA-tuned set and stay the default here; the
+  # vehicle launch swaps in action.yaml, the config the car runs in production. MPC has no
+  # equivalent split: it reads action.yaml in both environments.
+  - arg:
+      name: pure_pursuit_config
+      default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+      description: Pure pursuit parameter file. The vehicle launch overrides this with action_bringup's action.yaml.
+
   - arg:
       name: maneuver
       default: "steady_state_slalom"
@@ -93,15 +108,18 @@ launch:
       default: "true"
       description: Automatically configure and activate managed nodes
 
+  # Nothing drives on bringup in either environment. The stack comes up configured and activated
+  # but silent, and a person releases it with the start_trajectory service. Set true to publish
+  # (and drive) the moment the node activates.
   - arg:
       name: start_on_activate
-      default: "true"
-      description: Publish on activate. Set false to hold until the start_trajectory service.
+      default: "false"
+      description: Hold in standby until the start_trajectory service is called. True publishes on activate.
 
   - arg:
-      name: anchor_to_first_pose
-      default: "true"
-      description: Lay the maneuver from the launch pose. Set false for absolute maneuvers (the ones with a "start" pose, e.g. oval_track).
+      name: anchoring
+      default: "auto"
+      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (those with a "start", e.g. oval_track) where they were drawn.
 
   - arg:
       name: standby_speed
@@ -136,8 +154,8 @@ launch:
           value: "$(var maneuver_file)"
         - name: "frame_id"
           value: "$(var frame_id)"
-        - name: "anchor_to_first_pose"
-          value: "$(var anchor_to_first_pose)"
+        - name: "anchoring"
+          value: "$(var anchoring)"
         - name: "start_on_activate"
           value: "$(var start_on_activate)"
         - name: "respawn_jump_m"
@@ -161,7 +179,7 @@ launch:
       namespace: "action"
       output: "screen"
       param:
-        - from: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+        - from: "$(var pure_pursuit_config)"
         - name: "standby_speed"
           value: "$(var standby_speed)"
         - name: "use_sim_time"

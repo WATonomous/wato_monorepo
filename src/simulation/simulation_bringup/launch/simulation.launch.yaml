@@ -14,11 +14,13 @@ launch:
       description: "Port for the pygame HUD web server"
   - arg:
       name: scenario
-      default: "carla_scenarios.scenarios.light_traffic_scenario"
+      default: "carla_scenarios.scenarios.oval_track_scenario"
       description: >-
-        Scenario module to load on startup. Set to
-        carla_scenarios.scenarios.oval_track_scenario for the oval track (the fake-planner
-        demo), either here or via config/carla_bridge.yaml.
+        Scenario module to load on startup. This picks the CARLA world AND the ego spawn, so
+        it must match the map world_modeling loads or the ego spawns off the map entirely:
+          carla_scenarios.scenarios.oval_track_scenario    -> world_modeling_sim.launch.yaml map:=oval
+          carla_scenarios.scenarios.light_traffic_scenario -> world_modeling_sim.launch.yaml map:=town
+        docker-compose does not pass scenario:=, so this default is what watod actually runs.
 
   # Eve Robot Description
   - include:

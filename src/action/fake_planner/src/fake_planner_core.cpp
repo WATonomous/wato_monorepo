@@ -65,7 +65,6 @@ void appendLocal(Path & path, const Cursor & c, double u, double v, double speed
   path.speed.push_back(speed);
 }
 
-// Number of fine sub-steps for a segment of the given local length.
 int subSteps(double length, double fine)
 {
   return std::max(1, static_cast<int>(std::ceil(std::abs(length) / fine)));
@@ -127,7 +126,7 @@ void buildSlalom(
 void buildArc(
   Path & path, Cursor & c, double radius, double angle_rad, double dir_sign, double s0, double s1, double fine)
 {
-  const double length = radius * angle_rad;  // arc length
+  const double length = radius * angle_rad;
   const int n = subSteps(length, fine);
   for (int k = 1; k <= n; ++k) {
     const double t = length * k / n;
@@ -257,18 +256,10 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
     return false;
   }
 
-  // Spacing is a property of the MAP, not of the planner. For lane following nothing in the
-  // real pipeline resamples: lattice_planning walks the lanelet centreline out to the horizon
-  // and hands those points over verbatim (centreline_to_path_points), and trajectory_planner
-  // emits one TrajectoryPoint per input pose. So the trajectory's waypoint spacing is just the
-  // lanelet centreline node spacing of whatever map is loaded. Measured from maps/osm:
-  //   oval_track_4_lane.osm  2.00 m   (generated at NODE_SPACING by tools/generate_oval_track.py)
-  //   Town10HD.osm           1.00 m
-  // path_gen.path_steps does NOT set this -- that only discretises the cubic spirals used for
-  // lane CHANGES, which lane-following never goes through.
   const double spacing = doc.value("sample_spacing_m", 1.0);
   const double default_speed = doc.value("default_speed", 2.0);
   closed_ = doc.value("closed", false);
+  has_absolute_start_ = false;
   if (spacing <= 0.0) {
     error = "sample_spacing_m must be > 0";
     return false;
@@ -283,8 +274,8 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   Path fine_path;
   Cursor cursor;
 
-  // Optional absolute start pose: a maneuver on fixed geometry (e.g. an oval lane) sets
-  // "start" and runs with anchor_to_first_pose=false, publishing verbatim in frame_id.
+  // Optional absolute start pose, which also marks the maneuver as fixed geometry (see
+  // hasAbsoluteStart).
   if (doc.contains("start")) {
     const nlohmann::json & start = doc["start"];
     if (!start.is_object()) {
@@ -294,6 +285,7 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
     cursor.x = start.value("x", 0.0);
     cursor.y = start.value("y", 0.0);
     cursor.theta = start.value("yaw", 0.0);
+    has_absolute_start_ = true;
   }
 
   double current_speed = default_speed;  // carried between segments for speed continuity
@@ -372,7 +364,33 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   wp_x_ = resampled.x;
   wp_y_ = resampled.y;
   wp_speed_ = resampled.speed;
+
+  // Arc length along the maneuver, and where the driving ends: the stop line is the first
+  // zero-speed waypoint of the terminal pad, i.e. one past the last waypoint that still asks for
+  // speed. Found from the profile rather than from kStopPadM so it stays right whatever the pad
+  // does. A closed circuit has no stop line and never reports an end (see distanceToEnd).
+  cum_s_.assign(wp_x_.size(), 0.0);
+  for (std::size_t i = 1; i < wp_x_.size(); ++i) {
+    cum_s_[i] = cum_s_[i - 1] + std::hypot(wp_x_[i] - wp_x_[i - 1], wp_y_[i] - wp_y_[i - 1]);
+  }
+  stop_index_ = wp_x_.empty() ? 0 : wp_x_.size() - 1;
+  for (std::size_t i = wp_speed_.size(); i-- > 0;) {
+    if (wp_speed_[i] > 0.0) {
+      stop_index_ = std::min(i + 1, wp_x_.size() - 1);
+      break;
+    }
+  }
   return true;
+}
+
+double FakePlannerCore::distanceToEnd() const
+{
+  if (closed_ || !ready_ || cum_s_.empty() || window_start_ >= cum_s_.size()) {
+    return std::numeric_limits<double>::infinity();
+  }
+  // Negative once the vehicle is past the stop line and into the pad -- that is arrived, not
+  // "-3 m to go", so clamp.
+  return std::max(0.0, cum_s_[stop_index_] - cum_s_[window_start_]);
 }
 
 void FakePlannerCore::anchor(double x, double y, double yaw)

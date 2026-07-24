@@ -5,18 +5,9 @@
 ```bash
 colcon build --packages-select fake_planner
 ros2 launch fake_planner fake_planner_sim.launch.yaml
+# comes up held in standby -- nothing moves until you release it
+ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
 ```
-
-The maneuver JSON is parsed with `nlohmann_json` at configure time; a bad file fails the lifecycle transition with the parse error in the node log rather than crashing.
-
-## Architecture
-
-Two pieces, split so the maneuver math can be tested without a running graph:
-
-- **`FakePlannerNode`** (`fake_planner_node`) — the ROS lifecycle node. Owns parameters, the publishers/subscriber, the services, the publish timer, and the odom-driven anchoring and respawn logic.
-- **`FakePlannerCore`** (`fake_planner_core`) — all maneuver math, holds no ROS state.
-
-The core turns a maneuver into a published window in four steps:
 
 1. **`loadManeuver`** — parse the JSON, walk the segments as a moving cursor sampling a fine polyline, resample to uniform `sample_spacing_m`, then (open maneuvers only) append the stop pad. Result: the maneuver in local coordinates.
 2. **`anchor(x, y, yaw)`** — apply one SE(2) transform to every waypoint, building the full trajectory in `frame_id`. Point headings are taken from consecutive points.
@@ -36,7 +27,9 @@ Everything is sampled at `min(0.05 m, spacing)`, then `resampleUniform` re-lays 
 
 ## Anchoring and respawns
 
-With `anchor_to_first_pose` true (default), the node waits for the first odom and anchors the maneuver at that pose, so a relative maneuver starts at the car wherever it is. With it false, the core anchors at the origin during configure and publishes the file's coordinates verbatim — used by maneuvers that carry an absolute `start` (e.g. the oval).
+When anchoring is on, the node waits for the first odom and anchors the maneuver at that pose, so a relative maneuver starts at the car wherever it is. When it is off, the core anchors at the origin during configure and publishes the file's coordinates verbatim — what maneuvers carrying an absolute `start` (e.g. the oval) need.
+
+Which one you get is the maneuver's own business, not the launch's: `anchoring` defaults to `auto`, and `on_configure` resolves it from `core_->hasAbsoluteStart()` *after* the JSON is loaded — a file with a `start` publishes verbatim, everything else anchors. This mirrors `closed`, the other file-level fact that changes runtime behaviour, and it means a maneuver can't be run the wrong way by forgetting a flag. `anchoring:=relative|absolute` forces it; forcing `relative` on a maneuver with a `start` is legal (replay the oval's shape from wherever the car is parked) and logs a warning, since on the real track it is always a mistake. The override values are named after the two kinds of maneuver rather than `on`/`off` because YAML reads those two as booleans, and a bool override on a string parameter aborts the node at construction.
 
 `respawn_jump_m` guards against a stale anchor: a pose that jumps more than this between two consecutive odom messages is treated as a teleport (in sim, an ego respawn), not driving. The node rewinds, re-arms `start_on_activate`, and — when anchoring — re-anchors at the new pose on the next odom, so "respawn ego" in Foxglove is a one-click reset. Set 0 to disable; the vehicle launch does, because a localization correction of that size on the real car is something to drive through, not re-lay the maneuver on. The `have_pose_ && anchored_` guard keeps it from firing on the first message, when there is no previous pose to compare against.
 
@@ -49,8 +42,7 @@ Open maneuvers get a **stop pad**: a backward pass brakes the speed profile to z
 ## Adding a maneuver
 
 1. Drop a JSON under `maneuvers/` (schema in the [README](README.md)). Rebuild — `install/` serves the file from `share/`, so an un-built file won't be found.
-2. Run it: `maneuver:=<name>`.
-3. If it uses an absolute `start`, launch with `anchor_to_first_pose:=false`.
+2. Run it: `maneuver:=<name>`. Nothing else to pass — a file with an absolute `start` turns anchoring off for itself.
 
 ## Adding a segment type
 
@@ -84,5 +76,6 @@ If the node logs `Waiting for first odom on '<topic>' to anchor trajectory...` a
 
 ## Troubleshooting
 
+- **Nothing publishes on `trajectory` and the car sits still** — expected on bringup. Every launch sets `start_on_activate:=false`, so the node logs `Holding: waiting for the start_trajectory service.` every 5 s until it is released. Call `start_trajectory` (or launch with `start_on_activate:=true` in sim). A respawned ego puts it back in the hold.
 - **Controller doesn't move though the trajectory publishes** — in CARLA this is almost always `use_sim_time`: without it, trajectory stamps on wall clock can't transform against the sim-time TF tree and the controller aborts every cycle silently. Also check `standby_speed:=0.0` — the controllers' own `-0.5` default reverses the car in standby. Both wrappers set these correctly.
-- **Path lands off the oval track** — `oval_track` is in absolute coordinates and must run with `anchor_to_first_pose:=false`. Anchoring a 400 m closed lap throws the far side off the road with a fraction of a degree of spawn yaw.
+- **Path lands off the oval track** — `oval_track` is in absolute coordinates and must be published verbatim; anchoring a 420 m closed lap throws the far side off the road with a fraction of a degree of spawn yaw. `auto` handles this, so check the configure log for `anchor=false (auto: absolute 'start')` and that nothing passed `anchoring:=relative` (which warns).

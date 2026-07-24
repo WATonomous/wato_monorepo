@@ -41,6 +41,11 @@ launch:
       default: "false"
       description: Wall clock. There is no /clock publisher on the car.
 
+  - arg:
+      name: pure_pursuit_config
+      default: "$(find-pkg-share action_bringup)/config/action.yaml"
+      description: The deployed pure pursuit tuning, so the rig tests the controller as the car runs it.
+
   # There is no respawn on a real vehicle. A jump this size in fused odometry is a localization
   # correction, and re-laying the maneuver from the corrected pose mid-run would swing the path
   # under the car while it is driving. Off here; sim leaves it on for one-click ego resets.
@@ -49,7 +54,9 @@ launch:
       default: "0.0"
       description: Disabled on the vehicle. Non-zero re-anchors the maneuver on an odom jump that large.
 
-  # Come up silent and let a person release the car, rather than driving on bringup.
+  # Come up silent and let a person release the car, rather than driving on bringup. Same value as
+  # the rig and the sim launch, pinned here anyway: on hardware this one is not an argument the
+  # file inherits, it is the file's promise.
   - arg:
       name: start_on_activate
       default: "false"
@@ -91,12 +98,13 @@ launch:
       default: "true"
       description: Configure and activate the managed nodes. Publishing is still gated by start_on_activate.
 
-  # The oval maneuver is in absolute CARLA track coords and has no meaning here, so anchoring
-  # stays on: every maneuver is laid out from wherever the car is standing at launch.
+  # Every maneuver that belongs on the real car is vehicle-relative, so auto resolves to anchoring
+  # on: the path is laid out from wherever the car is standing at launch. (The oval is in absolute
+  # CARLA track coords and has no meaning here.)
   - arg:
-      name: anchor_to_first_pose
-      default: "true"
-      description: Lay the maneuver from the pose the car is sitting at when it launches.
+      name: anchoring
+      default: "auto"
+      description: auto|relative|absolute. auto lays the maneuver from the pose the car is sitting at when it launches.
 
   - arg:
       name: standby_speed
@@ -118,6 +126,8 @@ launch:
           value: "$(var frame_id)"
         - name: controller
           value: "$(var controller)"
+        - name: pure_pursuit_config
+          value: "$(var pure_pursuit_config)"
         - name: maneuver
           value: "$(var maneuver)"
         - name: maneuver_file
@@ -128,8 +138,8 @@ launch:
           value: "$(var autostart)"
         - name: start_on_activate
           value: "$(var start_on_activate)"
-        - name: anchor_to_first_pose
-          value: "$(var anchor_to_first_pose)"
+        - name: anchoring
+          value: "$(var anchoring)"
         - name: standby_speed
           value: "$(var standby_speed)"
         - name: respawn_jump_m

@@ -3,21 +3,27 @@
 # Full world modeling stack for simulation (CARLA / bags).
 #
 # Usage:
-#   Full stack (Town10HD):  ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml
-#   Map + markers only:     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map_only:=true
-#   Oval track:             ros2 launch world_modeling_bringup world_modeling_oval.launch.yaml
+#   Full stack (oval, default):  ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml
+#   Full stack (Town10HD):       ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=town
+#   Map + markers only:          ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map_only:=true
 #
-# map_only:=true runs just world_model + the lanelet map markers (3 nodes instead of 15).
-# That is the pairing for the fake planner, which publishes its own trajectory and its own
-# execute_behaviour heartbeat -- it consumes nothing from world_modeling and needs only
-# /ego/odom + TF. The map is then purely visual: lane geometry under the trajectory markers
-# in Foxglove. Every other node becomes a confound rather than a dependency.
+
+# map_only:=true runs just world_model + the lanelet map markers (3 nodes instead of 15) --
+# lane geometry with no planning chain, for when something else is producing the trajectory
+# or you only want to look at the map. Nothing here depends on what that something else is.
 ---
 launch:
   - arg:
+      name: map
+      default: "oval"
+      description: >-
+        Map to load; selects config/world_model_<map>.yaml.
+        "oval" (default) = the generated 4-lane oval track, "town" = Town10HD.
+
+  - arg:
       name: config_file
-      default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
-      description: Path to the world_model configuration file
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_$(var map).yaml
+      description: Path to the world_model configuration file (overrides map:=)
 
   - arg:
       name: eidos_config_file

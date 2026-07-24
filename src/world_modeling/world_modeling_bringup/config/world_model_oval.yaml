@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Oval track config: world_model_sim.yaml with the oval map. Kept complete (costmap + all
-# markers) so it serves world_modeling_oval.launch.yaml in both modes -- the full stack and
-# map_only:=true.
+# Oval track config: world_model_town.yaml with the oval map. Selected with
+#   ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=oval
+# Kept complete (costmap + all markers) so it serves both the full stack and map_only:=true.
 
 # =============================================================================
 # World Model Node -- oval track (maps/osm/oval_track_4_lane.osm)

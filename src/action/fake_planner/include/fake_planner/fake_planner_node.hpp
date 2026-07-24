@@ -48,8 +48,7 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // Publishes the current window as a MarkerArray, mirroring trajectory_planner's visualization
-  // (speed-sized spheres + speed labels on `trajectory_markers`, only when subscribed).
+  // Publishes the current window on `trajectory_markers`, only when someone is subscribed.
   void publishMarkers();
   void timerCallback();
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
@@ -57,8 +56,7 @@ private:
     const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
   void stopTrajectory(
     const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
-  // Re-runs the maneuver from wherever the car currently sits, without a relaunch: rewinds the
-  // window and (when anchoring) re-lays the path from the next odom pose.
+  // Re-runs the maneuver from wherever the car currently sits, without a relaunch.
   void resetTrajectory(
     const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
 
@@ -73,6 +71,10 @@ private:
   double publish_rate_hz_{10.0};
   bool publish_behaviour_{true};
   std::string behaviour_{"lane_follow"};
+  // Requested anchoring policy ("auto" | "relative" | "absolute") and what it resolved to for the
+  // maneuver that was actually loaded. Under "auto" the file decides: a maneuver carrying an
+  // absolute "start" is published verbatim, anything else is laid out from the vehicle's pose.
+  std::string anchoring_{"auto"};
   bool anchor_to_first_pose_{true};
   bool start_on_activate_{true};
   std::string maneuver_file_;
@@ -80,18 +82,28 @@ private:
   double horizon_m_{35.0};
   double trail_m_{2.0};
   double respawn_jump_m_{5.0};
+  double finish_distance_m_{3.0};
+  double finish_speed_mps_{0.25};
 
   // Gates publishing: when false the node stays silent so the controller holds in standby.
   // Toggled by the start/stop services; seeded from start_on_activate on activation.
   bool trajectory_started_{true};
 
-  // Whether the maneuver has been laid out from a pose yet (see anchor_to_first_pose_).
+  // Latched when the vehicle reaches the end of an open maneuver. Publishing stops for good, so
+  // the controller times out into standby and the car stays put: a finished run must not creep,
+  // and must not silently start itself over. Only an explicit reset (or a respawn, which is the
+  // sim's reset) clears it.
+  bool finished_{false};
+
+  // Whether the maneuver has been laid out from a pose yet (see anchoring_).
   bool anchored_{false};
 
-  // Latest vehicle position in frame_id_, tracked continuously to slide the window.
+  // Latest vehicle position in frame_id_, tracked continuously to slide the window, and its speed
+  // magnitude, which decides whether it has actually come to rest at the end of the maneuver.
   bool have_pose_{false};
   double veh_x_{0.0};
   double veh_y_{0.0};
+  double veh_speed_{0.0};
 
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
