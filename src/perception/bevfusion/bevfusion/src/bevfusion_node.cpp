@@ -177,7 +177,8 @@ void BEVFusionNode::syncedCallback(
   // updateDiagnostics();
 }
 
-void BEVFusionNode::cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
+void BEVFusionNode::multiCameraInfoCallback(
+  const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
 {
   if (multi_camera_info_msg->camera_infos.empty() || camera_info_received_) {
     return;
@@ -429,7 +430,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 
     // Create subscribers
     multi_camera_info_sub_ = this->create_subscription<MultiCameraInfoMsg>(
-      kCameraInfoTopic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
+      kCameraInfoTopic,
+      subscriber_qos_,
+      std::bind(&BEVFusionNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
     multi_image_sub_ =
       std::make_shared<ImageSub>(this->shared_from_this(), kMultiImageTopic, subscriber_qos_.get_rmw_qos_profile());
