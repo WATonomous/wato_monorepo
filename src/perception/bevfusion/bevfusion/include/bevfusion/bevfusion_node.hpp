@@ -143,18 +143,6 @@ private:
   void computeCalibrationMatrices();
 
   /**
-   * @brief Camera callback to cache the latest images.
-   * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
-   */
-  void cameraCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg);
-
-  /**
-   * @brief LiDAR callback to cache the latest point cloud.
-   * @param point_cloud_msg PointCloud2 containing point cloud data
-   */
-  void lidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg);
-
-  /**
    * @brief Log total processed messages and average processing time.
    */
   void logStatistics() const;
@@ -194,6 +182,16 @@ private:
    */
   void updateDiagnostics(const std_msgs::msg::Header::_stamp_type & timestamp);
 
+  // Aliases
+  using MultiImageMsg = deep_msgs::msg::MultiImageCompressed;
+  using MultiCameraInfoMsg = deep_msgs::msg::MultiCameraInfo;
+  using PointCloud2Msg = sensor_msgs::msg::PointCloud2;
+  using ImageSub = message_filters::Subscriber<MultiImageMsg, rclcpp_lifecycle::LifecycleNode>;
+  using LidarSub = message_filters::Subscriber<PointCloud2Msg, rclcpp_lifecycle::LifecycleNode>;
+  using SyncPolicy = message_filters::sync_policies::
+    ApproximateTime<deep_msgs::msg::MultiImageCompressed, sensor_msgs::msg::PointCloud2>;
+  using Synchronizer = message_filters::Synchronizer<SyncPolicy>;
+
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
 
@@ -202,9 +200,9 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   // Camera info
-  rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
+  rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
   bool camera_info_received_ = false;
-  std::vector<sensor_msgs::msg::CameraInfo> cached_camera_infos_;
+  MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
 
   // Calibration
   bool calibration_initialized_ = false;
@@ -214,22 +212,16 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
   // Subscribers
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
-
-  // TODO(bevfusion_team) - probably should use /camera_pano_nn/image_rect instead for example. Not sure.
-  rclcpp::Subscription<deep_msgs::msg::MultiImageCompressed>::SharedPtr camera_sub_;
-  deep_msgs::msg::MultiImageCompressed::ConstSharedPtr latest_multi_image_;
-
-  // TODO(bevfusion_team) - need to sync camera and lidar. So either cache lidar until we get all cameras
-  // or cache cameras until we get lidar. Create a mutex as needed.
-  sensor_msgs::msg::PointCloud2::ConstSharedPtr latest_lidar_;
-  std::mutex lidar_mutex_;
+  std::shared_ptr<LidarSub> lidar_sub_;
+  std::shared_ptr<ImageSub> multi_image_sub_;
+  // TODO(bevfusion_team) - maybe we should use /camera_pano_nn/image_rect instead for example. Not sure.
 
   // QoS profiles
   rclcpp::QoS subscriber_qos_;
   rclcpp::QoS publisher_qos_;
 
-  // Synchronization parameters
+  // Synchronization
+  std::shared_ptr<Synchronizer> sync_;
   int sync_queue_size_{10};
   double sync_max_time_diff_ms_{200.0};
   double sync_max_time_diff_sec_;
