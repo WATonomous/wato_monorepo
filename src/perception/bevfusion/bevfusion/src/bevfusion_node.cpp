@@ -177,27 +177,15 @@ void BEVFusionNode::syncedCallback(
   // updateDiagnostics();
 }
 
-void BEVFusionNode::lidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg)
-{
-  // Store the latest LiDAR message
-  latest_lidar_ = point_cloud_msg;
-}
-
-void BEVFusionNode::cameraCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg)
-{
-  // Store the latest camera message
-  latest_multi_image_ = multi_image_msg;
-}
-
 void BEVFusionNode::cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
 {
-  if (camera_info_received_) {
+  if (multi_camera_info_msg->camera_infos.empty() || camera_info_received_) {
     return;
   }
 
   RCLCPP_INFO(
     this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
-  cached_camera_infos_ = multi_camera_info_msg->camera_infos;
+  cached_multi_camera_info_ = multi_camera_info_msg;
   camera_info_received_ = true;
   computeCalibrationMatrices();
 }
@@ -206,7 +194,7 @@ void BEVFusionNode::computeCalibrationMatrices()
 {
   /**
    * TODO(bevfusion_team):
-   * 1. Extract camera intrinsics K from cached_camera_infos_.
+   * 1. Extract camera intrinsics K from cached_multi_camera_info_.
    * 2. Look up TF extrinsics (LiDAR <-> Camera frames) using tf_buffer_.
    * 3. Compute camera_to_lidar, camera_intrinsics, lidar_to_camera, and img_aug_matrix vectors.
    * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
@@ -413,12 +401,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
    * TODO(bevfusion_team)
    *
    * 1. [TODO] Check & Trigger Calibration:
-   *    - Verify camera intrinsics are available (`cached_camera_infos_` / `camera_info_received_`).
+   *    - Verify camera intrinsics are available (`cached_multi_camera_info_` / `camera_info_received_`).
    *    - Call `computeCalibrationMatrices()`, which looks up TF extrinsics, formats matrices,
    *      and invokes `core_->updateCalibration(...)`.
    *    - Ensure `calibration_initialized_ == true` before proceeding.
    *
-   * 2. [TODO] Setup Message Synchronization:
+   * 2. [DONE] Setup Message Synchronization:
    *    - Initialize `message_filters::Subscriber` instances for camera images and LiDAR point clouds.
    *    - Instantiate `message_filters::Synchronizer` with `ApproximateTime` policy.
    *    - Register `BEVFusionNode::syncedCallback` to handle synced pairs of (MultiImageCompressed, PointCloud2).
@@ -427,7 +415,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
    *    - Subscriptions created for `multi_camera_info_sub_`, `lidar_sub_`, and `camera_sub_`.
    *    - Publishers instantiated for `detection_pub_` and `marker_pub_`.
    *
-   * 4. [TODO] Lifecycle Publisher Activation:
+   * 4. [TODO] Logging
+   *
+   * 5. [TODO] Lifecycle Publisher Activation:
    *    - Call `detection_pub_->on_activate()` and `marker_pub_->on_activate()` to enable output publishing.
    */
   RCLCPP_INFO(this->get_logger(), "Activating BEVFusion node");
@@ -435,29 +425,26 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "=============================================");
 
   try {
-    // TODO(bevfusion_team): Create message_filters subscribers for ApproximateTime sync
-    RCLCPP_INFO(this->get_logger(), "Creating subscribers:");
-
-    // TODO(bevfusion_team): Setup a message_filters sync once subscriber members are declared
-    // sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *detections_sub_);
-    // sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
-    // sync_->registerCallback(
-    //   std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
+    RCLCPP_INFO(this->get_logger(), "Creating subscribers, publishers, and sync object");
 
     // Create subscribers
-
-    multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
+    multi_camera_info_sub_ = this->create_subscription<MultiCameraInfoMsg>(
       kCameraInfoTopic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
 
-    lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      kLidarTopic, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+    multi_image_sub_ =
+      std::make_shared<ImageSub>(this->shared_from_this(), kMultiImageTopic, subscriber_qos_.get_rmw_qos_profile());
+    lidar_sub_ =
+      std::make_shared<LidarSub>(this->shared_from_this(), kLidarTopic, subscriber_qos_.get_rmw_qos_profile());
 
-    camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
-      kMultiImageTopic, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
+    // ApproximateTime synchronizer
+    // We use the message filters sync queue to synchronize the camera images and lidar data based on the timestamps.
+    sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *lidar_sub_);
+    sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
+    sync_->registerCallback(
+      std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
 
     // Create publishers
     detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kOutputDetectionsTopic, publisher_qos_);
-
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kOutputMarkersTopic, publisher_qos_);
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
