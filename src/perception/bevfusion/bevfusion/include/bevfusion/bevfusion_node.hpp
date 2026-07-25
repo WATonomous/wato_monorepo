@@ -133,12 +133,12 @@ private:
    * @brief Camera info callback to initialize calibration.
    * @param multi_camera_info_msg MultiCameraInfo containing camera calibration data
    */
-  void cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg);
+  void multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg);
 
   /**
    * @brief Computes calibration matrices from camera info and TF extrinsics, then updates the core CUDA pipeline.
    * @details Called during node activation (`on_activate()`) once camera info and TF transforms are available.
-   *          Can also be invoked by `cameraInfoCallback()` if dynamic calibration updates are required.
+   *          Can also be invoked by `multiCameraInfoCallback()` if dynamic calibration updates are required.
    */
   void computeCalibrationMatrices();
 
