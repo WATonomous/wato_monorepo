@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -142,17 +143,17 @@ bool BEVFusionCore::initialize()
   return true;
 }
 
-// Convert data to required format and feed it to GPU pipeline (needs LiDAR data to be FP16)
-// preconditions: initialize() called and returned true; pipeline_ and stream_ are live
-//               updateCalibration() called at least once; pipeline needs camera extrinsics/intrinsics before its first forward pass to relate cameras to the LiDAR
 std::vector<BoundingBox> BEVFusionCore::infer(
   const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points)
 {
-  if (!initialized_) return {};  // guard check, return empty vector if pipeline is not initialized
+  if (!initialized_) {
+    std::cerr << "Error: BEVFusionCore::infer called before initialization." << std::endl;
+    return {};  // guard check, return empty vector if pipeline is not initialized
+  }
 
-  // fp16 conversion
-  std::vector<nvtype::half> lidar_half(
-    lidar_points.size());  // size() - total # of floats in flat array of 5 features per lidar point
+  // Convert LiDAR points to FP16 from any format (FP32, FP16, or INT8)
+  // Note: lidar_points.size() is the total # of floats in the flat array of 5 features per lidar point
+  std::vector<nvtype::half> lidar_half(lidar_points.size());
   for (size_t i = 0; i < lidar_points.size(); ++i) {
     lidar_half[i] = __float2half(lidar_points[i]);
   }
@@ -183,7 +184,10 @@ void BEVFusionCore::updateCalibration(
   const std::vector<float> & lidar_to_camera,
   const std::vector<float> & img_aug_matrix)
 {
-  if (!initialized_) return;
+  if (!initialized_) {
+    std::cerr << "Error: BEVFusionCore::updateCalibration called before initialization." << std::endl;
+    return;
+  }
   pipeline_->update(
     camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_camera.data(), img_aug_matrix.data(), stream_);
 }

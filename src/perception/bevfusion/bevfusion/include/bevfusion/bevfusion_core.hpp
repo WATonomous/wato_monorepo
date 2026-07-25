@@ -146,10 +146,20 @@ public:
 
   /**
    * @brief Main inference entry point. Processes one synchronized frame of camera and LiDAR data.
+   *        Converts data to required format and feed it to GPU pipeline (needs LiDAR data to be FP16).
    * @param camera_images Vector of camera images
    * @param lidar_points Vector of LiDAR points
    * @param num_points Number of LiDAR points
    * @return Vector of detected 3D bounding boxes
+   *
+   * @note lidar_points is a flattened 1D vector containing all the raw LiDAR data for a single frame
+   *       - lidar_points.size() equals num_points * config_.num_features.
+   *       - The vector looks like [x1, y1, z1, i1, r1, x2, y2, z2, i2, r2, ...],
+   *         where (x,y,z) are coordinates, i is intensity and r is ring number.
+   * @note Preconditions:
+   *       - initialize() called and returned true; pipeline_ and stream_ are live.
+   *       - updateCalibration() called at least once; pipeline needs camera extrinsics/intrinsics before its first forward pass
+   *         to relate cameras to the LiDAR.
    */
   std::vector<BoundingBox> infer(
     const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
