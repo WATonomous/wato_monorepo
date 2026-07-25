@@ -31,13 +31,14 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share bevfusion)/config/params.yaml
-        - name: multi_image_topic
-          value: $(var multi_image_topic)
-        - name: lidar_topic
-          value: $(var lidar_topic)
-        - name: camera_info_topic
-          value: $(var camera_info_topic)
-        - name: output_detections_topic
-          value: $(var output_detections_topic)
-        - name: output_markers_topic
-          value: $(var output_markers_topic)
+      remap:
+        - from: camera_info
+          to: $(var camera_info_topic)
+        - from: multi_image
+          to: $(var multi_image_topic)
+        - from: lidar
+          to: $(var lidar_topic)
+        - from: output_detections
+          to: $(var output_detections_topic)
+        - from: output_markers
+          to: $(var output_markers_topic)

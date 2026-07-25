@@ -344,32 +344,12 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     // Log configuration
     RCLCPP_INFO(this->get_logger(), "Configuration summary: (EMPTY RIGHT NOW)");
 
-    // Declare topic name parameters
-    this->declare_parameter<std::string>("camera_info_topic", std::string(kCameraInfoTopic));
-    this->declare_parameter<std::string>("lidar_topic", std::string(kLidarTopic));
-    this->declare_parameter<std::string>("multi_image_topic", std::string(kMultiImageTopic));
-    this->declare_parameter<std::string>("output_detections_topic", std::string(kOutputDetectionsTopic));
-    this->declare_parameter<std::string>("output_markers_topic", std::string(kOutputMarkersTopic));
-
-    camera_info_topic_ = this->get_parameter("camera_info_topic").as_string();
-    lidar_topic_ = this->get_parameter("lidar_topic").as_string();
-    multi_image_topic_ = this->get_parameter("multi_image_topic").as_string();
-    output_detections_topic_ = this->get_parameter("output_detections_topic").as_string();
-    output_markers_topic_ = this->get_parameter("output_markers_topic").as_string();
-
     // Declare and configure QoS parameters
     this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");
     this->declare_parameter<int>("qos_subscriber_depth", 10);
     this->declare_parameter<std::string>("qos_publisher_reliability", "reliable");
     this->declare_parameter<std::string>("qos_publisher_durability", "transient_local");
     this->declare_parameter<int>("qos_publisher_depth", 10);
-
-    RCLCPP_INFO(this->get_logger(), "Topic names configured:");
-    RCLCPP_INFO(this->get_logger(), "  - Camera info topic: '%s'", camera_info_topic_.c_str());
-    RCLCPP_INFO(this->get_logger(), "  - LiDAR topic: '%s'", lidar_topic_.c_str());
-    RCLCPP_INFO(this->get_logger(), "  - Multi-image topic: '%s'", multi_image_topic_.c_str());
-    RCLCPP_INFO(this->get_logger(), "  - Output detections: '%s'", output_detections_topic_.c_str());
-    RCLCPP_INFO(this->get_logger(), "  - Output markers: '%s'", output_markers_topic_.c_str());
 
     const std::string subscriber_reliability = this->get_parameter("qos_subscriber_reliability").as_string();
     const int subscriber_depth = this->get_parameter("qos_subscriber_depth").as_int();
@@ -467,19 +447,18 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     // Create subscribers
 
     multi_camera_info_sub_ = this->create_subscription<deep_msgs::msg::MultiCameraInfo>(
-      camera_info_topic_, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
+      kCameraInfoTopic, subscriber_qos_, std::bind(&BEVFusionNode::cameraInfoCallback, this, std::placeholders::_1));
 
     lidar_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      lidar_topic_, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+      kLidarTopic, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
 
     camera_sub_ = this->create_subscription<deep_msgs::msg::MultiImageCompressed>(
-      multi_image_topic_, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
+      kMultiImageTopic, subscriber_qos_, std::bind(&BEVFusionNode::cameraCallback, this, std::placeholders::_1));
 
     // Create publishers
-    detection_pub_ =
-      this->create_publisher<vision_msgs::msg::Detection3DArray>(output_detections_topic_, publisher_qos_);
+    detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kOutputDetectionsTopic, publisher_qos_);
 
-    marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(output_markers_topic_, publisher_qos_);
+    marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kOutputMarkersTopic, publisher_qos_);
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
