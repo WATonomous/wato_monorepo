@@ -170,6 +170,9 @@ public:
    * @param camera_instrinsics 3x3 camera intrinsics matrix
    * @param lidar_to_camera 4x4 LiDAR to camera transformation matrix
    * @param img_aug_matrix 4x4 image augmentation matrix
+   *
+   * @note Preconditions:
+   *       - initialize() called and returned true; pipeline_ and stream_ are live.
    */
   void updateCalibration(
     const std::vector<float> & camera_to_lidar,
@@ -183,9 +186,16 @@ public:
    */
   bool isInitialized() const;
 
+  /**
+   * @brief Check if the calibration is initialized
+   * @return true if calibration is initialized, false otherwise
+   */
+  bool hasCalibration() const;
+
 private:
   BEVFusionInputConfig config_;
   bool initialized_ = false;
+  bool has_calibration_ = false;
   cudaStream_t stream_ = nullptr;
   std::shared_ptr<::bevfusion::Core>
     pipeline_;  // Reference to CUDA-BEVFusion pipeline, not wato's BEVFusionCore class.

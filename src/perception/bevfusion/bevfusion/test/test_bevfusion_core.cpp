@@ -66,3 +66,21 @@ TEST_CASE("BEVFusionCore: updateCalibration does not crash when not initialized"
   BEVFusionCore core(make_test_config());
   REQUIRE_NOTHROW(core.updateCalibration({}, {}, {}, {}));
 }
+
+// =============================================================================
+// TEST 4: hasCalibration() state tracking
+// WHY: The core must track if calibration matrices have been provided. It should
+//      start false, and if updateCalibration is called before initialization,
+//      it should remain false (since the update fails).
+// =============================================================================
+TEST_CASE("BEVFusionCore: hasCalibration tracks state correctly", "[core][fast]")
+{
+  BEVFusionCore core(make_test_config());
+
+  // 1. Should be false initially
+  REQUIRE_FALSE(core.hasCalibration());
+  // 2. Try to update calibration (this will fail internally because isInitialized() == false)
+  core.updateCalibration({}, {}, {}, {});
+  // 3. Should still be false because the calibration update was rejected
+  REQUIRE_FALSE(core.hasCalibration());
+}

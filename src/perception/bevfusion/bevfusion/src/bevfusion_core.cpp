@@ -45,6 +45,11 @@ bool BEVFusionCore::isInitialized() const
   return initialized_;
 }
 
+bool BEVFusionCore::hasCalibration() const
+{
+  return has_calibration_;
+}
+
 bool BEVFusionCore::initialize()
 {
   // Must load this plugin before create_core() — TRT will fail to deserialize head.bbox.plan without it
@@ -150,6 +155,10 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     std::cerr << "Error: BEVFusionCore::infer called before initialization." << std::endl;
     return {};  // guard check, return empty vector if pipeline is not initialized
   }
+  if (!has_calibration_) {
+    std::cerr << "Error: BEVFusionCore::infer called before calibration was updated." << std::endl;
+    return {};
+  }
 
   // Convert LiDAR points to FP16 from any format (FP32, FP16, or INT8)
   // Notes:
@@ -202,6 +211,7 @@ void BEVFusionCore::updateCalibration(
   }
   pipeline_->update(
     camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_camera.data(), img_aug_matrix.data(), stream_);
+  has_calibration_ = true;
 }
 
 }  // namespace wato::perception::bevfusion
