@@ -66,6 +66,12 @@ public:
    */
   explicit BEVFusionNode(const rclcpp::NodeOptions & options);
 
+  static constexpr auto kCameraInfoTopic = "/multi_camera_sync/multi_camera_info";
+  static constexpr auto kLidarTopic = "/lidar/all/points_merged";
+  static constexpr auto kMultiImageTopic = "/multi_camera_sync/multi_image_compressed";
+  static constexpr auto kOutputDetectionsTopic = "/perception/detections_3d_bev";
+  static constexpr auto kOutputMarkersTopic = "/perception/bev_detection_markers";
+
   /**
    * @brief Lifecycle: configure parameters, core, QoS, and diagnostics.
    * @param previous_state Previous lifecycle state
@@ -129,10 +135,23 @@ private:
   void cameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg);
 
   /**
-   * @brief Computes calibration matrices from camera info messages.
-   * @details This method is called by the camera info callback and should not be called directly.
+   * @brief Computes calibration matrices from camera info and TF extrinsics, then updates the core CUDA pipeline.
+   * @details Called during node activation (`on_activate()`) once camera info and TF transforms are available.
+   *          Can also be invoked by `cameraInfoCallback()` if dynamic calibration updates are required.
    */
   void computeCalibrationMatrices();
+
+  /**
+   * @brief Camera callback to cache the latest images.
+   * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
+   */
+  void cameraCallback(const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg);
+
+  /**
+   * @brief LiDAR callback to cache the latest point cloud.
+   * @param point_cloud_msg PointCloud2 containing point cloud data
+   */
+  void lidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg);
 
   /**
    * @brief Log total processed messages and average processing time.
@@ -181,6 +200,13 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
+  // Topic names
+  std::string camera_info_topic_;
+  std::string lidar_topic_;
+  std::string multi_image_topic_;
+  std::string output_detections_topic_;
+  std::string output_markers_topic_;
+
   // Camera info
   rclcpp::Subscription<deep_msgs::msg::MultiCameraInfo>::SharedPtr multi_camera_info_sub_;
   bool camera_info_received_ = false;
@@ -198,6 +224,7 @@ private:
 
   // TODO(bevfusion_team) - probably should use /camera_pano_nn/image_rect instead for example. Not sure.
   rclcpp::Subscription<deep_msgs::msg::MultiImageCompressed>::SharedPtr camera_sub_;
+  deep_msgs::msg::MultiImageCompressed::ConstSharedPtr latest_multi_image_;
 
   // TODO(bevfusion_team) - need to sync camera and lidar. So either cache lidar until we get all cameras
   // or cache cameras until we get lidar. Create a mutex as needed.
