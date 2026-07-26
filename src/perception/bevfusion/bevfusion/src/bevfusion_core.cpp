@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,6 +43,11 @@ BEVFusionCore::~BEVFusionCore()
 bool BEVFusionCore::isInitialized() const
 {
   return initialized_;
+}
+
+bool BEVFusionCore::hasCalibration() const
+{
+  return has_calibration_;
 }
 
 bool BEVFusionCore::initialize()
@@ -145,15 +151,52 @@ bool BEVFusionCore::initialize()
 std::vector<BoundingBox> BEVFusionCore::infer(
   const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points)
 {
-  /**
- * TODO(bevfusion_team)
- * Overview: Convert data to required format and feed it to GPU pipeline (needs LiDAR data to be FP16)
- *
- * Key steps:
- *   1. Convert the input `lidar_points` (vector of `float`) into a vector of `nvtype::half`.
- *   2. Call `pipeline_->forward(images.data(), lidar_half.data(), num_points, stream_)`.
- *   3. Return the `std::vector<BoundingBox>` result.
- */
+  if (!initialized_) {
+    std::cerr << "Error: BEVFusionCore::infer called before initialization." << std::endl;
+    return {};  // guard check, return empty vector if pipeline is not initialized
+  }
+  if (!has_calibration_) {
+    std::cerr << "Error: BEVFusionCore::infer called before calibration was updated." << std::endl;
+    return {};
+  }
+
+  // Convert LiDAR points to FP16 from any format (FP32, FP16, or INT8)
+  // Notes:
+  // - lidar_points.size() is the total # of floats in the flat array of 5 features per lidar point
+  // - We set lidar_half as a vector of __half and not nvtype::half because __float2half returns __half format.
+  std::vector<__half> lidar_half(lidar_points.size());
+  for (size_t i = 0; i < lidar_points.size(); ++i) {
+    lidar_half[i] = __float2half(lidar_points[i]);
+  }
+
+  // Bevfusion forward pass call
+  // Notes:
+  // - camera_images.data(): gives the array of image pointers. Each pointer points to the start of the data for one camera.
+  //   The `const_cast` is used because the vendor library expects a non-const pointer, even though it doesn't modify the image data.
+  // - lidar_half.data(): gives a pointer to the first element of the vector containing points in __half format.
+  //   The `reinterpret_cast` is used to cast this pointer to `const nvtype::half*`, which is the expected type for the vendor library API.
+  //   Could have also used memcpy to manually copy bits from __half to nvtype::half since they are bitwise identical.
+  // - Use .data() for underlying array
+  auto detections = pipeline_->forward(
+    const_cast<const unsigned char **>(camera_images.data()),
+    reinterpret_cast<const nvtype::half *>(lidar_half.data()),
+    num_points,
+    stream_);
+
+  // map vendor type to our bounding box type
+  std::vector<BoundingBox> result;
+  result.reserve(detections.size());
+  for (const auto & d : detections) {
+    BoundingBox box;
+    box.position = {d.position.x, d.position.y, d.position.z};
+    box.size = {d.size.w, d.size.l, d.size.h};
+    box.velocity = {d.velocity.vx, d.velocity.vy};
+    box.z_rotation = d.z_rotation;
+    box.score = d.score;
+    box.id = d.id;
+    result.push_back(box);
+  }
+  return result;
 }
 
 void BEVFusionCore::updateCalibration(
@@ -162,16 +205,13 @@ void BEVFusionCore::updateCalibration(
   const std::vector<float> & lidar_to_camera,
   const std::vector<float> & img_aug_matrix)
 {
-  /**
- * TODO(bevfusion_team)
- * Overview: Feed the current physical positions of the cameras (extrinsics) and lens properties (instrinsics) to
- *           the BEVFusion Core (pipeline_). This is done by calling pipeline_->update() with the appropriate
- *           parameters. Note: Extrinsic and instrinsics are static, so only run this once at startup or when calibration
- *           changes. MUST be called before the first forward() call.
- *
- * Call core_->update(camera2lidar.data(), camera_intrinsics.data(), lidar2image.data(), img_aug_matrix.data(), stream_)
- * and that I think that should be it.
- */
+  if (!initialized_) {
+    std::cerr << "Error: BEVFusionCore::updateCalibration called before initialization." << std::endl;
+    return;
+  }
+  pipeline_->update(
+    camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_camera.data(), img_aug_matrix.data(), stream_);
+  has_calibration_ = true;
 }
 
 }  // namespace wato::perception::bevfusion

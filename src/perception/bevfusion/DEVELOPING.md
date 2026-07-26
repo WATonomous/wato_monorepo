@@ -2,7 +2,7 @@
 
 ## Overview
 
-**BEVFusion** is a ROS 2 lifecycle composable node that fuses camera and LiDAR data into a unified Bird's-Eye View (BEV) representation for 3D object detection and map segmentation.
+**BEVFusion** is a ROS 2 lifecycle composable node that fuses camera and LiDAR data into a unified Bird's-Eye View (BEV) representation for 3D object detection. *(Note: Map segmentation is supported by the architecture but not currently implemented in the CUDA-BEVFusion C++ wrapper).*
 
 Rather than forcing cameras to see in 3D or LiDAR to see in 2D, both are converted into a top-down BEV grid where they are fused and processed together. This maintains both geometric structure and semantic density, and compensates for individual sensor weaknesses — cameras struggle in low light, LiDAR struggles in poor weather.
 
@@ -124,6 +124,7 @@ Inference uses TensorRT with FP16 precision. INT8 is deferred — it requires ca
 
 ### What BEVFusion does NOT do
 
+- **Map Segmentation** — while the BEVFusion architecture supports it, this C++ TensorRT wrapper is currently only implemented for 3D object detection (bounding boxes).
 - **Floor removal** — the model's encoder learns to ignore the road internally
 - **Clustering** — would discard geometry the model needs
 - **Tracking** — handled by the `tracking` node downstream
