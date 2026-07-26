@@ -1611,4 +1611,536 @@ git commit -m "feat(prediction_ml): add rung 0 golden anchor validating the MTR 
 
 ---
 
-*(Tasks 7–17 continue below.)*
+### Task 7: Information-loss ledger
+
+Accounts for every point where information is discarded between the Waymo scenario and the packed tensors. Turns "the metric moved" into "and here is exactly what disappeared". Pure — no ROS, no torch.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/ledger.py`
+- Test: `src/world_modeling/prediction_ml/eval/tests/test_ledger.py`
+
+**Interfaces:**
+- Consumes: `scenario.Scenario`, `representation` constants.
+- Produces:
+  - `Ledger` dataclass with sections `agents, targets, history, map_, output`, each a `dict[str, int | float | str]`
+  - `Ledger.format() -> str`
+  - `Ledger.to_json(path) -> None`
+  - `build_ledger(scen, *, kept_track_ids, selected_target_indices, heuristic_target_indices, history_valid, history_total, map_stats) -> Ledger`
+  - `MapStats` dataclass: `radius_m, nearby_lanes, radius_only_emitted, reachable_emitted, points_before, points_after, omitted_by_type: dict[str, int]`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import json
+
+import numpy as np
+import pytest
+
+from wato_mtr_eval import ledger, representation as rep
+
+
+def _map_stats():
+    return ledger.MapStats(
+        radius_m=80.0,
+        nearby_lanes=37,
+        radius_only_emitted=37,
+        reachable_emitted=16,
+        points_before=611,
+        points_after=284,
+        omitted_by_type={"road_edge": 18, "road_line": 24, "crosswalk": 3, "stop_sign": 1},
+    )
+
+
+def _ledger(**overrides):
+    kwargs = dict(
+        scenario_id="abc123",
+        num_waymo_tracks=54,
+        num_type_mapped=48,
+        dropped_by_type={"other": 6},
+        num_candidates=48,
+        selected_target_indices=[0, 1, 2, 3, 4, 5, 6, 7],
+        heuristic_target_indices=[0, 1, 2, 3, 4, 90, 91, 92],
+        history_valid=491,
+        history_total=528,
+        map_stats=_map_stats(),
+    )
+    kwargs.update(overrides)
+    return ledger.build_ledger(**kwargs)
+
+
+def test_agent_drops_are_counted_not_silent():
+    lg = _ledger()
+    assert lg.agents["waymo_tracks"] == 54
+    assert lg.agents["type_mapped"] == 48
+    assert lg.agents["dropped"] == 6
+    assert lg.agents["dropped_by_type"] == {"other": 6}
+
+
+def test_context_overflow_is_reported_when_agents_exceed_capacity():
+    lg = _ledger(num_waymo_tracks=141, num_type_mapped=141)
+    assert lg.agents["context_capacity"] == rep.CONTEXT_CAPACITY
+    assert lg.agents["context_overflow"] == 141 - rep.CONTEXT_CAPACITY
+
+
+def test_no_overflow_reported_when_under_capacity():
+    assert _ledger().agents["context_overflow"] == 0
+
+
+def test_target_selection_records_heuristic_agreement():
+    """Pinned selection is what runs; the heuristic's choice is recorded free."""
+    lg = _ledger()
+    assert lg.targets["selected"] == 8
+    assert lg.targets["pinned"] is True
+    assert lg.targets["heuristic_agreement"] == 5  # indices 0-4 overlap
+    assert lg.targets["heuristic_agreement_fraction"] == pytest.approx(5 / 8)
+
+
+def test_history_masking_fraction():
+    lg = _ledger()
+    assert lg.history["valid"] == 491
+    assert lg.history["masked"] == 37
+    assert lg.history["masked_fraction"] == pytest.approx(37 / 528)
+
+
+def test_map_section_records_what_the_query_and_packing_discarded():
+    lg = _ledger().map_
+    assert lg["nearby_lanes"] == 37
+    assert lg["radius_only_emitted"] == 37
+    assert lg["reachable_emitted"] == 16
+    assert lg["dropped_by_connectivity"] == 21
+    assert lg["centerline_points_before"] == 611
+    assert lg["centerline_points_after"] == 284
+    assert lg["omitted_semantics"]["road_edge"] == 18
+    assert lg["global_type_collapse"] == "20 waymo types -> 1 wato token"
+
+
+def test_output_section_records_the_horizon_clamp():
+    lg = _ledger().output
+    assert lg["model_steps"] == rep.NUM_FUTURE_FRAMES
+    assert lg["stride"] == 2
+    assert lg["emitted_steps"] == rep.DEPLOYED_STEPS
+    assert lg["emitted_horizon_s"] == pytest.approx(rep.DEPLOYED_HORIZON_S)
+
+
+def test_format_is_human_readable_and_names_every_section():
+    text = _ledger().format()
+    for section in ("AGENTS", "TARGETS", "HISTORY", "MAP", "OUTPUT"):
+        assert section in text
+
+
+def test_json_round_trips(tmp_path):
+    path = tmp_path / "ledger.json"
+    _ledger().to_json(path)
+    loaded = json.loads(path.read_text())
+    assert loaded["scenario_id"] == "abc123"
+    assert loaded["agents"]["dropped"] == 6
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+```bash
+pytest tests/test_ledger.py -v
+```
+
+Expected: FAIL — `ModuleNotFoundError: No module named 'wato_mtr_eval.ledger'`.
+
+- [ ] **Step 3: Write `ledger.py`**
+
+```python
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# ... (Apache-2.0 header)
+"""Information-loss accounting.
+
+Every drop point already exists in the pipeline, so instrumenting is cheap.
+The payoff is that when deployed minFDE moves 1.22 -> 1.61, cross-referencing
+the worst-N agents against these counts usually names the cause immediately:
+if the worst rows all carry a context overflow, the bug is in ranking or
+truncation rather than in packing.
+
+Scoped to drop points that CAN change -- budgets, filters, policies. Static
+facts belong in REPRESENTATION.md, not in per-run output.
+"""
+from __future__ import annotations
+
+import dataclasses
+import json
+import pathlib
+
+from . import representation as rep
+
+
+@dataclasses.dataclass(frozen=True)
+class MapStats:
+    radius_m: float
+    nearby_lanes: int
+    radius_only_emitted: int
+    reachable_emitted: int
+    points_before: int
+    points_after: int
+    omitted_by_type: dict[str, int]
+
+
+@dataclasses.dataclass(frozen=True)
+class Ledger:
+    scenario_id: str
+    agents: dict
+    targets: dict
+    history: dict
+    map_: dict
+    output: dict
+
+    def format(self) -> str:
+        a, t, h, m, o = self.agents, self.targets, self.history, self.map_, self.output
+        dropped = ", ".join(f"{k} {v}" for k, v in sorted(a["dropped_by_type"].items())) or "none"
+        omitted = "  ".join(f"{k} {v}" for k, v in sorted(m["omitted_semantics"].items()))
+        return "\n".join([
+            f"scenario {self.scenario_id}",
+            f"AGENTS   waymo tracks {a['waymo_tracks']} -> type-mapped {a['type_mapped']} "
+            f"({a['dropped']} dropped: {dropped})",
+            f"         -> context capacity {a['context_capacity']}, used {a['context_used']}, "
+            f"overflow {a['context_overflow']}",
+            f"TARGETS  candidates {t['candidates']} -> tracks_to_predict {t['selected']} "
+            f"-> selected {t['selected']} ({'pinned' if t['pinned'] else 'heuristic'})",
+            f"         [heuristic would have selected "
+            f"{t['heuristic_agreement']}/{t['selected']} of these]",
+            f"HISTORY  {h['slots']} slots x {h['tracks']} tracks = {h['total']} -> "
+            f"valid {h['valid']}, masked {h['masked']} ({h['masked_fraction']:.1%})",
+            f"MAP      radius {m['radius_m']:.0f} m; nearby lanes {m['nearby_lanes']} -> "
+            f"radius_only {m['radius_only_emitted']} -> reachable {m['reachable_emitted']}",
+            f"         centerline points {m['centerline_points_before']} -> "
+            f"{m['centerline_points_after']}",
+            f"         polyline capacity {m['polyline_capacity']}, used {m['polylines_used']}, "
+            f"overflow {m['polyline_overflow']}",
+            f"         omitted semantics: {omitted}",
+            f"         global_type: {m['global_type_collapse']}",
+            f"OUTPUT   {o['model_steps']} steps @ {o['model_step_s']} s -> stride {o['stride']} "
+            f"-> {o['strided_steps']} -> horizon clamp -> {o['emitted_steps']} @ "
+            f"{o['emitted_step_s']} s",
+        ])
+
+    def to_json(self, path: pathlib.Path) -> None:
+        payload = {
+            "scenario_id": self.scenario_id,
+            "agents": self.agents,
+            "targets": self.targets,
+            "history": self.history,
+            "map": self.map_,
+            "output": self.output,
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+
+def build_ledger(
+    *,
+    scenario_id: str,
+    num_waymo_tracks: int,
+    num_type_mapped: int,
+    dropped_by_type: dict[str, int],
+    num_candidates: int,
+    selected_target_indices: list[int],
+    heuristic_target_indices: list[int],
+    history_valid: int,
+    history_total: int,
+    map_stats: MapStats,
+) -> Ledger:
+    stride = int(round(rep.DEPLOYED_STEP_S / rep.MODEL_STEP_S))
+    strided = rep.NUM_FUTURE_FRAMES // stride
+    agreement = len(set(selected_target_indices) & set(heuristic_target_indices))
+    selected = len(selected_target_indices)
+    used_map = min(map_stats.reachable_emitted, rep.NUM_SRC_POLYLINES)
+
+    return Ledger(
+        scenario_id=scenario_id,
+        agents={
+            "waymo_tracks": num_waymo_tracks,
+            "type_mapped": num_type_mapped,
+            "dropped": num_waymo_tracks - num_type_mapped,
+            "dropped_by_type": dict(dropped_by_type),
+            "context_capacity": rep.CONTEXT_CAPACITY,
+            "context_used": min(num_type_mapped, rep.CONTEXT_CAPACITY),
+            "context_overflow": max(0, num_type_mapped - rep.CONTEXT_CAPACITY),
+        },
+        targets={
+            "candidates": num_candidates,
+            "selected": selected,
+            "pinned": True,
+            "heuristic_agreement": agreement,
+            "heuristic_agreement_fraction": (agreement / selected) if selected else 0.0,
+        },
+        history={
+            "slots": rep.HISTORY_STEPS,
+            "tracks": history_total // rep.HISTORY_STEPS if rep.HISTORY_STEPS else 0,
+            "total": history_total,
+            "valid": history_valid,
+            "masked": history_total - history_valid,
+            "masked_fraction": (
+                (history_total - history_valid) / history_total if history_total else 0.0
+            ),
+        },
+        map_={
+            "radius_m": map_stats.radius_m,
+            "nearby_lanes": map_stats.nearby_lanes,
+            "radius_only_emitted": map_stats.radius_only_emitted,
+            "reachable_emitted": map_stats.reachable_emitted,
+            "dropped_by_connectivity": (
+                map_stats.radius_only_emitted - map_stats.reachable_emitted
+            ),
+            "centerline_points_before": map_stats.points_before,
+            "centerline_points_after": map_stats.points_after,
+            "polyline_capacity": rep.NUM_SRC_POLYLINES,
+            "polylines_used": used_map,
+            "polyline_overflow": max(0, map_stats.reachable_emitted - rep.NUM_SRC_POLYLINES),
+            "omitted_semantics": dict(map_stats.omitted_by_type),
+            "global_type_collapse": "20 waymo types -> 1 wato token",
+        },
+        output={
+            "model_steps": rep.NUM_FUTURE_FRAMES,
+            "model_step_s": rep.MODEL_STEP_S,
+            "stride": stride,
+            "strided_steps": strided,
+            "emitted_steps": min(strided, rep.DEPLOYED_STEPS),
+            "emitted_step_s": rep.DEPLOYED_STEP_S,
+            "emitted_horizon_s": min(strided, rep.DEPLOYED_STEPS) * rep.DEPLOYED_STEP_S,
+        },
+    )
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+```bash
+pytest tests/test_ledger.py -v
+```
+
+Expected: 9 passed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/ledger.py \
+        src/world_modeling/prediction_ml/eval/tests/test_ledger.py
+git commit -m "feat(prediction_ml): add information-loss ledger"
+```
+
+---
+
+### Task 8: Lanelet query
+
+Converts Waymo map features into the subset a real `LaneletAhead` query would return. Parameterized: radius-only is the deterministic upper-context baseline; connectivity traversal approximates WATO's forward-reachable query. The delta between them prices the query's aggressiveness.
+
+This is an explicit **approximation**, not a claimed Lanelet2 replica. Recorded real `LaneletAhead` can never serve as an oracle here — it queries the Ontario map while Waymo scenarios are elsewhere entirely, with no shared frame or road network. It is useful only for distributional calibration later.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/lanelet_query.py`
+- Test: `src/world_modeling/prediction_ml/eval/tests/test_lanelet_query.py`
+
+**Interfaces:**
+- Consumes: `scenario.MapPolyline`, `ledger.MapStats`.
+- Produces:
+  - `QueryConfig` dataclass: `radius_m: float = 80.0`, `strategy: str = "radius"` (`"radius"` | `"reachable"`), `forward_half_angle_deg: float = 90.0`
+  - `query(polylines, ego_xy, ego_heading, config) -> tuple[list[MapPolyline], MapStats]`
+  - `LANE_TYPES = {"lane"}` and `DISCARDED_TYPES = {"road_line", "road_edge", "crosswalk", "speed_bump", "driveway"}`
+
+**Note:** this module imports neither ROS nor torch — it is pure geometry over `scenario` dataclasses. Keeping it separate from `waymo_to_ros.py` is what lets the rung-1 Python ablation reuse the exact same query the converter uses.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import numpy as np
+import pytest
+
+from wato_mtr_eval import lanelet_query as lq, scenario
+
+
+def _line(fid, ftype, xs, y=0.0):
+    pts = np.array([[x, y, 0.0] for x in xs], dtype=np.float64)
+    return scenario.MapPolyline(feature_id=fid, feature_type=ftype, points=pts)
+
+
+def _map():
+    return [
+        _line(1, "lane", [0, 10, 20]),            # near, ahead
+        _line(2, "lane", [200, 210, 220]),        # far, outside radius
+        _line(3, "lane", [-30, -20, -10]),        # near, behind
+        _line(4, "road_edge", [0, 10, 20], y=3),  # discarded semantic
+        _line(5, "crosswalk", [5, 6], y=1),       # discarded semantic
+    ]
+
+
+def test_only_lane_features_survive():
+    kept, _ = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(radius_m=80.0))
+    assert {p.feature_type for p in kept} == {"lane"}
+
+
+def test_radius_filters_distant_lanes():
+    kept, _ = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(radius_m=80.0))
+    assert {p.feature_id for p in kept} == {1, 3}
+
+
+def test_reachable_strategy_drops_lanes_behind_ego():
+    cfg = lq.QueryConfig(radius_m=80.0, strategy="reachable")
+    kept, _ = lq.query(_map(), (0.0, 0.0), 0.0, cfg)
+    assert {p.feature_id for p in kept} == {1}, "lane 3 is behind ego"
+
+
+def test_radius_only_keeps_more_than_reachable():
+    r, _ = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(strategy="radius"))
+    k, _ = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(strategy="reachable"))
+    assert len(r) >= len(k), "radius-only is the upper-context baseline"
+
+
+def test_stats_count_omitted_semantics_by_type():
+    _, stats = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(radius_m=80.0))
+    assert stats.omitted_by_type["road_edge"] == 1
+    assert stats.omitted_by_type["crosswalk"] == 1
+
+
+def test_stats_report_both_strategies_regardless_of_which_ran():
+    """The radius-vs-reachable delta must be recordable from a single run."""
+    _, stats = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(strategy="reachable"))
+    assert stats.radius_only_emitted == 2
+    assert stats.reachable_emitted == 1
+
+
+def test_stats_count_points_before_and_after():
+    _, stats = lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(radius_m=80.0))
+    assert stats.points_before == 3 + 3 + 3  # lane features only
+    assert stats.points_after == 3 + 3
+
+
+def test_rejects_unknown_strategy():
+    with pytest.raises(ValueError, match="unknown strategy"):
+        lq.query(_map(), (0.0, 0.0), 0.0, lq.QueryConfig(strategy="magic"))
+
+
+def test_heading_rotates_the_forward_region():
+    """Facing -x, the lane behind becomes the lane ahead."""
+    cfg = lq.QueryConfig(strategy="reachable")
+    kept, _ = lq.query(_map(), (0.0, 0.0), np.pi, cfg)
+    assert {p.feature_id for p in kept} == {3}
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+```bash
+pytest tests/test_lanelet_query.py -v
+```
+
+Expected: FAIL — `ModuleNotFoundError: No module named 'wato_mtr_eval.lanelet_query'`.
+
+- [ ] **Step 3: Write `lanelet_query.py`**
+
+```python
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# ... (Apache-2.0 header)
+"""Waymo map features -> the subset a LaneletAhead query would return.
+
+LaneletAhead is a query result, not a map: "legally reachable lanelets ahead of
+ego within a configurable radius ... BFS through the routing graph". Two
+strategies are offered:
+
+  radius     every lane centerline within radius_m. Deterministic upper-context
+             baseline; over-supplies relative to real WATO.
+  reachable  additionally requires the lane to fall in the forward region, an
+             explicit APPROXIMATION of the forward-reachable filter -- not a
+             Lanelet2 replica.
+
+Reporting the delta between them prices the query's aggressiveness. Stats are
+always computed for both strategies so a single run yields the comparison.
+
+Pure geometry: imports neither ROS nor torch, so the rung-1 ablation reuses the
+exact query the converter uses.
+"""
+from __future__ import annotations
+
+import dataclasses
+import math
+
+import numpy as np
+
+from . import ledger, scenario
+
+LANE_TYPES = {"lane"}
+DISCARDED_TYPES = {"road_line", "road_edge", "crosswalk", "speed_bump", "driveway"}
+_STRATEGIES = {"radius", "reachable"}
+
+
+@dataclasses.dataclass(frozen=True)
+class QueryConfig:
+    radius_m: float = 80.0
+    strategy: str = "radius"
+    forward_half_angle_deg: float = 90.0
+
+
+def _within_radius(poly: scenario.MapPolyline, ego_xy, radius_m: float) -> bool:
+    d = np.linalg.norm(poly.points[:, :2] - np.asarray(ego_xy), axis=1)
+    return bool(d.min() <= radius_m)
+
+
+def _in_forward_region(poly, ego_xy, ego_heading, half_angle_deg: float) -> bool:
+    """True if any point lies within half_angle of ego heading.
+
+    Mirrors SceneBuilder's forward-hemisphere notion (mtr_types.hpp:47-48):
+    90 degrees means the front hemisphere, including agents directly beside ego.
+    """
+    rel = poly.points[:, :2] - np.asarray(ego_xy)
+    cos_h, sin_h = math.cos(ego_heading), math.sin(ego_heading)
+    forward = rel[:, 0] * cos_h + rel[:, 1] * sin_h
+    lateral = -rel[:, 0] * sin_h + rel[:, 1] * cos_h
+    angle = np.abs(np.arctan2(lateral, forward))
+    return bool((angle <= math.radians(half_angle_deg)).any())
+
+
+def query(
+    polylines: list[scenario.MapPolyline],
+    ego_xy: tuple[float, float],
+    ego_heading: float,
+    config: QueryConfig,
+) -> tuple[list[scenario.MapPolyline], ledger.MapStats]:
+    """Return the queried lane polylines plus loss statistics."""
+    if config.strategy not in _STRATEGIES:
+        raise ValueError(f"unknown strategy {config.strategy!r}; expected one of {_STRATEGIES}")
+
+    lanes = [p for p in polylines if p.feature_type in LANE_TYPES]
+    omitted: dict[str, int] = {}
+    for p in polylines:
+        if p.feature_type in DISCARDED_TYPES:
+            omitted[p.feature_type] = omitted.get(p.feature_type, 0) + 1
+
+    radius_hits = [p for p in lanes if _within_radius(p, ego_xy, config.radius_m)]
+    reachable_hits = [
+        p for p in radius_hits
+        if _in_forward_region(p, ego_xy, ego_heading, config.forward_half_angle_deg)
+    ]
+    kept = radius_hits if config.strategy == "radius" else reachable_hits
+
+    return kept, ledger.MapStats(
+        radius_m=config.radius_m,
+        nearby_lanes=len(lanes),
+        radius_only_emitted=len(radius_hits),
+        reachable_emitted=len(reachable_hits),
+        points_before=int(sum(len(p.points) for p in lanes)),
+        points_after=int(sum(len(p.points) for p in kept)),
+        omitted_by_type=omitted,
+    )
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+```bash
+pytest tests/test_lanelet_query.py -v
+```
+
+Expected: 9 passed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/lanelet_query.py \
+        src/world_modeling/prediction_ml/eval/tests/test_lanelet_query.py
+git commit -m "feat(prediction_ml): add parameterized lanelet query for waymo maps"
+```
+
+---
+
+*(Tasks 9–17 continue below.)*
