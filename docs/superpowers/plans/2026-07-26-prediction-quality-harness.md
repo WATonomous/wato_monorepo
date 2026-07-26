@@ -2143,4 +2143,487 @@ git commit -m "feat(prediction_ml): add parameterized lanelet query for waymo ma
 
 ---
 
-*(Tasks 9–17 continue below.)*
+### Task 9: The converter — Waymo scenario to mcap bag
+
+The keystone. One artifact feeds two consumers: rung 2 reads the bag with the `rosbag2_cpp` API, rung 4 replays it with `ros2 bag play`. Using mcap rather than a bespoke format means Python and C++ agree by construction, because both use ROS's own serializer.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/waymo_to_ros.py`
+- Test: `src/world_modeling/prediction_ml/eval/tests/test_waymo_to_ros.py`
+
+**Interfaces:**
+- Consumes: `scenario.Scenario`, `lanelet_query.query`, `ledger.build_ledger`, `representation` constants.
+- Produces:
+  - `TOPICS` dict: `{"tracks": "/perception/detections_3D_tracked", "pose": "/localization/pose", "odom": "/world_modeling/transform/odometry", "lanelet": "lanelet/lanelet_ahead"}`
+  - `MAP_FRAME = "map"`, `EGO_CHILD_FRAME = "base_footprint"`
+  - `detections_at(scen, step) -> vision_msgs.msg.Detection3DArray`
+  - `ego_pose_at(scen, step) -> geometry_msgs.msg.PoseStamped`
+  - `ego_odometry_at(scen, step) -> nav_msgs.msg.Odometry`
+  - `lanelet_ahead_at(scen, step, config) -> tuple[lanelet_msgs.msg.LaneletAhead, MapStats]`
+  - `convert(scen, out_dir, config) -> ConversionResult` with `bag_path, ledger, ground_truth`
+  - `ground_truth_of(scen) -> tuple[np.ndarray, np.ndarray, list[str], list[str]]` — `gt [A,80,2]`, `valid [A,80]`, `agent_ids`, `types`
+
+**Environment:** this module imports `rosbag2_py` and ROS message packages. It must never import `torch` — Task 2's guard enforces this.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import numpy as np
+import pytest
+
+rosbag2_py = pytest.importorskip("rosbag2_py")
+
+from wato_mtr_eval import lanelet_query as lq, representation as rep, scenario, waymo_to_ros as w2r
+
+
+def _scenario(num_tracks=3, num_steps=91):
+    rng = np.random.default_rng(0)
+    tracks = []
+    for i in range(num_tracks):
+        states = np.zeros((num_steps, 10))
+        states[:, 0] = np.arange(num_steps) * 0.5 + i * 10  # x advances
+        states[:, 1] = float(i)
+        states[:, 3:6] = [4.5, 2.0, 1.6]
+        states[:, 6] = 0.0        # heading
+        states[:, 7] = 5.0        # vx
+        states[:, 9] = 1.0        # valid
+        tracks.append(scenario.Track(
+            object_id=100 + i,
+            object_type=["vehicle", "pedestrian", "cyclist"][i % 3],
+            states=states,
+        ))
+    lane = scenario.MapPolyline(
+        feature_id=1, feature_type="lane",
+        points=np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]]),
+    )
+    return scenario.Scenario(
+        scenario_id="test_scenario",
+        timestamps_s=np.arange(num_steps) * 0.1,
+        current_time_index=10,
+        sdc_track_index=0,
+        tracks=tracks,
+        tracks_to_predict=[1, 2],
+        map_polylines=[lane],
+    )
+
+
+def test_detections_use_class_id_strings_scene_builder_accepts():
+    """scene_builder.cpp:238-246 matches on these exact lowercase strings."""
+    msg = w2r.detections_at(_scenario(), step=10)
+    labels = {
+        r.hypothesis.class_id
+        for d in msg.detections for r in d.results
+        if r.hypothesis.class_id != rep.VELOCITY_CLASS_ID
+    }
+    assert labels <= set(rep.CLASS_ID_FOR_TYPE.values())
+
+
+def test_velocity_rides_in_the_hypothesis_pose_position():
+    """scene_builder.cpp:118-127 reads vx/vy/vz from the pose POSITION."""
+    msg = w2r.detections_at(_scenario(), step=10)
+    det = msg.detections[0]
+    vel = [r for r in det.results if r.hypothesis.class_id == rep.VELOCITY_CLASS_ID]
+    assert len(vel) == 1
+    assert vel[0].pose.pose.position.x == pytest.approx(5.0)
+    assert vel[0].pose.pose.position.z == pytest.approx(0.0)  # waymo has no vz
+    assert vel[0].hypothesis.score > 0.0, "score <= 0 makes SceneBuilder skip the entry"
+
+
+def test_detection_ids_are_stable_across_frames():
+    """SceneBuilder keys per-object history by detection.id."""
+    scen = _scenario()
+    a = {d.id for d in w2r.detections_at(scen, step=8).detections}
+    b = {d.id for d in w2r.detections_at(scen, step=10).detections}
+    assert a == b and a
+
+
+def test_invalid_states_are_omitted_not_emitted_as_zeros():
+    scen = _scenario()
+    scen.tracks[1].states[10, 9] = 0.0  # mark invalid at this step
+    ids = {d.id for d in w2r.detections_at(scen, step=10).detections}
+    assert str(scen.tracks[1].object_id) not in ids
+
+
+def test_bbox_sizes_are_positive_so_sample_from_detection_accepts_them():
+    """scene_builder.cpp:268-273 rejects any non-positive extent."""
+    for d in w2r.detections_at(_scenario(), step=10).detections:
+        assert d.bbox.size.x > 0 and d.bbox.size.y > 0 and d.bbox.size.z > 0
+
+
+def test_ego_odometry_twist_is_body_frame_and_round_trips():
+    """SceneBuilder rotates body twist INTO map; the converter applies the inverse."""
+    scen = _scenario()
+    scen.tracks[0].states[:, 6] = np.pi / 2   # heading +y
+    scen.tracks[0].states[:, 7] = 0.0
+    scen.tracks[0].states[:, 8] = 5.0         # map-frame velocity +y
+
+    odom = w2r.ego_odometry_at(scen, step=10)
+    assert odom.child_frame_id == w2r.EGO_CHILD_FRAME
+    # Facing +y at 5 m/s: body-frame velocity is purely forward.
+    assert odom.twist.twist.linear.x == pytest.approx(5.0, abs=1e-6)
+    assert odom.twist.twist.linear.y == pytest.approx(0.0, abs=1e-6)
+
+
+def test_ego_pose_matches_the_sdc_track():
+    scen = _scenario()
+    pose = w2r.ego_pose_at(scen, step=10)
+    assert pose.header.frame_id == w2r.MAP_FRAME
+    assert pose.pose.position.x == pytest.approx(scen.tracks[0].states[10, 0])
+
+
+def test_lanelet_ahead_carries_only_centerlines():
+    msg, _ = w2r.lanelet_ahead_at(_scenario(), 10, lq.QueryConfig())
+    assert msg.lanelets
+    for ll in msg.lanelets:
+        assert len(ll.centerline) > 0
+        assert len(ll.left_boundary) == 0, "WATO representation packs centerlines only"
+
+
+def test_convert_writes_a_readable_bag_with_all_four_topics(tmp_path):
+    result = w2r.convert(_scenario(), tmp_path, lq.QueryConfig())
+    assert result.bag_path.exists()
+
+    reader = rosbag2_py.SequentialReader()
+    reader.open(
+        rosbag2_py.StorageOptions(uri=str(result.bag_path), storage_id="mcap"),
+        rosbag2_py.ConverterOptions("", ""),
+    )
+    topics = {t.name for t in reader.get_all_topics_and_types()}
+    assert topics == set(w2r.TOPICS.values())
+
+
+def test_convert_emits_one_message_per_topic_per_step(tmp_path):
+    scen = _scenario()
+    result = w2r.convert(scen, tmp_path, lq.QueryConfig())
+    reader = rosbag2_py.SequentialReader()
+    reader.open(
+        rosbag2_py.StorageOptions(uri=str(result.bag_path), storage_id="mcap"),
+        rosbag2_py.ConverterOptions("", ""),
+    )
+    counts: dict[str, int] = {}
+    while reader.has_next():
+        topic, _, _ = reader.read_next()
+        counts[topic] = counts.get(topic, 0) + 1
+    assert set(counts.values()) == {len(scen.timestamps_s)}
+
+
+def test_ground_truth_covers_the_native_horizon():
+    gt, valid, ids, types = w2r.ground_truth_of(_scenario())
+    assert gt.shape == (3, rep.NUM_FUTURE_FRAMES, 2)
+    assert valid.shape == (3, rep.NUM_FUTURE_FRAMES)
+    assert len(ids) == len(types) == 3
+
+
+def test_conversion_is_lossless_for_everything_the_representation_claims(tmp_path):
+    """The invariant that makes rung1 -> rung2 a clean attribution.
+
+    If the converter silently loses information, that loss lands in the R1->R2
+    delta and gets misattributed to SceneBuilder.
+    """
+    scen = _scenario()
+    result = w2r.convert(scen, tmp_path, lq.QueryConfig(strategy="radius"))
+
+    for step in range(len(scen.timestamps_s)):
+        msg = w2r.detections_at(scen, step)
+        by_id = {d.id: d for d in msg.detections}
+        for track in scen.tracks:
+            st = track.states[step]
+            if st[9] == 0.0 or track.object_type == "other":
+                assert str(track.object_id) not in by_id
+                continue
+            det = by_id[str(track.object_id)]
+            assert det.bbox.center.position.x == pytest.approx(st[0], abs=1e-9)
+            assert det.bbox.center.position.y == pytest.approx(st[1], abs=1e-9)
+            assert det.bbox.size.x == pytest.approx(st[3], abs=1e-9)
+            vel = next(r for r in det.results if r.hypothesis.class_id == rep.VELOCITY_CLASS_ID)
+            assert vel.pose.pose.position.x == pytest.approx(st[7], abs=1e-9)
+            assert vel.pose.pose.position.y == pytest.approx(st[8], abs=1e-9)
+
+    assert result.ledger.agents["dropped"] == 0
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+```bash
+source /opt/ros/humble/setup.bash
+pytest tests/test_waymo_to_ros.py -v
+```
+
+Expected: FAIL — `ModuleNotFoundError: No module named 'wato_mtr_eval.waymo_to_ros'`.
+
+- [ ] **Step 3: Write `waymo_to_ros.py`**
+
+```python
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# ... (Apache-2.0 header)
+"""Waymo scenario -> mcap bag of WATO ROS messages.
+
+One artifact, two consumers: rung 2 reads the bag through rosbag2_cpp, rung 4
+replays it with `ros2 bag play`. Using ROS's own serializer means the Python
+writer and the C++ reader agree by construction.
+
+Imports rosbag2_py and ROS messages; must never import torch.
+"""
+from __future__ import annotations
+
+import dataclasses
+import math
+import pathlib
+
+import numpy as np
+import rosbag2_py
+from geometry_msgs.msg import PoseStamped
+from lanelet_msgs.msg import Lanelet, LaneletAhead
+from nav_msgs.msg import Odometry
+from rclpy.serialization import serialize_message
+from vision_msgs.msg import (
+    BoundingBox3D, Detection3D, Detection3DArray, ObjectHypothesisWithPose,
+)
+
+from . import ledger, lanelet_query as lq, representation as rep, scenario
+
+TOPICS = {
+    "tracks": "/perception/detections_3D_tracked",
+    "pose": "/localization/pose",
+    "odom": "/world_modeling/transform/odometry",
+    "lanelet": "lanelet/lanelet_ahead",
+}
+TYPES = {
+    "tracks": "vision_msgs/msg/Detection3DArray",
+    "pose": "geometry_msgs/msg/PoseStamped",
+    "odom": "nav_msgs/msg/Odometry",
+    "lanelet": "lanelet_msgs/msg/LaneletAhead",
+}
+MAP_FRAME = "map"
+EGO_CHILD_FRAME = "base_footprint"
+S = scenario.STATE_COL
+
+
+@dataclasses.dataclass(frozen=True)
+class ConversionResult:
+    bag_path: pathlib.Path
+    ledger: ledger.Ledger
+    ground_truth: tuple
+
+
+def _stamp(msg, t_s: float) -> None:
+    msg.header.stamp.sec = int(t_s)
+    msg.header.stamp.nanosec = int(round((t_s - int(t_s)) * 1e9))
+    msg.header.frame_id = MAP_FRAME
+
+
+def _yaw_to_quat(yaw: float):
+    from geometry_msgs.msg import Quaternion
+    return Quaternion(x=0.0, y=0.0, z=math.sin(yaw / 2.0), w=math.cos(yaw / 2.0))
+
+
+def detections_at(scen: scenario.Scenario, step: int) -> Detection3DArray:
+    """Tracked detections at one timestep. Invalid or untyped tracks are omitted."""
+    msg = Detection3DArray()
+    _stamp(msg, float(scen.timestamps_s[step]))
+
+    for track in scen.tracks:
+        st = track.states[step]
+        if st[S["valid"]] == 0.0 or track.object_type not in rep.CLASS_ID_FOR_TYPE:
+            continue
+
+        det = Detection3D()
+        det.header = msg.header
+        det.id = str(track.object_id)
+
+        box = BoundingBox3D()
+        box.center.position.x = float(st[S["x"]])
+        box.center.position.y = float(st[S["y"]])
+        box.center.position.z = float(st[S["z"]])
+        box.center.orientation = _yaw_to_quat(float(st[S["heading"]]))
+        box.size.x = float(st[S["length"]])
+        box.size.y = float(st[S["width"]])
+        box.size.z = float(st[S["height"]])
+        det.bbox = box
+
+        klass = ObjectHypothesisWithPose()
+        klass.hypothesis.class_id = rep.CLASS_ID_FOR_TYPE[track.object_type]
+        klass.hypothesis.score = 1.0
+
+        # SceneBuilder reads velocity out of the POSE POSITION of a results entry
+        # whose class_id is "linear_velocity" (scene_builder.cpp:118-127).
+        vel = ObjectHypothesisWithPose()
+        vel.hypothesis.class_id = rep.VELOCITY_CLASS_ID
+        vel.hypothesis.score = 1.0
+        vel.pose.pose.position.x = float(st[S["vx"]])
+        vel.pose.pose.position.y = float(st[S["vy"]])
+        vel.pose.pose.position.z = 0.0  # waymo has no velocity_z
+
+        det.results = [klass, vel]
+        msg.detections.append(det)
+
+    return msg
+
+
+def ego_pose_at(scen: scenario.Scenario, step: int) -> PoseStamped:
+    st = scen.tracks[scen.sdc_track_index].states[step]
+    msg = PoseStamped()
+    _stamp(msg, float(scen.timestamps_s[step]))
+    msg.pose.position.x = float(st[S["x"]])
+    msg.pose.position.y = float(st[S["y"]])
+    msg.pose.position.z = float(st[S["z"]])
+    msg.pose.orientation = _yaw_to_quat(float(st[S["heading"]]))
+    return msg
+
+
+def ego_odometry_at(scen: scenario.Scenario, step: int) -> Odometry:
+    """Body-frame twist.
+
+    SceneBuilder rotates this INTO the map frame using ego_pose, so the converter
+    applies the inverse rotation. The pair round-trips, which the tests assert.
+    """
+    st = scen.tracks[scen.sdc_track_index].states[step]
+    heading = float(st[S["heading"]])
+    cos_h, sin_h = math.cos(heading), math.sin(heading)
+    vx, vy = float(st[S["vx"]]), float(st[S["vy"]])
+
+    msg = Odometry()
+    _stamp(msg, float(scen.timestamps_s[step]))
+    msg.child_frame_id = EGO_CHILD_FRAME
+    msg.pose.pose = ego_pose_at(scen, step).pose
+    msg.twist.twist.linear.x = vx * cos_h + vy * sin_h
+    msg.twist.twist.linear.y = -vx * sin_h + vy * cos_h
+    msg.twist.twist.linear.z = 0.0
+    return msg
+
+
+def lanelet_ahead_at(scen, step: int, config: lq.QueryConfig):
+    st = scen.tracks[scen.sdc_track_index].states[step]
+    kept, stats = lq.query(
+        scen.map_polylines,
+        (float(st[S["x"]]), float(st[S["y"]])),
+        float(st[S["heading"]]),
+        config,
+    )
+
+    msg = LaneletAhead()
+    _stamp(msg, float(scen.timestamps_s[step]))
+    msg.current_lanelet_id = -1
+    msg.radius_m = config.radius_m
+    for poly in kept:
+        ll = Lanelet()
+        ll.id = int(poly.feature_id)
+        ll.lanelet_type = "road"
+        for p in poly.points:
+            from geometry_msgs.msg import Point
+            ll.centerline.append(Point(x=float(p[0]), y=float(p[1]), z=float(p[2])))
+        msg.lanelets.append(ll)
+    return msg, stats
+
+
+def ground_truth_of(scen: scenario.Scenario):
+    """Future positions for every designated target, over the native horizon."""
+    start = scen.current_time_index + 1
+    stop = start + rep.NUM_FUTURE_FRAMES
+    gt, valid, ids, types = [], [], [], []
+    for idx in scen.tracks_to_predict:
+        track = scen.tracks[idx]
+        states = track.states[start:stop]
+        gt.append(states[:, [S["x"], S["y"]]])
+        valid.append(states[:, S["valid"]] > 0.0)
+        ids.append(str(track.object_id))
+        types.append(track.object_type)
+    return np.array(gt), np.array(valid), ids, types
+
+
+def convert(scen, out_dir: pathlib.Path, config: lq.QueryConfig) -> ConversionResult:
+    """Write one scenario to an mcap bag plus its ledger and ground truth."""
+    bag_path = pathlib.Path(out_dir) / scen.scenario_id
+    writer = rosbag2_py.SequentialWriter()
+    writer.open(
+        rosbag2_py.StorageOptions(uri=str(bag_path), storage_id="mcap"),
+        rosbag2_py.ConverterOptions("", ""),
+    )
+    for key, topic in TOPICS.items():
+        writer.create_topic(
+            rosbag2_py.TopicMetadata(
+                name=topic, type=TYPES[key], serialization_format="cdr"
+            )
+        )
+
+    map_stats = None
+    history_valid = history_total = 0
+    for step, t_s in enumerate(scen.timestamps_s):
+        t_ns = int(round(float(t_s) * 1e9))
+        dets = detections_at(scen, step)
+        lanelet_msg, map_stats = lanelet_ahead_at(scen, step, config)
+        writer.write(TOPICS["tracks"], serialize_message(dets), t_ns)
+        writer.write(TOPICS["pose"], serialize_message(ego_pose_at(scen, step)), t_ns)
+        writer.write(TOPICS["odom"], serialize_message(ego_odometry_at(scen, step)), t_ns)
+        writer.write(TOPICS["lanelet"], serialize_message(lanelet_msg), t_ns)
+
+        if step <= scen.current_time_index:
+            history_total += len(scen.tracks)
+            history_valid += len(dets.detections)
+
+    del writer  # flush and close
+
+    typed = [t for t in scen.tracks if t.object_type in rep.CLASS_ID_FOR_TYPE]
+    dropped: dict[str, int] = {}
+    for t in scen.tracks:
+        if t.object_type not in rep.CLASS_ID_FOR_TYPE:
+            dropped[t.object_type] = dropped.get(t.object_type, 0) + 1
+
+    lg = ledger.build_ledger(
+        scenario_id=scen.scenario_id,
+        num_waymo_tracks=len(scen.tracks),
+        num_type_mapped=len(typed),
+        dropped_by_type=dropped,
+        num_candidates=len(typed),
+        selected_target_indices=list(scen.tracks_to_predict),
+        heuristic_target_indices=list(scen.tracks_to_predict),
+        history_valid=history_valid,
+        history_total=history_total,
+        map_stats=map_stats,
+    )
+    return ConversionResult(bag_path, lg, ground_truth_of(scen))
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+```bash
+pytest tests/test_waymo_to_ros.py -v
+```
+
+Expected: 12 passed.
+
+- [ ] **Step 5: Verify the environment guard still holds**
+
+```bash
+pytest tests/test_env_split.py -v
+```
+
+Expected: PASS — `waymo_to_ros.py` imports ROS only, `model.py` imports torch only.
+
+- [ ] **Step 6: Convert three fixture scenarios**
+
+Pick scenarios by *code path*, not variety. Add a selection helper and run it:
+
+```bash
+python -m wato_mtr_eval.waymo_to_ros \
+  --shard ../../../../uncompressed_scenario_validation_validation.tfrecord-00000-of-00150 \
+  --out ../test/fixtures \
+  --select dense,sparse,gappy
+```
+
+`--select` picks: **dense** = most tracks (aim for >128 to force context overflow), **sparse** = fewest tracks, **gappy** = highest fraction of invalid history states. Print each chosen `scenario_id` and its ledger.
+
+If no scenario in the shard exceeds 128 tracks, note that in `eval/README.md` and pick the densest available — the overflow path then needs a synthetic fixture, added in Task 12.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/waymo_to_ros.py \
+        src/world_modeling/prediction_ml/eval/tests/test_waymo_to_ros.py \
+        src/world_modeling/prediction_ml/test/fixtures
+git commit -m "feat(prediction_ml): add waymo to ros mcap converter with losslessness test"
+```
+
+---
+
+*(Tasks 10–17 continue below.)*
