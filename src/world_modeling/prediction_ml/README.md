@@ -76,6 +76,7 @@ Parameters in `config/params.yaml`:
 | `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds |
 | `mtr.selected_target_agent_limit` | `8` | Maximum target agents per MTR batch |
 | `mtr.target_forward_half_angle_deg` | `90.0` | Ego-heading half-angle used to prioritize forward targets |
+| `mtr.pinned_target_ids` | `[]` | Evaluation only: pin MTR targets to these detection IDs in order, bypassing the selection heuristic |
 | `mtr.model_time_step_s` | `0.1` | Native MTR future-sample interval used when downsampling output |
 | `mtr.ego_length` | `4.0936` | Ego vehicle length in metres |
 | `mtr.ego_width` | `1.3579` | Ego vehicle width in metres |

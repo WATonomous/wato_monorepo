@@ -46,6 +46,10 @@ struct MtrConfig
   // Half-angle from ego heading that counts as "forward" for target priority (degrees).
   // 90 => front hemisphere, including agents beside the car at ±90°.
   double target_forward_half_angle_deg{90.0};
+  // Evaluation only: when non-empty, select these detection ids as MTR targets in this
+  // order, bypassing the forward-hemisphere/distance heuristic. The quality harness sets
+  // this to Waymo's tracks_to_predict. Empty is the production default.
+  std::vector<std::string> pinned_target_ids;
   // Native interval between consecutive future trajectory samples emitted by MTR.
   double model_time_step_s{0.1};
   int history_steps{11};

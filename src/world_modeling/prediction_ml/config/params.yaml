@@ -16,6 +16,9 @@ prediction_ml_node:
     mtr.selected_target_agent_limit: 8
     # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
     mtr.target_forward_half_angle_deg: 90.0
+    # Evaluation only. Non-empty values pin targets in order and bypass the selection heuristic.
+    # Leave empty in deployment.
+    mtr.pinned_target_ids: []
     # Native MTR future-trajectory cadence. Published predictions are downsampled to prediction_time_step.
     mtr.model_time_step_s: 0.1
     # EVE dimensions from eve_description/urdf/eve_chassis.xacro.

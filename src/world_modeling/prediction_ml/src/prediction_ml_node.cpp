@@ -40,6 +40,8 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
   this->declare_parameter("mtr.selected_target_agent_limit", 8);
   this->declare_parameter("mtr.target_forward_half_angle_deg", 90.0);
+  this->declare_parameter<std::vector<std::string>>(
+    "mtr.pinned_target_ids", std::vector<std::string>{});
   this->declare_parameter("mtr.model_time_step_s", 0.1);
   this->declare_parameter("mtr.ego_length", 4.0936);
   this->declare_parameter("mtr.ego_width", 1.3579);
@@ -59,6 +61,7 @@ MtrConfig PredictionMlNode::loadMtrConfig()
   cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
   cfg.selected_target_agent_limit = static_cast<int>(this->get_parameter("mtr.selected_target_agent_limit").as_int());
   cfg.target_forward_half_angle_deg = this->get_parameter("mtr.target_forward_half_angle_deg").as_double();
+  cfg.pinned_target_ids = this->get_parameter("mtr.pinned_target_ids").as_string_array();
   cfg.model_time_step_s = this->get_parameter("mtr.model_time_step_s").as_double();
   cfg.ego_length = this->get_parameter("mtr.ego_length").as_double();
   cfg.ego_width = this->get_parameter("mtr.ego_width").as_double();

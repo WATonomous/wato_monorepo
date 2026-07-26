@@ -523,6 +523,42 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     return candidates;
   }
 
+  if (!config_.pinned_target_ids.empty()) {
+    if (config_.selected_target_agent_limit <= 0) {
+      return candidates;
+    }
+
+    const auto limit = static_cast<std::size_t>(config_.selected_target_agent_limit);
+    candidates.reserve(std::min(config_.pinned_target_ids.size(), limit));
+    std::unordered_set<std::string> accepted_ids;
+
+    for (const auto & wanted : config_.pinned_target_ids) {
+      if (candidates.size() >= limit) {
+        break;
+      }
+      if (accepted_ids.find(wanted) != accepted_ids.end()) {
+        continue;
+      }
+
+      for (const auto & detection : detections.detections) {
+        if (detection.id != wanted) {
+          continue;
+        }
+        const auto sample = sampleFromDetection(detection, current_time, detections.header.frame_id);
+        if (!sample.has_value() || history_.find(sample->detection_id) == history_.end()) {
+          continue;
+        }
+
+        const double dx = sample->x - ego_position.x;
+        const double dy = sample->y - ego_position.y;
+        candidates.push_back(TargetCandidate{*sample, dx * dx + dy * dy, true});
+        accepted_ids.insert(sample->detection_id);
+        break;
+      }
+    }
+    return candidates;
+  }
+
   const double ego_yaw = yawFromQuaternion(ego_orientation);
   const double cos_yaw = std::cos(ego_yaw);
   const double sin_yaw = std::sin(ego_yaw);

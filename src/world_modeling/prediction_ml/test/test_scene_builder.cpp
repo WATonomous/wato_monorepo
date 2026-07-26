@@ -412,6 +412,129 @@ TEST(SceneBuilder, ClosestForwardTargetSelectedFirst)
   EXPECT_EQ(tensors.sidecar.targets[2].detection_id, "behind");
 }
 
+TEST(SceneBuilderPinnedTargets, EmptyPinnedListUsesHeuristic)
+{
+  MtrConfig config;
+  ASSERT_TRUE(config.pinned_target_ids.empty()) << "production default must use the heuristic";
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("behind", "vehicle", -5.0, 0.0, 0.0, 0.0),
+     makeDetection("near_front", "vehicle", 8.0, 0.0, 0.0, 0.0),
+     makeDetection("far_front", "vehicle", 30.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 3U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "near_front");
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "far_front");
+  EXPECT_EQ(tensors.sidecar.targets[2].detection_id, "behind");
+}
+
+TEST(SceneBuilderPinnedTargets, PinnedIdsSelectExactlyThoseDetectionsInConfiguredOrder)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"c", "a"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("a", "vehicle", 5.0, 0.0, 0.0, 0.0),
+     makeDetection("b", "vehicle", 6.0, 0.0, 0.0, 0.0),
+     makeDetection("c", "vehicle", 7.0, 0.0, 0.0, 0.0),
+     makeDetection("d", "vehicle", 8.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  std::vector<std::string> got;
+  for (const auto & target : tensors.sidecar.targets) {
+    got.push_back(target.detection_id);
+  }
+  EXPECT_EQ(got, (std::vector<std::string>{"c", "a"}));
+}
+
+TEST(SceneBuilderPinnedTargets, UnknownPinnedIdIsSkippedNotFatal)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"a", "does_not_exist"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("a", "vehicle", 5.0, 0.0, 0.0, 0.0),
+     makeDetection("b", "vehicle", 6.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "a");
+}
+
+TEST(SceneBuilderPinnedTargets, PinnedListIsTruncatedToConfiguredTargetLimit)
+{
+  MtrConfig config;
+  config.selected_target_agent_limit = 8;
+  std::vector<std::string> ids;
+  std::vector<vision_msgs::msg::Detection3D> detections;
+  for (int i = 0; i < 12; ++i) {
+    ids.push_back("id" + std::to_string(i));
+    detections.push_back(makeDetection(ids.back(), "vehicle", 5.0 + i, 0.0, 0.0, 0.0));
+  }
+  config.pinned_target_ids = ids;
+  SceneBuilder builder{config};
+  const auto arr = makeArray(100.0, detections);
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 8U);
+  for (std::size_t i = 0; i < tensors.sidecar.targets.size(); ++i) {
+    EXPECT_EQ(tensors.sidecar.targets[i].detection_id, ids[i]);
+  }
+}
+
+TEST(SceneBuilderPinnedTargets, PinningIgnoresForwardHemisphereAndDistanceRanking)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"behind"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("front", "vehicle", 1.0, 0.0, 0.0, 0.0),
+     makeDetection("behind", "vehicle", -25.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "behind");
+}
+
+TEST(SceneBuilderPinnedTargets, DuplicatePinnedIdsOccupyOneTargetSlot)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"a", "a", "b"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("a", "vehicle", 5.0, 0.0, 0.0, 0.0),
+     makeDetection("b", "vehicle", 6.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 2U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "a");
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "b");
+}
+
 TEST(SceneBuilder, DuplicateDetectionIdsTakeOneTargetSlot)
 {
   // Two detections sharing an id must not occupy two target slots.
