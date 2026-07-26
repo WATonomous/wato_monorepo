@@ -136,6 +136,48 @@ per-bucket averaging protocol. Once rung 0 passes, the 8 s metric is not recompu
 `tracks_to_predict` so R1→R2 measures only packing. The heuristic's *would-have-picked* set is
 recorded alongside, making the target-selection ablation a free byproduct of every run.
 
+### Paired delta distribution
+
+Rung-to-rung comparison is **paired** — the same scenarios and the same target agents through both
+pipelines — so the per-agent difference is directly available. Reporting only the difference of
+aggregates discards nearly all of that signal, and it is the difference that matters here: a mean
+Δ minFDE of 0.01 m could be 1268 agents each at 0.01 (uniform float precision loss, benign) or 1200
+agents at 0.00 and 68 at 0.19 (one code path broken). Those demand opposite responses, and no
+aggregate can tell them apart.
+
+So for every rung transition, record the **distribution of paired per-agent deltas**, not another
+formal model metric:
+
+```
+R1 → R2   Δ minFDE (m), paired over 1268 target agents
+  mean      +0.004
+  median    +0.000
+  p90       +0.001
+  p99       +0.087
+  max       +0.412
+  |Δ| < 1e-3:  1194 / 1268  (94.2%)
+
+  worst 10 scenarios:
+    scenario_id            agent_id   Δ minFDE   ledger flag
+    a3f2...c81             1042       +0.412     context overflow (141 → 128)
+    b7e1...09d              318       +0.388     history masked 6/11
+    ...
+```
+
+Three properties this buys:
+
+- **The worst-N list is the debugging entry point.** Each row is a directly reproducible case —
+  scenario id plus agent id — rather than a number to go hunting behind.
+- **Cross-referencing worst-N against the loss ledger usually names the cause immediately.** If the
+  worst rows all carry `context overflow`, the bug is in ranking or truncation, not in packing.
+- **The CI gate becomes a shape check, not a threshold on a mean.** "≥99% of agents have
+  |Δ minFDE| < 1e-3" is far sharper than "mean Δ < 0.01", which a small number of catastrophic
+  outliers can pass unnoticed.
+
+Applies to every transition where elementwise tensor comparison is unavailable — R0→R1, R1→R2 at
+the metric level, R3-final, and R4. Rung 2's tensor gtest remains a separate exact/near-exact
+check.
+
 ### Loss ledger
 
 Emitted per scenario alongside metrics. Every drop point already exists in code, so instrumenting
@@ -300,11 +342,54 @@ on the custom-op replacement, the riskiest item.
 | Lanelet query approximation diverges from real WATO | Rungs 1–2 optimistic vs deployment | Report radius-only vs reachable delta; calibrate against bag statistics later |
 | Single val shard too noisy for rung-0 anchor | Weak harness self-validation | Paired deltas are unaffected; download more shards only if needed |
 
+## Resolved from code
+
+### The 29 `obj_trajs` columns
+
+From `scene_builder.cpp:763-781`:
+
+| Cols | Content |
+|---|---|
+| 0–5 | `rx, ry, rz` (target-centered position), `dx, dy, dz` (box dims) |
+| 6–10 | one-hot: vehicle, pedestrian, cyclist, `is_center`, `is_sdc` |
+| 11–21 | time one-hot over the 11 history steps |
+| 22 | scalar time, `desired_times[s] - current_time` |
+| 23–24 | `sin(rel_heading)`, `cos(rel_heading)` |
+| 25–26 | `rel_vx`, `rel_vy` (target-frame velocity) |
+| 27–28 | `acc_x`, `acc_y` |
+
+6 + 5 + 11 + 1 + 2 + 2 + 2 = 29 ✓. The layout appears to mirror official MTR's
+`obj_trajs_data` concatenation, which is reassuring but **must be verified by rung 2, not assumed** —
+column ordering is exactly the kind of thing that is silently wrong.
+
+One concrete divergence candidate already visible: acceleration. Official MTR computes a fixed
+first-step copy (`acce[:, :, 0, :] = acce[:, :, 1, :]`) and hardcodes the 10 Hz rate. WATO uses
+`config_.history_rate_hz` and a more elaborate rule where the earliest present slot inherits the
+next *valid* acceleration (`scene_builder.cpp:717-743`). These agree on gap-free histories and
+diverge when slots are masked — which Waymo data does produce. A prime rung-2 finding.
+
+### Traffic light / map semantics — better than assumed
+
+`lanelet_msgs/Lanelet` carries far more than centerlines:
+
+- `RegulatoryElement[]` with subtypes `traffic_light`, `stop_sign`, `yield`, `right_of_way`,
+  including stop-line geometry (`ref_lines`). **Static infrastructure is present; dynamic signal
+  state is not** — there is no current-light-colour field anywhere in the message.
+- `left_boundary` / `right_boundary` geometry with `left_boundary_type` / `right_boundary_type`,
+  whose constants include **`BOUNDARY_ROAD_EDGE`** and dashed/solid/solid-solid.
+- `lanelet_type` with values including **`"crosswalk"`**, plus `turn_direction`, `is_intersection`,
+  `speed_limit_mps`, and `conflicting_lanelet_ids`.
+
+This materially changes finding 3. The map gap is **not** "WATO lacks road edges and crosswalks" —
+WATO *has* them and `scene_builder.cpp` discards them, packing only centerlines under one generic
+`global_type` token. Closing most of the gap is a SceneBuilder change, not a perception or mapping
+project. That raises the expected return on the rung-1 ablation sweep considerably: it is pricing a
+fix that is cheap, rather than one that needs a new data source.
+
+Dynamic signal state remains genuinely absent, and the 9-column map row has no channel for it
+regardless.
+
 ## Open questions
 
-- What exactly do the 29 `obj_trajs` columns encode? Must be enumerated in `REPRESENTATION.md`
-  before rung 1's ablation can be written.
-- Does `lanelet_msgs/Lanelet` carry regulatory elements / traffic-light state? Irrelevant to the
-  tensor (no light channel in the 9-column map row) but needed for a complete representation spec.
 - Which config seam pins SceneBuilder's target selection for ladder runs — test-only hook, or a
   real parameter?
