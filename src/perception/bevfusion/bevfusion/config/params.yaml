@@ -2,10 +2,8 @@
 bevfusion_node:
   ros__parameters:
     # Directory containing all TensorRT .plan and .onnx engine files
-    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8"
-
-    # Model precision - can be "fp16" or "int8"
-    precision: "int8"
+    # Place model files at: /opt/watonomous/models/bevfusion/resnet50/
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50"
 
     # Camera frame IDs — must match the 6 nuScenes-layout cameras on Eve
     camera_names:
