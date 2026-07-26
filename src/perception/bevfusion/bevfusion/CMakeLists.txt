@@ -180,6 +180,11 @@ if(BUILD_TESTING)
     LIBRARIES
       ${PROJECT_NAME}_node
   )
+  add_wato_test(test_bevfusion_core
+    test/test_bevfusion_core.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_wato_core
+  )
 endif()
 
 ament_package()

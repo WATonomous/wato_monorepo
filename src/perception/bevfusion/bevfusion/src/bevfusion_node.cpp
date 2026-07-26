@@ -63,6 +63,9 @@ void BEVFusionNode::declareParameters()
   // Directory containing all .plan and .onnx engine files for the model
   this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50");
 
+  // Model precision
+  this->declare_parameter<std::string>("precision", "int8");
+
   // Detection confidence, bounding boxes below threshold are discarded
   this->declare_parameter<double>("confidence_threshold", 0.3);
 
@@ -111,6 +114,8 @@ void BEVFusionNode::declareParameters()
   config.fuser_plan = model_dir + "/fuser.plan";
   config.head_bbox_plan = model_dir + "/head.bbox.plan";
   config.lidar_backbone_onnx = model_dir + "/lidar.backbone.onnx";
+
+  config.precision = this->get_parameter("precision").as_string();
   config.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
 
   config.num_cameras = static_cast<int>(camera_names.size());
