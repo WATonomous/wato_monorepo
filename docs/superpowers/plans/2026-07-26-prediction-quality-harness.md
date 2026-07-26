@@ -3274,4 +3274,528 @@ git commit -m "feat(prediction_ml): add C++ tensor bundle reader for eval fixtur
 
 ---
 
-*(Tasks 12–17 continue below.)*
+### Task 12: GATE B — the rung-2 parity gtest
+
+**The CI gate, and the highest-durability deliverable in this plan.** It replays a committed mcap through the real `SceneBuilder` and compares the packed tensors against Python-generated references, in-process, with no GPU and no Python. It is the only thing standing between a future SceneBuilder refactor and silent quality loss that nobody notices until the vehicle behaves oddly.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/test/test_scene_builder_parity.cpp`
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/reference_pack.py`
+- Modify: `src/world_modeling/prediction_ml/CMakeLists.txt` (test registration)
+- Modify: `src/world_modeling/prediction_ml/package.xml` (rosbag2 test deps)
+
+**Interfaces:**
+- Consumes: `readTensorBundle` (Task 11), `mtr.pinned_target_ids` (Task 10), fixture bags (Task 9).
+- Produces: `reference_pack.pack(scen, config) -> dict[str, np.ndarray]` — the Python implementation of the WATO representation, producing the same eight input tensors SceneBuilder does.
+
+**Comparison rules** (from the design spec):
+
+| Field | Tolerance |
+|---|---|
+| shapes, dtypes | exact |
+| `*_mask` (uint8) | **exact** |
+| `track_index_to_predict`, `center_type_ids` (int64) | exact |
+| positions, sizes, velocities (f32) | atol 1e-4 |
+| headings, directions (f32) | atol 1e-5 |
+
+Masks are compared **first and structurally**. A mask mismatch fails immediately with its own message rather than emitting thousands of confusing value diffs from comparing padding against real data. Float comparison then runs only over unmasked elements, with padding asserted zero separately.
+
+- [ ] **Step 1: Write `reference_pack.py`**
+
+This is the Python implementation of the same representation `scene_builder.cpp` implements. It reads `representation.py` constants so the two cannot drift on capacities or column layout.
+
+```python
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# ... (Apache-2.0 header)
+"""Reference packing: the WATO representation, implemented in Python.
+
+Deliberately independent of scene_builder.cpp. Two independent implementations
+of one written contract is the whole point -- a shared helper would let a bug
+agree with itself.
+
+Pure numpy: imports neither ROS nor torch.
+"""
+from __future__ import annotations
+
+import math
+
+import numpy as np
+
+from . import lanelet_query as lq, representation as rep, scenario
+
+S = scenario.STATE_COL
+
+
+def _resampled_slots(scen, step: int) -> np.ndarray:
+    """The HISTORY_STEPS timestamps SceneBuilder resamples onto, oldest first."""
+    dt = 1.0 / rep.HISTORY_RATE_HZ
+    now = float(scen.timestamps_s[step])
+    return np.array([now - (rep.HISTORY_STEPS - 1 - i) * dt for i in range(rep.HISTORY_STEPS)])
+
+
+def pack(scen, config: lq.QueryConfig, step: int | None = None) -> dict[str, np.ndarray]:
+    """Pack the eight MTR input tensors for one scenario frame."""
+    step = scen.current_time_index if step is None else step
+    targets = list(scen.tracks_to_predict)[: rep.TARGET_CAPACITY]
+
+    obj_trajs = np.zeros(
+        (rep.TARGET_CAPACITY, rep.CONTEXT_CAPACITY, rep.HISTORY_STEPS, rep.OBJ_FEATURE_DIM),
+        dtype=np.float32,
+    )
+    obj_mask = np.zeros(
+        (rep.TARGET_CAPACITY, rep.CONTEXT_CAPACITY, rep.HISTORY_STEPS), dtype=np.uint8
+    )
+    last_pos = np.zeros((rep.TARGET_CAPACITY, rep.CONTEXT_CAPACITY, 3), dtype=np.float32)
+    track_index = np.zeros(rep.TARGET_CAPACITY, dtype=np.int64)
+    type_ids = np.zeros(rep.TARGET_CAPACITY, dtype=np.int64)
+
+    sdc = scen.sdc_track_index
+    ego = scen.tracks[sdc].states[step]
+    context = _rank_context(scen, step, (ego[S["x"]], ego[S["y"]]))
+    slots = _resampled_slots(scen, step)
+
+    for t, target_idx in enumerate(targets):
+        center = scen.tracks[target_idx].states[step]
+        cx, cy, cz = center[S["x"]], center[S["y"]], center[S["z"]]
+        heading = float(center[S["heading"]])
+        cos_h, sin_h = math.cos(heading), math.sin(heading)
+
+        type_ids[t] = rep.MTR_TYPE_CODES[scen.tracks[target_idx].object_type]
+        track_index[t] = context.index(target_idx) if target_idx in context else 0
+
+        for c, track_idx in enumerate(context):
+            track = scen.tracks[track_idx]
+            rel_v = np.zeros((rep.HISTORY_STEPS, 2))
+            present = np.zeros(rep.HISTORY_STEPS, dtype=bool)
+
+            for s, t_want in enumerate(slots):
+                src = int(round((t_want - scen.timestamps_s[0]) * rep.HISTORY_RATE_HZ))
+                if not (0 <= src < len(track.states)) or track.states[src, S["valid"]] == 0.0:
+                    continue
+                st = track.states[src]
+                present[s] = True
+                rel_v[s] = (
+                    st[S["vx"]] * cos_h + st[S["vy"]] * sin_h,
+                    -st[S["vx"]] * sin_h + st[S["vy"]] * cos_h,
+                )
+
+            acc = np.zeros((rep.HISTORY_STEPS, 2))
+            acc_valid = np.zeros(rep.HISTORY_STEPS, dtype=bool)
+            for s in range(1, rep.HISTORY_STEPS):
+                if present[s] and present[s - 1]:
+                    acc[s] = (rel_v[s] - rel_v[s - 1]) * rep.HISTORY_RATE_HZ
+                    acc_valid[s] = True
+            # scene_builder.cpp:729-743: the EARLIEST present slot inherits the next
+            # valid acceleration; later gaps keep zero. Only the first present slot.
+            for s in range(rep.HISTORY_STEPS):
+                if not present[s]:
+                    continue
+                if not acc_valid[s]:
+                    nxt = np.flatnonzero(acc_valid[s + 1 :])
+                    if nxt.size:
+                        acc[s] = acc[s + 1 + nxt[0]]
+                break
+
+            for s, t_want in enumerate(slots):
+                if not present[s]:
+                    continue
+                src = int(round((t_want - scen.timestamps_s[0]) * rep.HISTORY_RATE_HZ))
+                st = track.states[src]
+                obj_mask[t, c, s] = 1
+
+                px, py = st[S["x"]] - cx, st[S["y"]] - cy
+                rel_heading = _wrap_pi(float(st[S["heading"]]) - heading)
+                row = obj_trajs[t, c, s]
+                row[rep.OBJ_COL["position"]] = (
+                    px * cos_h + py * sin_h, -px * sin_h + py * cos_h, st[S["z"]] - cz
+                )
+                row[rep.OBJ_COL["size"]] = (
+                    st[S["length"]], st[S["width"]], st[S["height"]]
+                )
+                onehot = rep.MTR_TYPE_CODES[track.object_type]
+                row[rep.OBJ_COL["type_onehot"]][onehot] = 1.0
+                row[rep.OBJ_COL["is_center"]] = 1.0 if track_idx == target_idx else 0.0
+                row[rep.OBJ_COL["is_sdc"]] = 1.0 if track_idx == sdc else 0.0
+                row[rep.OBJ_COL["time_onehot"]][s] = 1.0
+                row[rep.OBJ_COL["scalar_time"]] = t_want - float(scen.timestamps_s[step])
+                row[rep.OBJ_COL["heading"]] = (math.sin(rel_heading), math.cos(rel_heading))
+                row[rep.OBJ_COL["velocity"]] = rel_v[s]
+                row[rep.OBJ_COL["acceleration"]] = acc[s]
+
+            for s in range(rep.HISTORY_STEPS - 1, -1, -1):
+                if not present[s]:
+                    continue
+                src = int(round((slots[s] - scen.timestamps_s[0]) * rep.HISTORY_RATE_HZ))
+                st = track.states[src]
+                px, py = st[S["x"]] - cx, st[S["y"]] - cy
+                last_pos[t, c] = (
+                    px * cos_h + py * sin_h, -px * sin_h + py * cos_h, st[S["z"]] - cz
+                )
+                break
+
+    map_tensors = _pack_map(scen, step, targets, config)
+    return {
+        "obj_trajs": obj_trajs,
+        "obj_trajs_mask": obj_mask,
+        "obj_trajs_last_pos": last_pos,
+        "track_index_to_predict": track_index,
+        "center_type_ids": type_ids,
+        **map_tensors,
+    }
+
+
+def _wrap_pi(angle: float) -> float:
+    return (angle + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def _rank_context(scen, step: int, ego_xy) -> list[int]:
+    """Closest CONTEXT_CAPACITY tracks by ego-frame distance, ties by id ascending."""
+    scored = []
+    for i, track in enumerate(scen.tracks):
+        st = track.states[step]
+        if st[S["valid"]] == 0.0 or track.object_type not in rep.MTR_TYPE_CODES:
+            continue
+        d = (st[S["x"]] - ego_xy[0]) ** 2 + (st[S["y"]] - ego_xy[1]) ** 2
+        scored.append((d, str(track.object_id), i))
+    scored.sort()
+    return [i for _, _, i in scored[: rep.CONTEXT_CAPACITY]]
+
+
+def _pack_map(scen, step, targets, config):
+    """Target-centered map polylines, 9 columns per point (scene_builder.cpp:939)."""
+    polylines = np.zeros(
+        (rep.TARGET_CAPACITY, rep.NUM_SRC_POLYLINES, rep.POINTS_PER_POLYLINE, rep.MAP_FEATURE_DIM),
+        dtype=np.float32,
+    )
+    mask = np.zeros(
+        (rep.TARGET_CAPACITY, rep.NUM_SRC_POLYLINES, rep.POINTS_PER_POLYLINE), dtype=np.uint8
+    )
+    centers = np.zeros((rep.TARGET_CAPACITY, rep.NUM_SRC_POLYLINES, 3), dtype=np.float32)
+
+    ego = scen.tracks[scen.sdc_track_index].states[step]
+    kept, _ = lq.query(
+        scen.map_polylines,
+        (float(ego[S["x"]]), float(ego[S["y"]])),
+        float(ego[S["heading"]]),
+        config,
+    )
+
+    for t, target_idx in enumerate(targets):
+        center = scen.tracks[target_idx].states[step]
+        cx, cy, cz = center[S["x"]], center[S["y"]], center[S["z"]]
+        heading = float(center[S["heading"]])
+        cos_h, sin_h = math.cos(heading), math.sin(heading)
+
+        chunks = []
+        for poly in kept:
+            for start in range(0, len(poly.points), rep.POINTS_PER_POLYLINE):
+                chunks.append(poly.points[start : start + rep.POINTS_PER_POLYLINE])
+
+        for p, chunk in enumerate(chunks[: rep.NUM_SRC_POLYLINES]):
+            local = np.zeros((len(chunk), 3))
+            for k, pt in enumerate(chunk):
+                dx, dy = pt[0] - cx, pt[1] - cy
+                local[k] = (dx * cos_h + dy * sin_h, -dx * sin_h + dy * cos_h, pt[2] - cz)
+
+            for k in range(len(chunk)):
+                prev = local[k - 1] if k > 0 else local[k]
+                direction = local[k] - prev
+                norm = np.linalg.norm(direction)
+                direction = direction / norm if norm > 0 else direction
+                polylines[t, p, k, rep.MAP_COL["position"]] = local[k]
+                polylines[t, p, k, rep.MAP_COL["direction"]] = direction
+                polylines[t, p, k, rep.MAP_COL["global_type"]] = rep.WATO_GLOBAL_TYPE
+                polylines[t, p, k, rep.MAP_COL["pre_position"]] = prev[:2]
+                mask[t, p, k] = 1
+            centers[t, p] = local.mean(axis=0)
+
+    return {
+        "map_polylines": polylines,
+        "map_polylines_mask": mask,
+        "map_polylines_center": centers,
+    }
+```
+
+- [ ] **Step 2: Generate the expected tensors for each fixture**
+
+```bash
+cd src/world_modeling/prediction_ml/eval
+python - <<'PY'
+import pathlib
+from wato_mtr_eval import lanelet_query as lq, reference_pack, scenario, tensor_io
+
+shard = pathlib.Path("../../../../uncompressed_scenario_validation_validation.tfrecord-00000-of-00150")
+fixtures = pathlib.Path("../test/fixtures")
+wanted = {p.name for p in fixtures.iterdir() if p.is_dir()}
+
+for scen in scenario.load_scenarios(shard):
+    if scen.scenario_id not in wanted:
+        continue
+    tensors = reference_pack.pack(scen, lq.QueryConfig(strategy="radius"))
+    tensor_io.write_bundle(fixtures / scen.scenario_id / "expected_tensors.bin.gz", tensors)
+    print("wrote", scen.scenario_id)
+PY
+```
+
+- [ ] **Step 3: Write the failing parity test**
+
+```cpp
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+// ... (Apache-2.0 header)
+//
+// GATE B. Replays a committed mcap through the real SceneBuilder and compares
+// the packed tensors against Python-generated references. No GPU, no Python.
+
+#include <gtest/gtest.h>
+
+#include <cstdlib>
+#include <filesystem>
+#include <string>
+#include <vector>
+
+#include "prediction_ml/scene_builder.hpp"
+#include "prediction_ml/tensor_io.hpp"
+#include "rclcpp/serialization.hpp"
+#include "rosbag2_cpp/reader.hpp"
+
+namespace
+{
+constexpr float kPositionTolerance = 1e-4F;
+constexpr float kAngleTolerance = 1e-5F;
+
+std::string fixtureRoot()
+{
+  const char * root = std::getenv("PREDICTION_ML_FIXTURE_DIR");
+  return root ? root : "test/fixtures";
+}
+
+std::vector<std::string> fixtureScenarios()
+{
+  std::vector<std::string> names;
+  for (const auto & entry : std::filesystem::directory_iterator(fixtureRoot())) {
+    if (entry.is_directory() && std::filesystem::exists(entry.path() / "expected_tensors.bin.gz")) {
+      names.push_back(entry.path().filename().string());
+    }
+  }
+  return names;
+}
+
+// Replay every frame of a fixture bag into a SceneBuilder, then build at the
+// last frame -- the same point reference_pack.py packs.
+prediction_ml::MtrInputTensors buildFromBag(
+  const std::string & bag_dir, const std::vector<std::string> & pinned_ids);
+
+class SceneBuilderParity : public ::testing::TestWithParam<std::string>
+{
+};
+}  // namespace
+
+TEST_P(SceneBuilderParity, ShapesMatchTheContract)
+{
+  const auto expected =
+    prediction_ml::readTensorBundle(fixtureRoot() + "/" + GetParam() + "/expected_tensors.bin.gz");
+  const auto actual = buildFromBag(fixtureRoot() + "/" + GetParam(), {});
+
+  ASSERT_TRUE(actual.valid) << "SceneBuilder produced no valid tensors";
+  EXPECT_EQ(actual.obj_trajs.size(), expected.at("obj_trajs").f32.size());
+  EXPECT_EQ(actual.obj_trajs_mask.size(), expected.at("obj_trajs_mask").u8.size());
+  EXPECT_EQ(actual.map_polylines.size(), expected.at("map_polylines").f32.size());
+  EXPECT_EQ(actual.map_polylines_mask.size(), expected.at("map_polylines_mask").u8.size());
+}
+
+TEST_P(SceneBuilderParity, MasksMatchExactly)
+{
+  // Compared FIRST and structurally. A mask mismatch makes value comparison
+  // meaningless -- you would be diffing padding against real data -- so this
+  // fails on its own rather than emitting thousands of confusing value diffs.
+  const auto expected =
+    prediction_ml::readTensorBundle(fixtureRoot() + "/" + GetParam() + "/expected_tensors.bin.gz");
+  const auto actual = buildFromBag(fixtureRoot() + "/" + GetParam(), {});
+  ASSERT_TRUE(actual.valid);
+
+  const auto & want_obj = expected.at("obj_trajs_mask").u8;
+  ASSERT_EQ(actual.obj_trajs_mask.size(), want_obj.size());
+  std::size_t mismatches = 0;
+  std::size_t first_mismatch = 0;
+  for (std::size_t i = 0; i < want_obj.size(); ++i) {
+    if (actual.obj_trajs_mask[i] != want_obj[i]) {
+      if (mismatches == 0) {
+        first_mismatch = i;
+      }
+      ++mismatches;
+    }
+  }
+  EXPECT_EQ(mismatches, 0U)
+    << "obj_trajs_mask differs at " << mismatches << " of " << want_obj.size()
+    << " elements; first at flat index " << first_mismatch
+    << ". Fix masking before looking at any value diff.";
+
+  const auto & want_map = expected.at("map_polylines_mask").u8;
+  ASSERT_EQ(actual.map_polylines_mask.size(), want_map.size());
+  EXPECT_TRUE(std::equal(want_map.begin(), want_map.end(), actual.map_polylines_mask.begin()))
+    << "map_polylines_mask differs";
+}
+
+TEST_P(SceneBuilderParity, IntegerFieldsMatchExactly)
+{
+  const auto expected =
+    prediction_ml::readTensorBundle(fixtureRoot() + "/" + GetParam() + "/expected_tensors.bin.gz");
+  const auto actual = buildFromBag(fixtureRoot() + "/" + GetParam(), {});
+  ASSERT_TRUE(actual.valid);
+
+  EXPECT_EQ(actual.track_index_to_predict, expected.at("track_index_to_predict").i64);
+  EXPECT_EQ(actual.center_type_ids, expected.at("center_type_ids").i64);
+}
+
+TEST_P(SceneBuilderParity, UnmaskedObjectFeaturesMatchWithinTolerance)
+{
+  const auto expected =
+    prediction_ml::readTensorBundle(fixtureRoot() + "/" + GetParam() + "/expected_tensors.bin.gz");
+  const auto actual = buildFromBag(fixtureRoot() + "/" + GetParam(), {});
+  ASSERT_TRUE(actual.valid);
+
+  const auto & want = expected.at("obj_trajs").f32;
+  const auto & mask = expected.at("obj_trajs_mask").u8;
+  constexpr std::size_t kFeatureDim = 29U;
+  // Columns 23-24 are sin/cos of relative heading: tighter tolerance.
+  constexpr std::size_t kHeadingBegin = 23U;
+  constexpr std::size_t kHeadingEnd = 25U;
+
+  ASSERT_EQ(actual.obj_trajs.size(), want.size());
+  for (std::size_t slot = 0; slot < mask.size(); ++slot) {
+    if (mask[slot] == 0U) {
+      continue;
+    }
+    for (std::size_t f = 0; f < kFeatureDim; ++f) {
+      const std::size_t i = slot * kFeatureDim + f;
+      const float tolerance =
+        (f >= kHeadingBegin && f < kHeadingEnd) ? kAngleTolerance : kPositionTolerance;
+      ASSERT_NEAR(actual.obj_trajs[i], want[i], tolerance)
+        << "obj_trajs mismatch at slot " << slot << " feature column " << f;
+    }
+  }
+}
+
+TEST_P(SceneBuilderParity, MaskedSlotsArePaddedWithZeros)
+{
+  const auto expected =
+    prediction_ml::readTensorBundle(fixtureRoot() + "/" + GetParam() + "/expected_tensors.bin.gz");
+  const auto actual = buildFromBag(fixtureRoot() + "/" + GetParam(), {});
+  ASSERT_TRUE(actual.valid);
+
+  const auto & mask = expected.at("obj_trajs_mask").u8;
+  constexpr std::size_t kFeatureDim = 29U;
+  for (std::size_t slot = 0; slot < mask.size(); ++slot) {
+    if (mask[slot] != 0U) {
+      continue;
+    }
+    for (std::size_t f = 0; f < kFeatureDim; ++f) {
+      ASSERT_FLOAT_EQ(actual.obj_trajs[slot * kFeatureDim + f], 0.0F)
+        << "padding must be zero at slot " << slot << " column " << f;
+    }
+  }
+}
+
+TEST_P(SceneBuilderParity, UnmaskedMapFeaturesMatchWithinTolerance)
+{
+  const auto expected =
+    prediction_ml::readTensorBundle(fixtureRoot() + "/" + GetParam() + "/expected_tensors.bin.gz");
+  const auto actual = buildFromBag(fixtureRoot() + "/" + GetParam(), {});
+  ASSERT_TRUE(actual.valid);
+
+  const auto & want = expected.at("map_polylines").f32;
+  const auto & mask = expected.at("map_polylines_mask").u8;
+  constexpr std::size_t kMapDim = 9U;
+  // Columns 3-5 are the normalized direction vector: tighter tolerance.
+  constexpr std::size_t kDirBegin = 3U;
+  constexpr std::size_t kDirEnd = 6U;
+
+  ASSERT_EQ(actual.map_polylines.size(), want.size());
+  for (std::size_t point = 0; point < mask.size(); ++point) {
+    if (mask[point] == 0U) {
+      continue;
+    }
+    for (std::size_t f = 0; f < kMapDim; ++f) {
+      const std::size_t i = point * kMapDim + f;
+      const float tolerance =
+        (f >= kDirBegin && f < kDirEnd) ? kAngleTolerance : kPositionTolerance;
+      ASSERT_NEAR(actual.map_polylines[i], want[i], tolerance)
+        << "map_polylines mismatch at point " << point << " column " << f;
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  Fixtures, SceneBuilderParity, ::testing::ValuesIn(fixtureScenarios()),
+  [](const auto & info) { return info.param; });
+```
+
+Implement `buildFromBag` in the anonymous namespace: open the bag with `rosbag2_cpp::Reader`, deserialize each `Detection3DArray` / `PoseStamped` / `Odometry` / `LaneletAhead` with `rclcpp::Serialization<T>`, call `builder.addFrame(...)` per detection message, retain the latest pose/odom/lanelet, and after the final message call `builder.build(frame)` with `has_ego`, `has_ego_velocity` and `has_map` set true.
+
+- [ ] **Step 4: Register the test in CMake**
+
+```cmake
+  find_package(rosbag2_cpp REQUIRED)
+  ament_add_gtest(test_scene_builder_parity test/test_scene_builder_parity.cpp)
+  target_link_libraries(test_scene_builder_parity prediction_ml_lib rosbag2_cpp::rosbag2_cpp)
+  set_tests_properties(test_scene_builder_parity PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
+```
+
+Add to `package.xml`:
+
+```xml
+  <test_depend>rosbag2_cpp</test_depend>
+```
+
+- [ ] **Step 5: Run the test to verify it fails**
+
+```bash
+colcon build --packages-select prediction_ml
+colcon test --packages-select prediction_ml --ctest-args -R test_scene_builder_parity
+colcon test-result --verbose
+```
+
+Expected: FAIL. The first honest failure is likely `MasksMatchExactly` or `IntegerFieldsMatchExactly` — that is the gate doing its job.
+
+- [ ] **Step 6: Reconcile discrepancies one at a time**
+
+Work in this order, because each later comparison is meaningless until the earlier one passes:
+
+1. **Shapes** — a mismatch means a capacity constant disagrees. Reconcile against `representation.py` and `contract_8_target.yaml`.
+2. **Masks** — resampling or validity logic differs. Check `nearestSampleForSlot` against `_resampled_slots`.
+3. **Integer fields** — context ranking or tie-breaking differs. `scene_builder.cpp:148` documents ties broken by `detection_id` ascending; `_rank_context` must match.
+4. **Object features** — column ordering, frame convention, or sign errors.
+5. **Map features** — chunking, direction convention, or the `pre_position` definition.
+
+For each discrepancy, decide deliberately which side is wrong. `reference_pack.py` is a reading of the written contract; `scene_builder.cpp` is production code. Either can be the bug. **Record every reconciliation in `REPRESENTATION.md`** — an ambiguity that needed a decision is exactly what the contract document exists to pin down.
+
+**Expected known divergence:** the acceleration first-step rule under masked history (`scene_builder.cpp:717-743`). Do not force it to zero here; Task 13 measures it. If `UnmaskedObjectFeaturesMatchWithinTolerance` fails *only* on columns 27–28 and *only* for agents with masked history, that is the anticipated case — note it and continue.
+
+- [ ] **Step 7: Run the full test suite to verify nothing regressed**
+
+```bash
+colcon test --packages-select prediction_ml
+colcon test-result --verbose
+```
+
+Expected: every test passes, including the six pre-existing suites.
+
+- [ ] **Step 8: Record Gate B and commit**
+
+Append a "Gate B" section to `eval/README.md` with the date, the fixture scenario IDs, and any reconciliations made in step 6.
+
+```bash
+git add src/world_modeling/prediction_ml/test/test_scene_builder_parity.cpp \
+        src/world_modeling/prediction_ml/eval/wato_mtr_eval/reference_pack.py \
+        src/world_modeling/prediction_ml/test/fixtures \
+        src/world_modeling/prediction_ml/CMakeLists.txt \
+        src/world_modeling/prediction_ml/package.xml \
+        src/world_modeling/prediction_ml/REPRESENTATION.md \
+        src/world_modeling/prediction_ml/eval/README.md
+git commit -m "test(prediction_ml): add rung 2 scene builder parity gate"
+```
+
+---
+
+*(Tasks 13–17 continue below.)*
