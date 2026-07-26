@@ -25,7 +25,9 @@ import dataclasses
 import logging
 import os
 import pathlib
-from collections.abc import Sequence
+import re
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -38,6 +40,15 @@ TOLERANCE = 0.03
 _OFFICIAL_SAMPLE_STRIDE = 5
 _OFFICIAL_HORIZON_STEPS = (6, 10, 16)
 _OFFICIAL_TYPES = ("TYPE_VEHICLE", "TYPE_PEDESTRIAN", "TYPE_CYCLIST")
+_EXPECTED_VALIDATION_SHARDS = 150
+_VALIDATION_SHARD_RE = re.compile(
+    r"^(?P<family>validation|uncompressed_scenario_validation_validation)"
+    r"\.tfrecord-"
+    r"(?P<index>\d{5})-of-(?P<total>\d{5})$"
+)
+_GENERIC_SHARD_RE = re.compile(
+    r"^.+\.tfrecord-(?P<index>\d{5})-of-(?P<total>\d{5})$"
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -51,11 +62,13 @@ class Rung0Report:
     min_ade_deployed: float
     min_fde_deployed: float
     per_type: dict[str, tuple[float, float]]
+    gate_eligible: bool
 
     def anchor_ok(self) -> bool:
         values = np.asarray([self.min_ade_native, self.min_fde_native])
         return bool(
-            self.num_scenarios > 0
+            self.gate_eligible
+            and self.num_scenarios > 0
             and self.num_agents > 0
             and np.isfinite(values).all()
             and abs(self.min_ade_native - PUBLISHED_MIN_ADE) / PUBLISHED_MIN_ADE
@@ -65,7 +78,10 @@ class Rung0Report:
         )
 
     def format(self) -> str:
-        status = "PASS" if self.anchor_ok() else "FAIL"
+        if not self.gate_eligible:
+            status = "INELIGIBLE (requires one complete 150-shard directory, no limit)"
+        else:
+            status = "PASS" if self.anchor_ok() else "FAIL"
         lines = [
             f"Rung 0 (golden) — {self.num_scenarios} scenarios, "
             f"{self.num_agents} target agents",
@@ -97,6 +113,228 @@ def _require_dir(path: pathlib.Path, label: str) -> pathlib.Path:
     if not resolved.is_dir():
         raise FileNotFoundError(f"{label} does not exist: {resolved}")
     return resolved
+
+
+def _shard_coordinates(path: pathlib.Path) -> tuple[int, int]:
+    match = _VALIDATION_SHARD_RE.fullmatch(path.name)
+    if match is None:
+        raise ValueError(f"not an exact Waymo validation shard filename: {path}")
+    index = int(match.group("index"))
+    total = int(match.group("total"))
+    if total <= 0 or index >= total:
+        raise ValueError(
+            f"invalid validation shard coordinates {index}-of-{total}: {path}"
+        )
+    return index, total
+
+
+def _shard_family(path: pathlib.Path) -> str:
+    match = _VALIDATION_SHARD_RE.fullmatch(path.name)
+    if match is None:
+        raise ValueError(f"not an exact Waymo validation shard filename: {path}")
+    return match.group("family")
+
+
+def _directory_shards(directory: pathlib.Path) -> list[pathlib.Path]:
+    matches: list[pathlib.Path] = []
+    wrong_family: list[str] = []
+    for path in directory.iterdir():
+        if not path.is_file():
+            continue
+        if _VALIDATION_SHARD_RE.fullmatch(path.name):
+            matches.append(path.absolute())
+        elif _GENERIC_SHARD_RE.fullmatch(path.name):
+            wrong_family.append(path.name)
+    if wrong_family:
+        raise ValueError(
+            "validation directory mixes TFRecord families: "
+            + ", ".join(sorted(wrong_family))
+        )
+    if not matches:
+        raise FileNotFoundError(
+            f"Waymo validation shard directory contains no exact TFRecords: {directory}"
+        )
+
+    coordinates = [_shard_coordinates(path) for path in matches]
+    families = {_shard_family(path) for path in matches}
+    if len(families) != 1:
+        raise ValueError(
+            f"validation directory mixes shard filename families: {sorted(families)}"
+        )
+    totals = {total for _, total in coordinates}
+    if len(totals) != 1:
+        raise ValueError(
+            f"validation directory mixes shard totals: {sorted(totals)}"
+        )
+    total = totals.pop()
+    indices = [index for index, _ in coordinates]
+    expected = set(range(total))
+    actual = set(indices)
+    if len(indices) != len(actual):
+        raise ValueError("validation directory contains duplicate shard indices")
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise ValueError(
+            "validation directory is incomplete: "
+            f"expected {total} shards, found {len(actual)}, "
+            f"missing={missing[:5]}, extra={extra[:5]}"
+        )
+    return sorted(matches, key=lambda path: _shard_coordinates(path)[0])
+
+
+def _expand_shards(
+    shard_inputs: pathlib.Path | Sequence[pathlib.Path],
+) -> list[pathlib.Path]:
+    """Resolve file/directory inputs to one deterministic, de-duplicated shard list."""
+    if isinstance(shard_inputs, (str, os.PathLike)):
+        inputs = [pathlib.Path(shard_inputs)]
+    else:
+        inputs = [pathlib.Path(path) for path in shard_inputs]
+    if not inputs:
+        raise ValueError("at least one Waymo validation shard input is required")
+
+    expanded: list[pathlib.Path] = []
+    for candidate in inputs:
+        lexical = candidate.expanduser().absolute()
+        if lexical.is_file():
+            _shard_coordinates(lexical)
+            expanded.append(lexical)
+            continue
+        if lexical.is_dir():
+            expanded.extend(_directory_shards(lexical))
+            continue
+        raise FileNotFoundError(
+            f"Waymo validation shard input does not exist: {lexical}"
+        )
+
+    resolved_targets = [path.resolve() for path in expanded]
+    if len(resolved_targets) != len(set(resolved_targets)):
+        raise ValueError(
+            "the same resolved validation shard target was selected more than once"
+        )
+    totals = {_shard_coordinates(path)[1] for path in expanded}
+    if len(totals) != 1:
+        raise ValueError(f"selected shards mix shard totals: {sorted(totals)}")
+    indices = [_shard_coordinates(path)[0] for path in expanded]
+    if len(indices) != len(set(indices)):
+        raise ValueError("selected inputs contain duplicate shard indices")
+    return sorted(expanded, key=lambda path: _shard_coordinates(path)[0])
+
+
+def _gate_eligible_selection(
+    shard_inputs: pathlib.Path | Sequence[pathlib.Path],
+    shards: Sequence[pathlib.Path],
+    limit: int | None,
+) -> bool:
+    """Only one complete 150-shard directory can open Gate A."""
+    if limit is not None:
+        return False
+    if isinstance(shard_inputs, (str, os.PathLike)):
+        inputs = [pathlib.Path(shard_inputs)]
+    else:
+        inputs = [pathlib.Path(path) for path in shard_inputs]
+    if len(inputs) != 1 or not inputs[0].expanduser().resolve().is_dir():
+        return False
+    coordinates = [_shard_coordinates(path) for path in shards]
+    return (
+        len(coordinates) == _EXPECTED_VALIDATION_SHARDS
+        and {_shard_family(path) for path in shards} == {"validation"}
+        and {total for _, total in coordinates} == {_EXPECTED_VALIDATION_SHARDS}
+        and {index for index, _ in coordinates}
+        == set(range(_EXPECTED_VALIDATION_SHARDS))
+    )
+
+
+def _collect_scenario_ids(
+    shards: Sequence[pathlib.Path],
+    load_scenarios: Callable[..., Iterable[Any]],
+    limit: int | None,
+) -> set[str]:
+    """Read only scenario IDs, applying ``limit`` once across all shards."""
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be non-negative")
+
+    scenario_ids: set[str] = set()
+    remaining = limit
+    for shard in shards:
+        if remaining == 0:
+            break
+        records_read = 0
+        for item in load_scenarios(shard, limit=remaining):
+            if item.scenario_id in scenario_ids:
+                raise RuntimeError(
+                    f"duplicate raw scenario_id {item.scenario_id!r} in selected shards"
+                )
+            scenario_ids.add(item.scenario_id)
+            records_read += 1
+        if remaining is not None:
+            remaining -= records_read
+    return scenario_ids
+
+
+def _single_scenario_id(scenario_ids: Sequence[str]) -> str:
+    """Require batch-size-one collation to contain agents from one scenario."""
+    unique = set(scenario_ids)
+    if len(unique) != 1:
+        raise RuntimeError(
+            "official MTR batch mixes scenario IDs: " + ", ".join(sorted(unique))
+        )
+    return next(iter(unique))
+
+
+def _validate_official_scenarios(
+    dataset,
+    selected_ids: set[str],
+    *,
+    gate_eligible: bool = False,
+) -> None:
+    """Validate the official index before safely terminating the loader early."""
+    occurrences: dict[str, int] = {}
+    for info in dataset.infos:
+        scenario_id = str(info["scenario_id"])
+        if gate_eligible or scenario_id in selected_ids:
+            occurrences[scenario_id] = occurrences.get(scenario_id, 0) + 1
+    duplicates = sorted(
+        scenario_id for scenario_id, count in occurrences.items() if count != 1
+    )
+    missing = sorted(selected_ids - occurrences.keys())
+    if duplicates:
+        scope = "scenario IDs" if gate_eligible else "selected scenario IDs"
+        raise RuntimeError(
+            f"official MTR dataset contains duplicate {scope}: "
+            + ", ".join(duplicates[:5])
+        )
+    if missing:
+        raise RuntimeError(
+            "official MTR dataset is missing selected scenario IDs: "
+            + ", ".join(missing[:5])
+        )
+    if gate_eligible:
+        extra = sorted(occurrences.keys() - selected_ids)
+        if extra:
+            raise RuntimeError(
+                "full official MTR scenario index does not equal the raw validation "
+                "scenario IDs; unexpected official IDs: "
+                + ", ".join(extra[:5])
+            )
+
+
+@dataclasses.dataclass
+class _MeanAccumulator:
+    """Constant-memory finite-value mean."""
+
+    total: float = 0.0
+    count: int = 0
+
+    def add(self, values: np.ndarray) -> None:
+        finite = np.asarray(values, dtype=np.float64)
+        finite = finite[np.isfinite(finite)]
+        self.total += float(finite.sum())
+        self.count += int(finite.size)
+
+    def mean(self) -> float:
+        return self.total / self.count if self.count else float("nan")
 
 
 def _to_device(value, device: str):
@@ -182,7 +420,7 @@ def _official_anchor_batch(
 
 
 def run(
-    shard: pathlib.Path,
+    shard: pathlib.Path | Sequence[pathlib.Path],
     checkpoint: pathlib.Path,
     mtr_root: pathlib.Path,
     cfg_name: str = "mtr+100_percent_data.yaml",
@@ -190,14 +428,16 @@ def run(
     device: str = "cuda",
     preprocessed_data: pathlib.Path | None = None,
 ) -> Rung0Report:
-    """Score a shard through the official preprocessed MTR validation dataset.
+    """Score one or more shards through the official preprocessed MTR dataset.
 
     ``preprocessed_data`` must be output from MTR's
     ``mtr/datasets/waymo/data_preprocess.py``. It may also be supplied through
-    ``MTR_PREPROCESSED_WAYMO``. The raw shard is used only to select matching
-    scenario IDs; it is never converted into model inputs by this harness.
+    ``MTR_PREPROCESSED_WAYMO``. Each ``shard`` input may be a TFRecord or a
+    directory of TFRecords. Raw shards are used only to select matching scenario
+    IDs; they are never converted into model inputs by this harness.
     """
-    shard = _require_file(shard, "Waymo validation shard")
+    shards = _expand_shards(shard)
+    gate_eligible = _gate_eligible_selection(shard, shards, limit)
     checkpoint = _require_file(checkpoint, "MTR checkpoint")
     mtr_root = _require_dir(mtr_root, "MTR root")
     configured_data = preprocessed_data or os.environ.get("MTR_PREPROCESSED_WAYMO")
@@ -220,11 +460,12 @@ def run(
             "the Waymo Open Dataset Python package is required to run Gate A"
         ) from exc
 
-    raw_scenarios = {
-        item.scenario_id: item for item in scenario.load_scenarios(shard, limit=limit)
-    }
-    if not raw_scenarios:
-        raise RuntimeError(f"no scenarios were read from {shard}")
+    raw_scenario_ids = _collect_scenario_ids(
+        shards, scenario.load_scenarios, limit=limit
+    )
+    if not raw_scenario_ids:
+        inputs = ", ".join(str(path) for path in shards)
+        raise RuntimeError(f"no scenarios were read from: {inputs}")
 
     cfg_path = _require_file(
         mtr_root / "tools/cfgs/waymo" / cfg_name, "official MTR config"
@@ -232,26 +473,39 @@ def run(
     net = model.load_checkpoint(checkpoint, cfg_path, device=device, mtr_root=mtr_root)
     cfg, _, _ = model._import_mtr(mtr_root)
     dataset = _build_dataset(cfg, preprocessed_root)
+    _validate_official_scenarios(
+        dataset, raw_scenario_ids, gate_eligible=gate_eligible
+    )
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=1, shuffle=False, collate_fn=dataset.collate_batch
     )
 
-    official_ade: dict[str, list[list[np.ndarray]]] = {
-        name: [[] for _ in _OFFICIAL_HORIZON_STEPS] for name in _OFFICIAL_TYPES
+    official_ade: dict[str, list[_MeanAccumulator]] = {
+        name: [_MeanAccumulator() for _ in _OFFICIAL_HORIZON_STEPS]
+        for name in _OFFICIAL_TYPES
     }
-    official_fde: dict[str, list[list[np.ndarray]]] = {
-        name: [[] for _ in _OFFICIAL_HORIZON_STEPS] for name in _OFFICIAL_TYPES
+    official_fde: dict[str, list[_MeanAccumulator]] = {
+        name: [_MeanAccumulator() for _ in _OFFICIAL_HORIZON_STEPS]
+        for name in _OFFICIAL_TYPES
     }
-    deployed_ade: list[np.ndarray] = []
-    deployed_fde: list[np.ndarray] = []
-    per_type: dict[str, list[tuple[float, float]]] = {}
+    deployed_ade = _MeanAccumulator()
+    deployed_fde = _MeanAccumulator()
+    per_type: dict[str, tuple[_MeanAccumulator, _MeanAccumulator]] = {}
     seen_scenarios: set[str] = set()
+    remaining_scenario_ids = set(raw_scenario_ids)
 
     for batch in loader:
         scenario_ids = _strings(_input_field(batch, "scenario_id"))
-        if not any(item in raw_scenarios for item in scenario_ids):
+        batch_scenario_id = _single_scenario_id(scenario_ids)
+        if batch_scenario_id not in raw_scenario_ids:
             continue
-        seen_scenarios.update(item for item in scenario_ids if item in raw_scenarios)
+        if batch_scenario_id in seen_scenarios:
+            raise RuntimeError(
+                "official MTR dataset emitted selected scenario more than once: "
+                f"{batch_scenario_id}"
+            )
+        seen_scenarios.add(batch_scenario_id)
+        remaining_scenario_ids.remove(batch_scenario_id)
 
         gt = _as_numpy(_input_field(batch, "center_gt_trajs"))[..., :2]
         valid = _as_numpy(_input_field(batch, "center_gt_trajs_mask")).astype(bool)
@@ -264,10 +518,10 @@ def run(
         for type_name in _OFFICIAL_TYPES:
             type_mask = type_array == type_name
             for horizon_index in range(len(_OFFICIAL_HORIZON_STEPS)):
-                official_ade[type_name][horizon_index].append(
+                official_ade[type_name][horizon_index].add(
                     batch_ades[horizon_index][type_mask]
                 )
-                official_fde[type_name][horizon_index].append(
+                official_fde[type_name][horizon_index].add(
                     batch_fdes[horizon_index][type_mask]
                 )
 
@@ -277,35 +531,38 @@ def run(
         deployed_valid = valid[:, 1 : 1 + 2 * deployed_steps : 2]
         deployed_a = metrics.min_ade(deployed_pred, deployed_gt, deployed_valid)
         deployed_f = metrics.min_fde(deployed_pred, deployed_gt, deployed_valid)
-        deployed_ade.append(deployed_a)
-        deployed_fde.append(deployed_f)
+        deployed_ade.add(deployed_a)
+        deployed_fde.add(deployed_f)
         for index, name in enumerate(types):
-            per_type.setdefault(name, []).append(
-                (float(deployed_a[index]), float(deployed_f[index]))
+            ade_acc, fde_acc = per_type.setdefault(
+                name, (_MeanAccumulator(), _MeanAccumulator())
             )
+            ade_acc.add(deployed_a[index : index + 1])
+            fde_acc.add(deployed_f[index : index + 1])
 
-    if not deployed_ade:
+        if not remaining_scenario_ids:
+            break
+
+    if remaining_scenario_ids:
         raise RuntimeError(
-            "official MTR dataset contained no scenarios matching the requested shard; "
+            "official MTR loader ended before all selected scenarios were processed: "
+            + ", ".join(sorted(remaining_scenario_ids)[:5])
+        )
+    if deployed_ade.count == 0:
+        raise RuntimeError(
+            "official MTR dataset contained no scorable agents for the requested shards; "
             "check --preprocessed-data and the config's validation split"
         )
 
-    def concatenate(values: Sequence[np.ndarray]) -> np.ndarray:
-        return np.concatenate(values) if values else np.array([], dtype=np.float64)
-
-    all_deployed_ade = concatenate(deployed_ade)
-    all_deployed_fde = concatenate(deployed_fde)
-
     def official_type_mean(
-        values: dict[str, list[list[np.ndarray]]], type_name: str
+        values: dict[str, list[_MeanAccumulator]], type_name: str
     ) -> float:
-        horizon_means = []
-        for horizon_values in values[type_name]:
-            combined = concatenate(horizon_values)
-            finite = combined[np.isfinite(combined)]
-            if finite.size == 0:
+        horizon_means: list[float] = []
+        for accumulator in values[type_name]:
+            value = accumulator.mean()
+            if not np.isfinite(value):
                 return float("nan")
-            horizon_means.append(float(finite.mean()))
+            horizon_means.append(value)
         return float(np.mean(horizon_means))
 
     official_type_ade = {
@@ -316,24 +573,28 @@ def run(
     }
     return Rung0Report(
         num_scenarios=len(seen_scenarios),
-        num_agents=int(np.isfinite(all_deployed_ade).sum()),
+        num_agents=deployed_ade.count,
         min_ade_native=float(np.mean(list(official_type_ade.values()))),
         min_fde_native=float(np.mean(list(official_type_fde.values()))),
-        min_ade_deployed=float(np.nanmean(all_deployed_ade)),
-        min_fde_deployed=float(np.nanmean(all_deployed_fde)),
+        min_ade_deployed=deployed_ade.mean(),
+        min_fde_deployed=deployed_fde.mean(),
         per_type={
-            key: (
-                float(np.nanmean([row[0] for row in values])),
-                float(np.nanmean([row[1] for row in values])),
-            )
-            for key, values in per_type.items()
+            key: (ade_acc.mean(), fde_acc.mean())
+            for key, (ade_acc, fde_acc) in per_type.items()
         },
+        gate_eligible=gate_eligible,
     )
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--shard", type=pathlib.Path, required=True)
+    parser.add_argument(
+        "--shard",
+        type=pathlib.Path,
+        action="append",
+        required=True,
+        help="validation TFRecord or directory; repeat for multiple inputs",
+    )
     parser.add_argument("--checkpoint", type=pathlib.Path, required=True)
     parser.add_argument("--mtr-root", type=pathlib.Path, required=True)
     parser.add_argument("--preprocessed-data", type=pathlib.Path)
