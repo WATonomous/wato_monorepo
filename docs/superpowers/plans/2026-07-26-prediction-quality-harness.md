@@ -2626,4 +2626,652 @@ git commit -m "feat(prediction_ml): add waymo to ros mcap converter with lossles
 
 ---
 
-*(Tasks 10–17 continue below.)*
+### Task 10: `mtr.pinned_target_ids` config parameter
+
+Pins SceneBuilder's target selection so the rung-1 → rung-2 delta measures only packing, not "we chose different agents". A real config parameter rather than a test-only seam, because rung 4 replays the **full lifecycle node**, which reads config — a test seam would leave the node running its heuristic during the one rung that tests the whole stack.
+
+**Files:**
+- Modify: `src/world_modeling/prediction_ml/include/prediction_ml/mtr_types.hpp:39-59`
+- Modify: `src/world_modeling/prediction_ml/src/scene_builder.cpp` (`selectTargets`)
+- Modify: `src/world_modeling/prediction_ml/src/prediction_ml_node.cpp` (parameter declaration)
+- Modify: `src/world_modeling/prediction_ml/config/params.yaml`
+- Modify: `src/world_modeling/prediction_ml/README.md` (parameter table)
+- Test: `src/world_modeling/prediction_ml/test/test_scene_builder.cpp` (append)
+
+**Interfaces:**
+- Consumes: existing `MtrConfig`.
+- Produces: `MtrConfig::pinned_target_ids` of type `std::vector<std::string>`. Empty (the production default) means use the heuristic.
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `test/test_scene_builder.cpp`, following the existing fixture style in that file:
+
+```cpp
+TEST(SceneBuilderPinnedTargets, EmptyPinnedListUsesHeuristic)
+{
+  MtrConfig config = makeTestConfig();
+  ASSERT_TRUE(config.pinned_target_ids.empty()) << "production default must be the heuristic";
+
+  SceneBuilder builder(config);
+  const auto detections = makeDetections({"a", "b", "c"});
+  builder.addFrame(detections);
+  const auto tensors = builder.build(makeFrame(detections));
+
+  ASSERT_TRUE(tensors.valid);
+  EXPECT_FALSE(tensors.sidecar.targets.empty());
+}
+
+TEST(SceneBuilderPinnedTargets, PinnedIdsSelectExactlyThoseDetections)
+{
+  MtrConfig config = makeTestConfig();
+  config.pinned_target_ids = {"c", "a"};
+
+  SceneBuilder builder(config);
+  const auto detections = makeDetections({"a", "b", "c", "d"});
+  builder.addFrame(detections);
+  const auto tensors = builder.build(makeFrame(detections));
+
+  ASSERT_TRUE(tensors.valid);
+  std::vector<std::string> got;
+  for (const auto & target : tensors.sidecar.targets) {
+    got.push_back(target.detection_id);
+  }
+  EXPECT_EQ(got, (std::vector<std::string>{"c", "a"})) << "pinned order must be preserved";
+}
+
+TEST(SceneBuilderPinnedTargets, UnknownPinnedIdIsSkippedNotFatal)
+{
+  MtrConfig config = makeTestConfig();
+  config.pinned_target_ids = {"a", "does_not_exist"};
+
+  SceneBuilder builder(config);
+  const auto detections = makeDetections({"a", "b"});
+  builder.addFrame(detections);
+  const auto tensors = builder.build(makeFrame(detections));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "a");
+}
+
+TEST(SceneBuilderPinnedTargets, PinnedListIsTruncatedToTargetCapacity)
+{
+  MtrConfig config = makeTestConfig();
+  config.selected_target_agent_limit = 8;
+  std::vector<std::string> ids;
+  for (int i = 0; i < 12; ++i) {
+    ids.push_back("id" + std::to_string(i));
+  }
+  config.pinned_target_ids = ids;
+
+  SceneBuilder builder(config);
+  const auto detections = makeDetections(ids);
+  builder.addFrame(detections);
+  const auto tensors = builder.build(makeFrame(detections));
+
+  ASSERT_TRUE(tensors.valid);
+  EXPECT_EQ(tensors.sidecar.targets.size(), 8U);
+}
+
+TEST(SceneBuilderPinnedTargets, PinningIgnoresTheForwardHemisphereFilter)
+{
+  // A pinned agent behind ego must still be selected: Waymo's tracks_to_predict
+  // has no forward-region notion, and applying one would break the pairing.
+  MtrConfig config = makeTestConfig();
+  config.pinned_target_ids = {"behind"};
+
+  SceneBuilder builder(config);
+  auto detections = makeDetections({"behind"});
+  detections.detections[0].bbox.center.position.x = -25.0;
+  builder.addFrame(detections);
+  const auto tensors = builder.build(makeFrame(detections));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "behind");
+}
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+```bash
+colcon build --packages-select prediction_ml
+colcon test --packages-select prediction_ml --ctest-args -R test_scene_builder
+colcon test-result --verbose
+```
+
+Expected: compilation FAILS — `'struct prediction_ml::MtrConfig' has no member named 'pinned_target_ids'`.
+
+- [ ] **Step 3: Add the field to `MtrConfig`**
+
+In `include/prediction_ml/mtr_types.hpp`, inside `struct MtrConfig` (after `target_forward_half_angle_deg`):
+
+```cpp
+  // Evaluation-only: when non-empty, these detection ids are selected as MTR targets
+  // verbatim, bypassing the forward-hemisphere/distance heuristic. The quality harness
+  // sets this to Waymo's tracks_to_predict so rung-to-rung deltas measure tensor packing
+  // rather than differing agent choices. Empty (the production default) uses the heuristic.
+  std::vector<std::string> pinned_target_ids;
+```
+
+- [ ] **Step 4: Honour the field in `selectTargets`**
+
+In `src/scene_builder.cpp`, at the top of `SceneBuilder::selectTargets`, before the existing heuristic:
+
+```cpp
+  if (!config_.pinned_target_ids.empty()) {
+    std::vector<TargetCandidate> pinned;
+    const auto limit = static_cast<std::size_t>(std::max(0, config_.selected_target_agent_limit));
+
+    for (const auto & wanted : config_.pinned_target_ids) {
+      if (pinned.size() >= limit) {
+        break;
+      }
+      for (const auto & detection : detections.detections) {
+        if (detection.id != wanted) {
+          continue;
+        }
+        auto sample = sampleFromDetection(detection, current_time, detections.header.frame_id);
+        if (!sample.has_value()) {
+          break;
+        }
+        const double dx = sample->x - ego_pose.pose.position.x;
+        const double dy = sample->y - ego_pose.pose.position.y;
+        // in_forward_region is deliberately true: Waymo's tracks_to_predict has no
+        // forward-region notion, and filtering here would break the pairing.
+        pinned.push_back(TargetCandidate{*sample, dx * dx + dy * dy, true});
+        break;
+      }
+    }
+    return pinned;
+  }
+```
+
+- [ ] **Step 5: Run the tests to verify they pass**
+
+```bash
+colcon build --packages-select prediction_ml
+colcon test --packages-select prediction_ml --ctest-args -R test_scene_builder
+colcon test-result --verbose
+```
+
+Expected: all `test_scene_builder` tests pass, including the five new ones and every pre-existing one.
+
+- [ ] **Step 6: Declare the parameter on the node**
+
+In `src/prediction_ml_node.cpp`, alongside the other `mtr.*` declarations:
+
+```cpp
+  config.pinned_target_ids =
+    this->declare_parameter<std::vector<std::string>>("mtr.pinned_target_ids", {});
+```
+
+In `config/params.yaml`, under the `mtr:` block:
+
+```yaml
+    # Evaluation only. When non-empty, these detection ids become the MTR targets
+    # verbatim, bypassing the selection heuristic. Leave empty in deployment.
+    pinned_target_ids: []
+```
+
+Add a row to the `README.md` parameter table:
+
+```markdown
+| `mtr.pinned_target_ids` | `[]` | Evaluation only: pin MTR targets to these detection IDs, bypassing the selection heuristic |
+```
+
+- [ ] **Step 7: Verify the node still builds and launches**
+
+```bash
+colcon build --packages-select prediction_ml
+source install/setup.bash
+ros2 launch prediction_ml prediction_ml.launch.yaml &
+ros2 lifecycle set /world_modeling/prediction_ml_node configure
+ros2 lifecycle set /world_modeling/prediction_ml_node activate
+ros2 param get /world_modeling/prediction_ml_node mtr.pinned_target_ids
+```
+
+Expected: `String values are: []`. Then kill the node.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/include/prediction_ml/mtr_types.hpp \
+        src/world_modeling/prediction_ml/src/scene_builder.cpp \
+        src/world_modeling/prediction_ml/src/prediction_ml_node.cpp \
+        src/world_modeling/prediction_ml/config/params.yaml \
+        src/world_modeling/prediction_ml/README.md \
+        src/world_modeling/prediction_ml/test/test_scene_builder.cpp
+git commit -m "feat(prediction_ml): add mtr.pinned_target_ids for evaluation target pinning"
+```
+
+---
+
+### Task 11: C++ tensor bundle reader
+
+Reads the Task 3 format so the parity gtest can compare in-process — no GPU, no Python, no subprocess. Uses zlib, already in the ROS dependency tree, rather than adding an npz dependency for a test-only path.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/include/prediction_ml/tensor_io.hpp`
+- Create: `src/world_modeling/prediction_ml/src/tensor_io.cpp`
+- Create: `src/world_modeling/prediction_ml/test/test_tensor_io.cpp`
+- Modify: `src/world_modeling/prediction_ml/CMakeLists.txt:38-50, 150-177`
+- Modify: `src/world_modeling/prediction_ml/package.xml`
+
+**Interfaces:**
+- Produces:
+  ```cpp
+  namespace prediction_ml {
+  enum class TensorDType { Float32 = 0, UInt8 = 1, Int64 = 2 };
+  struct TensorBlob {
+    TensorDType dtype;
+    std::vector<uint32_t> dims;
+    std::vector<float> f32;
+    std::vector<uint8_t> u8;
+    std::vector<int64_t> i64;
+    std::size_t elementCount() const;
+  };
+  using TensorBundle = std::map<std::string, TensorBlob>;
+  // Throws std::runtime_error on bad magic, version or truncation.
+  TensorBundle readTensorBundle(const std::string & path);
+  }
+  ```
+
+- [ ] **Step 1: Write the failing test**
+
+`test/test_tensor_io.cpp`:
+
+```cpp
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+// ... (Apache-2.0 header)
+#include <gtest/gtest.h>
+
+#include <cstdlib>
+#include <string>
+
+#include "prediction_ml/tensor_io.hpp"
+
+namespace
+{
+// Fixture written by the Python side; see eval/tests/conftest.py.
+std::string fixturePath(const std::string & name)
+{
+  const char * root = std::getenv("PREDICTION_ML_FIXTURE_DIR");
+  return std::string(root ? root : "test/fixtures") + "/" + name;
+}
+}  // namespace
+
+TEST(TensorIo, ReadsFloatTensorWithCorrectShapeAndValues)
+{
+  const auto bundle = prediction_ml::readTensorBundle(fixturePath("tensor_io_sample.bin.gz"));
+  ASSERT_EQ(bundle.count("obj_trajs"), 1U);
+
+  const auto & blob = bundle.at("obj_trajs");
+  EXPECT_EQ(blob.dtype, prediction_ml::TensorDType::Float32);
+  EXPECT_EQ(blob.dims, (std::vector<uint32_t>{2, 3, 4, 5}));
+  EXPECT_EQ(blob.f32.size(), 2U * 3U * 4U * 5U);
+  EXPECT_EQ(blob.elementCount(), 120U);
+}
+
+TEST(TensorIo, ReadsMaskAsUint8AndIndexAsInt64)
+{
+  const auto bundle = prediction_ml::readTensorBundle(fixturePath("tensor_io_sample.bin.gz"));
+
+  const auto & mask = bundle.at("obj_trajs_mask");
+  EXPECT_EQ(mask.dtype, prediction_ml::TensorDType::UInt8);
+  EXPECT_EQ(mask.u8.size(), 2U * 3U * 4U);
+
+  const auto & index = bundle.at("track_index_to_predict");
+  EXPECT_EQ(index.dtype, prediction_ml::TensorDType::Int64);
+  EXPECT_EQ(index.i64, (std::vector<int64_t>{0, 1}));
+}
+
+TEST(TensorIo, RoundTripsValuesWrittenByPython)
+{
+  // Python wrote arange(120) reshaped to [2,3,4,5]; C order must be preserved.
+  const auto bundle = prediction_ml::readTensorBundle(fixturePath("tensor_io_ordered.bin.gz"));
+  const auto & blob = bundle.at("ordered");
+  ASSERT_EQ(blob.f32.size(), 120U);
+  for (std::size_t i = 0; i < blob.f32.size(); ++i) {
+    EXPECT_FLOAT_EQ(blob.f32[i], static_cast<float>(i)) << "at flat index " << i;
+  }
+}
+
+TEST(TensorIo, ThrowsOnMissingFile)
+{
+  EXPECT_THROW(
+    prediction_ml::readTensorBundle(fixturePath("no_such_file.bin.gz")), std::runtime_error);
+}
+
+TEST(TensorIo, ThrowsOnBadMagic)
+{
+  EXPECT_THROW(
+    prediction_ml::readTensorBundle(fixturePath("tensor_io_bad_magic.bin.gz")),
+    std::runtime_error);
+}
+
+TEST(TensorIo, ThrowsOnTruncatedPayload)
+{
+  EXPECT_THROW(
+    prediction_ml::readTensorBundle(fixturePath("tensor_io_truncated.bin.gz")),
+    std::runtime_error);
+}
+```
+
+- [ ] **Step 2: Generate the C++ test fixtures from Python**
+
+Add `eval/tests/make_cpp_fixtures.py`:
+
+```python
+"""Write the small bundles test_tensor_io.cpp reads. Run once; commit the output."""
+import gzip
+import pathlib
+import sys
+
+import numpy as np
+
+from wato_mtr_eval import tensor_io
+
+out = pathlib.Path(sys.argv[1])
+out.mkdir(parents=True, exist_ok=True)
+
+rng = np.random.default_rng(0)
+tensor_io.write_bundle(out / "tensor_io_sample.bin.gz", {
+    "obj_trajs": rng.standard_normal((2, 3, 4, 5), dtype=np.float32),
+    "obj_trajs_mask": rng.integers(0, 2, (2, 3, 4), dtype=np.uint8),
+    "track_index_to_predict": np.arange(2, dtype=np.int64),
+})
+tensor_io.write_bundle(out / "tensor_io_ordered.bin.gz", {
+    "ordered": np.arange(120, dtype=np.float32).reshape(2, 3, 4, 5),
+})
+
+with gzip.open(out / "tensor_io_bad_magic.bin.gz", "wb") as fh:
+    fh.write(b"XXXX" + b"\x00" * 32)
+
+with gzip.open(out / "tensor_io_sample.bin.gz", "rb") as fh:
+    blob = fh.read()
+with gzip.open(out / "tensor_io_truncated.bin.gz", "wb") as fh:
+    fh.write(blob[: len(blob) // 2])
+```
+
+```bash
+cd src/world_modeling/prediction_ml/eval
+python tests/make_cpp_fixtures.py ../test/fixtures
+```
+
+- [ ] **Step 3: Wire the test into CMake**
+
+In `CMakeLists.txt`, add `zlib` discovery near the other `find_package` calls (line ~36):
+
+```cmake
+find_package(ZLIB REQUIRED)
+```
+
+Add the source to `prediction_ml_lib` (after line 39):
+
+```cmake
+  src/tensor_io.cpp
+```
+
+Link zlib (inside the existing `target_link_libraries(prediction_ml_lib ...)` at line 130):
+
+```cmake
+  ZLIB::ZLIB
+```
+
+Register the test inside `if(BUILD_TESTING)`:
+
+```cmake
+  ament_add_gtest(test_tensor_io test/test_tensor_io.cpp)
+  target_link_libraries(test_tensor_io prediction_ml_lib)
+  set_tests_properties(test_tensor_io PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
+```
+
+Add to `package.xml`:
+
+```xml
+  <depend>zlib</depend>
+```
+
+- [ ] **Step 4: Run the test to verify it fails**
+
+```bash
+colcon build --packages-select prediction_ml
+```
+
+Expected: FAILS — `prediction_ml/tensor_io.hpp: No such file or directory`.
+
+- [ ] **Step 5: Write `tensor_io.hpp`**
+
+```cpp
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+// ... (Apache-2.0 header)
+
+#ifndef PREDICTION_ML__TENSOR_IO_HPP_
+#define PREDICTION_ML__TENSOR_IO_HPP_
+
+#include <cstdint>
+#include <map>
+#include <string>
+#include <vector>
+
+namespace prediction_ml
+{
+
+enum class TensorDType : uint8_t
+{
+  Float32 = 0,
+  UInt8 = 1,
+  Int64 = 2
+};
+
+// One tensor from a bundle. Exactly one of the three vectors is populated,
+// selected by dtype.
+struct TensorBlob
+{
+  TensorDType dtype{TensorDType::Float32};
+  std::vector<uint32_t> dims;
+  std::vector<float> f32;
+  std::vector<uint8_t> u8;
+  std::vector<int64_t> i64;
+
+  std::size_t elementCount() const;
+};
+
+using TensorBundle = std::map<std::string, TensorBlob>;
+
+// Read a gzipped bundle written by wato_mtr_eval.tensor_io.write_bundle.
+// Throws std::runtime_error on a missing file, bad magic, unsupported version,
+// unknown dtype or truncation.
+TensorBundle readTensorBundle(const std::string & path);
+
+}  // namespace prediction_ml
+
+#endif  // PREDICTION_ML__TENSOR_IO_HPP_
+```
+
+- [ ] **Step 6: Write `tensor_io.cpp`**
+
+```cpp
+// Copyright (c) 2025-present WATonomous. All rights reserved.
+// ... (Apache-2.0 header)
+
+#include "prediction_ml/tensor_io.hpp"
+
+#include <zlib.h>
+
+#include <cstring>
+#include <stdexcept>
+
+namespace prediction_ml
+{
+namespace
+{
+constexpr char kMagic[4] = {'W', 'M', 'T', 'R'};
+constexpr uint32_t kVersion = 1U;
+constexpr std::size_t kChunk = 1U << 16U;
+
+std::vector<uint8_t> readGzip(const std::string & path)
+{
+  gzFile file = gzopen(path.c_str(), "rb");
+  if (file == nullptr) {
+    throw std::runtime_error("tensor bundle: cannot open " + path);
+  }
+
+  std::vector<uint8_t> out;
+  std::vector<uint8_t> chunk(kChunk);
+  while (true) {
+    const int got = gzread(file, chunk.data(), static_cast<unsigned>(chunk.size()));
+    if (got < 0) {
+      gzclose(file);
+      throw std::runtime_error("tensor bundle: gzip read error in " + path);
+    }
+    if (got == 0) {
+      break;
+    }
+    out.insert(out.end(), chunk.begin(), chunk.begin() + got);
+  }
+  gzclose(file);
+  return out;
+}
+
+// Bounds-checked little-endian reader over the decompressed blob.
+class Cursor
+{
+public:
+  explicit Cursor(const std::vector<uint8_t> & data) : data_(data) {}
+
+  void require(std::size_t count) const
+  {
+    if (offset_ + count > data_.size()) {
+      throw std::runtime_error("tensor bundle: truncated");
+    }
+  }
+
+  template <typename T>
+  T read()
+  {
+    require(sizeof(T));
+    T value{};
+    std::memcpy(&value, data_.data() + offset_, sizeof(T));
+    offset_ += sizeof(T);
+    return value;
+  }
+
+  std::string readString(std::size_t length)
+  {
+    require(length);
+    std::string value(reinterpret_cast<const char *>(data_.data() + offset_), length);
+    offset_ += length;
+    return value;
+  }
+
+  void readInto(void * dest, std::size_t bytes)
+  {
+    require(bytes);
+    std::memcpy(dest, data_.data() + offset_, bytes);
+    offset_ += bytes;
+  }
+
+private:
+  const std::vector<uint8_t> & data_;
+  std::size_t offset_{0};
+};
+}  // namespace
+
+std::size_t TensorBlob::elementCount() const
+{
+  std::size_t total = 1U;
+  for (const auto dim : dims) {
+    total *= static_cast<std::size_t>(dim);
+  }
+  return dims.empty() ? 0U : total;
+}
+
+TensorBundle readTensorBundle(const std::string & path)
+{
+  const auto blob = readGzip(path);
+  Cursor cursor(blob);
+
+  char magic[4];
+  cursor.readInto(magic, sizeof(magic));
+  if (std::memcmp(magic, kMagic, sizeof(magic)) != 0) {
+    throw std::runtime_error("tensor bundle: bad magic in " + path);
+  }
+
+  const auto version = cursor.read<uint32_t>();
+  if (version != kVersion) {
+    throw std::runtime_error("tensor bundle: unsupported version in " + path);
+  }
+
+  const auto count = cursor.read<uint32_t>();
+  TensorBundle bundle;
+  for (uint32_t i = 0; i < count; ++i) {
+    const auto name_length = cursor.read<uint32_t>();
+    const auto name = cursor.readString(name_length);
+
+    TensorBlob tensor;
+    const auto dtype_code = cursor.read<uint8_t>();
+    const auto ndim = cursor.read<uint8_t>();
+    tensor.dims.resize(ndim);
+    for (uint8_t d = 0; d < ndim; ++d) {
+      tensor.dims[d] = cursor.read<uint32_t>();
+    }
+
+    const auto elements = tensor.elementCount();
+    switch (dtype_code) {
+      case 0:
+        tensor.dtype = TensorDType::Float32;
+        tensor.f32.resize(elements);
+        cursor.readInto(tensor.f32.data(), elements * sizeof(float));
+        break;
+      case 1:
+        tensor.dtype = TensorDType::UInt8;
+        tensor.u8.resize(elements);
+        cursor.readInto(tensor.u8.data(), elements * sizeof(uint8_t));
+        break;
+      case 2:
+        tensor.dtype = TensorDType::Int64;
+        tensor.i64.resize(elements);
+        cursor.readInto(tensor.i64.data(), elements * sizeof(int64_t));
+        break;
+      default:
+        throw std::runtime_error("tensor bundle: unknown dtype code in " + path);
+    }
+
+    bundle.emplace(name, std::move(tensor));
+  }
+
+  return bundle;
+}
+
+}  // namespace prediction_ml
+```
+
+- [ ] **Step 7: Run the test to verify it passes**
+
+```bash
+colcon build --packages-select prediction_ml
+colcon test --packages-select prediction_ml --ctest-args -R test_tensor_io
+colcon test-result --verbose
+```
+
+Expected: 6 tests pass.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/include/prediction_ml/tensor_io.hpp \
+        src/world_modeling/prediction_ml/src/tensor_io.cpp \
+        src/world_modeling/prediction_ml/test/test_tensor_io.cpp \
+        src/world_modeling/prediction_ml/test/fixtures \
+        src/world_modeling/prediction_ml/eval/tests/make_cpp_fixtures.py \
+        src/world_modeling/prediction_ml/CMakeLists.txt \
+        src/world_modeling/prediction_ml/package.xml
+git commit -m "feat(prediction_ml): add C++ tensor bundle reader for eval fixtures"
+```
+
+---
+
+*(Tasks 12–17 continue below.)*
