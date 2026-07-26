@@ -792,8 +792,8 @@ def min_ade(pred: np.ndarray, gt: np.ndarray, valid: np.ndarray) -> np.ndarray:
 
 def min_fde(pred: np.ndarray, gt: np.ndarray, valid: np.ndarray) -> np.ndarray:
     """Minimum-over-modes final displacement error at each agent's LAST VALID step."""
-    num_agents, _, num_steps = _displacement(pred, gt).shape
     dist = _displacement(pred, gt)
+    num_agents = dist.shape[0]
     out = np.full(num_agents, np.nan)
     for a in range(num_agents):
         idx = np.flatnonzero(valid[a])
@@ -3798,4 +3798,668 @@ git commit -m "test(prediction_ml): add rung 2 scene builder parity gate"
 
 ---
 
-*(Tasks 13–17 continue below.)*
+### Task 13: `scene_dump` CLI and rung-2 scoring
+
+The gtest proves the tensors match. This scores the *consequence* — feeding SceneBuilder's tensors to PyTorch MTR and measuring the paired minFDE delta against rung 1. Also resolves the deferred acceleration decision.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/tools/scene_dump.cpp`
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung2.py`
+- Modify: `src/world_modeling/prediction_ml/CMakeLists.txt`
+
+**Interfaces:**
+- Consumes: `readTensorBundle` format (writing side), `metrics.paired_delta`, `reference_pack.pack`.
+- Produces:
+  - `scene_dump <bag_dir> <out.bin.gz> [--pinned id1,id2,...]` — replays a bag, writes the packed tensors.
+  - `rung2.run(fixture_dir, checkpoint, mtr_root) -> Rung2Report` with `paired_minfde: PairedDelta`, `paired_minfde_masked_history: PairedDelta`, `paired_minfde_clean_history: PairedDelta`
+
+- [ ] **Step 1: Write `scene_dump.cpp`**
+
+Reuse the bag-replay helper from Task 12 rather than duplicating it — extract it into `test/bag_replay.hpp` during this step and include it from both. Write the tensors using the mirror of `readTensorBundle`; add `writeTensorBundle` to `tensor_io.cpp` alongside a round-trip test in `test_tensor_io.cpp`:
+
+```cpp
+TEST(TensorIo, WriterRoundTripsThroughTheReader)
+{
+  prediction_ml::TensorBundle bundle;
+  prediction_ml::TensorBlob blob;
+  blob.dtype = prediction_ml::TensorDType::Float32;
+  blob.dims = {2, 3};
+  blob.f32 = {1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F};
+  bundle.emplace("x", blob);
+
+  const std::string path = std::string(std::getenv("TEST_TMPDIR") ?: "/tmp") + "/rt.bin.gz";
+  prediction_ml::writeTensorBundle(path, bundle);
+  const auto back = prediction_ml::readTensorBundle(path);
+
+  EXPECT_EQ(back.at("x").dims, blob.dims);
+  EXPECT_EQ(back.at("x").f32, blob.f32);
+}
+```
+
+Register in CMake:
+
+```cmake
+add_executable(scene_dump tools/scene_dump.cpp)
+target_link_libraries(scene_dump prediction_ml_lib rosbag2_cpp::rosbag2_cpp)
+install(TARGETS scene_dump DESTINATION lib/${PROJECT_NAME})
+```
+
+- [ ] **Step 2: Verify `scene_dump` reproduces the gtest's tensors**
+
+```bash
+colcon build --packages-select prediction_ml
+source install/setup.bash
+ros2 run prediction_ml scene_dump \
+  src/world_modeling/prediction_ml/test/fixtures/<scenario_id> /tmp/dumped.bin.gz
+```
+
+Then confirm from Python that the dump equals the fixture's expected tensors under the Task 12 tolerances:
+
+```python
+from wato_mtr_eval import tensor_io
+import numpy as np
+a = tensor_io.read_bundle("/tmp/dumped.bin.gz")
+b = tensor_io.read_bundle(".../expected_tensors.bin.gz")
+np.testing.assert_array_equal(a["obj_trajs_mask"], b["obj_trajs_mask"])
+np.testing.assert_allclose(a["obj_trajs"], b["obj_trajs"], atol=1e-4)
+print("scene_dump agrees with the parity fixture")
+```
+
+Expected: no assertion error. If this disagrees with the passing gtest, the dump path and the test path diverge — fix before scoring anything.
+
+- [ ] **Step 3: Write `rung2.py`**
+
+```python
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# ... (Apache-2.0 header)
+"""Rung 2 — score the consequence of C++ packing.
+
+The gtest proves the tensors match. This measures what the difference costs in
+prediction quality, and splits the paired delta by whether the agent had masked
+history -- which is how the deferred acceleration-rule decision gets made from
+data rather than from argument.
+"""
+from __future__ import annotations
+
+import dataclasses
+import pathlib
+import subprocess
+
+import numpy as np
+
+from . import metrics, model, reference_pack, tensor_io
+
+
+@dataclasses.dataclass(frozen=True)
+class Rung2Report:
+    paired_minfde: metrics.PairedDelta
+    paired_minfde_masked_history: metrics.PairedDelta
+    paired_minfde_clean_history: metrics.PairedDelta
+
+    def gate_ok(self) -> bool:
+        """Gate B: clean-history agents must be essentially identical."""
+        return self.paired_minfde_clean_history.near_zero_fraction >= 0.99
+
+    def format(self) -> str:
+        return "\n\n".join([
+            metrics.format_paired_delta(self.paired_minfde, "R1 -> R2  minFDE  (all agents)"),
+            metrics.format_paired_delta(
+                self.paired_minfde_clean_history, "R1 -> R2  minFDE  (gap-free history)"
+            ),
+            metrics.format_paired_delta(
+                self.paired_minfde_masked_history, "R1 -> R2  minFDE  (masked history)"
+            ),
+            f"GATE B: {'PASS' if self.gate_ok() else 'FAIL'}",
+        ])
+```
+
+`run()` iterates the fixture bags: invoke `scene_dump` per bag via `subprocess`, load both the dumped and the reference bundles, forward each through MTR, compute `min_fde` on the deployed horizon for both, then split agents by whether `obj_trajs_mask` is fully set across their 11 history slots and call `paired_delta` on each cohort plus the union.
+
+- [ ] **Step 4: Run rung 2 and resolve the acceleration decision**
+
+```bash
+python -m wato_mtr_eval.rung2 \
+  --fixtures ../test/fixtures --checkpoint "$MTR_CHECKPOINT" --mtr-root ~/mtr
+```
+
+Expected: `GATE B: PASS` — ≥99% of gap-free-history agents under 1e-3 m.
+
+Then decide the acceleration rule from the masked-history cohort:
+
+- **Negligible** (near-zero fraction ≥ 0.99, max < 0.01 m): keep WATO's inherit-next-valid rule — it is better on gappy real-world tracks — and document the tolerance in `REPRESENTATION.md`.
+- **Material** (otherwise): change `scene_builder.cpp:717-743` to MTR's rule (first step copies second, fixed 10 Hz), matching training-time preprocessing, then re-run Task 12 and tighten the gate to zero delta on all agents.
+
+Record the number and the decision in `REPRESENTATION.md` and `eval/README.md`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/tools/scene_dump.cpp \
+        src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung2.py \
+        src/world_modeling/prediction_ml/CMakeLists.txt \
+        src/world_modeling/prediction_ml/REPRESENTATION.md \
+        src/world_modeling/prediction_ml/eval/README.md
+git commit -m "feat(prediction_ml): add scene_dump CLI and rung 2 scoring"
+```
+
+---
+
+### Task 14: Rung 1 and the ablation sweep
+
+Prices the WATO input representation, then prices each discarded map layer separately. The sweep is a phase-1 deliverable rather than a research afterthought because `lanelet_msgs/Lanelet` already carries road edges, crosswalks and boundary types — SceneBuilder discards them. The sweep therefore prices a **SceneBuilder change**, not a new data source.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung1.py`
+- Test: `src/world_modeling/prediction_ml/eval/tests/test_rung1.py`
+
+**Interfaces:**
+- Consumes: `reference_pack.pack`, `lanelet_query.QueryConfig`, `metrics`, `model`.
+- Produces:
+  - `Ablation` dataclass: `name: str`, `keep_types: set[str]`, `collapse_global_type: bool`, `query_strategy: str`
+  - `SWEEP: list[Ablation]` — the ordered degradation chain
+  - `rung1.run(shard, checkpoint, mtr_root, ablation, limit=None) -> Rung1Report`
+  - `rung1.sweep(...) -> list[Rung1Report]`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import pytest
+
+from wato_mtr_eval import rung1
+
+
+def test_sweep_starts_at_full_map_and_ends_at_wato_representation():
+    assert rung1.SWEEP[0].name == "full_map"
+    assert rung1.SWEEP[-1].name == "wato_representation"
+
+
+def test_sweep_is_monotonically_degrading():
+    """Each step keeps a subset of the previous step's map types."""
+    for prev, curr in zip(rung1.SWEEP, rung1.SWEEP[1:]):
+        assert curr.keep_types <= prev.keep_types, f"{curr.name} adds types back"
+
+
+def test_final_ablation_matches_what_scene_builder_actually_packs():
+    final = rung1.SWEEP[-1]
+    assert final.keep_types == {"lane"}
+    assert final.collapse_global_type is True
+
+
+def test_full_map_ablation_preserves_type_information():
+    assert rung1.SWEEP[0].collapse_global_type is False
+    assert "road_edge" in rung1.SWEEP[0].keep_types
+
+
+def test_every_ablation_has_a_unique_name():
+    names = [a.name for a in rung1.SWEEP]
+    assert len(names) == len(set(names))
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+```bash
+pytest tests/test_rung1.py -v
+```
+
+Expected: FAIL — `ModuleNotFoundError: No module named 'wato_mtr_eval.rung1'`.
+
+- [ ] **Step 3: Write `rung1.py`**
+
+Define the sweep as an ordered degradation chain and a `run` that packs with `reference_pack` under each ablation, forwards through MTR, and scores:
+
+```python
+SWEEP = [
+    Ablation("full_map", {"lane", "road_line", "road_edge", "crosswalk", "speed_bump"},
+             collapse_global_type=False, query_strategy="radius"),
+    Ablation("no_road_edges", {"lane", "road_line", "crosswalk", "speed_bump"},
+             collapse_global_type=False, query_strategy="radius"),
+    Ablation("no_crosswalks", {"lane", "road_line", "speed_bump"},
+             collapse_global_type=False, query_strategy="radius"),
+    Ablation("no_boundaries", {"lane"},
+             collapse_global_type=False, query_strategy="radius"),
+    Ablation("collapsed_types", {"lane"},
+             collapse_global_type=True, query_strategy="radius"),
+    Ablation("wato_representation", {"lane"},
+             collapse_global_type=True, query_strategy="reachable"),
+]
+```
+
+`run` must extend `reference_pack.pack` to accept an `Ablation`, honouring `keep_types` in the polyline filter and writing the Waymo feature-type code rather than `WATO_GLOBAL_TYPE` when `collapse_global_type` is false.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+```bash
+pytest tests/test_rung1.py -v
+```
+
+Expected: 5 passed.
+
+- [ ] **Step 5: Run the sweep and produce the map budget report**
+
+```bash
+python -m wato_mtr_eval.rung1 --sweep \
+  --shard ../../../../uncompressed_scenario_validation_validation.tfrecord-00000-of-00150 \
+  --checkpoint "$MTR_CHECKPOINT" --mtr-root ~/mtr
+```
+
+Report each rung's deployed minADE/minFDE and the paired delta from the previous rung, so each discarded layer is priced individually. Write the table to `eval/README.md` under "Map budget".
+
+This table is the deliverable that answers whether extending SceneBuilder to pack road edges and crosswalks is worth the engineering — a question nobody on the team can currently answer.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung1.py \
+        src/world_modeling/prediction_ml/eval/wato_mtr_eval/reference_pack.py \
+        src/world_modeling/prediction_ml/eval/tests/test_rung1.py \
+        src/world_modeling/prediction_ml/eval/README.md
+git commit -m "feat(prediction_ml): add rung 1 ablation and map budget sweep"
+```
+
+---
+
+## ⛔ TensorRT gate
+
+**Do not start Task 15 until both gates have passed and are recorded in `eval/README.md`:**
+
+- **Gate A** (Task 6): rung 0 within 3% of the published minADE/minFDE.
+- **Gate B** (Tasks 12–13): parity gtest green, and ≥99% of gap-free-history agents under 1e-3 m Δ minFDE.
+
+A TensorRT discrepancy is only interpretable once the weights, the converter and the C++ packing are each known-good. Starting here early means debugging four unknowns at once inside a build log.
+
+---
+
+### Task 15: Rung 3-pre — replace the custom CUDA ops
+
+**The riskiest item in the plan.** MTR's `setup.py` compiles two hand-written CUDA extensions — `knn_cuda` and `attention_cuda` (sparse/local attention, with separate weight- and value-computation kernels). Neither is ONNX-exportable; `torch.onnx.export` fails on the first one it reaches. This is almost certainly why `tensorrt_backend.cpp` has never had an engine to load.
+
+Correctness is proven **in PyTorch, before ONNX enters the picture**, because otherwise a rung-3 discrepancy has three candidate causes (bad op replacement, bad export, fp16 loss) with no way to separate them.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/ops_dense.py`
+- Test: `src/world_modeling/prediction_ml/eval/tests/test_ops_dense.py`
+
+**Interfaces:**
+- Produces:
+  - `dense_knn(query: Tensor, source: Tensor, k: int, batch_mask: Tensor) -> Tensor` — index tensor matching `knn_cuda`'s output
+  - `DenseAttention(nn.Module)` — accepts the same arguments `attention_cuda` is called with, returns the same shape
+  - `patch_mtr(net) -> net` — swaps every custom-op call site for the dense equivalent
+
+- [ ] **Step 1: Write the failing equivalence test**
+
+```python
+import os
+
+import pytest
+
+torch = pytest.importorskip("torch")
+
+from wato_mtr_eval import ops_dense
+
+needs_cuda_ops = pytest.mark.skipif(
+    not (torch.cuda.is_available() and os.environ.get("MTR_ROOT")),
+    reason="needs a CUDA GPU and the built MTR extensions",
+)
+
+
+@needs_cuda_ops
+def test_dense_knn_matches_the_cuda_kernel():
+    from mtr.ops.knn import knn_utils
+
+    torch.manual_seed(0)
+    query = torch.rand(1, 64, 3, device="cuda")
+    source = torch.rand(1, 256, 3, device="cuda")
+    mask = torch.ones(1, 256, dtype=torch.bool, device="cuda")
+
+    reference = knn_utils.knn_batch(source, query, k=16, batch_mask=mask)
+    actual = ops_dense.dense_knn(query, source, k=16, batch_mask=mask)
+    torch.testing.assert_close(actual.sort(dim=-1).values, reference.sort(dim=-1).values)
+
+
+@needs_cuda_ops
+def test_dense_attention_matches_the_cuda_kernel_within_float_tolerance():
+    from mtr.ops.attention import attention_utils
+
+    torch.manual_seed(0)
+    n, heads, dim = 128, 8, 64
+    query = torch.rand(n, heads, dim, device="cuda")
+    key = torch.rand(n, heads, dim, device="cuda")
+    value = torch.rand(n, heads, dim, device="cuda")
+    index_pair = torch.randint(0, n, (n, 16), device="cuda", dtype=torch.int32)
+    counts = torch.full((n,), 16, device="cuda", dtype=torch.int32)
+
+    weights = attention_utils.attention_weight_computation(
+        counts, torch.arange(n, device="cuda", dtype=torch.int32), index_pair, query, key
+    )
+    reference = attention_utils.attention_value_computation(
+        counts, torch.arange(n, device="cuda", dtype=torch.int32), index_pair, weights, value
+    )
+    actual = ops_dense.DenseAttention()(query, key, value, index_pair, counts)
+    torch.testing.assert_close(actual, reference, rtol=1e-4, atol=1e-4)
+
+
+@needs_cuda_ops
+def test_patched_model_matches_the_original_end_to_end():
+    """The gate: identical outputs on a real batch before any export is attempted."""
+    import copy
+    from wato_mtr_eval import model
+
+    net = model.load_checkpoint(
+        os.environ["MTR_CHECKPOINT"],
+        os.environ["MTR_ROOT"] + "/tools/cfgs/waymo/mtr+100_percent_data.yaml",
+        device="cuda",
+    )
+    batch = torch.load(os.environ["MTR_SAMPLE_BATCH"])
+    original_scores, original_trajs = model.forward_batch(net, batch)
+
+    patched = ops_dense.patch_mtr(copy.deepcopy(net))
+    patched_scores, patched_trajs = model.forward_batch(patched, batch)
+
+    torch.testing.assert_close(patched_scores, original_scores, rtol=1e-3, atol=1e-3)
+    torch.testing.assert_close(patched_trajs, original_trajs, rtol=1e-3, atol=1e-3)
+
+
+def test_dense_attention_is_exportable_to_onnx(tmp_path):
+    """No custom op may survive into the graph."""
+    module = ops_dense.DenseAttention()
+    n, heads, dim = 16, 2, 8
+    args = (
+        torch.rand(n, heads, dim), torch.rand(n, heads, dim), torch.rand(n, heads, dim),
+        torch.randint(0, n, (n, 4), dtype=torch.int32),
+        torch.full((n,), 4, dtype=torch.int32),
+    )
+    path = tmp_path / "attn.onnx"
+    torch.onnx.export(module, args, str(path), opset_version=17)
+    assert path.exists()
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+```bash
+pytest tests/test_ops_dense.py -v
+```
+
+Expected: FAIL — `ModuleNotFoundError: No module named 'wato_mtr_eval.ops_dense'`.
+
+- [ ] **Step 3: Implement `ops_dense.py`**
+
+`dense_knn` computes the full pairwise distance matrix and takes `topk`, masking invalid sources with `+inf`. `DenseAttention` gathers keys and values by `index_pair`, masks positions beyond each row's `count`, applies scaled softmax, and contracts — the same computation the two CUDA kernels perform, expressed in exportable ops. `patch_mtr` walks the module tree and replaces each call site.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+```bash
+pytest tests/test_ops_dense.py -v
+```
+
+Expected: 4 passed. `test_patched_model_matches_the_original_end_to_end` is the gate — **do not proceed to Task 16 until it passes.**
+
+- [ ] **Step 5: Measure the cost of the replacement**
+
+```bash
+python -m wato_mtr_eval.ops_dense --benchmark --batch "$MTR_SAMPLE_BATCH"
+```
+
+Report custom-kernel vs dense forward time. The dense form **will** be slower — MTR's sparse kernels exist precisely because dense attention over 768 polylines is expensive. Record the number; do not act on it yet. TRT plugins are a fallback to be written only if the measured on-4080 latency budget demands it, never speculatively.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/ops_dense.py \
+        src/world_modeling/prediction_ml/eval/tests/test_ops_dense.py \
+        src/world_modeling/prediction_ml/eval/README.md
+git commit -m "feat(prediction_ml): add ONNX-expressible replacements for MTR custom CUDA ops"
+```
+
+---
+
+### Task 16: ONNX export
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/export_onnx.py`
+- Create: `src/world_modeling/prediction_ml/config/engine_build.yaml`
+- Test: `src/world_modeling/prediction_ml/eval/tests/test_export_onnx.py`
+
+**Interfaces:**
+- Consumes: `ops_dense.patch_mtr`, `model.load_checkpoint`, `contract_8_target.yaml`.
+- Produces: `export(checkpoint, cfg_path, out_path, contract_path) -> None`; artifacts `mtr.onnx` + `engine_build.yaml`.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+import pathlib
+
+import pytest
+
+onnx = pytest.importorskip("onnx")
+
+from wato_mtr_eval import export_onnx, representation as rep
+
+ONNX_PATH = pathlib.Path("build/mtr.onnx")
+needs_onnx = pytest.mark.skipif(not ONNX_PATH.exists(), reason="run export first")
+
+
+@needs_onnx
+def test_input_names_and_shapes_match_the_frozen_contract():
+    graph = onnx.load(str(ONNX_PATH)).graph
+    got = {
+        i.name: [d.dim_value for d in i.type.tensor_type.shape.dim] for i in graph.input
+    }
+    assert got["obj_trajs"] == [
+        rep.TARGET_CAPACITY, rep.CONTEXT_CAPACITY, rep.HISTORY_STEPS, rep.OBJ_FEATURE_DIM
+    ]
+    assert got["map_polylines"] == [
+        rep.TARGET_CAPACITY, rep.NUM_SRC_POLYLINES, rep.POINTS_PER_POLYLINE, rep.MAP_FEATURE_DIM
+    ]
+    assert got["track_index_to_predict"] == [rep.TARGET_CAPACITY]
+
+
+@needs_onnx
+def test_output_names_and_shapes_match_the_frozen_contract():
+    graph = onnx.load(str(ONNX_PATH)).graph
+    got = {
+        o.name: [d.dim_value for d in o.type.tensor_type.shape.dim] for o in graph.output
+    }
+    assert got["pred_scores"] == [rep.TARGET_CAPACITY, rep.NUM_MODES]
+    assert got["pred_trajs"] == [
+        rep.TARGET_CAPACITY, rep.NUM_MODES, rep.NUM_FUTURE_FRAMES, rep.TRAJ_CHANNELS
+    ]
+
+
+@needs_onnx
+def test_index_inputs_are_int64_matching_the_engine_binding_contract():
+    """DEVELOPING.md:22-23: both index inputs are int64 engine bindings."""
+    graph = onnx.load(str(ONNX_PATH)).graph
+    dtypes = {i.name: i.type.tensor_type.elem_type for i in graph.input}
+    assert dtypes["track_index_to_predict"] == onnx.TensorProto.INT64
+    assert dtypes["center_type_ids"] == onnx.TensorProto.INT64
+
+
+@needs_onnx
+def test_all_shapes_are_static():
+    """contract_8_target.yaml pins every dimension; dynamic axes buy nothing."""
+    graph = onnx.load(str(ONNX_PATH)).graph
+    for tensor in list(graph.input) + list(graph.output):
+        for dim in tensor.type.tensor_type.shape.dim:
+            assert dim.dim_value > 0, f"{tensor.name} has a dynamic dimension"
+
+
+@needs_onnx
+def test_no_custom_operators_survive():
+    model_proto = onnx.load(str(ONNX_PATH))
+    domains = {node.domain for node in model_proto.graph.node}
+    assert domains <= {"", "ai.onnx"}, f"custom domains present: {domains}"
+
+
+@needs_onnx
+def test_model_passes_onnx_checker():
+    onnx.checker.check_model(onnx.load(str(ONNX_PATH)))
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+```bash
+pytest tests/test_export_onnx.py -v
+```
+
+Expected: all skipped (no ONNX yet). This is the intended pre-export state.
+
+- [ ] **Step 3: Write `export_onnx.py` and run the export**
+
+Load the checkpoint, apply `ops_dense.patch_mtr`, build dummy inputs at exactly the contract shapes, and call `torch.onnx.export` with explicit `input_names` / `output_names` drawn from `contract_8_target.yaml` and **no** `dynamic_axes`.
+
+```bash
+python -m wato_mtr_eval.export_onnx \
+  --checkpoint "$MTR_CHECKPOINT" \
+  --cfg ~/mtr/tools/cfgs/waymo/mtr+100_percent_data.yaml \
+  --contract ../config/contract_8_target.yaml \
+  --out build/mtr.onnx
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+```bash
+pytest tests/test_export_onnx.py -v
+```
+
+Expected: 6 passed. `test_no_custom_operators_survive` failing means `patch_mtr` missed a call site — return to Task 15 rather than working around it here.
+
+- [ ] **Step 5: Write `engine_build.yaml`**
+
+```yaml
+---
+# Engine build configuration. Paired with mtr.onnx as the portable artifact.
+# The engine itself is a build product: never committed, never copied between
+# machines. TensorRT engines are architecture-specific (3060 Ti is sm_86, the
+# vehicle's 4080 is sm_89) and will not load across that boundary.
+precision: fp16
+workspace_size_mb: 4096
+# Static shapes throughout: contract_8_target.yaml pins every dimension.
+optimization_profiles: []
+tactic_sources: [CUBLAS, CUBLAS_LT, CUDNN]
+builder_optimization_level: 3
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/export_onnx.py \
+        src/world_modeling/prediction_ml/eval/tests/test_export_onnx.py \
+        src/world_modeling/prediction_ml/config/engine_build.yaml
+git commit -m "feat(prediction_ml): add ONNX export and engine build configuration"
+```
+
+---
+
+### Task 17: Engine build, rung 3, and rung 4
+
+Split by machine. 3-dev on the 3060 Ti catches categorical export failures; 3-final and rung 4 run on the vehicle's 4080. Because TensorRT selects kernels by per-architecture tactic autotuning, **fp16 numerics are not guaranteed identical across sm_86 and sm_89** — so the numerical parity gate, not just latency, passes on the 4080.
+
+**Files:**
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/build_engine.py`
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung3.py`
+- Create: `src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung4.py`
+
+**Interfaces:**
+- Produces:
+  - `build_engine.build(onnx_path, config_path, out_path) -> EngineInfo` with `sm_arch, trt_version, build_seconds`
+  - `rung3.run(fixtures, engine, checkpoint, mtr_root) -> Rung3Report` with `paired_minfde`, `paired_mode_probability`, `top_mode_agreement`, `latency_ms_p50/p99`, `peak_memory_mb`
+  - `rung4.run(fixtures, node_config) -> Rung4Report`
+
+- [ ] **Step 1: Build the engine on the 3060 Ti (rung 3-dev)**
+
+```bash
+python -m wato_mtr_eval.build_engine \
+  --onnx build/mtr.onnx --config ../config/engine_build.yaml --out build/mtr.engine
+```
+
+Expected: an engine builds with no unsupported-layer errors. If TensorRT reports unsupported ops, return to Task 15 — a plugin is the last resort, not the first.
+
+- [ ] **Step 2: Validate the bindings against the C++ contract**
+
+This is the first time `tensorrt_backend.cpp`'s binding-validation path meets a real engine; it has only ever run against the null backend.
+
+```bash
+colcon build --packages-select prediction_ml --cmake-args -DPREDICTION_ML_ENABLE_TENSORRT=ON
+colcon test --packages-select prediction_ml --ctest-args -R test_backend
+colcon test-result --verbose
+```
+
+Then load the engine through the node:
+
+```bash
+ros2 launch prediction_ml prediction_ml.launch.yaml \
+  engine_path:=$(pwd)/build/mtr.engine metadata_path:=$(pwd)/../config/contract_8_target.yaml
+ros2 lifecycle set /world_modeling/prediction_ml_node configure
+```
+
+Expected: configure succeeds, with every binding name, dtype and shape matching `MtrModelContract`. A mismatch here means the export and the frozen contract disagree — reconcile the contract before proceeding, per `DEVELOPING.md:49-56`.
+
+- [ ] **Step 3: Run rung 3-dev — correctness only**
+
+```bash
+python -m wato_mtr_eval.rung3 --engine build/mtr.engine --fixtures ../test/fixtures \
+  --checkpoint "$MTR_CHECKPOINT" --mtr-root ~/mtr --correctness-only
+```
+
+Report the paired minFDE delta, per-mode probability deltas, and top-mode agreement rate. **Record no latency or memory number from this machine.**
+
+Aggregate mAP can conceal a single weird numerical failure mode, which is why per-sample trajectory and mode-probability deltas are reported rather than a summary statistic.
+
+- [ ] **Step 4: Rebuild natively on the vehicle's 4080 (rung 3-final)**
+
+On the vehicle, with `mtr.onnx` and `engine_build.yaml` copied across — **not** the engine:
+
+```bash
+python -m wato_mtr_eval.build_engine \
+  --onnx mtr.onnx --config engine_build.yaml --out mtr.engine
+python -m wato_mtr_eval.rung3 --engine mtr.engine --fixtures fixtures \
+  --checkpoint "$MTR_CHECKPOINT" --mtr-root ~/mtr
+```
+
+Gate: ≥99% of agents under 1e-3 m paired Δ minFDE, plus latency p50/p99 and peak memory for a batch of 8 targets. These are the only performance numbers that enter any report.
+
+- [ ] **Step 5: Run rung 4 — full runtime replay**
+
+```bash
+ros2 launch prediction_ml prediction_ml.launch.yaml \
+  engine_path:=$(pwd)/mtr.engine metadata_path:=$(pwd)/contract_8_target.yaml \
+  mtr.mode:=tensorrt
+ros2 lifecycle set /world_modeling/prediction_ml_node configure
+ros2 lifecycle set /world_modeling/prediction_ml_node activate
+
+ros2 bag record -o rung4_out /world_modeling/world_object_seeds &
+ros2 bag play fixtures/<scenario_id> --clock
+```
+
+Score the recorded `world_object_seeds` against ground truth at the deployed 3 s horizon and compare paired against rung 3-final. This delta isolates the TTL cache, map-frame conversion, detection association, timestamping, horizon downsampling and fallback takeover.
+
+Set `mtr.pinned_target_ids` to the scenario's `tracks_to_predict` (Task 10) — without it the node runs its heuristic and this delta is unattributable.
+
+- [ ] **Step 6: Write the full ladder report**
+
+Assemble every rung into one table in `eval/README.md`: deployed minADE/minFDE per rung, the paired delta from the previous rung with mean/median/p90/p99/max and near-zero fraction, and the worst-10 agents with their ledger flags. Note explicitly which numbers came from the 4080.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/world_modeling/prediction_ml/eval/wato_mtr_eval/build_engine.py \
+        src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung3.py \
+        src/world_modeling/prediction_ml/eval/wato_mtr_eval/rung4.py \
+        src/world_modeling/prediction_ml/eval/README.md \
+        src/world_modeling/prediction_ml/DEVELOPING.md
+git commit -m "feat(prediction_ml): add engine build, rung 3 and rung 4 runtime replay"
+```
+
+---
+
+## Deferred
+
+Out of scope, recorded so nobody rebuilds the reasoning:
+
+- **Rung 4b — plausibility on real WATO bags** (drift, off-road rate, kinematic feasibility, MTR-vs-fallback takeover). The only test of the actual deployment domain, but it yields no attributable number and needs a working on-vehicle engine first.
+- **Closing the map gap.** Extending SceneBuilder to pack road edges and crosswalks from `Lanelet.msg` is deliberately excluded — Task 14's sweep prices it first. Building the fix alongside the instrument that measures it leaves no way to know whether the fix worked.
+- **Lanelet query calibration** against recorded-bag statistics. Recorded `LaneletAhead` can never be an oracle here (different map, different city, no shared frame); it can only supply distributions to tune the Waymo-side query toward.
+- **TRT plugins** for the custom ops. Speculative until Task 17 measures 4080 latency.
+- **Perception noise injection.** Confounds every rung at once and answers a different question. `waymo_to_ros.detections_at` is the hook if it is ever wanted.
+- **MissRate**, **official Waymo mAP**, **a pybind11 live differential harness**, **the 5%/20% checkpoints**, **downloading more validation shards** — each rejected in the design spec's Scope section with reasoning.
+
