@@ -40,6 +40,7 @@ struct BEVFusionInputConfig
   std::string fuser_plan;  // Fuses image and LiDAR BEV features
   std::string head_bbox_plan;  // Predicts 3D bounding boxes
   std::string lidar_backbone_onnx;  // Extracts LiDAR features
+  std::string precision = "fp16";  // "fp16" or "int8". Used by LiDAR ONNX parser.
 
   // --- Camera Normalization & Preprocessing ---
   int image_width = 1600;  // Input image resolution
@@ -63,7 +64,6 @@ struct BEVFusionInputConfig
   int max_voxels = 160000;  // Upper limit on total # of voxels generated on the grid
   int num_features = 5;  // Dimensions per lidar point (x, y, z, intensity, ring)
   std::string scn_order = "XYZ";  // SCN coordinate order constraint
-  std::string precision = "int8";  // "fp16" or "int8". Used by LiDAR ONNX parser.
 
   // --- Camera Geometry Mapping (Depth & Grid) ---
   std::vector<float> xbound = {-54.0f, 54.0f, 0.3f};  // BEV grid X limits [min, max, step] in meters
@@ -127,9 +127,6 @@ struct BoundingBox
  *
  * Note: Use ::bevfusion when referencing anything from the original CUDA-BEVFusion repository.
  * Use wato::perception::bevfusion (handled by namespaces) when referencing anything from wato's bevfusion node.
- *
- * Note: nvtype is defined in the original CUDA-BEVFusion repository under /CUDA-BEVFusion/src/common/dtype.hpp and
- * can be used as nvtype:: or ::nvtype::.
  */
 class BEVFusionCore
 {
@@ -139,7 +136,6 @@ public:
    * @param config Configuration for BEVFusion
    */
   explicit BEVFusionCore(const BEVFusionInputConfig & config);
-  ~BEVFusionCore();
 
   /**
    * @brief Create the CUDA-BEVFusion pipeline and deserialize TensorRT engines.
