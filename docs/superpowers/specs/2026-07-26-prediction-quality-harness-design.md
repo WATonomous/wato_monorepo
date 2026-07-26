@@ -136,6 +136,12 @@ per-bucket averaging protocol. Once rung 0 passes, the 8 s metric is not recompu
 `tracks_to_predict` so R1→R2 measures only packing. The heuristic's *would-have-picked* set is
 recorded alongside, making the target-selection ablation a free byproduct of every run.
 
+Mechanism: a real config parameter, `mtr.pinned_target_ids` (empty list = use the heuristic, which
+is the production default). A test-only seam was considered and rejected because rung 4 replays the
+**full lifecycle node**, which reads config and would otherwise still run its heuristic — leaving
+rung 4's delta unattributable, defeating the purpose of the last rung. The cost is one production
+parameter that only evaluation sets; that is cheaper than an unattributable rung 4.
+
 ### Paired delta distribution
 
 Rung-to-rung comparison is **paired** — the same scenarios and the same target agents through both
@@ -281,7 +287,11 @@ two**.
 - Loss ledger
 - Rung-2 parity gtest in CI, 3 committed fixtures
 - ONNX export with op replacement + `engine_build.yaml`
-- Target-pinning, with heuristic selection recorded as a free ablation
+- Target-pinning via `mtr.pinned_target_ids`, with heuristic selection recorded as a free ablation
+- **Rung-1 ablation sweep** (full map → drop road edges → drop crosswalks → drop boundaries →
+  collapse types → centerlines only), promoted to a phase-1 deliverable. Originally deferred as a
+  research tool; the `Lanelet.msg` finding changed its economics, since it now prices a
+  SceneBuilder change rather than a new data source.
 
 ### Out — considered and rejected
 
@@ -313,9 +323,10 @@ two**.
 - **Rung 4b — plausibility on real WATO bags** (drift, off-road rate, kinematic feasibility,
   latency, MTR-vs-fallback takeover). The only test of the actual deployment domain, but it
   produces no attributable number and needs a working on-vehicle engine first.
-- **Rung-1 ablation sweep** (full map → drop road edges → drop crosswalks → drop boundaries →
-  collapse types → centerlines only). A research tool for deciding whether improving the map
-  interface is worth the engineering, not permanent CI.
+- **Closing the map gap itself.** Extending SceneBuilder to emit real `global_type` tokens from
+  `boundary_type` / `lanelet_type` and to pack road-edge and crosswalk polylines is deliberately
+  *not* in scope: the sweep prices it first. Building the fix and the instrument that measures it
+  at the same time would leave no way to know whether the fix worked.
 - **Lanelet query calibration** against recorded-bag statistics.
 
 ## Sequencing
@@ -324,13 +335,16 @@ two**.
 2. Converter + losslessness test + ledger. **Keystone**; unblocks every rung.
 3. Rung 0. Validates the eval environment before it is used to judge anything else.
 4. Rung 1. First real answer: what does our representation cost?
-5. Rung 2 + CI gtest + fixtures. The regression gate; the highest-durability deliverable.
-6. Rung 3-pre. Op replacement correctness, in PyTorch.
-7. Rung 3-dev → 3-final. Export, then engine on the 4080.
-8. Rung 4. Full runtime replay.
+5. Rung-1 ablation sweep. Prices each discarded map layer separately, producing the
+   map-interface budget decision.
+6. Rung 2 + CI gtest + fixtures. The regression gate; the highest-durability deliverable.
+7. Rung 3-pre. Op replacement correctness, in PyTorch.
+8. Rung 3-dev → 3-final. Export, then engine on the 4080.
+9. Rung 4. Full runtime replay.
 
-Steps 1–5 need no GPU beyond rung 0/1's PyTorch runs and deliver the CI gate. Steps 6–8 are gated
-on the custom-op replacement, the riskiest item.
+Steps 1–6 need no GPU beyond rung 0/1's PyTorch runs and deliver both the CI gate and the map
+budget decision. Steps 7–9 are gated on the custom-op replacement, the riskiest item — so the
+highest-value outputs do not sit behind the highest-risk work.
 
 ## Risks
 
@@ -389,7 +403,18 @@ fix that is cheap, rather than one that needs a new data source.
 Dynamic signal state remains genuinely absent, and the 9-column map row has no channel for it
 regardless.
 
-## Open questions
+## Deferred decision
 
-- Which config seam pins SceneBuilder's target selection for ladder runs — test-only hook, or a
-  real parameter?
+**The acceleration first-step rule.** Whether to change `scene_builder.cpp:717-743` to match
+official MTR exactly (first step copies second, fixed rate) or keep WATO's inherit-next-valid rule
+is deliberately **not decided up front** — the divergence only manifests on masked history, and its
+size on Waymo's actual masking patterns is unknown.
+
+Rung 2 therefore reports it rather than gating on it in the first iteration: the paired delta
+distribution is broken out for masked-history agents specifically, and the decision is made from
+that number. If it is negligible, keep WATO's rule (better on gappy real-world tracks) and document
+the tolerance. If it is material, adopt MTR's rule — matching training-time preprocessing is
+defensible on its own terms — and the gate tightens to zero delta.
+
+This is the one place the rung-2 gate is provisional. Every other field compares exactly or at
+float tolerance from day one.
