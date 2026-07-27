@@ -30,16 +30,25 @@ Default remaps in `launch/prediction_ml.launch.yaml`:
 | `ego_odometry` | `/world_modeling/transform/odometry` |
 | `lanelet_ahead` | `lanelet/lanelet_ahead` |
 | `world_object_seeds` | `/world_modeling/world_object_seeds` |
+| `mtr_predictions` | `/world_modeling/mtr_predictions` |
 
 ### Published Topics
 
 | Topic | Type | Description |
 |-------|------|-------------|
 | `world_object_seeds` | `world_model_msgs/WorldObjectArray` | Predicted objects consumed by world model pre-enrichment |
+| `mtr_predictions` | `world_model_msgs/WorldObjectArray` | Evaluation-only pinned MTR batches, independent of fallback filtering |
 
 Each `WorldObject` carries the original `Detection3D` plus one or more `Prediction` entries. When
 MTR is disabled or not ready, each detection receives one straight-line prediction with
 `conf=1.0`.
+
+`mtr_predictions` is emitted only when `mtr.pinned_target_ids` is nonempty. It publishes every
+accepted pinned-target inference batch exactly once, including the synthetic `__ego__` target.
+Only `detection.id` and the prediction/header fields are populated; consumers must not treat this
+diagnostic stream as production world-model input. Production `world_object_seeds` behavior is
+unchanged. In this evaluation mode, pose, odometry, lanelet, and tracks are joined by exact source
+stamp before MTR tensor construction so replay results do not depend on cross-topic callback order.
 
 ## Launch
 

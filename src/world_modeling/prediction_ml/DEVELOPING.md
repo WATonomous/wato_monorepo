@@ -72,6 +72,14 @@ ros2 topic hz /world_modeling/world_object_seeds
 The node publishes only after detections arrive. With `mtr.mode: "disabled"`, output should contain
 constant-velocity fallback predictions.
 
+Quality-harness replays set `mtr.pinned_target_ids` before configuration and record both
+`/world_modeling/mtr_predictions` and `/world_modeling/world_object_seeds`. The former is a
+one-shot diagnostic stream containing all accepted pinned MTR targets, including `__ego__`; the
+latter retains production detection-list filtering and fallback takeover. Never connect the
+diagnostic topic to a production world-model consumer. Pinned mode also exact-joins the four input
+messages by source stamp; without that join, DDS callback scheduling can mix current tracks with
+stale auxiliary state and invalidate the rung-3-to-rung-4 comparison.
+
 ## Architecture
 
 ```text

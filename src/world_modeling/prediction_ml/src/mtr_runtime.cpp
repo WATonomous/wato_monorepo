@@ -120,6 +120,17 @@ std::vector<world_model_msgs::msg::WorldObject> MtrRuntime::selectOutput(
   return output;
 }
 
+std::optional<world_model_msgs::msg::WorldObjectArray> MtrRuntime::takeDiagnosticOutput()
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (pending_diagnostics_.empty()) {
+    return std::nullopt;
+  }
+  auto output = std::move(pending_diagnostics_.front());
+  pending_diagnostics_.pop_front();
+  return output;
+}
+
 bool MtrRuntime::ready() const
 {
   return engine_ready_;
@@ -176,11 +187,30 @@ void MtrRuntime::workerLoop()
       continue;
     }
 
+    world_model_msgs::msg::WorldObjectArray diagnostic;
+    const bool publish_diagnostic = !config_.pinned_target_ids.empty();
+    if (publish_diagnostic) {
+      diagnostic.header.frame_id = frame.frame_id;
+    }
     for (auto & object : converted.objects) {
       if (object.detection_id.empty() || object.predictions.empty()) {
         continue;
       }
+      if (publish_diagnostic) {
+        world_model_msgs::msg::WorldObject diagnostic_object;
+        diagnostic_object.detection.id = object.detection_id;
+        diagnostic_object.predictions = object.predictions;
+        if (!diagnostic_object.predictions.empty()) {
+          diagnostic_object.header = diagnostic_object.predictions.front().header;
+          diagnostic_object.detection.header = diagnostic_object.predictions.front().header;
+          diagnostic.header = diagnostic_object.predictions.front().header;
+        }
+        diagnostic.objects.push_back(std::move(diagnostic_object));
+      }
       cache_[object.detection_id] = CachedPrediction{std::move(object.predictions), frame.source_time_s};
+    }
+    if (publish_diagnostic && !diagnostic.objects.empty()) {
+      pending_diagnostics_.push_back(std::move(diagnostic));
     }
     worker_error_.clear();
   }

@@ -160,6 +160,7 @@ install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(lifecycle_msgs REQUIRED)
   ament_add_gtest(test_contract_compiles test/test_contract_compiles.cpp)
   target_link_libraries(test_contract_compiles prediction_ml_lib)
   # >>> PERSON_B tests
@@ -180,6 +181,18 @@ if(BUILD_TESTING)
   # >>> PERSON_C tests
   ament_add_gtest(test_runtime test/test_runtime.cpp)
   target_link_libraries(test_runtime prediction_ml_lib)
+  ament_add_gtest(
+    test_prediction_ml_node
+    test/test_prediction_ml_node.cpp
+    src/prediction_ml_node.cpp)
+  target_compile_definitions(
+    test_prediction_ml_node
+    PRIVATE
+      PREDICTION_ML_DISABLE_MAIN)
+  target_link_libraries(
+    test_prediction_ml_node
+    prediction_ml_lib
+    ${lifecycle_msgs_TARGETS})
   ament_add_gtest(test_output_converter test/test_output_converter.cpp)
   target_link_libraries(test_output_converter prediction_ml_lib)
   # <<< PERSON_C tests

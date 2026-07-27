@@ -17,6 +17,7 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -28,6 +29,7 @@
 #include "prediction_ml/mtr_inference_engine.hpp"
 #include "prediction_ml/mtr_types.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 namespace prediction_ml
 {
@@ -52,6 +54,10 @@ public:
   // Start from fallback; replace only objects with fresh valid cached MTR predictions.
   std::vector<world_model_msgs::msg::WorldObject> selectOutput(
     const std::vector<world_model_msgs::msg::WorldObject> & fallback, double now_s);
+
+  // Pop one accepted pinned-target batch for evaluation publishing. A batch is
+  // returned exactly once and is independent of production cache selection.
+  std::optional<world_model_msgs::msg::WorldObjectArray> takeDiagnosticOutput();
 
   bool ready() const;
   std::string lastError() const;
@@ -84,6 +90,7 @@ private:
   std::condition_variable worker_cv_;
   std::optional<PendingFrame> pending_frame_;
   std::unordered_map<std::string, CachedPrediction> cache_;
+  std::deque<world_model_msgs::msg::WorldObjectArray> pending_diagnostics_;
   std::string worker_error_;
   std::thread worker_;
   std::uint64_t latest_sequence_{0};

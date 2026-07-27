@@ -14,6 +14,7 @@
 
 #include "prediction_ml/prediction_ml_node.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -25,6 +26,75 @@
 
 namespace prediction_ml
 {
+
+std::optional<ExactStampJoiner::Stamp> ExactStampJoiner::stampKey(
+  const std::int32_t seconds, const std::uint32_t nanoseconds)
+{
+  if (seconds < 0 || nanoseconds >= 1000000000U || (seconds == 0 && nanoseconds == 0U)) {
+    return std::nullopt;
+  }
+  return static_cast<Stamp>(seconds) * 1000000000LL + static_cast<Stamp>(nanoseconds);
+}
+
+std::optional<ExactStampInputs> ExactStampJoiner::addTracks(
+  vision_msgs::msg::Detection3DArray::SharedPtr message)
+{
+  return insertAndTake(tracks_, std::move(message));
+}
+
+std::optional<ExactStampInputs> ExactStampJoiner::addPose(geometry_msgs::msg::PoseStamped::SharedPtr message)
+{
+  return insertAndTake(poses_, std::move(message));
+}
+
+std::optional<ExactStampInputs> ExactStampJoiner::addOdometry(nav_msgs::msg::Odometry::SharedPtr message)
+{
+  return insertAndTake(odometry_, std::move(message));
+}
+
+std::optional<ExactStampInputs> ExactStampJoiner::addLanelet(lanelet_msgs::msg::LaneletAhead::SharedPtr message)
+{
+  return insertAndTake(lanelets_, std::move(message));
+}
+
+std::optional<ExactStampInputs> ExactStampJoiner::take(const Stamp stamp)
+{
+  const auto tracks = tracks_.find(stamp);
+  const auto pose = poses_.find(stamp);
+  const auto odometry = odometry_.find(stamp);
+  const auto lanelet = lanelets_.find(stamp);
+  if (tracks == tracks_.end() || pose == poses_.end() || odometry == odometry_.end() || lanelet == lanelets_.end()) {
+    return std::nullopt;
+  }
+
+  ExactStampInputs inputs{tracks->second, pose->second, odometry->second, lanelet->second};
+  tracks_.erase(tracks);
+  poses_.erase(pose);
+  odometry_.erase(odometry);
+  lanelets_.erase(lanelet);
+  rememberProcessed(stamp);
+  return inputs;
+}
+
+void ExactStampJoiner::rememberProcessed(const Stamp stamp)
+{
+  processed_.insert(stamp);
+  processed_order_.push_back(stamp);
+  while (processed_order_.size() > kCapacity) {
+    processed_.erase(processed_order_.front());
+    processed_order_.pop_front();
+  }
+}
+
+void ExactStampJoiner::clear()
+{
+  tracks_.clear();
+  poses_.clear();
+  odometry_.clear();
+  lanelets_.clear();
+  processed_order_.clear();
+  processed_.clear();
+}
 
 PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("prediction_ml_node", options)
@@ -103,8 +173,10 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
 
   scene_builder_ = std::make_unique<SceneBuilder>(cfg);
   runtime_ = std::make_unique<MtrRuntime>(cfg);
+  mtr_diagnostics_enabled_ = !cfg.pinned_target_ids.empty();
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
+  mtr_predictions_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("mtr_predictions", 10);
   RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs)", prediction_horizon_, prediction_time_step_);
   if (!runtime_->ready()) {
     RCLCPP_WARN(this->get_logger(), "MTR unavailable; publishing fallback only: %s", runtime_->lastError().c_str());
@@ -123,6 +195,11 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_activate(const rclcpp_life
   lanelet_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
     "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
   world_objects_pub_->on_activate();
+  mtr_predictions_pub_->on_activate();
+  if (mtr_diagnostics_enabled_) {
+    diagnostic_timer_ =
+      this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&PredictionMlNode::publishMtrDiagnostics, this));
+  }
   RCLCPP_INFO(this->get_logger(), "Activated");
   return CallbackReturn::SUCCESS;
 }
@@ -136,7 +213,10 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_deactivate(const rclcpp_li
   ego_pose_.reset();
   ego_odometry_.reset();
   lanelet_ahead_.reset();
+  exact_stamp_joiner_.clear();
+  diagnostic_timer_.reset();
   world_objects_pub_->on_deactivate();
+  mtr_predictions_pub_->on_deactivate();
   return CallbackReturn::SUCCESS;
 }
 
@@ -146,9 +226,13 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
   ego_pose_sub_.reset();
   ego_odometry_sub_.reset();
   lanelet_ahead_sub_.reset();
-  world_objects_pub_.reset();
-  scene_builder_.reset();
+  diagnostic_timer_.reset();
   runtime_.reset();
+  world_objects_pub_.reset();
+  mtr_predictions_pub_.reset();
+  scene_builder_.reset();
+  exact_stamp_joiner_.clear();
+  mtr_diagnostics_enabled_ = false;
   ego_pose_.reset();
   ego_odometry_.reset();
   lanelet_ahead_.reset();
@@ -161,12 +245,19 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_life
   ego_pose_sub_.reset();
   ego_odometry_sub_.reset();
   lanelet_ahead_sub_.reset();
+  diagnostic_timer_.reset();
+  runtime_.reset();
   if (world_objects_pub_) {
     world_objects_pub_->on_deactivate();
     world_objects_pub_.reset();
   }
+  if (mtr_predictions_pub_) {
+    mtr_predictions_pub_->on_deactivate();
+    mtr_predictions_pub_.reset();
+  }
   scene_builder_.reset();
-  runtime_.reset();
+  exact_stamp_joiner_.clear();
+  mtr_diagnostics_enabled_ = false;
   ego_pose_.reset();
   ego_odometry_.reset();
   lanelet_ahead_.reset();
@@ -175,6 +266,12 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_life
 
 void PredictionMlNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
+  if (mtr_diagnostics_enabled_) {
+    if (auto inputs = exact_stamp_joiner_.addPose(msg)) {
+      submitSynchronizedMtr(std::move(*inputs));
+    }
+    return;
+  }
   ego_pose_ = msg;
 }
 
@@ -195,12 +292,59 @@ void PredictionMlNode::egoOdometryCallback(const nav_msgs::msg::Odometry::Shared
       msg->child_frame_id.c_str());
     return;
   }
+  if (mtr_diagnostics_enabled_) {
+    if (auto inputs = exact_stamp_joiner_.addOdometry(msg)) {
+      submitSynchronizedMtr(std::move(*inputs));
+    }
+    return;
+  }
   ego_odometry_ = msg;
 }
 
 void PredictionMlNode::laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg)
 {
+  if (mtr_diagnostics_enabled_) {
+    if (auto inputs = exact_stamp_joiner_.addLanelet(msg)) {
+      submitSynchronizedMtr(std::move(*inputs));
+    }
+    return;
+  }
   lanelet_ahead_ = msg;
+}
+
+void PredictionMlNode::publishMtrDiagnostics()
+{
+  if (!runtime_ || !mtr_predictions_pub_ || !mtr_predictions_pub_->is_activated()) {
+    return;
+  }
+  while (auto output = runtime_->takeDiagnosticOutput()) {
+    mtr_predictions_pub_->publish(std::move(*output));
+  }
+}
+
+void PredictionMlNode::submitSynchronizedMtr(ExactStampInputs inputs)
+{
+  if (!inputs.tracks || !inputs.pose || !inputs.odometry || !inputs.lanelet) {
+    return;
+  }
+
+  MtrFrameContext frame;
+  frame.detections = *inputs.tracks;
+  frame.ego_pose = *inputs.pose;
+  frame.ego_velocity = inputs.odometry->twist.twist;
+  frame.lanelet_ahead = *inputs.lanelet;
+  frame.timestamp = rclcpp::Time(inputs.tracks->header.stamp).seconds();
+  frame.has_ego = true;
+  frame.has_ego_velocity = true;
+  frame.has_map = true;
+
+  MtrInputTensors tensors = scene_builder_->build(frame);
+  runtime_->submitFrame(
+    std::move(tensors),
+    inputs.tracks->header.frame_id,
+    frame.timestamp,
+    prediction_horizon_,
+    prediction_time_step_);
 }
 
 std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
@@ -253,6 +397,28 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   auto fallback = buildFallback(*msg, source_time);
 
   scene_builder_->addFrame(*msg);
+  if (mtr_diagnostics_enabled_) {
+    auto synchronized = exact_stamp_joiner_.addTracks(msg);
+    runtime_->submitFrame(
+      MtrInputTensors{},
+      msg->header.frame_id,
+      source_time.seconds(),
+      prediction_horizon_,
+      prediction_time_step_);
+
+    world_model_msgs::msg::WorldObjectArray output;
+    output.header = msg->header;
+    output.objects = runtime_->selectOutput(fallback, now_s);
+    if (world_objects_pub_ && world_objects_pub_->is_activated()) {
+      world_objects_pub_->publish(output);
+    }
+
+    if (synchronized) {
+      submitSynchronizedMtr(std::move(*synchronized));
+    }
+    return;
+  }
+
   MtrFrameContext frame;
   frame.detections = *msg;
   if (ego_pose_) {
@@ -282,6 +448,7 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
 
 }  // namespace prediction_ml
 
+#ifndef PREDICTION_ML_DISABLE_MAIN
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
@@ -292,3 +459,4 @@ int main(int argc, char ** argv)
   rclcpp::shutdown();
   return 0;
 }
+#endif

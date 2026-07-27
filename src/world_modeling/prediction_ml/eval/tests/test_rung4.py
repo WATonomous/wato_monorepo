@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import pathlib
+import types
 
 import numpy as np
 import pytest
@@ -27,11 +28,11 @@ FIXTURE = (
     / "fixtures"
     / "923a0c6bb90f4127"
 )
-SOURCE_NS = 2_000_000_000
+SOURCE_NS = 1_999_900_000
 
 
 def _mode(xy: np.ndarray, confidence: float = 0.5) -> rung4.RecordedMode:
-    step_ns = int(round(rep.DEPLOYED_STEP_S * 1_000_000_000))
+    step_ns = round(rep.DEPLOYED_STEP_S * 1_000_000_000)
     return rung4.RecordedMode(
         confidence=confidence,
         source_stamp_ns=SOURCE_NS,
@@ -68,9 +69,13 @@ def test_score_scenario_joins_runtime_ids_to_waymo_ids_and_rung3():
     ]
     assert [row.minfde for row in rows] == pytest.approx([0.0, 0.0])
     assert [row.delta_minfde for row in rows] == pytest.approx([0.0, 0.0])
+    assert [row.world_seed_status for row in rows] == [
+        "not_checked",
+        "not_checked",
+    ]
 
 
-def test_score_prefers_later_multimode_cache_output_over_immediate_fallback():
+def test_score_prefers_later_more_complete_diagnostic_cache_output():
     gt, _ = _fixture_gt()
     far = gt[0] + 100.0
     recorded = [
@@ -91,6 +96,62 @@ def test_score_prefers_later_multimode_cache_output_over_immediate_fallback():
 
     assert rows[0].mode_count == 2
     assert rows[0].minfde == pytest.approx(0.0)
+
+
+def test_world_seed_fallback_and_missing_are_reported_but_not_scored():
+    gt, _ = _fixture_gt()
+    far = gt + 100.0
+    diagnostic = [
+        rung4.RecordedObject("2", SOURCE_NS, (_mode(gt[0], 0.7), _mode(far[0], 0.3))),
+        rung4.RecordedObject(
+            "__ego__",
+            SOURCE_NS,
+            (_mode(gt[1], 0.7), _mode(far[1], 0.3)),
+        ),
+    ]
+    world_seeds = [rung4.RecordedObject("2", SOURCE_NS, (_mode(far[0], 1.0),))]
+    reference = {
+        (FIXTURE.name, "2"): 0.0,
+        (FIXTURE.name, "9"): 0.0,
+    }
+
+    rows = rung4.score_scenario(
+        FIXTURE,
+        diagnostic,
+        SOURCE_NS,
+        reference,
+        world_seeds=world_seeds,
+    )
+
+    assert [row.minfde for row in rows] == pytest.approx([0.0, 0.0])
+    assert [row.world_seed_status for row in rows] == ["fallback", "missing"]
+
+
+def test_single_mode_world_seed_matching_diagnostic_is_mtr_not_fallback():
+    gt, _ = _fixture_gt()
+    far = gt[0] + 100.0
+    diagnostic = [
+        rung4.RecordedObject("2", SOURCE_NS, (_mode(gt[0], 1.0),)),
+        rung4.RecordedObject("__ego__", SOURCE_NS, (_mode(gt[1], 1.0),)),
+    ]
+    world_seeds = [
+        rung4.RecordedObject("2", SOURCE_NS, (_mode(far, 1.0),)),
+        *diagnostic,
+    ]
+    reference = {
+        (FIXTURE.name, "2"): 0.0,
+        (FIXTURE.name, "9"): 0.0,
+    }
+
+    rows = rung4.score_scenario(
+        FIXTURE,
+        diagnostic,
+        SOURCE_NS,
+        reference,
+        world_seeds=world_seeds,
+    )
+
+    assert [row.world_seed_status for row in rows] == ["mtr", "mtr"]
 
 
 def test_missing_pinned_runtime_target_is_not_silently_dropped():
@@ -138,6 +199,50 @@ def test_rung3_report_requires_unique_finite_engine_minfde(tmp_path):
 
 def test_module_import_does_not_require_ros():
     assert "rosbag2_py" not in rung4.__dict__
+
+
+def test_dedicated_mtr_diagnostic_topic_is_the_reader_default():
+    assert rung4.MTR_TOPIC == "/world_modeling/mtr_predictions"
+    assert rung4.WORLD_SEEDS_TOPIC == "/world_modeling/world_object_seeds"
+
+
+def test_diagnostic_reader_uses_detection_id_and_prediction_source_stamp():
+    def stamp(value: int):
+        return types.SimpleNamespace(
+            sec=value // 1_000_000_000,
+            nanosec=value % 1_000_000_000,
+        )
+
+    poses = [
+        types.SimpleNamespace(
+            header=types.SimpleNamespace(stamp=stamp(SOURCE_NS + 200_000_000)),
+            pose=types.SimpleNamespace(position=types.SimpleNamespace(x=1.0, y=2.0)),
+        )
+    ]
+    prediction = types.SimpleNamespace(
+        conf=0.75,
+        header=types.SimpleNamespace(stamp=stamp(SOURCE_NS)),
+        poses=poses,
+    )
+    obj = types.SimpleNamespace(
+        detection=types.SimpleNamespace(id="__ego__"),
+        predictions=[prediction],
+    )
+    message = types.SimpleNamespace(
+        # The array publication stamp is intentionally unrelated; cached
+        # entries can have different authoritative source stamps.
+        header=types.SimpleNamespace(stamp=stamp(SOURCE_NS + 999)),
+        objects=[obj],
+    )
+
+    recorded = rung4._normalize_world_object_array(
+        message, record_stamp_ns=SOURCE_NS + 1_000
+    )
+
+    assert recorded[0].detection_id == "__ego__"
+    assert recorded[0].record_stamp_ns == SOURCE_NS + 1_000
+    assert recorded[0].modes[0].source_stamp_ns == SOURCE_NS
+    np.testing.assert_array_equal(recorded[0].modes[0].xy, [[1.0, 2.0]])
 
 
 def test_reads_scoring_source_stamp_from_committed_mcap():

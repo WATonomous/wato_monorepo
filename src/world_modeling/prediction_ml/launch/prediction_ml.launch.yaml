@@ -41,3 +41,5 @@ launch:
           to: lanelet/lanelet_ahead
         - from: world_object_seeds
           to: /world_modeling/world_object_seeds
+        - from: mtr_predictions
+          to: /world_modeling/mtr_predictions

@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
@@ -132,6 +133,7 @@ TEST(MtrRuntime, FreshResultReplacesMatchingFallbackAndExpiresBySourceTime)
   ASSERT_EQ(fresh.size(), 2U);
   EXPECT_NEAR(fresh[0].predictions[0].conf, 0.8, 1.0e-6);
   EXPECT_DOUBLE_EQ(fresh[1].predictions[0].conf, 1.0);
+  EXPECT_FALSE(runtime.takeDiagnosticOutput()) << "production target selection must not emit evaluation diagnostics";
 
   const auto stale = runtime.selectOutput(fallback, 100.6);
   ASSERT_EQ(stale.size(), 2U);
@@ -152,4 +154,35 @@ TEST(MtrRuntime, InvalidSubmissionNeverStartsInference)
   const auto output = runtime.selectOutput(fallback, 100.1);
   ASSERT_EQ(output.size(), 1U);
   EXPECT_DOUBLE_EQ(output[0].predictions[0].conf, 1.0);
+}
+
+TEST(MtrRuntime, PinnedEgoDiagnosticIsOneShotAndIndependentOfFallback)
+{
+  prediction_ml::MtrConfig cfg;
+  cfg.model_time_step_s = 0.5;
+  cfg.pinned_target_ids = {"__ego__"};
+  auto engine = std::make_unique<ImmediateEngine>(makeOutput());
+  prediction_ml::MtrRuntime runtime(cfg, std::move(engine));
+
+  runtime.submitFrame(makeInput("__ego__"), "map", 100.0, 1.0, 0.5);
+
+  std::optional<world_model_msgs::msg::WorldObjectArray> diagnostic;
+  for (int attempt = 0; attempt < 100 && !diagnostic; ++attempt) {
+    diagnostic = runtime.takeDiagnosticOutput();
+    if (!diagnostic) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+  }
+
+  ASSERT_TRUE(diagnostic);
+  EXPECT_EQ(diagnostic->header.frame_id, "map");
+  EXPECT_EQ(diagnostic->header.stamp.sec, 100);
+  ASSERT_EQ(diagnostic->objects.size(), 1U);
+  EXPECT_EQ(diagnostic->objects[0].detection.id, "__ego__");
+  ASSERT_EQ(diagnostic->objects[0].predictions.size(), 1U);
+  EXPECT_NEAR(diagnostic->objects[0].predictions[0].conf, 0.8, 1.0e-6);
+  EXPECT_FALSE(runtime.takeDiagnosticOutput()) << "each diagnostic batch must be returned exactly once";
+
+  const auto production = runtime.selectOutput({}, 100.1);
+  EXPECT_TRUE(production.empty()) << "ego diagnostics must not enter production world_object_seeds";
 }

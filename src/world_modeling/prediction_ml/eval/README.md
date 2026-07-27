@@ -248,14 +248,56 @@ python -m wato_mtr_eval.rung3 \
 
 ## Rung 4 status
 
-The rung-4 reader/scorer is implemented and unit tested, but the live replay
-gate remains blocked until the vehicle run and one runtime ownership issue are
-resolved. Fixture target pins include Waymo's SDC as `__ego__`, while
-`MtrRuntime::selectOutput` currently attaches cached predictions only to
-objects already present in the fallback detection array. The converter
-deliberately omits a duplicate raw SDC detection, so `__ego__` cannot appear on
-`world_object_seeds`. Rung 4 fails loudly on this missing pin instead of
-silently weakening the paired comparison.
+The runtime now publishes accepted pinned-target batches exactly once on the
+evaluation-only `/world_modeling/mtr_predictions` topic. This stream includes
+Waymo's SDC as `__ego__` and is the authoritative rung-4 scoring input.
+`/world_modeling/world_object_seeds` remains unchanged and is recorded
+separately so the report can classify each pin as MTR, fallback, or missing
+without weakening the paired comparison.
+
+Pinned evaluation mode joins pose, odometry, lanelet, and tracks by their exact
+nonzero source stamp before building tensors. This is required because ROS does
+not guarantee callback order across four subscriptions, even when MCAP records
+with equal timestamps were written pose/odometry/lanelet/tracks. Non-pinned
+production mode retains its latest-state behavior.
+
+Record both topics for each fixture after setting that fixture's ordered
+`mtr.pinned_target_ids` before lifecycle configuration:
+
+```bash
+ros2 bag record -o rung4_out \
+  /world_modeling/mtr_predictions \
+  /world_modeling/world_object_seeds
+
+# The committed fixtures store the lanelet topic at the root namespace.
+ros2 bag play fixtures/<scenario_id> --clock \
+  --remap lanelet/lanelet_ahead:=/world_modeling/lanelet/lanelet_ahead
+```
+
+The rung-4 JSON manifest maps each scenario to its recording and exact ordered
+pins, plus the rung-3-final ledger:
+
+```json
+{
+  "recordings": {"<scenario_id>": "rung4_out"},
+  "pinned_target_ids": {"<scenario_id>": ["<track-id>", "__ego__"]},
+  "rung3_final_report": "rung3_final.json",
+  "mtr_topic": "/world_modeling/mtr_predictions",
+  "world_seeds_topic": "/world_modeling/world_object_seeds"
+}
+```
+
+The complete local `sm_86` mechanics replay passed against the rung-3-dev
+ledger: 3 scenarios, 9/9 targets below 1e-3 m paired delta minFDE, with all
+deltas at floating-point noise. Production output contained MTR predictions
+for all seven raw detection pins and intentionally omitted the two synthetic
+`__ego__` pins; both egos were present on the diagnostic topic. This validates
+ROS serialization, exact-stamp joining, map-frame conversion, async inference,
+diagnostic delivery, and scoring, but it does not repair or supersede the
+failed rung-3-dev FP16 checkpoint-parity result.
+
+The remaining final gate is the native `sm_89` vehicle engine followed by the
+same three live fixture recordings scored against the rung-3-final ledger.
 
 The final ladder therefore remains:
 
@@ -266,4 +308,5 @@ The final ladder therefore remains:
 | R2 C++ representation | PASS | 9/9 below 1e-3 m paired delta minFDE |
 | R3-dev TensorRT (`sm_86`) | diagnostic FAIL | FP16 1/9 below 1e-3 m; no performance numbers |
 | R3-final TensorRT (`sm_89`) | PENDING | rebuild and measure on vehicle |
-| R4 full ROS replay | BLOCKED | requires R3-final and `__ego__` output ownership decision |
+| R4-dev ROS replay (`sm_86`) | PASS | 9/9 below 1e-3 m paired delta minFDE vs rung-3-dev |
+| R4-final ROS replay (`sm_89`) | PENDING | requires R3-final and vehicle fixture recordings |

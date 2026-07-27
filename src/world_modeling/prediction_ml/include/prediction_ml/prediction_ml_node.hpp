@@ -15,8 +15,13 @@
 #ifndef PREDICTION_ML__PREDICTION_ML_NODE_HPP_
 #define PREDICTION_ML__PREDICTION_ML_NODE_HPP_
 
+#include <cstdint>
+#include <deque>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -32,6 +37,63 @@
 
 namespace prediction_ml
 {
+
+struct ExactStampInputs
+{
+  vision_msgs::msg::Detection3DArray::SharedPtr tracks;
+  geometry_msgs::msg::PoseStamped::SharedPtr pose;
+  nav_msgs::msg::Odometry::SharedPtr odometry;
+  lanelet_msgs::msg::LaneletAhead::SharedPtr lanelet;
+};
+
+// Evaluation-only exact-stamp joiner. Production continues to use the latest
+// auxiliary state because its independently published topics are not guaranteed
+// to share timestamps.
+class ExactStampJoiner
+{
+public:
+  static constexpr std::size_t kCapacity = 32U;
+
+  std::optional<ExactStampInputs> addTracks(vision_msgs::msg::Detection3DArray::SharedPtr message);
+  std::optional<ExactStampInputs> addPose(geometry_msgs::msg::PoseStamped::SharedPtr message);
+  std::optional<ExactStampInputs> addOdometry(nav_msgs::msg::Odometry::SharedPtr message);
+  std::optional<ExactStampInputs> addLanelet(lanelet_msgs::msg::LaneletAhead::SharedPtr message);
+  void clear();
+
+private:
+  using Stamp = std::int64_t;
+
+  static std::optional<Stamp> stampKey(std::int32_t seconds, std::uint32_t nanoseconds);
+
+  template <typename MessageT>
+  std::optional<ExactStampInputs> insertAndTake(
+    std::map<Stamp, std::shared_ptr<MessageT>> & cache,
+    std::shared_ptr<MessageT> message)
+  {
+    if (!message) {
+      return std::nullopt;
+    }
+    const auto stamp = stampKey(message->header.stamp.sec, message->header.stamp.nanosec);
+    if (!stamp.has_value() || processed_.find(*stamp) != processed_.end()) {
+      return std::nullopt;
+    }
+    cache[*stamp] = std::move(message);
+    while (cache.size() > kCapacity) {
+      cache.erase(cache.begin());
+    }
+    return take(*stamp);
+  }
+
+  std::optional<ExactStampInputs> take(Stamp stamp);
+  void rememberProcessed(Stamp stamp);
+
+  std::map<Stamp, vision_msgs::msg::Detection3DArray::SharedPtr> tracks_;
+  std::map<Stamp, geometry_msgs::msg::PoseStamped::SharedPtr> poses_;
+  std::map<Stamp, nav_msgs::msg::Odometry::SharedPtr> odometry_;
+  std::map<Stamp, lanelet_msgs::msg::LaneletAhead::SharedPtr> lanelets_;
+  std::deque<Stamp> processed_order_;
+  std::unordered_set<Stamp> processed_;
+};
 
 class PredictionMlNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -52,6 +114,8 @@ private:
   void egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void egoOdometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
+  void publishMtrDiagnostics();
+  void submitSynchronizedMtr(ExactStampInputs inputs);
 
   // Constant-velocity straight-line fallback (ported from simple_prediction).
   std::vector<world_model_msgs::msg::WorldObject> buildFallback(
@@ -64,15 +128,19 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr ego_odometry_sub_;
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr mtr_predictions_pub_;
+  rclcpp::TimerBase::SharedPtr diagnostic_timer_;
 
   std::unique_ptr<SceneBuilder> scene_builder_;
   std::unique_ptr<MtrRuntime> runtime_;
+  ExactStampJoiner exact_stamp_joiner_;
 
   geometry_msgs::msg::PoseStamped::SharedPtr ego_pose_;
   nav_msgs::msg::Odometry::SharedPtr ego_odometry_;
   lanelet_msgs::msg::LaneletAhead::SharedPtr lanelet_ahead_;
 
   std::string ego_velocity_child_frame_{"base_footprint"};
+  bool mtr_diagnostics_enabled_{false};
 
   double prediction_horizon_{3.0};
   double prediction_time_step_{0.2};

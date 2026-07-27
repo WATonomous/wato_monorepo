@@ -15,8 +15,10 @@
 
 The scoring core is ROS-free. ROS imports are lazy and isolated to the two bag
 reader functions, so unit tests and report inspection work in the model
-environment. A run manifest records the exact pinned target IDs used for each
-replay; they must equal the fixture sidecar or the comparison is rejected.
+environment. The dedicated MTR diagnostic topic is authoritative because it
+contains every pinned target, including synthetic ``__ego__``. The production
+``world_object_seeds`` topic is inspected separately to expose detection-list
+filtering and fallback takeover without contaminating the paired metric.
 """
 
 from __future__ import annotations
@@ -33,9 +35,11 @@ from typing import Any
 
 import numpy as np
 
-from . import metrics, representation as rep
+from . import metrics
+from . import representation as rep
 
-OUTPUT_TOPIC = "/world_modeling/world_object_seeds"
+MTR_TOPIC = "/world_modeling/mtr_predictions"
+WORLD_SEEDS_TOPIC = "/world_modeling/world_object_seeds"
 TRACKS_TOPIC = "/perception/detections_3D_tracked"
 
 
@@ -64,6 +68,7 @@ class Rung4AgentRow:
     rung3_minfde: float
     delta_minfde: float
     mode_count: int
+    world_seed_status: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -71,7 +76,9 @@ class Rung4Report:
     paired_minfde: metrics.PairedDelta
     per_agent: tuple[Rung4AgentRow, ...]
     num_scenarios: int
-    fallback_agents: int
+    world_seed_mtr_agents: int
+    world_seed_fallback_agents: int
+    world_seed_missing_agents: int
 
     @property
     def mean_minade(self) -> float:
@@ -92,11 +99,20 @@ class Rung4Report:
     def format(self) -> str:
         return "\n\n".join(
             [
-                f"Rung 4 — {self.num_scenarios} scenarios, "
-                f"{len(self.per_agent)} pinned targets",
-                f"deployed mean minADE={self.mean_minade:.4f} m, "
-                f"mean minFDE={self.mean_minfde:.4f} m",
-                f"one-mode fallback targets: {self.fallback_agents}",
+                (
+                    f"Rung 4 — {self.num_scenarios} scenarios, "
+                    f"{len(self.per_agent)} pinned targets"
+                ),
+                (
+                    f"deployed mean minADE={self.mean_minade:.4f} m, "
+                    f"mean minFDE={self.mean_minfde:.4f} m"
+                ),
+                (
+                    "world_object_seeds status: "
+                    f"MTR={self.world_seed_mtr_agents}, "
+                    f"fallback={self.world_seed_fallback_agents}, "
+                    f"missing={self.world_seed_missing_agents}"
+                ),
                 metrics.format_paired_delta(
                     self.paired_minfde, "R3-final -> R4  minFDE"
                 ),
@@ -118,7 +134,8 @@ class _RunConfig:
     recordings: dict[str, pathlib.Path]
     pinned_target_ids: dict[str, tuple[str, ...]]
     rung3_final_report: pathlib.Path
-    topic: str
+    mtr_topic: str
+    world_seeds_topic: str
 
 
 def _stamp_ns(stamp: Any) -> int:
@@ -157,7 +174,7 @@ def _open_reader(bag: pathlib.Path):
 
 def read_recorded_objects(
     bag: pathlib.Path,
-    topic: str = OUTPUT_TOPIC,
+    topic: str = MTR_TOPIC,
 ) -> list[RecordedObject]:
     """Normalize every published object sample from a recorded ROS bag."""
     try:
@@ -179,33 +196,43 @@ def read_recorded_objects(
         if current_topic != topic:
             continue
         message = deserialize_message(serialized, message_type)
-        for obj in message.objects:
-            modes = []
-            for prediction in obj.predictions:
-                modes.append(
-                    RecordedMode(
-                        confidence=float(prediction.conf),
-                        source_stamp_ns=_stamp_ns(prediction.header.stamp),
-                        pose_stamps_ns=np.asarray(
-                            [_stamp_ns(pose.header.stamp) for pose in prediction.poses],
-                            dtype=np.int64,
-                        ),
-                        xy=np.asarray(
-                            [
-                                [pose.pose.position.x, pose.pose.position.y]
-                                for pose in prediction.poses
-                            ],
-                            dtype=np.float64,
-                        ),
-                    )
-                )
-            output.append(
-                RecordedObject(
-                    detection_id=str(obj.detection.id),
-                    record_stamp_ns=int(record_stamp_ns),
-                    modes=tuple(modes),
+        output.extend(_normalize_world_object_array(message, record_stamp_ns))
+    return output
+
+
+def _normalize_world_object_array(
+    message: Any,
+    record_stamp_ns: int,
+) -> list[RecordedObject]:
+    """Normalize the shared WorldObjectArray schema used by both topics."""
+    output = []
+    for obj in message.objects:
+        modes = []
+        for prediction in obj.predictions:
+            modes.append(
+                RecordedMode(
+                    confidence=float(prediction.conf),
+                    source_stamp_ns=_stamp_ns(prediction.header.stamp),
+                    pose_stamps_ns=np.asarray(
+                        [_stamp_ns(pose.header.stamp) for pose in prediction.poses],
+                        dtype=np.int64,
+                    ),
+                    xy=np.asarray(
+                        [
+                            [pose.pose.position.x, pose.pose.position.y]
+                            for pose in prediction.poses
+                        ],
+                        dtype=np.float64,
+                    ),
                 )
             )
+        output.append(
+            RecordedObject(
+                detection_id=str(obj.detection.id),
+                record_stamp_ns=int(record_stamp_ns),
+                modes=tuple(modes),
+            )
+        )
     return output
 
 
@@ -283,7 +310,7 @@ def _validate_mode(mode: RecordedMode, source_stamp_ns: int) -> None:
         raise ValueError(f"invalid recorded mode confidence {mode.confidence}")
     expected_stamps = source_stamp_ns + (
         np.arange(1, rep.DEPLOYED_STEPS + 1, dtype=np.int64)
-        * int(round(rep.DEPLOYED_STEP_S * 1_000_000_000))
+        * round(rep.DEPLOYED_STEP_S * 1_000_000_000)
     )
     if mode.source_stamp_ns != source_stamp_ns:
         raise ValueError("recorded prediction has the wrong source stamp")
@@ -319,11 +346,50 @@ def _select_predictions(
     return selected
 
 
+def _world_seed_statuses(
+    recorded: Sequence[RecordedObject] | None,
+    diagnostic: Mapping[str, tuple[RecordedMode, ...]],
+    source_stamp_ns: int,
+) -> dict[str, str]:
+    """Classify the production stream without making it the scoring oracle."""
+    if recorded is None:
+        return {runtime_id: "not_checked" for runtime_id in diagnostic}
+    selected: dict[str, tuple[RecordedMode, ...]] = {}
+    wanted = set(diagnostic)
+    for obj in recorded:
+        if obj.detection_id not in wanted:
+            continue
+        source_modes = tuple(
+            mode for mode in obj.modes if mode.source_stamp_ns == source_stamp_ns
+        )
+        if not source_modes:
+            continue
+        previous = selected.get(obj.detection_id)
+        if previous is None or len(source_modes) >= len(previous):
+            selected[obj.detection_id] = source_modes
+    statuses = {}
+    for runtime_id, diagnostic_modes in diagnostic.items():
+        production_modes = selected.get(runtime_id)
+        if production_modes is None:
+            statuses[runtime_id] = "missing"
+            continue
+        same_mtr_output = len(production_modes) == len(diagnostic_modes) and all(
+            left.confidence == right.confidence
+            and left.source_stamp_ns == right.source_stamp_ns
+            and np.array_equal(left.pose_stamps_ns, right.pose_stamps_ns)
+            and np.array_equal(left.xy, right.xy)
+            for left, right in zip(production_modes, diagnostic_modes)
+        )
+        statuses[runtime_id] = "mtr" if same_mtr_output else "fallback"
+    return statuses
+
+
 def score_scenario(
     fixture: pathlib.Path,
-    recorded: Sequence[RecordedObject],
+    recorded_mtr: Sequence[RecordedObject],
     source_stamp_ns: int,
     rung3_minfde: Mapping[tuple[str, str], float],
+    world_seeds: Sequence[RecordedObject] | None = None,
 ) -> list[Rung4AgentRow]:
     """Pure scoring core for one normalized runtime recording."""
     fixture = pathlib.Path(fixture)
@@ -335,7 +401,14 @@ def score_scenario(
     gt = gt[:, 1 : 1 + rep.DEPLOYED_STEPS * 2 : 2]
     valid = valid[:, 1 : 1 + rep.DEPLOYED_STEPS * 2 : 2]
     selected = _select_predictions(
-        recorded, [target.runtime_id for target in targets], source_stamp_ns
+        recorded_mtr,
+        [target.runtime_id for target in targets],
+        source_stamp_ns,
+    )
+    world_seed_status = _world_seed_statuses(
+        world_seeds,
+        selected,
+        source_stamp_ns,
     )
 
     rows = []
@@ -362,6 +435,7 @@ def score_scenario(
                 rung3_minfde=reference,
                 delta_minfde=minfde - reference,
                 mode_count=len(modes),
+                world_seed_status=world_seed_status[target.runtime_id],
             )
         )
     return rows
@@ -371,12 +445,12 @@ def _load_config(path: pathlib.Path) -> _RunConfig:
     path = pathlib.Path(path).expanduser().resolve()
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
-        raise ValueError("rung4 node config must be a JSON object")
+        raise TypeError("rung4 node config must be a JSON object")
     base = path.parent
     recordings_raw = raw.get("recordings")
     pins_raw = raw.get("pinned_target_ids")
     if not isinstance(recordings_raw, dict) or not isinstance(pins_raw, dict):
-        raise ValueError("recordings and pinned_target_ids must be JSON objects")
+        raise TypeError("recordings and pinned_target_ids must be JSON objects")
     if any(
         not isinstance(value, list)
         or not value
@@ -395,7 +469,8 @@ def _load_config(path: pathlib.Path) -> _RunConfig:
             for key, value in pins_raw.items()
         },
         rung3_final_report=resolve(raw["rung3_final_report"]),
-        topic=str(raw.get("topic", OUTPUT_TOPIC)),
+        mtr_topic=str(raw.get("mtr_topic", MTR_TOPIC)),
+        world_seeds_topic=str(raw.get("world_seeds_topic", WORLD_SEEDS_TOPIC)),
     )
 
 
@@ -409,11 +484,11 @@ def _load_rung3(path: pathlib.Path) -> dict[tuple[str, str], float]:
         raise ValueError("rung3-final report must use rung3 schema version 1")
     rows = raw.get("per_agent")
     if not isinstance(rows, dict):
-        raise ValueError("rung3-final report must contain a per_agent object")
+        raise TypeError("rung3-final report must contain a per_agent object")
     output: dict[tuple[str, str], float] = {}
     for serialized_key, row in rows.items():
         if not isinstance(row, dict):
-            raise ValueError("rung3 per_agent entries must be objects")
+            raise TypeError("rung3 per_agent entries must be objects")
         key = (str(row["scenario_id"]), str(row["waymo_id"]))
         if serialized_key != f"{key[0]}::{key[1]}":
             raise ValueError(
@@ -457,10 +532,21 @@ def run(
             )
         expected_keys.update((fixture.name, target.waymo_id) for target in targets)
         source_stamp_ns = read_replay_source_stamp(fixture)
-        recorded = read_recorded_objects(
-            config.recordings[fixture.name], topic=config.topic
+        recorded_mtr = read_recorded_objects(
+            config.recordings[fixture.name], topic=config.mtr_topic
         )
-        all_rows.extend(score_scenario(fixture, recorded, source_stamp_ns, rung3))
+        world_seeds = read_recorded_objects(
+            config.recordings[fixture.name], topic=config.world_seeds_topic
+        )
+        all_rows.extend(
+            score_scenario(
+                fixture,
+                recorded_mtr,
+                source_stamp_ns,
+                rung3,
+                world_seeds=world_seeds,
+            )
+        )
     if set(rung3) != expected_keys:
         raise ValueError(
             "rung3-final per_agent keys must exactly match fixture targets"
@@ -478,7 +564,13 @@ def run(
         paired_minfde=paired,
         per_agent=tuple(all_rows),
         num_scenarios=len(fixture_dirs),
-        fallback_agents=sum(row.mode_count == 1 for row in all_rows),
+        world_seed_mtr_agents=sum(row.world_seed_status == "mtr" for row in all_rows),
+        world_seed_fallback_agents=sum(
+            row.world_seed_status == "fallback" for row in all_rows
+        ),
+        world_seed_missing_agents=sum(
+            row.world_seed_status == "missing" for row in all_rows
+        ),
     )
 
 
