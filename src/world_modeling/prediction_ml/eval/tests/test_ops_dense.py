@@ -70,8 +70,9 @@ def test_dense_knn_returns_batch_local_indices_and_minus_one_padding():
             [10.2, 0.0, 0.0],
         ]
     )
-    batch_idxs = torch.tensor([0, 0, 1], dtype=torch.int32)
-    query_offsets = torch.tensor([0, 2, 3], dtype=torch.int32)
+    # Batch 1 is intentionally empty; the final point/query belong to batch 2.
+    batch_idxs = torch.tensor([0, 0, 2], dtype=torch.int32)
+    query_offsets = torch.tensor([0, 2, 2, 3], dtype=torch.int32)
 
     actual = ops_dense.dense_knn(xyz, query_xyz, batch_idxs, query_offsets, 2)
 

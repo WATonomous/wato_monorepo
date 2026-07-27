@@ -1,0 +1,11 @@
+---
+# Engine build configuration. Paired with mtr.onnx as the portable artifact.
+# The engine itself is a build product: never committed, never copied between
+# machines. TensorRT engines are architecture-specific (3060 Ti is sm_86, the
+# vehicle's 4080 is sm_89) and will not load across that boundary.
+precision: fp16
+workspace_size_mb: 4096
+# Static shapes throughout: contract_8_target.yaml pins every dimension.
+optimization_profiles: []
+tactic_sources: [CUBLAS, CUBLAS_LT, CUDNN]
+builder_optimization_level: 3

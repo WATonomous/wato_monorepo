@@ -85,15 +85,16 @@ def dense_knn(
     _validate_knn_shapes(xyz, query_xyz, batch_idxs, query_batch_offsets, k)
     offsets = query_batch_offsets.to(dtype=torch.long)
     batch_ids = batch_idxs.to(dtype=torch.long)
-    counts = offsets[1:] - offsets[:-1]
-    query_batches = torch.repeat_interleave(
-        torch.arange(
-            counts.shape[0],
-            device=query_xyz.device,
-            dtype=torch.long,
-        ),
-        counts,
+    # Derive each query's batch directly from the exclusive upper offsets.
+    # ``repeat_interleave(counts)`` is equivalent, but the legacy ONNX
+    # exporter lowers it through sequence-valued SplitToSequence/Loop nodes
+    # that TensorRT cannot parse.
+    query_positions = torch.arange(
+        query_xyz.shape[0],
+        device=query_xyz.device,
+        dtype=torch.long,
     )
+    query_batches = (query_positions[:, None] >= offsets[None, 1:]).sum(dim=1)
 
     # Squared Euclidean distance avoids a needless sqrt and matches CUDA.
     difference = xyz[:, None, :] - query_xyz[None, :, :]
