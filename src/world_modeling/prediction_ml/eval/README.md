@@ -25,8 +25,8 @@ MTR_CHECKPOINT=/root/mtr-task0/checkpoints/100_percent/MTR/checkpoint_epoch_30.p
   /mnt/c/Users/rylei/github/wato_monorepo/src/world_modeling/prediction_ml/eval/tests -v
 ```
 
-Result on 2026-07-26 after the full-validation Gate A hardening:
-**63 passed**.
+Result on 2026-07-27 after the acceleration counterfactual:
+**201 passed, 2 skipped**.
 
 ## Gate A — checkpoint validation
 
@@ -128,11 +128,50 @@ GATE B: PASS
 selected target's own context row has all 11 history slots; gaps in neighboring
 context rows do not move an agent into the masked cohort.
 
-The acceleration-rule counterfactual remains deliberately deferred. Rung 1 and
-rung 2 implement the same inherit-next-valid rule, so their zero delta proves
-implementation parity but cannot compare that rule against official MTR's
-alternative. That decision requires a separately generated counterfactual
-bundle and must not be inferred from this gate.
+### Acceleration-rule decision
+
+**First-shard decision on 2026-07-27: KEEP WATO.** A three-arm fixed-pairing
+counterfactual ran on all 286 scenarios and 1,268 accepted targets in the first
+validation shard. Arm A used the current WATO inherit-next-valid rule. Arm B reproduced
+upstream MTR's acceleration formula with raw-invalid semantics on the fixed
+WATO representation; it does not claim exact upstream preprocessing parity.
+Arm C used the deployable official-style rule, treating unavailable invalid
+states as zero. Both counterfactuals reconstructed source velocities, target
+rotation, context, and slots in float64 and cast only the final acceleration.
+Only valid acceleration columns 27--28 changed, and A/B/C had identical finite
+metric masks.
+
+```bash
+cd src/world_modeling/prediction_ml/eval
+PYTHONPATH=. python -m wato_mtr_eval.acceleration_counterfactual \
+  --shard /path/to/uncompressed_scenario_validation_validation.tfrecord-00000-of-00150 \
+  --checkpoint "$MTR_CHECKPOINT" \
+  --mtr-root "$MTR_ROOT"
+```
+
+| Arm | minADE (m) | minFDE (m) | Paired mean vs A minADE (m) | Paired mean vs A minFDE (m) |
+|---|---:|---:|---:|---:|
+| A: current WATO | 0.6211 | 1.0542 | -- | -- |
+| B: upstream formula, raw-invalid | 0.6297 | 1.0680 | +0.0087 | +0.0138 |
+| C: deployable zero-fill | 0.6297 | 1.0680 | +0.0087 | +0.0138 |
+
+Arm C changed acceleration somewhere among the 128 context rows for
+1,132/1,268 targets, and changed the selected-target row for 143/1,268.
+Histories without gaps are byte-identical to current WATO acceleration.
+The full C-minus-A paired distributions had median +0.0000 m, p90
++0.0136/+0.0454 m, p99 +0.4905/+0.8965 m, and worst absolute per-agent
+deltas +1.7511/+3.5362 m for minADE/minFDE. Only 39.1%/26.5% were within
+1 mm. The raw-shard prevalence audit found that 45 of 94,220 invalid history
+slots retained nonzero velocity. Consequently, the raw-invalid-formula and
+deployable arms were close but not identical, with maximum absolute B-minus-C
+agent deltas of 0.0055 m minADE and 0.0334 m minFDE.
+
+Because Arm C is the rule production can actually implement and it worsened
+both aggregate metrics, the development decision is to leave production
+`SceneBuilder` unchanged. This is a complete result for the available first
+shard, not the 150-shard statistical sign-off; the same fixed-pairing test
+should be run across the remaining shards before a preprocessing release.
+Gate B remains a parity result and does not need to change.
 
 ## Map budget — raw Waymo information sensitivity
 
@@ -166,6 +205,12 @@ and subtype information retained from raw Waymo, so the deltas are upper bounds
 on combined converter/schema/SceneBuilder work. Current fixture MCAPs contain
 only untyped lane centerlines. A causal SceneBuilder-only experiment requires a
 richer fixed `LaneletAhead` input before changing packing.
+
+The follow-up [road-edge fidelity spike](ROAD_EDGE_FIDELITY.md) confirms that
+the raw parser is exact but the current production transport cannot preserve
+standalone road-edge IDs or MTR boundary/median types. It also records the
+official 1 m split/merge behavior and the query/capacity losses that a
+production implementation must address.
 
 ## Dense replacements for custom CUDA operators
 

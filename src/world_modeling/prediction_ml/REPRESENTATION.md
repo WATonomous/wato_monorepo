@@ -36,9 +36,17 @@ the raw Waymo ID remains in ground truth and the fixture identity map.
 Acceleration is a fixed 10 Hz difference when consecutive slots are present.
 Only the earliest present slot may inherit the next valid acceleration; later
 gaps remain zero. Gate B proves the independent Python and C++ implementations
-of this rule have zero model-output delta on the committed fixtures. It does
-not compare this shared rule with official MTR's alternative, so that
-counterfactual is explicitly deferred.
+of this rule have zero model-output delta on the committed fixtures.
+
+A three-arm counterfactual over the first 286-scenario validation shard compared
+this behavior with the upstream-MTR acceleration formula (including raw-invalid
+velocity semantics) and a deployable official-style zero-fill rule, while all
+other WATO inputs stayed fixed. The deployable rule worsened mean deployed
+minADE/minFDE by 0.0087/0.0138 m across 1,268 paired targets and produced worst
+per-agent changes of +1.7511/+3.5362 m. The first-shard development decision
+therefore keeps the inherit-next-valid rule; validation across the remaining
+shards is still required for dataset-wide sign-off. See `eval/README.md` for
+the full distribution and reproduction command.
 
 ## The 29 `obj_trajs` columns
 
