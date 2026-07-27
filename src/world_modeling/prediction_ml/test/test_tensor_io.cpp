@@ -15,8 +15,10 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "prediction_ml/tensor_io.hpp"
@@ -136,5 +138,76 @@ TEST(TensorIo, ThrowsOnTrailingData)
 {
   EXPECT_THROW(
     prediction_ml::readTensorBundle(fixturePath("tensor_io_trailing.bin.gz")),
+    std::runtime_error);
+}
+
+TEST(TensorIo, WriterRoundTripsAllSupportedDtypes)
+{
+  prediction_ml::TensorBundle bundle;
+
+  prediction_ml::TensorBlob floats;
+  floats.dtype = prediction_ml::TensorDType::Float32;
+  floats.dims = {2U, 3U};
+  floats.f32 = {1.0F, -2.5F, 3.25F, 4.0F, 5.0F, 6.0F};
+  bundle.emplace("float_values", floats);
+
+  prediction_ml::TensorBlob mask;
+  mask.dtype = prediction_ml::TensorDType::UInt8;
+  mask.dims = {3U};
+  mask.u8 = {0U, 1U, 255U};
+  bundle.emplace("mask", mask);
+
+  prediction_ml::TensorBlob index;
+  index.dtype = prediction_ml::TensorDType::Int64;
+  index.dims = {};
+  index.i64 = {-42};
+  bundle.emplace("scalar_index", index);
+
+  const auto path =
+    std::filesystem::temp_directory_path() / "prediction_ml_tensor_io_round_trip.bin.gz";
+  prediction_ml::writeTensorBundle(path.string(), bundle);
+  const auto actual = prediction_ml::readTensorBundle(path.string());
+  std::filesystem::remove(path);
+
+  ASSERT_EQ(actual.size(), bundle.size());
+  for (const auto & expected : bundle) {
+    const auto & tensor = actual.at(expected.first);
+    EXPECT_EQ(tensor.dtype, expected.second.dtype);
+    EXPECT_EQ(tensor.dims, expected.second.dims);
+    EXPECT_EQ(tensor.f32, expected.second.f32);
+    EXPECT_EQ(tensor.u8, expected.second.u8);
+    EXPECT_EQ(tensor.i64, expected.second.i64);
+  }
+}
+
+TEST(TensorIo, WriterRejectsShapeValueCountMismatch)
+{
+  prediction_ml::TensorBlob blob;
+  blob.dtype = prediction_ml::TensorDType::Float32;
+  blob.dims = {2U, 3U};
+  blob.f32 = {1.0F};
+  prediction_ml::TensorBundle bundle;
+  bundle.emplace("bad", std::move(blob));
+
+  const auto path =
+    std::filesystem::temp_directory_path() / "prediction_ml_tensor_io_invalid.bin.gz";
+  EXPECT_THROW(
+    prediction_ml::writeTensorBundle(path.string(), bundle),
+    std::runtime_error);
+}
+
+TEST(TensorIo, WriterThrowsWhenOutputPathCannotBeOpened)
+{
+  prediction_ml::TensorBlob blob;
+  blob.dtype = prediction_ml::TensorDType::UInt8;
+  blob.dims = {1U};
+  blob.u8 = {1U};
+  prediction_ml::TensorBundle bundle;
+  bundle.emplace("x", std::move(blob));
+
+  const auto path = std::filesystem::temp_directory_path() /
+    "prediction_ml_missing_output_directory" / "bundle.bin.gz";
+  EXPECT_THROW(
+    prediction_ml::writeTensorBundle(path.string(), bundle),
     std::runtime_error);
 }

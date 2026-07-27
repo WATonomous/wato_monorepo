@@ -33,6 +33,13 @@ from the tracks topic and pose/odometry produce the reserved synthetic
 `__ego__` row. A designated Waymo SDC target maps to `__ego__` for packing while
 the raw Waymo ID remains in ground truth and the fixture identity map.
 
+Acceleration is a fixed 10 Hz difference when consecutive slots are present.
+Only the earliest present slot may inherit the next valid acceleration; later
+gaps remain zero. Gate B proves the independent Python and C++ implementations
+of this rule have zero model-output delta on the committed fixtures. It does
+not compare this shared rule with official MTR's alternative, so that
+counterfactual is explicitly deferred.
+
 ## The 29 `obj_trajs` columns
 
 From `scene_builder.cpp:763-781` in the design snapshot:

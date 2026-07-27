@@ -50,8 +50,12 @@ def write_bundle(path: pathlib.Path, tensors: dict[str, np.ndarray]) -> None:
         parts.append(arr.tobytes(order="C"))
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(path, "wb") as fh:
-        fh.write(b"".join(parts))
+    # Fix the gzip header timestamp so committed fixtures are byte-reproducible.
+    with path.open("wb") as raw:
+        with gzip.GzipFile(
+            filename="", mode="wb", fileobj=raw, mtime=0
+        ) as fh:
+            fh.write(b"".join(parts))
 
 
 def read_bundle(path: pathlib.Path) -> dict[str, np.ndarray]:

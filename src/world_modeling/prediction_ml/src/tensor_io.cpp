@@ -16,6 +16,7 @@
 
 #include <zlib.h>
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <limits>
@@ -67,6 +68,70 @@ std::vector<uint8_t> readGzip(const std::string & path)
     throw formatError(path, "truncated or invalid gzip stream");
   }
   return output;
+}
+
+void writeGzip(const std::string & path, const std::vector<uint8_t> & data)
+{
+  gzFile file = gzopen(path.c_str(), "wb");
+  if (file == nullptr) {
+    throw formatError(path, "cannot open for writing");
+  }
+
+  std::size_t offset = 0U;
+  while (offset < data.size()) {
+    const std::size_t remaining = data.size() - offset;
+    const auto chunk_size = static_cast<unsigned int>(
+      std::min(remaining, static_cast<std::size_t>(std::numeric_limits<unsigned int>::max())));
+    const int bytes_written = gzwrite(file, data.data() + offset, chunk_size);
+    if (bytes_written <= 0) {
+      int error_code = Z_OK;
+      const char * error_text = gzerror(file, &error_code);
+      const std::string detail =
+        error_text == nullptr ? "gzip write error" : "gzip write error: " + std::string(error_text);
+      gzclose(file);
+      throw formatError(path, detail);
+    }
+    offset += static_cast<std::size_t>(bytes_written);
+  }
+
+  if (gzclose(file) != Z_OK) {
+    throw formatError(path, "gzip close error");
+  }
+}
+
+void appendU8(std::vector<uint8_t> & output, const uint8_t value)
+{
+  output.push_back(value);
+}
+
+void appendU32(std::vector<uint8_t> & output, const uint32_t value)
+{
+  for (std::size_t byte = 0; byte < sizeof(value); ++byte) {
+    output.push_back(static_cast<uint8_t>((value >> (8U * byte)) & 0xffU));
+  }
+}
+
+void appendU64(std::vector<uint8_t> & output, const uint64_t value)
+{
+  for (std::size_t byte = 0; byte < sizeof(value); ++byte) {
+    output.push_back(static_cast<uint8_t>((value >> (8U * byte)) & 0xffU));
+  }
+}
+
+void appendFloat32(std::vector<uint8_t> & output, const float value)
+{
+  uint32_t bits = 0U;
+  static_assert(sizeof(value) == sizeof(bits), "float32 requires a four-byte float");
+  std::memcpy(&bits, &value, sizeof(bits));
+  appendU32(output, bits);
+}
+
+void appendInt64(std::vector<uint8_t> & output, const int64_t value)
+{
+  uint64_t bits = 0U;
+  static_assert(sizeof(value) == sizeof(bits), "int64 requires an eight-byte integer");
+  std::memcpy(&bits, &value, sizeof(bits));
+  appendU64(output, bits);
 }
 
 class Cursor
@@ -243,6 +308,87 @@ TensorBundle readTensorBundle(const std::string & path)
     throw formatError(path, "trailing data");
   }
   return bundle;
+}
+
+void writeTensorBundle(const std::string & path, const TensorBundle & bundle)
+{
+  if (bundle.size() > std::numeric_limits<uint32_t>::max()) {
+    throw formatError(path, "tensor count exceeds uint32");
+  }
+
+  std::vector<uint8_t> data;
+  data.insert(data.end(), kMagic.begin(), kMagic.end());
+  appendU32(data, kVersion);
+  appendU32(data, static_cast<uint32_t>(bundle.size()));
+
+  for (const auto & entry : bundle) {
+    const auto & name = entry.first;
+    const auto & tensor = entry.second;
+    if (name.size() > std::numeric_limits<uint32_t>::max()) {
+      throw formatError(path, "tensor name is too long");
+    }
+    if (tensor.dims.size() > std::numeric_limits<uint8_t>::max()) {
+      throw formatError(path, "tensor rank exceeds uint8");
+    }
+
+    const std::size_t elements = tensor.elementCount();
+    std::size_t values = 0U;
+    switch (tensor.dtype) {
+      case TensorDType::Float32:
+        values = tensor.f32.size();
+        if (!tensor.u8.empty() || !tensor.i64.empty()) {
+          throw formatError(path, "float32 tensor has values in an inactive dtype vector");
+        }
+        break;
+      case TensorDType::UInt8:
+        values = tensor.u8.size();
+        if (!tensor.f32.empty() || !tensor.i64.empty()) {
+          throw formatError(path, "uint8 tensor has values in an inactive dtype vector");
+        }
+        break;
+      case TensorDType::Int64:
+        values = tensor.i64.size();
+        if (!tensor.f32.empty() || !tensor.u8.empty()) {
+          throw formatError(path, "int64 tensor has values in an inactive dtype vector");
+        }
+        break;
+      default:
+        throw formatError(path, "unknown dtype code");
+    }
+    if (values != elements) {
+      throw formatError(
+              path, "tensor " + name + " has " + std::to_string(values) +
+              " values but its shape requires " + std::to_string(elements));
+    }
+
+    appendU32(data, static_cast<uint32_t>(name.size()));
+    data.insert(data.end(), name.begin(), name.end());
+    appendU8(data, static_cast<uint8_t>(tensor.dtype));
+    appendU8(data, static_cast<uint8_t>(tensor.dims.size()));
+    for (const uint32_t dim : tensor.dims) {
+      appendU32(data, dim);
+    }
+
+    switch (tensor.dtype) {
+      case TensorDType::Float32:
+        for (const float value : tensor.f32) {
+          appendFloat32(data, value);
+        }
+        break;
+      case TensorDType::UInt8:
+        data.insert(data.end(), tensor.u8.begin(), tensor.u8.end());
+        break;
+      case TensorDType::Int64:
+        for (const int64_t value : tensor.i64) {
+          appendInt64(data, value);
+        }
+        break;
+      default:
+        throw formatError(path, "unknown dtype code");
+    }
+  }
+
+  writeGzip(path, data);
 }
 
 }  // namespace prediction_ml

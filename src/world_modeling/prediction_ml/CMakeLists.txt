@@ -33,6 +33,7 @@ find_package(vision_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
 
@@ -144,15 +145,20 @@ target_link_libraries(prediction_ml_lib
 
 add_executable(prediction_ml_node src/prediction_ml_node.cpp)
 target_link_libraries(prediction_ml_node prediction_ml_lib)
+add_executable(scene_dump tools/scene_dump.cpp)
+target_link_libraries(
+  scene_dump
+  prediction_ml_lib
+  rosbag2_cpp::rosbag2_cpp)
 
 install(TARGETS prediction_ml_lib
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install(TARGETS prediction_ml_node DESTINATION lib/${PROJECT_NAME})
+install(TARGETS prediction_ml_node scene_dump DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  find_package(rosbag2_cpp REQUIRED)
   ament_add_gtest(test_contract_compiles test/test_contract_compiles.cpp)
   target_link_libraries(test_contract_compiles prediction_ml_lib)
   # >>> PERSON_B tests
@@ -188,6 +194,18 @@ if(BUILD_TESTING)
     prediction_ml_lib
     rosbag2_cpp::rosbag2_cpp)
   set_tests_properties(test_scene_builder_parity PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
+  ament_add_gtest(test_scene_dump test/test_scene_dump.cpp)
+  target_link_libraries(
+    test_scene_dump
+    prediction_ml_lib
+    rosbag2_cpp::rosbag2_cpp)
+  target_compile_definitions(
+    test_scene_dump
+    PRIVATE
+      SCENE_DUMP_EXECUTABLE="$<TARGET_FILE:scene_dump>")
+  add_dependencies(test_scene_dump scene_dump)
+  set_tests_properties(test_scene_dump PROPERTIES
     ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
 endif()
 

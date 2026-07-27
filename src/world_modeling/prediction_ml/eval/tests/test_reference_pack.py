@@ -165,6 +165,11 @@ def test_replay_sidecars_preserve_pinned_order(tmp_path):
         "0\t0\t10\t10",
         "1\t1\t20\t__ego__",
     ]
+    assert (tmp_path / "target_frames.tsv").read_text().splitlines() == [
+        "slot\tgt_row\tcenter_x\tcenter_y\theading",
+        "0\t0\t9\t0\t0",
+        "1\t1\t1\t0\t0",
+    ]
     assert (tmp_path / "replay_step.txt").read_text() == "10\n"
 
 

@@ -108,6 +108,28 @@ rules:
 - map directions are computed before chunking, while chunks are ranked per
   target at the 30 m forward offset.
 
-This opens the tensor-parity half of Gate B. The complete Gate B remains closed
-until Task 13's paired scoring report confirms that at least 99% of eligible
-agents have less than `1e-3 m` delta minFDE.
+Task 13 then forwarded both the independent reference bundle and the installed
+C++ `scene_dump` output through the official checkpoint on CUDA:
+
+```text
+Rung 2 — 3 fixture scenarios, 9 accepted targets
+Dropped without paired finite future: 0
+
+all agents:                 9 / 9 below 1e-3 m delta minFDE (100%)
+gap-free target history:   8 / 8 below 1e-3 m delta minFDE (100%)
+masked target history:     1 / 1 below 1e-3 m delta minFDE (100%)
+maximum R2 - R1 delta:     0.0000 m
+
+GATE B: PASS
+```
+
+**Complete Gate B status: PASS / OPEN.** The clean-history requirement was
+8/8, exceeding the required 99%, and no agent was dropped. “Clean” means the
+selected target's own context row has all 11 history slots; gaps in neighboring
+context rows do not move an agent into the masked cohort.
+
+The acceleration-rule counterfactual remains deliberately deferred. Rung 1 and
+rung 2 implement the same inherit-next-valid rule, so their zero delta proves
+implementation parity but cannot compare that rule against official MTR's
+alternative. That decision requires a separately generated counterfactual
+bundle and must not be inferred from this gate.

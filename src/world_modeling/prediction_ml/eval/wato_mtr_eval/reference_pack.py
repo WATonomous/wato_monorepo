@@ -115,9 +115,30 @@ def write_replay_sidecars(
         ),
         encoding="utf-8",
     )
+    (fixture_dir / "target_frames.tsv").write_text(
+        "slot\tgt_row\tcenter_x\tcenter_y\theading\n"
+        + "".join(
+            _target_frame_row(scen, item)
+            for item in selection
+        ),
+        encoding="utf-8",
+    )
     (fixture_dir / "replay_step.txt").write_text(
         f"{scen.current_time_index}\n",
         encoding="utf-8",
+    )
+
+
+def _target_frame_row(
+    scen: scenario.Scenario,
+    target: TargetSelection,
+) -> str:
+    state = scen.tracks[target.track_index].states[scen.current_time_index]
+    return (
+        f"{target.slot}\t{target.gt_row}\t"
+        f"{float(state[S['x']]):.17g}\t"
+        f"{float(state[S['y']]):.17g}\t"
+        f"{float(state[S['heading']]):.17g}\n"
     )
 
 

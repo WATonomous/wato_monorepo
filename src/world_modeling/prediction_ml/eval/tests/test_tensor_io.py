@@ -42,6 +42,17 @@ def test_round_trip_preserves_values_shapes_and_dtypes(tmp_path):
         np.testing.assert_array_equal(loaded[name], arr, err_msg=name)
 
 
+def test_writer_is_byte_reproducible(tmp_path):
+    original = _sample()
+    first = tmp_path / "first.bin.gz"
+    second = tmp_path / "second.bin.gz"
+
+    tensor_io.write_bundle(first, original)
+    tensor_io.write_bundle(second, original)
+
+    assert first.read_bytes() == second.read_bytes()
+
+
 def test_file_is_gzip_and_starts_with_magic(tmp_path):
     path = tmp_path / "b.bin.gz"
     tensor_io.write_bundle(path, _sample())

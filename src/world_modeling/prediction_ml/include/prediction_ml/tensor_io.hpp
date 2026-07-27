@@ -52,6 +52,11 @@ using TensorBundle = std::map<std::string, TensorBlob>;
 // Throws std::runtime_error on a missing file or malformed bundle.
 TensorBundle readTensorBundle(const std::string & path);
 
+// Write a bundle in the same little-endian gzip format consumed by
+// readTensorBundle and wato_mtr_eval.tensor_io.read_bundle. Throws
+// std::runtime_error if a tensor is inconsistent or the file cannot be written.
+void writeTensorBundle(const std::string & path, const TensorBundle & bundle);
+
 }  // namespace prediction_ml
 
 #endif  // PREDICTION_ML__TENSOR_IO_HPP_
