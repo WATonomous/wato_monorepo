@@ -166,3 +166,14 @@ and subtype information retained from raw Waymo, so the deltas are upper bounds
 on combined converter/schema/SceneBuilder work. Current fixture MCAPs contain
 only untyped lane centerlines. A causal SceneBuilder-only experiment requires a
 richer fixed `LaneletAhead` input before changing packing.
+
+## Dense replacements for custom CUDA operators
+
+Task 15 replaces pinned MTR's batch-local KNN and split attention weight/value
+CUDA calls with ONNX-expressible PyTorch operations. Ragged batches, `-1`
+sentinels, both attention implementations, and every runtime patch site are
+covered. The real epoch-30 checkpoint matched end to end after patching.
+
+On the sparse committed fixture (20 CUDA iterations), custom operators averaged
+134.878 ms per forward and dense replacements averaged 122.727 ms (0.91x).
+This is a development-GPU diagnostic, not the final TensorRT latency result.
