@@ -38,6 +38,7 @@ _TACTIC_SOURCES = frozenset(
 _CONFIG_KEYS = frozenset(
     {
         "precision",
+        "allow_tf32",
         "workspace_size_mb",
         "optimization_profiles",
         "tactic_sources",
@@ -60,6 +61,7 @@ class EngineBuildConfig:
     """Validated subset of TensorRT builder settings used by this harness."""
 
     precision: str
+    allow_tf32: bool
     workspace_size_mb: int
     optimization_profiles: tuple[object, ...]
     tactic_sources: tuple[str, ...]
@@ -68,7 +70,7 @@ class EngineBuildConfig:
 
 def _require_int(value: object, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{name} must be an integer")
+        raise TypeError(f"{name} must be an integer")
     return value
 
 
@@ -79,7 +81,7 @@ def load_config(path: pathlib.Path) -> EngineBuildConfig:
         raise FileNotFoundError(f"engine build config does not exist: {path}")
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, Mapping):
-        raise ValueError("engine build config root must be a mapping")
+        raise TypeError("engine build config root must be a mapping")
 
     missing = _CONFIG_KEYS - raw.keys()
     extra = raw.keys() - _CONFIG_KEYS
@@ -94,13 +96,17 @@ def load_config(path: pathlib.Path) -> EngineBuildConfig:
             f"precision must be one of {sorted(_PRECISIONS)}, got {precision!r}"
         )
 
+    allow_tf32 = raw["allow_tf32"]
+    if not isinstance(allow_tf32, bool):
+        raise TypeError("allow_tf32 must be a boolean")
+
     workspace_size_mb = _require_int(raw["workspace_size_mb"], "workspace_size_mb")
     if workspace_size_mb <= 0:
         raise ValueError("workspace_size_mb must be positive")
 
     profiles = raw["optimization_profiles"]
     if not isinstance(profiles, list):
-        raise ValueError("optimization_profiles must be a list")
+        raise TypeError("optimization_profiles must be a list")
     if profiles:
         raise ValueError(
             "optimization_profiles must be empty: the frozen MTR contract is static"
@@ -127,6 +133,7 @@ def load_config(path: pathlib.Path) -> EngineBuildConfig:
 
     return EngineBuildConfig(
         precision=str(precision),
+        allow_tf32=allow_tf32,
         workspace_size_mb=workspace_size_mb,
         optimization_profiles=tuple(profiles),
         tactic_sources=tuple(tactic_sources),
@@ -230,6 +237,16 @@ def _configure_builder(
         trt.MemoryPoolType.WORKSPACE, cfg.workspace_size_mb * 1024 * 1024
     )
     builder_config.builder_optimization_level = cfg.builder_optimization_level
+
+    tf32_flag = getattr(trt.BuilderFlag, "TF32", None)
+    if tf32_flag is None:
+        raise RuntimeError(
+            f"TensorRT {trt.__version__} does not expose BuilderFlag.TF32"
+        )
+    if cfg.allow_tf32:
+        builder_config.set_flag(tf32_flag)
+    else:
+        builder_config.clear_flag(tf32_flag)
 
     if cfg.precision == "fp16":
         fp16_flag = getattr(trt.BuilderFlag, "FP16", None)

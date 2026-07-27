@@ -216,23 +216,29 @@ python -m wato_mtr_eval.build_engine \
   --out build/mtr.engine
 ```
 
-The FP16 build completed in 131.888 seconds for `sm_86`. TensorRT parsed the
-entire graph without unsupported layers. The TensorRT-enabled C++ backend then
-deserialized the real engine and validated all ten bindings against
-`contract_8_target.yaml`.
+TensorRT parsed the entire graph without unsupported layers. The
+TensorRT-enabled C++ backend then deserialized the real engine and validated
+all ten bindings against `contract_8_target.yaml`.
 
 Rung 3-dev is correctness-only; development-machine latency and memory are
 intentionally omitted:
 
 | Engine | targets below 1e-3 m paired delta minFDE | median delta | max absolute delta | top-mode agreement |
 |---|---:|---:|---:|---:|
-| FP16 deployment configuration | 1 / 9 (11.1%) | +0.0012 m | 1.1446 m | 100% |
-| FP32 diagnostic | 7 / 9 (77.8%) | -0.0002 m | 0.0021 m | 100% |
+| FP16 experimental | 1 / 9 (11.1%) | +0.0012 m | 1.1446 m | 100% |
+| Nominal FP32 (TF32 allowed) | 7 / 9 (77.8%) | -0.0002 m | 0.0021 m | 100% |
+| Strict FP32 (TF32 disabled) | 9 / 9 (100.0%) | -0.0000007 m | 0.0000374 m | 100% |
 
-The FP32 diagnostic isolates the large tail to unrestricted FP16 accumulation,
-not an unsupported ONNX layer or binding mismatch. This is not the final gate:
-the engine must be rebuilt on the vehicle's `sm_89` GPU, and only that native
-build may supply final numerical, latency, or memory results.
+The strict-FP32 `sm_86` engine built in 79.555 seconds and resolves the
+development numerical gate. The two diagnostic failures isolate separate
+precision effects: unrestricted FP16 produced a large tail, while TensorRT's
+nominal FP32 still permitted TF32 math. `engine_build.yaml` is now the strict
+sign-off recipe and explicitly disables TF32.
+
+This is not the performance sign-off: the engine must be rebuilt on the
+vehicle's `sm_89` GPU, and only that native build may supply latency or memory
+results. If strict FP32 misses the vehicle latency target, mixed precision is a
+subsequent optimization and must independently pass 9/9 before deployment.
 
 Rung 3 emits a strict JSON per-agent ledger for rung 4:
 
@@ -306,7 +312,7 @@ The final ladder therefore remains:
 | R0 official checkpoint | PASS | deployed minADE 0.2901 m, minFDE 0.5881 m |
 | R1 NumPy representation | measured | map-policy sweep recorded above |
 | R2 C++ representation | PASS | 9/9 below 1e-3 m paired delta minFDE |
-| R3-dev TensorRT (`sm_86`) | diagnostic FAIL | FP16 1/9 below 1e-3 m; no performance numbers |
-| R3-final TensorRT (`sm_89`) | PENDING | rebuild and measure on vehicle |
+| R3-dev TensorRT (`sm_86`) | PASS | strict FP32 9/9 below 1e-3 m; no performance numbers |
+| R3-final TensorRT (`sm_89`) | PENDING | rebuild strict FP32 and measure on vehicle |
 | R4-dev ROS replay (`sm_86`) | PASS | 9/9 below 1e-3 m paired delta minFDE vs rung-3-dev |
 | R4-final ROS replay (`sm_89`) | PENDING | requires R3-final and vehicle fixture recordings |

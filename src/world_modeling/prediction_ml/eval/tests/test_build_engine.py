@@ -28,6 +28,9 @@ from wato_mtr_eval import build_engine
 
 PREDICTION_ML = pathlib.Path(__file__).resolve().parents[2]
 CONFIG = PREDICTION_ML / "config" / "engine_build.yaml"
+FP16_EXPERIMENTAL_CONFIG = (
+    PREDICTION_ML / "config" / "engine_build_fp16_experimental.yaml"
+)
 
 
 def _write_config(path: pathlib.Path, **changes: object) -> None:
@@ -44,7 +47,8 @@ def test_import_does_not_require_tensorrt():
 
 def test_checked_in_config_is_static_and_valid():
     cfg = build_engine.load_config(CONFIG)
-    assert cfg.precision == "fp16"
+    assert cfg.precision == "fp32"
+    assert cfg.allow_tf32 is False
     assert cfg.workspace_size_mb == 4096
     assert cfg.optimization_profiles == ()
     assert cfg.tactic_sources == (
@@ -52,6 +56,36 @@ def test_checked_in_config_is_static_and_valid():
         "JIT_CONVOLUTIONS",
     )
     assert cfg.builder_optimization_level == 3
+
+
+def test_checked_in_experimental_fp16_config_is_static_and_valid():
+    cfg = build_engine.load_config(FP16_EXPERIMENTAL_CONFIG)
+    assert cfg.precision == "fp16"
+    assert cfg.allow_tf32 is False
+    assert cfg.workspace_size_mb == 4096
+    assert cfg.optimization_profiles == ()
+    assert cfg.tactic_sources == (
+        "EDGE_MASK_CONVOLUTIONS",
+        "JIT_CONVOLUTIONS",
+    )
+    assert cfg.builder_optimization_level == 3
+
+
+@pytest.mark.parametrize("allow_tf32", [0, 1, "false", None])
+def test_allow_tf32_must_be_a_boolean(tmp_path, allow_tf32):
+    path = tmp_path / "engine_build.yaml"
+    _write_config(path, allow_tf32=allow_tf32)
+    with pytest.raises(TypeError, match="allow_tf32 must be a boolean"):
+        build_engine.load_config(path)
+
+
+def test_allow_tf32_is_required(tmp_path):
+    path = tmp_path / "engine_build.yaml"
+    raw = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    del raw["allow_tf32"]
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing.*allow_tf32"):
+        build_engine.load_config(path)
 
 
 def test_dynamic_optimization_profiles_are_rejected(tmp_path):
@@ -96,14 +130,19 @@ class _FakeBuilderConfig:
     def __init__(self):
         self.workspace = None
         self.builder_optimization_level = None
-        self.flags = []
+        self.flags = set()
+        self.cleared_flags = []
         self.tactic_mask = None
 
     def set_memory_pool_limit(self, pool, size):
         self.workspace = (pool, size)
 
     def set_flag(self, flag):
-        self.flags.append(flag)
+        self.flags.add(flag)
+
+    def clear_flag(self, flag):
+        self.flags.discard(flag)
+        self.cleared_flags.append(flag)
 
     def set_tactic_sources(self, mask):
         self.tactic_mask = mask
@@ -148,7 +187,7 @@ def _fake_trt():
         OnnxParser=_FakeParser,
         NetworkDefinitionCreationFlag=types.SimpleNamespace(EXPLICIT_BATCH=1),
         MemoryPoolType=types.SimpleNamespace(WORKSPACE=0),
-        BuilderFlag=types.SimpleNamespace(FP16=1),
+        BuilderFlag=types.SimpleNamespace(FP16=1, TF32=2),
         TacticSource=types.SimpleNamespace(
             EDGE_MASK_CONVOLUTIONS=0,
             JIT_CONVOLUTIONS=1,
@@ -173,11 +212,33 @@ def test_build_writes_atomically_and_returns_engine_info(tmp_path, monkeypatch):
     assert leftovers == []
 
 
+@pytest.mark.parametrize(
+    ("allow_tf32", "expect_set"),
+    [(False, False), (True, True)],
+)
+def test_configure_builder_explicitly_controls_tf32(tmp_path, allow_tf32, expect_set):
+    path = tmp_path / "engine_build.yaml"
+    _write_config(path, precision="fp32", allow_tf32=allow_tf32)
+    cfg = build_engine.load_config(path)
+    trt = _fake_trt()
+    builder_config = _FakeBuilderConfig()
+
+    build_engine._configure_builder(
+        trt,
+        _FakeBuilder(None),
+        builder_config,
+        cfg,
+    )
+
+    assert (trt.BuilderFlag.TF32 in builder_config.flags) is expect_set
+    assert (trt.BuilderFlag.TF32 in builder_config.cleared_flags) is (not expect_set)
+
+
 def test_trt11_fp16_requires_a_preconverted_onnx():
     trt = _fake_trt()
     trt.__version__ = "11.1.0.106"
-    trt.BuilderFlag = types.SimpleNamespace()
-    cfg = build_engine.load_config(CONFIG)
+    trt.BuilderFlag = types.SimpleNamespace(TF32=2)
+    cfg = build_engine.load_config(FP16_EXPERIMENTAL_CONFIG)
 
     with pytest.raises(RuntimeError, match="ModelOpt AutoCast"):
         build_engine._configure_builder(

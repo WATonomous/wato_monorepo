@@ -48,11 +48,17 @@ checkpoint and a Waymo metrics environment without the observed `metrics_ops.so`
 
 ### TensorRT sign-off
 
-The static ONNX graph and an FP16 TensorRT 10.13.2.6 engine have now been built
-on the development RTX 3060 Ti. The real C++ backend deserialized that engine,
-created an execution context, and matched all eight inputs and two outputs
-against `contract_8_target.yaml`. Engines remain machine-local build products:
-copy `mtr.onnx` and `engine_build.yaml` to the vehicle and rebuild natively.
+The static ONNX graph and TensorRT 10.13.2.6 engines have now been built on the
+development RTX 3060 Ti. The sign-off recipe in `engine_build.yaml` uses strict
+FP32 with TensorFloat-32 explicitly disabled; it passed rung 3 for 9/9 targets.
+The real C++ backend deserialized the engine, created an execution context, and
+matched all eight inputs and two outputs against `contract_8_target.yaml`.
+Engines remain machine-local build products: copy `mtr.onnx` and
+`engine_build.yaml` to the vehicle and rebuild natively.
+
+`engine_build_fp16_experimental.yaml` preserves the failed FP16 performance
+experiment. Do not deploy it unless a later mixed-precision recipe passes the
+same rung-3 numerical gate.
 
 The remaining sign-off is the `sm_89` vehicle build, numerical gate, latency
 and peak-memory measurement, followed by rung-4 replay. Do not report
