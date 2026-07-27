@@ -7,5 +7,6 @@ precision: fp16
 workspace_size_mb: 4096
 # Static shapes throughout: contract_8_target.yaml pins every dimension.
 optimization_profiles: []
-tactic_sources: [CUBLAS, CUBLAS_LT, CUDNN]
+# TensorRT 11 removed the legacy cuBLAS/cuDNN tactic-source selectors.
+tactic_sources: [EDGE_MASK_CONVOLUTIONS, JIT_CONVOLUTIONS]
 builder_optimization_level: 3

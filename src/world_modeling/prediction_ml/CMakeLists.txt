@@ -117,6 +117,7 @@ if(PREDICTION_ML_ENABLE_TENSORRT)
 
   target_include_directories(
     prediction_ml_lib
+    SYSTEM
     PRIVATE
       ${TENSORRT_INCLUDE_DIR}
   )

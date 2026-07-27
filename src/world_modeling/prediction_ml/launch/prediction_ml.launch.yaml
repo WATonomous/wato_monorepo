@@ -11,6 +11,10 @@ launch:
       name: metadata_path
       default: ""
       description: MTR model metadata path (deploy override)
+  - arg:
+      name: mtr_mode
+      default: disabled
+      description: MTR backend mode (disabled, null, or tensorrt)
 
   - node:
       pkg: prediction_ml
@@ -24,6 +28,8 @@ launch:
           value: $(var engine_path)
         - name: mtr.metadata_path
           value: $(var metadata_path)
+        - name: mtr.mode
+          value: $(var mtr_mode)
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked

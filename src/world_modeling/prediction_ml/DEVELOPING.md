@@ -46,14 +46,17 @@ This validates finite real-data outputs from the official CUDA forward path. It 
 weights because no trained checkpoint was available. Scored validation still requires a trained
 checkpoint and a Waymo metrics environment without the observed `metrics_ops.so` ABI mismatch.
 
-### Remaining TensorRT sign-off
+### TensorRT sign-off
 
-When the deployment engine artifact is available:
+The static ONNX graph and an FP16 TensorRT 10.13.2.6 engine have now been built
+on the development RTX 3060 Ti. The real C++ backend deserialized that engine,
+created an execution context, and matched all eight inputs and two outputs
+against `contract_8_target.yaml`. Engines remain machine-local build products:
+copy `mtr.onnx` and `engine_build.yaml` to the vehicle and rebuild natively.
 
-1. Build or export the engine through the intended deployment path.
-2. Record every input/output binding name, dtype, dimension, and order.
-3. Compare the bindings with `MtrInputTensors`, `MtrOutputTensors`, and `MtrModelContract`.
-4. Update the shared contract before backend/scene/runtime implementation if any binding differs.
+The remaining sign-off is the `sm_89` vehicle build, numerical gate, latency
+and peak-memory measurement, followed by rung-4 replay. Do not report
+development-machine performance numbers.
 
 ## Runtime Smoke Check
 
@@ -137,6 +140,24 @@ colcon build --packages-select prediction_ml \
   --cmake-args -DPREDICTION_ML_ENABLE_TENSORRT=ON
 ```
 
+The validated development environment uses TensorRT 10.13.2.6. Install the
+matching CUDA-12 Python builder in the model venv:
+
+```bash
+python -m pip install "tensorrt-cu12==10.13.2.6"
+```
+
+The C++ build additionally needs matching TensorRT headers and
+`libnvinfer.so.10`, normally supplied by NVIDIA's `tensorrt-dev` Debian
+package. A source-header checkout can be used explicitly:
+
+```bash
+colcon build --packages-select prediction_ml --cmake-args \
+  -DPREDICTION_ML_ENABLE_TENSORRT=ON \
+  -DTENSORRT_INCLUDE_DIR="$HOME/TensorRT-10.13/include" \
+  -DTENSORRT_NVINFER_LIBRARY="/path/to/libnvinfer.so.10"
+```
+
 `PREDICTION_ML_ENABLE_TENSORRT` remains off by default. The integrated backend implements engine
 loading, binding validation, CUDA buffer management, and enqueue/copy logic, but still needs a
 TensorRT-enabled GPU sign-off with the deployment engine. The repository deploy image runs
@@ -145,6 +166,16 @@ TensorRT-enabled GPU sign-off with the deployment engine. The repository deploy 
 Runtime selection is separate from compile-time inclusion. `mtr.mode: "tensorrt"` requests the
 TensorRT engine only in a build that includes it; otherwise the factory returns the null engine and
 the node publishes CV fallback output.
+
+Launch the compiled TensorRT backend with:
+
+```bash
+ros2 launch prediction_ml prediction_ml.launch.yaml \
+  mtr_mode:=tensorrt \
+  engine_path:=/absolute/path/to/mtr.engine \
+  metadata_path:=/absolute/path/to/contract_8_target.yaml
+ros2 lifecycle set /world_modeling/prediction_ml_node configure
+```
 
 ## Testing
 
@@ -155,3 +186,11 @@ colcon test-result --verbose
 
 The package test targets cover shared contracts, inference backend selection, scene building,
 runtime selection and TTL behavior, output conversion, and fallback speed selection.
+
+When a real engine is available, enable the optional binding gate:
+
+```bash
+MTR_ENGINE_PATH=/absolute/path/to/mtr.engine \
+MTR_METADATA_PATH=/absolute/path/to/contract_8_target.yaml \
+colcon test --packages-select prediction_ml --ctest-args -R test_backend
+```

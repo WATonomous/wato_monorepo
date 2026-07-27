@@ -177,3 +177,93 @@ covered. The real epoch-30 checkpoint matched end to end after patching.
 On the sparse committed fixture (20 CUDA iterations), custom operators averaged
 134.878 ms per forward and dense replacements averaged 122.727 ms (0.91x).
 This is a development-GPU diagnostic, not the final TensorRT latency result.
+
+## Static ONNX export
+
+Task 16 exports the epoch-30 checkpoint through a tensor-only, static-shape
+wrapper. The checked-in portable artifacts are the exporter and
+`config/engine_build.yaml`; `build/mtr.onnx` is a 244 MB ignored build artifact.
+The export gate passed all 13 focused checks:
+
+- all eight inputs and both outputs match `contract_8_target.yaml`;
+- every public dimension is static and both index bindings remain `int64`;
+- no custom-domain, ONNX sequence, or loop operators survive;
+- padded target slots receive zero-valued sentinel tokens without changing
+  populated rows;
+- the wrapper matches unmodified official MTR on a committed real fixture; and
+- ONNX Runtime matches the patched PyTorch graph within the configured
+  tolerances.
+
+Regenerate the portable model with:
+
+```bash
+python -m wato_mtr_eval.export_onnx \
+  --checkpoint "$MTR_CHECKPOINT" \
+  --cfg "$MTR_ROOT/tools/cfgs/waymo/mtr+100_percent_data.yaml" \
+  --contract ../config/contract_8_target.yaml \
+  --out build/mtr.onnx
+```
+
+## TensorRT rung 3 development gate
+
+The development engine was built natively on the RTX 3060 Ti with TensorRT
+10.13.2.6 and CUDA 12.8:
+
+```bash
+python -m wato_mtr_eval.build_engine \
+  --onnx build/mtr.onnx \
+  --config ../config/engine_build.yaml \
+  --out build/mtr.engine
+```
+
+The FP16 build completed in 131.888 seconds for `sm_86`. TensorRT parsed the
+entire graph without unsupported layers. The TensorRT-enabled C++ backend then
+deserialized the real engine and validated all ten bindings against
+`contract_8_target.yaml`.
+
+Rung 3-dev is correctness-only; development-machine latency and memory are
+intentionally omitted:
+
+| Engine | targets below 1e-3 m paired delta minFDE | median delta | max absolute delta | top-mode agreement |
+|---|---:|---:|---:|---:|
+| FP16 deployment configuration | 1 / 9 (11.1%) | +0.0012 m | 1.1446 m | 100% |
+| FP32 diagnostic | 7 / 9 (77.8%) | -0.0002 m | 0.0021 m | 100% |
+
+The FP32 diagnostic isolates the large tail to unrestricted FP16 accumulation,
+not an unsupported ONNX layer or binding mismatch. This is not the final gate:
+the engine must be rebuilt on the vehicle's `sm_89` GPU, and only that native
+build may supply final numerical, latency, or memory results.
+
+Rung 3 emits a strict JSON per-agent ledger for rung 4:
+
+```bash
+python -m wato_mtr_eval.rung3 \
+  --engine build/mtr.engine \
+  --fixtures ../test/fixtures \
+  --checkpoint "$MTR_CHECKPOINT" \
+  --mtr-root "$MTR_ROOT" \
+  --correctness-only \
+  --report-json build/rung3_dev.json
+```
+
+## Rung 4 status
+
+The rung-4 reader/scorer is implemented and unit tested, but the live replay
+gate remains blocked until the vehicle run and one runtime ownership issue are
+resolved. Fixture target pins include Waymo's SDC as `__ego__`, while
+`MtrRuntime::selectOutput` currently attaches cached predictions only to
+objects already present in the fallback detection array. The converter
+deliberately omits a duplicate raw SDC detection, so `__ego__` cannot appear on
+`world_object_seeds`. Rung 4 fails loudly on this missing pin instead of
+silently weakening the paired comparison.
+
+The final ladder therefore remains:
+
+| Rung | Status | Result |
+|---|---|---|
+| R0 official checkpoint | PASS | deployed minADE 0.2901 m, minFDE 0.5881 m |
+| R1 NumPy representation | measured | map-policy sweep recorded above |
+| R2 C++ representation | PASS | 9/9 below 1e-3 m paired delta minFDE |
+| R3-dev TensorRT (`sm_86`) | diagnostic FAIL | FP16 1/9 below 1e-3 m; no performance numbers |
+| R3-final TensorRT (`sm_89`) | PENDING | rebuild and measure on vehicle |
+| R4 full ROS replay | BLOCKED | requires R3-final and `__ego__` output ownership decision |

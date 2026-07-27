@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -190,6 +191,26 @@ TEST(TensorRtBackendInitialization, RejectsMissingEngineAndPreservesError)
   const auto output = engine->infer(input);
   EXPECT_FALSE(output.valid);
   EXPECT_EQ(engine->lastError(), initialization_error);
+}
+
+TEST(TensorRtBackendInitialization, LoadsRealEngineAndValidatesBindingsWhenProvided)
+{
+  const char * engine_path = std::getenv("MTR_ENGINE_PATH");
+  const char * metadata_path = std::getenv("MTR_METADATA_PATH");
+  if (engine_path == nullptr || metadata_path == nullptr) {
+    GTEST_SKIP() << "set MTR_ENGINE_PATH and MTR_METADATA_PATH for the real-engine gate";
+  }
+
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.engine_path = engine_path;
+  cfg.metadata_path = metadata_path;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
+  ASSERT_NE(engine, nullptr);
+  ASSERT_TRUE(engine->ready()) << engine->lastError();
+  EXPECT_TRUE(engine->lastError().empty());
 }
 #endif
 
