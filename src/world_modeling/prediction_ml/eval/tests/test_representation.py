@@ -23,6 +23,7 @@ from wato_mtr_eval import representation as rep
 CONTRACT = (
     pathlib.Path(__file__).resolve().parents[2] / "config" / "contract_8_target.yaml"
 )
+PARAMS = pathlib.Path(__file__).resolve().parents[2] / "config" / "params.yaml"
 
 
 def test_obj_columns_partition_the_feature_dim():
@@ -71,6 +72,21 @@ def test_shapes_match_the_frozen_contract_yaml():
         rep.NUM_FUTURE_FRAMES,
         rep.TRAJ_CHANNELS,
     ]
+
+
+def test_synthetic_ego_dimensions_match_deployment_params():
+    text = PARAMS.read_text()
+
+    def value_of(name: str) -> float:
+        match = re.search(rf"mtr\.ego_{name}:\s*([0-9.]+)", text)
+        assert match, f"mtr.ego_{name} not found in params"
+        return float(match.group(1))
+
+    assert rep.EGO_DIMS == (
+        value_of("length"),
+        value_of("width"),
+        value_of("height"),
+    )
 
 
 def test_module_does_not_import_ros_or_torch():

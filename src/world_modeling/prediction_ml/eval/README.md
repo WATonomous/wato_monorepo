@@ -79,3 +79,35 @@ intentionally ineligible because a single shard is too sensitive to shard
 composition. Gate eligibility now requires one canonical, complete 150-shard
 directory, no `--limit`, exact raw/preprocessed scenario-ID set equality, and
 no duplicate scenario IDs.
+
+## Gate B — C++ representation parity
+
+**Task 12 status on 2026-07-26: PASS.** The CPU-only rung-2 gtest replayed
+the committed MCAP fixtures through the production `SceneBuilder` and matched
+the independent NumPy reference for all eight input tensors:
+
+- dense / overflow: `262112a66742fe8d`;
+- sparse: `923a0c6bb90f4127`; and
+- gappy history: `9f62a2970e4e8d4c`.
+
+Shapes and dtypes, masks, target indices, and type IDs matched exactly.
+Unmasked object and map values matched within the contract tolerances, and all
+padding remained zero. The three parameterized cases passed in 1.784 seconds.
+
+Reconciliation against the initial plan pseudocode established these durable
+rules:
+
+- replay stops at Waymo's `current_time_index` but calls `build()` at every
+  earlier tracks callback to accumulate ego history;
+- fixture records are ordered pose, odometry, lanelet, then tracks, and use a
+  constant positive one-second ROS transport epoch;
+- Waymo's SDC maps to the single synthetic `__ego__` context row, with explicit
+  raw-to-packed target identity sidecars for ground-truth joins;
+- selected targets are mandatory members of the 128-row context budget;
+- context ranks retained histories by their latest retained sample; and
+- map directions are computed before chunking, while chunks are ranked per
+  target at the 30 m forward offset.
+
+This opens the tensor-parity half of Gate B. The complete Gate B remains closed
+until Task 13's paired scoring report confirms that at least 99% of eligible
+agents have less than `1e-3 m` delta minFDE.

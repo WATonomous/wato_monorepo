@@ -56,6 +56,10 @@ TYPES = {
 }
 MAP_FRAME = "map"
 EGO_CHILD_FRAME = "base_footprint"
+# SceneBuilder treats ROS time zero as "unset". Shift fixture transport stamps
+# by a constant epoch while preserving every relative Waymo interval.
+ROS_TIME_OFFSET_S = 1.0
+ROS_TIME_OFFSET_NS = int(ROS_TIME_OFFSET_S * 1_000_000_000)
 S = scenario.STATE_COL
 _SELECTORS = {"dense", "sparse", "gappy"}
 
@@ -67,8 +71,13 @@ class ConversionResult:
     ground_truth: tuple[np.ndarray, np.ndarray, list[str], list[str]]
 
 
+def transport_time_ns(timestamp_s: float) -> int:
+    """Convert Waymo relative time to a positive ROS timestamp exactly."""
+    return int(round(timestamp_s * 1e9)) + ROS_TIME_OFFSET_NS
+
+
 def _stamp(msg, timestamp_s: float) -> None:
-    total_ns = int(round(timestamp_s * 1e9))
+    total_ns = transport_time_ns(timestamp_s)
     seconds, nanoseconds = divmod(total_ns, 1_000_000_000)
     msg.header.stamp.sec = seconds
     msg.header.stamp.nanosec = nanoseconds
@@ -97,11 +106,18 @@ def _state_at(
 
 
 def detections_at(scen: scenario.Scenario, step: int) -> Detection3DArray:
-    """Tracked detections at one timestep. Invalid or untyped tracks are omitted."""
+    """Tracked detections at one timestep.
+
+    The Waymo SDC is carried by the dedicated pose/odometry topics and becomes
+    SceneBuilder's reserved ``__ego__`` history row.  Omitting it here avoids
+    representing the same physical actor twice.
+    """
     msg = Detection3DArray()
     _stamp(msg, float(scen.timestamps_s[step]))
 
-    for track in scen.tracks:
+    for track_index, track in enumerate(scen.tracks):
+        if track_index == scen.sdc_track_index:
+            continue
         state = _state_at(scen, track, step)
         if (
             state[S["valid"]] == 0.0
@@ -296,12 +312,9 @@ def convert(
         0, scen.current_time_index - rep.HISTORY_STEPS + 1
     )
     for step, timestamp_s in enumerate(scen.timestamps_s):
-        timestamp_ns = int(round(float(timestamp_s) * 1e9))
+        timestamp_ns = transport_time_ns(float(timestamp_s))
         detections = detections_at(scen, step)
         lanelet_msg, map_stats = lanelet_ahead_at(scen, step, config)
-        writer.write(
-            TOPICS["tracks"], serialize_message(detections), timestamp_ns
-        )
         writer.write(
             TOPICS["pose"],
             serialize_message(ego_pose_at(scen, step)),
@@ -315,10 +328,16 @@ def convert(
         writer.write(
             TOPICS["lanelet"], serialize_message(lanelet_msg), timestamp_ns
         )
+        # The lifecycle node builds immediately when tracks arrive, so all
+        # auxiliary state for this timestamp must be visible first.
+        writer.write(
+            TOPICS["tracks"], serialize_message(detections), timestamp_ns
+        )
 
         if history_start <= step <= scen.current_time_index:
             history_total += len(scen.tracks)
-            history_valid += len(detections.detections)
+            # Pose/odometry inject exactly one synthetic ego history sample.
+            history_valid += len(detections.detections) + 1
         if step == scen.current_time_index:
             current_map_stats = map_stats
 

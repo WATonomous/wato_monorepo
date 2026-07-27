@@ -188,7 +188,7 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
     return tensors;
   }
 
-  const auto context_track_ids = contextTrackIds(frame.ego_pose);
+  const auto context_track_ids = contextTrackIds(frame.ego_pose, targets);
   if (context_track_ids.empty()) {
     return tensors;
   }
@@ -540,6 +540,15 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
         continue;
       }
 
+      if (wanted == kEgoTrackId) {
+        const auto ego = history_.find(kEgoTrackId);
+        if (ego != history_.end() && !ego->second.empty()) {
+          candidates.push_back(TargetCandidate{ego->second.back(), 0.0, true});
+          accepted_ids.insert(wanted);
+        }
+        continue;
+      }
+
       for (const auto & detection : detections.detections) {
         if (detection.id != wanted) {
           continue;
@@ -615,7 +624,9 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
   return candidates;
 }
 
-std::vector<std::string> SceneBuilder::contextTrackIds(const geometry_msgs::msg::PoseStamped & ego_pose) const
+std::vector<std::string> SceneBuilder::contextTrackIds(
+  const geometry_msgs::msg::PoseStamped & ego_pose,
+  const std::vector<TargetCandidate> & required_targets) const
 {
   const auto & ego_position = ego_pose.pose.position;
 
@@ -641,7 +652,50 @@ std::vector<std::string> SceneBuilder::contextTrackIds(const geometry_msgs::msg:
   });
 
   if (tracks.size() > kContextCapacity) {
-    tracks.resize(kContextCapacity);
+    std::vector<ContextTrack> selected(tracks.begin(), tracks.begin() + kContextCapacity);
+    // A selected target cannot be packed unless it has a context row. Preserve the global
+    // distance/id ranking, but make selected targets mandatory by evicting the farthest
+    // non-target for each target that fell outside the nearest-context budget.
+    std::unordered_set<std::string> required_ids;
+    required_ids.reserve(required_targets.size());
+    for (const auto & target : required_targets) {
+      required_ids.insert(target.sample.detection_id);
+    }
+
+    for (const auto & target : required_targets) {
+      const auto already_selected = std::find_if(
+        selected.begin(), selected.end(), [&](const ContextTrack & track) {
+          return track.detection_id == target.sample.detection_id;
+        });
+      if (already_selected != selected.end()) {
+        continue;
+      }
+
+      const auto required_track = std::find_if(
+        tracks.begin(), tracks.end(), [&](const ContextTrack & track) {
+          return track.detection_id == target.sample.detection_id;
+        });
+      if (required_track == tracks.end()) {
+        continue;
+      }
+
+      const auto replace = std::find_if(
+        selected.rbegin(), selected.rend(), [&](const ContextTrack & track) {
+          return required_ids.find(track.detection_id) == required_ids.end();
+        });
+      if (replace == selected.rend()) {
+        break;
+      }
+      *replace = *required_track;
+    }
+
+    std::sort(selected.begin(), selected.end(), [](const ContextTrack & lhs, const ContextTrack & rhs) {
+      if (lhs.distance_sq != rhs.distance_sq) {
+        return lhs.distance_sq < rhs.distance_sq;
+      }
+      return lhs.detection_id < rhs.detection_id;
+    });
+    tracks = std::move(selected);
   }
 
   std::vector<std::string> ids;

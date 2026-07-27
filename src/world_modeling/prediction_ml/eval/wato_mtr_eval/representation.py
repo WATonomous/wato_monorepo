@@ -40,6 +40,9 @@ DEPLOYED_STEP_S = 0.2
 DEPLOYED_STEPS = 15
 NATIVE_HORIZON_S = 8.0
 
+# Synthetic ego footprint (mirrors config/params.yaml and MtrConfig defaults).
+EGO_DIMS = (4.0936, 1.3579, 1.4090)
+
 # obj_trajs column layout (scene_builder.cpp:763-781 in the design snapshot).
 OBJ_COL = {
     "position": slice(0, 3),

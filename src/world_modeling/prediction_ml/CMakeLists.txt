@@ -152,6 +152,7 @@ install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(rosbag2_cpp REQUIRED)
   ament_add_gtest(test_contract_compiles test/test_contract_compiles.cpp)
   target_link_libraries(test_contract_compiles prediction_ml_lib)
   # >>> PERSON_B tests
@@ -180,6 +181,13 @@ if(BUILD_TESTING)
   ament_add_gtest(test_tensor_io test/test_tensor_io.cpp)
   target_link_libraries(test_tensor_io prediction_ml_lib)
   set_tests_properties(test_tensor_io PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
+  ament_add_gtest(test_scene_builder_parity test/test_scene_builder_parity.cpp)
+  target_link_libraries(
+    test_scene_builder_parity
+    prediction_ml_lib
+    rosbag2_cpp::rosbag2_cpp)
+  set_tests_properties(test_scene_builder_parity PROPERTIES
     ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
 endif()
 

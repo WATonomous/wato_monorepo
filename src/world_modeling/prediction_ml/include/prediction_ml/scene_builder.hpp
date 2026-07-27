@@ -144,9 +144,12 @@ private:
     const vision_msgs::msg::Detection3DArray & detections,
     double current_time,
     const geometry_msgs::msg::PoseStamped & ego_pose) const;
-  // Rank every retained track (incl. ego) by ego-frame 2D distance_sq and return the closest
-  // kContextCapacity ids, tie-broken by detection_id ascending.
-  std::vector<std::string> contextTrackIds(const geometry_msgs::msg::PoseStamped & ego_pose) const;
+  // Rank every retained track (incl. ego) globally by ego-frame 2D distance_sq/id. Keep the
+  // closest kContextCapacity while making every selected target a mandatory row: a missing target
+  // replaces the farthest non-target, then the retained rows are re-sorted by the same key.
+  std::vector<std::string> contextTrackIds(
+    const geometry_msgs::msg::PoseStamped & ego_pose,
+    const std::vector<TargetCandidate> & required_targets) const;
   static int findTrackIndex(const std::vector<std::string> & track_ids, const std::string & detection_id);
   // Pack obj_trajs / masks / last_pos / center_* to the fixed [8,128,T,F] contract. Returns false
   // (hard frame failure) if any selected target is absent from the context list.

@@ -14,6 +14,25 @@ the current sample. The first and last timestamps are 1.0 second apart. History
 is resampled into those slots and a missing source sample leaves its slot masked
 (`mtr_types.hpp:56-57` in the design snapshot).
 
+Fixture replay calls `build()` for every tracks callback through the scenario's
+`current_time_index`; this is required to accumulate synthetic ego history.
+ROS fixture timestamps add a constant positive one-second transport epoch
+because zero means "unset" to `SceneBuilder`. The offset never changes relative
+or scalar time. For each slot, the nearest retained sample within half of the
+10 Hz period is used; an exact tie selects the later sample.
+
+Context ranking considers every track with retained history and uses its latest
+retained sample, not only tracks valid at the current Waymo step. Rows are
+globally ordered by `(ego-frame distance squared, detection_id)`. The nearest
+128 are kept, except that every selected target is mandatory: a target outside
+the budget replaces the farthest non-target row, then the retained rows are
+sorted again by the same global key.
+
+There is exactly one self-driving-car row. Waymo's raw SDC detection is omitted
+from the tracks topic and pose/odometry produce the reserved synthetic
+`__ego__` row. A designated Waymo SDC target maps to `__ego__` for packing while
+the raw Waymo ID remains in ground truth and the fixture identity map.
+
 ## The 29 `obj_trajs` columns
 
 From `scene_builder.cpp:763-781` in the design snapshot:
@@ -31,7 +50,7 @@ From `scene_builder.cpp:763-781` in the design snapshot:
 ## Capacities
 
 The frozen contract provides 8 target slots, 128 context agents ranked by
-ego-frame distance, and 768 map polylines with 20 points each. Overflow is
+ego-frame distance, and 768 map chunks with 20 points each. Overflow is
 silently truncated by the deployment representation; the evaluation ledger
 must count every such loss.
 
@@ -41,6 +60,13 @@ Every map point has nine columns:
 `[x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]`
 (`scene_builder.cpp:939` in the design snapshot). `global_type` is the same
 constant for every packed polyline (`scene_builder.cpp:50`).
+
+Direction vectors are computed over each complete scene-frame centerline before
+it is divided into 20-point chunks, so the first point of a later chunk retains
+the preceding point's direction. Non-finite centerlines and centerlines with
+fewer than two points are skipped; direction norms at or below `1e-6` become
+zero. For each target, all chunks are ranked by distance from their mean center
+to a point 30 m ahead of the target heading, then the closest 768 are packed.
 
 ## What WATO discards
 

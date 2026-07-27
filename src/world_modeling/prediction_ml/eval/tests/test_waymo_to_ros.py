@@ -100,6 +100,29 @@ def test_detection_ids_are_stable_across_frames():
     assert earlier == current and earlier
 
 
+def test_sdc_is_carried_only_by_pose_and_odometry():
+    scen = _scenario()
+    ids = {
+        detection.id
+        for detection in w2r.detections_at(scen, 10).detections
+    }
+    assert str(scen.tracks[scen.sdc_track_index].object_id) not in ids
+
+
+def test_fixture_transport_stamps_are_positive_and_preserve_relative_time():
+    scen = _scenario()
+    first = w2r.detections_at(scen, 0).header.stamp
+    second = w2r.detections_at(scen, 1).header.stamp
+    first_ns = first.sec * 1_000_000_000 + first.nanosec
+    second_ns = second.sec * 1_000_000_000 + second.nanosec
+
+    assert first_ns > 0, "SceneBuilder treats ROS time zero as unset"
+    assert second_ns - first_ns == pytest.approx(
+        (scen.timestamps_s[1] - scen.timestamps_s[0]) * 1e9,
+        abs=1,
+    )
+
+
 def test_invalid_states_and_unmapped_types_are_omitted():
     scen = _scenario()
     scen.tracks[1].states[10, scenario.STATE_COL["valid"]] = 0.0
@@ -200,6 +223,33 @@ def test_convert_emits_one_message_per_topic_per_step_and_sidecars(tmp_path):
     np.testing.assert_array_equal(truth["valid"], result.ground_truth[1])
 
 
+@needs_mcap
+def test_convert_writes_auxiliary_state_before_each_tracks_callback(tmp_path):
+    scen = _scenario()
+    result = w2r.convert(scen, tmp_path, lq.QueryConfig())
+    reader = rosbag2_py.SequentialReader()
+    reader.open(
+        rosbag2_py.StorageOptions(uri=str(result.bag_path), storage_id="mcap"),
+        rosbag2_py.ConverterOptions("", ""),
+    )
+    topics = []
+    while reader.has_next():
+        topic, _, _ = reader.read_next()
+        topics.append(topic)
+
+    expected_group = [
+        w2r.TOPICS["pose"],
+        w2r.TOPICS["odom"],
+        w2r.TOPICS["lanelet"],
+        w2r.TOPICS["tracks"],
+    ]
+    assert len(topics) == 4 * len(scen.timestamps_s)
+    assert all(
+        topics[start : start + 4] == expected_group
+        for start in range(0, len(topics), 4)
+    )
+
+
 def test_ground_truth_covers_designated_targets_and_native_horizon():
     gt, valid, ids, types = w2r.ground_truth_of(_scenario())
     assert gt.shape == (3, rep.NUM_FUTURE_FRAMES, 2)
@@ -214,8 +264,11 @@ def test_conversion_functions_are_lossless_for_claimed_detection_fields():
             detection.id: detection
             for detection in w2r.detections_at(scen, step).detections
         }
-        for track in scen.tracks:
+        for track_index, track in enumerate(scen.tracks):
             state = track.states[step]
+            if track_index == scen.sdc_track_index:
+                assert str(track.object_id) not in by_id
+                continue
             if (
                 state[scenario.STATE_COL["valid"]] == 0.0
                 or track.object_type == "other"

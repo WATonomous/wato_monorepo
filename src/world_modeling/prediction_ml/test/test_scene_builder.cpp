@@ -535,6 +535,56 @@ TEST(SceneBuilderPinnedTargets, DuplicatePinnedIdsOccupyOneTargetSlot)
   EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "b");
 }
 
+TEST(SceneBuilderPinnedTargets, TargetOutsideNearestContextCapacityIsInserted)
+{
+  MtrConfig config;
+  config.history_steps = 1;
+  config.pinned_target_ids = {"far_required"};
+  SceneBuilder builder{config};
+
+  std::vector<vision_msgs::msg::Detection3D> detections;
+  for (std::size_t i = 0; i < kContextCap; ++i) {
+    detections.push_back(makeDetection(
+      "near_" + std::to_string(i), "vehicle",
+      static_cast<double>(i + 1U), 0.0, 0.0, 0.0));
+  }
+  detections.push_back(
+    makeDetection("far_required", "vehicle", 1000.0, 0.0, 0.0, 0.0));
+  const auto arr = makeArray(100.0, detections);
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "far_required");
+  EXPECT_EQ(tensors.sidecar.targets[0].track_index, 127);
+  EXPECT_EQ(tensors.track_index_to_predict[0], 127);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 127, 0, 9)], 1.0F);
+}
+
+TEST(SceneBuilderPinnedTargets, ReservedEgoIdSelectsSyntheticEgoTrack)
+{
+  MtrConfig config;
+  config.history_steps = 1;
+  config.pinned_target_ids = {"__ego__"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(100.0, {});
+  const auto ego = makePose(4.0, -3.0, 0.25);
+
+  const auto tensors = builder.build(makeFrame(arr, ego));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "__ego__");
+  EXPECT_EQ(tensors.sidecar.targets[0].track_index, 0);
+  EXPECT_DOUBLE_EQ(tensors.sidecar.targets[0].center_x, 4.0);
+  EXPECT_DOUBLE_EQ(tensors.sidecar.targets[0].center_y, -3.0);
+  EXPECT_EQ(tensors.center_type_ids[0], 0);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, 0, 9)], 1.0F);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, 0, 10)], 1.0F);
+}
+
 TEST(SceneBuilder, DuplicateDetectionIdsTakeOneTargetSlot)
 {
   // Two detections sharing an id must not occupy two target slots.
