@@ -34,6 +34,7 @@ find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)
 
 add_library(prediction_ml_lib
   src/fallback_prediction.cpp
@@ -47,6 +48,7 @@ add_library(prediction_ml_lib
   src/output_converter.cpp
   src/mtr_runtime.cpp
   # <<< PERSON_C sources
+  src/tensor_io.cpp
 )
 
 if(PREDICTION_ML_ENABLE_TENSORRT)
@@ -137,6 +139,7 @@ target_link_libraries(prediction_ml_lib
   ${lanelet_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   Threads::Threads
+  ZLIB::ZLIB
 )
 
 add_executable(prediction_ml_node src/prediction_ml_node.cpp)
@@ -174,6 +177,10 @@ if(BUILD_TESTING)
   # <<< PERSON_C tests
   ament_add_gtest(test_fallback_prediction test/test_fallback_prediction.cpp)
   target_link_libraries(test_fallback_prediction prediction_ml_lib)
+  ament_add_gtest(test_tensor_io test/test_tensor_io.cpp)
+  target_link_libraries(test_tensor_io prediction_ml_lib)
+  set_tests_properties(test_tensor_io PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
 endif()
 
 ament_package()
