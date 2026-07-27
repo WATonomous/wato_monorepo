@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+from collections.abc import Collection
 
 import numpy as np
 
@@ -143,11 +144,29 @@ def query(
     ego_xy: tuple[float, float],
     ego_heading: float,
     config: QueryConfig,
+    feature_types: Collection[str] | None = None,
 ) -> tuple[list[scenario.MapPolyline], ledger.MapStats]:
-    """Return the queried lane polylines plus loss statistics."""
-    ego = _validate_query(ego_xy, ego_heading, config)
+    """Return queried map polylines plus loss statistics.
 
-    lanes = [poly for poly in polylines if poly.feature_type in LANE_TYPES]
+    The production default remains lane centerlines only. Rung-1 ablations pass
+    an explicit feature set to price map layers that SceneBuilder discards.
+    """
+    ego = _validate_query(ego_xy, ego_heading, config)
+    selected_types = (
+        frozenset(LANE_TYPES)
+        if feature_types is None
+        else frozenset(feature_types)
+    )
+    supported = LANE_TYPES | DISCARDED_TYPES
+    if not selected_types:
+        raise ValueError("feature_types must not be empty")
+    unknown = selected_types - supported
+    if unknown:
+        raise ValueError(f"unknown map feature types: {sorted(unknown)}")
+
+    lanes = [
+        poly for poly in polylines if poly.feature_type in selected_types
+    ]
     omitted: dict[str, int] = {}
     for poly in polylines:
         if poly.feature_type in DISCARDED_TYPES:

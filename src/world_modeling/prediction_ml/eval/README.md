@@ -133,3 +133,36 @@ rung 2 implement the same inherit-next-valid rule, so their zero delta proves
 implementation parity but cannot compare that rule against official MTR's
 alternative. That decision requires a separately generated counterfactual
 bundle and must not be inferred from this gate.
+
+## Map budget — raw Waymo information sensitivity
+
+The rung-1 sweep ran on all 286 scenarios and 1,268 accepted targets in the
+first validation shard, with zero targets dropped. It keeps WATO object
+packing, map chunking/ranking, the 768-chunk budget, and the checkpoint fixed,
+then removes one supported map axis at a time. Positive delta means the current
+policy is worse than the preceding row.
+
+| Policy | minADE (m) | minFDE (m) | Adjacent Δ minFDE (m) | Candidate chunks | Evicted target-chunks |
+|---|---:|---:|---:|---:|---:|
+| all supported, typed, radius | 0.5992 | 0.9138 | — | 211,459 | 154,027 |
+| no driveways | 0.6086 | 0.9296 | +0.0158 | 209,013 | 150,986 |
+| no speed bumps | 0.6088 | 0.9308 | +0.0013 | 208,482 | 149,539 |
+| no road edges | 0.6515 | 1.0457 | +0.1149 | 160,106 | 51,506 |
+| no crosswalks | 0.6502 | 1.0457 | -0.0000 | 159,095 | 50,093 |
+| no road lines | 0.6562 | 1.0700 | +0.0243 | 106,500 | 744 |
+| lane-only, collapsed types, radius | 0.6211 | 1.0542 | -0.0158 | 106,500 | 744 |
+| lane-only, collapsed types, reachable approximation | 0.6282 | 1.0859 | +0.0316 | 74,580 | 0 |
+
+Road edges carry the largest aggregate budget signal in this shard, followed
+by the reachable-query approximation, road lines, and driveways. Speed bumps
+and crosswalks are negligible in the aggregate table. Type collapse improves
+the aggregate here, so retaining subtype tokens is not automatically beneficial
+without retraining or broader validation. Per-agent tails are much larger than
+the means; the CLI report includes paired percentiles and worst scenario/agent
+IDs for each transition.
+
+This is not a SceneBuilder-only price. It estimates MTR sensitivity to geometry
+and subtype information retained from raw Waymo, so the deltas are upper bounds
+on combined converter/schema/SceneBuilder work. Current fixture MCAPs contain
+only untyped lane centerlines. A causal SceneBuilder-only experiment requires a
+richer fixed `LaneletAhead` input before changing packing.

@@ -80,15 +80,17 @@ to a point 30 m ahead of the target heading, then the closest 768 are packed.
 | Information | Loss |
 |---|---|
 | Map polyline types | Roughly 20 Waymo types collapse to one lane-centerline token. |
-| Road edges | Present as `BOUNDARY_ROAD_EDGE` in `lanelet_msgs/Lanelet`; not packed. |
-| Crosswalks | Present as `lanelet_type == "crosswalk"`; not packed. |
-| Lane boundaries | Left/right boundary geometry is present; not packed. |
-| Traffic-light state | Genuinely unavailable: lanelet messages contain no dynamic signal state. |
-| Stop lines | Present as `RegulatoryElement.ref_lines`; not packed. |
+| Road edges | The Lanelet schema can represent road-edge boundaries, but the Waymo converter and committed MCAPs do not populate them. |
+| Crosswalks | The schema can label a lanelet as a crosswalk; standalone crosswalk availability in the production reachable query is not established, and fixtures omit it. |
+| Lane boundaries | Production Lanelet messages can carry them; the committed Waymo fixtures leave both boundary arrays empty. |
+| Traffic-light state | Exists in raw Waymo data, but is dropped before the harness scenario model and is absent from the Lanelet message. |
+| Stop lines | The schema can carry regulatory reference lines; committed fixtures do not populate them. |
 
-Road edges, crosswalks, boundary types, and stop lines are available on the
-vehicle in `lanelet_msgs/Lanelet` and are thrown away by `SceneBuilder`. Only
-dynamic traffic-light state is missing before packing.
+The schema's capacity must not be confused with the information present in the
+committed replay path. Those MCAPs contain only untyped lane centerlines.
+Therefore a raw-Waymo map ablation estimates an upper bound on combined
+converter/schema/SceneBuilder work; it does not isolate a SceneBuilder-only
+change. A SceneBuilder-only price requires a fixed, richer `LaneletAhead` input.
 
 ## Output
 

@@ -56,6 +56,24 @@ _MAP_FEATURE_FIELDS = (
     ("speed_bump", "speed_bump"),
     ("driveway", "driveway"),
 )
+_LANE_GLOBAL_TYPE = {0: -1, 1: 1, 2: 2, 3: 3}
+_ROAD_LINE_GLOBAL_TYPE = {
+    0: -1,
+    1: 6,
+    2: 7,
+    3: 8,
+    4: 9,
+    5: 10,
+    6: 11,
+    7: 12,
+    8: 13,
+}
+_ROAD_EDGE_GLOBAL_TYPE = {0: -1, 1: 15, 2: 16}
+_FIXED_GLOBAL_TYPE = {
+    "crosswalk": 18,
+    "speed_bump": 19,
+    "driveway": 20,
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -74,6 +92,7 @@ class MapPolyline:
     feature_id: int
     feature_type: str
     points: np.ndarray  # [N, 3]
+    global_type: int = 0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -128,11 +147,27 @@ def _polylines_from_proto(proto) -> list[MapPolyline]:
                 continue
             points = _feature_points(getattr(feature, field_name))
             if points is not None:
+                feature_data = getattr(feature, field_name)
+                if field_name == "lane":
+                    global_type = _LANE_GLOBAL_TYPE.get(
+                        int(feature_data.type), -1
+                    )
+                elif field_name == "road_line":
+                    global_type = _ROAD_LINE_GLOBAL_TYPE.get(
+                        int(feature_data.type), -1
+                    )
+                elif field_name == "road_edge":
+                    global_type = _ROAD_EDGE_GLOBAL_TYPE.get(
+                        int(feature_data.type), -1
+                    )
+                else:
+                    global_type = _FIXED_GLOBAL_TYPE[field_name]
                 output.append(
                     MapPolyline(
                         feature_id=feature.id,
                         feature_type=label,
                         points=points,
+                        global_type=global_type,
                     )
                 )
             break

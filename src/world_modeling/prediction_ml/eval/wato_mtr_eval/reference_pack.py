@@ -57,6 +57,35 @@ class _MapChunk:
     points: np.ndarray
     directions: np.ndarray
     center: np.ndarray
+    global_type: int
+    feature_type: str
+
+
+@dataclasses.dataclass(frozen=True)
+class MapPackingOptions:
+    """Map layers and token semantics for a rung-1 ablation."""
+
+    keep_types: frozenset[str] = frozenset({"lane"})
+    collapse_global_type: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "keep_types", frozenset(self.keep_types))
+        supported = lq.LANE_TYPES | lq.DISCARDED_TYPES
+        if not self.keep_types:
+            raise ValueError("keep_types must not be empty")
+        unknown = self.keep_types - supported
+        if unknown:
+            raise ValueError(f"unknown map feature types: {sorted(unknown)}")
+
+
+@dataclasses.dataclass(frozen=True)
+class MapPackingBudget:
+    """Per-frame map occupancy before and after the per-target 768 cap."""
+
+    features_by_type: dict[str, int]
+    candidate_chunks: int
+    retained_target_chunks: int
+    evicted_target_chunks_by_type: dict[str, int]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -565,9 +594,42 @@ def _map_chunks(polylines: list[scenario.MapPolyline]) -> list[_MapChunk]:
                     points=chunk_points,
                     directions=chunk_directions,
                     center=chunk_points.mean(axis=0),
+                    global_type=polyline.global_type,
+                    feature_type=polyline.feature_type,
                 )
             )
     return chunks
+
+
+def _rank_map_chunks(
+    chunks: list[_MapChunk],
+    center: np.ndarray,
+) -> list[int]:
+    cx = float(center[S["x"]])
+    cy = float(center[S["y"]])
+    heading = float(center[S["heading"]])
+    cos_h, sin_h = math.cos(heading), math.sin(heading)
+    offset_x = (
+        cx
+        + _MAP_CENTER_OFFSET[0] * cos_h
+        - _MAP_CENTER_OFFSET[1] * sin_h
+    )
+    offset_y = (
+        cy
+        + _MAP_CENTER_OFFSET[0] * sin_h
+        + _MAP_CENTER_OFFSET[1] * cos_h
+    )
+    return sorted(
+        range(len(chunks)),
+        key=lambda index: (
+            float(chunks[index].center[0]) - offset_x
+        )
+        ** 2
+        + (
+            float(chunks[index].center[1]) - offset_y
+        )
+        ** 2,
+    )
 
 
 def _pack_map(
@@ -575,6 +637,7 @@ def _pack_map(
     step: int,
     targets: list[int],
     config: lq.QueryConfig,
+    options: MapPackingOptions,
 ) -> dict[str, np.ndarray]:
     polylines = np.zeros(
         (
@@ -604,6 +667,7 @@ def _pack_map(
         (float(ego[S["x"]]), float(ego[S["y"]])),
         float(ego[S["heading"]]),
         config,
+        feature_types=options.keep_types,
     )
     chunks = _map_chunks(kept)
 
@@ -615,27 +679,9 @@ def _pack_map(
         heading = float(center[S["heading"]])
         cos_h, sin_h = math.cos(heading), math.sin(heading)
 
-        offset_x = (
-            cx
-            + _MAP_CENTER_OFFSET[0] * cos_h
-            - _MAP_CENTER_OFFSET[1] * sin_h
-        )
-        offset_y = (
-            cy
-            + _MAP_CENTER_OFFSET[0] * sin_h
-            + _MAP_CENTER_OFFSET[1] * cos_h
-        )
-        ranked = sorted(
-            range(len(chunks)),
-            key=lambda index: (
-                float(chunks[index].center[0]) - offset_x
-            )
-            ** 2
-            + (
-                float(chunks[index].center[1]) - offset_y
-            )
-            ** 2,
-        )[: rep.NUM_SRC_POLYLINES]
+        ranked = _rank_map_chunks(chunks, center)[
+            : rep.NUM_SRC_POLYLINES
+        ]
 
         for polyline_slot, chunk_index in enumerate(ranked):
             chunk = chunks[chunk_index]
@@ -662,7 +708,12 @@ def _pack_map(
             rows = polylines[target_slot, polyline_slot, :count]
             rows[:, rep.MAP_COL["position"]] = local_positions
             rows[:, rep.MAP_COL["direction"]] = local_directions
-            rows[:, rep.MAP_COL["global_type"]] = rep.WATO_GLOBAL_TYPE
+            global_type = (
+                rep.WATO_GLOBAL_TYPE
+                if options.collapse_global_type
+                else chunk.global_type
+            )
+            rows[:, rep.MAP_COL["global_type"]] = global_type
             rows[:, rep.MAP_COL["pre_position"]] = local_positions[
                 np.maximum(np.arange(count) - 1, 0), :2
             ]
@@ -676,6 +727,47 @@ def _pack_map(
     }
 
 
+def map_packing_budget(
+    scen: scenario.Scenario,
+    config: lq.QueryConfig,
+    options: MapPackingOptions,
+    step: int | None = None,
+) -> MapPackingBudget:
+    """Count queried chunks and per-target evictions by coarse map layer."""
+    step = scen.current_time_index if step is None else step
+    _validate_step(scen, step)
+    ego = scen.tracks[scen.sdc_track_index].states[step]
+    kept, _ = lq.query(
+        scen.map_polylines,
+        (float(ego[S["x"]]), float(ego[S["y"]])),
+        float(ego[S["heading"]]),
+        config,
+        feature_types=options.keep_types,
+    )
+    chunks = _map_chunks(kept)
+    features_by_type = {
+        feature_type: sum(
+            polyline.feature_type == feature_type for polyline in kept
+        )
+        for feature_type in sorted(options.keep_types)
+    }
+    evicted: dict[str, int] = {}
+    retained = 0
+    for target in target_selection(scen, step):
+        center = scen.tracks[target.track_index].states[step]
+        ranked = _rank_map_chunks(chunks, center)
+        retained += min(len(ranked), rep.NUM_SRC_POLYLINES)
+        for chunk_index in ranked[rep.NUM_SRC_POLYLINES :]:
+            feature_type = chunks[chunk_index].feature_type
+            evicted[feature_type] = evicted.get(feature_type, 0) + 1
+    return MapPackingBudget(
+        features_by_type=features_by_type,
+        candidate_chunks=len(chunks),
+        retained_target_chunks=retained,
+        evicted_target_chunks_by_type=evicted,
+    )
+
+
 def _wrap_pi(angle: float) -> float:
     return (angle + math.pi) % (2.0 * math.pi) - math.pi
 
@@ -684,6 +776,7 @@ def pack(
     scen: scenario.Scenario,
     config: lq.QueryConfig,
     step: int | None = None,
+    map_options: MapPackingOptions | None = None,
 ) -> dict[str, np.ndarray]:
     """Pack the eight fixed-shape MTR input tensors at one replay step."""
     step = scen.current_time_index if step is None else step
@@ -695,5 +788,6 @@ def pack(
     }
     context = _context_tracks(scen, step, mandatory_ids)
     objects = _pack_objects(scen, step, targets, context)
-    maps = _pack_map(scen, step, targets, config)
+    options = MapPackingOptions() if map_options is None else map_options
+    maps = _pack_map(scen, step, targets, config, options)
     return {**objects, **maps}
