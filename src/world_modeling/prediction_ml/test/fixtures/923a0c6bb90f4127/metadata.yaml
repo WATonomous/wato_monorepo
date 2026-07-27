@@ -1,0 +1,44 @@
+rosbag2_bagfile_information:
+  version: 5
+  storage_identifier: mcap
+  duration:
+    nanoseconds: 8994090000
+  starting_time:
+    nanoseconds_since_epoch: 0
+  message_count: 364
+  topics_with_message_count:
+    - topic_metadata:
+        name: lanelet/lanelet_ahead
+        type: lanelet_msgs/msg/LaneletAhead
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 91
+    - topic_metadata:
+        name: /localization/pose
+        type: geometry_msgs/msg/PoseStamped
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 91
+    - topic_metadata:
+        name: /world_modeling/transform/odometry
+        type: nav_msgs/msg/Odometry
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 91
+    - topic_metadata:
+        name: /perception/detections_3D_tracked
+        type: vision_msgs/msg/Detection3DArray
+        serialization_format: cdr
+        offered_qos_profiles: ""
+      message_count: 91
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - 923a0c6bb90f4127_0.mcap
+  files:
+    - path: 923a0c6bb90f4127_0.mcap
+      starting_time:
+        nanoseconds_since_epoch: 0
+      duration:
+        nanoseconds: 8994090000
+      message_count: 364

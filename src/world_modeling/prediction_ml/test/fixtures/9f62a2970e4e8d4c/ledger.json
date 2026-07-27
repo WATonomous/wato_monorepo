@@ -1,0 +1,56 @@
+{
+  "agents": {
+    "context_capacity": 128,
+    "context_overflow": 0,
+    "context_used": 42,
+    "dropped": 0,
+    "dropped_by_type": {},
+    "type_mapped": 42,
+    "waymo_tracks": 42
+  },
+  "history": {
+    "masked": 402,
+    "masked_fraction": 0.8701298701298701,
+    "slots": 11,
+    "total": 462,
+    "tracks": 42,
+    "valid": 60
+  },
+  "map": {
+    "centerline_points_after": 5179,
+    "centerline_points_before": 10382,
+    "dropped_by_connectivity": 0,
+    "global_type_collapse": "20 waymo types -> 1 wato token",
+    "nearby_lanes": 142,
+    "omitted_semantics": {
+      "crosswalk": 7,
+      "driveway": 3,
+      "road_edge": 39,
+      "road_line": 21,
+      "speed_bump": 5
+    },
+    "polyline_capacity": 768,
+    "polyline_overflow": 0,
+    "polylines_used": 26,
+    "radius_m": 80.0,
+    "radius_only_emitted": 26,
+    "reachable_emitted": 26
+  },
+  "output": {
+    "emitted_horizon_s": 3.0,
+    "emitted_step_s": 0.2,
+    "emitted_steps": 15,
+    "model_step_s": 0.1,
+    "model_steps": 80,
+    "stride": 2,
+    "strided_steps": 40
+  },
+  "scenario_id": "9f62a2970e4e8d4c",
+  "targets": {
+    "candidates": 42,
+    "heuristic_agreement": 2,
+    "heuristic_agreement_fraction": 1.0,
+    "pinned": true,
+    "selected": 2
+  }
+}
