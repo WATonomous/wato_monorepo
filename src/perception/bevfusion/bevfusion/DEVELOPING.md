@@ -259,5 +259,3 @@ colcon build --packages-up-to bevfusion --cmake-args -DBUILD_TESTING=ON
 colcon test --packages-select bevfusion
 colcon test-result --verbose
 ```
-
-> **Note:** Build warnings from `bevfusion_core.cpp` (`no return statement` in stub functions) are expected until `initialize()` and `infer()` are implemented.
