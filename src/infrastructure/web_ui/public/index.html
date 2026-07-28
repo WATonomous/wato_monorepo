@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head><title>EVE WEB UI</title></head>
+  <body>
+    <h1>EVE</h1>
+    <p>Speed: <span id="speed">--</span> m/s</p>
+    <script>
+      const ws = new WebSocket(`ws://${location.host}`);
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        document.getElementById('speed').textContent = data.speed.toFixed(2);
+      };
+    </script>
+  </body>
+</html>
