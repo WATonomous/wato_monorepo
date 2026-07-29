@@ -1,15 +1,34 @@
 <!DOCTYPE html>
 <html>
-  <head><title>EVE WEB UI</title></head>
+  <head><title>EVE UI</title></head>
   <body>
     <h1>EVE</h1>
     <p>Speed: <span id="speed">--</span> m/s</p>
+
+    <div id="map" style="width:400px; height:400px; border:2px solid #333; cursor:crosshair;">
+      click to set destination
+    </div>
+    <p id="status"></p>
+
     <script>
       const ws = new WebSocket(`ws://${location.host}`);
+
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        document.getElementById('speed').textContent = data.speed.toFixed(2);
+        if (data.speed !== undefined) {
+          document.getElementById('speed').textContent = data.speed.toFixed(2);
+        }
       };
+
+      const map = document.getElementById('map');
+      map.addEventListener('click', (event) => {
+        const rect = map.getBoundingClientRect();
+        const x = event.clientX - rect.left;   // click position inside the box
+        const y = event.clientY - rect.top;
+        ws.send(JSON.stringify({ type: 'setDestination', x, y }));
+        document.getElementById('status').textContent =
+          `Set destination: (${Math.round(x)}, ${Math.round(y)})`;
+      });
     </script>
   </body>
 </html>

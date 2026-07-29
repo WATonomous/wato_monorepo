@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "express": "^5.2.1",
+    "rclnodejs": "^1.9.0",
+    "ws": "^8.21.1"
+  }
+}
