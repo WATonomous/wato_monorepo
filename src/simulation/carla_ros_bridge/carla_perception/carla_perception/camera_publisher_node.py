@@ -48,6 +48,7 @@ class CameraConfig:
     distortion_coefficients: List[float]  # typically 5 elements for plumb_bob
     rectification_matrix: List[float]  # 3x3 = 9 elements, row-major
     projection_matrix: List[float]  # 3x4 = 12 elements, row-major
+    noise_stddev: float = 0.0  # Gaussian noise std dev on pixel values
 
 
 @dataclass
@@ -185,6 +186,7 @@ class CameraPublisherNode(LifecycleNode):
         self.declare_parameter(f"{name}.image_height", 0)
         self.declare_parameter(f"{name}.fov", 90.0)
         self.declare_parameter(f"{name}.optical_frame", True)
+        self.declare_parameter(f"{name}.noise_stddev", 0.0)
         self.declare_parameter(f"{name}.distortion_model", "plumb_bob")
         self.declare_parameter(f"{name}.camera_matrix.data", [0.0] * 9)
         self.declare_parameter(f"{name}.distortion_coefficients.data", [0.0] * 5)
@@ -200,6 +202,7 @@ class CameraPublisherNode(LifecycleNode):
         image_height = self.get_parameter(f"{name}.image_height").value
         fov = self.get_parameter(f"{name}.fov").value
         optical_frame = self.get_parameter(f"{name}.optical_frame").value
+        noise_stddev = self.get_parameter(f"{name}.noise_stddev").value
         distortion_model = self.get_parameter(f"{name}.distortion_model").value
         camera_matrix = self.get_parameter(f"{name}.camera_matrix.data").value
         distortion_coefficients = self.get_parameter(
@@ -242,6 +245,7 @@ class CameraPublisherNode(LifecycleNode):
             distortion_coefficients=distortion_coefficients,
             rectification_matrix=rectification_matrix,
             projection_matrix=projection_matrix,
+            noise_stddev=noise_stddev,
         )
 
     def on_activate(self, state: LifecycleState) -> TransitionCallbackReturn:
@@ -403,8 +407,18 @@ class CameraPublisherNode(LifecycleNode):
             image_msg.step = carla_image.width * 4
             image_msg.is_bigendian = 0
 
-            # Convert raw data to numpy array and then to bytes
+            # Convert raw data to numpy array
             array = np.frombuffer(carla_image.raw_data, dtype=np.uint8)
+
+            # Apply Gaussian noise if configured
+            if camera.config.noise_stddev > 0.0:
+                noise = np.random.normal(
+                    0.0, camera.config.noise_stddev, array.shape
+                ).astype(np.int16)
+                array = np.clip(
+                    array.astype(np.int16) + noise, 0, 255
+                ).astype(np.uint8)
+
             image_msg.data = array.tobytes()
 
             # Publish image
