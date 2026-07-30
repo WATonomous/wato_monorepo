@@ -53,6 +53,7 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("curvature_est_arc", 1.5);
   declare_parameter("speed_lookahead_distance", 1.0);
   declare_parameter("speed_lookahead_time", 2.0);
+  declare_parameter("speed_limit_probe_count", 3);
 
   // Steering
   declare_parameter("steering_angle_gain", 1.0);
@@ -139,6 +140,7 @@ void PurePursuitNode::loadParameters()
   curvature_est_arc_ = get_parameter("curvature_est_arc").as_double();
   speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
   speed_lookahead_time_ = get_parameter("speed_lookahead_time").as_double();
+  speed_limit_probe_count_ = static_cast<int>(get_parameter("speed_limit_probe_count").as_int());
 
   steering_angle_gain_ = get_parameter("steering_angle_gain").as_double();
   max_steering_angle_ = get_parameter("max_steering_angle").as_double();
@@ -403,6 +405,7 @@ void PurePursuitNode::controlCallback()
   // --- Desired steering / speed for this cycle ---
   double desired_steering = 0.0;
   double desired_speed = 0.0;
+  double kappa_for_speed = 0.0;  // curvature fed to the v_curve budget (may exceed kappa_ahead)
   bool over = false;
   std::string reason = "ok";
 
@@ -434,7 +437,24 @@ void PurePursuitNode::controlCallback()
     double path_speed = math::minSpeedWithinHorizon(path, speeds, speed_horizon, max_speed_, search_start);
 
     // Curvature-limited speed (Phase 3a): keep lateral accel within budget.
-    double v_curve = math::curvatureLimitedSpeed(max_lateral_accel_, kappa_ahead, max_speed_);
+    // Sample |kappa| at several distances across [min_lookahead, lookahead] and
+    // take the max, so a sharp section that the single steering-lookahead point
+    // straddles (e.g. lookahead falling just before a curve entry) still bounds
+    // the speed budget. probe_count = 1 falls back to the single-point behaviour.
+    kappa_for_speed = kappa_ahead;
+    if (speed_limit_probe_count_ > 1) {
+      double kappa_horizon = math::maxAbsCurvatureOverHorizon(
+        path,
+        min_lookahead_distance_,
+        lookahead_distance_,
+        static_cast<std::size_t>(speed_limit_probe_count_),
+        curvature_est_arc_,
+        search_start);
+      if (kappa_horizon > std::abs(kappa_for_speed)) {
+        kappa_for_speed = kappa_horizon;
+      }
+    }
+    double v_curve = math::curvatureLimitedSpeed(max_lateral_accel_, kappa_for_speed, max_speed_);
     if (path_speed <= 0.0) {
       desired_speed = 0.0;  // path commands a stop
     } else {
@@ -486,6 +506,7 @@ void PurePursuitNode::controlCallback()
   status.heading_error = err.valid ? err.heading : 0.0;
   status.lookahead_distance = ld_eff;
   status.path_curvature = kappa_ahead;
+  status.speed_limit_curvature = kappa_for_speed;
   status.commanded_speed = speed;
   status.commanded_steering = invert_steering_ ? -steering : steering;
   status.disengaged = disengaged;

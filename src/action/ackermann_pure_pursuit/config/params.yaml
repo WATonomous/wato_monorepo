@@ -21,6 +21,7 @@ action:
       curvature_est_arc: 1.5            # half-window arc length for curvature estimation (m)
       speed_lookahead_distance: 1.0     # minimum distance ahead used to sample target speed (m)
       speed_lookahead_time: 2.0         # time-headway for the speed sample horizon (s)
+      speed_limit_probe_count: 3        # samples across [min_lookahead_distance, lookahead_distance] fed to the curvature-limited speed budget (1 = current behaviour)
 
       # --- Steering ---
       steering_angle_gain: 1.0
