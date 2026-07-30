@@ -1,105 +1,189 @@
 <!DOCTYPE html>
 <html>
-  <head><title>EVE UI</title></head>
-  <body>
-    <h1>EVE</h1>
-    <p>Speed: <span id="speed">--</span> m/s</p>
+  <head>
+    <title>EVE UI</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; overflow: hidden; background: #000; }
+      body { font-family: -apple-system, system-ui, sans-serif; color: #fff; }
 
-    <canvas id="map" width="600" height="600" style="border:2px solid #333; cursor:crosshair;"></canvas>
-    <p id="status"></p>
-    <p id="routeStatus"></p>
+      #map { display: block; width: 100vw; height: 100vh; background: #16161a; }
+
+      /* speed display*/
+      #speedBox {
+        position: fixed; top: 20px; left: 24px;
+        background: rgba(20,20,24,0.7); backdrop-filter: blur(8px);
+        padding: 10px 20px; border-radius: 12px;
+        display: flex; flex-direction: column; align-items: center;
+        line-height: 1;
+      }
+      #speed { font-size: 2.6em; font-weight: 700; }
+      #speedBox .unit {
+        font-size: 0.7em; color: #999; letter-spacing: 3px;
+        margin-top: 4px;
+      }
+      
+      /* bottom info bar */
+      #infoBar {
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: rgba(20,20,24,0.8); backdrop-filter: blur(8px);
+        padding: 12px 24px; border-radius: 14px; text-align: center;
+        min-width: 260px;
+      }
+      #routeStatus { font-weight: 600; min-height: 1.2em; }
+      #status { color: #888; font-size: 0.85em; margin-top: 4px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="map"></canvas>
+
+    <div id="speedBox">
+      <span id="speed">--</span>
+      <span class="unit">M/S</span>
+    </div>
+
+    <div id="infoBar">
+      <div id="routeStatus">Tap the map to set a destination</div>
+      <div id="status"></div>
+    </div>
 
     <script>
       const ws = new WebSocket(`ws://${location.host}`);
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.speed !== undefined) {
-          document.getElementById('speed').textContent = data.speed.toFixed(2);
+          document.getElementById('speed').textContent = data.speed.toFixed(0);
         }
         if (data.type === 'routeResult') {
           const el = document.getElementById('routeStatus');
           if (data.success) {
-            el.textContent = `Route set! Goal lanelet: ${data.goalLanelet}`;
-            el.style.color = 'green';
+            el.textContent = `Route set → lanelet ${data.goalLanelet}`;
+            el.style.color = '#3ddc84';
           } else {
             el.textContent = `Route failed: ${data.error}`;
-            el.style.color = 'red';
+            el.style.color = '#ff5a5a';
           }
         }
       };
 
       const canvas = document.getElementById('map');
       const ctx = canvas.getContext('2d');
-
-      // transform state, filled in once the map is parsed
       let transform = null;
+      let clickMarker = null;   // {x, y} in MAP coords, so it survives resize
+
+      // make canvas fill the window (and handle resize)
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if (transform) { buildTransform(); draw(); }
+      }
+      window.addEventListener('resize', resizeCanvas);
+
+      let rawNodes = null, rawWays = null, bounds = null;
 
       async function loadMap() {
-        const res = await fetch('/map/test_track_050426_utm.osm');
-        const text = (await res.text()).trim();
+        const text = (await fetch('/map/test_track_050426_utm.osm').then(r => r.text())).trim();
         const xml = new DOMParser().parseFromString(text, 'text/xml');
 
-        console.log('raw text length:', text.length, 'first 200:', text.slice(0, 200));
-        console.log('nodes found:', xml.getElementsByTagName('node').length);
-        console.log('parse error:', xml.querySelector('parsererror')?.textContent);
-
-        // 1. parse nodes: id -> {x, y} in local meters
-        const nodes = {};
+        rawNodes = {};
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const node of xml.querySelectorAll('node')) {
+        for (const node of xml.getElementsByTagName('node')) {
           const id = node.getAttribute('id');
-          const xt = node.querySelector('tag[k="local_x"]');
-          const yt = node.querySelector('tag[k="local_y"]');
-          if (!xt || !yt) continue;
-          const x = parseFloat(xt.getAttribute('v'));
-          const y = parseFloat(yt.getAttribute('v'));
-          nodes[id] = { x, y };
+          let x = null, y = null;
+          for (const tag of node.getElementsByTagName('tag')) {
+            if (tag.getAttribute('k') === 'local_x') x = parseFloat(tag.getAttribute('v'));
+            if (tag.getAttribute('k') === 'local_y') y = parseFloat(tag.getAttribute('v'));
+          }
+          if (x === null || y === null) continue;
+          rawNodes[id] = { x, y };
           minX = Math.min(minX, x); maxX = Math.max(maxX, x);
           minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         }
+        bounds = { minX, minY, maxX, maxY };
 
-        console.log('parsed nodes:', Object.keys(nodes).length, 'bounds:', minX, maxX, minY, maxY);
-
-        // 2. build a transform: map-meters -> canvas-pixels, fit with margin
-        const margin = 20;
-        const scaleX = (canvas.width  - 2*margin) / (maxX - minX);
-        const scaleY = (canvas.height - 2*margin) / (maxY - minY);
-        const scale = Math.min(scaleX, scaleY);   // uniform, keep aspect ratio
-        transform = { minX, minY, maxX, maxY, scale, margin };
-
-        // 3. draw each way as a connected line
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 1;
-        for (const way of xml.querySelectorAll('way')) {
-          ctx.beginPath();
-          let first = true;
-          for (const nd of way.querySelectorAll('nd')) {
-            const n = nodes[nd.getAttribute('ref')];
-            if (!n) continue;
-            const p = mapToPixel(n.x, n.y);
-            if (first) { ctx.moveTo(p.px, p.py); first = false; }
-            else ctx.lineTo(p.px, p.py);
+        rawWays = [];
+        for (const way of xml.getElementsByTagName('way')) {
+          const refs = [];
+          for (const nd of way.getElementsByTagName('nd')) {
+            const n = rawNodes[nd.getAttribute('ref')];
+            if (n) refs.push(n);
           }
-          ctx.stroke();
+          if (refs.length) rawWays.push(refs);
         }
+
+        buildTransform();
+        draw();
       }
 
-      // map meters -> canvas pixels (y flipped: map y-up, canvas y-down)
+      function buildTransform() {
+        const margin = 40;
+        const scale = Math.min(
+          (canvas.width  - 2*margin) / (bounds.maxX - bounds.minX),
+          (canvas.height - 2*margin) / (bounds.maxY - bounds.minY)
+        );
+        // center the map in the canvas
+        const offsetX = (canvas.width  - (bounds.maxX - bounds.minX) * scale) / 2;
+        const offsetY = (canvas.height - (bounds.maxY - bounds.minY) * scale) / 2;
+        transform = { scale, offsetX, offsetY, minX: bounds.minX, minY: bounds.minY };
+      }
+
       function mapToPixel(x, y) {
         const t = transform;
         return {
-          px: t.margin + (x - t.minX) * t.scale,
-          py: canvas.height - t.margin - (y - t.minY) * t.scale
+          px: t.offsetX + (x - t.minX) * t.scale,
+          py: canvas.height - t.offsetY - (y - t.minY) * t.scale
         };
       }
-
-      // canvas pixels -> map meters (inverse, for clicks)
       function pixelToMap(px, py) {
         const t = transform;
         return {
-          x: (px - t.margin) / t.scale + t.minX,
-          y: (canvas.height - t.margin - py) / t.scale + t.minY
+          x: (px - t.offsetX) / t.scale + t.minX,
+          y: (canvas.height - t.offsetY - py) / t.scale + t.minY
         };
+      }
+
+      function draw() {
+        ctx.fillStyle = '#141418';  
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // roads — grey
+        for (const refs of rawWays) {
+          const pts = refs.map(n => mapToPixel(n.x, n.y));
+          ctx.strokeStyle = 'rgba(80,80,85,0.35)';    // darker underlay
+          ctx.lineWidth = 5; strokePath(pts);
+          ctx.strokeStyle = 'rgba(120,120,128,0.9)';  // darker grey line
+          ctx.lineWidth = 1.5; strokePath(pts);
+        }
+
+        // red destination pin
+        if (clickMarker) {
+          const { px, py } = mapToPixel(clickMarker.x, clickMarker.y);
+          drawPin(px, py);
+        }
+      }
+
+      function drawPin(px, py) {
+        // teardrop pin shape
+        ctx.fillStyle = '#ff3b30';
+        ctx.beginPath();
+        ctx.arc(px, py - 18, 9, Math.PI, 0);           // top circle
+        ctx.lineTo(px, py);                             // point at bottom
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px, py - 18, 9, 0, 2*Math.PI);
+        ctx.fill();
+        // white center dot
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(px, py - 18, 3.5, 0, 2*Math.PI);
+        ctx.fill();
+      }
+
+      function strokePath(pts) {
+        ctx.beginPath();
+        pts.forEach((p, i) => i ? ctx.lineTo(p.px, p.py) : ctx.moveTo(p.px, p.py));
+        ctx.stroke();
       }
 
       canvas.addEventListener('click', (event) => {
@@ -107,18 +191,15 @@
         const rect = canvas.getBoundingClientRect();
         const px = event.clientX - rect.left;
         const py = event.clientY - rect.top;
-        const m = pixelToMap(px, py);   // real map coordinates!
+        const m = pixelToMap(px, py);
+        clickMarker = { x: m.x, y: m.y };
+        draw();
         ws.send(JSON.stringify({ type: 'setDestination', x: m.x, y: m.y }));
         document.getElementById('status').textContent =
           `Destination: (${m.x.toFixed(1)}, ${m.y.toFixed(1)}) m`;
-
-        // dot where you clicked
-        ctx.fillStyle = 'red';
-        ctx.beginPath();
-        ctx.arc(px, py, 5, 0, 2*Math.PI);
-        ctx.fill();
       });
 
+      resizeCanvas();   // sets size before load
       loadMap();
     </script>
   </body>
