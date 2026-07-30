@@ -22,7 +22,7 @@
         font-size: 0.7em; color: #999; letter-spacing: 3px;
         margin-top: 4px;
       }
-      
+
       /* bottom info bar */
       #infoBar {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -64,12 +64,17 @@
             el.style.color = '#ff5a5a';
           }
         }
+        if (data.type === 'ego') {
+          ego = { x: data.x, y: data.y, yaw: data.yaw };
+          draw();
+        }
       };
 
       const canvas = document.getElementById('map');
       const ctx = canvas.getContext('2d');
       let transform = null;
       let clickMarker = null;   // {x, y} in MAP coords, so it survives resize
+      let ego = null;           
 
       // make canvas fill the window (and handle resize)
       function resizeCanvas() {
@@ -160,6 +165,12 @@
           const { px, py } = mapToPixel(clickMarker.x, clickMarker.y);
           drawPin(px, py);
         }
+        
+        //ego triangle
+        if (ego) {
+          const { px, py } = mapToPixel(ego.x, ego.y);
+          drawEgo(px, py, ego.yaw);
+        }
       }
 
       function drawPin(px, py) {
@@ -198,6 +209,32 @@
         document.getElementById('status').textContent =
           `Destination: (${m.x.toFixed(1)}, ${m.y.toFixed(1)}) m`;
       });
+
+      function drawEgo(px, py, yaw) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(-yaw - Math.PI/2);
+
+        // arrow shape
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(10, 10);
+        ctx.lineTo(0, 5);
+        ctx.lineTo(-10, 10);
+        ctx.closePath();
+
+        // red fill
+        ctx.fillStyle = '#ff3b30';
+        ctx.fill();
+
+        // white outline around the arrow
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        ctx.restore();
+      }
 
       resizeCanvas();   // sets size before load
       loadMap();

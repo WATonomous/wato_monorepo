@@ -31,6 +31,21 @@ rclnodejs.init().then(() => {
   // service client for SetRoute
   const setRouteClient = node.createClient('lanelet_msgs/srv/SetRoute', '/world_modeling/set_route');
 
+  // ego pose → browser 
+  node.createSubscription(
+    'geometry_msgs/msg/PoseStamped',
+    '/world_modeling/slam/pose',
+    (msg) => {
+      const p = msg.pose.position;
+      const q = msg.pose.orientation;
+      const yaw = Math.atan2(
+        2 * (q.w * q.z + q.x * q.y),
+        1 - 2 * (q.y * q.y + q.z * q.z)
+      );
+      broadcast({ type: 'ego', x: p.x, y: p.y, yaw });
+    }
+  );
+
   // listen for messages coming from the browser
   wss.on('connection', (socket) => {
     socket.on('message', async (raw) => {
