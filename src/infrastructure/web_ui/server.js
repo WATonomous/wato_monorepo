@@ -45,7 +45,8 @@ rclnodejs.init().then(() => {
         }
 
         //test point
-        const request = { goal_point: { x: 10.0, y: 5.0, z: 0.0 } };
+        //const request = { goal_point: { x: 10.0, y: 5.0, z: 0.0 } };
+        const request = { goal_point: { x: msg.x, y: msg.y, z: 0.0 } };
 
         setRouteClient.sendRequest(request, (response) => {
           console.log('SetRoute response:', response);
