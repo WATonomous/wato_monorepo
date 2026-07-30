@@ -9,7 +9,7 @@
       click to set destination
     </div>
     <p id="status"></p>
-
+    <p id="routeStatus"></p>
     <script>
       const ws = new WebSocket(`ws://${location.host}`);
 
@@ -17,6 +17,16 @@
         const data = JSON.parse(event.data);
         if (data.speed !== undefined) {
           document.getElementById('speed').textContent = data.speed.toFixed(2);
+        }
+        if (data.type === 'routeResult') {
+          const el = document.getElementById('routeStatus');
+          if (data.success) {
+            el.textContent = `Route set! Goal lanelet: ${data.goalLanelet}`;
+            el.style.color = 'green';
+          } else {
+            el.textContent = `Route failed: ${data.error}`;
+            el.style.color = 'red';
+          }
         }
       };
 

@@ -49,6 +49,14 @@ rclnodejs.init().then(() => {
 
         setRouteClient.sendRequest(request, (response) => {
           console.log('SetRoute response:', response);
+
+          //send the result back to the browser
+          broadcast({ 
+            type: 'routeResult',
+            success: response.success,
+            error: response.error_message,
+            goalLanelet: Number(response.goal_lanelet_id)
+          });
         });
       }
     });
