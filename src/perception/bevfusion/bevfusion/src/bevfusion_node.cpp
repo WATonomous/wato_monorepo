@@ -59,19 +59,6 @@ BEVFusionNode::BEVFusionNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
 }
 
-// Copied from attribute assigner. I'll be honest I don't fully understrand this CV library syntax.
-cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
-{
-  try {
-    cv::Mat bgr = cv::imdecode(cv::Mat(compressed_img.data), cv::IMREAD_COLOR);
-    return bgr;  // Returns empty Mat on failure
-  } catch (const cv::Exception & e) {
-    RCLCPP_ERROR_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "OpenCV exception during decompression: %s", e.what());
-    return cv::Mat();
-  }
-}
-
 void BEVFusionNode::declareParameters()
 {
   // sync/QoS params are intentionally declared in on_configure() to avoid re-declaring already-registered parameters.
@@ -180,30 +167,38 @@ void BEVFusionNode::syncedCallback(
    * 5. Publish
    */
 
-  // multi_image_msg_count_++;
-  // lidar_msg_count_++;
-  // synced_msg_count_++;
+  multi_image_msg_count_++;
+  lidar_msg_count_++;
+  synced_msg_count_++;
 
-  if (!core_) {
-    RCLCPP_WARN(this->get_logger(), "[SYNC] Core not initialized; skipping");
+  if (!core_ || !core_->initialize()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "[SYNC] BEVFusion Core not created or initialized; skipping");
+    return;
+  }
+
+  if (!multi_image_msg || multi_image_msg->images.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "[SYNC] MultiImage message is null or empty; skipping");
+    return;
+  }
+
+  if (!lidar_msg || lidar_msg->data.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "[SYNC] LiDAR point cloud message is null or empty; skipping");
     return;
   }
 
   const auto start = std::chrono::steady_clock::now();
 
-  if (!multi_image_msg || multi_image_msg->images.empty()) {
-    RCLCPP_WARN(this->get_logger(), "[SYNC] Received empty MultiImage; skipping");
-    // return;
-  }
-
-  // I am assuming multi_image_msg->images is a vector of CompressedImage messages, one from each of the 6 cameras.
-  // So size() should ideally be 6.
   std::vector<const unsigned char *> camera_images;
   std::vector<cv::Mat> rgb_images;
   camera_images.reserve(multi_image_msg->images.size());
   rgb_images.reserve(multi_image_msg->images.size());
 
-  // From what i understand from attribute_assigner, frame_id tells us which camera the image is from.
   for (size_t i = 0; i < multi_image_msg->images.size(); ++i) {
     const auto & frame_id = multi_image_msg->images[i].header.frame_id;
     cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
@@ -214,7 +209,7 @@ void BEVFusionNode::syncedCallback(
         5000,
         "Failed to decompress image for frame_id '%s'",
         multi_image_msg->images[i].header.frame_id.c_str());
-      continue;
+      return;  // Skip this callback if any image fails to decompress
     }
 
     rgb_images.emplace_back();
@@ -281,9 +276,15 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   visualization_msgs::msg::Marker marker;
 
   marker.type = visualization_msgs::msg::Marker::CUBE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+  marker.pose.orientation.w = 1.0; // default valid quaternion if no rotation set
   marker.pose.position.x = bbox.position.x;
   marker.pose.position.y = bbox.position.y;
   marker.pose.position.z = bbox.position.z;
+
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, bbox.z_rotation);
+  marker.pose.orientation = tf2::toMsg(q);
 
   // Set scale (size)
   marker.scale.x = bbox.size.l;
@@ -313,11 +314,11 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
       break;
   }
   marker.lifetime = rclcpp::Duration(0, 100'000'000);  // 0.1s (so old markers disappear)
+  marker.color.a = 0.8f;
 
-  // not sure what top do for these
-  // marker.ns = "bevfusion_detections"
-  // marker.id = unique per bbox per frame
-  // marker.header.frame_id = "base_link"
+  marker.header = header;
+  marker.ns = "bevfusion_detections";
+  marker.id = marker_id;
 
   return marker;
 }
@@ -326,7 +327,7 @@ vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & b
 {
   vision_msgs::msg::Detection3D detection;
 
-  detection.header.frame_id = "base_link";  // (or the lidar frame)
+  detection.header = header;
   detection.bbox.center.position.x = bbox.position.x;
   detection.bbox.center.position.y = bbox.position.y;
   detection.bbox.center.position.z = bbox.position.z;
@@ -343,15 +344,32 @@ vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & b
   detection.bbox.size.z = bbox.size.h;
   //(check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
 
-  detection.results[0].hypothesis.class_id = std::to_string(bbox.id);
-  detection.results[0].hypothesis.score = bbox.score;
+  vision_msgs::msg::ObjectHypothesisWithPose hyp;
+  hyp.hypothesis.class_id = std::to_string(bbox.id);
+  hyp.hypothesis.score = bbox.score;
+  detection.results.push_back(hyp);
 
   return detection;
+}
+
+// Copied from attribute assigner. I'll be honest I don't fully understrand this CV library syntax.
+cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
+{
+  try {
+    cv::Mat bgr = cv::imdecode(cv::Mat(compressed_img.data), cv::IMREAD_COLOR);
+    return bgr;  // Returns empty Mat on failure
+  } catch (const cv::Exception & e) {
+    RCLCPP_ERROR_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "OpenCV exception during decompression: %s", e.what());
+    return cv::Mat();
+  }
 }
 
 void BEVFusionNode::processLidar(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data)
 {
+  const size_t num_points = lidar_msg->width * lidar_msg->height;
+  lidar_data.reserve(num_points * 5);
   sensor_msgs::PointCloud2ConstIterator<float> iter_x(*lidar_msg, "x");
   sensor_msgs::PointCloud2ConstIterator<float> iter_y(*lidar_msg, "y");
   sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
