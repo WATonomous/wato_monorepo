@@ -208,7 +208,7 @@ void BEVFusionNode::syncedCallback(
         *this->get_clock(),
         5000,
         "Failed to decompress image for frame_id '%s'",
-        multi_image_msg->images[i].header.frame_id.c_str());
+        frame_id.c_str());
       return;  // Skip this callback if any image fails to decompress
     }
 
