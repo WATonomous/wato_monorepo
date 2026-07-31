@@ -31,6 +31,25 @@ rclnodejs.init().then(() => {
   // service client for SetRoute
   const setRouteClient = node.createClient('lanelet_msgs/srv/SetRoute', '/world_modeling/set_route');
 
+  // route ahead → browser
+  node.createSubscription(
+    'lanelet_msgs/msg/RouteAhead',
+    '/world_modeling/lanelet/route_ahead',
+    (msg) => {
+      if (!msg.has_active_route) {
+        broadcast({ type: 'route', points: [] });
+        return;
+      }
+      const points = [];
+      for (const lanelet of msg.lanelets) {
+        for (const pt of lanelet.centerline) {
+          points.push({ x: pt.x, y: pt.y });   // was pt.local_x / pt.local_y
+        }
+      }
+      broadcast({ type: 'route', points });
+    }
+  );
+
   // ego pose → browser 
   node.createSubscription(
     'geometry_msgs/msg/PoseStamped',

@@ -68,13 +68,25 @@
           ego = { x: data.x, y: data.y, yaw: data.yaw };
           draw();
         }
+
+        if (data.type === 'route') {
+          route = data.points;
+          draw();
+        }
+
+        if (data.type === 'ego') {
+          console.log('ego received', data.x, data.y);   // <-- add
+          ego = { x: data.x, y: data.y, yaw: data.yaw };
+          draw();
+        }
       };
 
       const canvas = document.getElementById('map');
       const ctx = canvas.getContext('2d');
       let transform = null;
       let clickMarker = null;   // {x, y} in MAP coords, so it survives resize
-      let ego = null;           
+      let ego = null;        
+      let route = [];   
 
       // make canvas fill the window (and handle resize)
       function resizeCanvas() {
@@ -151,7 +163,21 @@
         ctx.fillStyle = '#141418';  
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // roads — grey
+
+        if (route.length > 1) {
+          const pts = route.map(p => mapToPixel(p.x, p.y))
+                           .filter(p => isFinite(p.px) && isFinite(p.py));
+          if (pts.length > 1) {
+            ctx.strokeStyle = 'rgba(77,163,255,0.3)';
+            ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            strokePath(pts);
+            ctx.strokeStyle = '#4da3ff';
+            ctx.lineWidth = 4;
+            strokePath(pts);
+          }
+        }
+
+        // roads grey
         for (const refs of rawWays) {
           const pts = refs.map(n => mapToPixel(n.x, n.y));
           ctx.strokeStyle = 'rgba(80,80,85,0.35)';    // darker underlay
@@ -166,10 +192,21 @@
           drawPin(px, py);
         }
         
-        //ego triangle
+        //red ego triangle
         if (ego) {
           const { px, py } = mapToPixel(ego.x, ego.y);
           drawEgo(px, py, ego.yaw);
+        }
+
+         // blue route path
+        if (route.length > 1) {
+          const pts = route.map(p => mapToPixel(p.x, p.y));
+          ctx.strokeStyle = 'rgba(77,163,255,0.3)';   // wide glow
+          ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          strokePath(pts);
+          ctx.strokeStyle = '#4da3ff';                // bright core
+          ctx.lineWidth = 4;
+          strokePath(pts);
         }
       }
 
@@ -234,6 +271,8 @@
         ctx.stroke();
 
         ctx.restore();
+
+
       }
 
       resizeCanvas();   // sets size before load
