@@ -164,9 +164,9 @@ void BEVFusionNode::syncedCallback(
    * 5. Publish
    */
 
-  // multi_image_msg_count_++;
-  // lidar_msg_count_++;
-  // synced_msg_count_++;
+  multi_image_msg_count_++;
+  lidar_msg_count_++;
+  synced_msg_count_++;
 
   if (!core_) {
     RCLCPP_WARN(this->get_logger(), "[SYNC] Core not initialized; skipping");
@@ -541,7 +541,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "  - Total processing time: %.3f ms", total_time);
   RCLCPP_INFO(this->get_logger(), "  - Average processing time: %.3f ms", avg_time);
   RCLCPP_INFO(this->get_logger(), "Message statistics:");
-  // TODO(bevfusion_team): log multi_image_msg_count_, lidar_msg_count_, synced_msg_count_ once syncedCallback is implemented
+  RCLCPP_INFO(this->get_logger(), "  - MultiImage messages received: %lu", multi_image_msg_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - LiDAR messages received: %lu", lidar_msg_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - Synchronized callbacks: %lu", synced_msg_count_.load());
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
 
@@ -561,6 +563,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   total_processed_ = 0;
   total_processing_time_ms_ = 0.0;
   last_processing_time_ms_ = 0.0;
+  multi_image_msg_count_ = 0;
+  lidar_msg_count_ = 0;
+  synced_msg_count_ = 0;
 
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;

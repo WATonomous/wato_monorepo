@@ -230,6 +230,9 @@ private:
   std::atomic<uint64_t> total_processed_{0};
   std::atomic<double> total_processing_time_ms_{0.0};
   std::atomic<double> last_processing_time_ms_{0.0};
+  std::atomic<uint64_t> multi_image_msg_count_{0};
+  std::atomic<uint64_t> lidar_msg_count_{0};
+  std::atomic<uint64_t> synced_msg_count_{0};
   std::chrono::steady_clock::time_point last_stats_log_time_;
   static constexpr std::chrono::seconds kStatsLogInterval{30};
 
