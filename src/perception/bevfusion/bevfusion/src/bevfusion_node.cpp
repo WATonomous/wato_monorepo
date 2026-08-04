@@ -42,6 +42,9 @@
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
+
+#include "bevfusion/bevfusion_core.hpp"
 
 namespace wato::perception::bevfusion
 {
@@ -164,16 +167,74 @@ void BEVFusionNode::syncedCallback(
    * 5. Publish
    */
 
-  // multi_image_msg_count_++;
-  // lidar_msg_count_++;
-  // synced_msg_count_++;
+  multi_image_msg_count_++;
+  lidar_msg_count_++;
+  synced_msg_count_++;
 
-  if (!core_) {
-    RCLCPP_WARN(this->get_logger(), "[SYNC] Core not initialized; skipping");
+  if (!core_ || !core_->initialize()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "[SYNC] BEVFusion Core not created or initialized; skipping");
+    return;
+  }
+
+  if (!multi_image_msg || multi_image_msg->images.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "[SYNC] MultiImage message is null or empty; skipping");
+    return;
+  }
+
+  if (!lidar_msg || lidar_msg->data.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000,
+      "[SYNC] LiDAR point cloud message is null or empty; skipping");
     return;
   }
 
   const auto start = std::chrono::steady_clock::now();
+
+  std::vector<const unsigned char *> camera_images;
+  std::vector<cv::Mat> rgb_images;
+  camera_images.reserve(multi_image_msg->images.size());
+  rgb_images.reserve(multi_image_msg->images.size());
+
+  for (size_t i = 0; i < multi_image_msg->images.size(); ++i) {
+    const auto & frame_id = multi_image_msg->images[i].header.frame_id;
+    cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
+    if (bgr.empty()) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "Failed to decompress image for frame_id '%s'",
+        frame_id.c_str());
+      return;  // Skip this callback if any image fails to decompress
+    }
+
+    rgb_images.emplace_back();
+    cv::cvtColor(bgr, rgb_images.back(), cv::COLOR_BGR2RGB);
+    camera_images.push_back(rgb_images.back().data);
+  }
+
+  std::vector<float> lidar_data;
+
+  processLidar(lidar_msg, lidar_data);
+
+  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+
+  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, lidar_data.size() / 5);
+
+  vision_msgs::msg::Detection3DArray detections_3d;
+  visualization_msgs::msg::MarkerArray markers;
+
+  for (const auto & bbox : bboxes) {
+    detections_3d.detections.push_back(toDetection3D(bbox, multi_image_msg->header));
+    markers.markers.push_back(toMarker(bbox, multi_image_msg->header, markers.markers.size()));
+  }
+
+  detection_pub_->publish(detections_3d);
+  marker_pub_->publish(markers);
 
   const auto end = std::chrono::steady_clock::now();
   const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
@@ -206,6 +267,127 @@ void BEVFusionNode::computeCalibrationMatrices()
    * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
    * 5. Set calibration_initialized_ = true.
    */
+
+}
+
+visualization_msgs::msg::Marker BEVFusionNode::toMarker(
+  const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const
+{
+  visualization_msgs::msg::Marker marker;
+
+  marker.type = visualization_msgs::msg::Marker::CUBE;
+  marker.action = visualization_msgs::msg::Marker::ADD;
+  marker.pose.orientation.w = 1.0; // default valid quaternion if no rotation set
+  marker.pose.position.x = bbox.position.x;
+  marker.pose.position.y = bbox.position.y;
+  marker.pose.position.z = bbox.position.z;
+
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, bbox.z_rotation);
+  marker.pose.orientation = tf2::toMsg(q);
+
+  // Set scale (size)
+  marker.scale.x = bbox.size.l;
+  marker.scale.y = bbox.size.w;
+  marker.scale.z = bbox.size.h;
+  // Color by class (e.g., cars=green, pedestrians=yellow, trucks=blue)
+  switch (bbox.id) {
+    case 0:  // Car
+      marker.color.r = 0.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      break;
+    case 1:  // Pedestrian
+      marker.color.r = 1.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 0.0f;
+      break;
+    case 2:  // Truck
+      marker.color.r = 0.0f;
+      marker.color.g = 0.0f;
+      marker.color.b = 1.0f;
+      break;
+    default:
+      marker.color.r = 1.0f;
+      marker.color.g = 1.0f;
+      marker.color.b = 1.0f;
+      break;
+  }
+  marker.lifetime = rclcpp::Duration(0, 100'000'000);  // 0.1s (so old markers disappear)
+  marker.color.a = 0.8f;
+
+  marker.header = header;
+  marker.ns = "bevfusion_detections";
+  marker.id = marker_id;
+
+  return marker;
+}
+
+vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+{
+  vision_msgs::msg::Detection3D detection;
+
+  detection.header = header;
+  detection.bbox.center.position.x = bbox.position.x;
+  detection.bbox.center.position.y = bbox.position.y;
+  detection.bbox.center.position.z = bbox.position.z;
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, bbox.z_rotation);
+
+  detection.bbox.center.orientation.x = q.x();
+  detection.bbox.center.orientation.y = q.y();
+  detection.bbox.center.orientation.z = q.z();
+  detection.bbox.center.orientation.w = q.w();  
+
+  detection.bbox.size.x = bbox.size.l;
+  detection.bbox.size.y = bbox.size.w;
+  detection.bbox.size.z = bbox.size.h;
+  //(check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
+
+  vision_msgs::msg::ObjectHypothesisWithPose hyp;
+  hyp.hypothesis.class_id = std::to_string(bbox.id);
+  hyp.hypothesis.score = bbox.score;
+  detection.results.push_back(hyp);
+
+  return detection;
+}
+
+// Copied from attribute assigner. I'll be honest I don't fully understrand this CV library syntax.
+cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
+{
+  try {
+    cv::Mat bgr = cv::imdecode(cv::Mat(compressed_img.data), cv::IMREAD_COLOR);
+    return bgr;  // Returns empty Mat on failure
+  } catch (const cv::Exception & e) {
+    RCLCPP_ERROR_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "OpenCV exception during decompression: %s", e.what());
+    return cv::Mat();
+  }
+}
+
+void BEVFusionNode::processLidar(
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data)
+{
+  const size_t num_points = lidar_msg->width * lidar_msg->height;
+  lidar_data.reserve(num_points * 5);
+  sensor_msgs::PointCloud2ConstIterator<float> iter_x(*lidar_msg, "x");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_y(*lidar_msg, "y");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*lidar_msg, "intensity");
+  sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(*lidar_msg, "ring");
+
+  for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_ring) {
+    float x = *iter_x;
+    float y = *iter_y;
+    float z = *iter_z;
+    float intensity = *iter_intensity;
+    uint16_t ring = *iter_ring;
+    lidar_data.push_back(x);
+    lidar_data.push_back(y);
+    lidar_data.push_back(z);
+    lidar_data.push_back(intensity);
+    lidar_data.push_back(static_cast<float>(ring));
+  }
 }
 
 void BEVFusionNode::updateStatistics(double time_taken)
