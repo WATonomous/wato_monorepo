@@ -264,7 +264,7 @@ private:
   std::chrono::steady_clock::time_point last_stats_log_time_;
   static constexpr std::chrono::seconds kStatsLogInterval{30};
 
-    // Statistics
+  // Statistics
   std::atomic<uint64_t> multi_image_msg_count_{0};
   std::atomic<uint64_t> lidar_msg_count_{0};
   std::atomic<uint64_t> synced_msg_count_{0};
