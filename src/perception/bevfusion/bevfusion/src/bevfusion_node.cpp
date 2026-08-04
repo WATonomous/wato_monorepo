@@ -38,11 +38,11 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
 
@@ -173,22 +173,19 @@ void BEVFusionNode::syncedCallback(
 
   if (!core_ || !core_->initialize()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "[SYNC] BEVFusion Core not created or initialized; skipping");
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
     return;
   }
 
   if (!multi_image_msg || multi_image_msg->images.empty()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "[SYNC] MultiImage message is null or empty; skipping");
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] MultiImage message is null or empty; skipping");
     return;
   }
 
   if (!lidar_msg || lidar_msg->data.empty()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "[SYNC] LiDAR point cloud message is null or empty; skipping");
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] LiDAR point cloud message is null or empty; skipping");
     return;
   }
 
@@ -204,11 +201,7 @@ void BEVFusionNode::syncedCallback(
     cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
     if (bgr.empty()) {
       RCLCPP_WARN_THROTTLE(
-        this->get_logger(),
-        *this->get_clock(),
-        5000,
-        "Failed to decompress image for frame_id '%s'",
-        frame_id.c_str());
+        this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
       return;  // Skip this callback if any image fails to decompress
     }
 
@@ -267,7 +260,6 @@ void BEVFusionNode::computeCalibrationMatrices()
    * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
    * 5. Set calibration_initialized_ = true.
    */
-
 }
 
 visualization_msgs::msg::Marker BEVFusionNode::toMarker(
@@ -277,7 +269,7 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
 
   marker.type = visualization_msgs::msg::Marker::CUBE;
   marker.action = visualization_msgs::msg::Marker::ADD;
-  marker.pose.orientation.w = 1.0; // default valid quaternion if no rotation set
+  marker.pose.orientation.w = 1.0;  // default valid quaternion if no rotation set
   marker.pose.position.x = bbox.position.x;
   marker.pose.position.y = bbox.position.y;
   marker.pose.position.z = bbox.position.z;
@@ -323,7 +315,8 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   return marker;
 }
 
-vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(
+  const BoundingBox & bbox, const std_msgs::msg::Header & header) const
 {
   vision_msgs::msg::Detection3D detection;
 
@@ -337,12 +330,12 @@ vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & b
   detection.bbox.center.orientation.x = q.x();
   detection.bbox.center.orientation.y = q.y();
   detection.bbox.center.orientation.z = q.z();
-  detection.bbox.center.orientation.w = q.w();  
+  detection.bbox.center.orientation.w = q.w();
 
   detection.bbox.size.x = bbox.size.l;
   detection.bbox.size.y = bbox.size.w;
   detection.bbox.size.z = bbox.size.h;
-  //(check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
+  // (check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
 
   vision_msgs::msg::ObjectHypothesisWithPose hyp;
   hyp.hypothesis.class_id = std::to_string(bbox.id);
@@ -662,7 +655,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating BEVFusion node");
 
-  // TOOD
+  if (detection_pub_) {
+    detection_pub_->on_deactivate();
+  }
+  if (marker_pub_) {
+    marker_pub_->on_deactivate();
+  }
+
+  sync_.reset();
+  multi_image_sub_.reset();
+  lidar_sub_.reset();
+  multi_camera_info_sub_.reset();
+  calibration_initialized_ = false;
+  camera_info_received_ = false;
 
   RCLCPP_INFO(this->get_logger(), "=============================================");
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
@@ -674,10 +679,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up BEVFusion node");
 
-  // TODO(bevfusion_team)
+  sync_.reset();
+  multi_image_sub_.reset();
+  lidar_sub_.reset();
+  multi_camera_info_sub_.reset();
+  cached_multi_camera_info_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
-  // TODO(bevfusion_team)
+  detection_pub_.reset();
+  marker_pub_.reset();
+  pub_diagnostic_.reset();
+  diagnostic_updater_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
   core_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
@@ -702,17 +716,31 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "  - Total processing time: %.3f ms", total_time);
   RCLCPP_INFO(this->get_logger(), "  - Average processing time: %.3f ms", avg_time);
   RCLCPP_INFO(this->get_logger(), "Message statistics:");
-  // TODO(bevfusion_team)
+  RCLCPP_INFO(this->get_logger(), "  - MultiImage messages received: %lu", multi_image_msg_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - LiDAR messages received: %lu", lidar_msg_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - Synchronized callbacks: %lu", synced_msg_count_.load());
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
 
-  core_.reset();
+  sync_.reset();
+  multi_image_sub_.reset();
+  lidar_sub_.reset();
+  multi_camera_info_sub_.reset();
+  cached_multi_camera_info_.reset();
+  detection_pub_.reset();
+  marker_pub_.reset();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  core_.reset();
 
   total_processed_ = 0;
   total_processing_time_ms_ = 0.0;
   last_processing_time_ms_ = 0.0;
+  multi_image_msg_count_ = 0;
+  lidar_msg_count_ = 0;
+  synced_msg_count_ = 0;
 
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
