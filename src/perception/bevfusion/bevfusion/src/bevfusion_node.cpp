@@ -480,7 +480,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating BEVFusion node");
 
-  // TOOD
+  if (detection_pub_) {
+    detection_pub_->on_deactivate();
+  }
+  if (marker_pub_) {
+    marker_pub_->on_deactivate();
+  }
+
+  sync_.reset();
+  multi_image_sub_.reset();
+  lidar_sub_.reset();
+  multi_camera_info_sub_.reset();
+  calibration_initialized_ = false;
+  camera_info_received_ = false;
 
   RCLCPP_INFO(this->get_logger(), "=============================================");
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
@@ -492,10 +504,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up BEVFusion node");
 
-  // TODO(bevfusion_team)
+  sync_.reset();
+  multi_image_sub_.reset();
+  lidar_sub_.reset();
+  multi_camera_info_sub_.reset();
+  cached_multi_camera_info_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
-  // TODO(bevfusion_team)
+  detection_pub_.reset();
+  marker_pub_.reset();
+  pub_diagnostic_.reset();
+  diagnostic_updater_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
   core_.reset();
 
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
@@ -520,13 +541,22 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "  - Total processing time: %.3f ms", total_time);
   RCLCPP_INFO(this->get_logger(), "  - Average processing time: %.3f ms", avg_time);
   RCLCPP_INFO(this->get_logger(), "Message statistics:");
-  // TODO(bevfusion_team)
+  // TODO(bevfusion_team): log multi_image_msg_count_, lidar_msg_count_, synced_msg_count_ once syncedCallback is implemented
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
 
-  core_.reset();
+  sync_.reset();
+  multi_image_sub_.reset();
+  lidar_sub_.reset();
+  multi_camera_info_sub_.reset();
+  cached_multi_camera_info_.reset();
+  detection_pub_.reset();
+  marker_pub_.reset();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
+  core_.reset();
 
   total_processed_ = 0;
   total_processing_time_ms_ = 0.0;
