@@ -191,6 +191,37 @@ private:
   using SyncPolicy = message_filters::sync_policies::
     ApproximateTime<deep_msgs::msg::MultiImageCompressed, sensor_msgs::msg::PointCloud2>;
   using Synchronizer = message_filters::Synchronizer<SyncPolicy>;
+  /**
+   * @brief Decompress a CompressedImage to cv::Mat in BGR format.
+   * @param compressed_img The compressed image message
+   * @return Decompressed BGR cv::Mat (empty on error)
+   */
+  cv::Mat decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const;
+
+  /**
+   * @brief Process a PointCloud2 message and extract LiDAR points.
+   * @param lidar_msg The PointCloud2 message
+   * @param lidar_data Output vector to flatten andstore extracted LiDAR points
+   */
+  void processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
+
+  /**
+   * @brief Convert a BoundingBox to a Detection3D message.
+   * @param bbox The BoundingBox to convert
+   * @param header The header to use for the Detection3D message
+   * @return Detection3D message
+   */
+  vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const;
+
+  /**
+   * @brief Convert a BoundingBox to a Marker message.
+   * @param bbox The BoundingBox to convert
+   * @param header The header to use for the Marker message
+   * @param marker_id The ID to assign to the Marker message
+   * @return Marker message
+   */
+  visualization_msgs::msg::Marker toMarker(
+    const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const;
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
@@ -235,6 +266,11 @@ private:
   std::atomic<uint64_t> synced_msg_count_{0};
   std::chrono::steady_clock::time_point last_stats_log_time_;
   static constexpr std::chrono::seconds kStatsLogInterval{30};
+
+    // Statistics
+  std::atomic<uint64_t> multi_image_msg_count_{0};
+  std::atomic<uint64_t> lidar_msg_count_{0};
+  std::atomic<uint64_t> synced_msg_count_{0};
 
   // Diagnostics
   std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_;
