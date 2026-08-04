@@ -38,11 +38,11 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
 
@@ -173,22 +173,19 @@ void BEVFusionNode::syncedCallback(
 
   if (!core_ || !core_->initialize()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "[SYNC] BEVFusion Core not created or initialized; skipping");
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
     return;
   }
 
   if (!multi_image_msg || multi_image_msg->images.empty()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "[SYNC] MultiImage message is null or empty; skipping");
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] MultiImage message is null or empty; skipping");
     return;
   }
 
   if (!lidar_msg || lidar_msg->data.empty()) {
     RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000,
-      "[SYNC] LiDAR point cloud message is null or empty; skipping");
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] LiDAR point cloud message is null or empty; skipping");
     return;
   }
 
@@ -204,11 +201,7 @@ void BEVFusionNode::syncedCallback(
     cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
     if (bgr.empty()) {
       RCLCPP_WARN_THROTTLE(
-        this->get_logger(),
-        *this->get_clock(),
-        5000,
-        "Failed to decompress image for frame_id '%s'",
-        frame_id.c_str());
+        this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
       return;  // Skip this callback if any image fails to decompress
     }
 
@@ -267,7 +260,6 @@ void BEVFusionNode::computeCalibrationMatrices()
    * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
    * 5. Set calibration_initialized_ = true.
    */
-
 }
 
 visualization_msgs::msg::Marker BEVFusionNode::toMarker(
@@ -277,7 +269,7 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
 
   marker.type = visualization_msgs::msg::Marker::CUBE;
   marker.action = visualization_msgs::msg::Marker::ADD;
-  marker.pose.orientation.w = 1.0; // default valid quaternion if no rotation set
+  marker.pose.orientation.w = 1.0;  // default valid quaternion if no rotation set
   marker.pose.position.x = bbox.position.x;
   marker.pose.position.y = bbox.position.y;
   marker.pose.position.z = bbox.position.z;
@@ -323,7 +315,8 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   return marker;
 }
 
-vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(
+  const BoundingBox & bbox, const std_msgs::msg::Header & header) const
 {
   vision_msgs::msg::Detection3D detection;
 
@@ -337,12 +330,12 @@ vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(const BoundingBox & b
   detection.bbox.center.orientation.x = q.x();
   detection.bbox.center.orientation.y = q.y();
   detection.bbox.center.orientation.z = q.z();
-  detection.bbox.center.orientation.w = q.w();  
+  detection.bbox.center.orientation.w = q.w();
 
   detection.bbox.size.x = bbox.size.l;
   detection.bbox.size.y = bbox.size.w;
   detection.bbox.size.z = bbox.size.h;
-  //(check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
+  // (check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
 
   vision_msgs::msg::ObjectHypothesisWithPose hyp;
   hyp.hypothesis.class_id = std::to_string(bbox.id);
