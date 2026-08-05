@@ -133,8 +133,8 @@
       d_on_measurement: 0.2   # D-on-measurement gain (set control_toolbox d to 0)
 
       pid:
-        p: 4.0
-        i: 0.2
+        p: 1.6
+        i: 0.9
         d: 0.0
         i_clamp_max: 1.0
         i_clamp_min: -1.0
