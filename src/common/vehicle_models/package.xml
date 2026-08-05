@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>vehicle_models</name>
+  <version>0.0.0</version>
+  <description>Shared vehicle motion models (e.g. slip-corrected kinematic bicycle) for planning and control.</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache License 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>eigen3_cmake_module</buildtool_depend>
+
+  <depend>eigen3_cmake_module</depend>
+  <depend>eigen</depend>
+
+  <test_depend>wato_test</test_depend>
+  <test_depend>catch2</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
