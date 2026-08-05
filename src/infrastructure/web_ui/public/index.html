@@ -7,31 +7,44 @@
       html, body { height: 100%; overflow: hidden; background: #000; }
       body { font-family: -apple-system, system-ui, sans-serif; color: #fff; }
 
-      #map { display: block; width: 100vw; height: 100vh; background: #16161a; }
+      #map { display: block; width: 100vw; height: 100vh; background: #141418; }
 
-      /* speed display*/
       #speedBox {
         position: fixed; top: 20px; left: 24px;
         background: rgba(20,20,24,0.7); backdrop-filter: blur(8px);
         padding: 10px 20px; border-radius: 12px;
-        display: flex; flex-direction: column; align-items: center;
-        line-height: 1;
+        display: flex; flex-direction: column; align-items: center; line-height: 1;
       }
       #speed { font-size: 2.6em; font-weight: 700; }
-      #speedBox .unit {
-        font-size: 0.7em; color: #999; letter-spacing: 3px;
-        margin-top: 4px;
-      }
+      #speedBox .unit { font-size: 0.7em; color: #999; letter-spacing: 3px; margin-top: 4px; }
 
-      /* bottom info bar */
       #infoBar {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         background: rgba(20,20,24,0.8); backdrop-filter: blur(8px);
-        padding: 12px 24px; border-radius: 14px; text-align: center;
-        min-width: 260px;
+        padding: 14px 28px; border-radius: 14px; text-align: center; min-width: 260px;
       }
       #routeStatus { font-weight: 600; min-height: 1.2em; }
-      #status { color: #888; font-size: 0.85em; margin-top: 4px; }
+      #destInfo { font-size: 0.9em; color: #ccc; margin: 8px 0; }
+
+      #btnRow { margin-top: 6px; display: flex; gap: 10px; justify-content: center; }
+      #goBtn {
+        padding: 10px 34px; font-size: 1.1em; font-weight: 700;
+        color: #fff; background: #3ddc84; border: none; border-radius: 10px;
+        cursor: pointer; letter-spacing: 2px;
+      }
+      #goBtn:active { background: #2fb56a; }
+      #cancelBtn {
+        padding: 10px 28px; font-size: 1.1em; font-weight: 700;
+        color: #fff; background: #555; border: none; border-radius: 10px;
+        cursor: pointer; letter-spacing: 2px;
+      }
+      #cancelBtn:active { background: #444; }
+      #exitBtn {
+        margin-top: 8px; padding: 10px 34px; font-size: 1.1em; font-weight: 700;
+        color: #fff; background: #ff3b30; border: none; border-radius: 10px;
+        cursor: pointer; letter-spacing: 2px;
+      }
+      #exitBtn:active { background: #d32f27; }
     </style>
   </head>
   <body>
@@ -44,7 +57,12 @@
 
     <div id="infoBar">
       <div id="routeStatus">Tap the map to set a destination</div>
-      <div id="status"></div>
+      <div id="destInfo" style="display:none;"></div>
+      <div id="btnRow" style="display:none;">
+        <button id="goBtn">GO</button>
+        <button id="cancelBtn">CANCEL</button>
+      </div>
+      <button id="exitBtn" style="display:none;">EXIT</button>
     </div>
 
     <script>
@@ -59,23 +77,17 @@
           if (data.success) {
             el.textContent = `Route set → lanelet ${data.goalLanelet}`;
             el.style.color = '#3ddc84';
+            document.getElementById('exitBtn').style.display = 'inline-block';
           } else {
             el.textContent = `Route failed: ${data.error}`;
             el.style.color = '#ff5a5a';
           }
         }
-        if (data.type === 'ego') {
-          ego = { x: data.x, y: data.y, yaw: data.yaw };
-          draw();
-        }
-
         if (data.type === 'route') {
           route = data.points;
           draw();
         }
-
         if (data.type === 'ego') {
-          console.log('ego received', data.x, data.y);   // <-- add
           ego = { x: data.x, y: data.y, yaw: data.yaw };
           draw();
         }
@@ -83,20 +95,20 @@
 
       const canvas = document.getElementById('map');
       const ctx = canvas.getContext('2d');
-      let transform = null;
-      let clickMarker = null;   // {x, y} in MAP coords, so it survives resize
-      let ego = null;        
-      let route = [];   
 
-      // make canvas fill the window (and handle resize)
+      let transform = null;
+      let clickMarker = null;
+      let pendingDest = null;
+      let ego = null;
+      let route = [];
+      let rawNodes = null, rawWays = null, bounds = null;
+
       function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        if (transform) { buildTransform(); draw(); }
+        if (bounds) { buildTransform(); draw(); }
       }
       window.addEventListener('resize', resizeCanvas);
-
-      let rawNodes = null, rawWays = null, bounds = null;
 
       async function loadMap() {
         const text = (await fetch('/map/test_track_050426_utm.osm').then(r => r.text())).trim();
@@ -138,7 +150,6 @@
           (canvas.width  - 2*margin) / (bounds.maxX - bounds.minX),
           (canvas.height - 2*margin) / (bounds.maxY - bounds.minY)
         );
-        // center the map in the canvas
         const offsetX = (canvas.width  - (bounds.maxX - bounds.minX) * scale) / 2;
         const offsetY = (canvas.height - (bounds.maxY - bounds.minY) * scale) / 2;
         transform = { scale, offsetX, offsetY, minX: bounds.minX, minY: bounds.minY };
@@ -160,9 +171,16 @@
       }
 
       function draw() {
-        ctx.fillStyle = '#141418';  
+        ctx.fillStyle = '#141418';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        for (const refs of rawWays) {
+          const pts = refs.map(n => mapToPixel(n.x, n.y));
+          ctx.strokeStyle = 'rgba(80,80,85,0.35)';
+          ctx.lineWidth = 5; strokePath(pts);
+          ctx.strokeStyle = 'rgba(120,120,128,0.9)';
+          ctx.lineWidth = 1.5; strokePath(pts);
+        }
 
         if (route.length > 1) {
           const pts = route.map(p => mapToPixel(p.x, p.y))
@@ -177,55 +195,50 @@
           }
         }
 
-        // roads grey
-        for (const refs of rawWays) {
-          const pts = refs.map(n => mapToPixel(n.x, n.y));
-          ctx.strokeStyle = 'rgba(80,80,85,0.35)';    // darker underlay
-          ctx.lineWidth = 5; strokePath(pts);
-          ctx.strokeStyle = 'rgba(120,120,128,0.9)';  // darker grey line
-          ctx.lineWidth = 1.5; strokePath(pts);
-        }
-
-        // red destination pin
         if (clickMarker) {
           const { px, py } = mapToPixel(clickMarker.x, clickMarker.y);
           drawPin(px, py);
         }
-        
-        //red ego triangle
+
         if (ego) {
           const { px, py } = mapToPixel(ego.x, ego.y);
           drawEgo(px, py, ego.yaw);
         }
-
-         // blue route path
-        if (route.length > 1) {
-          const pts = route.map(p => mapToPixel(p.x, p.y));
-          ctx.strokeStyle = 'rgba(77,163,255,0.3)';   // wide glow
-          ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          strokePath(pts);
-          ctx.strokeStyle = '#4da3ff';                // bright core
-          ctx.lineWidth = 4;
-          strokePath(pts);
-        }
       }
 
       function drawPin(px, py) {
-        // teardrop pin shape
         ctx.fillStyle = '#ff3b30';
         ctx.beginPath();
-        ctx.arc(px, py - 18, 9, Math.PI, 0);           // top circle
-        ctx.lineTo(px, py);                             // point at bottom
+        ctx.arc(px, py - 18, 9, Math.PI, 0);
+        ctx.lineTo(px, py);
         ctx.closePath();
         ctx.fill();
         ctx.beginPath();
         ctx.arc(px, py - 18, 9, 0, 2*Math.PI);
         ctx.fill();
-        // white center dot
         ctx.fillStyle = '#fff';
         ctx.beginPath();
         ctx.arc(px, py - 18, 3.5, 0, 2*Math.PI);
         ctx.fill();
+      }
+
+      function drawEgo(px, py, yaw) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(-yaw - Math.PI/2);
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(10, 10);
+        ctx.lineTo(0, 5);
+        ctx.lineTo(-10, 10);
+        ctx.closePath();
+        ctx.fillStyle = '#ff3b30';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        ctx.restore();
       }
 
       function strokePath(pts) {
@@ -234,6 +247,20 @@
         ctx.stroke();
       }
 
+      function resetToStart() {
+        pendingDest = null;
+        clickMarker = null;
+        route = [];
+        draw();
+        document.getElementById('destInfo').style.display = 'none';
+        document.getElementById('btnRow').style.display = 'none';
+        document.getElementById('exitBtn').style.display = 'none';
+        const rs = document.getElementById('routeStatus');
+        rs.textContent = 'Tap the map to set a destination';
+        rs.style.color = '#fff';
+      }
+
+      // click: place pin, show coords + distance + GO/CANCEL, clear old result
       canvas.addEventListener('click', (event) => {
         if (!transform) return;
         const rect = canvas.getBoundingClientRect();
@@ -241,41 +268,42 @@
         const py = event.clientY - rect.top;
         const m = pixelToMap(px, py);
         clickMarker = { x: m.x, y: m.y };
+        pendingDest = { x: m.x, y: m.y };
         draw();
-        ws.send(JSON.stringify({ type: 'setDestination', x: m.x, y: m.y }));
-        document.getElementById('status').textContent =
-          `Destination: (${m.x.toFixed(1)}, ${m.y.toFixed(1)}) m`;
+
+        let distText = '';
+        if (ego) {
+          const dist = Math.hypot(m.x - ego.x, m.y - ego.y);
+          distText = ` · ${dist.toFixed(1)} m away`;
+        }
+        document.getElementById('destInfo').textContent =
+          `(${m.x.toFixed(1)}, ${m.y.toFixed(1)}) m${distText}`;
+        document.getElementById('destInfo').style.display = 'block';
+        document.getElementById('btnRow').style.display = 'flex';
+        document.getElementById('exitBtn').style.display = 'none';
+
+        const rs = document.getElementById('routeStatus');
+        rs.textContent = '';
+        rs.style.color = '#fff';
       });
 
-      function drawEgo(px, py, yaw) {
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(-yaw - Math.PI/2);
+      // GO: send request, hide buttons
+      document.getElementById('goBtn').addEventListener('click', () => {
+        if (!pendingDest) return;
+        ws.send(JSON.stringify({ type: 'setDestination', x: pendingDest.x, y: pendingDest.y }));
+        document.getElementById('btnRow').style.display = 'none';
+        const rs = document.getElementById('routeStatus');
+        rs.textContent = 'Routing…';
+        rs.style.color = '#fff';
+      });
 
-        // arrow shape
-        ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(10, 10);
-        ctx.lineTo(0, 5);
-        ctx.lineTo(-10, 10);
-        ctx.closePath();
+      // CANCEL: back to empty screen
+      document.getElementById('cancelBtn').addEventListener('click', resetToStart);
 
-        // red fill
-        ctx.fillStyle = '#ff3b30';
-        ctx.fill();
+      // EXIT: clear active route, back to empty screen
+      document.getElementById('exitBtn').addEventListener('click', resetToStart);
 
-        // white outline around the arrow
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-
-        ctx.restore();
-
-
-      }
-
-      resizeCanvas();   // sets size before load
+      resizeCanvas();
       loadMap();
     </script>
   </body>
