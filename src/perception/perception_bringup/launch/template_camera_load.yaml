@@ -30,7 +30,7 @@ launch:
 
   - arg:
       name: "cameras_config_file"
-      default: "$(find-pkg-share sensor_interfacing)/config/hikrobot_camera_config.yaml"
+      default: "$(find-pkg-share perception_bringup)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
   - arg:

@@ -15,6 +15,10 @@
   <exec_depend>wato_lifecycle_manager</exec_depend>
   <exec_depend>rclcpp_components</exec_depend>
   <exec_depend>sensor_interfacing</exec_depend>
+  <exec_depend>camera_calib</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+  <exec_depend>compressed_image_transport</exec_depend>
+  <exec_depend>rosbag2_transport</exec_depend>
   <exec_depend>camera_sync</exec_depend>
   <exec_depend>deep_object_detection</exec_depend>
   <exec_depend>tracking</exec_depend>
