@@ -30,7 +30,8 @@ rclnodejs.init().then(() => {
 
   // service client for SetRoute
   const setRouteClient = node.createClient('lanelet_msgs/srv/SetRoute', '/world_modeling/set_route');
-
+  const getRouteClient = node.createClient('lanelet_msgs/srv/GetShortestRoute', '/world_modeling/get_shortest_route');
+/*
   // route ahead → browser
   node.createSubscription(
     'lanelet_msgs/msg/RouteAhead',
@@ -49,7 +50,7 @@ rclnodejs.init().then(() => {
       broadcast({ type: 'route', points });
     }
   );
-
+*/
   // ego pose → browser 
   node.createSubscription(
     'geometry_msgs/msg/PoseStamped',
@@ -82,16 +83,35 @@ rclnodejs.init().then(() => {
         //const request = { goal_point: { x: 10.0, y: 5.0, z: 0.0 } };
         const request = { goal_point: { x: msg.x, y: msg.y, z: 0.0 } };
 
-        setRouteClient.sendRequest(request, (response) => {
+        setRouteClient.sendRequest(request, async (response) => {
           console.log('SetRoute response:', response);
-
-          //send the result back to the browser
-          broadcast({ 
+          broadcast({
             type: 'routeResult',
             success: response.success,
             error: response.error_message,
             goalLanelet: Number(response.goal_lanelet_id)
           });
+
+          // on success, fetch the FULL route to draw
+          if (response.success) {
+            const ready = await getRouteClient.waitForService(2000);
+            if (ready) {
+              getRouteClient.sendRequest({}, (routeResp) => {
+                if (routeResp.success) {
+                  const points = [];
+                  for (const lanelet of routeResp.lanelets) {
+                    for (const pt of lanelet.centerline) {
+                      points.push({ x: pt.x, y: pt.y });
+                    }
+                  }
+                  console.log('full route points:', points.length);
+                  broadcast({ type: 'route', points });
+                } else {
+                  console.log('GetShortestRoute failed:', routeResp.error_message);
+                }
+              });
+            }
+          }
         });
       }
     });
