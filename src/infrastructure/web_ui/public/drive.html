@@ -34,6 +34,13 @@
       camera.position.set(0, 6, -12);   // behind (−z) and above (+y) the car
       camera.lookAt(0, 0, 10);          // look forward (+z)
 
+      // chase-cam working values
+      const UP        = new THREE.Vector3(0, 1, 0);
+      const camOffset = new THREE.Vector3(0, 6, -12);  // behind (−z) + above (+y), in the CAR's local frame
+      const camTarget = new THREE.Vector3();           // scratch: where the camera wants to be this frame
+      const camFocus  = new THREE.Vector3();   // eased point the camera orbits (follows the car)
+      let   camYaw    = 0;                      // eased heading
+
       // light — so surfaces aren't flat black
       const ambient = new THREE.AmbientLight(0xffffff, 0.6);
       scene.add(ambient);
@@ -52,6 +59,13 @@
       const grid = new THREE.GridHelper(200, 40, 0x333344, 0x222230);
       scene.add(grid);
 
+       // a world-fixed post, off to one side, just to see camera motion relative to the world
+      const postGeo = new THREE.BoxGeometry(1, 5, 1);
+      const postMat = new THREE.MeshStandardMaterial({ color: 0xff6a3d });
+      const post = new THREE.Mesh(postGeo, postMat);
+      post.position.set(6, 2.5, 0);   // fixed in the world, to one side of the car
+      scene.add(post);
+
       // the ego car — a simple box for now
       const carGeo = new THREE.BoxGeometry(2, 1, 4);   // width, height, length
       const carMat = new THREE.MeshStandardMaterial({ color: 0x4da3ff });
@@ -59,11 +73,46 @@
       car.position.set(0, 0.5, 0);   // sit on the ground (half its height up)
       scene.add(car);
 
-      // render loop — runs ~60x/sec
+      // little marker so we can see which way the car faces (front = local +z)
+      const noseGeo = new THREE.BoxGeometry(1, 0.5, 0.5);
+      const noseMat = new THREE.MeshStandardMaterial({ color: 0xffe14d });
+      const nose = new THREE.Mesh(noseGeo, noseMat);
+      nose.position.set(0, 0.4, 2);   // front end, sitting on top
+      car.add(nose);                  // child → inherits the car's move + rotation
+
       function animate() {
         requestAnimationFrame(animate);
+
+        // ease the HEADING toward the car's, going the short way round. rotating
+        // the offset by an eased angle keeps the camera on a fixed-radius orbit,
+        // so it no longer dives across big turns (that was the "zoom").
+        let d = car.rotation.y - camYaw;
+        d = Math.atan2(Math.sin(d), Math.cos(d));   // shortest signed angle
+        camYaw += d * 0.1;
+
+        camFocus.lerp(car.position, 0.15);          // ease the orbit point to the car
+
+        camTarget.copy(camOffset).applyAxisAngle(UP, camYaw).add(camFocus);
+        camera.position.copy(camTarget);
+        camera.lookAt(camFocus);
+
         renderer.render(scene, camera);
       }
+      animate();
+      
+      // ── ego pose from ROS
+      // server broadcasts { type:'ego', x, y, yaw } from /world_modeling/slam/pose
+      const ws = new WebSocket(`ws://${location.host}`);
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'ego') {
+          car.position.x =  data.x;
+          car.position.z = -data.y;              
+          car.rotation.y =  data.yaw + Math.PI / 2;
+
+        }
+      };
+
       animate();
 
       // keep it sized to the window
