@@ -10,6 +10,7 @@ WORKDIR ${AMENT_WS}/src
 
 COPY src/simulation simulation
 COPY src/infrastructure/vision_msgs_markers vision_msgs_markers
+COPY src/infrastructure/wato_fault_msgs wato_fault_msgs
 COPY src/interfacing/eve_description eve_description
 
 COPY src/wato_test wato_test

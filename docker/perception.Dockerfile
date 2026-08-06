@@ -18,6 +18,7 @@ COPY src/world_modeling/world_model_msgs world_model_msgs
 COPY src/world_modeling/lanelet_msgs lanelet_msgs
 
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
+COPY src/infrastructure/wato_fault_msgs wato_fault_msgs
 COPY src/interfacing/calibration/camera_calib camera_calib
 COPY src/interfacing/sensor_interfacing sensor_interfacing
 

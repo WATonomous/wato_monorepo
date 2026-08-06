@@ -255,3 +255,30 @@
     solver_eps_abs: 0.001
     solver_eps_rel: 0.001
     warm_start: true
+
+# =============================================================================
+# Fault Collector
+# =============================================================================
+# Two independent response tiers, both driven by fault severity (1=CRITICAL best..4=MILD):
+#   Tier A (disarm_level): calls /oscc_interfacing/arm with data:false, ONCE per rising
+#     edge. oscc_interfacing is unmodified and enforces no re-arm lockout -- the operator
+#     can always re-arm and drive.
+#   Tier B (brake_level):  asserts emergency_stop, which ackermann_mux treats as a hard
+#     override except for bypass inputs (e.g. the joystick).
+/**/fault_collector:
+  ros__parameters:
+    faults_topic: "faults"
+    diagnostics_topic: "/diagnostics"
+    emergency_stop_topic: "emergency_stop"
+    autonomy_disarm_topic: "autonomy_disarm"
+    arm_service: "/oscc_interfacing/arm"
+    is_armed_topic: "/oscc_interfacing/is_armed"   # Watched to enforce the re-engage lockout
+    min_disarm_interval_s: 0.5                     # Rate limit on repeated disarm calls
+    publish_rate_hz: 5.0
+    fault_timeout_s: 5.0
+    disarm_level: 1
+    brake_level: 2
+    latch: true
+    disarm_enabled: true
+    diagnostic_name_prefix: "fault_collector"
+    diagnostic_level_map: [2, 2, 1, 0]

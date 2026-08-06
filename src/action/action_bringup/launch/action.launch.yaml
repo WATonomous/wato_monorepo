@@ -83,6 +83,22 @@ launch:
         - from: "ackermann"
           to: "/action/ackermann"
 
+  - node:
+      pkg: "fault_collector"
+      exec: "fault_collector_node"
+      name: "fault_collector"
+      namespace: "action"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
+      remap:
+        - from: "faults"
+          to: "/faults"
+        - from: "emergency_stop"
+          to: "/faults/emergency_stop"
+        - from: "autonomy_disarm"
+          to: "/faults/autonomy_disarm"
+
   # Lifecycle Manager
   - node:
       pkg: "wato_lifecycle_manager"
@@ -95,6 +111,7 @@ launch:
             - /action/lattice_planning/lattice_planning_node
             - /action/trajectory_planning/trajectory_planner_node
             - /action/pure_pursuit_node
+            - /action/fault_collector
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
