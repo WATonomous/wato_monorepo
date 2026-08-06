@@ -1,122 +1,77 @@
-const express = require('express');
-const http = require('http');
-const { WebSocketServer, WebSocket } = require('ws');
-const rclnodejs = require('rclnodejs');
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>EVE Drive View</title>
+    <style>
+      * { margin: 0; padding: 0; }
+      html, body { height: 100%; overflow: hidden; background: #0a0a0f; }
+      #drive { display: block; width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <canvas id="drive"></canvas>
 
-const app = express();
-app.use(express.static('public'));
+    <script type="module">
+      import * as THREE from '/lib/three.module.js';
 
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+      const canvas = document.getElementById('drive');
 
-function broadcast(obj) {
-  const data = JSON.stringify(obj);
-  wss.clients.forEach((c) => {
-    if (c.readyState === WebSocket.OPEN) c.send(data);
-  });
-}
+      // renderer — draws the scene onto the canvas
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
 
-rclnodejs.init().then(() => {
-  const node = new rclnodejs.Node('ui_node');
+      // scene — the 3D world
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a0f);
 
-  // push a topic value out to the browser
-  let lastSent = 0;
-  node.createSubscription('std_msgs/msg/Float64', '/test_speed', (msg) => {
-    const now = Date.now();
-    if (now - lastSent < 100) return;
-    lastSent = now;
-    broadcast({ speed: msg.data });
-  });
-
-  // service client for SetRoute
-  const setRouteClient = node.createClient('lanelet_msgs/srv/SetRoute', '/world_modeling/set_route');
-  const getRouteClient = node.createClient('lanelet_msgs/srv/GetShortestRoute', '/world_modeling/get_shortest_route');
-/*
-  // route ahead → browser
-  node.createSubscription(
-    'lanelet_msgs/msg/RouteAhead',
-    '/world_modeling/lanelet/route_ahead',
-    (msg) => {
-      if (!msg.has_active_route) {
-        broadcast({ type: 'route', points: [] });
-        return;
-      }
-      const points = [];
-      for (const lanelet of msg.lanelets) {
-        for (const pt of lanelet.centerline) {
-          points.push({ x: pt.x, y: pt.y });   // was pt.local_x / pt.local_y
-        }
-      }
-      broadcast({ type: 'route', points });
-    }
-  );
-*/
-  // ego pose → browser 
-  node.createSubscription(
-    'geometry_msgs/msg/PoseStamped',
-    '/world_modeling/slam/pose',
-    (msg) => {
-      const p = msg.pose.position;
-      const q = msg.pose.orientation;
-      const yaw = Math.atan2(
-        2 * (q.w * q.z + q.x * q.y),
-        1 - 2 * (q.y * q.y + q.z * q.z)
+      // camera — perspective, positioned behind & above the car looking forward
+      const camera = new THREE.PerspectiveCamera(
+        60,                                   // field of view
+        window.innerWidth / window.innerHeight, // aspect ratio
+        0.1, 1000                             // near / far clip
       );
-      broadcast({ type: 'ego', x: p.x, y: p.y, yaw });
-    }
-  );
+      camera.position.set(0, 6, -12);   // behind (−z) and above (+y) the car
+      camera.lookAt(0, 0, 10);          // look forward (+z)
 
-  // listen for messages coming from the browser
-  wss.on('connection', (socket) => {
-    socket.on('message', async (raw) => {
-      const msg = JSON.parse(raw);
-      if (msg.type === 'setDestination') {
-        console.log(`Destination clicked at x=${msg.x}, y=${msg.y}`);
+      // light — so surfaces aren't flat black
+      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambient);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(5, 10, 5);
+      scene.add(dir);
 
-        const ready = await setRouteClient.waitForService(2000);
-        if (!ready) {
-          console.log('SetRoute service not available');
-          return;
-        }
+      // ground plane
+      const groundGeo = new THREE.PlaneGeometry(200, 200);
+      const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a22 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;   // lay it flat (default plane is vertical)
+      scene.add(ground);
 
-        //test point
-        //const request = { goal_point: { x: 10.0, y: 5.0, z: 0.0 } };
-        const request = { goal_point: { x: msg.x, y: msg.y, z: 0.0 } };
+      // grid overlay so motion/scale is visible
+      const grid = new THREE.GridHelper(200, 40, 0x333344, 0x222230);
+      scene.add(grid);
 
-        setRouteClient.sendRequest(request, async (response) => {
-          console.log('SetRoute response:', response);
-          broadcast({
-            type: 'routeResult',
-            success: response.success,
-            error: response.error_message,
-            goalLanelet: Number(response.goal_lanelet_id)
-          });
+      // the ego car — a simple box for now
+      const carGeo = new THREE.BoxGeometry(2, 1, 4);   // width, height, length
+      const carMat = new THREE.MeshStandardMaterial({ color: 0x4da3ff });
+      const car = new THREE.Mesh(carGeo, carMat);
+      car.position.set(0, 0.5, 0);   // sit on the ground (half its height up)
+      scene.add(car);
 
-          // on success, fetch the FULL route to draw
-          if (response.success) {
-            const ready = await getRouteClient.waitForService(2000);
-            if (ready) {
-              getRouteClient.sendRequest({}, (routeResp) => {
-                if (routeResp.success) {
-                  const points = [];
-                  for (const lanelet of routeResp.lanelets) {
-                    for (const pt of lanelet.centerline) {
-                      points.push({ x: pt.x, y: pt.y });
-                    }
-                  }
-                  console.log('full route points:', points.length);
-                  broadcast({ type: 'route', points });
-                } else {
-                  console.log('GetShortestRoute failed:', routeResp.error_message);
-                }
-              });
-            }
-          }
-        });
+      // render loop — runs ~60x/sec
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
       }
-    });
-  });
+      animate();
 
-  rclnodejs.spin(node);
-  server.listen(3000, () => console.log('UI running at http://localhost:3000'));
-});
+      // keep it sized to the window
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
