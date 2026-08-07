@@ -232,11 +232,10 @@ private:
 
   // Camera info
   rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
-  bool camera_info_received_ = false;
   MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
 
   // Calibration
-  bool calibration_initialized_ = false;
+  std::atomic<bool> calibration_initialized_{false};
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
@@ -256,6 +255,7 @@ private:
   int sync_queue_size_{10};
   double sync_max_time_diff_ms_{200.0};
   double sync_max_time_diff_sec_;
+  std::mutex camera_info_mutex_;
 
   // Statistics
   std::atomic<uint64_t> total_processed_{0};
