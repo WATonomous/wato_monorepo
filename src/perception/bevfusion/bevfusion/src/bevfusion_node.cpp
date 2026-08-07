@@ -153,20 +153,6 @@ void BEVFusionNode::syncedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
-  /**
-   * TODO(bevfusion_team)
-   * Synchronized callback — the main processing loop
-   * When you receive a synced set of camera images + lidar:
-   * 1. Extract camera images: Decode from CompressedImage → cv::Mat (BGR) → convert to RGB
-   *    unsigned char* buffers (CUDA-BEVFusion expects RGB, see NormalizationParameter)
-   * 2. Extract lidar points: Parse PointCloud2 → extract (x, y, z, intensity, ring) per
-   *    point → flatten to std::vector<float> then convert to nvtype::half
-   * 3. Call core_->infer(images, lidar_points, num_points)
-   * 4. Convert results: BoundingBox → vision_msgs::Detection3DArray +
-   *    visualization_msgs::MarkerArray
-   * 5. Publish
-   */
-
   multi_image_msg_count_++;
   lidar_msg_count_++;
   synced_msg_count_++;
@@ -174,6 +160,11 @@ void BEVFusionNode::syncedCallback(
   if (!core_ || !core_->initialize()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
+    return;
+  }
+
+  if (!calibration_initialized_.load()) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
     return;
   }
 
@@ -239,27 +230,47 @@ void BEVFusionNode::syncedCallback(
 void BEVFusionNode::multiCameraInfoCallback(
   const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
 {
-  if (multi_camera_info_msg->camera_infos.empty() || camera_info_received_) {
+  if (multi_camera_info_msg->camera_infos.empty()) {
     return;
   }
 
   RCLCPP_INFO(
     this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
-  cached_multi_camera_info_ = multi_camera_info_msg;
-  camera_info_received_ = true;
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    cached_multi_camera_info_ = multi_camera_info_msg;
+  }
   computeCalibrationMatrices();
 }
 
 void BEVFusionNode::computeCalibrationMatrices()
 {
   /**
-   * TODO(bevfusion_team):
+   * TODO(bevfusion_team): Implement the calibration matrix computation.
+   * (starter code below)
    * 1. Extract camera intrinsics K from cached_multi_camera_info_.
    * 2. Look up TF extrinsics (LiDAR <-> Camera frames) using tf_buffer_.
    * 3. Compute camera_to_lidar, camera_intrinsics, lidar_to_camera, and img_aug_matrix vectors.
    * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
    * 5. Set calibration_initialized_ = true.
    */
+  MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    cached_camera_info = cached_multi_camera_info_;
+  }
+
+  if (!cached_camera_info || cached_camera_info->camera_infos.empty()) {
+    RCLCPP_WARN(this->get_logger(), "Cannot compute calibration: no cached MultiCameraInfo");
+    return;
+  }
+
+  // build matrices, look up TF, call core_->updateCalibration(...)
+
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    calibration_initialized_ = true;
+  }
 }
 
 visualization_msgs::msg::Marker BEVFusionNode::toMarker(
@@ -578,29 +589,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFusionNode::on_activate(
   const rclcpp_lifecycle::State & prev_state)
 {
-  /**
-   * TODO(bevfusion_team)
-   *
-   * 1. [TODO] Check & Trigger Calibration:
-   *    - Verify camera intrinsics are available (`cached_multi_camera_info_` / `camera_info_received_`).
-   *    - Call `computeCalibrationMatrices()`, which looks up TF extrinsics, formats matrices,
-   *      and invokes `core_->updateCalibration(...)`.
-   *    - Ensure `calibration_initialized_ == true` before proceeding.
-   *
-   * 2. [DONE] Setup Message Synchronization:
-   *    - Initialize `message_filters::Subscriber` instances for camera images and LiDAR point clouds.
-   *    - Instantiate `message_filters::Synchronizer` with `ApproximateTime` policy.
-   *    - Register `BEVFusionNode::syncedCallback` to handle synced pairs of (MultiImageCompressed, PointCloud2).
-   *
-   * 3. [DONE] Create Subscriptions & Publishers:
-   *    - Subscriptions created for `multi_camera_info_sub_`, `lidar_sub_`, and `camera_sub_`.
-   *    - Publishers instantiated for `detection_pub_` and `marker_pub_`.
-   *
-   * 4. [TODO] Logging
-   *
-   * 5. [TODO] Lifecycle Publisher Activation:
-   *    - Call `detection_pub_->on_activate()` and `marker_pub_->on_activate()` to enable output publishing.
-   */
   RCLCPP_INFO(this->get_logger(), "Activating BEVFusion node");
   RCLCPP_INFO(this->get_logger(), "Previous state: %s", prev_state.label().c_str());
   RCLCPP_INFO(this->get_logger(), "=============================================");
@@ -630,12 +618,45 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kOutputDetectionsTopic, publisher_qos_);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kOutputMarkersTopic, publisher_qos_);
 
+    if (detection_pub_) {
+      detection_pub_->on_activate();
+    }
+    if (marker_pub_) {
+      marker_pub_->on_activate();
+    }
+
+    if (diagnostic_updater_ && detection_pub_) {
+      pub_diagnostic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
+        kOutputDetectionsTopic,
+        *diagnostic_updater_,
+        diagnostic_updater::FrequencyStatusParam(&min_freq_, &max_freq_, 0.1, 10),
+        diagnostic_updater::TimeStampStatusParam());
+      RCLCPP_INFO(this->get_logger(), "Topic diagnostics ready");
+    }
+
+    // Try to compute calibration matrices if camera info is already cached
+    MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
+    {
+      std::lock_guard<std::mutex> lock(camera_info_mutex_);
+      cached_camera_info = cached_multi_camera_info_;
+    }
+    if (cached_camera_info) {
+      computeCalibrationMatrices();
+    } else {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "No cached multi camera info available at activation; calibration will be computed upon first message");
+    }
+
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
     RCLCPP_INFO(this->get_logger(), "Subscribed to:");
-    // TODO(bevfusion_team)
+    RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo: '%s'", multi_camera_info_sub_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "  - MultiImage: '%s'", multi_image_sub_->getTopic().c_str());
+    RCLCPP_INFO(this->get_logger(), "  - LiDAR: '%s'", lidar_sub_->getTopic().c_str());
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
-    // TODO(bevfusion_team)
+    RCLCPP_INFO(this->get_logger(), "  - 3D Detections: '%s'", detection_pub_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "  - Markers: '%s'", marker_pub_->get_topic_name());
     RCLCPP_INFO(
       this->get_logger(),
       "[SYNC] ApproximateTime sync (queue=%d, max=%.3fs)",
@@ -667,7 +688,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   calibration_initialized_ = false;
-  camera_info_received_ = false;
 
   RCLCPP_INFO(this->get_logger(), "=============================================");
   RCLCPP_INFO(this->get_logger(), "Node deactivated");
@@ -683,7 +703,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   multi_image_sub_.reset();
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
-  cached_multi_camera_info_.reset();
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    cached_multi_camera_info_.reset();
+  }
+  calibration_initialized_ = false;
 
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
   detection_pub_.reset();
@@ -726,7 +750,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   multi_image_sub_.reset();
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
-  cached_multi_camera_info_.reset();
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    cached_multi_camera_info_.reset();
+  }
+  calibration_initialized_ = false;
   detection_pub_.reset();
   marker_pub_.reset();
   pub_diagnostic_.reset();
