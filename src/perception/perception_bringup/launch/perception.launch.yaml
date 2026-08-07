@@ -123,7 +123,7 @@ launch:
         - pkg: bevfusion
           plugin: wato::perception::bevfusion::BEVFusionNode
           name: bevfusion_node
-          namespace: ""
+          namespace: "perception"
           extra_arg:
             - name: use_intra_process_comms
               value: "true"
