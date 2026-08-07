@@ -54,6 +54,10 @@ PurePursuitNode::PurePursuitNode(const rclcpp::NodeOptions & options)
   declare_parameter("speed_lookahead_distance", 1.0);
   declare_parameter("speed_lookahead_time", 2.0);
 
+  // Multi-look-ahead blend (MLPP)
+  declare_parameter("enable_multi_lookahead", false);
+  declare_parameter("lookahead_weights", std::vector<double>{0.5, 0.3, 0.2});
+
   // Steering
   declare_parameter("steering_angle_gain", 1.0);
   declare_parameter("max_steering_angle", 0.5);
@@ -139,6 +143,23 @@ void PurePursuitNode::loadParameters()
   curvature_est_arc_ = get_parameter("curvature_est_arc").as_double();
   speed_lookahead_distance_ = get_parameter("speed_lookahead_distance").as_double();
   speed_lookahead_time_ = get_parameter("speed_lookahead_time").as_double();
+
+  enable_multi_lookahead_ = get_parameter("enable_multi_lookahead").as_bool();
+  lookahead_weights_ = get_parameter("lookahead_weights").as_double_array();
+  // A blend needs at least one positive weight; fall back to the single-lookahead
+  // law rather than steering on a curvature no sample contributed to.
+  if (enable_multi_lookahead_) {
+    const bool usable =
+      !lookahead_weights_.empty() &&
+      std::any_of(lookahead_weights_.begin(), lookahead_weights_.end(), [](double w) { return w > 0.0; });
+    if (!usable) {
+      RCLCPP_WARN(
+        get_logger(),
+        "enable_multi_lookahead is set but lookahead_weights has no positive entry; "
+        "falling back to single-lookahead steering.");
+      enable_multi_lookahead_ = false;
+    }
+  }
 
   steering_angle_gain_ = get_parameter("steering_angle_gain").as_double();
   max_steering_angle_ = get_parameter("max_steering_angle").as_double();
@@ -406,6 +427,12 @@ void PurePursuitNode::controlCallback()
   bool over = false;
   std::string reason = "ok";
 
+  // Multi-look-ahead diagnostics for this cycle (left empty when the blend is off).
+  std::vector<double> mlpp_distances;
+  std::vector<double> mlpp_curvatures;
+  std::vector<double> mlpp_weights;
+  double blended_curvature = 0.0;
+
   if (!look.found) {
     // Ran off the end of the path / nothing ahead: treat as a tracking failure.
     over = true;
@@ -415,8 +442,35 @@ void PurePursuitNode::controlCallback()
   } else {
     kappa_ahead = math::curvatureByArc(path, look.segment_idx, curvature_est_arc_);
 
-    // Pure pursuit steering about the rear axle.
+    // Pure pursuit steering about the rear axle. With the multi-look-ahead blend
+    // enabled the single target is replaced by a weighted mean of the curvatures
+    // of several samples spread across [min_lookahead_distance, ld_eff]: near
+    // samples supply tracking authority, far samples supply anticipation. The
+    // adaptive schedule above still sets the horizon, so the samples tighten in
+    // curves exactly as the single lookahead does.
     double pp_curv = math::pursuitCurvature(look.point);
+    if (enable_multi_lookahead_) {
+      std::vector<double> sample_distances =
+        math::linearSpacing(min_lookahead_distance_, ld_eff, lookahead_weights_.size());
+      std::vector<math::LookaheadResult> samples =
+        math::findLookaheadPoints(path, sample_distances, min_lookahead_distance_, search_start);
+
+      // Publish one entry per sample so the blend can be read back from a bag.
+      const std::size_t reported = std::min(lookahead_weights_.size(), samples.size());
+      mlpp_distances.reserve(samples.size());
+      mlpp_curvatures.reserve(samples.size());
+      mlpp_weights.reserve(reported);
+      for (const auto & sample : samples) {
+        mlpp_distances.push_back(sample.found ? sample.distance : 0.0);
+        mlpp_curvatures.push_back(sample.found ? math::pursuitCurvature(sample.point) : 0.0);
+      }
+      for (std::size_t i = 0; i < reported; ++i) {
+        mlpp_weights.push_back(lookahead_weights_[i]);
+      }
+
+      blended_curvature = math::blendCurvatures(samples, lookahead_weights_);
+      pp_curv = blended_curvature;
+    }
     desired_steering = steering_angle_gain_ * std::atan(wheelbase * pp_curv);
 
     // Optional low-speed cross-track feedback (Phase 3d): ramps in below the threshold speed.
@@ -486,6 +540,10 @@ void PurePursuitNode::controlCallback()
   status.heading_error = err.valid ? err.heading : 0.0;
   status.lookahead_distance = ld_eff;
   status.path_curvature = kappa_ahead;
+  status.lookahead_distances = mlpp_distances;
+  status.lookahead_curvatures = mlpp_curvatures;
+  status.lookahead_weights = mlpp_weights;
+  status.blended_curvature = blended_curvature;
   status.commanded_speed = speed;
   status.commanded_steering = invert_steering_ ? -steering : steering;
   status.disengaged = disengaged;

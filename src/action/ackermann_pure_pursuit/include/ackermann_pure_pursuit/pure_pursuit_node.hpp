@@ -88,6 +88,10 @@ private:
   double speed_lookahead_distance_;  // minimum distance ahead used to sample target speed (m)
   double speed_lookahead_time_;  // time-headway for the speed sample horizon (s)
 
+  // Parameters — multi-look-ahead blend (MLPP)
+  bool enable_multi_lookahead_;  // false keeps the single-lookahead steering law
+  std::vector<double> lookahead_weights_;  // blend weights near to far; size sets the sample count
+
   // Parameters — steering
   double steering_angle_gain_;
   double max_steering_angle_;

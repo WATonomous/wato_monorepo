@@ -274,6 +274,150 @@ inline double pursuitCurvature(const Vec2 & lookahead)
 }
 
 // --------------------------------------------------------------------------
+// Multi-look-ahead (MLPP)
+// --------------------------------------------------------------------------
+
+// `count` distances evenly spaced across [lo, hi], inclusive of both ends.
+// count == 1 returns {hi} so a single sample keeps the far-end semantics of the
+// single-lookahead controller. Swapped bounds are tolerated.
+inline std::vector<double> linearSpacing(double lo, double hi, std::size_t count)
+{
+  std::vector<double> out;
+  if (count == 0) {
+    return out;
+  }
+  double a = std::min(lo, hi);
+  double b = std::max(lo, hi);
+  out.reserve(count);
+  if (count == 1) {
+    out.push_back(b);
+    return out;
+  }
+  for (std::size_t i = 0; i < count; ++i) {
+    out.push_back(a + (b - a) * static_cast<double>(i) / static_cast<double>(count - 1));
+  }
+  return out;
+}
+
+// Lookahead points for several distances in ONE forward sweep of the path,
+// rather than one independent O(n) scan per distance. `distances` must be
+// non-decreasing (linearSpacing guarantees this); each entry is floored at
+// `min_ld` exactly as findLookaheadPoint does, so a target is never closer than
+// the configured minimum.
+//
+// The returned vector always has distances.size() entries, index-aligned with
+// the requested distances. Semantics per entry match findLookaheadPoint: when
+// the path ends before a requested distance the last forward point is returned
+// with found = true, and only a path with no forward points at all yields
+// found = false.
+inline std::vector<LookaheadResult> findLookaheadPoints(
+  const std::vector<Vec2> & path, const std::vector<double> & distances, double min_ld, std::size_t start_idx = 0)
+{
+  std::vector<LookaheadResult> results(distances.size());
+  if (distances.empty()) {
+    return results;
+  }
+
+  std::size_t next = 0;  // index of the next distance still to be satisfied
+  bool have_prev = false;
+  Vec2 prev{};  // previous path point; may be behind the vehicle
+  Vec2 last_forward{};
+  std::size_t last_idx = 0;
+  bool have_last = false;
+
+  for (std::size_t i = start_idx; i < path.size() && next < distances.size(); ++i) {
+    const Vec2 & p = path[i];
+    if (p.x <= 0.0) {
+      prev = p;  // behind the vehicle: not a target, but still a segment start
+      have_prev = true;
+      continue;
+    }
+    double dist = norm(p);
+    last_forward = p;
+    last_idx = i;
+    have_last = true;
+
+    // One path point can satisfy several requested distances at once when the
+    // waypoints are sparse relative to the probe spacing.
+    while (next < distances.size()) {
+      double ld = std::max(distances[next], min_ld);
+      if (dist < ld) {
+        break;
+      }
+      LookaheadResult & result = results[next];
+      // The segment prev -> p crosses radius ld when prev is inside the circle or
+      // behind the vehicle; interpolate the crossing so the target is continuous.
+      if (have_prev && (norm(prev) < ld || prev.x <= 0.0)) {
+        Vec2 d{p.x - prev.x, p.y - prev.y};
+        double aa = d.x * d.x + d.y * d.y;
+        double bb = 2.0 * (prev.x * d.x + prev.y * d.y);
+        double cc = prev.x * prev.x + prev.y * prev.y - ld * ld;
+        double disc = bb * bb - 4.0 * aa * cc;
+        double t = 1.0;
+        if (aa > 1e-9 && disc >= 0.0) {
+          double sq = std::sqrt(disc);
+          double t1 = (-bb + sq) / (2.0 * aa);
+          // Prefer the root inside the segment moving outward.
+          t = (t1 >= 0.0 && t1 <= 1.0) ? t1 : std::clamp((-bb - sq) / (2.0 * aa), 0.0, 1.0);
+        }
+        Vec2 cand{prev.x + t * d.x, prev.y + t * d.y};
+        // Only keep the interpolated crossing if it is ahead of the vehicle.
+        result.point = (cand.x > 0.0) ? cand : p;
+        result.distance = norm(result.point);
+        result.segment_idx = i;
+      } else {
+        result.point = p;
+        result.distance = dist;
+        result.segment_idx = i;
+      }
+      result.found = true;
+      ++next;
+    }
+
+    prev = p;
+    have_prev = true;
+  }
+
+  // Any distance the path never reached falls back to the last forward point,
+  // matching the single-point helper rather than reporting a miss.
+  if (have_last) {
+    for (; next < distances.size(); ++next) {
+      LookaheadResult & result = results[next];
+      result.point = last_forward;
+      result.distance = norm(last_forward);
+      result.segment_idx = last_idx;
+      result.found = true;
+    }
+  }
+  return results;
+}
+
+// Weighted mean of the pure-pursuit curvatures of several lookahead points:
+//   kappa_cmd = sum(w_i * kappa_pp(p_i)) / sum(w_i)
+// Near points supply tracking authority, far points supply anticipation, and the
+// blend is smooth where choosing a single point is not. Entries with found=false,
+// a missing weight, or a non-positive weight are skipped; the result is 0 when
+// nothing contributes (no valid points, empty inputs, or all weights zero), which
+// leaves the caller commanding straight-ahead.
+inline double blendCurvatures(const std::vector<LookaheadResult> & points, const std::vector<double> & weights)
+{
+  double weighted_sum = 0.0;
+  double weight_total = 0.0;
+  const std::size_t n = std::min(points.size(), weights.size());
+  for (std::size_t i = 0; i < n; ++i) {
+    if (!points[i].found || !(weights[i] > 0.0)) {
+      continue;
+    }
+    weighted_sum += weights[i] * pursuitCurvature(points[i].point);
+    weight_total += weights[i];
+  }
+  if (weight_total < 1e-9) {
+    return 0.0;
+  }
+  return weighted_sum / weight_total;
+}
+
+// --------------------------------------------------------------------------
 // Speed / command shaping
 // --------------------------------------------------------------------------
 

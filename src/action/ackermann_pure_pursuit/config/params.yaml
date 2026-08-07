@@ -22,6 +22,10 @@ action:
       speed_lookahead_distance: 1.0     # minimum distance ahead used to sample target speed (m)
       speed_lookahead_time: 2.0         # time-headway for the speed sample horizon (s)
 
+      # --- Multi-look-ahead blend (MLPP) ---
+      enable_multi_lookahead: false     # false = single-lookahead steering (current behaviour)
+      lookahead_weights: [0.5, 0.3, 0.2]  # blend weights near->far; length sets the sample count
+
       # --- Steering ---
       steering_angle_gain: 1.0
       max_steering_angle: 0.5           # rad

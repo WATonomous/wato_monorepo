@@ -14,6 +14,7 @@
 
 #include "ackermann_pure_pursuit/pure_pursuit_math.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -211,4 +212,212 @@ TEST_CASE("pursuit curvature matches the geometric formula", "[lookahead]")
 {
   CHECK(ppm::pursuitCurvature({3.0, 0.0}) == Approx(0.0));
   CHECK(ppm::pursuitCurvature({2.0, 2.0}) == Approx(0.5));  // 2*y/(x^2+y^2) = 4/8
+}
+
+// --------------------------------------------------------------------------
+// Multi-look-ahead (MLPP)
+// --------------------------------------------------------------------------
+
+namespace
+{
+
+// Straight path along +x, 0.5 m spacing.
+std::vector<Vec2> straightPath(double length = 12.0)
+{
+  std::vector<Vec2> path;
+  for (double x = 0.0; x <= length; x += 0.5) {
+    path.push_back({x, 0.0});
+  }
+  return path;
+}
+
+// Constant-radius arc starting at the origin and turning left with radius R.
+std::vector<Vec2> arcPath(double radius, double sweep = 1.4, double step = 0.02)
+{
+  std::vector<Vec2> path;
+  for (double theta = 0.0; theta < sweep; theta += step) {
+    path.push_back({radius * std::sin(theta), radius * (1.0 - std::cos(theta))});
+  }
+  return path;
+}
+
+}  // namespace
+
+TEST_CASE("linear spacing spans the range inclusively", "[mlpp]")
+{
+  auto three = ppm::linearSpacing(2.0, 5.0, 3);
+  REQUIRE(three.size() == 3);
+  CHECK(three[0] == Approx(2.0));
+  CHECK(three[1] == Approx(3.5));
+  CHECK(three[2] == Approx(5.0));
+
+  // A single sample keeps the far-end semantics of the single-lookahead law.
+  auto one = ppm::linearSpacing(2.0, 5.0, 1);
+  REQUIRE(one.size() == 1);
+  CHECK(one[0] == Approx(5.0));
+
+  CHECK(ppm::linearSpacing(2.0, 5.0, 0).empty());
+
+  // Swapped bounds are normalised rather than producing a descending sweep.
+  auto swapped = ppm::linearSpacing(5.0, 2.0, 3);
+  REQUIRE(swapped.size() == 3);
+  CHECK(swapped[0] == Approx(2.0));
+  CHECK(swapped[2] == Approx(5.0));
+}
+
+TEST_CASE("multi-point lookahead reaches each requested distance", "[mlpp]")
+{
+  auto path = straightPath();
+  auto distances = ppm::linearSpacing(2.0, 5.0, 3);
+  auto samples = ppm::findLookaheadPoints(path, distances, 2.0);
+
+  REQUIRE(samples.size() == 3);
+  for (std::size_t i = 0; i < samples.size(); ++i) {
+    REQUIRE(samples[i].found);
+    CHECK(samples[i].distance == Approx(distances[i]));
+    CHECK(samples[i].point.y == Approx(0.0));  // straight path: no lateral offset
+  }
+  // Samples advance monotonically along the path.
+  CHECK(samples[0].distance < samples[1].distance);
+  CHECK(samples[1].distance < samples[2].distance);
+}
+
+TEST_CASE("multi-point lookahead agrees with the single-point helper", "[mlpp]")
+{
+  // The one-sweep helper must be a drop-in for N independent scans, otherwise
+  // enabling the blend would silently move the targets.
+  auto path = arcPath(10.0);
+  std::vector<double> distances{2.0, 3.5, 5.0};
+  auto samples = ppm::findLookaheadPoints(path, distances, 2.0);
+  REQUIRE(samples.size() == distances.size());
+
+  for (std::size_t i = 0; i < distances.size(); ++i) {
+    auto single = ppm::findLookaheadPoint(path, distances[i], 2.0);
+    CHECK(samples[i].found == single.found);
+    CHECK(samples[i].point.x == Approx(single.point.x));
+    CHECK(samples[i].point.y == Approx(single.point.y));
+    CHECK(samples[i].segment_idx == single.segment_idx);
+  }
+}
+
+TEST_CASE("multi-point lookahead honours the minimum distance floor", "[mlpp]")
+{
+  auto path = straightPath();
+  // Requesting samples closer than min_ld must not return a nearer target.
+  auto samples = ppm::findLookaheadPoints(path, {0.5, 1.0, 4.0}, 2.0);
+  REQUIRE(samples.size() == 3);
+  for (const auto & s : samples) {
+    REQUIRE(s.found);
+    CHECK(s.distance >= Approx(2.0).margin(1e-9));
+  }
+  CHECK(samples[2].distance == Approx(4.0));
+}
+
+TEST_CASE("multi-point lookahead clamps to the path end", "[mlpp]")
+{
+  // Path stops at 2.5 m, well short of the far samples. Matching the single-point
+  // helper, every sample falls back to the last forward point rather than
+  // reporting a miss.
+  std::vector<Vec2> shortpath{{0.0, 0.0}, {1.0, 0.0}, {2.5, 0.0}};
+  auto samples = ppm::findLookaheadPoints(shortpath, {2.0, 3.5, 5.0}, 2.0);
+
+  REQUIRE(samples.size() == 3);
+  for (const auto & s : samples) {
+    CHECK(s.found);
+  }
+  CHECK(samples[1].point.x == Approx(2.5));
+  CHECK(samples[2].point.x == Approx(2.5));
+}
+
+TEST_CASE("multi-point lookahead reports a miss when nothing is ahead", "[mlpp]")
+{
+  std::vector<Vec2> behind{{-3.0, 0.0}, {-2.0, 0.0}, {-1.0, 0.0}};
+  auto samples = ppm::findLookaheadPoints(behind, {2.0, 3.5, 5.0}, 2.0);
+
+  REQUIRE(samples.size() == 3);
+  for (const auto & s : samples) {
+    CHECK_FALSE(s.found);
+  }
+  // A blend over misses contributes nothing and steers straight.
+  CHECK(ppm::blendCurvatures(samples, {0.5, 0.3, 0.2}) == Approx(0.0));
+}
+
+TEST_CASE("blended curvature with one sample equals single-point pure pursuit", "[mlpp]")
+{
+  // N = 1 must reproduce the existing controller exactly; this is what makes
+  // enable_multi_lookahead a safe toggle.
+  auto path = arcPath(10.0);
+  auto samples = ppm::findLookaheadPoints(path, {4.0}, 2.0);
+  REQUIRE(samples.size() == 1);
+  REQUIRE(samples[0].found);
+
+  double blended = ppm::blendCurvatures(samples, {1.0});
+  double single = ppm::pursuitCurvature(ppm::findLookaheadPoint(path, 4.0, 2.0).point);
+  CHECK(blended == Approx(single));
+}
+
+TEST_CASE("blended curvature normalises its weights", "[mlpp]")
+{
+  auto path = arcPath(10.0);
+  auto samples = ppm::findLookaheadPoints(path, ppm::linearSpacing(2.0, 5.0, 3), 2.0);
+
+  // Only the ratios matter: weights need not sum to one.
+  double raw = ppm::blendCurvatures(samples, {2.0, 1.0, 1.0});
+  double normalised = ppm::blendCurvatures(samples, {0.5, 0.25, 0.25});
+  CHECK(raw == Approx(normalised));
+
+  // The blend is a mean, so it sits between the extreme sample curvatures.
+  double lo = ppm::pursuitCurvature(samples[0].point);
+  double hi = ppm::pursuitCurvature(samples[0].point);
+  for (const auto & s : samples) {
+    double k = ppm::pursuitCurvature(s.point);
+    lo = std::min(lo, k);
+    hi = std::max(hi, k);
+  }
+  double blended = ppm::blendCurvatures(samples, {0.5, 0.3, 0.2});
+  CHECK(blended >= Approx(lo).margin(1e-12));
+  CHECK(blended <= Approx(hi).margin(1e-12));
+}
+
+TEST_CASE("blended curvature weighting shifts the command between samples", "[mlpp]")
+{
+  // Straight into a left turn: the near sample sees no curvature, the far one
+  // sees the corner. Weighting far must command more turn-in than weighting near,
+  // which is the anticipation the blend exists to provide.
+  std::vector<Vec2> path;
+  for (double x = 0.0; x <= 3.0; x += 0.25) {
+    path.push_back({x, 0.0});
+  }
+  const double cx = 3.0, cy = 3.0, radius = 3.0;
+  for (double theta = -M_PI / 2.0; theta <= 0.0; theta += 0.05) {
+    path.push_back({cx + radius * std::cos(theta), cy + radius * std::sin(theta)});
+  }
+
+  auto samples = ppm::findLookaheadPoints(path, ppm::linearSpacing(2.0, 6.0, 3), 2.0);
+  REQUIRE(samples.size() == 3);
+
+  double near_heavy = ppm::blendCurvatures(samples, {0.8, 0.15, 0.05});
+  double far_heavy = ppm::blendCurvatures(samples, {0.05, 0.15, 0.8});
+  CHECK(far_heavy > near_heavy);
+}
+
+TEST_CASE("blended curvature handles degenerate weights", "[mlpp]")
+{
+  auto path = arcPath(10.0);
+  auto samples = ppm::findLookaheadPoints(path, ppm::linearSpacing(2.0, 5.0, 3), 2.0);
+
+  CHECK(ppm::blendCurvatures(samples, {0.0, 0.0, 0.0}) == Approx(0.0));  // no authority
+  CHECK(ppm::blendCurvatures(samples, {}) == Approx(0.0));  // no weights
+  CHECK(ppm::blendCurvatures({}, {0.5, 0.3, 0.2}) == Approx(0.0));  // no samples
+  CHECK(ppm::blendCurvatures({}, {}) == Approx(0.0));
+
+  // Extra weights beyond the sample count are ignored rather than skewing the mean.
+  double exact = ppm::blendCurvatures(samples, {0.5, 0.3, 0.2});
+  double padded = ppm::blendCurvatures(samples, {0.5, 0.3, 0.2, 0.9, 0.9});
+  CHECK(exact == Approx(padded));
+
+  // A zero weight drops its sample without changing the remaining ratios.
+  auto pair = ppm::findLookaheadPoints(path, {2.0, 5.0}, 2.0);
+  double dropped = ppm::blendCurvatures(pair, {1.0, 0.0});
+  CHECK(dropped == Approx(ppm::pursuitCurvature(pair[0].point)));
 }

@@ -14,6 +14,13 @@ float64 path_curvature       # estimated path curvature ahead (1/m)
 float64 commanded_speed      # speed command sent (m/s)
 float64 commanded_steering   # steering command sent (rad)
 
+# --- Multi-look-ahead blend (empty / zero unless enable_multi_lookahead) ---
+# Index-aligned arrays, one entry per sampled lookahead point, near to far.
+float64[] lookahead_distances   # distance actually reached by each sample (m)
+float64[] lookahead_curvatures  # pure-pursuit curvature of each sample (1/m)
+float64[] lookahead_weights     # weight applied to each sample this cycle
+float64 blended_curvature       # weighted-mean curvature steered on (1/m)
+
 # --- Safety / engagement ---
 bool disengaged              # true when tracking thresholds were tripped
 string reason                # why: "", "ok", "cte_exceeded", "heading_exceeded", "no_lookahead_point"
