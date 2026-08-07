@@ -129,11 +129,17 @@ launch:
               value: "true"
           param:
             - from: $(var config_file)
-          # remap:
-          #   - from: input_lidar
-          #     to: /perception/non_ground_cloud
-          #   - from: input_multi_image
-          #     to: /multi_camera_sync/multi_image_compressed
+          remap:
+            - from: camera_info
+              to: /multi_camera_sync/multi_camera_info
+            - from: multi_image
+              to: /multi_camera_sync/multi_image_compressed
+            - from: lidar
+              to: /lidar/all/points_merged
+            - from: output_detections
+              to: /perception/detections_3d_bev
+            - from: output_markers
+              to: /perception/bev_detection_markers
 
   # Load 3D tracking into the shared container
   - load_composable_node:

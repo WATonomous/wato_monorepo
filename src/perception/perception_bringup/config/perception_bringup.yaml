@@ -454,26 +454,64 @@ multi_camera_sync:
 # =============================================================================
 /**/bevfusion_node:
   ros__parameters:
-    # --- Topic I/O ---
-    # TODO
-    # model_path: "/opt/watonomous/models/bevfusion.engine"
-    # precision: "fp16"
-    # # Input topics (syncing with deep_ros camera_sync)
-    # input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"
-    # input_lidar_topic: "/perception/non_ground_cloud"
+    # Directory containing all TensorRT .plan and .onnx engine files
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8"
 
-    # --- Subscriber QoS ---
-    qos_subscriber_reliability: "best_effort"  # Options: "reliable", "best_effort"
-    qos_subscriber_depth: 5
+    # Model precision - can be "fp16" or "int8"
+    precision: "int8"
 
-    # --- Publisher QoS ---
-    qos_publisher_reliability: "reliable"  # Options: "reliable", "best_effort"
-    qos_publisher_durability: "volatile"      # Options: "transient_local", "volatile"
-    qos_publisher_depth: 1
+    # Camera frame IDs — must match the 6 nuScenes-layout cameras on Eve
+    camera_names:
+      - "camera_pano_nn"
+      - "camera_pano_ne"
+      - "camera_pano_nw"
+      - "camera_pano_ss"
+      - "camera_pano_se"
+      - "camera_pano_sw"
 
-    # --- Message synchronization ---
-    sync_queue_size: 5
-    sync_max_time_diff_ms: 400.0
+    # Detection confidence threshold — boxes below this score are discarded
+    confidence_threshold: 0.3
+
+    # Camera input resolution (must match the camera hardware)
+    image_width: 1600
+    image_height: 900
+
+    # Model input resolution after resize
+    norm_output_width: 704
+    norm_output_height: 256
+
+    # LiDAR detection zone in meters [x, y, z]
+    min_range: [-54.0, -54.0, -5.0]
+    max_range: [54.0, 54.0, 3.0]
+
+    # Voxel size in meters [x, y, z]
+    voxel_size: [0.075, 0.075, 0.2]
+
+    # LiDAR point cloud caps (tune for GPU memory vs. coverage tradeoff)
+    max_points_per_voxel: 10
+    max_points: 300000
+    max_voxels: 160000
+
+    # BEV grid bounds [min, max, step] in meters
+    xbound: [-54.0, 54.0, 0.3]
+    ybound: [-54.0, 54.0, 0.3]
+    zbound: [-10.0, 10.0, 20.0]
+    dbound: [1.0, 60.0, 0.5]
+
+    # Bounding box center filter — discard boxes outside this volume [x, y, z]
+    post_center_range_start: [-61.2, -61.2, -10.0]
+    post_center_range_end: [61.2, 61.2, 10.0]
+
+    # ApproximateTime synchronization
+    sync_queue_size: 2
+    sync_max_time_diff_ms: 100.0
+
+    # QoS
+    qos_subscriber_reliability: "best_effort"
+    qos_subscriber_depth: 10
+    qos_publisher_reliability: "reliable"
+    qos_publisher_durability: "transient_local"
+    qos_publisher_depth: 10
 
 # =============================================================================
 # Lifecycle Managers

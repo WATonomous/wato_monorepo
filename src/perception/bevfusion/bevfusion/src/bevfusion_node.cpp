@@ -164,8 +164,7 @@ void BEVFusionNode::syncedCallback(
   }
 
   if (!calibration_initialized_.load()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
     return;
   }
 
@@ -238,8 +237,8 @@ void BEVFusionNode::multiCameraInfoCallback(
   RCLCPP_INFO(
     this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
   {
-      std::lock_guard<std::mutex> lock(camera_info_mutex_);
-      cached_multi_camera_info_ = multi_camera_info_msg;
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    cached_multi_camera_info_ = multi_camera_info_msg;
   }
   computeCalibrationMatrices();
 }
@@ -652,11 +651,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
     RCLCPP_INFO(this->get_logger(), "Subscribed to:");
-    RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo: '%s'", multi_camera_info_sub_.get_topic_name());
-    RCLCPP_INFO(this->get_logger(), "  - MultiImage: '%s'", multi_image_sub_->get_topic_name());
-    RCLCPP_INFO(this->get_logger(), "  - LiDAR: '%s'", lidar_sub_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo: '%s'", multi_camera_info_sub_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "  - MultiImage: '%s'", multi_image_sub_->getTopic().c_str());
+    RCLCPP_INFO(this->get_logger(), "  - LiDAR: '%s'", lidar_sub_->getTopic().c_str());
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
-    RCLCPP_INFO(this->get_logger(), "  - 3D Detections: '%s'", detections_pub_->get_topic_name());
+    RCLCPP_INFO(this->get_logger(), "  - 3D Detections: '%s'", detection_pub_->get_topic_name());
     RCLCPP_INFO(this->get_logger(), "  - Markers: '%s'", marker_pub_->get_topic_name());
     RCLCPP_INFO(
       this->get_logger(),
