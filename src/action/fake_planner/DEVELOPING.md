@@ -9,7 +9,7 @@ ros2 launch fake_planner fake_planner_sim.launch.yaml
 ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
 ```
 
-1. **`loadManeuver`** — parse the JSON, walk the segments as a moving cursor sampling a fine polyline, resample to uniform `sample_spacing_m`, then (open maneuvers only) append the stop pad. Result: the maneuver in local coordinates.
+1. **`loadManeuver`** — parse and validate the JSON, walk the segments as a moving cursor sampling a fine polyline, resample to uniform `sample_spacing_m`, then (open maneuvers only) apply the launch ramp and append the stop pad. Result: the maneuver in local coordinates. Validation is not a formality: every primitive divides by a length or a radius, so a zero one yields `NaN`, and `NaN` survives every `std::min` in the speed passes to land in a published `max_speed`. Load is the only place the bad value can still be named.
 2. **`anchor(x, y, yaw)`** — apply one SE(2) transform to every waypoint, building the full trajectory in `frame_id`. Point headings are taken from consecutive points.
 3. **`updateWindow(veh_x, veh_y)`** — on each odom, find the nearest point (searching forward from the last match so a self-crossing path doesn't snap back a lap) and slice `trail_m` behind through `horizon_m` ahead.
 4. **`window()`** — the slice the node restamps and publishes.
@@ -47,6 +47,22 @@ The **stop pad** is the same idea at the far end: a backward pass brakes the spe
 
 Closed maneuvers skip both. The window wraps at the seam, so there is no end to stop at and no start to pull away from; a ramp there would make the car brake to a crawl once a lap.
 
+## The release ramp
+
+Skipping the geometric ramp leaves a closed maneuver commanding its full `default_speed` from the instant it is released, which is a step demand into a standing car. `release_ramp_s` (a node parameter, default 3.0 s) closes that gap from the other direction: on release the node scales every published `max_speed` by a factor running 0 → 1 over that many seconds. Being time-based rather than position-based, it does not care where in the maneuver the window happens to be, so it works at a closed circuit's seam exactly as well as at an open maneuver's first waypoint.
+
+It applies to *every* maneuver, so on an open one it composes with the geometric ramp and the lower of the two envelopes wins — slightly gentler off the line than the geometric ramp alone. `release_ramp_s: 0` restores exactly the geometric behaviour.
+
+"Release" means `trajectory_started_` going false → true: the `start_trajectory` service, activation with `start_on_activate:=true`, or the re-arm after a respawn. Calling `start_trajectory` on an already-running node does not restart the ramp. The clock is the node clock, so it follows sim time; a clock that jumps backwards (a CARLA world reload) re-seeds it rather than producing a nonsense scale.
+
+## Finishing
+
+Reaching the end of an open maneuver **latches**: the node stops publishing the trajectory and the behaviour heartbeat entirely, the controller times out into standby after its `idle_timeout_sec`, and the car holds where it stopped. This is deliberate — an engaged controller parked on the zero-speed end of a path is one tracking wobble away from creeping — and it is why the launches pin `standby_speed:=0.0`, since the controllers' own `-0.5` default would reverse. Markers keep publishing, so the driven path stays visible, and `reset` is the only way back.
+
+The latch fires when the vehicle is within `finish_distance_m` of the stop line (measured along the path, so `distanceToEnd()`) *and* slower than `finish_speed_mps` *and* has been seen moving at some point since the last release. That last condition is not redundant: a stationary car satisfies the first two before it has been released at all, which on a maneuver shorter than `finish_distance_m` is true from the very first tick, and after a `reset` is true of a car parked on the stop line. Without it either case would latch finished having never moved.
+
+One combination the latch cannot rescue: a maneuver that declares an absolute `start` *and* is not `closed`. `reset` rewinds the window, but the next odom re-acquires the nearest point, and for a car parked at the end of fixed geometry that is the stop line again. Nothing shipped uses that pairing, and `on_configure` warns when it sees one — re-running it means moving the vehicle back to the start, or relaunching.
+
 ## Adding a maneuver
 
 1. Drop a JSON under `maneuvers/` (schema in the [README](README.md)). Rebuild — `install/` serves the file from `share/`, so an un-built file won't be found.
@@ -56,7 +72,20 @@ Closed maneuvers skip both. The window wraps at the seam, so there is no end to 
 
 1. Add a `build*` primitive in the anonymous namespace of `fake_planner_core.cpp`. It appends samples for `t` in `(0, L]` and moves the cursor to the segment end; the caller seeds the first point and the speed ramp.
 2. Add a branch in the `loadManeuverJson` dispatch, pulling params off the JSON with `p.at(...)` (throwing on a missing field is caught and reported per-segment).
-3. Add the type to the maneuver schema table in the README.
+3. Guard every parameter the primitive divides by with `requirePositive` / `requireFiniteNonZero` before calling it. Skipping this does not produce a degenerate path, it produces `NaN` speeds on the wire.
+4. Add the type to the maneuver schema table in the README.
+5. Add a case to `test/test_fake_planner_core.cpp` — geometry, and a rejection case per guard.
+
+## Tests
+
+```bash
+colcon test --packages-select fake_planner && colcon test-result --verbose
+```
+
+`test/test_fake_planner_core.cpp` covers the core through its public interface only. Two things worth knowing when adding to it:
+
+- `anchor()` leaves `window()` holding the entire path until the first `updateWindow()`, which is how the tests inspect every waypoint's pose and speed without the core exposing its arrays.
+- The speed-profile tests assert the *envelope* (`v <= sqrt(2·a·s)`) rather than point-by-point values, so they survive a change of `sample_spacing_m` without being rewritten.
 
 ## After Launching
 
@@ -86,4 +115,5 @@ If the node logs `Waiting for first odom on '<topic>' to anchor trajectory...` a
 
 - **Nothing publishes on `trajectory` and the car sits still** — expected on bringup. Every launch sets `start_on_activate:=false`, so the node logs `Holding: waiting for the start_trajectory service.` every 5 s until it is released. Call `start_trajectory` (or launch with `start_on_activate:=true` in sim). A respawned ego puts it back in the hold.
 - **Controller doesn't move though the trajectory publishes** — in CARLA this is almost always `use_sim_time`: without it, trajectory stamps on wall clock can't transform against the sim-time TF tree and the controller aborts every cycle silently. Also check `standby_speed:=0.0` — the controllers' own `-0.5` default reverses the car in standby. Both wrappers set these correctly.
+- **Oval scenario fails with "OpenDRIVE not found" or "Ego spawn pose not found"** — `maps/` is git-ignored, so the track artifacts only exist after `python3 tools/generate_oval_track.py`. Check that `maps/` is mounted into the simulation container (docker-compose does this) and that the generator has been run.
 - **Path lands off the oval track** — `oval_track` is in absolute coordinates and must be published verbatim; anchoring a 420 m closed lap throws the far side off the road with a fraction of a degree of spawn yaw. `auto` handles this, so check the configure log for `anchor=false (auto: absolute 'start')` and that nothing passed `anchoring:=relative` (which warns).

@@ -74,4 +74,15 @@ install(DIRECTORY config launch maneuvers
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Tests
+if(BUILD_TESTING)
+  find_package(wato_test REQUIRED)
+
+  add_wato_test(test_fake_planner_core
+    test/test_fake_planner_core.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_nodes
+  )
+endif()
+
 ament_package()

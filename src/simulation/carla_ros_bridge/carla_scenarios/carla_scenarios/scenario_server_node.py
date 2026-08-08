@@ -430,16 +430,19 @@ class ScenarioServerNode(LifecycleNode):
                 ego.apply_control(
                     carla.VehicleControl(throttle=0.0, steer=0.0, brake=1.0)
                 )
-            except Exception:
-                # Not fatal: some actors reject control while in autopilot.
-                pass
+            except RuntimeError as e:
+                # Not fatal: some actors reject control while in autopilot. Worth a line rather
+                # than silence, since it means the car may roll away from the spawn point.
+                self.get_logger().debug(
+                    f"Could not apply a braking control to the ego: {e}"
+                )
 
             ego.set_transform(spawn_point)
 
-            # Let the teleport take effect, so anything reacting to the service returning sees
-            # the new pose rather than the old one.
-            if self.carla_world and self.get_parameter("synchronous_mode").value:
-                self.carla_world.tick()
+            # Deliberately no tick() here. This callback is in a ReentrantCallbackGroup under a
+            # MultiThreadedExecutor, so ticking would race _tick_callback's own tick and advance
+            # synchronous mode twice. The tick timer runs at carla_fps, so the teleport lands
+            # within a frame anyway.
 
             loc = spawn_point.location
             response.success = True

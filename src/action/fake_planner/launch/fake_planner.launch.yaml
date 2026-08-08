@@ -102,6 +102,25 @@ launch:
       default: "5.0"
       description: Odom jump (m) treated as a respawn, after which the maneuver re-anchors. 0 disables.
 
+  # -- Lifecycle manager tuning. Defaults are what the rig has always used; exposed so a slow
+  # machine can be given more time without editing the launch.
+  - arg:
+      name: transition_timeout_s
+      default: "10.0"
+      description: How long the lifecycle manager waits for each configure/activate transition
+
+  - arg:
+      name: bond_timeout_s
+      default: "4.0"
+      description: Bond heartbeat timeout, used only when bond_enabled is true
+
+  # Off by default: bonding tears the rig down when a managed node stops heartbeating, and for a
+  # test rig a controller that has crashed is more useful left in place for inspection.
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection for the managed nodes
+
   # Everything controller-specific keys off this one flag, so the node that runs and the node the
   # lifecycle manager waits for can't drift apart.
   - let:
@@ -201,8 +220,8 @@ launch:
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
-          value: 10.0
+          value: $(var transition_timeout_s)
         - name: bond_timeout_s
-          value: 4.0
+          value: $(var bond_timeout_s)
         - name: bond_enabled
-          value: false
+          value: $(var bond_enabled)

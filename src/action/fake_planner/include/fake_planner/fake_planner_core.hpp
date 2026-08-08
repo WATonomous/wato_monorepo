@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,9 @@ struct FakePlannerConfig
   // vehicle, replanned as it drives, so the core slides the same window along its maneuver.
   double horizon_m{35.0};
   double trail_m{2.0};
+  // How far along the path nearestIndex looks ahead of the last match. A distance rather than a
+  // point count so its meaning does not change with the maneuver's sample_spacing_m.
+  double search_ahead_m{400.0};
   std::string frame_id{"odom"};
 };
 
@@ -86,6 +90,19 @@ public:
   // profile reaches zero). 0 once at or past it; infinity on a closed circuit and before anchoring.
   double distanceToEnd() const;
 
+  // Total arc length of the maneuver, stop pad included. 0 before a maneuver is loaded.
+  double pathLength() const
+  {
+    return cum_s_.empty() ? 0.0 : cum_s_.back();
+  }
+
+  // Straight-line distance from the last updateWindow() pose to the path point it matched, so the
+  // node can tell that the vehicle has wandered off the maneuver. Infinity before the first slice.
+  double distanceToPath() const
+  {
+    return match_distance_;
+  }
+
   bool ready() const
   {
     return ready_;
@@ -93,8 +110,9 @@ public:
 
 private:
   // Index of the full-path point closest to (veh_x, veh_y), searched forward from the last match
-  // so a self-intersecting maneuver doesn't snap back to an earlier lap.
-  std::size_t nearestIndex(double veh_x, double veh_y) const;
+  // so a self-intersecting maneuver doesn't snap back to an earlier lap. Writes the matched
+  // distance to `match_distance`.
+  std::size_t nearestIndex(double veh_x, double veh_y, double & match_distance) const;
 
   FakePlannerConfig config_;
 
@@ -111,10 +129,14 @@ private:
   std::vector<double> cum_s_;
   std::size_t stop_index_{0};
 
+  // The maneuver's sample_spacing_m, kept so search_ahead_m can be turned into a point count.
+  double spacing_{1.0};
+
   wato_trajectory_msgs::msg::Trajectory full_traj_;
   wato_trajectory_msgs::msg::Trajectory window_;
   bool ready_{false};
   std::size_t window_start_{0};
+  double match_distance_{std::numeric_limits<double>::infinity()};
 };
 
 }  // namespace fake_planner

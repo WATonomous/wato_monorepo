@@ -4,6 +4,11 @@
     trajectory_topic: "trajectory"
     behaviour_topic: "execute_behaviour"
     odom_topic: "odom"
+    marker_pub_topic: "trajectory_markers"
+
+    # Maneuver JSON to replay. Required, and always set by the launch from maneuver:= -- an empty
+    # value here fails on_configure rather than silently publishing nothing.
+    maneuver_file: ""
 
     # Frame the trajectory is published in. Must be TF-connected to the controller's
     # rear_axle frame (map/odom both work in the standard stack).
@@ -17,20 +22,45 @@
     publish_behaviour: true
     behaviour: "lane_follow"
 
+    # Publish as soon as the node activates. Every launch passes false, so nothing drives on
+    # bringup and the start_trajectory service is what releases the car.
+    start_on_activate: true
+
     # Whether the waypoints are laid out from the vehicle's pose at launch (from the first odom) or
     # published in the file's own coordinates. "auto" lets the maneuver decide: a file carrying an
     # absolute "start" publishes verbatim, everything else is vehicle-relative. "relative" and
     # "absolute" force it. (Not "on"/"off": YAML reads those as booleans and the node aborts.)
     anchoring: "auto"
 
+    # Rolling window published around the vehicle: trail_m of path behind it through horizon_m
+    # ahead. The trail is what keeps pure pursuit from creeping, since it only steers to points
+    # ahead of itself.
     horizon_m: 35.0
     trail_m: 2.0
+
+    # How far along the path to look for the vehicle, measured from the last match. Bounded so a
+    # self-crossing maneuver or a closed lap cannot snap back to a point it passed earlier; in
+    # metres, so it means the same thing whatever sample_spacing_m the maneuver uses.
+    search_ahead_m: 400.0
+
+    # Distance from the path at which to start warning that the vehicle has wandered off the
+    # maneuver. Only a warning: the nearest stretch of path is still published.
+    max_path_deviation_m: 5.0
+
+    # Seconds over which published speeds are scaled from 0 up to the maneuver's own after the car
+    # is released, so it pulls away gently. This is the only ramp a closed maneuver gets, because a
+    # closed maneuver's window wraps at the seam and a geometric ramp there would brake it to a
+    # crawl once a lap. Open maneuvers also carry the JSON's ramp_up_accel, and the two compose.
+    # 0 disables, publishing the authored speed from the moment of release.
+    release_ramp_s: 3.0
 
     # Pose jump (m between consecutive odom messages) that counts as a respawn rather than driving,
     # after which the node re-anchors the maneuver at the new pose. Set 0 to disable.
     respawn_jump_m: 5.0
 
-    # When an open maneuver counts as finished: the vehicle is within finish_distance_m of the
-    # stop line (measured along the path) and moving no faster than finish_speed_mps.
+    # When an open maneuver counts as finished: the vehicle has been seen moving, is within
+    # finish_distance_m of the stop line (measured along the path) and is moving no faster than
+    # finish_speed_mps. Once finished the node stops publishing, so the controller times out into
+    # standby; the reset service runs the maneuver again.
     finish_distance_m: 3.0
     finish_speed_mps: 0.25

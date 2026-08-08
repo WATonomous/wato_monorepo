@@ -15,6 +15,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
@@ -47,8 +48,15 @@ public:
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // Publishes the current window on `trajectory_markers`, only when someone is subscribed.
-  void publishMarkers();
+  // Publishes `trajectory` on `trajectory_markers`, only when someone is subscribed. Takes the
+  // trajectory rather than reading the core so the markers show the speeds actually published,
+  // release ramp included.
+  void publishMarkers(const wato_trajectory_msgs::msg::Trajectory & trajectory);
+  // Releases the car: seeds the ramp clock so publishing starts from zero speed. Idempotent while
+  // already running, so a repeated start service call doesn't restart the ramp.
+  void releaseTrajectory();
+  // Fraction of the authored speed to publish right now, 0 -> 1 over release_ramp_s after release.
+  double releaseRampScale();
   void timerCallback();
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
   void startTrajectory(
@@ -60,6 +68,11 @@ private:
     const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
 
   std::unique_ptr<FakePlannerCore> core_;
+
+  // The node's own executable is single-threaded and its callbacks share one mutually-exclusive
+  // group, but it is also registered as a component, so loading it into a multi-threaded container
+  // would run odomCallback (which mutates the core) against timerCallback (which reads it).
+  std::mutex core_mutex_;
 
   // Parameters
   std::string trajectory_topic_;
@@ -78,9 +91,12 @@ private:
   std::string marker_topic_;
   double horizon_m_{35.0};
   double trail_m_{2.0};
+  double search_ahead_m_{400.0};
   double respawn_jump_m_{5.0};
   double finish_distance_m_{3.0};
   double finish_speed_mps_{0.25};
+  double max_path_deviation_m_{5.0};
+  double release_ramp_s_{3.0};
 
   // Gates publishing: when false the node stays silent so the controller holds in standby.
   // Toggled by the start/stop services; seeded from start_on_activate on activation.
@@ -90,6 +106,16 @@ private:
   // standby and the car stays put rather than creeping or silently starting over. Cleared only by
   // an explicit reset (or a respawn, which is the sim's reset).
   bool finished_{false};
+
+  // Set once the vehicle has actually been seen moving. The finish check needs it, because
+  // "within finish_distance_m of the stop line and slower than finish_speed_mps" is also true of a
+  // car sitting still before it has been released: on a maneuver shorter than finish_distance_m
+  // that is true from the very first tick, and after a reset it is true of a car parked on the
+  // stop line. Either way the run would latch finished without ever moving.
+  bool moved_{false};
+
+  // When the current release ramp began. Not valid unless trajectory_started_.
+  rclcpp::Time release_time_;
 
   bool anchored_{false};
 

@@ -25,6 +25,8 @@
   <exec_depend>action_bringup</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
 
+  <test_depend>wato_test</test_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>

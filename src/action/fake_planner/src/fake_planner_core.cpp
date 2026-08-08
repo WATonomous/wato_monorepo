@@ -171,11 +171,12 @@ Path resampleUniform(Path in, double spacing)
   return out;
 }
 
+// Default braking deceleration for the stop pad when the maneuver does not set "brake_decel".
 // Matches trajectory_planner's max_tangential_accel so the fake stop feels like the real one.
-constexpr double kMaxDecel = 1.0;
+constexpr double kDefaultBrakeDecel = 1.0;
 
-// Default for the launch ramp when the maneuver does not set "ramp_up_accel"; mirrors kMaxDecel so
-// the maneuver leaves rest as gently as it comes back to it.
+// Default for the launch ramp when the maneuver does not set "ramp_up_accel"; mirrors
+// kDefaultBrakeDecel so the maneuver leaves rest as gently as it comes back to it.
 constexpr double kDefaultRampUpAccel = 1.0;
 
 // Start an open maneuver from a standstill: pin the first waypoint at zero speed and propagate that
@@ -196,16 +197,17 @@ void applyLaunchRamp(Path & path, double accel)
   }
 }
 
-// How far past the last authored point the zero-speed pad extends. Pure pursuit only steers to
-// points *ahead* of the vehicle and holds its last command when it runs out, so the path has to
-// stay populated past the stop line. Comfortably longer than the controller's max lookahead.
-constexpr double kStopPadM = 10.0;
+// Default distance past the last authored point that the zero-speed pad extends, when the maneuver
+// does not set "stop_pad_m". Pure pursuit only steers to points *ahead* of the vehicle and holds
+// its last command when it runs out, so the path has to stay populated past the stop line.
+// Comfortably longer than the controller's max lookahead.
+constexpr double kDefaultStopPadM = 10.0;
 
-// Terminate an open maneuver in a standstill: extend the final heading with zero-speed points, then
-// propagate that zero backwards at kMaxDecel so the speed profile brakes into it.
-void appendStopPad(Path & path, double spacing)
+// Terminate an open maneuver in a standstill: extend the final heading with `pad_m` of zero-speed
+// points, then propagate that zero backwards at `decel` so the speed profile brakes into it.
+void appendStopPad(Path & path, double spacing, double pad_m, double decel)
 {
-  if (path.x.size() < 2) {
+  if (path.x.size() < 2 || pad_m <= 0.0 || decel <= 0.0) {
     return;
   }
   const double dx = path.x.back() - path.x[path.x.size() - 2];
@@ -217,22 +219,57 @@ void appendStopPad(Path & path, double spacing)
 
   const double end_x = path.x.back();
   const double end_y = path.y.back();
-  const int pad_points = static_cast<int>(std::ceil(kStopPadM / spacing));
+  const int pad_points = static_cast<int>(std::ceil(pad_m / spacing));
   for (int k = 1; k <= pad_points; ++k) {
     const double t = spacing * k;
     path.x.push_back(end_x + dx / norm * t);
     path.y.push_back(end_y + dy / norm * t);
     path.speed.push_back(0.0);
   }
-  // The last authored point is the stop line itself.
-  path.speed.back() = 0.0;
+  // The last authored point is the stop line itself (the pad points are already zero).
   path.speed[path.speed.size() - pad_points - 1] = 0.0;
 
   for (int i = static_cast<int>(path.speed.size()) - 2; i >= 0; --i) {
     const double seg = std::hypot(path.x[i + 1] - path.x[i], path.y[i + 1] - path.y[i]);
-    const double v_max = std::sqrt(path.speed[i + 1] * path.speed[i + 1] + 2.0 * kMaxDecel * seg);
+    const double v_max = std::sqrt(path.speed[i + 1] * path.speed[i + 1] + 2.0 * decel * seg);
     path.speed[i] = std::min(path.speed[i], v_max);
   }
+}
+
+// --- Segment parameter validation -------------------------------------------------------------
+// Every primitive divides by a length or a radius somewhere (the speed ramp is lerped on t/length,
+// the arc sweeps t/radius), so a zero there yields NaN or infinity rather than a degenerate path,
+// and NaN survives every std::min downstream to land in a published max_speed. A negative length
+// silently runs the segment backwards, because subSteps() takes the absolute value. Reject both at
+// load, where the error can name the offending segment.
+bool requirePositive(const nlohmann::json & p, const char * key, const std::string & where, std::string & error)
+{
+  const double value = p.at(key).get<double>();
+  if (!(value > 0.0) || !std::isfinite(value)) {
+    error = where + ": '" + key + "' must be a finite value > 0 (got " + std::to_string(value) + ")";
+    return false;
+  }
+  return true;
+}
+
+bool requireFiniteNonZero(const nlohmann::json & p, const char * key, const std::string & where, std::string & error)
+{
+  const double value = p.at(key).get<double>();
+  if (value == 0.0 || !std::isfinite(value)) {
+    error = where + ": '" + key + "' must be a finite non-zero value (got " + std::to_string(value) + ")";
+    return false;
+  }
+  return true;
+}
+
+bool requireFinite(const nlohmann::json & p, const char * key, const std::string & where, std::string & error)
+{
+  const double value = p.at(key).get<double>();
+  if (!std::isfinite(value)) {
+    error = where + ": '" + key + "' must be finite";
+    return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -273,16 +310,31 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   const double spacing = doc.value("sample_spacing_m", 1.0);
   const double default_speed = doc.value("default_speed", 2.0);
   const double ramp_up_accel = doc.value("ramp_up_accel", kDefaultRampUpAccel);
+  const double brake_decel = doc.value("brake_decel", kDefaultBrakeDecel);
+  const double stop_pad_m = doc.value("stop_pad_m", kDefaultStopPadM);
   closed_ = doc.value("closed", false);
   has_absolute_start_ = false;
-  if (spacing <= 0.0) {
-    error = "sample_spacing_m must be > 0";
+  if (!(spacing > 0.0) || !std::isfinite(spacing)) {
+    error = "sample_spacing_m must be a finite value > 0";
     return false;
   }
-  if (ramp_up_accel < 0.0) {
-    error = "ramp_up_accel must be >= 0 (0 disables the launch ramp)";
+  if (!(default_speed >= 0.0) || !std::isfinite(default_speed)) {
+    error = "default_speed must be finite and >= 0";
     return false;
   }
+  if (!(ramp_up_accel >= 0.0) || !std::isfinite(ramp_up_accel)) {
+    error = "ramp_up_accel must be finite and >= 0 (0 disables the launch ramp)";
+    return false;
+  }
+  if (!(brake_decel > 0.0) || !std::isfinite(brake_decel)) {
+    error = "brake_decel must be a finite value > 0";
+    return false;
+  }
+  if (!(stop_pad_m >= 0.0) || !std::isfinite(stop_pad_m)) {
+    error = "stop_pad_m must be finite and >= 0";
+    return false;
+  }
+  spacing_ = spacing;
   if (!doc.contains("segments") || !doc["segments"].is_array() || doc["segments"].empty()) {
     error = "missing or empty 'segments' array";
     return false;
@@ -323,8 +375,14 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
       return false;
     }
 
+    const std::string where = "segment " + std::to_string(idx) + " (" + type + ")";
+
     const double s0 = p.value("speed", current_speed);
     const double s1 = p.value("end_speed", s0);
+    if (!(s0 >= 0.0) || !(s1 >= 0.0) || !std::isfinite(s0) || !std::isfinite(s1)) {
+      error = where + ": 'speed' and 'end_speed' must be finite and >= 0";
+      return false;
+    }
 
     // Seed the very first path point at the start pose and speed.
     if (fine_path.x.empty()) {
@@ -333,10 +391,22 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
 
     try {
       if (type == "straight" || type == "dwell") {
+        if (!requirePositive(p, "length", where, error)) {
+          return false;
+        }
         buildStraight(fine_path, cursor, p.at("length").get<double>(), s0, s1, fine);
       } else if (type == "shift") {
+        if (!requirePositive(p, "length", where, error) || !requireFinite(p, "lateral", where, error)) {
+          return false;
+        }
         buildShift(fine_path, cursor, p.at("lateral").get<double>(), p.at("length").get<double>(), s0, s1, fine);
       } else if (type == "slalom") {
+        if (
+          !requireFinite(p, "amplitude", where, error) || !requirePositive(p, "wavelength", where, error) ||
+          !requirePositive(p, "cycles", where, error))
+        {
+          return false;
+        }
         buildSlalom(
           fine_path,
           cursor,
@@ -349,7 +419,10 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
       } else if (type == "arc") {
         const std::string dir = p.value("dir", std::string("left"));
         if (dir != "left" && dir != "right") {
-          error = "segment " + std::to_string(idx) + " (arc): dir must be 'left' or 'right'";
+          error = where + ": dir must be 'left' or 'right'";
+          return false;
+        }
+        if (!requirePositive(p, "radius", where, error) || !requireFiniteNonZero(p, "angle", where, error)) {
           return false;
         }
         const double dir_sign = (dir == "left") ? 1.0 : -1.0;
@@ -367,7 +440,7 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
         return false;
       }
     } catch (const std::exception & e) {
-      error = "segment " + std::to_string(idx) + " (" + type + "): " + e.what();
+      error = where + ": " + e.what();
       return false;
     }
 
@@ -379,14 +452,14 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   // the seam, so a ramp there would make the car brake to a crawl once a lap.
   if (!closed_) {
     applyLaunchRamp(resampled, ramp_up_accel);
-    appendStopPad(resampled, spacing);
+    appendStopPad(resampled, spacing, stop_pad_m, brake_decel);
   }
   wp_x_ = resampled.x;
   wp_y_ = resampled.y;
   wp_speed_ = resampled.speed;
 
   // The stop line is one past the last waypoint that still asks for speed. Found from the profile
-  // rather than from kStopPadM so it stays right whatever the pad does.
+  // rather than from stop_pad_m so it stays right whatever the pad does.
   cum_s_.assign(wp_x_.size(), 0.0);
   for (std::size_t i = 1; i < wp_x_.size(); ++i) {
     cum_s_[i] = cum_s_[i - 1] + std::hypot(wp_x_[i] - wp_x_[i - 1], wp_y_[i] - wp_y_[i - 1]);
@@ -450,12 +523,14 @@ void FakePlannerCore::anchor(double x, double y, double yaw)
   // Until the first pose slides the window, the whole maneuver is what gets published.
   window_ = full_traj_;
   window_start_ = 0;
+  match_distance_ = std::numeric_limits<double>::infinity();
   ready_ = true;
 }
 
 void FakePlannerCore::rewind()
 {
   window_start_ = 0;
+  match_distance_ = std::numeric_limits<double>::infinity();
 }
 
 void FakePlannerCore::clear()
@@ -463,16 +538,19 @@ void FakePlannerCore::clear()
   full_traj_ = wato_trajectory_msgs::msg::Trajectory();
   window_ = wato_trajectory_msgs::msg::Trajectory();
   window_start_ = 0;
+  match_distance_ = std::numeric_limits<double>::infinity();
   ready_ = false;
 }
 
-std::size_t FakePlannerCore::nearestIndex(double veh_x, double veh_y) const
+std::size_t FakePlannerCore::nearestIndex(double veh_x, double veh_y, double & match_distance) const
 {
   const std::size_t n = full_traj_.points.size();
   // Search a bounded stretch ahead of the last match rather than the whole path: a slalom or a
   // closed lap passes near its own earlier points, and a global search would jump back to them.
-  constexpr std::size_t kSearchAhead = 400;
-  const std::size_t span = std::min(kSearchAhead, n);
+  // The stretch is search_ahead_m of path, converted through the maneuver's own spacing so the
+  // reach in metres is the same whatever sample_spacing_m the file chose.
+  const std::size_t span =
+    std::min(n, static_cast<std::size_t>(std::max(1.0, std::ceil(config_.search_ahead_m / spacing_))));
 
   std::size_t best = window_start_;
   double best_dist = std::numeric_limits<double>::max();
@@ -485,6 +563,7 @@ std::size_t FakePlannerCore::nearestIndex(double veh_x, double veh_y) const
       best = i;
     }
   }
+  match_distance = best_dist;
   return best;
 }
 
@@ -498,16 +577,19 @@ void FakePlannerCore::updateWindow(double veh_x, double veh_y)
     return;
   }
 
-  const std::size_t nearest = nearestIndex(veh_x, veh_y);
+  const std::size_t nearest = nearestIndex(veh_x, veh_y, match_distance_);
   window_start_ = nearest;
 
   wato_trajectory_msgs::msg::Trajectory window;
   window.header = full_traj_.header;
 
-  // Walk backwards from the nearest point to lay down the trailing stub.
+  // Walk backwards from the nearest point to lay down the trailing stub. Bounded by n like the
+  // forward walk below: on a closed circuit the walk wraps, so a trail_m longer than a lap -- or a
+  // degenerate path whose points coincide, which never accumulates any distance -- would otherwise
+  // spin forever inside the odom callback.
   std::size_t first = nearest;
   double trailed = 0.0;
-  while (trailed < config_.trail_m) {
+  for (std::size_t k = 0; k < n && trailed < config_.trail_m; ++k) {
     const std::size_t prev = (first == 0) ? (closed_ ? n - 1 : 0) : first - 1;
     if (prev == first) {
       break;  // open path, already at the start

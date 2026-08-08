@@ -3,9 +3,12 @@
 # Full world modeling stack for simulation (CARLA / bags).
 #
 # Usage:
-#   Full stack (oval, default):  ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml
-#   Full stack (Town10HD):       ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=town
-#   Map + markers only:          ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map_only:=true
+#   Full stack (Town10HD, default):  ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml
+#   Full stack (oval track):         ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=oval
+#   Map + markers only:              ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map_only:=true
+#
+# `map` must match the CARLA world the simulation launch's scenario:= builds, or the ego spawns
+# somewhere the lanelet map does not cover.
 #
 
 # map_only:=true runs just world_model + the lanelet map markers (3 nodes instead of 15) --
@@ -15,10 +18,12 @@
 launch:
   - arg:
       name: map
-      default: "oval"
+      default: "town"
       description: >-
         Map to load; selects config/world_model_<map>.yaml.
-        "oval" (default) = the generated 4-lane oval track, "town" = Town10HD.
+        "town" (default) = Town10HD, "oval" = the generated 4-lane oval track. The oval is opt-in
+        because its .osm is git-ignored and only exists after
+        `python3 tools/generate_oval_track.py`.
 
   - arg:
       name: config_file

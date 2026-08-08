@@ -32,11 +32,21 @@ ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve c
 
 The controller's tuning follows the environment, so a hardware run measures the controller the car actually deploys: MPC reads `action_bringup`'s `action.yaml` everywhere, and pure pursuit reads its own package params in sim but that same `action.yaml` on the vehicle. Point it somewhere else with `pure_pursuit_config:=`.
 
-Oval-track laps need the CARLA oval world. Nothing else changes on the command line — the maneuver is in absolute track coordinates and turns anchoring off for itself:
+Oval-track laps need the CARLA oval world, which is generated rather than shipped: `maps/` is
+git-ignored, so the track's `.xodr`, `.osm` and ego spawn pose only exist once the generator has
+been run. The oval is opt-in on both the simulation and world_modeling launches for that reason:
 
 ```bash
+python3 tools/generate_oval_track.py     # once, and after any change to the track definition
+
+ros2 launch simulation_bringup simulation.launch.yaml \
+    scenario:=carla_scenarios.scenarios.oval_track_scenario
+ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=oval map_only:=true
 ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=oval_track
 ```
+
+Nothing else changes for the rig itself — the maneuver is in absolute track coordinates and turns
+anchoring off for itself.
 
 Control a run through the node's services (fully-qualified name `/action/fake_planner/fake_planner_node`):
 
@@ -48,7 +58,9 @@ ros2 service call /action/fake_planner/fake_planner_node/reset            std_sr
 
 ## Maneuvers
 
-A maneuver is a JSON file: a few top-level settings and a `segments` list. Each segment is authored in the local frame where the previous one ended (`u` forward along the current heading, `v` positive to the left), so segments simply chain. The whole path is sampled finely, resampled to `sample_spacing_m`, and — for open maneuvers — capped with a braked stop.
+A maneuver is a JSON file — not yaml like the rest of the package's configuration, because a
+maneuver is an ordered list of heterogeneous, nested segment objects, which ROS parameters cannot
+represent — with a few top-level settings and a `segments` list. Each segment is authored in the local frame where the previous one ended (`u` forward along the current heading, `v` positive to the left), so segments simply chain. The whole path is sampled finely, resampled to `sample_spacing_m`, and — for open maneuvers — capped with a braked stop.
 
 **Top-level fields:**
 
@@ -58,11 +70,13 @@ A maneuver is a JSON file: a few top-level settings and a `segments` list. Each 
 | `sample_spacing_m` | `1.0` | Uniform waypoint spacing (m). Match the map centreline (see note in `fake_planner_core.cpp`) |
 | `default_speed` | `2.0` | Cruise speed (m/s), carried until a segment overrides it. All shipped maneuvers use `3.0` |
 | `ramp_up_accel` | `1.0` | Acceleration (m/s²) of the launch ramp: an open maneuver starts at zero speed and builds to `default_speed` over `v²/2a` (4.5 m at the defaults), so the car pulls away gently instead of being commanded to full speed from the first waypoint. Keep the opening `straight` at least that long so the ramp finishes before any curvature. `0` disables it; ignored on closed maneuvers |
-| `closed` | `false` | Lap forever (the window wraps); no stop pad or launch ramp |
+| `brake_decel` | `1.0` | Deceleration (m/s²) the stop pad brakes at, the mirror of `ramp_up_accel`. Matches `trajectory_planner`'s `max_tangential_accel`. Ignored on closed maneuvers |
+| `stop_pad_m` | `10.0` | Length (m) of zero-speed path laid past the stop line, so pure pursuit still has points ahead of it after the car stops. `0` omits the pad *and* the braking pass. Ignored on closed maneuvers |
+| `closed` | `false` | Lap forever (the window wraps); no stop pad or launch ramp. Use `release_ramp_s` to pull away gently instead |
 | `start` | — | Absolute `{x, y, yaw}` start pose. Marks the maneuver as fixed geometry: under `anchoring:=auto` it publishes verbatim instead of being laid out from the vehicle |
 | `segments` | *(required)* | Ordered list of `{type: {params}}`, one type per entry |
 
-**Segment types** — each also takes optional `speed` and `end_speed`, which ramp linearly across the segment; speed carries into the next segment:
+**Segment types** — each also takes optional `speed` and `end_speed`, which ramp linearly across the segment; speed carries into the next segment. Lengths, radii, wavelengths and cycle counts must be positive and speeds non-negative; a zero or negative value is rejected at load with the offending segment named, because every primitive divides by one of them and would otherwise emit `NaN` speeds:
 
 | Type | Params | Description |
 |------|--------|-------------|
@@ -104,9 +118,16 @@ All `std_srvs/Trigger`, under the node's private namespace:
 
 | Service | Action |
 |---------|--------|
-| `~/start_trajectory` | Begin or resume publishing |
+| `~/start_trajectory` | Begin or resume publishing, ramping speeds up over `release_ramp_s`. Refused once a maneuver has finished — use `~/reset` |
 | `~/stop_trajectory` | Stop publishing; the controller falls back to standby |
-| `~/reset` | Rewind and re-run from the current pose (re-anchors when anchoring) |
+| `~/reset` | Rewind and re-run from the current pose (re-anchors when anchoring), clearing the finished latch |
+
+Reaching the end of an open maneuver **latches finished**: the node stops publishing entirely, so
+the controller times out into standby and the car holds where it stopped instead of creeping off
+the end. Markers keep publishing so the driven path stays visible. `~/reset` is the only way back.
+A maneuver with an absolute `start` that is not `closed` cannot be reset in place — its geometry
+stays where it was drawn while the car is parked at its end — and the node warns about that pairing
+at configure time.
 
 ## Configuration
 
@@ -127,7 +148,12 @@ Loaded from `config/params.yaml`. Topics, clock, and respawn are usually set by 
 | `marker_pub_topic` | string | `trajectory_markers` | Marker output |
 | `horizon_m` | double | `35.0` | Window length ahead of the vehicle (m) |
 | `trail_m` | double | `2.0` | Window length behind the vehicle (m) |
+| `search_ahead_m` | double | `400.0` | How far along the path to look for the vehicle, from the last match. Bounded so a self-crossing maneuver or a closed lap can't snap back to a point already passed; in metres, so it means the same at any `sample_spacing_m` |
+| `max_path_deviation_m` | double | `5.0` | Distance from the path at which to start warning that the vehicle has strayed. Warning only |
+| `release_ramp_s` | double | `3.0` | Seconds over which published speeds scale from 0 to the maneuver's own after release, so the car pulls away gently. The only ramp a `closed` maneuver gets; composes with `ramp_up_accel` on open ones. 0 disables |
 | `respawn_jump_m` | double | `5.0` | Odom jump treated as a respawn, after which the maneuver re-anchors. 0 disables |
+| `finish_distance_m` | double | `3.0` | How close to the stop line (along the path) counts as finished |
+| `finish_speed_mps` | double | `0.25` | And how slow. Both must hold, and the vehicle must have been seen moving first, before the finished latch arms |
 
 ## License
 
