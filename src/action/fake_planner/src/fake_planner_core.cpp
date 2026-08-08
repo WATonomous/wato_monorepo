@@ -180,6 +180,36 @@ Path resampleUniform(Path in, double spacing)
 // trajectory_planner's max_tangential_accel so the fake stop feels like the real one.
 constexpr double kMaxDecel = 1.0;
 
+// Acceleration used to ramp an open maneuver up from a standstill, when the maneuver does not
+// override it with "ramp_up_accel". Same value as kMaxDecel: the launch ramp is the mirror image
+// of the stop pad, so the maneuver leaves rest as gently as it comes back to it.
+constexpr double kDefaultRampUpAccel = 1.0;
+
+// Start an open maneuver from a standstill: pin the first waypoint at zero speed and propagate that
+// zero forwards at `accel`, so the profile asks for a gentle straight-line pull away instead of the
+// authored speed from the very first point. The forward mirror of appendStopPad's backward pass --
+// the same envelope the real planner's forward accel limit applies leaving a stop line.
+//
+// Only the speed profile is touched; no geometry is added. The shipped maneuvers all open with a
+// straight long enough to hold the whole ramp (v^2 / 2a: 4.5 m at 3 m/s and 1 m/s^2), so the
+// acceleration finishes before any curvature. Lengthen that straight if you raise a maneuver's
+// speed or soften its accel, otherwise the car is still gaining speed when the steering starts.
+//
+// Runs before appendStopPad so its backward pass reconciles the two on a maneuver too short to
+// both reach speed and brake back down; taking the lower of the envelopes is exactly right there.
+void applyLaunchRamp(Path & path, double accel)
+{
+  if (accel <= 0.0 || path.x.size() < 2) {
+    return;
+  }
+  path.speed.front() = 0.0;
+  for (std::size_t i = 1; i < path.speed.size(); ++i) {
+    const double seg = std::hypot(path.x[i] - path.x[i - 1], path.y[i] - path.y[i - 1]);
+    const double v_max = std::sqrt(path.speed[i - 1] * path.speed[i - 1] + 2.0 * accel * seg);
+    path.speed[i] = std::min(path.speed[i], v_max);
+  }
+}
+
 // How far past the last authored point the zero-speed pad extends. Pure pursuit only steers to
 // points *ahead* of the vehicle and simply returns (holding its last command) when it runs out,
 // so the path has to stay populated past the stop line or the car drives off the end. Comfortably
@@ -258,10 +288,15 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
 
   const double spacing = doc.value("sample_spacing_m", 1.0);
   const double default_speed = doc.value("default_speed", 2.0);
+  const double ramp_up_accel = doc.value("ramp_up_accel", kDefaultRampUpAccel);
   closed_ = doc.value("closed", false);
   has_absolute_start_ = false;
   if (spacing <= 0.0) {
     error = "sample_spacing_m must be > 0";
+    return false;
+  }
+  if (ramp_up_accel < 0.0) {
+    error = "ramp_up_accel must be >= 0 (0 disables the launch ramp)";
     return false;
   }
   if (!doc.contains("segments") || !doc["segments"].is_array() || doc["segments"].empty()) {
@@ -357,8 +392,11 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   }
 
   Path resampled = resampleUniform(std::move(fine_path), spacing);
-  // A closed circuit laps forever, so it has no end to stop at; everything else does.
+  // A closed circuit laps forever: it has no end to stop at, and no start to pull away from either
+  // -- the window wraps at the seam, so a ramp there would make the car brake to a crawl once a lap.
+  // Everything else starts from rest and ends in one.
   if (!closed_) {
+    applyLaunchRamp(resampled, ramp_up_accel);
     appendStopPad(resampled, spacing);
   }
   wp_x_ = resampled.x;

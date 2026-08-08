@@ -3,7 +3,7 @@
   "description":
     "Swerve out, cross over to the far side, HOLD at the far peak (dwell), then return to centre; probes lateral transient response and recovery from a sustained offset. Each shift is a smooth (raised-cosine) lateral move.",
   "sample_spacing_m": 1.0,
-  "default_speed": 4.0,
+  "default_speed": 3.0,
   "segments": [
     {
       "straight": {

@@ -37,7 +37,15 @@ Which one you get is the maneuver's own business, not the launch's: `anchoring` 
 
 The window is `trail_m` of path behind the vehicle through `horizon_m` ahead, re-sliced every odom. The trail keeps pure pursuit from creeping — it steers only to points ahead of it and needs some path behind. The horizon matches the real stack's ~35 m rather than dumping the whole route.
 
-Open maneuvers get a **stop pad**: a backward pass brakes the speed profile to zero into the last authored point at 1.0 m/s² (matching `trajectory_planner`'s `max_tangential_accel`), then a 10 m run of zero-speed points extends past the stop line so pure pursuit still has path to hold on after the car stops. Closed maneuvers skip this; the window wraps at the seam and the car laps.
+Open maneuvers get a **launch ramp** and a **stop pad**, one at each end, and both are speed-profile passes only — no geometry is added at the start, and the pad's points are all past the stop line.
+
+The **launch ramp** pins the first waypoint at zero speed and propagates that forwards at `ramp_up_accel` (default 1.0 m/s², the mirror of the stop pad's decel), so the profile asks the car to pull away gently instead of commanding the full `default_speed` from the first point. The distance it consumes is `v²/2a` — 4.5 m at the shipped 3.0 m/s and 1.0 m/s² — and every shipped maneuver opens with a straight longer than that, so acceleration is finished before any curvature. That fit is the thing to re-check when editing a maneuver: raise its speed or soften its accel and the ramp grows, and past the opening straight's length the car is still gaining speed when the steering starts. `ramp_up_accel: 0` disables the ramp for a maneuver that wants to start at speed.
+
+Note the ramp does not stop the *controller* from lurching, only the trajectory from asking it to: pure pursuit reads `max_speed` from the point `speed_lookahead_distance` (1.0 m) ahead of the car, so at launch it sees the ramp's value there (1.4 m/s at 1.0 m/s²) rather than zero. That is also why the ramp starting at exactly zero doesn't deadlock the car at the start line.
+
+The **stop pad** is the same idea at the far end: a backward pass brakes the speed profile to zero into the last authored point at 1.0 m/s² (matching `trajectory_planner`'s `max_tangential_accel`), then a 10 m run of zero-speed points extends past the stop line so pure pursuit still has path to hold on after the car stops. It runs *after* the ramp, so on a maneuver too short to both reach speed and brake back down its backward pass simply lowers the ramp's peak — the lower of the two envelopes, which is the right answer.
+
+Closed maneuvers skip both. The window wraps at the seam, so there is no end to stop at and no start to pull away from; a ramp there would make the car brake to a crawl once a lap.
 
 ## Adding a maneuver
 

@@ -3,7 +3,7 @@
   "description":
     "Sustained constant-speed sinusoidal weave; reveals the lateral controller's steady-state amplitude attenuation and phase lag (its frequency response).",
   "sample_spacing_m": 1.0,
-  "default_speed": 4.0,
+  "default_speed": 3.0,
   "segments": [
     {
       "straight": {

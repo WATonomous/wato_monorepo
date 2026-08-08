@@ -68,7 +68,7 @@ STRAIGHT_LENGTH = 84.0  # metres, length of each of the two straights
 # Only the maneuver and the ego spawn move with this -- the map geometry is all 4 lanes either
 # way. Keep OvalTrackScenario.START_Y in carla_scenarios in step with the start pose below.
 DRIVE_LANE = 1
-CRUISE_SPEED = 5.0  # m/s, constant so the controller laps continuously
+CRUISE_SPEED = 3.0  # m/s, constant so the controller laps continuously
 SPEED_LIMIT_KMH = 50
 NODE_SPACING = 2.0  # metres, OSM boundary discretisation
 

@@ -1,9 +1,9 @@
 {
   "name": "brake_in_curve",
   "description":
-    "Enter a constant-radius left arc at speed, brake through the corner (speed ramps to end_speed across the arc), then stop; probes controller stability while steering and decelerating at the same time.",
+    "Enter a constant-radius left arc at speed, brake through the corner (speed ramps to end_speed across the arc), then stop; probes controller stability while steering and decelerating at the same time. The opening straight is long enough to hold the launch ramp (4.5 m at default_speed / ramp_up_accel), so the car is at speed before the arc.",
   "sample_spacing_m": 1.0,
-  "default_speed": 5.0,
+  "default_speed": 3.0,
   "segments": [
     {
       "straight": {

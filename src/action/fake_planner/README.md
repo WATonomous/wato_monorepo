@@ -56,8 +56,9 @@ A maneuver is a JSON file: a few top-level settings and a `segments` list. Each 
 |-------|---------|-------------|
 | `name`, `description` | — | Informational only |
 | `sample_spacing_m` | `1.0` | Uniform waypoint spacing (m). Match the map centreline (see note in `fake_planner_core.cpp`) |
-| `default_speed` | `2.0` | Starting speed (m/s), carried until a segment overrides it |
-| `closed` | `false` | Lap forever (the window wraps); no stop pad is appended |
+| `default_speed` | `2.0` | Cruise speed (m/s), carried until a segment overrides it. All shipped maneuvers use `3.0` |
+| `ramp_up_accel` | `1.0` | Acceleration (m/s²) of the launch ramp: an open maneuver starts at zero speed and builds to `default_speed` over `v²/2a` (4.5 m at the defaults), so the car pulls away gently instead of being commanded to full speed from the first waypoint. Keep the opening `straight` at least that long so the ramp finishes before any curvature. `0` disables it; ignored on closed maneuvers |
+| `closed` | `false` | Lap forever (the window wraps); no stop pad or launch ramp |
 | `start` | — | Absolute `{x, y, yaw}` start pose. Marks the maneuver as fixed geometry: under `anchoring:=auto` it publishes verbatim instead of being laid out from the vehicle |
 | `segments` | *(required)* | Ordered list of `{type: {params}}`, one type per entry |
 
