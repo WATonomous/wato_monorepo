@@ -91,6 +91,16 @@ repos:
       - id: yamllint
         args: ["-c", ".config/.yamllint.yaml"]
 
+  # Generated track artifacts must match their generator
+  - repo: local
+    hooks:
+      - id: oval-track-generated
+        name: Oval track artifacts match generate_oval_track.py
+        entry: python3 tools/generate_oval_track.py --check
+        language: system
+        pass_filenames: false
+        files: '^(tools/generate_oval_track\.py|src/action/fake_planner/maneuvers/oval_track\.json)$'
+
   # License headers
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.5
