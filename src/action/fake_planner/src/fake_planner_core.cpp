@@ -33,8 +33,7 @@ namespace
 constexpr double kPi = 3.14159265358979323846;
 
 // A moving frame: world position (x, y) and heading theta. Segments are authored in this local
-// frame (u forward along theta, v to the left) and transformed into the world as we walk them,
-// so each segment simply continues from where the previous one ended.
+// frame (u forward along theta, v to the left), so each simply continues from where the last ended.
 struct Cursor
 {
   double x{0.0};
@@ -73,7 +72,6 @@ int subSteps(double length, double fine)
 // --- Primitive builders. Each appends samples for the segment interior (t in (0, L]) and moves
 // the cursor to the segment end; the caller seeds the very first point. Speed ramps s0 -> s1. ---
 
-// Straight / dwell: hold the current lateral offset, advance along the heading.
 void buildStraight(Path & path, Cursor & c, double length, double s0, double s1, double fine)
 {
   const int n = subSteps(length, fine);
@@ -98,9 +96,8 @@ void buildShift(Path & path, Cursor & c, double lateral, double length, double s
   c.y = path.y.back();
 }
 
-// Slalom: sinusoidal weave. The amplitude is tapered over the first/last half wavelength so the
-// path starts and ends on the centreline tangent to the heading, while the middle stays a pure
-// sine (the steady-state region the frequency-response test cares about).
+// Slalom: sinusoidal weave, amplitude tapered over the first/last half wavelength so the path
+// starts and ends on the centreline tangent to the heading while the middle stays a pure sine.
 void buildSlalom(
   Path & path, Cursor & c, double amp, double wavelength, double cycles, double s0, double s1, double fine)
 {
@@ -140,10 +137,8 @@ void buildArc(
   c.theta += dir_sign * angle_rad;
 }
 
-// Resample a fine polyline to uniform arc-length spacing (speed linearly interpolated). This is
-// what makes the output indistinguishable from a real planner, which emits uniformly-spaced
-// points (trajectory_planner's interpolation_resolution).
-// Takes the fine path by value so a too-short path is moved straight back out rather than copied.
+// Resample a fine polyline to uniform arc-length spacing (speed linearly interpolated), matching
+// the uniformly-spaced points a real planner emits (trajectory_planner's interpolation_resolution).
 Path resampleUniform(Path in, double spacing)
 {
   if (in.x.size() < 2) {
@@ -176,27 +171,18 @@ Path resampleUniform(Path in, double spacing)
   return out;
 }
 
-// Deceleration used to ramp an open maneuver down to a standstill. Matches
-// trajectory_planner's max_tangential_accel so the fake stop feels like the real one.
+// Matches trajectory_planner's max_tangential_accel so the fake stop feels like the real one.
 constexpr double kMaxDecel = 1.0;
 
-// Acceleration used to ramp an open maneuver up from a standstill, when the maneuver does not
-// override it with "ramp_up_accel". Same value as kMaxDecel: the launch ramp is the mirror image
-// of the stop pad, so the maneuver leaves rest as gently as it comes back to it.
+// Default for the launch ramp when the maneuver does not set "ramp_up_accel"; mirrors kMaxDecel so
+// the maneuver leaves rest as gently as it comes back to it.
 constexpr double kDefaultRampUpAccel = 1.0;
 
 // Start an open maneuver from a standstill: pin the first waypoint at zero speed and propagate that
-// zero forwards at `accel`, so the profile asks for a gentle straight-line pull away instead of the
-// authored speed from the very first point. The forward mirror of appendStopPad's backward pass --
-// the same envelope the real planner's forward accel limit applies leaving a stop line.
-//
-// Only the speed profile is touched; no geometry is added. The shipped maneuvers all open with a
-// straight long enough to hold the whole ramp (v^2 / 2a: 4.5 m at 3 m/s and 1 m/s^2), so the
-// acceleration finishes before any curvature. Lengthen that straight if you raise a maneuver's
-// speed or soften its accel, otherwise the car is still gaining speed when the steering starts.
-//
-// Runs before appendStopPad so its backward pass reconciles the two on a maneuver too short to
-// both reach speed and brake back down; taking the lower of the envelopes is exactly right there.
+// zero forwards at `accel`, so the profile asks for a gentle pull away instead of the authored speed
+// from the very first point. Speed profile only, no geometry: the shipped maneuvers open with a
+// straight long enough to hold the whole ramp (v^2 / 2a: 4.5 m at 3 m/s and 1 m/s^2), so lengthen
+// that straight if you raise a maneuver's speed or soften its accel.
 void applyLaunchRamp(Path & path, double accel)
 {
   if (accel <= 0.0 || path.x.size() < 2) {
@@ -211,14 +197,12 @@ void applyLaunchRamp(Path & path, double accel)
 }
 
 // How far past the last authored point the zero-speed pad extends. Pure pursuit only steers to
-// points *ahead* of the vehicle and simply returns (holding its last command) when it runs out,
-// so the path has to stay populated past the stop line or the car drives off the end. Comfortably
-// longer than the controller's max lookahead.
+// points *ahead* of the vehicle and holds its last command when it runs out, so the path has to
+// stay populated past the stop line. Comfortably longer than the controller's max lookahead.
 constexpr double kStopPadM = 10.0;
 
-// Terminate an open maneuver in a standstill: extend the final heading with zero-speed points,
-// then propagate that zero backwards at kMaxDecel so the speed profile brakes into it. Same
-// backward pass trajectory_planner runs, just with a known terminal speed instead of an obstacle.
+// Terminate an open maneuver in a standstill: extend the final heading with zero-speed points, then
+// propagate that zero backwards at kMaxDecel so the speed profile brakes into it.
 void appendStopPad(Path & path, double spacing)
 {
   if (path.x.size() < 2) {
@@ -309,8 +293,7 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   Path fine_path;
   Cursor cursor;
 
-  // Optional absolute start pose, which also marks the maneuver as fixed geometry (see
-  // hasAbsoluteStart).
+  // Optional absolute start pose, which also marks the maneuver as fixed geometry.
   if (doc.contains("start")) {
     const nlohmann::json & start = doc["start"];
     if (!start.is_object()) {
@@ -392,9 +375,8 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   }
 
   Path resampled = resampleUniform(std::move(fine_path), spacing);
-  // A closed circuit laps forever: it has no end to stop at, and no start to pull away from either
-  // -- the window wraps at the seam, so a ramp there would make the car brake to a crawl once a lap.
-  // Everything else starts from rest and ends in one.
+  // A closed circuit has no end to stop at and no start to pull away from -- the window wraps at
+  // the seam, so a ramp there would make the car brake to a crawl once a lap.
   if (!closed_) {
     applyLaunchRamp(resampled, ramp_up_accel);
     appendStopPad(resampled, spacing);
@@ -403,10 +385,8 @@ bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::strin
   wp_y_ = resampled.y;
   wp_speed_ = resampled.speed;
 
-  // Arc length along the maneuver, and where the driving ends: the stop line is the first
-  // zero-speed waypoint of the terminal pad, i.e. one past the last waypoint that still asks for
-  // speed. Found from the profile rather than from kStopPadM so it stays right whatever the pad
-  // does. A closed circuit has no stop line and never reports an end (see distanceToEnd).
+  // The stop line is one past the last waypoint that still asks for speed. Found from the profile
+  // rather than from kStopPadM so it stays right whatever the pad does.
   cum_s_.assign(wp_x_.size(), 0.0);
   for (std::size_t i = 1; i < wp_x_.size(); ++i) {
     cum_s_[i] = cum_s_[i - 1] + std::hypot(wp_x_[i] - wp_x_[i - 1], wp_y_[i] - wp_y_[i - 1]);
@@ -426,8 +406,7 @@ double FakePlannerCore::distanceToEnd() const
   if (closed_ || !ready_ || cum_s_.empty() || window_start_ >= cum_s_.size()) {
     return std::numeric_limits<double>::infinity();
   }
-  // Negative once the vehicle is past the stop line and into the pad -- that is arrived, not
-  // "-3 m to go", so clamp.
+  // Negative once the vehicle is into the pad past the stop line -- that is arrived, so clamp.
   return std::max(0.0, cum_s_[stop_index_] - cum_s_[window_start_]);
 }
 
@@ -436,8 +415,7 @@ void FakePlannerCore::anchor(double x, double y, double yaw)
   const double c = std::cos(yaw);
   const double s = std::sin(yaw);
 
-  // Apply the SE(2) anchor transform to every waypoint up front so publishing only has to
-  // restamp the sliced window.
+  // Transform every waypoint up front so publishing only has to restamp the sliced window.
   std::vector<double> xs(wp_x_.size());
   std::vector<double> ys(wp_x_.size());
   for (std::size_t i = 0; i < wp_x_.size(); ++i) {
@@ -510,10 +488,9 @@ std::size_t FakePlannerCore::nearestIndex(double veh_x, double veh_y) const
   return best;
 }
 
-// Slice the published horizon out of the full maneuver: trail_m behind the vehicle (so pure
-// pursuit always has path starting behind it and doesn't creep) through horizon_m ahead. On a
-// closed circuit the window wraps and the car laps; on an open one it runs into the zero-speed
-// stop pad and holds there.
+// Slice the published horizon out of the full maneuver: trail_m behind the vehicle through
+// horizon_m ahead. On a closed circuit the window wraps and the car laps; on an open one it runs
+// into the zero-speed stop pad and holds there.
 void FakePlannerCore::updateWindow(double veh_x, double veh_y)
 {
   const std::size_t n = full_traj_.points.size();

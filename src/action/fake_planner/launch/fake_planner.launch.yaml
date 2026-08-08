@@ -1,49 +1,23 @@
 # fake_planner.launch.yaml
 #
-# The controller test rig, shared by every environment and every controller -- what changes
-# between them is the topics and the maneuver, so those are launch args. Brings up:
-#   - fake_planner_node  : replays a maneuver (a JSON segment list under maneuvers/) plus an
-#                          execute_behaviour heartbeat, and publishes trajectory_markers (the
-#                          same MarkerArray visualization as the real trajectory_planner).
-#                          Like the real stack it publishes a rolling ~35 m horizon around the
-#                          vehicle rather than the whole route, and an open maneuver ends in a
-#                          braked stop (a "closed": true maneuver laps instead).
-#   - the controller under test : pure pursuit (default) or MPC, picked with controller:=.
-#                          MPC's tuning comes from action_bringup's action.yaml -- the same
-#                          config the real stack uses -- and it publishes its plan on
-#                          /action/mpc/predicted_path, worth watching against the markers.
-#                          Pure pursuit's comes from its own package by default, which is what
-#                          the sim is tuned against; the vehicle launch points it at action.yaml
-#                          instead so the car tests the controller as it is actually deployed.
-#   - lifecycle manager  : configures + activates both.
+# The controller test rig, shared by every environment and controller. Brings up the
+# fake_planner_node (maneuver replay + execute_behaviour heartbeat + trajectory_markers), the
+# controller under test (pure pursuit or MPC, via controller:=), and a lifecycle manager for both.
 #
-# This file is the rig itself, and its defaults are CARLA's. Prefer launching one of the two
-# environment wrappers beside it, which set every topic/clock/safety arg explicitly so the file
-# you launch is what decides where the commands go:
+# Prefer launching one of the environment wrappers beside it, which pin every topic/clock/safety
+# arg explicitly and forward everything below:
 #     fake_planner_sim.launch.yaml       CARLA
 #     fake_planner_vehicle.launch.yaml   the real car
-# Both forward every arg below, so any recipe here works through them too.
 #
-# Nothing drives on bringup anywhere: start_on_activate is false, so the rig comes up activated
-# but silent with the controller in standby, and a person releases it with the start_trajectory
-# service. The markers publish while held, so the path can be inspected first.
+# Nothing drives on bringup: start_on_activate is false, so the rig comes up activated but silent
+# with the controller in standby. Markers publish while held, so the path can be inspected first.
 #
-# Recipes
-#   CARLA sim, slalom from wherever the ego sits (defaults), then release it:
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml
-#     ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
+#   ros2 launch fake_planner fake_planner_sim.launch.yaml
+#   ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
+#   ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
-#   Any other maneuver / the MPC instead:
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
-#
-#   Oval track laps (needs the oval scenario loaded in CARLA: set scenario:= on the simulation
-#   launch, or initial_scenario in simulation_bringup/config/carla_bridge.yaml).
-#   The oval maneuver is in absolute track coords; anchoring turns itself off for it:
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=oval_track
-#
-# Handy while running:
-#   /action/fake_planner/trajectory_markers  -- the path, published even while held in standby
-#   the node's /stop_trajectory and /reset services, called the same way as /start_trajectory above
+# maneuver:=oval_track needs the oval scenario loaded in CARLA (scenario:= on the simulation
+# launch). See README.md for the full set of recipes and the /stop_trajectory + /reset services.
 
 launch:
   - arg:
@@ -77,11 +51,9 @@ launch:
       default: "pure_pursuit"
       description: "Controller under test: pure_pursuit or mpc"
 
-  # Pure pursuit's tuning differs a lot between the two files -- lookahead 5 m vs 30 m, gain 0.5 vs
-  # 2.0, steering clamp 0.5 rad vs 2.0 -- so which one is loaded decides what the run actually
-  # measures. The package's own params are the CARLA-tuned set and stay the default here; the
-  # vehicle launch swaps in action.yaml, the config the car runs in production. MPC has no
-  # equivalent split: it reads action.yaml in both environments.
+  # Pure pursuit's tuning differs a lot between the two files (lookahead 5 m vs 30 m, gain 0.5 vs
+  # 2.0), so which is loaded decides what the run measures. The package's own params are the
+  # CARLA-tuned set; the vehicle launch swaps in action.yaml. MPC reads action.yaml in both.
   - arg:
       name: pure_pursuit_config
       default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
@@ -108,9 +80,6 @@ launch:
       default: "true"
       description: Automatically configure and activate managed nodes
 
-  # Nothing drives on bringup in either environment. The stack comes up configured and activated
-  # but silent, and a person releases it with the start_trajectory service. Set true to publish
-  # (and drive) the moment the node activates.
   - arg:
       name: start_on_activate
       default: "false"
@@ -126,17 +95,15 @@ launch:
       default: "0.0"
       description: Controller speed in standby. 0.0 holds still; the controllers' own -0.5 default reverses.
 
-  # A pose jump this large between two odom messages is read as a respawn, and the node re-anchors
-  # itself at the new pose. That is what makes "respawn ego" a one-click reset in sim. On the real
-  # car there is nothing to respawn, and a localization jump of this size is a correction to keep
-  # driving through -- not a cue to re-lay the maneuver mid-run -- so the vehicle launch sets 0.
+  # Makes "respawn ego" a one-click reset in sim. On the real car a jump this size is a
+  # localization correction to keep driving through, so the vehicle launch sets 0.
   - arg:
       name: respawn_jump_m
       default: "5.0"
       description: Odom jump (m) treated as a respawn, after which the maneuver re-anchors. 0 disables.
 
-  # Everything controller-specific keys off this one flag, so the node that runs and the node
-  # the lifecycle manager waits for can't drift apart.
+  # Everything controller-specific keys off this one flag, so the node that runs and the node the
+  # lifecycle manager waits for can't drift apart.
   - let:
       name: is_mpc
       value: "$(equals $(var controller) mpc)"

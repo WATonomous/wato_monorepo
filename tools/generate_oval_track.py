@@ -15,34 +15,26 @@
 """
 Generate the 4-lane oval track as a single source of truth.
 
-`maps/` is git-ignored, so this script is the tracked, reproducible definition of
-the track. It emits three artifacts that are guaranteed to share one geometry:
+`maps/` is git-ignored, so this script is the tracked definition of the track. It emits
+three artifacts guaranteed to share one geometry:
 
-  1. maps/osm/oval_track_4_lane.osm   Lanelet2 map    -> world_model (visualisation / routing)
-  2. maps/osm/oval_track_4_lane.xodr  OpenDRIVE       -> CARLA (road mesh + ground pad)
-  3. src/action/fake_planner/maneuvers/oval_track.json
-                                      fake_planner maneuver -> the lane centreline to drive
+  1. maps/osm/oval_track_4_lane.osm   Lanelet2 map -> world_model (visualisation / routing)
+  2. maps/osm/oval_track_4_lane.xodr  OpenDRIVE    -> CARLA (road mesh + ground pad)
+  3. src/action/fake_planner/maneuvers/oval_track.json  -> the lane centreline to drive
 
-The .xodr additionally carries a "ground pad": a slab of wide shoulder lanes under and
-around the whole track, so that leaving the drawn lanes drops the car ~PAD_DROP onto
-flat ground instead of into the void (CARLA only builds mesh where OpenDRIVE lanes
-are). The pad is physics/visual only -- it is deliberately NOT in the .osm, where the
-lanes exist purely as lane context, and its lanes are non-driving so CARLA's waypoint
-API (project_to_road, lane_type=Driving) never snaps the ego or scenarios onto it.
+The .xodr also carries a "ground pad" of wide shoulder lanes under and around the track,
+so leaving the drawn lanes drops the car ~PAD_DROP onto flat ground instead of into the
+void (CARLA only builds mesh where OpenDRIVE lanes are). It is deliberately not in the
+.osm, and its lanes are non-driving so CARLA's waypoint API never snaps onto it.
 
-Geometry: a true "stadium" oval -- two parallel straights (length L, at +/-INNER_RADIUS)
-joined by two tangent semicircular caps centred at (+/-L/2, 0), so curvature is continuous.
-All lane boundaries are concentric offsets of that shape, giving exactly constant lane width.
+Geometry: a "stadium" oval -- two parallel straights (length L, at +/-INNER_RADIUS) joined
+by two tangent semicircular caps centred at (+/-L/2, 0), so curvature is continuous. All
+lane boundaries are concentric offsets of that shape, giving exactly constant lane width.
 
-Frames
-------
-CARLA is left-handed (X-fwd, Y-right) while OpenDRIVE and ROS are right-handed.
-CARLA negates Y when reading OpenDRIVE, and carla_localization negates Y again when
-publishing ROS odom -- so ROS coordinates == OpenDRIVE coordinates. The OSM is
-authored in the same frame via a local-cartesian projection about lat/lon (0, 0),
-matching the CARLA town .osm exports, so world_model's "local_cartesian" projector
-reproduces these exact XY metres. Net effect: lanelet map, CARLA road and
-trajectory all land on top of each other.
+Frames: CARLA is left-handed but negates Y when reading OpenDRIVE, and carla_localization
+negates Y again when publishing ROS odom -- so ROS coordinates == OpenDRIVE coordinates.
+The OSM is authored in the same frame via a local-cartesian projection about lat/lon (0, 0),
+so world_model's "local_cartesian" projector reproduces these exact XY metres.
 
 Usage:
     python3 tools/generate_oval_track.py            # writes all three artifacts
@@ -62,18 +54,16 @@ INNER_RADIUS = (
     35.0  # metres, inner edge of the innermost lane == cap radius of the reference line
 )
 STRAIGHT_LENGTH = 84.0  # metres, length of each of the two straights
-# Which lane the fake_planner maneuver follows, numbered outward from the inside (0 ==
-# innermost). Lane 1 leaves a full lane of road on the inside, so tracking error toward the
-# track centre stays on the mesh instead of running straight off the inner edge onto the pad.
-# Only the maneuver and the ego spawn move with this -- the map geometry is all 4 lanes either
-# way. Keep OvalTrackScenario.START_Y in carla_scenarios in step with the start pose below.
+# Which lane the fake_planner maneuver follows, numbered outward from the inside (0 == innermost).
+# Lane 1 leaves a full lane of road on the inside, so tracking error toward the track centre stays
+# on the mesh. Keep OvalTrackScenario.START_Y in step with the start pose this implies.
 DRIVE_LANE = 1
 CRUISE_SPEED = 3.0  # m/s, constant so the controller laps continuously
 SPEED_LIMIT_KMH = 50
 NODE_SPACING = 2.0  # metres, OSM boundary discretisation
 
-# Ground pad (OpenDRIVE only; see module docstring). Several moderate lanes triangulate
-# better than one enormous one, and the slight drop avoids z-fighting with the track mesh.
+# Ground pad (OpenDRIVE only). Several moderate lanes triangulate better than one enormous one,
+# and the slight drop avoids z-fighting with the track mesh.
 PAD_MARGIN = 20.0  # metres of flat runoff beyond the track envelope on every side
 PAD_LANE_WIDTH = 10.0  # metres, per pad shoulder lane
 PAD_DROP = 0.03  # metres the pad sits below the road surface
@@ -93,8 +83,8 @@ XODR_OUT = os.path.join(REPO, "maps", "osm", "oval_track_4_lane.xodr")
 MANEUVER_OUT = os.path.join(
     REPO, "src", "action", "fake_planner", "maneuvers", "oval_track.json"
 )
-# Not an output: the CARLA scenario owns the ego spawn, and verify() reads its start pose back
-# out to prove the car is put down in the same lane the maneuver drives.
+# Not an output: verify() reads the scenario's ego spawn back out to prove the car is put down in
+# the same lane the maneuver drives.
 SCENARIO_PY = os.path.join(
     REPO,
     "src",
@@ -113,9 +103,9 @@ WGS84_E2 = WGS84_F * (2.0 - WGS84_F)
 
 
 # --- Local-cartesian projection about lat/lon (0, 0) -------------------------
-# GeographicLib's LocalCartesian at origin (0,0,0) has ENU basis East=(0,1,0),
-# North=(0,0,1), Up=(1,0,0) in ECEF, and origin ECEF = (a, 0, 0). So for a point
-# at height 0: east == Y_ecef and north == Z_ecef. Inverting for lat/lon:
+# GeographicLib's LocalCartesian at origin (0,0,0) has ENU basis East=(0,1,0), North=(0,0,1),
+# Up=(1,0,0) in ECEF, and origin ECEF = (a, 0, 0). So at height 0, east == Y_ecef and
+# north == Z_ecef. Inverting for lat/lon:
 #     Z = N(lat)(1-e^2) sin(lat) = north      (N depends on lat -> iterate)
 #     Y = N(lat) cos(lat) sin(lon) = east
 def xy_to_latlon(east, north):
@@ -145,9 +135,8 @@ def stadium_segments(radius):
     Return the 4 segments of a stadium ring at `radius`, travelled counter-clockwise
     starting at the west end of the bottom straight, each as a list of (x, y).
 
-    Consecutive segments share their junction point exactly (the last point of one
-    equals the first point of the next), which is what lets the OSM writer reuse a
-    single node id at each junction -- the topology fix the old map was missing.
+    Consecutive segments share their junction point exactly, which lets the OSM writer
+    reuse a single node id at each junction.
     """
 
     def arc(cx, theta0, theta1):
@@ -175,9 +164,9 @@ def stadium_segments(radius):
 
 def dist_to_spine(x, y):
     """
-    Distance from (x, y) to the track's spine: the segment (-L/2, 0)..(L/2, 0).
-    A stadium ring of radius r is exactly the locus dist_to_spine == r, so this is
-    the ground truth every generated point is checked against.
+    Distance from (x, y) to the track's spine: the segment (-L/2, 0)..(L/2, 0). A stadium
+    ring of radius r is exactly the locus dist_to_spine == r, so this is the ground truth
+    every generated point is checked against.
     """
     if abs(x) <= CAP_CENTRE_X:
         return abs(y)
@@ -186,9 +175,8 @@ def dist_to_spine(x, y):
 
 def scenario_start():
     """
-    The CARLA scenario's ego spawn (START_X, START_Y), scraped from its source, or None if it
-    can't be read. Scraped rather than imported because importing the scenario pulls in carla
-    and the rest of the ROS package, which this script deliberately does not depend on.
+    The CARLA scenario's ego spawn (START_X, START_Y), or None if unreadable. Scraped rather
+    than imported: importing the scenario pulls in carla and the rest of the ROS package.
     """
     try:
         with open(SCENARIO_PY) as f:
@@ -231,8 +219,8 @@ def build_osm():
         for s, seg in enumerate(segs):
             ids = []
             for i, (x, y) in enumerate(seg):
-                # Share the junction node with the previous segment, and close the
-                # ring by reusing the very first node at the end of the last segment.
+                # Share the junction node with the previous segment, and close the ring by
+                # reusing the first node at the end of the last segment.
                 if i == 0 and seg_node_ids:
                     ids.append(seg_node_ids[-1][-1])
                     continue
@@ -317,17 +305,15 @@ def build_osm():
 # --- OpenDRIVE ---------------------------------------------------------------
 def build_xodr():
     """
-    Two roads linked head-to-tail into a closed loop (avoids a road linking to
-    itself, which OpenDRIVE does not allow):
+    Two roads linked head-to-tail into a closed loop (a road may not link to itself):
       road 1 = bottom straight + east cap   (-42,-35) hdg 0  ->  (42, 35) hdg pi
       road 2 = top straight    + west cap   ( 42, 35) hdg pi ->  (-42,-35) hdg 2pi
 
-    The reference line is the inner edge (radius INNER_RADIUS); the 4 driving lanes
-    are on the right of it (ids -1..-4), i.e. outward, and carry traffic along +s.
+    The reference line is the inner edge (radius INNER_RADIUS); the 4 driving lanes are on
+    the right of it (ids -1..-4), i.e. outward, and carry traffic along +s.
 
-    Plus road 3, the ground pad: an unlinked straight road along the spine whose
-    shoulder lanes form a flat slab covering the track envelope + PAD_MARGIN, sitting
-    PAD_DROP below the road so leaving the lanes never falls out of the world.
+    Plus road 3, the ground pad: an unlinked straight road along the spine whose shoulder
+    lanes form a flat slab covering the track envelope + PAD_MARGIN.
     """
     cap_len = math.pi * INNER_RADIUS
     curv = 1.0 / INNER_RADIUS  # positive == counter-clockwise (left)
@@ -491,24 +477,17 @@ def build_maneuver():
     return {
         "name": "oval_track",
         "description": (
-            "Lane %d (radius %.2f m) of the 4-lane oval, in absolute track/odom "
-            "coordinates. Generated by tools/generate_oval_track.py -- do not hand-edit; "
-            "it is kept in exact agreement with maps/osm/oval_track_4_lane.osm and .xodr. "
-            "Closed %.1f m lap at constant %.1f m/s so the controller laps continuously. "
-            'The "start" pose below is what tells the node to publish it verbatim rather '
-            "than laying it out from the vehicle, so it lands on the real track."
-            % (DRIVE_LANE, r, lap, CRUISE_SPEED)
+            "Lane %d (radius %.2f m) of the 4-lane oval, in absolute track/odom coordinates. "
+            "Generated by tools/generate_oval_track.py -- do not hand-edit; it is kept in "
+            "agreement with maps/osm/oval_track_4_lane.osm and .xodr. Closed %.1f m lap at "
+            "constant %.1f m/s." % (DRIVE_LANE, r, lap, CRUISE_SPEED)
         ),
-        # Match the map, not a round number. For lane following the real trajectory is the
-        # lanelet centreline passed through untouched (lattice_planning collects centreline
-        # points to the horizon; trajectory_planner emits one TrajectoryPoint per pose), so the
-        # planner's waypoint spacing IS the map's node spacing. Deriving it from NODE_SPACING
-        # keeps the replayed maneuver in step with the map this same script emits.
+        # For lane following the real trajectory is the lanelet centreline passed through
+        # untouched, so the planner's waypoint spacing IS the map's node spacing.
         "sample_spacing_m": NODE_SPACING,
         "default_speed": CRUISE_SPEED,
-        # The lap is a circuit: the window wraps at the seam and the car keeps going. Without
-        # this the core treats the maneuver as open and caps it with a braked stop pad, so the
-        # car would brake to a halt back at the start line instead of lapping.
+        # Without this the core caps the maneuver with a braked stop pad and the car halts back
+        # at the start line instead of lapping.
         "closed": True,
         "start": {"x": -CAP_CENTRE_X, "y": -r, "yaw": 0.0},
         "segments": [
@@ -522,9 +501,9 @@ def build_maneuver():
 
 def expand_maneuver(doc):
     """
-    Replay the segment expansion that fake_planner_node.cpp performs (moving SE(2)
-    cursor seeded from the optional `start` pose), so the generator can prove the
-    maneuver lands exactly on the lane centreline before writing it.
+    Replay the segment expansion fake_planner_core.cpp performs (moving SE(2) cursor seeded
+    from the optional `start` pose), so verify() can check the maneuver against the lane
+    centreline before writing it.
     """
     pts = []
     st = doc.get("start", {})
@@ -611,11 +590,9 @@ def verify(nodes, ways, rels):
             closed += 1
     check("all 5 boundary rings closed", closed == NUM_LANES + 1, "(%d/5)" % closed)
 
-    # A stadium ring of radius r is exactly the locus of points at distance r from the
-    # spine segment (-L/2,0)..(L/2,0). Proving every generated point satisfies that
-    # proves, in one shot, that the caps are tangent to the straights (the locus is C1
-    # by construction -- no kinks) AND that the rings are true concentric offsets, so
-    # lane width is exactly constant everywhere.
+    # Every point sitting exactly on its stadium ring proves in one shot that the caps are
+    # tangent to the straights (the locus is C1 by construction) and that the rings are true
+    # concentric offsets, so lane width is constant everywhere.
     worst_r = 0.0
     for k in range(NUM_LANES + 1):
         for seg in stadium_segments(boundary_radius(k)):
@@ -651,8 +628,8 @@ def verify(nodes, ways, rels):
         abs(EXTENT_X - 91.0) < 1e-9 and abs(EXTENT_Y - 49.0) < 1e-9,
     )
 
-    # The ground pad must bury the whole track envelope with real runoff on every side,
-    # and its shoulder lanes must never be mistaken for drivable road.
+    # The pad must bury the whole envelope with runoff on every side, and its shoulder lanes
+    # must never be mistaken for drivable road.
     xodr = build_xodr()
     check(
         "ground pad covers envelope + >= 15 m runoff",
@@ -666,8 +643,6 @@ def verify(nodes, ways, rels):
         "(%d shoulder lanes)" % (2 * PAD_LANES_PER_SIDE),
     )
 
-    # The maneuver must trace the drive lane's centreline exactly. Replays the same
-    # segment expansion the C++ fake_planner does (straight/arc + start pose).
     maneuver = build_maneuver()
     pts = expand_maneuver(maneuver)
     r_drive = lane_centre_radius(DRIVE_LANE)
@@ -679,16 +654,15 @@ def verify(nodes, ways, rels):
     )
     gap = math.hypot(pts[-1][0] - pts[0][0], pts[-1][1] - pts[0][1])
     check("maneuver closes the lap", gap < 1e-6, "(gap %.2e m)" % gap)
-    # Geometry that closes is not enough: without the flag the core appends a braked stop pad
-    # at the seam and the car halts on the start line instead of lapping.
+    # Closing geometry is not enough: without the flag the core appends a braked stop pad.
     check("maneuver flagged closed (laps, no stop pad)", maneuver.get("closed") is True)
     check(
         "maneuver starts on the track",
         abs(dist_to_spine(*pts[0]) - r_drive) < 1e-9,
         "(start %.2f, %.2f)" % pts[0],
     )
-    # The CARLA scenario spawns the ego at its own hard-coded pose and this maneuver is absolute,
-    # so a spawn that drifts from the start pose puts the car in a different lane from the path.
+    # The maneuver is absolute, so a scenario spawn that drifts from its start pose puts the car
+    # in a different lane from the path.
     spawn = scenario_start()
     check(
         "ego spawn matches the maneuver start",

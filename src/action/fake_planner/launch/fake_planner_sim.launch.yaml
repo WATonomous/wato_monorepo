@@ -1,23 +1,16 @@
 # fake_planner_sim.launch.yaml
 #
 # The controller test rig in CARLA. Thin wrapper over fake_planner.launch.yaml (which holds the
-# actual nodes) that pins the simulation-side plumbing: the bridge's odom, the bridge's ackermann
-# command topic, and sim time off /clock. Every other arg is forwarded untouched, so anything the
-# rig accepts works here:
+# actual nodes) pinning the simulation-side plumbing: the bridge's odom, its ackermann command
+# topic, and sim time off /clock. Every other arg is forwarded untouched.
 #
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
-# Nothing moves on launch -- see the rig's header for the hold/release protocol and the service
-# calls. Pass start_on_activate:=true to go back to driving straight off bringup. Sim-only wrinkle:
-# a respawned ego re-arms the hold, so after "respawn ego" in Foxglove the maneuver re-anchors at
-# the new pose and waits for start_trajectory again.
+# Nothing moves on launch -- see the rig's header for the hold/release protocol. A respawned ego
+# re-arms the hold, so "respawn ego" in Foxglove re-anchors and waits for start_trajectory again.
 #
-# Oval track laps need the oval scenario loaded in CARLA -- set scenario:= on the simulation launch,
-# or initial_scenario in simulation_bringup/config/carla_bridge.yaml.
-#
-# For the real car use fake_planner_vehicle.launch.yaml instead -- do not reach for this file with
-# topic overrides, since the whole point of the split is that the filename decides the environment.
+# For the real car use fake_planner_vehicle.launch.yaml rather than overriding topics here.
 
 launch:
   # -- Simulation plumbing. These are what make this the sim launch.
@@ -36,17 +29,13 @@ launch:
       default: "true"
       description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
 
-  # Ego respawns are a sim-only event, and re-anchoring on them is what makes "respawn ego" a
-  # one-click reset in Foxglove. Left on here; the vehicle launch turns it off.
+  # Re-anchoring on a respawn is what makes "respawn ego" a one-click reset. The vehicle launch
+  # turns it off.
   - arg:
       name: respawn_jump_m
       default: "5.0"
       description: Odom jump (m) treated as an ego respawn, after which the maneuver re-anchors. 0 disables.
 
-  # Come up silent and let a person release the car, rather than driving on bringup -- same as the
-  # vehicle launch and the rig's own default. A rig that starts driving the moment it launches is a
-  # surprise in either environment, and the markers publish while held so the path can be checked
-  # first. Note this composes with the respawn handling above: a respawn re-arms the hold.
   - arg:
       name: start_on_activate
       default: "false"
@@ -73,8 +62,8 @@ launch:
       default: "pure_pursuit"
       description: "Controller under test: pure_pursuit or mpc"
 
-  # Left at the rig default, the package's own params: that is the tuning the sim is set up
-  # against. The vehicle launch points this at action.yaml instead.
+  # The package's own params are the tuning the sim is set up against; the vehicle launch points
+  # this at action.yaml instead.
   - arg:
       name: pure_pursuit_config
       default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"

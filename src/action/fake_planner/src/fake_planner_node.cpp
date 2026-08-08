@@ -29,16 +29,11 @@ namespace fake_planner
 FakePlannerNode::FakePlannerNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode("fake_planner_node", options)
 {
-  // Defaults only: config/params.yaml is where these are tuned and is what documents them. Only
-  // the ones it does not carry, or whose meaning a code reader needs on the spot, are noted here.
-
-  // Topics / frame
+  // Defaults only: config/params.yaml is where these are tuned and documented.
   declare_parameter("trajectory_topic", "trajectory");
   declare_parameter("behaviour_topic", "execute_behaviour");
   declare_parameter("odom_topic", "odom");
   declare_parameter("frame_id", "odom");
-
-  // Behaviour
   declare_parameter("publish_rate_hz", 10.0);
   declare_parameter("publish_behaviour", true);
   declare_parameter("behaviour", "lane_follow");
@@ -48,20 +43,12 @@ FakePlannerNode::FakePlannerNode(const rclcpp::NodeOptions & options)
   // the node at construction.
   declare_parameter("anchoring", "auto");
 
-  // Rolling window (see FakePlannerConfig for why a window rather than the whole route).
   declare_parameter("horizon_m", 35.0);
   declare_parameter("trail_m", 2.0);
-
   declare_parameter("respawn_jump_m", 5.0);
-
-  // Whether activation starts the trajectory immediately. Set false to bring the stack up
-  // with the vehicle held in standby and release it later with the start_trajectory service.
   declare_parameter("start_on_activate", true);
-
   declare_parameter("finish_distance_m", 3.0);
   declare_parameter("finish_speed_mps", 0.25);
-
-  // One maneuver per file, selected from the package's maneuvers/ folder via the launch.
   declare_parameter("maneuver_file", std::string(""));
 
   // Same param name and default topic as the real planner.
@@ -100,7 +87,6 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
     return CallbackReturn::FAILURE;
   }
 
-  // Build config from declared parameters and construct the maneuver core
   FakePlannerConfig config;
   config.horizon_m = horizon_m_;
   config.trail_m = trail_m_;
@@ -118,10 +104,9 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
     return CallbackReturn::FAILURE;
   }
 
-  // Resolve anchoring now that the maneuver is loaded and can answer for itself. Forcing "relative"
-  // on a maneuver that declares an absolute start is legal (replay the oval's shape from wherever
-  // the car is parked) but is never what you want on the track it was drawn for, so say so rather
-  // than silently putting the path through a hedge.
+  // Forcing "relative" on a maneuver that declares an absolute start is legal (replay the oval's
+  // shape from wherever the car is parked) but is never what you want on the track it was drawn
+  // for, so warn rather than silently putting the path through a hedge.
   anchor_to_first_pose_ = (anchoring_ == "auto") ? !core_->hasAbsoluteStart() : (anchoring_ == "relative");
   if (anchoring_ == "relative" && core_->hasAbsoluteStart()) {
     RCLCPP_WARN(
@@ -146,15 +131,12 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   reset_srv_ = create_service<std_srvs::srv::Trigger>(
     "~/reset", std::bind(&FakePlannerNode::resetTrajectory, this, std::placeholders::_1, std::placeholders::_2));
 
-  // Odom is needed either way: to anchor the layout (optionally) and to slide the rolling window
-  // as the vehicle drives.
   have_pose_ = false;
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     odom_topic_, rclcpp::QoS(10), std::bind(&FakePlannerNode::odomCallback, this, std::placeholders::_1));
 
-  // Anchoring lays the waypoints out from the vehicle's pose at launch, so the same file
-  // works regardless of where odom's origin is (sim spawn vs. accumulated odom on the car).
-  // Without it, waypoints are published verbatim in frame_id.
+  // Anchoring waits for the first odom to lay the waypoints out from the vehicle's pose, so the
+  // same file works regardless of where odom's origin is. Without it they publish verbatim.
   if (anchor_to_first_pose_) {
     anchored_ = false;
   } else {
@@ -179,10 +161,8 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
 void FakePlannerNode::startTrajectory(
   const std_srvs::srv::Trigger::Request::SharedPtr /*request*/, std_srvs::srv::Trigger::Response::SharedPtr response)
 {
-  // A finished run does not restart on a start call. The car is parked on the stop line, so
-  // starting again would republish a window whose speeds are all zero (nothing happens) or, once
-  // the window slid past the line, drive off the end of the maneuver. Re-running is what reset is
-  // for -- it rewinds the window and re-lays the path from where the car actually is.
+  // A finished run does not restart here: the car is parked on the stop line, so republishing
+  // would either do nothing (all-zero speeds) or drive off the end. Re-running is reset's job.
   if (finished_) {
     response->success = false;
     response->message = "Maneuver already finished; call reset to run it again";
@@ -208,10 +188,9 @@ void FakePlannerNode::stopTrajectory(
 void FakePlannerNode::resetTrajectory(
   const std_srvs::srv::Trigger::Request::SharedPtr /*request*/, std_srvs::srv::Trigger::Response::SharedPtr response)
 {
-  // Rewind the window. When anchoring, drop the anchored trajectory too so the next odom re-lays
-  // the whole maneuver from wherever the car ended up -- that is what makes a re-run possible
-  // after the car has driven to the end and stopped. Absolute maneuvers keep their fixed geometry
-  // and just re-acquire the nearest point.
+  // When anchoring, drop the anchored trajectory so the next odom re-lays the maneuver from
+  // wherever the car ended up. Absolute maneuvers keep their geometry and re-acquire the nearest
+  // point.
   if (anchor_to_first_pose_) {
     anchored_ = false;
     core_->clear();
@@ -219,8 +198,7 @@ void FakePlannerNode::resetTrajectory(
     core_->rewind();
   }
 
-  // Match a fresh activate: clear the finish latch, then resume immediately or hold, per
-  // start_on_activate.
+  // Match a fresh activate: clear the latch, then resume or hold per start_on_activate.
   finished_ = false;
   trajectory_started_ = start_on_activate_;
 
@@ -299,10 +277,10 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_shutdown(const rclcpp_lifecy
   return CallbackReturn::SUCCESS;
 }
 
-// Same marker scheme as trajectory_planner's visualization: wipe, then a sphere per point
-// sized by speed with a text label on every 4th marker. The only difference is the speed
-// that saturates the sphere size: the real planner normalizes by the lane speed limit,
-// which the fake planner doesn't have, so the maneuver's top speed stands in for it.
+// Same marker scheme as trajectory_planner's visualization: wipe, then a sphere per point sized by
+// speed with a text label on every 4th marker. Differs only in what saturates the sphere size --
+// the real planner normalizes by the lane speed limit, which we don't have, so the maneuver's top
+// speed stands in.
 void FakePlannerNode::publishMarkers()
 {
   if (!marker_pub_ || !marker_pub_->is_activated() || !core_ || !core_->ready()) {
@@ -387,7 +365,6 @@ void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr
   const double new_x = msg->pose.pose.position.x;
   const double new_y = msg->pose.pose.position.y;
 
-  // Speed magnitude, used only to tell "stopped at the end" from "still driving through it".
   veh_speed_ = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
 
   // A teleport between consecutive odom messages means the vehicle was respawned underneath us.
@@ -402,9 +379,7 @@ void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr
   if (teleported) {
     RCLCPP_INFO(get_logger(), "Pose jumped to (%.2f, %.2f) -- treating as a respawn and re-anchoring", new_x, new_y);
     core_->rewind();
-    // The car that finished the run no longer exists; the maneuver is about to be re-laid from
-    // the new pose, so clear the latch. Whether that immediately drives is start_on_activate's
-    // call, exactly as on a fresh activate -- the respawn itself never releases the car.
+    // Treated exactly like a fresh activate: the respawn itself never releases the car.
     finished_ = false;
     trajectory_started_ = start_on_activate_;
     if (anchor_to_first_pose_) {
@@ -418,7 +393,6 @@ void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr
   }
 
   const auto & q = msg->pose.pose.orientation;
-  // Yaw from quaternion (z-up).
   const double anchor_yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
   core_->anchor(new_x, new_y, anchor_yaw);
   core_->updateWindow(veh_x_, veh_y_);
@@ -435,9 +409,8 @@ void FakePlannerNode::odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr
 
 void FakePlannerNode::timerCallback()
 {
-  // The run is over and stays over: publishing nothing lets the controller time out into standby
-  // (standby_speed, 0.0 in both launches) so the car holds where it stopped. Markers stay up so
-  // the driven path is still visible. Only reset (or a respawn) starts another run.
+  // Publishing nothing lets the controller time out into standby so the car holds where it stopped.
+  // Markers stay up so the driven path is still visible.
   if (finished_) {
     publishMarkers();
     RCLCPP_INFO_THROTTLE(
@@ -445,9 +418,8 @@ void FakePlannerNode::timerCallback()
     return;
   }
 
-  // Publish nothing until started (except the marker preview, so the maneuver can be
-  // inspected before releasing the car): with no trajectory and no behaviour heartbeat
-  // the controller stays in standby rather than driving off on bringup.
+  // Markers only until started, so the maneuver can be inspected before releasing the car: with no
+  // trajectory and no behaviour heartbeat the controller stays in standby.
   if (!trajectory_started_) {
     publishMarkers();
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000, "Holding: waiting for the start_trajectory service.");
@@ -460,10 +432,9 @@ void FakePlannerNode::timerCallback()
     return;
   }
 
-  // End of an open maneuver: the car has driven the stop pad down to a standstill at the stop
-  // line (or rolled past it). Latch here rather than letting it sit on a zero-speed window
-  // forever -- an engaged controller parked on the end of the path is one tracking wobble away
-  // from creeping, and on a closed circuit distanceToEnd is infinite so laps are untouched.
+  // End of an open maneuver. Latch rather than sitting on a zero-speed window forever: an engaged
+  // controller parked on the end of the path is one tracking wobble away from creeping. On a closed
+  // circuit distanceToEnd is infinite, so laps are untouched.
   if (have_pose_ && core_->distanceToEnd() <= finish_distance_m_ && veh_speed_ <= finish_speed_mps_) {
     finished_ = true;
     trajectory_started_ = false;

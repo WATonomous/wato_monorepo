@@ -30,10 +30,9 @@ namespace fake_planner
 {
 
 // Replays a predefined trajectory (expanded from a maneuver JSON segment list) at a fixed rate so a
-// controller can be exercised without the real planner stack. Also publishes an
-// execute_behaviour heartbeat so the controller leaves standby. Environment-agnostic: the
-// same node works in the CARLA sim and on the vehicle — only the odom/command topics differ
-// (set via remaps in the launch file).
+// controller can be exercised without the real planner stack, plus an execute_behaviour heartbeat
+// so the controller leaves standby. The same node works in sim and on the vehicle; only the
+// odom/command topics differ, set via remaps in the launch file.
 class FakePlannerNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -60,7 +59,6 @@ private:
   void resetTrajectory(
     const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
 
-  // Maneuver expansion and rolling-window slicing — holds no ROS state
   std::unique_ptr<FakePlannerCore> core_;
 
   // Parameters
@@ -71,8 +69,7 @@ private:
   double publish_rate_hz_{10.0};
   bool publish_behaviour_{true};
   std::string behaviour_{"lane_follow"};
-  // Requested anchoring policy ("auto" | "relative" | "absolute") and what it resolved to for the
-  // maneuver that was actually loaded. Under "auto" the file decides: a maneuver carrying an
+  // "auto" | "relative" | "absolute". Under "auto" the file decides: a maneuver carrying an
   // absolute "start" is published verbatim, anything else is laid out from the vehicle's pose.
   std::string anchoring_{"auto"};
   bool anchor_to_first_pose_{true};
@@ -89,17 +86,15 @@ private:
   // Toggled by the start/stop services; seeded from start_on_activate on activation.
   bool trajectory_started_{true};
 
-  // Latched when the vehicle reaches the end of an open maneuver. Publishing stops for good, so
-  // the controller times out into standby and the car stays put: a finished run must not creep,
-  // and must not silently start itself over. Only an explicit reset (or a respawn, which is the
-  // sim's reset) clears it.
+  // Latched when the vehicle reaches the end of an open maneuver, so the controller times out into
+  // standby and the car stays put rather than creeping or silently starting over. Cleared only by
+  // an explicit reset (or a respawn, which is the sim's reset).
   bool finished_{false};
 
-  // Whether the maneuver has been laid out from a pose yet (see anchoring_).
   bool anchored_{false};
 
-  // Latest vehicle position in frame_id_, tracked continuously to slide the window, and its speed
-  // magnitude, which decides whether it has actually come to rest at the end of the maneuver.
+  // Latest vehicle position in frame_id_, used to slide the window, and its speed magnitude, which
+  // decides whether it has actually come to rest at the end of the maneuver.
   bool have_pose_{false};
   double veh_x_{0.0};
   double veh_y_{0.0};

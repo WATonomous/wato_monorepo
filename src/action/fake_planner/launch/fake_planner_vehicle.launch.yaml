@@ -2,27 +2,23 @@
 #
 # The controller test rig on the real car. Thin wrapper over fake_planner.launch.yaml (which holds
 # the actual nodes) that swaps CARLA's plumbing for the vehicle's and flips the defaults that are
-# merely convenient in sim but wrong on hardware. Every other arg is forwarded untouched.
+# convenient in sim but wrong on hardware. Every other arg is forwarded untouched.
 #
 #     ros2 launch fake_planner fake_planner_vehicle.launch.yaml
 #     ros2 launch fake_planner fake_planner_vehicle.launch.yaml maneuver:=sine_with_dwell
 #
 # THIS DRIVES A REAL VEHICLE. Before launching:
 #   - Bring up world_modeling far enough to publish /world_modeling/transform/odometry and the TF
-#     chain odom -> base_footprint -> rear_axle. Without odom the node never anchors and publishes
-#     nothing; without TF the controller can't transform the trajectory.
-#   - Check the maneuver fits the space you have. Speeds are baked into the maneuver JSON, not
-#     settable here: the shipped maneuvers run at 4-5 m/s and need 50-100 m of clear run, and
-#     brake_in_curve sweeps a 100 degree arc at an 18 m radius. Author a slower JSON for a first pass.
+#     chain odom -> base_footprint -> rear_axle. Without odom the node never anchors; without TF
+#     the controller can't transform the trajectory.
+#   - Check the maneuver fits the space you have. Speeds are baked into the JSON, not settable
+#     here: the shipped maneuvers run at 4-5 m/s and need 50-100 m of clear run, and
+#     brake_in_curve sweeps a 100 degree arc at an 18 m radius.
 #   - Confirm the ackermann mux is arming /action/ackermann and that a manual override can win.
 #
-# Nothing moves on launch: start_on_activate is false here, so the stack comes up configured and
-# activated but silent, with the controller held in standby. Release it deliberately:
-#     ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
-# and to put it back in standby (the controller falls back to standby_speed):
-#     ros2 service call /action/fake_planner/fake_planner_node/stop_trajectory std_srvs/srv/Trigger
-# The trajectory markers publish even while held, so the path can be inspected in Foxglove on
-# /action/fake_planner/trajectory_markers before anything is released.
+# Nothing moves on launch: start_on_activate is false, so the stack comes up activated but silent
+# with the controller in standby. Release it deliberately with the node's start_trajectory service
+# (stop_trajectory puts it back), and inspect /action/fake_planner/trajectory_markers first.
 
 launch:
   # -- Vehicle plumbing. These are what make this the vehicle launch.
@@ -46,17 +42,15 @@ launch:
       default: "$(find-pkg-share action_bringup)/config/action.yaml"
       description: The deployed pure pursuit tuning, so the rig tests the controller as the car runs it.
 
-  # There is no respawn on a real vehicle. A jump this size in fused odometry is a localization
-  # correction, and re-laying the maneuver from the corrected pose mid-run would swing the path
-  # under the car while it is driving. Off here; sim leaves it on for one-click ego resets.
+  # A jump this size in fused odometry is a localization correction, and re-laying the maneuver
+  # from the corrected pose would swing the path under the car while it is driving.
   - arg:
       name: respawn_jump_m
       default: "0.0"
       description: Disabled on the vehicle. Non-zero re-anchors the maneuver on an odom jump that large.
 
-  # Come up silent and let a person release the car, rather than driving on bringup. Same value as
-  # the rig and the sim launch, pinned here anyway: on hardware this one is not an argument the
-  # file inherits, it is the file's promise.
+  # Same value as the rig and the sim launch, pinned here anyway: on hardware this is not an
+  # argument the file inherits, it is the file's promise.
   - arg:
       name: start_on_activate
       default: "false"
@@ -99,8 +93,7 @@ launch:
       description: Configure and activate the managed nodes. Publishing is still gated by start_on_activate.
 
   # Every maneuver that belongs on the real car is vehicle-relative, so auto resolves to anchoring
-  # on: the path is laid out from wherever the car is standing at launch. (The oval is in absolute
-  # CARLA track coords and has no meaning here.)
+  # on. (The oval is in absolute CARLA track coords and has no meaning here.)
   - arg:
       name: anchoring
       default: "auto"

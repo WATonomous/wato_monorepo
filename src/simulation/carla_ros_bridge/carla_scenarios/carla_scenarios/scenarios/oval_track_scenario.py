@@ -28,12 +28,11 @@ class OvalTrackScenario(ScenarioBase):
     """
     Generates the 4-lane oval track world from OpenDRIVE and puts the ego on it.
 
-    Unlike the town scenarios, this does not load a shipped CARLA map: it feeds CARLA
-    the OpenDRIVE emitted by tools/generate_oval_track.py, so the car drives on the
-    same geometry that world_model loads as a lanelet map and that the fake_planner
-    replays as a maneuver.
+    Unlike the town scenarios this does not load a shipped CARLA map: it feeds CARLA the
+    OpenDRIVE emitted by tools/generate_oval_track.py, so the car drives on the same geometry
+    world_model loads as a lanelet map and the fake_planner replays as a maneuver.
 
-    Pair with (the rig comes up held in standby; release it with the start_trajectory service):
+    Pair with:
         ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=oval_track
     """
 
@@ -41,10 +40,8 @@ class OvalTrackScenario(ScenarioBase):
     XODR_PATH = "/opt/watonomous/maps/osm/oval_track_4_lane.xodr"
 
     # Start of the drive lane in OpenDRIVE coords -- must match the "start" pose in
-    # fake_planner/maneuvers/oval_track.json. Y is negated below (CARLA is left-handed),
-    # then snapped to the lane via the waypoint API for the exact centreline pose + heading.
-    # Both come from DRIVE_LANE in tools/generate_oval_track.py (lane 1, the second lane in
-    # from the inside): -Y is the lane centreline radius, 35.0 + (1 + 0.5) * 3.5.
+    # fake_planner/maneuvers/oval_track.json. Both come from DRIVE_LANE in
+    # tools/generate_oval_track.py: -Y is the lane centreline radius, 35.0 + (1 + 0.5) * 3.5.
     START_X = -42.0
     START_Y = -40.25
 
@@ -135,8 +132,8 @@ class OvalTrackScenario(ScenarioBase):
             return True
 
         except AttributeError as e:
-            # generate_opendrive_world / OpendriveGenerationParameters are not present in
-            # every CARLA build; make that failure legible rather than a bare traceback.
+            # generate_opendrive_world / OpendriveGenerationParameters are missing in some
+            # CARLA builds; make that failure legible rather than a bare traceback.
             self._log(
                 f"This CARLA build appears not to support OpenDRIVE world generation: {e}",
                 "error",

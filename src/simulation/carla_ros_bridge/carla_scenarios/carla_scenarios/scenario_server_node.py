@@ -400,10 +400,9 @@ class ScenarioServerNode(LifecycleNode):
         """
         Put the ego back at the pose the scenario spawned it at.
 
-        This is the cheap reset: it teleports the existing actor rather than reloading the
-        scenario, so the map stays loaded and the managed lifecycle nodes are never torn down
-        (no odom gap, no re-configure). It resets the ego only -- NPC traffic and anything else
-        the scenario spawned keeps running. Use switch_scenario for a full world reset.
+        Teleports the existing actor rather than reloading the scenario, so the map stays
+        loaded and the managed lifecycle nodes are never torn down. Resets the ego only --
+        NPC traffic keeps running. Use switch_scenario for a full world reset.
         """
         if not self.current_scenario:
             response.success = False
@@ -423,9 +422,8 @@ class ScenarioServerNode(LifecycleNode):
                 response.message = "Ego actor is no longer alive; use switch_scenario"
                 return response
 
-            # Kill the vehicle's motion before moving it. A teleport alone keeps the previous
-            # linear/angular velocity and any throttle the controller had applied, so the car
-            # would arrive at the spawn point already rolling.
+            # A teleport alone keeps the previous velocity and any throttle the controller had
+            # applied, so the car would arrive at the spawn point already rolling.
             ego.set_target_velocity(carla.Vector3D(0.0, 0.0, 0.0))
             ego.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, 0.0))
             try:
@@ -438,8 +436,8 @@ class ScenarioServerNode(LifecycleNode):
 
             ego.set_transform(spawn_point)
 
-            # Let the teleport take effect before we report success, so anything that reacts to
-            # the service returning sees the new pose rather than the old one.
+            # Let the teleport take effect, so anything reacting to the service returning sees
+            # the new pose rather than the old one.
             if self.carla_world and self.get_parameter("synchronous_mode").value:
                 self.carla_world.tick()
 

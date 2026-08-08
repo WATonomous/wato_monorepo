@@ -17,20 +17,17 @@
     publish_behaviour: true
     behaviour: "lane_follow"
 
-    # Whether the waypoints are laid out from the vehicle's pose at launch (captured from the first
-    # odom) or published in the file's own coordinates. "auto" takes that from the maneuver, the way
-    # "closed" decides looping: a file carrying an absolute "start" is drawn on fixed geometry and
-    # publishes verbatim, everything else is vehicle-relative and starts at the car wherever it is.
-    # "relative"/"absolute" force it -- only useful to replay an absolute shape away from its own
-    # track. (Not "on"/"off": YAML reads those as booleans and the node aborts on the type clash.)
+    # Whether the waypoints are laid out from the vehicle's pose at launch (from the first odom) or
+    # published in the file's own coordinates. "auto" lets the maneuver decide: a file carrying an
+    # absolute "start" publishes verbatim, everything else is vehicle-relative. "relative" and
+    # "absolute" force it. (Not "on"/"off": YAML reads those as booleans and the node aborts.)
     anchoring: "auto"
 
     horizon_m: 35.0
     trail_m: 2.0
 
-    # Pose jump (m between consecutive odom messages) that counts as a respawn rather than
-    # driving, after which the node re-anchors the maneuver at the new pose on its own. This is
-    # what makes "respawn ego" a one-click reset in Foxglove. Set 0 to disable.
+    # Pose jump (m between consecutive odom messages) that counts as a respawn rather than driving,
+    # after which the node re-anchors the maneuver at the new pose. Set 0 to disable.
     respawn_jump_m: 5.0
 
     # When an open maneuver counts as finished: the vehicle is within finish_distance_m of the

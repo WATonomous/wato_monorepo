@@ -30,8 +30,7 @@ class ScenarioBase(ABC):
         self.client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None
         self.logger = None  # Set by scenario server
-        # Recorded at spawn so the ego can be put back exactly where the scenario started it
-        # without reloading the map. See ScenarioServerNode.reset_ego_callback.
+        # Recorded at spawn for ScenarioServerNode.reset_ego_callback.
         self.ego_vehicle: Optional["carla.Vehicle"] = None
         self.ego_spawn_point: Optional["carla.Transform"] = None
 
@@ -121,9 +120,8 @@ class ScenarioBase(ABC):
             self._log("Failed to spawn ego vehicle", "error")
             return None
 
-        # Keep the pose by value: carla.Transform is reused/mutated by callers (the oval
-        # scenario adds a z offset to the waypoint transform it passes in), so storing the
-        # reference would let the saved spawn pose drift.
+        # Keep the pose by value: callers mutate the carla.Transform they pass in (the oval
+        # scenario adds a z offset), so storing the reference would let the saved pose drift.
         self.ego_vehicle = ego_vehicle
         self.ego_spawn_point = carla.Transform(
             carla.Location(
