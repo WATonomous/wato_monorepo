@@ -224,7 +224,7 @@ void BEVFusionNode::syncedCallback(
   const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
   updateStatistics(time_taken);
 
-  // updateDiagnostics();
+  updateDiagnostics(detections_3d.header.stamp);
 }
 
 void BEVFusionNode::multiCameraInfoCallback(
