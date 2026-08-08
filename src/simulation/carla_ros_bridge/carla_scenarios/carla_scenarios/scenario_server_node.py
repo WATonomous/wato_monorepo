@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib
+import importlib.metadata
 from typing import Optional, Dict
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
@@ -396,7 +397,13 @@ class ScenarioServerNode(LifecycleNode):
         return response
 
     def _discover_scenarios(self):
-        """Discover available scenarios."""
+        """Discover available scenarios from built-in list and entry points.
+
+        External packages can register scenarios by declaring entry points
+        in the 'carla_scenarios.scenarios' group in their setup.py/setup.cfg.
+        Each entry point value should be a dotted module path containing a
+        ScenarioBase subclass named in PascalCase matching the module name.
+        """
         builtin_scenarios = {
             "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
             "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
@@ -404,6 +411,41 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
         }
         self.available_scenarios.update(builtin_scenarios)
+
+        # Discover external scenarios registered via entry points
+        try:
+            eps = importlib.metadata.entry_points()
+            # Compatible with Python 3.9+ (dict-style) and 3.12+ (select)
+            if hasattr(eps, "select"):
+                scenario_eps = eps.select(group="carla_scenarios.scenarios")
+            else:
+                scenario_eps = eps.get("carla_scenarios.scenarios", [])
+
+            for ep in scenario_eps:
+                module_path = ep.value
+                if module_path in self.available_scenarios:
+                    continue
+                try:
+                    module = importlib.import_module(module_path)
+                    # Derive class name from last part of module path
+                    class_name = module_path.rsplit(".", 1)[-1]
+                    class_name = "".join(
+                        word.capitalize() for word in class_name.split("_")
+                    )
+                    scenario_class = getattr(module, class_name)
+                    scenario = scenario_class()
+                    description = scenario.get_description()
+                    self.available_scenarios[module_path] = description
+                    self.get_logger().info(
+                        f"Discovered external scenario: {ep.name} ({module_path})"
+                    )
+                except Exception as e:
+                    self.get_logger().warn(
+                        f"Failed to load external scenario '{ep.name}' "
+                        f"({module_path}): {e}"
+                    )
+        except Exception as e:
+            self.get_logger().warn(f"Error discovering external scenarios: {e}")
 
         self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
 
