@@ -65,33 +65,33 @@ multi_camera_sync:
     # Compressed topics example: ["/camera1/image_raw/compressed", "/camera2/image_raw/compressed"]
     camera_topics:
       - "/camera_pano_ne/image_rect_compressed"
-      # - "/camera_pano_ee/image_rect_compressed"
-      # - "/camera_pano_se/image_rect_compressed"
-      # - "/camera_pano_ss/image_rect_compressed"
-      # - "/camera_pano_sw/image_rect_compressed"
-      # - "/camera_pano_ww/image_rect_compressed"
+      - "/camera_pano_ee/image_rect_compressed"
+      - "/camera_pano_se/image_rect_compressed"
+      - "/camera_pano_ss/image_rect_compressed"
+      - "/camera_pano_sw/image_rect_compressed"
+      - "/camera_pano_ww/image_rect_compressed"
       - "/camera_pano_nw/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
 
     # CameraInfo topics (same order as camera_topics). Required for ~/multi_camera_info.
     camera_info_topics:
       - "/camera_pano_ne/camera_info"
-      # - "/camera_pano_ee/camera_info"
-      # - "/camera_pano_se/camera_info"
-      # - "/camera_pano_ss/camera_info"
-      # - "/camera_pano_sw/camera_info"
-      # - "/camera_pano_ww/camera_info"
+      - "/camera_pano_ee/camera_info"
+      - "/camera_pano_se/camera_info"
+      - "/camera_pano_ss/camera_info"
+      - "/camera_pano_sw/camera_info"
+      - "/camera_pano_ww/camera_info"
       - "/camera_pano_nw/camera_info"
       - "/camera_pano_nn/camera_info"
 
     # Optional camera names (same order). Auto-generated if omitted.
     camera_names:
       - "camera_pano_ne"
-      # - "camera_pano_ee"
-      # - "camera_pano_se"
-      # - "camera_pano_ss"
-      # - "camera_pano_sw"
-      # - "camera_pano_ww"
+      - "camera_pano_ee"
+      - "camera_pano_se"
+      - "camera_pano_ss"
+      - "camera_pano_sw"
+      - "camera_pano_ww"
       - "camera_pano_nw"
       - "camera_pano_nn"
 
@@ -177,7 +177,7 @@ multi_camera_sync:
     dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
-    output_frame: "map"
+    output_frame: "lidar_cc"
     publish_visualization: true
 
     # --- Per-class tracking overrides (parallel arrays). Empty = single global tracker. ---
@@ -450,6 +450,70 @@ multi_camera_sync:
     bus_real_length: 12.0
 
 # =============================================================================
+# BEVFusion Node
+# =============================================================================
+/**/bevfusion_node:
+  ros__parameters:
+    # Directory containing all TensorRT .plan and .onnx engine files
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8"
+
+    # Model precision - can be "fp16" or "int8"
+    precision: "int8"
+
+    # Camera frame IDs — must match the 6 nuScenes-layout cameras on Eve
+    camera_names:
+      - "camera_pano_nn"
+      - "camera_pano_ne"
+      - "camera_pano_nw"
+      - "camera_pano_ss"
+      - "camera_pano_se"
+      - "camera_pano_sw"
+
+    # Detection confidence threshold — boxes below this score are discarded
+    confidence_threshold: 0.3
+
+    # Camera input resolution (must match the camera hardware)
+    image_width: 1600
+    image_height: 900
+
+    # Model input resolution after resize
+    norm_output_width: 704
+    norm_output_height: 256
+
+    # LiDAR detection zone in meters [x, y, z]
+    min_range: [-54.0, -54.0, -5.0]
+    max_range: [54.0, 54.0, 3.0]
+
+    # Voxel size in meters [x, y, z]
+    voxel_size: [0.075, 0.075, 0.2]
+
+    # LiDAR point cloud caps (tune for GPU memory vs. coverage tradeoff)
+    max_points_per_voxel: 10
+    max_points: 300000
+    max_voxels: 160000
+
+    # BEV grid bounds [min, max, step] in meters
+    xbound: [-54.0, 54.0, 0.3]
+    ybound: [-54.0, 54.0, 0.3]
+    zbound: [-10.0, 10.0, 20.0]
+    dbound: [1.0, 60.0, 0.5]
+
+    # Bounding box center filter — discard boxes outside this volume [x, y, z]
+    post_center_range_start: [-61.2, -61.2, -10.0]
+    post_center_range_end: [61.2, 61.2, 10.0]
+
+    # ApproximateTime synchronization
+    sync_queue_size: 2
+    sync_max_time_diff_ms: 100.0
+
+    # QoS
+    qos_subscriber_reliability: "best_effort"
+    qos_subscriber_depth: 10
+    qos_publisher_reliability: "reliable"
+    qos_publisher_durability: "transient_local"
+    qos_publisher_depth: 10
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
@@ -457,14 +521,14 @@ detection_lifecycle_manager:
     # Manages model inference and attribute enrichment nodes.
     node_names: ["deep_object_detection_node", "attribute_assigner_node"]
     autostart: true
-    transition_timeout_s: 30.0
+    transition_timeout_s: 90.0
     bond_timeout_s: 4.0
     bond_enabled: false
 
 perception_lifecycle_manager:
   ros__parameters:
     # Manages segmentation, association, and tracking pipeline nodes.
-    node_names: ["/perception/patchworkpp_node", "/spatial_association_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node", "/perception/bevfusion_node", "/perception/tracking_node"]
     autostart: true
     autostart_delay_s: 3.0
     transition_timeout_s: 3.0

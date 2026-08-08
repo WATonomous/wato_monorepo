@@ -1,0 +1,44 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# http://www.apache.org/licenses/LICENSE-2.0
+---
+launch:
+  - arg:
+      name: multi_image_topic
+      default: /multi_camera_sync/multi_image_compressed
+      description: Synchronized multi-camera compressed image topic
+  - arg:
+      name: lidar_topic
+      default: /lidar/all/points_merged
+      description: Merged LiDAR point cloud topic
+  - arg:
+      name: camera_info_topic
+      default: /multi_camera_sync/multi_camera_info
+      description: Synchronized multi-camera info topic
+  - arg:
+      name: output_detections_topic
+      default: /perception/detections_3d_bev
+      description: Output 3D BEV detections topic
+  - arg:
+      name: output_markers_topic
+      default: /perception/bev_detection_markers
+      description: Output BEV detection markers topic
+
+  - node:
+      pkg: bevfusion
+      exec: bevfusion_node
+      name: bevfusion_node
+      output: screen
+      param:
+        - from: $(find-pkg-share bevfusion)/config/params.yaml
+      remap:
+        - from: camera_info
+          to: $(var camera_info_topic)
+        - from: multi_image
+          to: $(var multi_image_topic)
+        - from: lidar
+          to: $(var lidar_topic)
+        - from: output_detections
+          to: $(var output_detections_topic)
+        - from: output_markers
+          to: $(var output_markers_topic)
