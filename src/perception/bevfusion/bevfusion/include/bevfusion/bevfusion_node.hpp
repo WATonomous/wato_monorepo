@@ -225,10 +225,14 @@ private:
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
+  BEVFusionInputConfig config_;
 
   // TF
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+  // Frame IDs
+  std::string lidar_frame_id_;
 
   // Camera info
   rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;

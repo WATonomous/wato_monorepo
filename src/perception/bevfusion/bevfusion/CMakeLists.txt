@@ -40,6 +40,8 @@ find_package(message_filters REQUIRED)
 find_package(deep_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
@@ -94,6 +96,8 @@ target_link_libraries(${PROJECT_NAME}_node
   PRIVATE
     rclcpp_components::component
     ${diagnostic_msgs_TARGETS}
+    tf2_eigen::tf2_eigen
+    Eigen3::Eigen
 )
 
 # ---- Register component ----

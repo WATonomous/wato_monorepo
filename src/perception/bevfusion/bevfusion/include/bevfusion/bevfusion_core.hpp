@@ -47,7 +47,8 @@ struct BEVFusionInputConfig
   int norm_output_width = 704;  // Output resolution after resize (Network input)
   int norm_output_height = 256;
   int num_cameras = 6;
-  float resize_lim = 0.48f;  // Min scaling ratio limit - the shortest side is resized to at least 48% of original side
+  float resize_lim =
+    0.48f;  // Min scaling ratio limit - the shortest side is resized to at least 'resize_lim' of original side
   std::string interpolation = "bilinear";  // Interpolation method for resizing
   std::vector<float> norm_mean = {0.485f, 0.456f, 0.406f};  // Mean subtraction value per RGB channel
   std::vector<float> norm_std = {0.229f, 0.224f, 0.225f};  // Std deviation value per RGB channel
@@ -171,7 +172,7 @@ public:
    * @brief Update the tansformation matrices mapping cameras to LiDARs
    * @param camera_to_lidar 4x4 camera to LiDAR transformation matrix
    * @param camera_instrinsics 3x3 camera intrinsics matrix
-   * @param lidar_to_camera 4x4 LiDAR to camera transformation matrix
+   * @param lidar_to_image_projection 4x4 LiDAR to image projection matrix
    * @param img_aug_matrix 4x4 image augmentation matrix
    *
    * @note Preconditions:
@@ -180,7 +181,7 @@ public:
   void updateCalibration(
     const std::vector<float> & camera_to_lidar,
     const std::vector<float> & camera_intrinsics,
-    const std::vector<float> & lidar_to_camera,
+    const std::vector<float> & lidar_to_image_projection,
     const std::vector<float> & img_aug_matrix);
 
   /**

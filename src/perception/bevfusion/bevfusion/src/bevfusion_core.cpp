@@ -202,7 +202,7 @@ std::vector<BoundingBox> BEVFusionCore::infer(
 void BEVFusionCore::updateCalibration(
   const std::vector<float> & camera_to_lidar,
   const std::vector<float> & camera_intrinsics,
-  const std::vector<float> & lidar_to_camera,
+  const std::vector<float> & lidar_to_image_projection,
   const std::vector<float> & img_aug_matrix)
 {
   if (!initialized_) {
@@ -210,7 +210,7 @@ void BEVFusionCore::updateCalibration(
     return;
   }
   pipeline_->update(
-    camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_camera.data(), img_aug_matrix.data(), stream_);
+    camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_image_projection.data(), img_aug_matrix.data(), stream_);
   has_calibration_ = true;
 }
 

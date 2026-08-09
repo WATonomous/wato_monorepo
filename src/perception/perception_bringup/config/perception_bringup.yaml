@@ -454,6 +454,9 @@ multi_camera_sync:
 # =============================================================================
 /**/bevfusion_node:
   ros__parameters:
+    # Frame IDs
+    lidar_frame_id: "lidar_cc"
+
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50int8"
 
