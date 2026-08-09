@@ -179,18 +179,13 @@ ament_export_dependencies(
 
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
-  add_wato_test(test_bevfusion_params
-    test/test_bevfusion_params.cpp
-    LIBRARIES
-      ${PROJECT_NAME}_node
-  )
   add_wato_test(test_bevfusion_core
     test/test_bevfusion_core.cpp
     LIBRARIES
       ${PROJECT_NAME}_wato_core
   )
-  add_wato_test(test_bevfusion_calibration
-    test/test_bevfusion_calibration.cpp
+  add_wato_test(test_bevfusion_node
+    test/test_bevfusion_node.cpp
     LIBRARIES
       ${PROJECT_NAME}_node
   )
