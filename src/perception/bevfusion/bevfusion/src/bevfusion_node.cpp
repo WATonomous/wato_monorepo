@@ -16,6 +16,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <functional>
 #include <memory>
 #include <string>
@@ -39,6 +41,7 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <visualization_msgs/msg/image_marker.hpp>
@@ -63,6 +66,10 @@ void BEVFusionNode::declareParameters()
 {
   // sync/QoS params are intentionally declared in on_configure() to avoid re-declaring already-registered parameters.
 
+  // Frame IDs
+  this->declare_parameter<std::string>("lidar_frame_id", "lidar_cc");
+  lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+
   // Directory containing all .plan and .onnx engine files for the model
   this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50");
 
@@ -77,8 +84,9 @@ void BEVFusionNode::declareParameters()
     "camera_names",
     std::vector<std::string>{
       "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"});
-  this->declare_parameter<int>("image_width", 1600);
-  this->declare_parameter<int>("image_height", 900);
+  this->declare_parameter<int>("image_width", 1280);
+  this->declare_parameter<int>("image_height", 1024);
+  this->declare_parameter<float>("resize_lim", 0.55f);
   this->declare_parameter<int>("norm_output_width", 704);
   this->declare_parameter<int>("norm_output_height", 256);
 
@@ -110,43 +118,42 @@ void BEVFusionNode::declareParameters()
     return std::vector<float>(d.begin(), d.end());
   };
 
-  BEVFusionInputConfig config;
+  config_.camera_backbone_plan = model_dir + "/camera.backbone.plan";
+  config_.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
+  config_.fuser_plan = model_dir + "/fuser.plan";
+  config_.head_bbox_plan = model_dir + "/head.bbox.plan";
+  config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.onnx";
 
-  config.camera_backbone_plan = model_dir + "/camera.backbone.plan";
-  config.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
-  config.fuser_plan = model_dir + "/fuser.plan";
-  config.head_bbox_plan = model_dir + "/head.bbox.plan";
-  config.lidar_backbone_onnx = model_dir + "/lidar.backbone.onnx";
+  config_.precision = this->get_parameter("precision").as_string();
+  config_.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
 
-  config.precision = this->get_parameter("precision").as_string();
-  config.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
+  config_.num_cameras = static_cast<int>(camera_names.size());
+  config_.image_width = this->get_parameter("image_width").as_int();
+  config_.image_height = this->get_parameter("image_height").as_int();
+  config_.resize_lim = static_cast<float>(this->get_parameter("resize_lim").as_double());
+  config_.norm_output_width = this->get_parameter("norm_output_width").as_int();
+  config_.norm_output_height = this->get_parameter("norm_output_height").as_int();
 
-  config.num_cameras = static_cast<int>(camera_names.size());
-  config.image_width = this->get_parameter("image_width").as_int();
-  config.image_height = this->get_parameter("image_height").as_int();
-  config.norm_output_width = this->get_parameter("norm_output_width").as_int();
-  config.norm_output_height = this->get_parameter("norm_output_height").as_int();
+  config_.min_range = to_float_vec("min_range");
+  config_.max_range = to_float_vec("max_range");
+  config_.voxel_size = to_float_vec("voxel_size");
+  config_.max_points_per_voxel = this->get_parameter("max_points_per_voxel").as_int();
+  config_.max_points = this->get_parameter("max_points").as_int();
+  config_.max_voxels = this->get_parameter("max_voxels").as_int();
 
-  config.min_range = to_float_vec("min_range");
-  config.max_range = to_float_vec("max_range");
-  config.voxel_size = to_float_vec("voxel_size");
-  config.max_points_per_voxel = this->get_parameter("max_points_per_voxel").as_int();
-  config.max_points = this->get_parameter("max_points").as_int();
-  config.max_voxels = this->get_parameter("max_voxels").as_int();
+  config_.xbound = to_float_vec("xbound");
+  config_.ybound = to_float_vec("ybound");
+  config_.zbound = to_float_vec("zbound");
+  config_.dbound = to_float_vec("dbound");
 
-  config.xbound = to_float_vec("xbound");
-  config.ybound = to_float_vec("ybound");
-  config.zbound = to_float_vec("zbound");
-  config.dbound = to_float_vec("dbound");
-
-  config.post_center_range_start = to_float_vec("post_center_range_start");
-  config.post_center_range_end = to_float_vec("post_center_range_end");
+  config_.post_center_range_start = to_float_vec("post_center_range_start");
+  config_.post_center_range_end = to_float_vec("post_center_range_end");
 
   // transbbox_pc_range and transbbox_voxel_size are the XY projections of min_range and voxel_size
-  config.transbbox_pc_range = {config.min_range[0], config.min_range[1]};
-  config.transbbox_voxel_size = {config.voxel_size[0], config.voxel_size[1]};
+  config_.transbbox_pc_range = {config_.min_range[0], config_.min_range[1]};
+  config_.transbbox_voxel_size = {config_.voxel_size[0], config_.voxel_size[1]};
 
-  core_ = std::make_unique<BEVFusionCore>(config);
+  core_ = std::make_unique<BEVFusionCore>(config_);
 }
 
 void BEVFusionNode::syncedCallback(
@@ -245,27 +252,110 @@ void BEVFusionNode::multiCameraInfoCallback(
 
 void BEVFusionNode::computeCalibrationMatrices()
 {
-  /**
-   * TODO(bevfusion_team): Implement the calibration matrix computation.
-   * (starter code below)
-   * 1. Extract camera intrinsics K from cached_multi_camera_info_.
-   * 2. Look up TF extrinsics (LiDAR <-> Camera frames) using tf_buffer_.
-   * 3. Compute camera_to_lidar, camera_intrinsics, lidar_to_camera, and img_aug_matrix vectors.
-   * 4. Call core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_camera, img_aug_matrix).
-   * 5. Set calibration_initialized_ = true.
-   */
-  MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
+  // Get cached MultiCameraInfoMsg
+  MultiCameraInfoMsg::ConstSharedPtr multi_camera_info;
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    cached_camera_info = cached_multi_camera_info_;
+    multi_camera_info = cached_multi_camera_info_;
   }
 
-  if (!cached_camera_info || cached_camera_info->camera_infos.empty()) {
+  if (!multi_camera_info || multi_camera_info->camera_infos.empty()) {
     RCLCPP_WARN(this->get_logger(), "Cannot compute calibration: no cached MultiCameraInfo");
     return;
   }
 
-  // build matrices, look up TF, call core_->updateCalibration(...)
+  // Create flat matrices to store calibration data.
+  // NOTE: BEVFusion expects matrices in row-major order.
+  std::vector<float> camera_to_lidar;
+  std::vector<float> camera_intrinsics;
+  std::vector<float> lidar_to_image_projection;
+  std::vector<float> img_aug_matrix;
+  camera_to_lidar.reserve(multi_camera_info->camera_infos.size() * 16);
+  camera_intrinsics.reserve(multi_camera_info->camera_infos.size() * 16);
+  lidar_to_image_projection.reserve(multi_camera_info->camera_infos.size() * 16);
+  img_aug_matrix.reserve(multi_camera_info->camera_infos.size() * 16);
+
+  // For each camera in the MultiCameraInfoMsg, extract the data
+  for (const auto & camera_info : multi_camera_info->camera_infos) {
+    // Extract camera intrinsics:
+    // - Pad the 3x3 K matrix to 4x4 with 0s and a 1 in the bottom-right corner.
+    // - cam_intrinsic is a flat matrix
+    // - Auto-formatting is not great, but this should look like a 4x4 matrix
+    const auto & k = camera_info.k;
+    float cam_intrinsic[16] = {
+      static_cast<float>(k[0]),
+      static_cast<float>(k[1]),
+      static_cast<float>(k[2]),
+      0.0f,
+      static_cast<float>(k[3]),
+      static_cast<float>(k[4]),
+      static_cast<float>(k[5]),
+      0.0f,
+      static_cast<float>(k[6]),
+      static_cast<float>(k[7]),
+      static_cast<float>(k[8]),
+      0.0f,
+      0.0f,
+      0.0f,
+      0.0f,
+      1.0f};
+    camera_intrinsics.insert(camera_intrinsics.end(), std::begin(cam_intrinsic), std::end(cam_intrinsic));
+
+    // Extract camera to lidar (combined lidar transform) extrinsics from TF:
+    // 1. Lookup transform
+    // 2. Convert ROS2 TransformStamped to an Eigen::Isometry3d
+    // 3. Cast to float matrix (BEVFusion typically expects 32-bit floats)
+    // 4. Flatten and insert the 4x4 matrix into a row-major 16-element vector
+    geometry_msgs::msg::TransformStamped cam2lidar_tf;
+    try {
+      cam2lidar_tf = tf_buffer_->lookupTransform(lidar_frame_id_, camera_info.header.frame_id, tf2::TimePointZero);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "TF lookup failed: %s", ex.what());
+      return;
+    }
+    Eigen::Isometry3d eigen_transform = tf2::transformToEigen(cam2lidar_tf);
+    Eigen::Matrix<float, 4, 4, Eigen::RowMajor> cam2lidar_matrix = eigen_transform.matrix().cast<float>();
+    camera_to_lidar.insert(camera_to_lidar.end(), cam2lidar_matrix.data(), cam2lidar_matrix.data() + 16);
+
+    // Extract the lidar to image projection matrix
+    // - lidar2image = K * inverse(cam2lidar)
+    // - K_matrix is the matrix version of the flat cam_intrinsic
+    Eigen::Map<const Eigen::Matrix<float, 4, 4, Eigen::RowMajor>> K_matrix(cam_intrinsic);
+    Eigen::Matrix<float, 4, 4, Eigen::RowMajor> lidar2cam = cam2lidar_matrix.inverse();
+    Eigen::Matrix<float, 4, 4, Eigen::RowMajor> lidar2img = K_matrix * lidar2cam;
+    lidar_to_image_projection.insert(lidar_to_image_projection.end(), lidar2img.data(), lidar2img.data() + 16);
+
+    // Create image aug matrix
+    // - Scale: resize_lim
+    // - X Translation: -crop_x
+    // - Y Translation: -crop_y
+    int resized_w = static_cast<int>(config_.image_width * config_.resize_lim);
+    int resized_h = static_cast<int>(config_.image_height * config_.resize_lim);
+    int crop_x = (resized_w - config_.norm_output_width) / 2;
+    int crop_y = resized_h - config_.norm_output_height;
+    // - Auto-formatting is not great, but this should look like a 4x4 matrix
+    float aug[16] = {
+      config_.resize_lim,
+      0.0f,
+      static_cast<float>(-crop_x),
+      0.0f,
+      0.0f,
+      config_.resize_lim,
+      static_cast<float>(-crop_y),
+      0.0f,
+      0.0f,
+      0.0f,
+      1.0f,
+      0.0f,
+      0.0f,
+      0.0f,
+      0.0f,
+      1.0f};
+    img_aug_matrix.insert(img_aug_matrix.end(), std::begin(aug), std::end(aug));
+  }
+
+  // Send to core
+  core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_image_projection, img_aug_matrix);
 
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);

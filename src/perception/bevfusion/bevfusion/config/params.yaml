@@ -1,6 +1,9 @@
 ---
 bevfusion_node:
   ros__parameters:
+    # Frame IDs
+    lidar_frame_id: "lidar_cc"
+
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50int8"
 
@@ -20,8 +23,11 @@ bevfusion_node:
     confidence_threshold: 0.3
 
     # Camera input resolution (must match the camera hardware)
-    image_width: 1600
-    image_height: 900
+    image_width: 1280
+    image_height: 1024
+
+    # Resize limit
+    resize_lim: 0.55
 
     # Model input resolution after resize
     norm_output_width: 704
