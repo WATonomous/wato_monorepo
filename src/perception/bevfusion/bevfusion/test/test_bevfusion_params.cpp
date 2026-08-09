@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <tf2_ros/buffer.h>
+
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <catch2/catch_all.hpp>
 #include <deep_msgs/msg/multi_camera_info.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/node_options.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -95,6 +98,14 @@ TEST_CASE("BEVFusionNode: activation computes calibration from cached camera inf
 
   deep_msgs::msg::MultiCameraInfo camera_info;
   camera_info.camera_infos.resize(1);
+  camera_info.camera_infos[0].header.frame_id = "cam0";
+
+  node->tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+  geometry_msgs::msg::TransformStamped tf_stamped;
+  tf_stamped.header.frame_id = node->lidar_frame_id_;
+  tf_stamped.child_frame_id = "cam0";
+  tf_stamped.transform.rotation.w = 1.0;
+  node->tf_buffer_->setTransform(tf_stamped, "test");
 
   {
     std::lock_guard<std::mutex> lock(node->camera_info_mutex_);
@@ -132,6 +143,14 @@ TEST_CASE("BEVFusionNode: cleanup clears cached camera info and calibration stat
 
   deep_msgs::msg::MultiCameraInfo camera_info;
   camera_info.camera_infos.resize(1);
+  camera_info.camera_infos[0].header.frame_id = "cam0";
+
+  node->tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+  geometry_msgs::msg::TransformStamped tf_stamped;
+  tf_stamped.header.frame_id = node->lidar_frame_id_;
+  tf_stamped.child_frame_id = "cam0";
+  tf_stamped.transform.rotation.w = 1.0;
+  node->tf_buffer_->setTransform(tf_stamped, "test");
   {
     std::lock_guard<std::mutex> lock(node->camera_info_mutex_);
     node->cached_multi_camera_info_ = std::make_shared<deep_msgs::msg::MultiCameraInfo>(camera_info);

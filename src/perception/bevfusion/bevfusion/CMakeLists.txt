@@ -189,6 +189,11 @@ if(BUILD_TESTING)
     LIBRARIES
       ${PROJECT_NAME}_wato_core
   )
+  add_wato_test(test_bevfusion_calibration
+    test/test_bevfusion_calibration.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_node
+  )
 endif()
 
 ament_package()
