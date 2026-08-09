@@ -280,6 +280,7 @@ void BEVFusionNode::computeCalibrationMatrices()
     // Extract camera intrinsics:
     // - Pad the 3x3 K matrix to 4x4 with 0s and a 1 in the bottom-right corner.
     // - cam_intrinsic is a flat matrix
+    // - Auto-formatting is not great, but this should look like a 4x4 matrix
     const auto & k = camera_info.k;
     float cam_intrinsic[16] = {
       static_cast<float>(k[0]),
@@ -332,6 +333,7 @@ void BEVFusionNode::computeCalibrationMatrices()
     int resized_h = static_cast<int>(config_.image_height * config_.resize_lim);
     int crop_x = (resized_w - config_.norm_output_width) / 2;
     int crop_y = resized_h - config_.norm_output_height;
+    // - Auto-formatting is not great, but this should look like a 4x4 matrix
     float aug[16] = {
       config_.resize_lim,
       0.0f,
