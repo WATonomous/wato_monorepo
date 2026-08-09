@@ -25,7 +25,7 @@ launch:
 
   - arg:
       name: live_sensor
-      default: "false"
+      default: "true"
       description: "Launch physical sensor drivers (set to false when using a rosbag or simulator)"
 
   # ===========================================================================

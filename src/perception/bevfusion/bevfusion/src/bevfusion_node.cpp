@@ -68,10 +68,13 @@ void BEVFusionNode::declareParameters()
 
   // Frame IDs
   this->declare_parameter<std::string>("lidar_frame_id", "lidar_cc");
-  lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+
+  // Topics
+  this->declare_parameter<std::string>("input_multi_image_topic", kMultiImageTopic);
+  this->declare_parameter<std::string>("lidar_topic", kLidarTopic);
 
   // Directory containing all .plan and .onnx engine files for the model
-  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50");
+  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50int8");
 
   // Model precision
   this->declare_parameter<std::string>("precision", "int8");
@@ -107,6 +110,10 @@ void BEVFusionNode::declareParameters()
   // Detection post-processing parameters
   this->declare_parameter<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
   this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
+
+  lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+  multi_image_topic_ = this->get_parameter("input_multi_image_topic").as_string();
+  lidar_topic_ = this->get_parameter("lidar_topic").as_string();
 
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
@@ -753,9 +760,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       std::bind(&BEVFusionNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
     multi_image_sub_ =
-      std::make_shared<ImageSub>(this->shared_from_this(), kMultiImageTopic, subscriber_qos_.get_rmw_qos_profile());
+      std::make_shared<ImageSub>(this->shared_from_this(), multi_image_topic_, subscriber_qos_.get_rmw_qos_profile());
     lidar_sub_ =
-      std::make_shared<LidarSub>(this->shared_from_this(), kLidarTopic, subscriber_qos_.get_rmw_qos_profile());
+      std::make_shared<LidarSub>(this->shared_from_this(), lidar_topic_, subscriber_qos_.get_rmw_qos_profile());
 
     // ApproximateTime synchronizer
     // We use the message filters sync queue to synchronize the camera images and lidar data based on the timestamps.

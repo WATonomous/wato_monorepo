@@ -242,6 +242,10 @@ private:
   // Calibration
   std::atomic<bool> calibration_initialized_{false};
 
+  // Topics
+  std::string multi_image_topic_;
+  std::string lidar_topic_;
+
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
