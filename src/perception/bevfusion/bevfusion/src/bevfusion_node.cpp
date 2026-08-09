@@ -110,7 +110,7 @@ void BEVFusionNode::declareParameters()
 
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
-  const auto camera_names = this->get_parameter("camera_names").as_string_array();
+  camera_names_ = this->get_parameter("camera_names").as_string_array();
 
   // ROS params use double; BEVFusionInputConfig uses float — convert on read
   const auto to_float_vec = [this](const std::string & name) {
@@ -122,12 +122,12 @@ void BEVFusionNode::declareParameters()
   config_.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
   config_.fuser_plan = model_dir + "/fuser.plan";
   config_.head_bbox_plan = model_dir + "/head.bbox.plan";
-  config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.onnx";
+  config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
 
   config_.precision = this->get_parameter("precision").as_string();
   config_.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
 
-  config_.num_cameras = static_cast<int>(camera_names.size());
+  config_.num_cameras = static_cast<int>(camera_names_.size());
   config_.image_width = this->get_parameter("image_width").as_int();
   config_.image_height = this->get_parameter("image_height").as_int();
   config_.resize_lim = static_cast<float>(this->get_parameter("resize_lim").as_double());
@@ -160,6 +160,7 @@ void BEVFusionNode::syncedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
+  RCLCPP_INFO(this->get_logger(), "[SYNC] Synced callback called");
   multi_image_msg_count_++;
   lidar_msg_count_++;
   synced_msg_count_++;
@@ -237,15 +238,34 @@ void BEVFusionNode::syncedCallback(
 void BEVFusionNode::multiCameraInfoCallback(
   const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
 {
-  if (multi_camera_info_msg->camera_infos.empty()) {
+  if (multi_camera_info_msg->camera_infos.empty() || calibration_initialized_) {
     return;
   }
 
   RCLCPP_INFO(
     this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
+
+  // Set camera info only for the cameras that are present in the list camera_names_
+  // And ensure they are in the same order as camera_names_
+  MultiCameraInfoMsg::SharedPtr filtered_multi_camera_info_msg = std::make_shared<MultiCameraInfoMsg>();
+  filtered_multi_camera_info_msg->camera_infos.reserve(camera_names_.size());
+  for (const auto & camera_name : camera_names_) {
+    for (const auto & camera_info : multi_camera_info_msg->camera_infos) {
+      if (camera_info.header.frame_id == camera_name) {
+        filtered_multi_camera_info_msg->camera_infos.push_back(camera_info);
+        break;
+      }
+    }
+  }
+
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Filtered multi camera info has %zu cameras",
+    filtered_multi_camera_info_msg->camera_infos.size());
+
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    cached_multi_camera_info_ = multi_camera_info_msg;
+    cached_multi_camera_info_ = filtered_multi_camera_info_msg;
   }
   computeCalibrationMatrices();
 }
@@ -354,6 +374,48 @@ void BEVFusionNode::computeCalibrationMatrices()
     img_aug_matrix.insert(img_aug_matrix.end(), std::begin(aug), std::end(aug));
   }
 
+  // Log matrix values neatly
+  RCLCPP_INFO(this->get_logger(), "Camera intrinsics: ");
+  for (size_t i = 0; i < camera_intrinsics.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      camera_intrinsics[i],
+      camera_intrinsics[i + 1],
+      camera_intrinsics[i + 2],
+      camera_intrinsics[i + 3]);
+  }
+  RCLCPP_INFO(this->get_logger(), "Camera to lidar: ");
+  for (size_t i = 0; i < camera_to_lidar.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      camera_to_lidar[i],
+      camera_to_lidar[i + 1],
+      camera_to_lidar[i + 2],
+      camera_to_lidar[i + 3]);
+  }
+  RCLCPP_INFO(this->get_logger(), "Lidar to image projection: ");
+  for (size_t i = 0; i < lidar_to_image_projection.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      lidar_to_image_projection[i],
+      lidar_to_image_projection[i + 1],
+      lidar_to_image_projection[i + 2],
+      lidar_to_image_projection[i + 3]);
+  }
+  RCLCPP_INFO(this->get_logger(), "Image aug matrix: ");
+  for (size_t i = 0; i < img_aug_matrix.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      img_aug_matrix[i],
+      img_aug_matrix[i + 1],
+      img_aug_matrix[i + 2],
+      img_aug_matrix[i + 3]);
+  }
+
   // Send to core
   core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_image_projection, img_aug_matrix);
 
@@ -361,6 +423,7 @@ void BEVFusionNode::computeCalibrationMatrices()
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
     calibration_initialized_ = true;
   }
+  RCLCPP_INFO(this->get_logger(), "Calibration computed successfully");
 }
 
 visualization_msgs::msg::Marker BEVFusionNode::toMarker(
@@ -610,9 +673,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 
   try {
     declareParameters();
-
-    // Log configuration
-    RCLCPP_INFO(this->get_logger(), "Configuration summary: (EMPTY RIGHT NOW)");
 
     // Declare and configure QoS parameters
     this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");

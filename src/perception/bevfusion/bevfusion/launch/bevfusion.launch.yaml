@@ -3,14 +3,14 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 ---
 launch:
-  - arg:
-      name: multi_image_topic
-      default: /multi_camera_sync/multi_image_compressed
-      description: Synchronized multi-camera compressed image topic
-  - arg:
-      name: lidar_topic
-      default: /lidar/all/points_merged
-      description: Merged LiDAR point cloud topic
+  # - arg:
+  #     name: multi_image_topic
+  #     default: /multi_camera_sync/multi_image_compressed
+  #     description: Synchronized multi-camera compressed image topic
+  # - arg:
+  #     name: lidar_topic
+  #     default: /lidar/all/points_merged
+  #     description: Merged LiDAR point cloud topic
   - arg:
       name: camera_info_topic
       default: /multi_camera_sync/multi_camera_info
@@ -34,10 +34,10 @@ launch:
       remap:
         - from: camera_info
           to: $(var camera_info_topic)
-        - from: multi_image
-          to: $(var multi_image_topic)
-        - from: lidar
-          to: $(var lidar_topic)
+        # - from: multi_image
+        #   to: $(var multi_image_topic)
+        # - from: lidar
+        #   to: $(var lidar_topic)
         - from: output_detections
           to: $(var output_detections_topic)
         - from: output_markers

@@ -54,6 +54,7 @@ bool BEVFusionCore::initialize()
 {
   // Must load this plugin before create_core() — TRT will fail to deserialize head.bbox.plan without it
   if (dlopen("libcustom_layernorm.so", RTLD_NOW) == nullptr) {
+    std::cerr << "[BEVFusionCore] Failed to load libcustom_layernorm.so: " << dlerror() << std::endl;
     return false;
   }
 
@@ -135,11 +136,15 @@ bool BEVFusionCore::initialize()
 
   pipeline_ = ::bevfusion::create_core(param);
   if (pipeline_ == nullptr) {
+    std::cerr
+      << "[BEVFusionCore] Failed to create BEVFusion pipeline. Ensure model files exist and GPU memory is sufficient."
+      << std::endl;
     return false;
   }
 
   // dedicated stream: BEVFusion's GPU ops stay ordered in their own queue, not on the null (default) stream shared by everything else
   if (cudaStreamCreate(&stream_) != cudaSuccess) {
+    std::cerr << "[BEVFusionCore] cudaStreamCreate failed." << std::endl;
     pipeline_.reset();
     return false;
   }

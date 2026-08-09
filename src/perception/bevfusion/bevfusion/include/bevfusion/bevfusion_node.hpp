@@ -68,8 +68,8 @@ public:
 
   // Default topic names (matches the remap "from" names in the launch file)
   static constexpr auto kCameraInfoTopic = "camera_info";
-  static constexpr auto kLidarTopic = "lidar";
-  static constexpr auto kMultiImageTopic = "multi_image";
+  static constexpr auto kLidarTopic = "/lidar/all/points_merged";
+  static constexpr auto kMultiImageTopic = "/multi_camera_sync/multi_image_compressed";
   static constexpr auto kOutputDetectionsTopic = "output_detections";
   static constexpr auto kOutputMarkersTopic = "output_markers";
 
@@ -237,6 +237,7 @@ private:
   // Camera info
   rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
   MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
+  std::vector<std::string> camera_names_;
 
   // Calibration
   std::atomic<bool> calibration_initialized_{false};
