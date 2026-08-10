@@ -66,6 +66,31 @@ rclnodejs.init().then(() => {
     }
   );
 
+  // tracked objects → browser
+  node.createSubscription(
+    'world_model_msgs/msg/WorldObjectArray',
+    '/world_modeling/world_objects_enriched',          
+    (msg) => {
+      const objects = msg.objects.map((o) => {
+        const c = o.detection.bbox.center;
+        const s = o.detection.bbox.size;
+        const q = c.orientation;
+        const yaw = Math.atan2(
+          2 * (q.w * q.z + q.x * q.y),
+          1 - 2 * (q.y * q.y + q.z * q.z)
+        );
+        const cls = o.detection.results?.[0]?.hypothesis?.class_id ?? '';
+        return {
+          x: c.position.x, y: c.position.y, z: c.position.z,
+          yaw,
+          sx: s.x, sy: s.y, sz: s.z,        // ROS-frame extents
+          id: o.detection.id, cls
+        };
+      });
+      broadcast({ type: 'objects', objects });
+    }
+  );
+
   // listen for messages coming from the browser
   wss.on('connection', (socket) => {
     socket.on('message', async (raw) => {

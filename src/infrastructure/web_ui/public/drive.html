@@ -63,22 +63,26 @@
       const postGeo = new THREE.BoxGeometry(1, 5, 1);
       const postMat = new THREE.MeshStandardMaterial({ color: 0xff6a3d });
       const post = new THREE.Mesh(postGeo, postMat);
-      post.position.set(6, 2.5, 0);   // fixed in the world, to one side of the car
+      post.position.set(5, 2.5, 5);   // fixed in the world, to one side of the car
       scene.add(post);
 
-      // the ego car — a simple box for now
-      const carGeo = new THREE.BoxGeometry(2, 1, 4);   // width, height, length
+      // the ego car
+      const carGeo = new THREE.BoxGeometry(2, 1, 4);   
       const carMat = new THREE.MeshStandardMaterial({ color: 0x4da3ff });
       const car = new THREE.Mesh(carGeo, carMat);
-      car.position.set(0, 0.5, 0);   // sit on the ground (half its height up)
+      car.position.set(0, 0.5, 0);   
       scene.add(car);
 
-      // little marker so we can see which way the car faces (front = local +z)
+      // front marker on the car
       const noseGeo = new THREE.BoxGeometry(1, 0.5, 0.5);
       const noseMat = new THREE.MeshStandardMaterial({ color: 0xffe14d });
       const nose = new THREE.Mesh(noseGeo, noseMat);
-      nose.position.set(0, 0.4, 2);   // front end, sitting on top
-      car.add(nose);                  // child → inherits the car's move + rotation
+      nose.position.set(0, 0.4, 2);  
+      car.add(nose);                 
+
+      // container for tracked-object boxes (rebuilt each message)
+      const objectsGroup = new THREE.Group();
+      scene.add(objectsGroup);
 
       function animate() {
         requestAnimationFrame(animate);
@@ -99,7 +103,7 @@
         renderer.render(scene, camera);
       }
       animate();
-      
+
       // ── ego pose from ROS
       // server broadcasts { type:'ego', x, y, yaw } from /world_modeling/slam/pose
       const ws = new WebSocket(`ws://${location.host}`);
@@ -110,6 +114,28 @@
           car.position.z = -data.y;              
           car.rotation.y =  data.yaw + Math.PI / 2;
 
+        }
+
+        if (data.type === 'objects') {
+          // clear last frame's boxes (dispose to avoid GPU leaks in r128)
+          for (const m of objectsGroup.children) {
+            m.geometry.dispose();
+            m.material.dispose();
+          }
+          objectsGroup.clear();
+
+          for (const o of data.objects) {
+            // ROS bbox extents → three.js dims via the same axis swap as the car:
+            //   ROS x (fwd) → three x,  ROS z (up) → three y,  ROS y (lat) → three z
+            const geo = new THREE.BoxGeometry(o.sx, o.sz, o.sy);
+            const mat = new THREE.MeshStandardMaterial({
+              color: 0xff5a5a, transparent: true, opacity: 0.6
+            });
+            const box = new THREE.Mesh(geo, mat);
+            box.position.set(o.x, o.z, -o.y);   // same ROS→three mapping as ego
+            box.rotation.y = o.yaw;             // NOTE: no +π/2 here — see below
+            objectsGroup.add(box);
+          }
         }
       };
 
