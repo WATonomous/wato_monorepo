@@ -280,7 +280,7 @@
       function drawEgo(px, py, yaw) {
         ctx.save();
         ctx.translate(px, py);
-        ctx.rotate(-yaw - Math.PI/2);
+        ctx.rotate(-yaw + Math.PI/2);
         ctx.beginPath();
         ctx.moveTo(0, -14);
         ctx.lineTo(10, 10);
