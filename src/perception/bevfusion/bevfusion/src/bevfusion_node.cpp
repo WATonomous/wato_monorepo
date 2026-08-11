@@ -167,7 +167,7 @@ void BEVFusionNode::syncedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
-  RCLCPP_INFO(this->get_logger(), "[SYNC] Synced callback called");
+  RCLCPP_INFO(this->get_logger(), "[SYNC] Lidar and multi_image synced, processing");
   multi_image_msg_count_++;
   lidar_msg_count_++;
   synced_msg_count_++;
@@ -220,9 +220,75 @@ void BEVFusionNode::syncedCallback(
 
   processLidar(lidar_msg, lidar_data);
 
-  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+  // --- Validate inputs before calling core_->infer ---
+  // Camera count
+  if (camera_images.size() != static_cast<size_t>(config_.num_cameras)) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
+      camera_images.size(),
+      config_.num_cameras);
+    return;
+  }
 
-  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, lidar_data.size() / 5);
+  // Ensure each image is continuous, 3-channel 8-bit and matches configured resolution. Resize/copy if necessary.
+  for (size_t i = 0; i < rgb_images.size(); ++i) {
+    cv::Mat & img = rgb_images[i];
+    if (img.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Empty image at camera index %zu; skipping frame", i);
+      return;
+    }
+    if (img.type() != CV_8UC3) {
+      img.convertTo(img, CV_8U);
+      if (img.channels() != 3) {
+        cv::cvtColor(img, img, cv::COLOR_GRAY2RGB);
+      }
+    }
+    if (!img.isContinuous()) {
+      img = img.clone();
+    }
+    if (img.cols != config_.image_width || img.rows != config_.image_height) {
+      cv::Mat resized;
+      cv::resize(img, resized, cv::Size(config_.image_width, config_.image_height), 0, 0, cv::INTER_LINEAR);
+      img = std::move(resized);
+    }
+    camera_images[i] = img.data;
+  }
+
+  // LiDAR data validation: expect 5 floats per point (x,y,z,intensity,ring)
+  const int expected_features = 5;
+  if (lidar_data.empty()) {
+    RCLCPP_WARN(this->get_logger(), "LiDAR data empty after processing; skipping frame");
+    return;
+  }
+  if (lidar_data.size() % expected_features != 0) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "LiDAR data length (%zu) is not a multiple of %d — trimming to nearest multiple",
+      lidar_data.size(),
+      expected_features);
+    lidar_data.resize((lidar_data.size() / expected_features) * expected_features);
+  }
+
+  int num_points = static_cast<int>(lidar_data.size() / expected_features);
+  if (num_points <= 0) {
+    RCLCPP_WARN(this->get_logger(), "No valid LiDAR points after trimming; skipping frame");
+    return;
+  }
+  if (num_points > config_.max_points) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "LiDAR point count (%d) exceeds configured max_points (%d); truncating to max_points",
+      num_points,
+      config_.max_points);
+    lidar_data.resize(static_cast<size_t>(config_.max_points) * expected_features);
+    num_points = config_.max_points;
+  }
+
+  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+  RCLCPP_DEBUG(
+    this->get_logger(), "Calling core_->infer with %zu images and %d LiDAR points", camera_images.size(), num_points);
+  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
 
   vision_msgs::msg::Detection3DArray detections_3d;
   visualization_msgs::msg::MarkerArray markers;

@@ -68,7 +68,8 @@ public:
 
   // Default topic names (matches the remap "from" names in the launch file)
   static constexpr auto kCameraInfoTopic = "camera_info";
-  static constexpr auto kLidarTopic = "/lidar/all/points_merged";
+  static constexpr auto kLidarTopic = "/lidar_cc/velodyne_points";
+  // TODO(bevfusion_team): Use "/lidar/all/points_merged" instead and add ring has a optional param in processLidar
   static constexpr auto kMultiImageTopic = "/multi_camera_sync/multi_image_compressed";
   static constexpr auto kOutputDetectionsTopic = "output_detections";
   static constexpr auto kOutputMarkersTopic = "output_markers";
