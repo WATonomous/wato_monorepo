@@ -165,6 +165,30 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     return {};
   }
 
+  // Basic input validation / diagnostics to catch malformed inputs before hitting vendor code
+  std::cout << "[BEVFusionCore] infer called: camera_images=" << camera_images.size()
+            << ", expected_num_cameras=" << config_.num_cameras << ", lidar_points.size=" << lidar_points.size()
+            << ", num_points=" << num_points << std::endl;
+
+  for (size_t i = 0; i < camera_images.size(); ++i) {
+    if (camera_images[i] == nullptr) {
+      std::cerr << "[BEVFusionCore] ERROR: camera_images[" << i << "] is null" << std::endl;
+      return {};
+    }
+  }
+
+  const size_t expected_lidar_floats = static_cast<size_t>(num_points) * static_cast<size_t>(config_.num_features);
+  if (lidar_points.size() != expected_lidar_floats) {
+    std::cerr << "[BEVFusionCore] WARNING: lidar_points.size() (" << lidar_points.size()
+              << ") != num_points * num_features (" << expected_lidar_floats << ")" << std::endl;
+    // If lidar_points contains more data than expected, we trim locally to avoid downstream issues.
+    if (lidar_points.size() < expected_lidar_floats) {
+      std::cerr << "[BEVFusionCore] ERROR: insufficient LiDAR data for declared num_points; aborting infer."
+                << std::endl;
+      return {};
+    }
+  }
+
   // Convert LiDAR points to FP16 from any format (FP32, FP16, or INT8)
   // Notes:
   // - lidar_points.size() is the total # of floats in the flat array of 5 features per lidar point

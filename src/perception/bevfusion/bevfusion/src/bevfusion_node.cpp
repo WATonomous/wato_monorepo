@@ -197,14 +197,29 @@ void BEVFusionNode::syncedCallback(
 
   const auto start = std::chrono::steady_clock::now();
 
+  // Filter images to only those in the camera_names_ list and in the same order as camera_names_
+  deep_msgs::msg::MultiImageCompressed::SharedPtr filtered_multi_image_msg =
+    std::make_shared<deep_msgs::msg::MultiImageCompressed>();
+  filtered_multi_image_msg->images.reserve(camera_names_.size());
+  filtered_multi_image_msg->header = multi_image_msg->header;
+  for (const auto & camera_name : camera_names_) {
+    for (const auto & image : multi_image_msg->images) {
+      if (image.header.frame_id == camera_name) {
+        filtered_multi_image_msg->images.push_back(image);
+        break;
+      }
+    }
+  }
+
   std::vector<const unsigned char *> camera_images;
   std::vector<cv::Mat> rgb_images;
-  camera_images.reserve(multi_image_msg->images.size());
-  rgb_images.reserve(multi_image_msg->images.size());
+  camera_images.reserve(filtered_multi_image_msg->images.size());
+  rgb_images.reserve(filtered_multi_image_msg->images.size());
 
-  for (size_t i = 0; i < multi_image_msg->images.size(); ++i) {
-    const auto & frame_id = multi_image_msg->images[i].header.frame_id;
-    cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
+  // Decompress the images
+  for (size_t i = 0; i < filtered_multi_image_msg->images.size(); ++i) {
+    const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
+    cv::Mat bgr = decompressImage(filtered_multi_image_msg->images[i]);
     if (bgr.empty()) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
@@ -216,8 +231,8 @@ void BEVFusionNode::syncedCallback(
     camera_images.push_back(rgb_images.back().data);
   }
 
+  // Process LiDAR data
   std::vector<float> lidar_data;
-
   processLidar(lidar_msg, lidar_data);
 
   // --- Validate inputs before calling core_->infer ---
@@ -294,8 +309,8 @@ void BEVFusionNode::syncedCallback(
   visualization_msgs::msg::MarkerArray markers;
 
   for (const auto & bbox : bboxes) {
-    detections_3d.detections.push_back(toDetection3D(bbox, multi_image_msg->header));
-    markers.markers.push_back(toMarker(bbox, multi_image_msg->header, markers.markers.size()));
+    detections_3d.detections.push_back(toDetection3D(bbox, filtered_multi_image_msg->header));
+    markers.markers.push_back(toMarker(bbox, filtered_multi_image_msg->header, markers.markers.size()));
   }
 
   detection_pub_->publish(detections_3d);
