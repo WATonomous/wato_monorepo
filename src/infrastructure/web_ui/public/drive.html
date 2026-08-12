@@ -38,8 +38,13 @@
       const UP        = new THREE.Vector3(0, 1, 0);
       const camOffset = new THREE.Vector3(0, 6, -12);  // behind (−z) + above (+y), in the CAR's local frame
       const camTarget = new THREE.Vector3();           // scratch: where the camera wants to be this frame
-      const camFocus  = new THREE.Vector3();   // eased point the camera orbits (follows the car)
-      let   camYaw    = 0;                      // eased heading
+      const camFocus  = new THREE.Vector3();           // eased point the camera orbits (follows the car)
+      let camYaw = 0;                                  // eased heading
+
+      // drag-to-look state 
+      let dragging  = false;
+      let lastX = 0, lastY = 0;
+      let lookYaw = 0, lookPitch = 0;   // extra angles while dragging; ease back to 0 on release
 
       // light — so surfaces aren't flat black
       const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -84,6 +89,38 @@
       const objectsGroup = new THREE.Group();
       scene.add(objectsGroup);
 
+      // lane geometry (rebuilt each message)
+      const laneletGroup = new THREE.Group();
+      scene.add(laneletGroup);
+      const ROAD_H = 0.03;  
+
+      function makeLaneLine(pts, color, dashed = false) {
+        const geo = new THREE.BufferGeometry().setFromPoints(
+          pts.map((p) => new THREE.Vector3(p.x, ROAD_H, -p.y))  
+        );
+        const mat = dashed
+          ? new THREE.LineDashedMaterial({ color, dashSize: 1, gapSize: 1 })
+          : new THREE.LineBasicMaterial({ color });
+        const line = new THREE.Line(geo, mat);
+        if (dashed) line.computeLineDistances();   
+        return line;
+      }
+
+      canvas.addEventListener('mousedown', (e) => {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      });
+      window.addEventListener('mouseup', () => { dragging = false; });   // release anywhere
+      window.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        lookYaw   -= (e.clientX - lastX) * 0.005;   // drag right → swing right
+        lookPitch += (e.clientY - lastY) * 0.005;   // drag down → tilt down
+        lookPitch = Math.max(-0.4, Math.min(1.2, lookPitch));  // clamp so you can't flip under/over
+        lastX = e.clientX;
+        lastY = e.clientY;
+      });
+
       function animate() {
         requestAnimationFrame(animate);
 
@@ -96,7 +133,26 @@
 
         camFocus.lerp(car.position, 0.15);          // ease the orbit point to the car
 
-        camTarget.copy(camOffset).applyAxisAngle(UP, camYaw).add(camFocus);
+        // keep ground + grid under the car (both are finite; the car roams far in map frame)
+        ground.position.x = car.position.x;
+        ground.position.z = car.position.z;
+        // snap the grid to whole cells so it reads as the world scrolling past,
+        // not a rigid sheet glued to the car
+        const cell = 200 / 40;   // GridHelper size / divisions = 5 m per cell
+        grid.position.x = Math.round(car.position.x / cell) * cell;
+        grid.position.z = Math.round(car.position.z / cell) * cell;
+
+        // when not dragging, ease the look offsets back to zero → snaps back to chase cam
+        if (!dragging) {
+          lookYaw   *= 0.85;
+          lookPitch *= 0.85;
+        }
+
+        // base chase angle + temporary drag offset
+        camTarget.copy(camOffset)
+                 .applyAxisAngle(new THREE.Vector3(1, 0, 0), lookPitch)  // tilt
+                 .applyAxisAngle(UP, camYaw + lookYaw)                    // swing (chase + drag)
+                 .add(camFocus);
         camera.position.copy(camTarget);
         camera.lookAt(camFocus);
 
@@ -135,6 +191,20 @@
             box.position.set(o.x, o.z, -o.y);   // same ROS→three mapping as ego
             box.rotation.y = o.yaw;             // NOTE: no +π/2 here — see below
             objectsGroup.add(box);
+          }
+        }
+
+        if (data.type === 'lanelet') {
+          for (const c of laneletGroup.children) {
+            c.geometry.dispose();
+            c.material.dispose();
+          }
+          laneletGroup.clear();
+
+          for (const L of data.lanelets) {
+            if (L.left.length  > 1) laneletGroup.add(makeLaneLine(L.left,  0xffffff));
+            if (L.right.length > 1) laneletGroup.add(makeLaneLine(L.right, 0xffffff));
+            if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0xffcc00, true));
           }
         }
       };
