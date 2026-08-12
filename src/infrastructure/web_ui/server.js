@@ -91,6 +91,20 @@ rclnodejs.init().then(() => {
     }
   );
 
+  // lane geometry ahead → browser (map frame, same as ego/objects)
+  node.createSubscription(
+    'lanelet_msgs/msg/LaneletAhead',
+    '/world_modeling/lanelet/lanelet_ahead',
+    (msg) => {
+      const lanelets = msg.lanelets.map((L) => ({
+        centerline: L.centerline.map((p) => ({ x: p.x, y: p.y })),
+        left:  L.left_boundary.map((p) => ({ x: p.x, y: p.y })),
+        right: L.right_boundary.map((p) => ({ x: p.x, y: p.y })),
+      }));
+      broadcast({ type: 'lanelet', lanelets });
+    }
+  );
+
   // listen for messages coming from the browser
   wss.on('connection', (socket) => {
     socket.on('message', async (raw) => {
