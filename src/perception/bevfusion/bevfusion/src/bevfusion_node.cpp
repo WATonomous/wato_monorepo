@@ -125,10 +125,11 @@ void BEVFusionNode::declareParameters()
     return std::vector<float>(d.begin(), d.end());
   };
 
-  config_.camera_backbone_plan = model_dir + "/camera.backbone.plan";
-  config_.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
-  config_.fuser_plan = model_dir + "/fuser.plan";
-  config_.head_bbox_plan = model_dir + "/head.bbox.plan";
+  config_.model_dir = model_dir;
+  config_.camera_backbone_plan = model_dir + "/build/camera.backbone.plan";
+  config_.camera_vtransform_plan = model_dir + "/build/camera.vtransform.plan";
+  config_.fuser_plan = model_dir + "/build/fuser.plan";
+  config_.head_bbox_plan = model_dir + "/build/head.bbox.plan";
   config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
 
   config_.precision = this->get_parameter("precision").as_string();
@@ -172,13 +173,13 @@ void BEVFusionNode::syncedCallback(
   lidar_msg_count_++;
   synced_msg_count_++;
 
-  if (!core_ || !core_->initialize()) {
+  if (!core_ || !core_->isInitialized()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
     return;
   }
 
-  if (!calibration_initialized_.load()) {
+  if (!calibration_initialized_.load() || !core_->hasCalibration()) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
     return;
   }
@@ -304,6 +305,7 @@ void BEVFusionNode::syncedCallback(
   RCLCPP_DEBUG(
     this->get_logger(), "Calling core_->infer with %zu images and %d LiDAR points", camera_images.size(), num_points);
   std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
+  RCLCPP_INFO(this->get_logger(), "Found %zu bounding boxes", bboxes.size());
 
   vision_msgs::msg::Detection3DArray detections_3d;
   visualization_msgs::msg::MarkerArray markers;

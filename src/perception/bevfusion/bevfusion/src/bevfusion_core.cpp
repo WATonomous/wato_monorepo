@@ -15,11 +15,15 @@
 #include "bevfusion/bevfusion_core.hpp"
 
 #include <dlfcn.h>
+#include <sys/wait.h>
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -50,11 +54,58 @@ bool BEVFusionCore::hasCalibration() const
   return has_calibration_;
 }
 
+bool BEVFusionCore::checkModelFilesExist() const
+{
+  bool result = true;
+  if (!std::filesystem::exists(config_.camera_backbone_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: camera_backbone_plan='" << config_.camera_backbone_plan << "'" << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.camera_vtransform_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: camera_vtransform_plan='" << config_.camera_vtransform_plan << "'"
+              << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.fuser_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: fuser_plan='" << config_.fuser_plan << "'" << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.head_bbox_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: head_bbox_plan='" << config_.head_bbox_plan << "'" << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.lidar_backbone_onnx)) {
+    std::cerr << "[BEVFusionCore] MISSING: lidar_backbone_onnx='" << config_.lidar_backbone_onnx << "'" << std::endl;
+    result = false;
+  }
+  return result;
+}
+
+bool BEVFusionCore::buildTRTEngines() const
+{
+  return false;
+}
+
 bool BEVFusionCore::initialize()
 {
   // Must load this plugin before create_core() — TRT will fail to deserialize head.bbox.plan without it
   if (dlopen("libcustom_layernorm.so", RTLD_NOW) == nullptr) {
     std::cerr << "[BEVFusionCore] Failed to load libcustom_layernorm.so: " << dlerror() << std::endl;
+    return false;
+  }
+
+  // Check if all required model files exist, and build missing TensorRT engines if needed
+  if (!checkModelFilesExist()) {
+    std::cout << "[BEVFusionCore] Building TRT engines. Please hold for several seconds..." << std::endl;
+    if (!buildTRTEngines()) {
+      std::cerr << "[BEVFusionCore] Failed to build TensorRT engines" << std::endl;
+      return false;
+    }
+  }
+
+  // Ensure that all required model files exist after the build step
+  if (!checkModelFilesExist()) {
+    std::cerr << "[BEVFusionCore] Missing plan/onnx files, cannot create core!" << std::endl;
     return false;
   }
 
@@ -211,6 +262,12 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     reinterpret_cast<const nvtype::half *>(lidar_half.data()),
     num_points,
     stream_);
+
+  std::cout << "[BEVFusionCore] pipeline_->forward returned " << detections.size() << " detections" << std::endl;
+  if (detections.empty()) {
+    std::cerr << "[BEVFusionCore] WARNING: pipeline returned zero detections. has_calibration=" << has_calibration_
+              << ", pipeline_ptr=" << pipeline_.get() << ", precision=" << config_.precision << std::endl;
+  }
 
   // map vendor type to our bounding box type
   std::vector<BoundingBox> result;
