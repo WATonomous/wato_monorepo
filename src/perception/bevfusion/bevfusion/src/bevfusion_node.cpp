@@ -75,6 +75,7 @@ void BEVFusionNode::declareParameters()
 
   // Directory containing all .plan and .onnx engine files for the model
   this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50int8");
+  this->declare_parameter<std::string>("build_dir", "/opt/watonomous/models/bevfusion/resnet50int8/build");
 
   // Model precision
   this->declare_parameter<std::string>("precision", "int8");
@@ -117,6 +118,7 @@ void BEVFusionNode::declareParameters()
 
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
+  const std::string build_dir = this->get_parameter("build_dir").as_string();
   camera_names_ = this->get_parameter("camera_names").as_string_array();
 
   // ROS params use double; BEVFusionInputConfig uses float — convert on read
@@ -126,10 +128,11 @@ void BEVFusionNode::declareParameters()
   };
 
   config_.model_dir = model_dir;
-  config_.camera_backbone_plan = model_dir + "/build/camera.backbone.plan";
-  config_.camera_vtransform_plan = model_dir + "/build/camera.vtransform.plan";
-  config_.fuser_plan = model_dir + "/build/fuser.plan";
-  config_.head_bbox_plan = model_dir + "/build/head.bbox.plan";
+  config_.build_dir = build_dir;
+  config_.camera_backbone_plan = build_dir + "/camera.backbone.plan";
+  config_.camera_vtransform_plan = build_dir + "/camera.vtransform.plan";
+  config_.fuser_plan = build_dir + "/fuser.plan";
+  config_.head_bbox_plan = build_dir + "/head.bbox.plan";
   config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
 
   config_.precision = this->get_parameter("precision").as_string();

@@ -15,14 +15,18 @@
 #include "bevfusion/bevfusion_core.hpp"
 
 #include <dlfcn.h>
-#include <sys/wait.h>
+#include <NvInfer.h>
+#include <NvInferVersion.h>
+#include <NvOnnxParser.h>
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -32,6 +36,25 @@
 
 namespace wato::perception::bevfusion
 {
+
+// TRT logging
+namespace
+{
+static_assert(NV_TENSORRT_MAJOR >= 10, "This build path targets TensorRT 10/11 only.");
+
+class TrtLogger : public nvinfer1::ILogger
+{
+public:
+  void log(Severity severity, const char * msg) noexcept override
+  {
+    if (severity <= Severity::kWARNING) {
+      std::cerr << "[TRT] " << msg << std::endl;
+    }
+  }
+};
+
+TrtLogger g_trt_logger;
+}  // namespace
 
 BEVFusionCore::BEVFusionCore(const BEVFusionInputConfig & config)
 : config_(config)
@@ -54,38 +77,6 @@ bool BEVFusionCore::hasCalibration() const
   return has_calibration_;
 }
 
-bool BEVFusionCore::checkModelFilesExist() const
-{
-  bool result = true;
-  if (!std::filesystem::exists(config_.camera_backbone_plan)) {
-    std::cerr << "[BEVFusionCore] MISSING: camera_backbone_plan='" << config_.camera_backbone_plan << "'" << std::endl;
-    result = false;
-  }
-  if (!std::filesystem::exists(config_.camera_vtransform_plan)) {
-    std::cerr << "[BEVFusionCore] MISSING: camera_vtransform_plan='" << config_.camera_vtransform_plan << "'"
-              << std::endl;
-    result = false;
-  }
-  if (!std::filesystem::exists(config_.fuser_plan)) {
-    std::cerr << "[BEVFusionCore] MISSING: fuser_plan='" << config_.fuser_plan << "'" << std::endl;
-    result = false;
-  }
-  if (!std::filesystem::exists(config_.head_bbox_plan)) {
-    std::cerr << "[BEVFusionCore] MISSING: head_bbox_plan='" << config_.head_bbox_plan << "'" << std::endl;
-    result = false;
-  }
-  if (!std::filesystem::exists(config_.lidar_backbone_onnx)) {
-    std::cerr << "[BEVFusionCore] MISSING: lidar_backbone_onnx='" << config_.lidar_backbone_onnx << "'" << std::endl;
-    result = false;
-  }
-  return result;
-}
-
-bool BEVFusionCore::buildTRTEngines() const
-{
-  return false;
-}
-
 bool BEVFusionCore::initialize()
 {
   // Must load this plugin before create_core() — TRT will fail to deserialize head.bbox.plan without it
@@ -96,7 +87,7 @@ bool BEVFusionCore::initialize()
 
   // Check if all required model files exist, and build missing TensorRT engines if needed
   if (!checkModelFilesExist()) {
-    std::cout << "[BEVFusionCore] Building TRT engines. Please hold for several seconds..." << std::endl;
+    std::cout << "[BEVFusionCore] Building TRT engines. Please hold for several minutes..." << std::endl;
     if (!buildTRTEngines()) {
       std::cerr << "[BEVFusionCore] Failed to build TensorRT engines" << std::endl;
       return false;
@@ -108,6 +99,8 @@ bool BEVFusionCore::initialize()
     std::cerr << "[BEVFusionCore] Missing plan/onnx files, cannot create core!" << std::endl;
     return false;
   }
+
+  std::cout << "[BEVFusionCore] All required model files exist. Creating core..." << std::endl;
 
   // Camera normalization: resize + mean/std normalization applied to each input image before the backbone
   ::bevfusion::camera::NormalizationParameter norm;
@@ -298,6 +291,121 @@ void BEVFusionCore::updateCalibration(
   pipeline_->update(
     camera_to_lidar.data(), camera_intrinsics.data(), lidar_to_image_projection.data(), img_aug_matrix.data(), stream_);
   has_calibration_ = true;
+}
+
+bool BEVFusionCore::checkModelFilesExist() const
+{
+  bool result = true;
+  if (!std::filesystem::exists(config_.camera_backbone_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: camera_backbone_plan='" << config_.camera_backbone_plan << "'" << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.camera_vtransform_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: camera_vtransform_plan='" << config_.camera_vtransform_plan << "'"
+              << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.fuser_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: fuser_plan='" << config_.fuser_plan << "'" << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.head_bbox_plan)) {
+    std::cerr << "[BEVFusionCore] MISSING: head_bbox_plan='" << config_.head_bbox_plan << "'" << std::endl;
+    result = false;
+  }
+  if (!std::filesystem::exists(config_.lidar_backbone_onnx)) {
+    std::cerr << "[BEVFusionCore] MISSING: lidar_backbone_onnx='" << config_.lidar_backbone_onnx << "'" << std::endl;
+    result = false;
+  }
+  return result;
+}
+
+bool BEVFusionCore::buildTRTEngines() const
+{
+  std::filesystem::path model_dir(config_.model_dir);
+  std::filesystem::path build_dir(config_.build_dir);
+
+  std::cout << "[BEVFusionCore][buildTRTEngines] Detected TensorRT version: " << NV_TENSORRT_MAJOR << "."
+            << NV_TENSORRT_MINOR << std::endl;
+
+  if (!compileTrtModel("camera.backbone", model_dir / "camera.backbone.onnx", build_dir / "camera.backbone.plan")) {
+    return false;
+  }
+  if (!compileTrtModel("fuser", model_dir / "fuser.onnx", build_dir / "fuser.plan")) {
+    return false;
+  }
+  if (!compileTrtModel("camera.vtransform", model_dir / "camera.vtransform.onnx", build_dir / "camera.vtransform.plan"))
+  {
+    return false;
+  }
+  if (!compileTrtModel("head.bbox", model_dir / "head.bbox.onnx", build_dir / "head.bbox.plan")) {
+    return false;
+  }
+
+  return true;
+}
+
+bool BEVFusionCore::compileTrtModel(
+  const std::string & name, const std::filesystem::path & onnx_file, const std::filesystem::path & plan_file) const
+{
+  if (std::filesystem::exists(plan_file)) {
+    std::cout << "[BEVFusionCore][compileTrtModel] Model " << plan_file << " already built!" << std::endl;
+    return true;
+  }
+
+  if (!std::filesystem::exists(onnx_file)) {
+    std::cerr << "[BEVFusionCore][compileTrtModel] The model [" << onnx_file << "] does not exist." << std::endl;
+    return false;
+  }
+
+  std::error_code ec;
+  std::filesystem::create_directories(plan_file.parent_path(), ec);
+  if (ec) {
+    std::cerr << "[BEVFusionCore] Failed to create build directory: " << ec.message() << std::endl;
+    return false;
+  }
+
+  std::cout << "[BEVFusionCore][compileTrtModel] Building the model: " << plan_file << std::endl;
+
+  std::unique_ptr<nvinfer1::IBuilder> builder(nvinfer1::createInferBuilder(g_trt_logger));
+  if (!builder) {
+    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to create TRT builder for " << name << std::endl;
+    return false;
+  }
+
+  // TRT10+: explicit batch is the only mode, no creation flag needed/available.
+  std::unique_ptr<nvinfer1::INetworkDefinition> network(builder->createNetworkV2(0U));
+
+  std::unique_ptr<nvonnxparser::IParser> parser(nvonnxparser::createParser(*network, g_trt_logger));
+  if (!parser->parseFromFile(onnx_file.string().c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kWARNING))) {
+    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to parse ONNX: " << onnx_file << std::endl;
+    return false;
+  }
+
+  std::unique_ptr<nvinfer1::IBuilderConfig> config(builder->createBuilderConfig());
+  config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 2048ULL * 1024 * 1024);
+  config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
+
+  for (int i = 0; i < network->getNbInputs(); ++i) {
+    network->getInput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
+  }
+  for (int i = 0; i < network->getNbOutputs(); ++i) {
+    network->getOutput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
+  }
+
+  std::unique_ptr<nvinfer1::IHostMemory> serialized(builder->buildSerializedNetwork(*network, *config));
+  if (!serialized) {
+    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to build model " << plan_file << std::endl;
+    return false;
+  }
+
+  std::ofstream out(plan_file, std::ios::binary);
+  if (!out) {
+    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to open " << plan_file << " for writing." << std::endl;
+    return false;
+  }
+  out.write(static_cast<const char *>(serialized->data()), static_cast<std::streamsize>(serialized->size()));
+  return out.good();
 }
 
 }  // namespace wato::perception::bevfusion

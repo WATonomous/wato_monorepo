@@ -6,10 +6,11 @@ bevfusion_node:
 
     # Input topics for message filters (remapping does not work for message_filters)
     input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"  # Topic for synchronized compressed images (sensor_msgs/msg/CompressedImage)
-    input_lidar_topic: "/lidar/all/points_merged"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
+    input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
     # Directory containing all TensorRT .plan and .onnx engine files
-    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8/build"
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11"
+    build_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11/build"
 
     # Model precision - can be "fp16" or "int8"
     precision: "int8"
@@ -60,8 +61,8 @@ bevfusion_node:
     post_center_range_end: [61.2, 61.2, 10.0]
 
     # ApproximateTime synchronization
-    sync_queue_size: 20
-    sync_max_time_diff_ms: 500.0
+    sync_queue_size: 2
+    sync_max_time_diff_ms: 100.0
 
     # QoS
     qos_subscriber_reliability: "best_effort"
