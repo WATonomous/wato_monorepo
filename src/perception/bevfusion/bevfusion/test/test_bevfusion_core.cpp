@@ -183,7 +183,8 @@ TEST_CASE("BEVFusionCore: infer() forwards data and translates BoundingBox corre
   core.initialized_ = true;
   core.has_calibration_ = true;
 
-  std::vector<const unsigned char *> images(6, nullptr);
+  unsigned char dummy_image = 0;
+  std::vector<const unsigned char *> images(6, &dummy_image);
   std::vector<float> lidar_points = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f};  // 1 point (5 features)
 
   auto results = core.infer(images, lidar_points, 1);
