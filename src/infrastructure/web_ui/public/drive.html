@@ -94,6 +94,12 @@
       scene.add(laneletGroup);
       const ROAD_H = 0.03;  
 
+      const CLASS_COLORS = {
+        'person': 0x00e676,   // green — pedestrians
+        'car':    0x2196f3,   // blue  — cars
+      };
+      const CLASS_COLOR_DEFAULT = 0x888888;
+
       function makeLaneLine(pts, color, dashed = false) {
         const geo = new THREE.BufferGeometry().setFromPoints(
           pts.map((p) => new THREE.Vector3(p.x, ROAD_H, -p.y))  
@@ -182,14 +188,17 @@
 
           for (const o of data.objects) {
             // ROS bbox extents → three.js dims via the same axis swap as the car:
-            //   ROS x (fwd) → three x,  ROS z (up) → three y,  ROS y (lat) → three z
+            // ROS x (fwd) → three x,  ROS z (up) → three y,  ROS y (lat) → three z
             const geo = new THREE.BoxGeometry(o.sx, o.sz, o.sy);
+            
+            const color = CLASS_COLORS[o.cls] ?? CLASS_COLOR_DEFAULT;
             const mat = new THREE.MeshStandardMaterial({
-              color: 0xff5a5a, transparent: true, opacity: 0.6
+              color, transparent: true, opacity: 0.55
             });
+
             const box = new THREE.Mesh(geo, mat);
-            box.position.set(o.x, o.z, -o.y);   // same ROS→three mapping as ego
-            box.rotation.y = o.yaw;             // NOTE: no +π/2 here — see below
+            box.position.set(o.x, o.z, -o.y);   
+            box.rotation.y = o.yaw;            
             objectsGroup.add(box);
           }
         }
@@ -204,7 +213,7 @@
           for (const L of data.lanelets) {
             if (L.left.length  > 1) laneletGroup.add(makeLaneLine(L.left,  0xffffff));
             if (L.right.length > 1) laneletGroup.add(makeLaneLine(L.right, 0xffffff));
-            if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0xffcc00, true));
+            if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0x888888, true));
           }
         }
       };
