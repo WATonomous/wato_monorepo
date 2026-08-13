@@ -68,6 +68,7 @@ void BEVFusionNode::declareParameters()
 
   // Frame IDs
   this->declare_parameter<std::string>("lidar_frame_id", "lidar_cc");
+  this->declare_parameter<std::string>("target_frame", "base_link");
 
   // Topics
   this->declare_parameter<std::string>("input_multi_image_topic", kMultiImageTopic);
@@ -113,6 +114,7 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
 
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+  target_frame_ = this->get_parameter("target_frame").as_string();
   multi_image_topic_ = this->get_parameter("input_multi_image_topic").as_string();
   lidar_topic_ = this->get_parameter("lidar_topic").as_string();
 
@@ -314,8 +316,8 @@ void BEVFusionNode::syncedCallback(
   visualization_msgs::msg::MarkerArray markers;
 
   for (const auto & bbox : bboxes) {
-    detections_3d.detections.push_back(toDetection3D(bbox, filtered_multi_image_msg->header));
-    markers.markers.push_back(toMarker(bbox, filtered_multi_image_msg->header, markers.markers.size()));
+    detections_3d.detections.push_back(toDetection3D(bbox, filtered_multi_image_msg->header.stamp));
+    markers.markers.push_back(toMarker(bbox, filtered_multi_image_msg->header.stamp, markers.markers.size()));
   }
 
   detection_pub_->publish(detections_3d);
@@ -520,7 +522,7 @@ void BEVFusionNode::computeCalibrationMatrices()
 }
 
 visualization_msgs::msg::Marker BEVFusionNode::toMarker(
-  const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const
+  const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp, int marker_id) const
 {
   visualization_msgs::msg::Marker marker;
 
@@ -565,7 +567,8 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   marker.lifetime = rclcpp::Duration(0, 100'000'000);  // 0.1s (so old markers disappear)
   marker.color.a = 0.8f;
 
-  marker.header = header;
+  marker.header.stamp = stamp;
+  marker.header.frame_id = target_frame_;
   marker.ns = "bevfusion_detections";
   marker.id = marker_id;
 
@@ -573,11 +576,12 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
 }
 
 vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(
-  const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+  const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp) const
 {
   vision_msgs::msg::Detection3D detection;
 
-  detection.header = header;
+  detection.header.stamp = stamp;
+  detection.header.frame_id = target_frame_;
   detection.bbox.center.position.x = bbox.position.x;
   detection.bbox.center.position.y = bbox.position.y;
   detection.bbox.center.position.z = bbox.position.z;

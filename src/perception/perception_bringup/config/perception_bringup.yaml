@@ -456,6 +456,7 @@ multi_camera_sync:
   ros__parameters:
     # Frame IDs
     lidar_frame_id: "lidar_cc"
+    target_frame: "base_link"  # Target coordinate frame for 3D detections
 
     # Input topics for message filters (remapping does not work for message_filters)
     input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"  # Topic for synchronized compressed images (sensor_msgs/msg/CompressedImage)

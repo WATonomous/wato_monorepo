@@ -212,7 +212,8 @@ private:
    * @param header The header to use for the Detection3D message
    * @return Detection3D message
    */
-  vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const;
+  vision_msgs::msg::Detection3D toDetection3D(
+    const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp) const;
 
   /**
    * @brief Convert a BoundingBox to a Marker message.
@@ -222,7 +223,7 @@ private:
    * @return Marker message
    */
   visualization_msgs::msg::Marker toMarker(
-    const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const;
+    const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp, int marker_id) const;
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
@@ -243,9 +244,12 @@ private:
   // Calibration
   std::atomic<bool> calibration_initialized_{false};
 
-  // Topics
+  // Subscription topics for approximate time sync
   std::string multi_image_topic_;
   std::string lidar_topic_;
+
+  // 3D detection: TF target frame
+  std::string target_frame_;
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;

@@ -479,7 +479,7 @@ TEST_CASE("toDetection3D: position and size are mapped correctly", "[conversion]
   std_msgs::msg::Header header;
   header.frame_id = "lidar_cc";
 
-  auto det = node->toDetection3D(bbox, header);
+  auto det = node->toDetection3D(bbox, header.stamp);
 
   REQUIRE(det.header.frame_id == "lidar_cc");
   REQUIRE(det.bbox.center.position.x == Catch::Approx(1.5));
@@ -505,7 +505,7 @@ TEST_CASE("toDetection3D: yaw rotation produces correct quaternion", "[conversio
   BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, yaw, 0.9f, 0);
 
   std_msgs::msg::Header header;
-  auto det = node->toDetection3D(bbox, header);
+  auto det = node->toDetection3D(bbox, header.stamp);
 
   // For yaw-only rotation (RPY = 0,0,π/4):
   // qw = cos(π/8), qz = sin(π/8), qx = qy = 0
@@ -531,7 +531,7 @@ TEST_CASE("toDetection3D: hypothesis carries class_id and score", "[conversion][
   BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.87f, 8);
 
   std_msgs::msg::Header header;
-  auto det = node->toDetection3D(bbox, header);
+  auto det = node->toDetection3D(bbox, header.stamp);
 
   REQUIRE(det.results.size() == 1);
   REQUIRE(det.results[0].hypothesis.class_id == "8");  // pedestrian in nuScenes
@@ -558,7 +558,7 @@ TEST_CASE("toMarker: class-specific colors", "[conversion][fast]")
   SECTION("Car (id=0) is green")
   {
     BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 0);
-    auto marker = node->toMarker(bbox, header, 0);
+    auto marker = node->toMarker(bbox, header.stamp, 0);
     REQUIRE(marker.color.r == Catch::Approx(0.0f));
     REQUIRE(marker.color.g == Catch::Approx(1.0f));
     REQUIRE(marker.color.b == Catch::Approx(0.0f));
@@ -567,7 +567,7 @@ TEST_CASE("toMarker: class-specific colors", "[conversion][fast]")
   SECTION("Pedestrian (id=1) is yellow")
   {
     BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 1);
-    auto marker = node->toMarker(bbox, header, 1);
+    auto marker = node->toMarker(bbox, header.stamp, 1);
     REQUIRE(marker.color.r == Catch::Approx(1.0f));
     REQUIRE(marker.color.g == Catch::Approx(1.0f));
     REQUIRE(marker.color.b == Catch::Approx(0.0f));
@@ -576,7 +576,7 @@ TEST_CASE("toMarker: class-specific colors", "[conversion][fast]")
   SECTION("Truck (id=2) is blue")
   {
     BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 2);
-    auto marker = node->toMarker(bbox, header, 2);
+    auto marker = node->toMarker(bbox, header.stamp, 2);
     REQUIRE(marker.color.r == Catch::Approx(0.0f));
     REQUIRE(marker.color.g == Catch::Approx(0.0f));
     REQUIRE(marker.color.b == Catch::Approx(1.0f));
@@ -585,7 +585,7 @@ TEST_CASE("toMarker: class-specific colors", "[conversion][fast]")
   SECTION("Unknown class (id=99) defaults to white")
   {
     BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 99);
-    auto marker = node->toMarker(bbox, header, 3);
+    auto marker = node->toMarker(bbox, header.stamp, 3);
     REQUIRE(marker.color.r == Catch::Approx(1.0f));
     REQUIRE(marker.color.g == Catch::Approx(1.0f));
     REQUIRE(marker.color.b == Catch::Approx(1.0f));
@@ -606,7 +606,7 @@ TEST_CASE("toMarker: type, namespace, opacity, and id are set correctly", "[conv
   header.frame_id = "lidar_cc";
 
   BoundingBox bbox = make_test_bbox(5.0f, 3.0f, 1.0f, 4.5f, 2.0f, 1.7f, 0.3f, 0.8f, 0);
-  auto marker = node->toMarker(bbox, header, 42);
+  auto marker = node->toMarker(bbox, header.stamp, 42);
 
   REQUIRE(marker.type == visualization_msgs::msg::Marker::CUBE);
   REQUIRE(marker.action == visualization_msgs::msg::Marker::ADD);
