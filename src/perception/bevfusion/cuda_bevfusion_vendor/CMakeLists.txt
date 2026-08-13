@@ -15,7 +15,7 @@ cmake_minimum_required(VERSION 3.10)
 project(cuda_bevfusion_vendor)
 
 set(CUDA_BEVFUSION_GIT_REPOSITORY "https://github.com/WATonomous/wato-cuda-bevfusion.git" CACHE STRING "Git repository URL")
-set(CUDA_BEVFUSION_GIT_TAG "ashish/fixes" CACHE STRING "Git tag/branch to checkout")
+set(CUDA_BEVFUSION_GIT_TAG "master" CACHE STRING "Git tag/branch to checkout")
 
 option(FORCE_BUILD_VENDOR_PKG
   "Force building cuda-bevfusion from source"

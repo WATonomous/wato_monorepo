@@ -532,7 +532,7 @@ detection_lifecycle_manager:
     # Manages model inference and attribute enrichment nodes.
     node_names: ["deep_object_detection_node", "attribute_assigner_node", "bevfusion_node"]
     autostart: true
-    transition_timeout_s: 90.0
+    transition_timeout_s: 130.0
     bond_timeout_s: 4.0
     bond_enabled: false
 
