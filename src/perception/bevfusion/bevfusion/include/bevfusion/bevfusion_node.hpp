@@ -68,8 +68,9 @@ public:
 
   // Default topic names (matches the remap "from" names in the launch file)
   static constexpr auto kCameraInfoTopic = "camera_info";
-  static constexpr auto kLidarTopic = "lidar";
-  static constexpr auto kMultiImageTopic = "multi_image";
+  static constexpr auto kLidarTopic = "/lidar_cc/velodyne_points";
+  // TODO(bevfusion_team): Use "/lidar/all/points_merged" instead and add ring has a optional param in processLidar
+  static constexpr auto kMultiImageTopic = "/multi_camera_sync/multi_image_compressed";
   static constexpr auto kOutputDetectionsTopic = "output_detections";
   static constexpr auto kOutputMarkersTopic = "output_markers";
 
@@ -211,7 +212,8 @@ private:
    * @param header The header to use for the Detection3D message
    * @return Detection3D message
    */
-  vision_msgs::msg::Detection3D toDetection3D(const BoundingBox & bbox, const std_msgs::msg::Header & header) const;
+  vision_msgs::msg::Detection3D toDetection3D(
+    const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp) const;
 
   /**
    * @brief Convert a BoundingBox to a Marker message.
@@ -221,7 +223,7 @@ private:
    * @return Marker message
    */
   visualization_msgs::msg::Marker toMarker(
-    const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const;
+    const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp, int marker_id) const;
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
@@ -237,9 +239,17 @@ private:
   // Camera info
   rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
   MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
+  std::vector<std::string> camera_names_;
 
   // Calibration
   std::atomic<bool> calibration_initialized_{false};
+
+  // Subscription topics for approximate time sync
+  std::string multi_image_topic_;
+  std::string lidar_topic_;
+
+  // 3D detection: TF target frame
+  std::string target_frame_;
 
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;

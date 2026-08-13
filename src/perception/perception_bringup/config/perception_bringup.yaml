@@ -456,9 +456,15 @@ multi_camera_sync:
   ros__parameters:
     # Frame IDs
     lidar_frame_id: "lidar_cc"
+    target_frame: "base_link"  # Target coordinate frame for 3D detections
+
+    # Input topics for message filters (remapping does not work for message_filters)
+    input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"  # Topic for synchronized compressed images (sensor_msgs/msg/CompressedImage)
+    input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
     # Directory containing all TensorRT .plan and .onnx engine files
-    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8"
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11"
+    build_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11/build"
 
     # Model precision - can be "fp16" or "int8"
     precision: "int8"
@@ -469,8 +475,8 @@ multi_camera_sync:
       - "camera_pano_ne"
       - "camera_pano_nw"
       - "camera_pano_ss"
-      - "camera_pano_se"
       - "camera_pano_sw"
+      - "camera_pano_se"
 
     # Detection confidence threshold — boxes below this score are discarded
     confidence_threshold: 0.3
@@ -525,16 +531,16 @@ multi_camera_sync:
 detection_lifecycle_manager:
   ros__parameters:
     # Manages model inference and attribute enrichment nodes.
-    node_names: ["deep_object_detection_node", "attribute_assigner_node"]
+    node_names: ["deep_object_detection_node", "attribute_assigner_node", "bevfusion_node"]
     autostart: true
-    transition_timeout_s: 90.0
+    transition_timeout_s: 130.0
     bond_timeout_s: 4.0
     bond_enabled: false
 
 perception_lifecycle_manager:
   ros__parameters:
     # Manages segmentation, association, and tracking pipeline nodes.
-    node_names: ["/perception/patchworkpp_node", "/perception/bevfusion_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
     autostart: true
     autostart_delay_s: 3.0
     transition_timeout_s: 3.0

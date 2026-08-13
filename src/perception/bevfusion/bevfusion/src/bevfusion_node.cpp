@@ -68,10 +68,15 @@ void BEVFusionNode::declareParameters()
 
   // Frame IDs
   this->declare_parameter<std::string>("lidar_frame_id", "lidar_cc");
-  lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+  this->declare_parameter<std::string>("target_frame", "base_link");
+
+  // Topics
+  this->declare_parameter<std::string>("input_multi_image_topic", kMultiImageTopic);
+  this->declare_parameter<std::string>("lidar_topic", kLidarTopic);
 
   // Directory containing all .plan and .onnx engine files for the model
-  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50");
+  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50int8");
+  this->declare_parameter<std::string>("build_dir", "/opt/watonomous/models/bevfusion/resnet50int8/build");
 
   // Model precision
   this->declare_parameter<std::string>("precision", "int8");
@@ -108,9 +113,15 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
   this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
 
+  lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
+  target_frame_ = this->get_parameter("target_frame").as_string();
+  multi_image_topic_ = this->get_parameter("input_multi_image_topic").as_string();
+  lidar_topic_ = this->get_parameter("lidar_topic").as_string();
+
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
-  const auto camera_names = this->get_parameter("camera_names").as_string_array();
+  const std::string build_dir = this->get_parameter("build_dir").as_string();
+  camera_names_ = this->get_parameter("camera_names").as_string_array();
 
   // ROS params use double; BEVFusionInputConfig uses float — convert on read
   const auto to_float_vec = [this](const std::string & name) {
@@ -118,16 +129,18 @@ void BEVFusionNode::declareParameters()
     return std::vector<float>(d.begin(), d.end());
   };
 
-  config_.camera_backbone_plan = model_dir + "/camera.backbone.plan";
-  config_.camera_vtransform_plan = model_dir + "/camera.vtransform.plan";
-  config_.fuser_plan = model_dir + "/fuser.plan";
-  config_.head_bbox_plan = model_dir + "/head.bbox.plan";
-  config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.onnx";
+  config_.model_dir = model_dir;
+  config_.build_dir = build_dir;
+  config_.camera_backbone_plan = build_dir + "/camera.backbone.plan";
+  config_.camera_vtransform_plan = build_dir + "/camera.vtransform.plan";
+  config_.fuser_plan = build_dir + "/fuser.plan";
+  config_.head_bbox_plan = build_dir + "/head.bbox.plan";
+  config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
 
   config_.precision = this->get_parameter("precision").as_string();
   config_.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
 
-  config_.num_cameras = static_cast<int>(camera_names.size());
+  config_.num_cameras = static_cast<int>(camera_names_.size());
   config_.image_width = this->get_parameter("image_width").as_int();
   config_.image_height = this->get_parameter("image_height").as_int();
   config_.resize_lim = static_cast<float>(this->get_parameter("resize_lim").as_double());
@@ -160,17 +173,18 @@ void BEVFusionNode::syncedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
+  RCLCPP_INFO(this->get_logger(), "[SYNC] Lidar and multi_image synced, processing");
   multi_image_msg_count_++;
   lidar_msg_count_++;
   synced_msg_count_++;
 
-  if (!core_ || !core_->initialize()) {
+  if (!core_ || !core_->isInitialized()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
     return;
   }
 
-  if (!calibration_initialized_.load()) {
+  if (!calibration_initialized_.load() || !core_->hasCalibration()) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
     return;
   }
@@ -189,14 +203,29 @@ void BEVFusionNode::syncedCallback(
 
   const auto start = std::chrono::steady_clock::now();
 
+  // Filter images to only those in the camera_names_ list and in the same order as camera_names_
+  deep_msgs::msg::MultiImageCompressed::SharedPtr filtered_multi_image_msg =
+    std::make_shared<deep_msgs::msg::MultiImageCompressed>();
+  filtered_multi_image_msg->images.reserve(camera_names_.size());
+  filtered_multi_image_msg->header = multi_image_msg->header;
+  for (const auto & camera_name : camera_names_) {
+    for (const auto & image : multi_image_msg->images) {
+      if (image.header.frame_id == camera_name) {
+        filtered_multi_image_msg->images.push_back(image);
+        break;
+      }
+    }
+  }
+
   std::vector<const unsigned char *> camera_images;
   std::vector<cv::Mat> rgb_images;
-  camera_images.reserve(multi_image_msg->images.size());
-  rgb_images.reserve(multi_image_msg->images.size());
+  camera_images.reserve(filtered_multi_image_msg->images.size());
+  rgb_images.reserve(filtered_multi_image_msg->images.size());
 
-  for (size_t i = 0; i < multi_image_msg->images.size(); ++i) {
-    const auto & frame_id = multi_image_msg->images[i].header.frame_id;
-    cv::Mat bgr = decompressImage(multi_image_msg->images[i]);
+  // Decompress the images
+  for (size_t i = 0; i < filtered_multi_image_msg->images.size(); ++i) {
+    const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
+    cv::Mat bgr = decompressImage(filtered_multi_image_msg->images[i]);
     if (bgr.empty()) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
@@ -208,20 +237,87 @@ void BEVFusionNode::syncedCallback(
     camera_images.push_back(rgb_images.back().data);
   }
 
+  // Process LiDAR data
   std::vector<float> lidar_data;
-
   processLidar(lidar_msg, lidar_data);
 
-  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+  // --- Validate inputs before calling core_->infer ---
+  // Camera count
+  if (camera_images.size() != static_cast<size_t>(config_.num_cameras)) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
+      camera_images.size(),
+      config_.num_cameras);
+    return;
+  }
 
-  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, lidar_data.size() / 5);
+  // Ensure each image is continuous, 3-channel 8-bit and matches configured resolution. Resize/copy if necessary.
+  for (size_t i = 0; i < rgb_images.size(); ++i) {
+    cv::Mat & img = rgb_images[i];
+    if (img.empty()) {
+      RCLCPP_WARN(this->get_logger(), "Empty image at camera index %zu; skipping frame", i);
+      return;
+    }
+    if (img.type() != CV_8UC3) {
+      img.convertTo(img, CV_8U);
+      if (img.channels() != 3) {
+        cv::cvtColor(img, img, cv::COLOR_GRAY2RGB);
+      }
+    }
+    if (!img.isContinuous()) {
+      img = img.clone();
+    }
+    if (img.cols != config_.image_width || img.rows != config_.image_height) {
+      cv::Mat resized;
+      cv::resize(img, resized, cv::Size(config_.image_width, config_.image_height), 0, 0, cv::INTER_LINEAR);
+      img = std::move(resized);
+    }
+    camera_images[i] = img.data;
+  }
+
+  // LiDAR data validation: expect 5 floats per point (x,y,z,intensity,ring)
+  const int expected_features = 5;
+  if (lidar_data.empty()) {
+    RCLCPP_WARN(this->get_logger(), "LiDAR data empty after processing; skipping frame");
+    return;
+  }
+  if (lidar_data.size() % expected_features != 0) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "LiDAR data length (%zu) is not a multiple of %d — trimming to nearest multiple",
+      lidar_data.size(),
+      expected_features);
+    lidar_data.resize((lidar_data.size() / expected_features) * expected_features);
+  }
+
+  int num_points = static_cast<int>(lidar_data.size() / expected_features);
+  if (num_points <= 0) {
+    RCLCPP_WARN(this->get_logger(), "No valid LiDAR points after trimming; skipping frame");
+    return;
+  }
+  if (num_points > config_.max_points) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "LiDAR point count (%d) exceeds configured max_points (%d); truncating to max_points",
+      num_points,
+      config_.max_points);
+    lidar_data.resize(static_cast<size_t>(config_.max_points) * expected_features);
+    num_points = config_.max_points;
+  }
+
+  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+  RCLCPP_DEBUG(
+    this->get_logger(), "Calling core_->infer with %zu images and %d LiDAR points", camera_images.size(), num_points);
+  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
+  RCLCPP_INFO(this->get_logger(), "Found %zu bounding boxes", bboxes.size());
 
   vision_msgs::msg::Detection3DArray detections_3d;
   visualization_msgs::msg::MarkerArray markers;
 
   for (const auto & bbox : bboxes) {
-    detections_3d.detections.push_back(toDetection3D(bbox, multi_image_msg->header));
-    markers.markers.push_back(toMarker(bbox, multi_image_msg->header, markers.markers.size()));
+    detections_3d.detections.push_back(toDetection3D(bbox, filtered_multi_image_msg->header.stamp));
+    markers.markers.push_back(toMarker(bbox, filtered_multi_image_msg->header.stamp, markers.markers.size()));
   }
 
   detection_pub_->publish(detections_3d);
@@ -237,15 +333,34 @@ void BEVFusionNode::syncedCallback(
 void BEVFusionNode::multiCameraInfoCallback(
   const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
 {
-  if (multi_camera_info_msg->camera_infos.empty()) {
+  if (multi_camera_info_msg->camera_infos.empty() || calibration_initialized_) {
     return;
   }
 
   RCLCPP_INFO(
     this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
+
+  // Set camera info only for the cameras that are present in the list camera_names_
+  // And ensure they are in the same order as camera_names_
+  MultiCameraInfoMsg::SharedPtr filtered_multi_camera_info_msg = std::make_shared<MultiCameraInfoMsg>();
+  filtered_multi_camera_info_msg->camera_infos.reserve(camera_names_.size());
+  for (const auto & camera_name : camera_names_) {
+    for (const auto & camera_info : multi_camera_info_msg->camera_infos) {
+      if (camera_info.header.frame_id == camera_name) {
+        filtered_multi_camera_info_msg->camera_infos.push_back(camera_info);
+        break;
+      }
+    }
+  }
+
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Filtered multi camera info has %zu cameras",
+    filtered_multi_camera_info_msg->camera_infos.size());
+
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    cached_multi_camera_info_ = multi_camera_info_msg;
+    cached_multi_camera_info_ = filtered_multi_camera_info_msg;
   }
   computeCalibrationMatrices();
 }
@@ -354,6 +469,48 @@ void BEVFusionNode::computeCalibrationMatrices()
     img_aug_matrix.insert(img_aug_matrix.end(), std::begin(aug), std::end(aug));
   }
 
+  // Log matrix values neatly
+  RCLCPP_INFO(this->get_logger(), "Camera intrinsics: ");
+  for (size_t i = 0; i < camera_intrinsics.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      camera_intrinsics[i],
+      camera_intrinsics[i + 1],
+      camera_intrinsics[i + 2],
+      camera_intrinsics[i + 3]);
+  }
+  RCLCPP_INFO(this->get_logger(), "Camera to lidar: ");
+  for (size_t i = 0; i < camera_to_lidar.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      camera_to_lidar[i],
+      camera_to_lidar[i + 1],
+      camera_to_lidar[i + 2],
+      camera_to_lidar[i + 3]);
+  }
+  RCLCPP_INFO(this->get_logger(), "Lidar to image projection: ");
+  for (size_t i = 0; i < lidar_to_image_projection.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      lidar_to_image_projection[i],
+      lidar_to_image_projection[i + 1],
+      lidar_to_image_projection[i + 2],
+      lidar_to_image_projection[i + 3]);
+  }
+  RCLCPP_INFO(this->get_logger(), "Image aug matrix: ");
+  for (size_t i = 0; i < img_aug_matrix.size(); i += 4) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "[%f %f %f %f]",
+      img_aug_matrix[i],
+      img_aug_matrix[i + 1],
+      img_aug_matrix[i + 2],
+      img_aug_matrix[i + 3]);
+  }
+
   // Send to core
   core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_image_projection, img_aug_matrix);
 
@@ -361,10 +518,11 @@ void BEVFusionNode::computeCalibrationMatrices()
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
     calibration_initialized_ = true;
   }
+  RCLCPP_INFO(this->get_logger(), "Calibration computed successfully");
 }
 
 visualization_msgs::msg::Marker BEVFusionNode::toMarker(
-  const BoundingBox & bbox, const std_msgs::msg::Header & header, int marker_id) const
+  const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp, int marker_id) const
 {
   visualization_msgs::msg::Marker marker;
 
@@ -409,7 +567,8 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   marker.lifetime = rclcpp::Duration(0, 100'000'000);  // 0.1s (so old markers disappear)
   marker.color.a = 0.8f;
 
-  marker.header = header;
+  marker.header.stamp = stamp;
+  marker.header.frame_id = target_frame_;
   marker.ns = "bevfusion_detections";
   marker.id = marker_id;
 
@@ -417,11 +576,12 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
 }
 
 vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(
-  const BoundingBox & bbox, const std_msgs::msg::Header & header) const
+  const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp) const
 {
   vision_msgs::msg::Detection3D detection;
 
-  detection.header = header;
+  detection.header.stamp = stamp;
+  detection.header.frame_id = target_frame_;
   detection.bbox.center.position.x = bbox.position.x;
   detection.bbox.center.position.y = bbox.position.y;
   detection.bbox.center.position.z = bbox.position.z;
@@ -611,9 +771,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   try {
     declareParameters();
 
-    // Log configuration
-    RCLCPP_INFO(this->get_logger(), "Configuration summary: (EMPTY RIGHT NOW)");
-
     // Declare and configure QoS parameters
     this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");
     this->declare_parameter<int>("qos_subscriber_depth", 10);
@@ -693,9 +850,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       std::bind(&BEVFusionNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
     multi_image_sub_ =
-      std::make_shared<ImageSub>(this->shared_from_this(), kMultiImageTopic, subscriber_qos_.get_rmw_qos_profile());
+      std::make_shared<ImageSub>(this->shared_from_this(), multi_image_topic_, subscriber_qos_.get_rmw_qos_profile());
     lidar_sub_ =
-      std::make_shared<LidarSub>(this->shared_from_this(), kLidarTopic, subscriber_qos_.get_rmw_qos_profile());
+      std::make_shared<LidarSub>(this->shared_from_this(), lidar_topic_, subscriber_qos_.get_rmw_qos_profile());
 
     // ApproximateTime synchronizer
     // We use the message filters sync queue to synchronize the camera images and lidar data based on the timestamps.

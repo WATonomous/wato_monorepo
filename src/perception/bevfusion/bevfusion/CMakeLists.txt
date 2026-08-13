@@ -65,6 +65,10 @@ target_link_libraries(${PROJECT_NAME}_wato_core
     ${cv_bridge_LIBRARIES}
     ${vision_msgs_TARGETS}
     ${OpenCV_LIBS}
+  PRIVATE
+    nvinfer
+    nvinfer_plugin
+    nvonnxparser
 )
 
 # ---- Node library (lifecycle composable node) ----

@@ -17,6 +17,7 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,6 +36,8 @@ namespace wato::perception::bevfusion
 struct BEVFusionInputConfig
 {
   //  --- Model Files (paths to TensorRT .plan files and ONNX model) ---
+  std::string model_dir;
+  std::string build_dir;
   std::string camera_backbone_plan;  // Extracts image features
   std::string camera_vtransform_plan;  // Projects image features to BEV
   std::string fuser_plan;  // Fuses image and LiDAR BEV features
@@ -197,6 +200,28 @@ public:
   bool hasCalibration() const;
 
 private:
+  /**
+   * @brief Check if all model files exist
+   * @return true if all model files exist, false otherwise
+   */
+  bool checkModelFilesExist() const;
+
+  /**
+   * @brief Build TRT engines
+   * @return true if all engines were built successfully, false otherwise
+   */
+  bool buildTRTEngines() const;
+
+  /**
+   * @brief Compile TRT engine from ONNX file
+   * @param name Name of the model
+   * @param onnx_file Path to ONNX file
+   * @param plan_file Path to plan file
+   * @return true if successful, false otherwise
+   */
+  bool compileTrtModel(
+    const std::string & name, const std::filesystem::path & onnx_file, const std::filesystem::path & plan_file) const;
+
   BEVFusionInputConfig config_;
   bool initialized_ = false;
   bool has_calibration_ = false;
