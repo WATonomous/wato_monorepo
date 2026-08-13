@@ -88,6 +88,8 @@
       // container for tracked-object boxes (rebuilt each message)
       const objectsGroup = new THREE.Group();
       scene.add(objectsGroup);
+      // tracking pool: object id → { mesh, target{x,z,yaw}, seen }
+      const objectPool = new Map();
 
       // lane geometry (rebuilt each message)
       const laneletGroup = new THREE.Group();
@@ -163,6 +165,16 @@
         camera.lookAt(camFocus);
 
         renderer.render(scene, camera);
+
+         // glide every tracked box toward its latest target
+        for (const { mesh, target } of objectPool.values()) {
+          mesh.position.x += (target.x - mesh.position.x) * 0.2;
+          mesh.position.z += (target.z - mesh.position.z) * 0.2;
+          // ease yaw the short way round
+          let dy = target.yaw - mesh.rotation.y;
+          dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+          mesh.rotation.y += dy * 0.2;
+        }
       }
       animate();
 
@@ -179,27 +191,41 @@
         }
 
         if (data.type === 'objects') {
-          // clear last frame's boxes (dispose to avoid GPU leaks in r128)
-          for (const m of objectsGroup.children) {
-            m.geometry.dispose();
-            m.material.dispose();
-          }
-          objectsGroup.clear();
+          for (const entry of objectPool.values()) entry.seen = false;
 
           for (const o of data.objects) {
-            // ROS bbox extents → three.js dims via the same axis swap as the car:
-            // ROS x (fwd) → three x,  ROS z (up) → three y,  ROS y (lat) → three z
-            const geo = new THREE.BoxGeometry(o.sx, o.sz, o.sy);
-            
-            const color = CLASS_COLORS[o.cls] ?? CLASS_COLOR_DEFAULT;
-            const mat = new THREE.MeshStandardMaterial({
-              color, transparent: true, opacity: 0.55
-            });
+            const tx = o.x, tz = -o.y, tyaw = o.yaw;  
+            let entry = objectPool.get(o.id);
 
-            const box = new THREE.Mesh(geo, mat);
-            box.position.set(o.x, o.z, -o.y);   
-            box.rotation.y = o.yaw;            
-            objectsGroup.add(box);
+            if (!entry) {
+              const geo = new THREE.BoxGeometry(o.sx, o.sz, o.sy);
+              const color = CLASS_COLORS[o.cls] ?? CLASS_COLOR_DEFAULT;
+              const mat = new THREE.MeshStandardMaterial({
+                color, transparent: true, opacity: 0.55
+              });
+              const box = new THREE.Mesh(geo, mat);
+              box.position.set(tx, o.z, tz);   
+              box.rotation.y = tyaw;
+              objectsGroup.add(box);
+              entry = { mesh: box, target: { x: tx, z: tz, yaw: tyaw }, seen: true };
+              objectPool.set(o.id, entry);
+            } else {
+              
+              entry.target.x = tx;
+              entry.target.z = tz;
+              entry.target.yaw = tyaw;
+              entry.mesh.position.y = o.z;  
+              entry.seen = true;
+            }
+          }
+
+          for (const [id, entry] of objectPool) {
+            if (!entry.seen) {
+              objectsGroup.remove(entry.mesh);
+              entry.mesh.geometry.dispose();
+              entry.mesh.material.dispose();
+              objectPool.delete(id);
+            }
           }
         }
 
