@@ -23,11 +23,6 @@ launch:
       default: "$(find-pkg-share perception_bringup)/config/hikrobot_camera_config.yaml"
       description: "Hikrobot cameras configuration file"
 
-  - arg:
-      name: live_sensor
-      default: "true"
-      description: "Launch physical sensor drivers (set to false when using a rosbag or simulator)"
-
   # ===========================================================================
   # Single component container: cameras, camera_sync, deep object detection, tracking, patchwork++
   # ===========================================================================
@@ -61,7 +56,6 @@ launch:
 
   # Load all 12 camera pipelines into the shared container
   - include:
-      if: "$(var live_sensor)"
       file: "$(find-pkg-share perception_bringup)/launch/all_cameras_composed.yaml"
       arg:
         - name: "container_name"

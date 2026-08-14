@@ -564,7 +564,7 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
       marker.color.b = 1.0f;
       break;
   }
-  marker.lifetime = rclcpp::Duration(0, 100'000'000);  // 0.1s (so old markers disappear)
+  marker.lifetime = rclcpp::Duration(0, 1'000'000'000);  // 0.1s (so old markers disappear)
   marker.color.a = 0.8f;
 
   marker.header.stamp = stamp;
