@@ -187,7 +187,7 @@ bool BEVFusionCore::initialize()
   }
 
   // dedicated stream: BEVFusion's GPU ops stay ordered in their own queue, not on the null (default) stream shared by everything else
-  if (cudaStreamCreate(&stream_) != cudaSuccess) {
+  if (cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking) != cudaSuccess) {
     std::cerr << "[BEVFusionCore] cudaStreamCreate failed." << std::endl;
     pipeline_.reset();
     return false;
