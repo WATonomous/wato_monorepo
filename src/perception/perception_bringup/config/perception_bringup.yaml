@@ -479,7 +479,7 @@ multi_camera_sync:
       - "camera_pano_se"
 
     # Detection confidence threshold — boxes below this score are discarded
-    confidence_threshold: 0.3
+    confidence_threshold: 0.1
 
     # Camera input resolution (must match the camera hardware)
     image_width: 1280
@@ -531,7 +531,7 @@ multi_camera_sync:
 detection_lifecycle_manager:
   ros__parameters:
     # Manages model inference and attribute enrichment nodes.
-    node_names: ["deep_object_detection_node", "attribute_assigner_node", "bevfusion_node"]
+    node_names: ["bevfusion_node"] # ["deep_object_detection_node", "attribute_assigner_node", "bevfusion_node"]
     autostart: true
     transition_timeout_s: 130.0
     bond_timeout_s: 4.0

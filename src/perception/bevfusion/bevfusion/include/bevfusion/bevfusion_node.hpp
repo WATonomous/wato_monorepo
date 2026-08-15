@@ -208,23 +208,20 @@ private:
   bool processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
 
   /**
-   * @brief Convert a BoundingBox to a Detection3D message.
-   * @param bbox The BoundingBox to convert
-   * @param header The header to use for the Detection3D message
-   * @return Detection3D message
+   * @brief Create a Detection3DArray from bounding boxes and timestamp.
+   * @param bboxes Vector of BoundingBox objects
+   * @param stamp Timestamp for the detections
+   * @return Detection3DArray containing 3D bounding boxes and confidence scores
    */
-  vision_msgs::msg::Detection3D toDetection3D(
-    const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp) const;
+  vision_msgs::msg::Detection3DArray createDetections3D(
+    const std::vector<BoundingBox> & bboxes, const builtin_interfaces::msg::Time & stamp) const;
 
   /**
-   * @brief Convert a BoundingBox to a Marker message.
-   * @param bbox The BoundingBox to convert
-   * @param header The header to use for the Marker message
-   * @param marker_id The ID to assign to the Marker message
-   * @return Marker message
+   * @brief Create a MarkerArray from a Detection3DArray.
+   * @param detections_3d The Detection3DArray containing bounding boxes and confidence scores
+   * @return MarkerArray containing visualization markers for the bounding boxes
    */
-  visualization_msgs::msg::Marker toMarker(
-    const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp, int marker_id) const;
+  visualization_msgs::msg::MarkerArray createMarkers(const vision_msgs::msg::Detection3DArray & detections_3d) const;
 
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;

@@ -323,12 +323,8 @@ void BEVFusionNode::syncedCallback(
   RCLCPP_INFO(this->get_logger(), "Found %zu bounding boxes", bboxes.size());
 
   // Create detections and markers from bboxes
-  vision_msgs::msg::Detection3DArray detections_3d;
-  visualization_msgs::msg::MarkerArray markers;
-  for (const auto & bbox : bboxes) {
-    detections_3d.detections.push_back(toDetection3D(bbox, filtered_multi_image_msg->header.stamp));
-    markers.markers.push_back(toMarker(bbox, filtered_multi_image_msg->header.stamp, markers.markers.size()));
-  }
+  auto detections_3d = createDetections3D(bboxes, filtered_multi_image_msg->header.stamp);
+  auto markers = createMarkers(detections_3d);
   detection_pub_->publish(detections_3d);
   marker_pub_->publish(markers);
 
@@ -530,89 +526,137 @@ void BEVFusionNode::computeCalibrationMatrices()
   RCLCPP_INFO(this->get_logger(), "Calibration computed successfully");
 }
 
-visualization_msgs::msg::Marker BEVFusionNode::toMarker(
-  const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp, int marker_id) const
+vision_msgs::msg::Detection3DArray BEVFusionNode::createDetections3D(
+  const std::vector<BoundingBox> & bboxes, const builtin_interfaces::msg::Time & stamp) const
 {
-  visualization_msgs::msg::Marker marker;
+  vision_msgs::msg::Detection3DArray detections_3d;
+  detections_3d.header.stamp = stamp;
+  detections_3d.header.frame_id = target_frame_;
 
-  marker.type = visualization_msgs::msg::Marker::CUBE;
-  marker.action = visualization_msgs::msg::Marker::ADD;
-  marker.pose.orientation.w = 1.0;  // default valid quaternion if no rotation set
-  marker.pose.position.x = bbox.position.x;
-  marker.pose.position.y = bbox.position.y;
-  marker.pose.position.z = bbox.position.z;
-
-  tf2::Quaternion q;
-  q.setRPY(0.0, 0.0, bbox.z_rotation);
-  marker.pose.orientation = tf2::toMsg(q);
-
-  // Set scale (size)
-  marker.scale.x = bbox.size.w;
-  marker.scale.y = bbox.size.l;
-  marker.scale.z = bbox.size.h;
-  // Color by class (e.g., cars=green, pedestrians=yellow, trucks=blue)
-  switch (bbox.id) {
-    case 0:  // Car
-      marker.color.r = 0.0f;
-      marker.color.g = 1.0f;
-      marker.color.b = 0.0f;
-      break;
-    case 1:  // Pedestrian
-      marker.color.r = 1.0f;
-      marker.color.g = 1.0f;
-      marker.color.b = 0.0f;
-      break;
-    case 2:  // Truck
-      marker.color.r = 0.0f;
-      marker.color.g = 0.0f;
-      marker.color.b = 1.0f;
-      break;
-    default:
-      marker.color.r = 1.0f;
-      marker.color.g = 1.0f;
-      marker.color.b = 1.0f;
-      break;
+  if (!tf_buffer_) {
+    return detections_3d;
   }
-  marker.lifetime = rclcpp::Duration(0, 500'000'000);  // 0.5s (so old markers disappear)
-  marker.color.a = 0.8f;
+  if (bboxes.empty()) {
+    return detections_3d;
+  }
 
-  marker.header.stamp = stamp;
-  marker.header.frame_id = target_frame_;
-  marker.ns = "bevfusion_detections";
-  marker.id = marker_id;
+  // Every bevfusion box is already expressed in the single LiDAR frame.
+  // So we look up the rigid transform once per callback rather than once per detection,
+  // and apply it manually below instead of calling tf_buffer_->transform() in a loop.
+  geometry_msgs::msg::TransformStamped lidar_to_target_tf;
+  try {
+    auto timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(100));
+    lidar_to_target_tf = tf_buffer_->lookupTransform(target_frame_, lidar_frame_id_, stamp, timeout);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "TF lookup failed (%s -> %s): %s",
+      lidar_frame_id_.c_str(),
+      target_frame_.c_str(),
+      ex.what());
+    return detections_3d;  // empty — caller still publishes it, mirroring the pass-through behavior
+  }
 
-  return marker;
+  detections_3d.detections.reserve(bboxes.size());
+
+  for (const auto & bbox : bboxes) {
+    geometry_msgs::msg::PoseStamped pose_lidar;
+    pose_lidar.header.frame_id = lidar_frame_id_;
+    pose_lidar.header.stamp = stamp;
+    pose_lidar.pose.position.x = bbox.position.x;
+    pose_lidar.pose.position.y = bbox.position.y;
+    pose_lidar.pose.position.z = bbox.position.z;
+
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, bbox.z_rotation);
+    pose_lidar.pose.orientation = tf2::toMsg(q);
+
+    geometry_msgs::msg::PoseStamped pose_target;
+    tf2::doTransform(pose_lidar, pose_target, lidar_to_target_tf);
+
+    vision_msgs::msg::Detection3D det_3d;
+    det_3d.header.frame_id = target_frame_;
+    det_3d.header.stamp = stamp;
+    det_3d.bbox.center = pose_target.pose;
+    det_3d.bbox.size.x = bbox.size.w;
+    det_3d.bbox.size.y = bbox.size.l;
+    det_3d.bbox.size.z = bbox.size.h;
+
+    vision_msgs::msg::ObjectHypothesisWithPose hyp;
+    hyp.hypothesis.class_id = std::to_string(bbox.id);
+    hyp.hypothesis.score = bbox.score;
+    det_3d.results.push_back(hyp);
+
+    detections_3d.detections.push_back(det_3d);
+  }
+
+  return detections_3d;
 }
 
-vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(
-  const BoundingBox & bbox, const builtin_interfaces::msg::Time & stamp) const
+visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
+  const vision_msgs::msg::Detection3DArray & detections_3d) const
 {
-  vision_msgs::msg::Detection3D detection;
+  visualization_msgs::msg::MarkerArray marker_array;
 
-  detection.header.stamp = stamp;
-  detection.header.frame_id = target_frame_;
-  detection.bbox.center.position.x = bbox.position.x;
-  detection.bbox.center.position.y = bbox.position.y;
-  detection.bbox.center.position.z = bbox.position.z;
-  tf2::Quaternion q;
-  q.setRPY(0.0, 0.0, bbox.z_rotation);
+  // Clear previous markers
+  visualization_msgs::msg::Marker delete_marker;
+  delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+  delete_marker.header = detections_3d.header;
+  delete_marker.ns = "bevfusion_detections";
+  marker_array.markers.push_back(delete_marker);
 
-  detection.bbox.center.orientation.x = q.x();
-  detection.bbox.center.orientation.y = q.y();
-  detection.bbox.center.orientation.z = q.z();
-  detection.bbox.center.orientation.w = q.w();
+  for (size_t i = 0; i < detections_3d.detections.size(); ++i) {
+    const auto & det = detections_3d.detections[i];
 
-  detection.bbox.size.x = bbox.size.w;
-  detection.bbox.size.y = bbox.size.l;
-  detection.bbox.size.z = bbox.size.h;
-  // (check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
+    visualization_msgs::msg::Marker marker;
+    marker.header = detections_3d.header;
+    marker.ns = "bevfusion_detections";
+    marker.id = static_cast<int>(i);
+    marker.type = visualization_msgs::msg::Marker::CUBE;
+    marker.action = visualization_msgs::msg::Marker::ADD;
 
-  vision_msgs::msg::ObjectHypothesisWithPose hyp;
-  hyp.hypothesis.class_id = std::to_string(bbox.id);
-  hyp.hypothesis.score = bbox.score;
-  detection.results.push_back(hyp);
+    marker.pose.position = det.bbox.center.position;
+    marker.pose.orientation = det.bbox.center.orientation;
 
-  return detection;
+    marker.scale.x = det.bbox.size.x;
+    marker.scale.y = det.bbox.size.y;
+    marker.scale.z = det.bbox.size.z;
+
+    // Color by class — default white
+    float r = 1.0f, g = 1.0f, b = 1.0f;
+    const int class_id = det.results.empty() ? -1 : std::stoi(det.results[0].hypothesis.class_id);
+    switch (class_id) {
+      case 0:
+        r = 0.0f;
+        g = 1.0f;
+        b = 0.0f;
+        break;  // Car
+      case 1:
+        r = 1.0f;
+        g = 1.0f;
+        b = 0.0f;
+        break;  // Pedestrian
+      case 2:
+        r = 0.0f;
+        g = 0.0f;
+        b = 1.0f;
+        break;  // Truck
+      default:
+        break;
+    }
+    marker.color.r = r;
+    marker.color.g = g;
+    marker.color.b = b;
+    marker.color.a = 0.8f;
+
+    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+
+    marker_array.markers.push_back(marker);
+  }
+
+  return marker_array;
 }
 
 // Copied from attribute assigner. I'll be honest I don't fully understrand this CV library syntax.
