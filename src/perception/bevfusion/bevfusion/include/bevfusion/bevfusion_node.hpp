@@ -203,8 +203,9 @@ private:
    * @brief Process a PointCloud2 message and extract LiDAR points.
    * @param lidar_msg The PointCloud2 message
    * @param lidar_data Output vector to flatten andstore extracted LiDAR points
+   * @return True if the LiDAR data was processed successfully, false otherwise
    */
-  void processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
+  bool processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
 
   /**
    * @brief Convert a BoundingBox to a Detection3D message.

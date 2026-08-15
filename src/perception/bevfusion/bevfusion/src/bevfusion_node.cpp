@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <functional>
@@ -88,7 +89,7 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<std::string>>(
     "camera_names",
     std::vector<std::string>{
-      "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"});
+      "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"});
   this->declare_parameter<int>("image_width", 1280);
   this->declare_parameter<int>("image_height", 1024);
   this->declare_parameter<float>("resize_lim", 0.55f);
@@ -178,23 +179,21 @@ void BEVFusionNode::syncedCallback(
   lidar_msg_count_++;
   synced_msg_count_++;
 
+  // Basic checks
   if (!core_ || !core_->isInitialized()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
     return;
   }
-
   if (!calibration_initialized_.load() || !core_->hasCalibration()) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
     return;
   }
-
   if (!multi_image_msg || multi_image_msg->images.empty()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "[SYNC] MultiImage message is null or empty; skipping");
     return;
   }
-
   if (!lidar_msg || lidar_msg->data.empty()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "[SYNC] LiDAR point cloud message is null or empty; skipping");
@@ -239,13 +238,18 @@ void BEVFusionNode::syncedCallback(
 
   // Process LiDAR data
   std::vector<float> lidar_data;
-  processLidar(lidar_msg, lidar_data);
+  if (!processLidar(lidar_msg, lidar_data)) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Failed to process LiDAR data; skipping frame");
+    return;
+  }
 
   // --- Validate inputs before calling core_->infer ---
   // Camera count
   if (camera_images.size() != static_cast<size_t>(config_.num_cameras)) {
-    RCLCPP_WARN(
+    RCLCPP_WARN_THROTTLE(
       this->get_logger(),
+      *this->get_clock(),
+      5000,
       "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
       camera_images.size(),
       config_.num_cameras);
@@ -253,10 +257,12 @@ void BEVFusionNode::syncedCallback(
   }
 
   // Ensure each image is continuous, 3-channel 8-bit and matches configured resolution. Resize/copy if necessary.
+  // TODO(bevfusion_team) - Is this necessary / correct?
   for (size_t i = 0; i < rgb_images.size(); ++i) {
     cv::Mat & img = rgb_images[i];
     if (img.empty()) {
-      RCLCPP_WARN(this->get_logger(), "Empty image at camera index %zu; skipping frame", i);
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(), *this->get_clock(), 5000, "Empty image at camera index %zu; skipping frame", i);
       return;
     }
     if (img.type() != CV_8UC3) {
@@ -276,33 +282,37 @@ void BEVFusionNode::syncedCallback(
     camera_images[i] = img.data;
   }
 
-  // LiDAR data validation: expect 5 floats per point (x,y,z,intensity,ring)
-  const int expected_features = 5;
+  // LiDAR data validation
   if (lidar_data.empty()) {
-    RCLCPP_WARN(this->get_logger(), "LiDAR data empty after processing; skipping frame");
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "LiDAR data empty after processing; skipping frame");
     return;
   }
-  if (lidar_data.size() % expected_features != 0) {
-    RCLCPP_WARN(
+  if (lidar_data.size() % config_.num_features != 0) {
+    RCLCPP_WARN_THROTTLE(
       this->get_logger(),
+      *this->get_clock(),
+      5000,
       "LiDAR data length (%zu) is not a multiple of %d — trimming to nearest multiple",
       lidar_data.size(),
-      expected_features);
-    lidar_data.resize((lidar_data.size() / expected_features) * expected_features);
+      config_.num_features);
+    lidar_data.resize((lidar_data.size() / config_.num_features) * config_.num_features);
   }
-
-  int num_points = static_cast<int>(lidar_data.size() / expected_features);
+  int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
   if (num_points <= 0) {
-    RCLCPP_WARN(this->get_logger(), "No valid LiDAR points after trimming; skipping frame");
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "No valid LiDAR points after trimming; skipping frame");
     return;
   }
   if (num_points > config_.max_points) {
-    RCLCPP_WARN(
+    RCLCPP_WARN_THROTTLE(
       this->get_logger(),
+      *this->get_clock(),
+      5000,
       "LiDAR point count (%d) exceeds configured max_points (%d); truncating to max_points",
       num_points,
       config_.max_points);
-    lidar_data.resize(static_cast<size_t>(config_.max_points) * expected_features);
+    lidar_data.resize(static_cast<size_t>(config_.max_points) * config_.num_features);
     num_points = config_.max_points;
   }
 
@@ -312,21 +322,20 @@ void BEVFusionNode::syncedCallback(
   std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
   RCLCPP_INFO(this->get_logger(), "Found %zu bounding boxes", bboxes.size());
 
+  // Create detections and markers from bboxes
   vision_msgs::msg::Detection3DArray detections_3d;
   visualization_msgs::msg::MarkerArray markers;
-
   for (const auto & bbox : bboxes) {
     detections_3d.detections.push_back(toDetection3D(bbox, filtered_multi_image_msg->header.stamp));
     markers.markers.push_back(toMarker(bbox, filtered_multi_image_msg->header.stamp, markers.markers.size()));
   }
-
   detection_pub_->publish(detections_3d);
   marker_pub_->publish(markers);
 
+  // Update statistics and diagnostics
   const auto end = std::chrono::steady_clock::now();
   const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
   updateStatistics(time_taken);
-
   updateDiagnostics(detections_3d.header.stamp);
 }
 
@@ -538,8 +547,8 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
   marker.pose.orientation = tf2::toMsg(q);
 
   // Set scale (size)
-  marker.scale.x = bbox.size.l;
-  marker.scale.y = bbox.size.w;
+  marker.scale.x = bbox.size.w;
+  marker.scale.y = bbox.size.l;
   marker.scale.z = bbox.size.h;
   // Color by class (e.g., cars=green, pedestrians=yellow, trucks=blue)
   switch (bbox.id) {
@@ -564,7 +573,7 @@ visualization_msgs::msg::Marker BEVFusionNode::toMarker(
       marker.color.b = 1.0f;
       break;
   }
-  marker.lifetime = rclcpp::Duration(0, 1'000'000'000);  // 0.1s (so old markers disappear)
+  marker.lifetime = rclcpp::Duration(0, 500'000'000);  // 0.5s (so old markers disappear)
   marker.color.a = 0.8f;
 
   marker.header.stamp = stamp;
@@ -593,8 +602,8 @@ vision_msgs::msg::Detection3D BEVFusionNode::toDetection3D(
   detection.bbox.center.orientation.z = q.z();
   detection.bbox.center.orientation.w = q.w();
 
-  detection.bbox.size.x = bbox.size.l;
-  detection.bbox.size.y = bbox.size.w;
+  detection.bbox.size.x = bbox.size.w;
+  detection.bbox.size.y = bbox.size.l;
   detection.bbox.size.z = bbox.size.h;
   // (check axis convention — nuScenes uses l=forward, w=lateral, h=vertical)
 
@@ -619,29 +628,46 @@ cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage &
   }
 }
 
-void BEVFusionNode::processLidar(
+bool BEVFusionNode::processLidar(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data)
 {
   const size_t num_points = lidar_msg->width * lidar_msg->height;
   lidar_data.reserve(num_points * 5);
-  sensor_msgs::PointCloud2ConstIterator<float> iter_x(*lidar_msg, "x");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_y(*lidar_msg, "y");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
-  sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*lidar_msg, "intensity");
-  sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(*lidar_msg, "ring");
 
-  for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_ring) {
-    float x = *iter_x;
-    float y = *iter_y;
-    float z = *iter_z;
-    float intensity = *iter_intensity;
-    uint16_t ring = *iter_ring;
-    lidar_data.push_back(x);
-    lidar_data.push_back(y);
-    lidar_data.push_back(z);
-    lidar_data.push_back(intensity);
-    lidar_data.push_back(static_cast<float>(ring));
+  try {
+    sensor_msgs::PointCloud2ConstIterator<float> iter_x(*lidar_msg, "x");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_y(*lidar_msg, "y");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
+    sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*lidar_msg, "intensity");
+    sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(*lidar_msg, "ring");
+
+    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_ring) {
+      float x = *iter_x;
+      float y = *iter_y;
+      float z = *iter_z;
+      float intensity = *iter_intensity;
+      uint16_t ring = *iter_ring;
+
+      // Skip invalid points (NaN/Inf)
+      if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) || !std::isfinite(intensity)) {
+        RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000, "Inifinity Point Detected, skipping point");
+        continue;
+      }
+
+      lidar_data.push_back(x);
+      lidar_data.push_back(y);
+      lidar_data.push_back(z);
+      lidar_data.push_back(intensity);
+      lidar_data.push_back(static_cast<float>(ring));
+    }
+  } catch (const std::runtime_error & e) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Pointcloud2 missing fields: %s", e.what());
+    return false;
+  } catch (const std::exception & e) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Lidar processing exception: %s", e.what());
+    return false;
   }
+  return true;
 }
 
 void BEVFusionNode::updateStatistics(double time_taken)
