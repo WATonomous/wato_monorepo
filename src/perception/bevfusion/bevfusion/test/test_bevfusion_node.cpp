@@ -70,6 +70,37 @@ static BoundingBox make_test_bbox(float x, float y, float z, float l, float w, f
   return bbox;
 }
 
+static vision_msgs::msg::Detection3D make_test_detection3d(
+  float x, float y, float z, float sx, float sy, float sz, int class_id, float score)
+{
+  vision_msgs::msg::Detection3D det;
+  det.bbox.center.position.x = x;
+  det.bbox.center.position.y = y;
+  det.bbox.center.position.z = z;
+  det.bbox.center.orientation.w = 1.0;
+  det.bbox.size.x = sx;
+  det.bbox.size.y = sy;
+  det.bbox.size.z = sz;
+
+  vision_msgs::msg::ObjectHypothesisWithPose hyp;
+  hyp.hypothesis.class_id = std::to_string(class_id);
+  hyp.hypothesis.score = score;
+  det.results.push_back(hyp);
+  return det;
+}
+
+// Registers an identity transform between target_frame_ and lidar_frame_id_ so
+// createDetections3D's TF lookup succeeds and position/orientation pass through unchanged.
+static void set_identity_lidar_to_target_tf(BEVFusionNode & node)
+{
+  node.tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node.get_clock());
+  geometry_msgs::msg::TransformStamped identity_tf;
+  identity_tf.header.frame_id = node.target_frame_;
+  identity_tf.child_frame_id = node.lidar_frame_id_;
+  identity_tf.transform.rotation.w = 1.0;
+  node.tf_buffer_->setTransform(identity_tf, "test", true);  // static, valid at any stamp
+}
+
 // =============================================================================
 // LIFECYCLE AND PARAM TESTS
 // =============================================================================
@@ -471,22 +502,28 @@ TEST_CASE("Calibration: camera intrinsics padding 3x3 to 4x4", "[calibration][fa
 //      If position/size fields are swapped or misassigned, tracking will
 //      produce nonsensical results with no obvious error.
 // =============================================================================
-TEST_CASE("toDetection3D: position and size are mapped correctly", "[conversion][fast]")
+TEST_CASE("createDetections3D: position and size are mapped correctly", "[conversion][fast]")
 {
   auto node = make_configured_node();
+  set_identity_lidar_to_target_tf(*node);
+
   BoundingBox bbox = make_test_bbox(1.5f, -2.3f, 0.7f, 4.0f, 1.8f, 1.5f, 0.0f, 0.95f, 0);
+  builtin_interfaces::msg::Time stamp;
 
-  std_msgs::msg::Header header;
-  header.frame_id = "lidar_cc";
+  auto detections_3d = node->createDetections3D({bbox}, stamp);
 
-  auto det = node->toDetection3D(bbox, header.stamp);
+  REQUIRE(detections_3d.header.frame_id == node->target_frame_);
+  REQUIRE(detections_3d.detections.size() == 1);
 
-  REQUIRE(det.header.frame_id == "lidar_cc");
+  const auto & det = detections_3d.detections[0];
+  REQUIRE(det.header.frame_id == node->target_frame_);
   REQUIRE(det.bbox.center.position.x == Catch::Approx(1.5));
   REQUIRE(det.bbox.center.position.y == Catch::Approx(-2.3));
   REQUIRE(det.bbox.center.position.z == Catch::Approx(0.7));
-  REQUIRE(det.bbox.size.x == Catch::Approx(4.0));  // l
-  REQUIRE(det.bbox.size.y == Catch::Approx(1.8));  // w
+
+  // Documents current mapping: size.x <- bbox.size.w, size.y <- bbox.size.l
+  REQUIRE(det.bbox.size.x == Catch::Approx(1.8));  // w
+  REQUIRE(det.bbox.size.y == Catch::Approx(4.0));  // l
   REQUIRE(det.bbox.size.z == Catch::Approx(1.5));  // h
 
   rclcpp::shutdown();
@@ -496,19 +533,22 @@ TEST_CASE("toDetection3D: position and size are mapped correctly", "[conversion]
 // TEST: BoundingBox → Detection3D yaw rotation
 // WHY: z_rotation encodes heading. Converting it to a quaternion incorrectly
 //      would rotate detections in the tracking frame. We check that a known
-//      yaw (π/4) produces the expected quaternion.
+//      yaw (π/4) produces the expected quaternion (with an identity TF so
+//      the transform step doesn't perturb it).
 // =============================================================================
-TEST_CASE("toDetection3D: yaw rotation produces correct quaternion", "[conversion][fast]")
+TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conversion][fast]")
 {
   auto node = make_configured_node();
+  set_identity_lidar_to_target_tf(*node);
+
   float yaw = static_cast<float>(M_PI / 4.0);
   BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, yaw, 0.9f, 0);
+  builtin_interfaces::msg::Time stamp;
 
-  std_msgs::msg::Header header;
-  auto det = node->toDetection3D(bbox, header.stamp);
+  auto detections_3d = node->createDetections3D({bbox}, stamp);
+  REQUIRE(detections_3d.detections.size() == 1);
+  const auto & det = detections_3d.detections[0];
 
-  // For yaw-only rotation (RPY = 0,0,π/4):
-  // qw = cos(π/8), qz = sin(π/8), qx = qy = 0
   double expected_qw = std::cos(M_PI / 8.0);
   double expected_qz = std::sin(M_PI / 8.0);
 
@@ -525,13 +565,17 @@ TEST_CASE("toDetection3D: yaw rotation produces correct quaternion", "[conversio
 // WHY: The hypothesis carries the class_id (as string) and confidence score.
 //      A wrong class mapping would silently misclassify all detections.
 // =============================================================================
-TEST_CASE("toDetection3D: hypothesis carries class_id and score", "[conversion][fast]")
+TEST_CASE("createDetections3D: hypothesis carries class_id and score", "[conversion][fast]")
 {
   auto node = make_configured_node();
-  BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.87f, 8);
+  set_identity_lidar_to_target_tf(*node);
 
-  std_msgs::msg::Header header;
-  auto det = node->toDetection3D(bbox, header.stamp);
+  BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.87f, 8);
+  builtin_interfaces::msg::Time stamp;
+
+  auto detections_3d = node->createDetections3D({bbox}, stamp);
+  REQUIRE(detections_3d.detections.size() == 1);
+  const auto & det = detections_3d.detections[0];
 
   REQUIRE(det.results.size() == 1);
   REQUIRE(det.results[0].hypothesis.class_id == "8");  // pedestrian in nuScenes
@@ -541,84 +585,169 @@ TEST_CASE("toDetection3D: hypothesis carries class_id and score", "[conversion][
 }
 
 // =============================================================================
-// BBOX → MARKER CONVERSION TESTS
+// TEST: createDetections3D returns an empty array (not a crash) on TF failure
+// WHY: If TF for lidar->base_link isn't available (e.g. before TF publishes),
+//      the frame must publish an empty Detection3DArray rather than stale or
+//      garbage positions.
 // =============================================================================
+TEST_CASE("createDetections3D: returns empty array when TF lookup fails", "[conversion][fast]")
+{
+  auto node = make_configured_node();
+  node->tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());  // no transform registered
+
+  BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.9f, 0);
+  builtin_interfaces::msg::Time stamp;
+
+  auto detections_3d = node->createDetections3D({bbox}, stamp);
+
+  REQUIRE(detections_3d.detections.empty());
+  REQUIRE(detections_3d.header.frame_id == node->target_frame_);
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: createDetections3D handles empty input and a null tf_buffer safely
+// WHY: syncedCallback may call this with zero boxes (nothing detected), and
+//      the TF buffer may not be constructed yet during startup races.
+// =============================================================================
+TEST_CASE("createDetections3D: empty input and null tf_buffer are handled safely", "[conversion][fast]")
+{
+  auto node = make_configured_node();
+  builtin_interfaces::msg::Time stamp;
+
+  SECTION("empty bboxes vector")
+  {
+    node->tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+    auto detections_3d = node->createDetections3D({}, stamp);
+    REQUIRE(detections_3d.detections.empty());
+    REQUIRE(detections_3d.header.frame_id == node->target_frame_);
+  }
+
+  SECTION("null tf_buffer_")
+  {
+    node->tf_buffer_.reset();
+    BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.9f, 0);
+    auto detections_3d = node->createDetections3D({bbox}, stamp);
+    REQUIRE(detections_3d.detections.empty());
+  }
+
+  rclcpp::shutdown();
+}
+
+// // =============================================================================
+// // BBOX → MARKER CONVERSION TESTS
+// // =============================================================================
 
 // =============================================================================
 // TEST: Marker class coloring for car, pedestrian, truck
 // WHY: Foxglove visualization uses color to distinguish object classes.
 //      If colors are swapped, the operator sees trucks colored as cars, etc.
-//      which would be misleading during field tests.
 // =============================================================================
-TEST_CASE("toMarker: class-specific colors", "[conversion][fast]")
+TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
 {
   auto node = make_configured_node();
-  std_msgs::msg::Header header;
+  vision_msgs::msg::Detection3DArray detections_3d;
+  detections_3d.header.frame_id = node->target_frame_;
 
   SECTION("Car (id=0) is green")
   {
-    BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 0);
-    auto marker = node->toMarker(bbox, header.stamp, 0);
-    REQUIRE(marker.color.r == Catch::Approx(0.0f));
-    REQUIRE(marker.color.g == Catch::Approx(1.0f));
-    REQUIRE(marker.color.b == Catch::Approx(0.0f));
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 0, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    REQUIRE(markers.markers.size() == 2);  // DELETEALL + 1 box
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(0.0f));
+    REQUIRE(m.color.g == Catch::Approx(1.0f));
+    REQUIRE(m.color.b == Catch::Approx(0.0f));
   }
 
   SECTION("Pedestrian (id=1) is yellow")
   {
-    BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 1);
-    auto marker = node->toMarker(bbox, header.stamp, 1);
-    REQUIRE(marker.color.r == Catch::Approx(1.0f));
-    REQUIRE(marker.color.g == Catch::Approx(1.0f));
-    REQUIRE(marker.color.b == Catch::Approx(0.0f));
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 1, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(1.0f));
+    REQUIRE(m.color.g == Catch::Approx(1.0f));
+    REQUIRE(m.color.b == Catch::Approx(0.0f));
   }
 
   SECTION("Truck (id=2) is blue")
   {
-    BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 2);
-    auto marker = node->toMarker(bbox, header.stamp, 2);
-    REQUIRE(marker.color.r == Catch::Approx(0.0f));
-    REQUIRE(marker.color.g == Catch::Approx(0.0f));
-    REQUIRE(marker.color.b == Catch::Approx(1.0f));
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 2, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(0.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.0f));
+    REQUIRE(m.color.b == Catch::Approx(1.0f));
   }
 
   SECTION("Unknown class (id=99) defaults to white")
   {
-    BoundingBox bbox = make_test_bbox(0, 0, 0, 1, 1, 1, 0, 0.9f, 99);
-    auto marker = node->toMarker(bbox, header.stamp, 3);
-    REQUIRE(marker.color.r == Catch::Approx(1.0f));
-    REQUIRE(marker.color.g == Catch::Approx(1.0f));
-    REQUIRE(marker.color.b == Catch::Approx(1.0f));
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 99, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(1.0f));
+    REQUIRE(m.color.g == Catch::Approx(1.0f));
+    REQUIRE(m.color.b == Catch::Approx(1.0f));
   }
 
   rclcpp::shutdown();
 }
 
 // =============================================================================
-// TEST: Marker type, namespace, and alpha
-// WHY: Foxglove renders CUBE type markers. If the type or ns is wrong,
-//      the 3D panel either shows nothing or overlaps with other viz layers.
+// TEST: Marker type, namespace, opacity, id, and DELETEALL clearing
+// WHY: Foxglove renders CUBE-type markers, keyed by ns/id. If those are wrong,
+//      the 3D panel shows nothing, overlaps other viz layers, or leaves stale
+//      boxes behind when a car leaves the scene.
 // =============================================================================
-TEST_CASE("toMarker: type, namespace, opacity, and id are set correctly", "[conversion][fast]")
+TEST_CASE("createMarkers: type, namespace, opacity, id, and DELETEALL are set correctly", "[conversion][fast]")
 {
   auto node = make_configured_node();
-  std_msgs::msg::Header header;
-  header.frame_id = "lidar_cc";
 
-  BoundingBox bbox = make_test_bbox(5.0f, 3.0f, 1.0f, 4.5f, 2.0f, 1.7f, 0.3f, 0.8f, 0);
-  auto marker = node->toMarker(bbox, header.stamp, 42);
+  vision_msgs::msg::Detection3DArray detections_3d;
+  detections_3d.header.frame_id = node->target_frame_;
+  detections_3d.detections = {make_test_detection3d(5.0f, 3.0f, 1.0f, 4.5f, 2.0f, 1.7f, 0, 0.8f)};
 
+  auto markers = node->createMarkers(detections_3d);
+  REQUIRE(markers.markers.size() == 2);
+
+  // First marker clears stale boxes from the previous frame
+  const auto & delete_marker = markers.markers[0];
+  REQUIRE(delete_marker.action == visualization_msgs::msg::Marker::DELETEALL);
+  REQUIRE(delete_marker.ns == "bevfusion_detections");
+
+  const auto & marker = markers.markers[1];
   REQUIRE(marker.type == visualization_msgs::msg::Marker::CUBE);
   REQUIRE(marker.action == visualization_msgs::msg::Marker::ADD);
   REQUIRE(marker.ns == "bevfusion_detections");
-  REQUIRE(marker.id == 42);
+  REQUIRE(marker.id == 0);  // index-based now, not passed in explicitly
   REQUIRE(marker.color.a == Catch::Approx(0.8f));
-  REQUIRE(marker.header.frame_id == "lidar_cc");
+  REQUIRE(marker.header.frame_id == node->target_frame_);
 
-  // Verify scale matches bbox dimensions
-  REQUIRE(marker.scale.x == Catch::Approx(4.5f));  // l
-  REQUIRE(marker.scale.y == Catch::Approx(2.0f));  // w
-  REQUIRE(marker.scale.z == Catch::Approx(1.7f));  // h
+  REQUIRE(marker.scale.x == Catch::Approx(4.5f));
+  REQUIRE(marker.scale.y == Catch::Approx(2.0f));
+  REQUIRE(marker.scale.z == Catch::Approx(1.7f));
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: DELETEALL is emitted even with zero detections
+// WHY: When a previously-tracked car leaves the frame, the array can go from
+//      N detections to 0 — the DELETEALL must still fire so its marker doesn't
+//      persist forever (this is exactly the gap the original per-box toMarker
+//      approach didn't handle at all).
+// =============================================================================
+TEST_CASE("createMarkers: DELETEALL is emitted even with zero detections", "[conversion][fast]")
+{
+  auto node = make_configured_node();
+  vision_msgs::msg::Detection3DArray detections_3d;
+  detections_3d.header.frame_id = node->target_frame_;
+
+  auto markers = node->createMarkers(detections_3d);
+
+  REQUIRE(markers.markers.size() == 1);
+  REQUIRE(markers.markers[0].action == visualization_msgs::msg::Marker::DELETEALL);
 
   rclcpp::shutdown();
 }
