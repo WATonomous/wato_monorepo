@@ -95,14 +95,7 @@
 
       // grid overlay so motion/scale is visible
       const grid = new THREE.GridHelper(200, 40, 0x333344, 0x222230);
-      scene.add(grid);
-
-       // a world-fixed post, off to one side, just to see camera motion relative to the world
-      const postGeo = new THREE.BoxGeometry(1, 5, 1);
-      const postMat = new THREE.MeshStandardMaterial({ color: 0xff6a3d });
-      const post = new THREE.Mesh(postGeo, postMat);
-      post.position.set(5, 2.5, 5);   // fixed in the world, to one side of the car
-      scene.add(post);               
+      scene.add(grid);        
 
       // container for tracked-object boxes (rebuilt each message)
       const objectsGroup = new THREE.Group();
@@ -131,6 +124,52 @@
         const line = new THREE.Line(geo, mat);
         if (dashed) line.computeLineDistances();   
         return line;
+      }
+
+      function makeRoadRibbon(centerline, halfWidth) {
+        const positions = [];
+        const n = centerline.length;
+        for (let i = 0; i < n; i++) {
+          // tangent direction at this point (from neighbors)
+          const a = centerline[Math.max(0, i - 1)];
+          const b = centerline[Math.min(n - 1, i + 1)];
+          let tx = b.x - a.x, ty = b.y - a.y;
+          const len = Math.hypot(tx, ty) || 1;
+          tx /= len; ty /= len;
+          // left-normal in ROS (x,y): (-ty, tx). offset the centerline point both ways.
+          const c = centerline[i];
+          const lx = c.x - ty * halfWidth, ly = c.y + tx * halfWidth;   // left edge
+          const rx = c.x + ty * halfWidth, ry = c.y - tx * halfWidth;   // right edge
+          // ROS→three: three.x=x, three.z=-y
+          positions.push(lx, 0, -ly,   rx, 0, -ry);   
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      
+        const idx = [];
+        for (let i = 0; i < n - 1; i++) {
+          const o = i * 2;
+          idx.push(o, o + 1, o + 2,   o + 2, o + 1, o + 3);
+        }
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x2a2a30, side: THREE.DoubleSide,   
+          roughness: 1.0, metalness: 0.0,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = 0.02;   
+        return mesh;
+      }
+
+      function laneHalfWidth(L) {
+        if (L.left.length && L.right.length) {
+          const dx = L.left[0].x - L.right[0].x;
+          const dy = L.left[0].y - L.right[0].y;
+          const w = Math.hypot(dx, dy) / 2;
+          if (w > 0.5 && w < 6) return w *1.05;  
+        }
+        return 2;  
       }
 
       canvas.addEventListener('mousedown', (e) => {
@@ -254,6 +293,12 @@
             c.material.dispose();
           }
           laneletGroup.clear();
+
+          for (const L of data.lanelets) {
+            if (L.centerline.length > 1) {
+              laneletGroup.add(makeRoadRibbon(L.centerline, laneHalfWidth(L)));
+            }
+          }
 
           for (const L of data.lanelets) {
             if (L.left.length  > 1) laneletGroup.add(makeLaneLine(L.left,  0xffffff));
