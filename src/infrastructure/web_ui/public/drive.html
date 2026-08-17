@@ -13,6 +13,7 @@
 
     <script type="module">
       import * as THREE from '/lib/three.module.js';
+      import {STLLoader} from '/lib/STLLoader.js';
 
       const canvas = document.getElementById('drive');
 
@@ -40,6 +41,38 @@
       const camTarget = new THREE.Vector3();           // scratch: where the camera wants to be this frame
       const camFocus  = new THREE.Vector3();           // eased point the camera orbits (follows the car)
       let camYaw = 0;                                  // eased heading
+
+      const car = new THREE.Group();
+      scene.add(car);
+
+      const loader = new STLLoader();
+      loader.load('./models/kia_soul_ev.stl', (geometry) => {
+        function makeMatcap(base = '#c4c4c4') {  
+          const s = 256;
+          const cv = document.createElement('canvas');
+          cv.width = cv.height = s;
+          const ctx = cv.getContext('2d');
+          const g = ctx.createRadialGradient(s*0.38, s*0.32, s*0.04,  s*0.5, s*0.5, s*0.5);
+          g.addColorStop(0.0, '#e2e2e2');   // highlight 
+          g.addColorStop(0.45, base);       // body tone
+          g.addColorStop(1.0, '#242424');   // dark edge 
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(s/2, s/2, s/2, 0, Math.PI*2);
+          ctx.fill();
+          return new THREE.CanvasTexture(cv);
+        }
+
+        const mesh = new THREE.Mesh(
+          geometry,
+          new THREE.MeshMatcapMaterial({ matcap: makeMatcap() })
+        );
+
+        mesh.scale.setScalar(0.01);        // cm → meters
+        mesh.rotation.x = -Math.PI / 2;    // Z-up model → Y-up scene
+
+        car.add(mesh);
+      }, undefined, (err) => console.error('STL load failed:', err));
 
       // drag-to-look state 
       let dragging  = false;
@@ -69,21 +102,7 @@
       const postMat = new THREE.MeshStandardMaterial({ color: 0xff6a3d });
       const post = new THREE.Mesh(postGeo, postMat);
       post.position.set(5, 2.5, 5);   // fixed in the world, to one side of the car
-      scene.add(post);
-
-      // the ego car
-      const carGeo = new THREE.BoxGeometry(2, 1, 4);   
-      const carMat = new THREE.MeshStandardMaterial({ color: 0x4da3ff });
-      const car = new THREE.Mesh(carGeo, carMat);
-      car.position.set(0, 0.5, 0);   
-      scene.add(car);
-
-      // front marker on the car
-      const noseGeo = new THREE.BoxGeometry(1, 0.5, 0.5);
-      const noseMat = new THREE.MeshStandardMaterial({ color: 0xffe14d });
-      const nose = new THREE.Mesh(noseGeo, noseMat);
-      nose.position.set(0, 0.4, 2);  
-      car.add(nose);                 
+      scene.add(post);               
 
       // container for tracked-object boxes (rebuilt each message)
       const objectsGroup = new THREE.Group();
