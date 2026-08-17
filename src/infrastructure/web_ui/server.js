@@ -95,8 +95,10 @@ rclnodejs.init().then(() => {
 
   // lane geometry ahead → browser (map frame, same as ego/objects)
   node.createSubscription(
-    'lanelet_msgs/msg/LaneletAhead',
-    '/world_modeling/lanelet/lanelet_ahead',
+    //'lanelet_msgs/msg/LaneletAhead',
+    //'/world_modeling/lanelet/lanelet_ahead',
+    'lanelet_msgs/msg/MapVisualization',          
+    '/world_modeling/lanelet/map_visualization',
     (msg) => {
       const lanelets = msg.lanelets.map((L) => ({
         centerline: L.centerline.map((p) => ({ x: p.x, y: p.y })),
