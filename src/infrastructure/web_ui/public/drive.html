@@ -167,9 +167,40 @@
           const dx = L.left[0].x - L.right[0].x;
           const dy = L.left[0].y - L.right[0].y;
           const w = Math.hypot(dx, dy) / 2;
-          if (w > 0.5 && w < 6) return w *1.05;  
+          if (w > 0.5 && w < 6) return w * 1.025 ;  
         }
         return 2;  
+      }
+
+      //thicker lane line
+      function makeThickLine(pts, width, color, height = 0.05) {
+        const positions = [];
+        const n = pts.length;
+        const half = width / 2;
+        for (let i = 0; i < n; i++) {
+          const a = pts[Math.max(0, i - 1)];
+          const b = pts[Math.min(n - 1, i + 1)];
+          let tx = b.x - a.x, ty = b.y - a.y;
+          const len = Math.hypot(tx, ty) || 1;
+          tx /= len; ty /= len;
+          const c = pts[i];
+          // left/right offset perpendicular to the tangent
+          positions.push(
+            c.x - ty * half, height, -(c.y + tx * half),
+            c.x + ty * half, height, -(c.y - tx * half)
+          );
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        const idx = [];
+        for (let i = 0; i < n - 1; i++) {
+          const o = i * 2;
+          idx.push(o, o + 1, o + 2,  o + 2, o + 1, o + 3);
+        }
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide });
+        return new THREE.Mesh(geo, mat);
       }
 
       canvas.addEventListener('mousedown', (e) => {
@@ -299,16 +330,19 @@
               laneletGroup.add(makeRoadRibbon(L.centerline, laneHalfWidth(L)));
             }
           }
-
+           // thick solid boundaries 
           for (const L of data.lanelets) {
-            if (L.left.length  > 1) laneletGroup.add(makeLaneLine(L.left,  0xffffff));
-            if (L.right.length > 1) laneletGroup.add(makeLaneLine(L.right, 0xffffff));
-            if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0x888888, true));
+            if (L.left.length  > 1) laneletGroup.add(makeThickLine(L.left,  0.05, 0xffffff));
+            if (L.right.length > 1) laneletGroup.add(makeThickLine(L.right, 0.05, 0xffffff));
+          }
+          // dashed centerline 
+          for (const L of data.lanelets) {
+            if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0xaaaaaa, true));
           }
         }
       };
 
-      animate();
+  
 
       // keep it sized to the window
       window.addEventListener('resize', () => {
