@@ -63,6 +63,7 @@ rclnodejs.init().then(() => {
         1 - 2 * (q.y * q.y + q.z * q.z)
       );
       broadcast({ type: 'ego', x: p.x, y: p.y, yaw });
+      lastEgo = { x: p.x, y: p.y }; 
     }
   );
 
@@ -93,6 +94,7 @@ rclnodejs.init().then(() => {
     }
   );
 
+  let lastEgo = {x: 0, y: 0};
   // lane geometry ahead → browser (map frame, same as ego/objects)
   node.createSubscription(
     //'lanelet_msgs/msg/LaneletAhead',
@@ -100,7 +102,15 @@ rclnodejs.init().then(() => {
     'lanelet_msgs/msg/MapVisualization',          
     '/world_modeling/lanelet/map_visualization',
     (msg) => {
-      const lanelets = msg.lanelets.map((L) => ({
+      const RADIUS = 50;   // metres — only keep lanelet within this of ego
+      const R2 = RADIUS * RADIUS;
+      const near = (L) => L.centerline.some((p) => {
+        const dx = p.x - lastEgo.x, dy = p.y - lastEgo.y;
+        return dx * dx + dy * dy < R2;     
+      });
+      const lanelets = msg.lanelets
+        .filter(near)
+        .map((L) => ({
         centerline: L.centerline.map((p) => ({ x: p.x, y: p.y })),
         left:  L.left_boundary.map((p) => ({ x: p.x, y: p.y })),
         right: L.right_boundary.map((p) => ({ x: p.x, y: p.y })),
