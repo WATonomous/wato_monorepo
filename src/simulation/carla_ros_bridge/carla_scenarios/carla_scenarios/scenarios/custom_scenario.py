@@ -104,9 +104,7 @@ class CustomScenario(ScenarioBase):
 
             self._spawn_traffic_entities(traffic_spawn_points)
             self.spawn_vehicles(self.NUM_VEHICLES, vehicle_spawn_points)
-            self.spawn_pedestrians(
-                self.NUM_PEDESTRIANS, self.PEDESTRIAN_CROSS_FACTOR
-            )
+            self.spawn_pedestrians(self.NUM_PEDESTRIANS, self.PEDESTRIAN_CROSS_FACTOR)
 
             self._log(f"Setup complete: {self.get_name()}")
             return True
