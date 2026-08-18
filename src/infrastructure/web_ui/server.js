@@ -18,6 +18,7 @@ function broadcast(obj) {
 
 rclnodejs.init().then(() => {
   const node = new rclnodejs.Node('ui_node');
+  let lastEgo = {x: 0, y: 0};
 
   // push a topic value out to the browser
   let lastSent = 0;
@@ -31,26 +32,24 @@ rclnodejs.init().then(() => {
   // service client for SetRoute
   const setRouteClient = node.createClient('lanelet_msgs/srv/SetRoute', '/world_modeling/set_route');
   const getRouteClient = node.createClient('lanelet_msgs/srv/GetShortestRoute', '/world_modeling/get_shortest_route');
+
 /*
   // route ahead → browser
   node.createSubscription(
     'lanelet_msgs/msg/RouteAhead',
     '/world_modeling/lanelet/route_ahead',
     (msg) => {
-      if (!msg.has_active_route) {
-        broadcast({ type: 'route', points: [] });
-        return;
-      }
-      const points = [];
-      for (const lanelet of msg.lanelets) {
-        for (const pt of lanelet.centerline) {
-          points.push({ x: pt.x, y: pt.y });   // was pt.local_x / pt.local_y
-        }
-      }
-      broadcast({ type: 'route', points });
+      if (!msg.has_active_route) { broadcast({ type: 'route', lanelets: [] }); return; }
+      const lanelets = msg.lanelets.map((L) => ({
+        centerline: L.centerline.map((p) => ({ x: p.x, y: p.y })),
+        left:  L.left_boundary.map((p) => ({ x: p.x, y: p.y })),
+        right: L.right_boundary.map((p) => ({ x: p.x, y: p.y })),
+      }));
+      broadcast({ type: 'route', lanelets });
     }
   );
-*/
+*/ 
+
   // ego pose → browser 
   node.createSubscription(
     'geometry_msgs/msg/PoseStamped',
@@ -83,18 +82,25 @@ rclnodejs.init().then(() => {
         const cls = (o.detection.results ?? [])
           .map(r => r.hypothesis?.class_id ?? '')
           .find(c => c && c !== 'linear_velocity' && !c.startsWith('behavior:')) ?? '';
+
+        const pred = o.predictions?.[0]?.poses?.map(p => ({
+          x: p.pose.position.x,
+          y: p.pose.position.y,
+        })) ?? [];
+
         return {
           x: c.position.x, y: c.position.y, z: c.position.z,
           yaw,
-          sx: s.x, sy: s.y, sz: s.z,        // ROS-frame extents
-          id: o.detection.id, cls
+          sx: s.x, sy: s.y, sz: s.z,       
+          id: o.detection.id, 
+          cls,
+          pred,
         };
       });
       broadcast({ type: 'objects', objects });
     }
   );
 
-  let lastEgo = {x: 0, y: 0};
   // lane geometry ahead → browser (map frame, same as ego/objects)
   node.createSubscription(
     //'lanelet_msgs/msg/LaneletAhead',

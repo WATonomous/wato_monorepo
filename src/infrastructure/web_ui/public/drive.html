@@ -108,6 +108,9 @@
       scene.add(laneletGroup);
       const ROAD_H = 0.03;  
 
+      const routeGroup = new THREE.Group();
+      scene.add(routeGroup);
+
       const CLASS_COLORS = {
         'person': 0x00e676,   // green — pedestrians
         'car':    0x2196f3,   // blue  — cars
@@ -203,6 +206,12 @@
         return new THREE.Mesh(geo, mat);
       }
 
+      function makePredLine(color) {
+        const geo = new THREE.BufferGeometry();
+        const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 });
+        return new THREE.Line(geo, mat);
+      }
+
       canvas.addEventListener('mousedown', (e) => {
         dragging = true;
         lastX = e.clientX;
@@ -291,21 +300,30 @@
               const color = CLASS_COLORS[o.cls] ?? CLASS_COLOR_DEFAULT;
               const mat = new THREE.MeshStandardMaterial({
                 color, transparent: true, opacity: 0.55
-              });
+              })
               const box = new THREE.Mesh(geo, mat);
               box.position.set(tx, o.z, tz);   
               box.rotation.y = tyaw;
               objectsGroup.add(box);
-              entry = { mesh: box, target: { x: tx, z: tz, yaw: tyaw }, seen: true };
+
+              const predLine = makePredLine(color);   // same color as the box
+              objectsGroup.add(predLine);
+
+              entry = { mesh: box, line: predLine, target: { x: tx, z: tz, yaw: tyaw }, seen: true };
               objectPool.set(o.id, entry);
-            } else {
-              
+            } 
+
+            else {
               entry.target.x = tx;
               entry.target.z = tz;
               entry.target.yaw = tyaw;
               entry.mesh.position.y = o.z;  
               entry.seen = true;
             }
+
+            const pts = (o.pred ?? []).map(p => new THREE.Vector3(p.x, o.z, -p.y));
+            entry.line.geometry.setFromPoints(pts);
+
           }
 
           for (const [id, entry] of objectPool) {
@@ -313,6 +331,9 @@
               objectsGroup.remove(entry.mesh);
               entry.mesh.geometry.dispose();
               entry.mesh.material.dispose();
+              objectsGroup.remove(entry.line);        
+              entry.line.geometry.dispose();         
+              entry.line.material.dispose();  
               objectPool.delete(id);
             }
           }
@@ -338,6 +359,21 @@
           // dashed centerline 
           for (const L of data.lanelets) {
             if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0xaaaaaa, true));
+          }
+        }
+
+        if (data.type === 'route') {
+          for (const c of routeGroup.children) { c.geometry.dispose(); c.material.dispose(); }
+          routeGroup.clear();
+          for (const L of data.lanelets) {
+            if (L.centerline.length > 1) {
+              const ribbon = makeRoadRibbon(L.centerline, laneHalfWidth(L) * 0.6);  
+              ribbon.material.color.set(0x2196f3);   // blue path highlight
+              ribbon.material.transparent = true;
+              ribbon.material.opacity = 0.55;
+              ribbon.position.y = 0.06;              
+              routeGroup.add(ribbon);
+            }
           }
         }
       };
