@@ -176,6 +176,6 @@ rclnodejs.init().then(() => {
     });
   });
 
-  rclnodejs.spin(node);
   server.listen(3000, () => console.log('UI running at http://localhost:3000'));
+  rclnodejs.spin(node);
 });

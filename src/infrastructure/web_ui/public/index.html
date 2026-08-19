@@ -141,8 +141,6 @@
     </div>
 
     <script>
-      const ws = new WebSocket(`ws://${location.host}`);
-      
       const connBadge = document.getElementById('connBadge');
       const connText  = document.getElementById('connText');
       let lastMsgTime = 0;
@@ -151,43 +149,62 @@
         connBadge.className = state;   
         connText.textContent = text;
       }
-      ws.onopen  = () => setConn('conn-on',  'CONNECTED');
-      ws.onclose = () => setConn('conn-off', 'DISCONNECTED');
-      ws.onerror = () => setConn('conn-off', 'ERROR');
+
+      let ws;
+      let reconnectDelay = 1000;   
+
+      function connect() {
+        ws = new WebSocket(`ws://${location.host}`);
+
+        ws.onopen = () => {
+          setConn('conn-on', 'CONNECTED');
+          reconnectDelay = 1000;   
+        };
+
+        ws.onclose = () => {
+          setConn('conn-off', 'RECONNECTING…');
+          setTimeout(connect, reconnectDelay);              
+          reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);  
+        };
+
+        ws.onerror = () => ws.close();   
+
+        ws.onmessage = (event) => {
+          lastMsgTime = Date.now();
+          const data = JSON.parse(event.data);
+          if (data.speed !== undefined) {
+            document.getElementById('speed').textContent = Math.abs(data.speed * 3.6).toFixed(0);
+          }
+          if (data.type === 'routeResult') {
+            const el = document.getElementById('routeStatus');
+            if (data.success) {
+              el.textContent = `Route set → lanelet ${data.goalLanelet}`;
+              el.style.color = '#3ddc84';
+              document.getElementById('exitBtn').style.display = 'inline-block';
+            } else {
+              el.textContent = `Route failed: ${data.error}`;
+              el.style.color = '#ff5a5a';
+            }
+          }
+          if (data.type === 'route') {
+            route = data.points;
+            draw();
+          }
+          if (data.type === 'ego') {
+            ego = { x: data.x, y: data.y, yaw: data.yaw };
+            draw();
+          }
+        };
+      }
 
       setInterval(() => {
-        if (ws.readyState !== WebSocket.OPEN) return;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
         const gap = Date.now() - lastMsgTime;
         if (gap > 2000) setConn('conn-stale', 'NO DATA');
         else            setConn('conn-on',    'CONNECTED');
       }, 1000);
 
-      ws.onmessage = (event) => {
-        lastMsgTime = Date.now();
-        const data = JSON.parse(event.data);
-        if (data.speed !== undefined) {
-          document.getElementById('speed').textContent = Math.abs(data.speed * 3.6).toFixed(0);
-        }
-        if (data.type === 'routeResult') {
-          const el = document.getElementById('routeStatus');
-          if (data.success) {
-            el.textContent = `Route set → lanelet ${data.goalLanelet}`;
-            el.style.color = '#3ddc84';
-            document.getElementById('exitBtn').style.display = 'inline-block';
-          } else {
-            el.textContent = `Route failed: ${data.error}`;
-            el.style.color = '#ff5a5a';
-          }
-        }
-        if (data.type === 'route') {
-          route = data.points;
-          draw();
-        }
-        if (data.type === 'ego') {
-          ego = { x: data.x, y: data.y, yaw: data.yaw };
-          draw();
-        }
-      };
+      connect();
 
       const canvas = document.getElementById('map');
       const ctx = canvas.getContext('2d');
