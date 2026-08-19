@@ -95,6 +95,21 @@
         }
       }
 
+      #connBadge {
+        position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+        display: flex; align-items: center; gap: 8px;
+        font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: 1px;
+        background: rgba(10,10,20,0.55); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px; padding: 6px 12px;
+      }
+      #connBadge .conn-dot { width: 9px; height: 9px; border-radius: 50%; }
+      #connBadge.conn-on  { color: #00e676; }
+      #connBadge.conn-on  .conn-dot { background: #00e676; }
+      #connBadge.conn-off { color: #ff5a5a; }
+      #connBadge.conn-off .conn-dot { background: #ff5a5a; }
+      #connBadge.conn-stale { color: #ffb300; }
+      #connBadge.conn-stale .conn-dot { background: #ffb300; }
+
     </style>
   </head>
   <body>
@@ -120,9 +135,35 @@
       <span class="label">MANUAL</span>
     </div>
 
+    <div id="connBadge" class="conn-off">
+      <span class="conn-dot"></span>
+      <span id="connText">CONNECTING…</span>
+    </div>
+
     <script>
       const ws = new WebSocket(`ws://${location.host}`);
+      
+      const connBadge = document.getElementById('connBadge');
+      const connText  = document.getElementById('connText');
+      let lastMsgTime = 0;
+
+      function setConn(state, text) {
+        connBadge.className = state;   
+        connText.textContent = text;
+      }
+      ws.onopen  = () => setConn('conn-on',  'CONNECTED');
+      ws.onclose = () => setConn('conn-off', 'DISCONNECTED');
+      ws.onerror = () => setConn('conn-off', 'ERROR');
+
+      setInterval(() => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        const gap = Date.now() - lastMsgTime;
+        if (gap > 2000) setConn('conn-stale', 'NO DATA');
+        else            setConn('conn-on',    'CONNECTED');
+      }, 1000);
+
       ws.onmessage = (event) => {
+        lastMsgTime = Date.now();
         const data = JSON.parse(event.data);
         if (data.speed !== undefined) {
           document.getElementById('speed').textContent = Math.abs(data.speed * 3.6).toFixed(0);
@@ -361,7 +402,7 @@
       resizeCanvas();
       loadMap();
 
-      function setAutonomy(engaged) {
+      function Autonomy(engaged) {
         const badge = document.getElementById('autonomy-badge');
         const label = badge.querySelector('.label');
         badge.classList.toggle('autonomy', engaged);
