@@ -102,7 +102,7 @@
 
     <div id="speedBox">
       <span id="speed">--</span>
-      <span class="unit">M/S</span>
+      <span class="unit">km/h</span>
     </div>
 
     <div id="infoBar">
@@ -125,7 +125,7 @@
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.speed !== undefined) {
-          document.getElementById('speed').textContent = data.speed.toFixed(0);
+          document.getElementById('speed').textContent = Math.abs(data.speed * 3.6).toFixed(0);
         }
         if (data.type === 'routeResult') {
           const el = document.getElementById('routeStatus');

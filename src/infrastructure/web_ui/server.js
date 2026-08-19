@@ -22,7 +22,7 @@ rclnodejs.init().then(() => {
 
   // push a topic value out to the browser
   let lastSent = 0;
-  node.createSubscription('std_msgs/msg/Float64', '/test_speed', (msg) => {
+  node.createSubscription('std_msgs/msg/Float64', '/interfacing/can_state_estimator/body_velocity', (msg) => {
     const now = Date.now();
     if (now - lastSent < 100) return;
     lastSent = now;
