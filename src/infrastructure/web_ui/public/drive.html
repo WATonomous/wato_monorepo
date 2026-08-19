@@ -10,11 +10,11 @@
   </head>
   <body>
     <canvas id="drive"></canvas>
-
+    
     <script type="module">
       import * as THREE from '/lib/three.module.js';
       import {STLLoader} from '/lib/STLLoader.js';
-
+      
       const canvas = document.getElementById('drive');
 
       // renderer — draws the scene onto the canvas
@@ -212,6 +212,29 @@
         return new THREE.Line(geo, mat);
       }
 
+      function makeLabel(text, color = '#ffffff') {
+        const cv = document.createElement('canvas');
+        const ctx = cv.getContext('2d');
+        const font = 48;
+        ctx.font = `bold ${font}px sans-serif`;
+        const w = ctx.measureText(text).width;
+        cv.width = w + 20;
+        cv.height = font + 20;
+        ctx.font = `bold ${font}px sans-serif`;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';          
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.fillStyle = color;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 10, cv.height / 2);
+
+        const tex = new THREE.CanvasTexture(cv);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const sprite = new THREE.Sprite(mat);
+        const h = 0.5;      //label height
+        sprite.scale.set(h * cv.width / cv.height, h, 1);
+        return sprite;
+      }
+
       canvas.addEventListener('mousedown', (e) => {
         dragging = true;
         lastX = e.clientX;
@@ -234,10 +257,10 @@
         // the offset by an eased angle keeps the camera on a fixed-radius orbit,
         // so it no longer dives across big turns (that was the "zoom").
         let d = car.rotation.y - camYaw;
-        d = Math.atan2(Math.sin(d), Math.cos(d));   // shortest signed angle
+        d = Math.atan2(Math.sin(d), Math.cos(d));   
         camYaw += d * 0.1;
 
-        camFocus.lerp(car.position, 0.15);          // ease the orbit point to the car
+        camFocus.lerp(car.position, 0.15);      
 
         // keep ground + grid under the car (both are finite; the car roams far in map frame)
         ground.position.x = car.position.x;
@@ -265,13 +288,16 @@
         renderer.render(scene, camera);
 
          // glide every tracked box toward its latest target
-        for (const { mesh, target } of objectPool.values()) {
+        for (const { mesh, target, label } of objectPool.values()) {
           mesh.position.x += (target.x - mesh.position.x) * 0.2;
           mesh.position.z += (target.z - mesh.position.z) * 0.2;
-          // ease yaw the short way round
           let dy = target.yaw - mesh.rotation.y;
           dy = Math.atan2(Math.sin(dy), Math.cos(dy));
           mesh.rotation.y += dy * 0.2;
+
+          if (label) {
+            label.position.set(mesh.position.x, mesh.position.y + 1.5, mesh.position.z);
+          }
         }
       }
       animate();
@@ -306,10 +332,14 @@
               box.rotation.y = tyaw;
               objectsGroup.add(box);
 
-              const predLine = makePredLine(color);   // same color as the box
+              const predLine = makePredLine(color);  
               objectsGroup.add(predLine);
 
-              entry = { mesh: box, line: predLine, target: { x: tx, z: tz, yaw: tyaw }, seen: true };
+              const label = makeLabel(String(o.id));
+              console.log('label created', o.id, 'canvas', label.material.map.image.width, 'x', label.material.map.image.height);
+              objectsGroup.add(label);
+
+              entry = { mesh: box, line: predLine, label, target: { x: tx, z: tz, yaw: tyaw }, seen: true };
               objectPool.set(o.id, entry);
             } 
 
@@ -334,6 +364,9 @@
               objectsGroup.remove(entry.line);        
               entry.line.geometry.dispose();         
               entry.line.material.dispose();  
+              objectsGroup.remove(entry.label);
+              entry.label.material.map.dispose();
+              entry.label.material.dispose();     
               objectPool.delete(id);
             }
           }
