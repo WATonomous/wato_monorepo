@@ -134,6 +134,16 @@ rclnodejs.init().then(() => {
     }
   );
 
+// autonomy state → browser 
+const AUTONOMY_LABEL = { 0: 'ENGAGED', 1: 'DISENGAGING', 2: 'DISABLED', 3: 'ENGAGING' };
+node.createSubscription(
+  'roscco_msg/msg/AutonomyState',
+  '/interfacing/oscc_interfacing/autonomy_state',
+  (msg) => {
+    broadcast({ type: 'autonomy', state: AUTONOMY_LABEL[msg.state] ?? 'UNKNOWN' });
+  }
+);
+
   // listen for messages coming from the browser
   wss.on('connection', (socket) => {
     socket.on('message', async (raw) => {

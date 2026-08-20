@@ -63,9 +63,15 @@
       #autonomy-badge.autonomy .dot { animation: badge-pulse 1.2s ease-in-out infinite; }
       #autonomy-badge.manual { color: #fff; background: transparent; border: 1px solid transparent; }
       #autonomy-badge.manual .dot { display: none; }
+      #autonomy-badge.transitional { color: #ffb300; background: rgba(255,179,0,0.12); border: 1px solid rgba(255,179,0,0.5); }
+      #autonomy-badge.transitional .dot { background: #ffb300; animation: badge-pulse-amber 1.2s ease-in-out infinite; }
       @keyframes badge-pulse {
         0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,59,48,0.7); }
         50%      { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(255,59,48,0.4); }
+      }
+      @keyframes badge-pulse-amber {
+        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,179,0,0.7); }
+        50%      { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(255,179,0,0.4); }
       }
 
       #connBadge {
@@ -158,6 +164,19 @@
       function setSpeed(mps) { speedEl.textContent = Math.abs(mps * 3.6).toFixed(0); }
       function setBehaviour(text) { behaviourEl.textContent = (text && text.length) ? text : '\u2014'; }
 
+      const AUTONOMY_UI = {
+        DISABLED:    { cls: 'manual',        text: 'MANUAL' },
+        ENGAGED:     { cls: 'autonomy',      text: 'AUTONOMY' },
+        ENGAGING:    { cls: 'transitional',  text: 'ENGAGING' },
+        DISENGAGING: { cls: 'transitional',  text: 'DISENGAGING' },
+      };
+      const autonomyBadge = document.getElementById('autonomy-badge');
+      function setAutonomy(label) {
+        const ui = AUTONOMY_UI[label] || AUTONOMY_UI.DISABLED;   // default to MANUAL if unknown/absent
+        autonomyBadge.className = ui.cls;
+        autonomyBadge.querySelector('.label').textContent = ui.text;
+      }
+      window.setAutonomy = setAutonomy;
       MapView.init({
         canvas: document.getElementById('map'),
         infoBar: document.getElementById('infoBar'),
@@ -203,6 +222,7 @@
           const data = JSON.parse(event.data);
           if (data.speed !== undefined) setSpeed(data.speed);
           if (data.type === 'behaviour') setBehaviour(data.behaviour);
+          if (data.type === 'autonomy') setAutonomy(data.state);
           MapView.update(data);
           DriveView.update(data);
         };
