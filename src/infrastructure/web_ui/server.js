@@ -125,6 +125,15 @@ rclnodejs.init().then(() => {
     }
   );
 
+  // behaviour → browser
+  node.createSubscription(
+    'behaviour_msgs/msg/ExecuteBehaviour',
+    '/behaviour/execute_behaviour',
+    (msg) => {
+      broadcast({ type: 'behaviour', behaviour: msg.behaviour });
+    }
+  );
+
   // listen for messages coming from the browser
   wss.on('connection', (socket) => {
     socket.on('message', async (raw) => {

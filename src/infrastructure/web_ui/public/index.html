@@ -110,6 +110,17 @@
       #connBadge.conn-stale { color: #ffb300; }
       #connBadge.conn-stale .conn-dot { background: #ffb300; }
 
+      #behaviour-label {
+        position: absolute;
+        top: 92px;             
+        right: 60px;            
+        text-align: right;
+        color: rgba(255,255,255,0.6);
+        font: 500 17px/1 system-ui, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      } 
+
     </style>
   </head>
   <body>
@@ -139,6 +150,8 @@
       <span class="conn-dot"></span>
       <span id="connText">CONNECTING…</span>
     </div>
+
+    <div id="behaviour-label">—</div>
 
     <script>
       const connBadge = document.getElementById('connBadge');
@@ -193,6 +206,9 @@
           if (data.type === 'ego') {
             ego = { x: data.x, y: data.y, yaw: data.yaw };
             draw();
+          }
+          if (data.type === 'behaviour') {
+            setBehaviour(data.behaviour);
           }
         };
       }
@@ -426,6 +442,12 @@
         badge.classList.toggle('manual', !engaged);
         label.textContent = engaged ? 'AUTONOMY' : 'MANUAL';
       }
+
+      function setBehaviour(text) {
+        const el = document.getElementById('behaviour-label');
+        el.textContent = (text && text.length) ? text : '—';
+      }
+
     </script>
   </body>
 </html>
