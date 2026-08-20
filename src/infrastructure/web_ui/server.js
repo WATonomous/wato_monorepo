@@ -52,11 +52,11 @@ rclnodejs.init().then(() => {
 
   // ego pose → browser 
   node.createSubscription(
-    'geometry_msgs/msg/PoseStamped',
-    '/world_modeling/slam/pose',
+    'nav_msgs/msg/Odometry',
+    '/world_modeling/liso/odometry',
     (msg) => {
-      const p = msg.pose.position;
-      const q = msg.pose.orientation;
+      const p = msg.pose.pose.position;
+      const q = msg.pose.pose.orientation;
       const yaw = Math.atan2(
         2 * (q.w * q.z + q.x * q.y),
         1 - 2 * (q.y * q.y + q.z * q.z)
