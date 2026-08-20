@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MapView module test</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; overflow: hidden; background: #000; }
+      body { font-family: -apple-system, system-ui, sans-serif; color: #fff; }
+
+      /* the view container the module's canvas fills.
+         In the real shell this is one pane of the split; here it's full window. */
+      #mapPane { position: absolute; inset: 0; }
+      #map { display: block; width: 100%; height: 100%; background: #141418; }
+
+      /* infoBar stays part of the map view (map-specific routing UI) */
+      #infoBar {
+        position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: rgba(20,20,24,0.8); backdrop-filter: blur(8px);
+        padding: 14px 28px; border-radius: 14px; text-align: center; min-width: 260px;
+      }
+      #routeStatus { font-weight: 600; min-height: 1.2em; }
+      #destInfo { font-size: 0.9em; color: #ccc; margin: 8px 0; }
+      #btnRow { margin-top: 6px; display: flex; gap: 10px; justify-content: center; }
+      #goBtn { padding: 10px 34px; font-size: 1.1em; font-weight: 700; color: #fff;
+        background: #3ddc84; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 2px; }
+      #goBtn:active { background: #2fb56a; }
+      #cancelBtn { padding: 10px 28px; font-size: 1.1em; font-weight: 700; color: #fff;
+        background: #555; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 2px; }
+      #cancelBtn:active { background: #444; }
+      #exitBtn { margin-top: 8px; padding: 10px 34px; font-size: 1.1em; font-weight: 700; color: #fff;
+        background: #ff3b30; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 2px; }
+      #exitBtn:active { background: #d32f27; }
+
+      /* a marker so you can confirm this is the TEST page, not index.html */
+      #testTag { position: absolute; top: 8px; left: 8px; font: 11px monospace;
+        color: #666; letter-spacing: 1px; }
+    </style>
+  </head>
+  <body>
+    <div id="testTag">MAPVIEW MODULE TEST</div>
+
+    <div id="mapPane">
+      <canvas id="map"></canvas>
+    </div>
+
+    <div id="infoBar">
+      <div id="routeStatus">Tap the map to set a destination</div>
+      <div id="destInfo" style="display:none;"></div>
+      <div id="btnRow" style="display:none;">
+        <button id="goBtn">GO</button>
+        <button id="cancelBtn">CANCEL</button>
+      </div>
+      <button id="exitBtn" style="display:none;">EXIT</button>
+    </div>
+
+    <script type="module">
+      import { MapView } from '/mapView.js';
+
+      // mount the module
+      MapView.init({
+        canvas: document.getElementById('map'),
+        infoBar: document.getElementById('infoBar'),
+        mapUrl: '/map/test_track_050426_utm.osm',
+      });
+
+      window.addEventListener('resize', () => MapView.resize());
+
+      // --- stand in for the shell's WebSocket ---
+      const ws = new WebSocket(`ws://${location.host}`);
+
+      // outbound: module asks us to send a destination
+      MapView.onDestinationClick(({ x, y }) => {
+        ws.send(JSON.stringify({ type: 'setDestination', x, y }));
+      });
+
+      // inbound: forward every parsed message to the module
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        MapView.update(data);
+      };
+    </script>
+  </body>
+</html>

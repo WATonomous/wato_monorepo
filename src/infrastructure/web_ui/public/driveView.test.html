@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DriveView module test</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; overflow: hidden; background: #0a0a0f; }
+      #drivePane { position: absolute; inset: 0; }
+      #drive { display: block; width: 100%; height: 100%; }
+      #testTag { position: absolute; top: 8px; left: 8px; font: 11px monospace;
+        color: #666; letter-spacing: 1px; z-index: 10; }
+    </style>
+  </head>
+  <body>
+    <div id="testTag">DRIVEVIEW MODULE TEST</div>
+    <div id="drivePane">
+      <canvas id="drive"></canvas>
+    </div>
+
+    <script type="module">
+      import * as THREE from '/lib/three.module.js';
+      import { STLLoader } from '/lib/STLLoader.js';
+      import { DriveView } from '/driveView.js';
+
+      DriveView.init({
+        canvas: document.getElementById('drive'),
+        three: THREE,
+        STLLoader,
+        modelUrl: '/models/kia_soul_ev.stl',
+      });
+
+      window.addEventListener('resize', () => DriveView.resize());
+
+      // stand in for the shell's WebSocket
+      const ws = new WebSocket(`ws://${location.host}`);
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        DriveView.update(data);
+      };
+    </script>
+  </body>
+</html>

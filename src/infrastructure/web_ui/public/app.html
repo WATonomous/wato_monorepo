@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>EVE UI</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; overflow: hidden; background: #000; }
+      body { font-family: -apple-system, system-ui, sans-serif; color: #fff; }
+
+      /* view area: flex row holding the two panes */
+      #viewArea { position: absolute; inset: 0; display: flex; }
+      #mapPane, #drivePane { position: relative; height: 100%; min-width: 0; }
+      #map   { display: block; width: 100%; height: 100%; background: #141418; }
+      #drive { display: block; width: 100%; height: 100%; background: #0a0a0f; }
+
+      #viewArea.mode-map   #mapPane   { flex: 1 1 100%; }
+      #viewArea.mode-map   #drivePane { flex: 0 0 0; display: none; }
+      #viewArea.mode-drive #mapPane   { flex: 0 0 0; display: none; }
+      #viewArea.mode-drive #drivePane { flex: 1 1 100%; }
+      #viewArea.mode-split #mapPane   { flex: 1 1 50%; }
+      #viewArea.mode-split #drivePane { flex: 1 1 50%; }
+
+      #infoBar {
+        position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
+        background: rgba(20,20,24,0.8); backdrop-filter: blur(8px);
+        padding: 14px 28px; border-radius: 14px; text-align: center; min-width: 260px;
+        z-index: 500;
+      }
+      #routeStatus { font-weight: 600; min-height: 1.2em; }
+      #destInfo { font-size: 0.9em; color: #ccc; margin: 8px 0; }
+      #btnRow { margin-top: 6px; display: flex; gap: 10px; justify-content: center; }
+      #goBtn { padding: 10px 34px; font-size: 1.1em; font-weight: 700; color: #fff;
+        background: #3ddc84; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 2px; }
+      #goBtn:active { background: #2fb56a; }
+      #cancelBtn { padding: 10px 28px; font-size: 1.1em; font-weight: 700; color: #fff;
+        background: #555; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 2px; }
+      #cancelBtn:active { background: #444; }
+      #exitBtn { margin-top: 8px; padding: 10px 34px; font-size: 1.1em; font-weight: 700; color: #fff;
+        background: #ff3b30; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 2px; }
+      #exitBtn:active { background: #d32f27; }
+
+      #statusBar { position: absolute; inset: 0; pointer-events: none; z-index: 1000; }
+      #statusBar > * { pointer-events: auto; }
+
+      #speedBox {
+        position: fixed; top: 20px; left: 24px;
+        background: rgba(20,20,24,0.7); backdrop-filter: blur(8px);
+        padding: 10px 20px; border-radius: 12px;
+        display: flex; flex-direction: column; align-items: center; line-height: 1;
+      }
+      #speed { font-size: 2.6em; font-weight: 700; }
+      #speedBox .unit { font-size: 0.7em; color: #999; letter-spacing: 3px; margin-top: 4px; }
+
+      #autonomy-badge {
+        position: fixed; top: 32px; right: 40px;
+        display: flex; align-items: center; gap: 11px;
+        font-weight: 700; font-size: 21px; letter-spacing: 3px;
+        user-select: none; padding: 9px 18px; border-radius: 999px;
+        transition: background 0.3s, border-color 0.3s;
+      }
+      #autonomy-badge .dot { width: 13px; height: 13px; border-radius: 50%; background: #ff3b30; }
+      #autonomy-badge.autonomy { color: #fff; background: rgba(255,59,48,0.15); border: 1px solid rgba(255,59,48,0.5); }
+      #autonomy-badge.autonomy .dot { animation: badge-pulse 1.2s ease-in-out infinite; }
+      #autonomy-badge.manual { color: #fff; background: transparent; border: 1px solid transparent; }
+      #autonomy-badge.manual .dot { display: none; }
+      @keyframes badge-pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,59,48,0.7); }
+        50%      { opacity: 0.6; box-shadow: 0 0 8px 4px rgba(255,59,48,0.4); }
+      }
+
+      #connBadge {
+        position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+        display: flex; align-items: center; gap: 8px;
+        font-family: ui-monospace, monospace; font-size: 12px; letter-spacing: 1px;
+        background: rgba(10,10,20,0.55); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px; padding: 6px 12px;
+      }
+      #connBadge .conn-dot { width: 9px; height: 9px; border-radius: 50%; }
+      #connBadge.conn-on    { color: #00e676; } #connBadge.conn-on    .conn-dot { background: #00e676; }
+      #connBadge.conn-off   { color: #ff5a5a; } #connBadge.conn-off   .conn-dot { background: #ff5a5a; }
+      #connBadge.conn-stale { color: #ffb300; } #connBadge.conn-stale .conn-dot { background: #ffb300; }
+
+      #behaviour-label {
+        position: fixed; top: 92px; right: 60px; text-align: right;
+        color: rgba(255,255,255,0.6);
+        font: 500 17px/1 system-ui, sans-serif;
+        letter-spacing: 0.08em; text-transform: uppercase;
+      }
+
+      #modeSwitch {
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        display: flex; gap: 4px; padding: 4px;
+        background: rgba(10,10,20,0.6); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 999px; backdrop-filter: blur(8px);
+      }
+      #modeSwitch button {
+        padding: 8px 20px; font-size: 13px; font-weight: 700; letter-spacing: 2px;
+        color: #999; background: transparent; border: none; border-radius: 999px;
+        cursor: pointer; transition: background 0.2s, color 0.2s;
+      }
+      #modeSwitch button:hover { color: #ccc; }
+      #modeSwitch button.active { color: #fff; background: rgba(255,255,255,0.12); }
+    </style>
+  </head>
+  <body>
+    <div id="viewArea" class="mode-map">
+      <div id="mapPane">
+        <canvas id="map"></canvas>
+        <div id="infoBar">
+          <div id="routeStatus">Tap the map to set a destination</div>
+          <div id="destInfo" style="display:none;"></div>
+          <div id="btnRow" style="display:none;">
+            <button id="goBtn">GO</button>
+            <button id="cancelBtn">CANCEL</button>
+          </div>
+          <button id="exitBtn" style="display:none;">EXIT</button>
+        </div>
+      </div>
+      <div id="drivePane">
+        <canvas id="drive"></canvas>
+      </div>
+    </div>
+
+    <div id="statusBar">
+      <div id="speedBox">
+        <span id="speed">--</span>
+        <span class="unit">km/h</span>
+      </div>
+      <div id="autonomy-badge" class="manual">
+        <span class="dot"></span>
+        <span class="label">MANUAL</span>
+      </div>
+      <div id="connBadge" class="conn-off">
+        <span class="conn-dot"></span>
+        <span id="connText">CONNECTING&#8230;</span>
+      </div>
+      <div id="behaviour-label">&#8212;</div>
+
+      <div id="modeSwitch">
+        <button data-mode="map"   class="active">MAP</button>
+        <button data-mode="split">SPLIT</button>
+        <button data-mode="drive">DRIVE</button>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from '/lib/three.module.js';
+      import { STLLoader } from '/lib/STLLoader.js';
+      import { MapView }   from '/mapView.js';
+      import { DriveView } from '/driveView.js';
+
+      const speedEl = document.getElementById('speed');
+      const connBadge = document.getElementById('connBadge');
+      const connText  = document.getElementById('connText');
+      const behaviourEl = document.getElementById('behaviour-label');
+
+      function setConn(state, text) { connBadge.className = state; connText.textContent = text; }
+      function setSpeed(mps) { speedEl.textContent = Math.abs(mps * 3.6).toFixed(0); }
+      function setBehaviour(text) { behaviourEl.textContent = (text && text.length) ? text : '\u2014'; }
+
+      MapView.init({
+        canvas: document.getElementById('map'),
+        infoBar: document.getElementById('infoBar'),
+        mapUrl: '/map/test_track_050426_utm.osm',
+      });
+      DriveView.init({
+        canvas: document.getElementById('drive'),
+        three: THREE,
+        STLLoader,
+        modelUrl: '/models/kia_soul_ev.stl',
+      });
+
+      const viewArea = document.getElementById('viewArea');
+      const modeBtns = document.querySelectorAll('#modeSwitch button');
+
+      function setMode(mode) {
+        viewArea.className = `mode-${mode}`;
+        modeBtns.forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+        requestAnimationFrame(() => { MapView.resize(); DriveView.resize(); });
+      }
+      modeBtns.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+      window.addEventListener('resize', () => { MapView.resize(); DriveView.resize(); });
+
+      let ws, reconnectDelay = 1000, lastMsgTime = 0;
+
+      function connect() {
+        ws = new WebSocket(`ws://${location.host}`);
+        ws.onopen = () => {
+          setConn('conn-on', 'CONNECTED');
+          reconnectDelay = 1000;
+          MapView.onDestinationClick(({ x, y }) => {
+            ws.send(JSON.stringify({ type: 'setDestination', x, y }));
+          });
+        };
+        ws.onclose = () => {
+          setConn('conn-off', 'RECONNECTING\u2026');
+          setTimeout(connect, reconnectDelay);
+          reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+        };
+        ws.onerror = () => ws.close();
+        ws.onmessage = (event) => {
+          lastMsgTime = Date.now();
+          const data = JSON.parse(event.data);
+          if (data.speed !== undefined) setSpeed(data.speed);
+          if (data.type === 'behaviour') setBehaviour(data.behaviour);
+          MapView.update(data);
+          DriveView.update(data);
+        };
+      }
+
+      setInterval(() => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const gap = Date.now() - lastMsgTime;
+        if (gap > 2000) setConn('conn-stale', 'NO DATA');
+        else            setConn('conn-on',    'CONNECTED');
+      }, 1000);
+
+      connect();
+    </script>
+  </body>
+</html>
