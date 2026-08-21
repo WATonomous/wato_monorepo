@@ -569,8 +569,9 @@ vision_msgs::msg::Detection3DArray BEVFusionNode::createDetections3D(
     pose_lidar.pose.position.y = bbox.position.y;
     pose_lidar.pose.position.z = bbox.position.z;
 
+    // Negate z_rotation to convert from BEV-map convention to ROS2/LiDAR frame convention.
     tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, bbox.z_rotation);
+    q.setRPY(0.0, 0.0, -bbox.z_rotation);
     pose_lidar.pose.orientation = tf2::toMsg(q);
 
     geometry_msgs::msg::PoseStamped pose_target;

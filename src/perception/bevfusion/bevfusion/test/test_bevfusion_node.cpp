@@ -531,10 +531,12 @@ TEST_CASE("createDetections3D: position and size are mapped correctly", "[conver
 
 // =============================================================================
 // TEST: BoundingBox → Detection3D yaw rotation
-// WHY: z_rotation encodes heading. Converting it to a quaternion incorrectly
-//      would rotate detections in the tracking frame. We check that a known
-//      yaw (π/4) produces the expected quaternion (with an identity TF so
-//      the transform step doesn't perturb it).
+// WHY: z_rotation encodes heading, but uses BEV-map sign convention (Y points
+//      away from ego / "downward" in image space), which is opposite to the
+//      ROS2/LiDAR right-handed frame (counter-clockwise = positive yaw).
+//      The node negates z_rotation before calling setRPY so that a car
+//      pointing "forward" (+x) with z_rotation=0 gets an identity quaternion,
+//      and angles rotate in the physically correct direction.
 // =============================================================================
 TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conversion][fast]")
 {
@@ -549,8 +551,9 @@ TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conv
   REQUIRE(detections_3d.detections.size() == 1);
   const auto & det = detections_3d.detections[0];
 
-  double expected_qw = std::cos(M_PI / 8.0);
-  double expected_qz = std::sin(M_PI / 8.0);
+  // z_rotation is negated before setRPY, so the resulting quaternion encodes -yaw.
+  double expected_qw = std::cos(-M_PI / 8.0);  // cos(-yaw/2) == cos(yaw/2)
+  double expected_qz = std::sin(-M_PI / 8.0);  // sin(-yaw/2) == -sin(yaw/2)
 
   REQUIRE(det.bbox.center.orientation.x == Catch::Approx(0.0).margin(1e-6));
   REQUIRE(det.bbox.center.orientation.y == Catch::Approx(0.0).margin(1e-6));
