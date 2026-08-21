@@ -114,6 +114,9 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
   this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
 
+  this->declare_parameter<bool>("has_ring", false);
+  has_ring_ = this->get_parameter("has_ring").as_bool();
+
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
   target_frame_ = this->get_parameter("target_frame").as_string();
   multi_image_topic_ = this->get_parameter("input_multi_image_topic").as_string();
@@ -684,14 +687,16 @@ bool BEVFusionNode::processLidar(
     sensor_msgs::PointCloud2ConstIterator<float> iter_y(*lidar_msg, "y");
     sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
     sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*lidar_msg, "intensity");
-    sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_ring(*lidar_msg, "ring");
 
-    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity, ++iter_ring) {
+    // Only create ring iterator if has ring field
+    std::optional<sensor_msgs::PointCloud2ConstIterator<uint16_t>> iter_ring;
+    if (has_ring_) iter_ring.emplace(*lidar_msg, "ring");
+
+    for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity) {
       float x = *iter_x;
       float y = *iter_y;
       float z = *iter_z;
       float intensity = *iter_intensity;
-      uint16_t ring = *iter_ring;
 
       // Skip invalid points (NaN/Inf)
       if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z) || !std::isfinite(intensity)) {
@@ -703,7 +708,10 @@ bool BEVFusionNode::processLidar(
       lidar_data.push_back(y);
       lidar_data.push_back(z);
       lidar_data.push_back(intensity);
-      lidar_data.push_back(static_cast<float>(ring));
+      if (has_ring_) {
+        lidar_data.push_back(static_cast<float>(**iter_ring));
+        ++(*iter_ring);
+      }
     }
   } catch (const std::runtime_error & e) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Pointcloud2 missing fields: %s", e.what());
@@ -816,7 +824,7 @@ void BEVFusionNode::diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapp
   const double last_time = last_processing_time_ms_.load();
 
   if (processed == 0) {
-    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "No ___TODO(bevfusion_team)____ processed yet");
+    stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "No frames processed yet");
   } else if (avg_time > 50.0) {
     stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "High processing latency");
   } else if (last_time > 100.0) {

@@ -61,9 +61,13 @@ bevfusion_node:
     post_center_range_start: [-61.2, -61.2, -10.0]
     post_center_range_end: [61.2, 61.2, 10.0]
 
+    # Specify whether inputted lidar topic has the 5th parameter (ring id)
+    # Merged lidar points do not while single lidars do.
+    has_ring: false
+
     # ApproximateTime synchronization
-    sync_queue_size: 2
-    sync_max_time_diff_ms: 100.0
+    sync_queue_size: 5
+    sync_max_time_diff_ms: 200.0
 
     # QoS
     qos_subscriber_reliability: "best_effort"

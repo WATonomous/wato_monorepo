@@ -121,7 +121,6 @@ private:
   void declareParameters();
 
   /**
-   * TODO(bevfusion_team) - not sure if we need multiimagecompressed or something else.
    * @brief Main processing callback for synced camera and LiDAR data.
    * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
    * @param point_cloud_msg PointCloud2 containing point cloud data
@@ -256,7 +255,6 @@ private:
   // Subscribers
   std::shared_ptr<LidarSub> lidar_sub_;
   std::shared_ptr<ImageSub> multi_image_sub_;
-  // TODO(bevfusion_team) - maybe we should use /camera_pano_nn/image_rect instead for example. Not sure.
 
   // QoS profiles
   rclcpp::QoS subscriber_qos_;
@@ -268,6 +266,9 @@ private:
   double sync_max_time_diff_ms_{200.0};
   double sync_max_time_diff_sec_;
   std::mutex camera_info_mutex_;
+
+  // LiDAR ring parameter
+  bool has_ring_{false};
 
   // Statistics
   std::atomic<uint64_t> total_processed_{0};
