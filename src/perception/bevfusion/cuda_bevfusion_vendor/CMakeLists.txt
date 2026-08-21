@@ -83,6 +83,11 @@ macro(build_cuda_bevfusion)
             ${CMAKE_COMMAND} -H<SOURCE_DIR>/CUDA-BEVFusion -B<BINARY_DIR>
             -DCMAKE_BUILD_TYPE=${bevfusion_build_type}
             -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+            # libspconv.so has a hard ELF NEEDED on libcuda.so.1 (the driver library).
+            # On GPU-less CI runners the driver is absent, so we point the linker at the
+            # CUDA toolkit's stub libcuda.so
+            "-DCMAKE_SHARED_LINKER_FLAGS=-L/usr/local/cuda/lib64/stubs"
+            "-DCMAKE_EXE_LINKER_FLAGS=-L/usr/local/cuda/lib64/stubs"
 
         # Explicitly build using 'cmake -E env' to ensure NVCC gets CUDASM during compilation
         BUILD_COMMAND ${CMAKE_COMMAND} -E env
