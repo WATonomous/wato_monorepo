@@ -34,6 +34,15 @@ macro(build_cuda_bevfusion)
         set(bevfusion_build_type Release)
     endif()
 
+    # Create local CUDA stub directory for CI/GPU-less builds
+    set(CUDA_STUB_DIR "${CMAKE_CURRENT_BINARY_DIR}/cuda_stubs")
+    file(MAKE_DIRECTORY "${CUDA_STUB_DIR}")
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+        "/usr/local/cuda/lib64/stubs/libcuda.so"
+        "${CUDA_STUB_DIR}/libcuda.so.1"
+    )
+
     # --- Set Environment Variables required by cuda-bevfusion ---
     if(NOT DEFINED ENV{CUDASM})
       set(ENV{CUDASM} "89")
@@ -86,8 +95,8 @@ macro(build_cuda_bevfusion)
             # libspconv.so has a hard ELF NEEDED on libcuda.so.1 (the driver library).
             # On GPU-less CI runners the driver is absent, so we point the linker at the
             # CUDA toolkit's stub libcuda.so
-            "-DCMAKE_SHARED_LINKER_FLAGS=-L/usr/local/cuda/lib64/stubs"
-            "-DCMAKE_EXE_LINKER_FLAGS=-L/usr/local/cuda/lib64/stubs"
+            "-DCMAKE_SHARED_LINKER_FLAGS=-L${CUDA_STUB_DIR} -L/usr/local/cuda/lib64/stubs -Wl,-rpath-link,${CUDA_STUB_DIR}"
+            "-DCMAKE_EXE_LINKER_FLAGS=-L${CUDA_STUB_DIR} -L/usr/local/cuda/lib64/stubs -Wl,-rpath-link,${CUDA_STUB_DIR}"
 
         # Explicitly build using 'cmake -E env' to ensure NVCC gets CUDASM during compilation
         BUILD_COMMAND ${CMAKE_COMMAND} -E env
