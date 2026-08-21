@@ -85,6 +85,13 @@ macro(build_cuda_bevfusion)
       set(ENV{TensorRT_Lib} "/usr/lib/x86_64-linux-gnu")
     endif()
 
+    # Linker flags passed to the ExternalProject so it can resolve libcuda.so.1
+    # from our stub symlink at build time. Stored in a variable to stay within
+    # the 140-character line-length limit enforced by cmakelint.
+    set(_stub_L "-L${CMAKE_CURRENT_BINARY_DIR} -L/usr/local/cuda/lib64/stubs")
+    set(_stub_rpath "-Wl,-rpath-link,${CMAKE_CURRENT_BINARY_DIR}")
+    set(_cuda_stub_link_flags "${_stub_L} ${_stub_rpath}")
+
     # Build cuda-bevfusion using ExternalProject
     externalproject_add(cuda_bevfusion_src
         GIT_REPOSITORY ${CUDA_BEVFUSION_GIT_REPOSITORY}
@@ -115,10 +122,11 @@ macro(build_cuda_bevfusion)
             -DCMAKE_BUILD_TYPE=${bevfusion_build_type}
             -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
             # libspconv.so has a hard ELF NEEDED on libcuda.so.1 (the driver library).
-            # On GPU-less CI runners the driver is absent, so we point the linker at the
-            # CUDA toolkit's stub libcuda.so (unversioned .so is sufficient for the linker).
-            "-DCMAKE_SHARED_LINKER_FLAGS=-L/usr/local/cuda/lib64/stubs -Wl,-rpath-link,/usr/local/cuda/lib64/stubs"
-            "-DCMAKE_EXE_LINKER_FLAGS=-L/usr/local/cuda/lib64/stubs -Wl,-rpath-link,/usr/local/cuda/lib64/stubs"
+            # /usr/local/cuda/lib64/stubs has libcuda.so (unversioned) but NOT libcuda.so.1.
+            # CMAKE_CURRENT_BINARY_DIR holds the libcuda.so.1 symlink we created above,
+            # so both dirs are needed: stubs/ for the unversioned stub, binary dir for .so.1.
+            "-DCMAKE_SHARED_LINKER_FLAGS=${_cuda_stub_link_flags}"
+            "-DCMAKE_EXE_LINKER_FLAGS=${_cuda_stub_link_flags}"
 
         # Explicitly build using 'cmake -E env' to ensure NVCC gets CUDASM during compilation
         BUILD_COMMAND ${CMAKE_COMMAND} -E env
