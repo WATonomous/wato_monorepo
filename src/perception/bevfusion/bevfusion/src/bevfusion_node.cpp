@@ -656,7 +656,9 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
     marker.scale.y = det.bbox.size.y;
     marker.scale.z = det.bbox.size.z;
 
-    // Color by class — default white
+    // Color by nuScenes class ID — default white
+    // nuScenes: 0=car, 1=truck, 2=construction_vehicle, 3=bus, 4=trailer,
+    //           5=barrier, 6=motorcycle, 7=bicycle, 8=pedestrian, 9=traffic_cone
     float r = 1.0f, g = 1.0f, b = 1.0f;
     const int class_id = det.results.empty() ? -1 : std::stoi(det.results[0].hypothesis.class_id);
     switch (class_id) {
@@ -664,17 +666,52 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
         r = 0.0f;
         g = 1.0f;
         b = 0.0f;
-        break;  // Car
+        break;  // Car — green
       case 1:
-        r = 1.0f;
-        g = 1.0f;
-        b = 0.0f;
-        break;  // Pedestrian
-      case 2:
         r = 0.0f;
         g = 0.0f;
         b = 1.0f;
-        break;  // Truck
+        break;  // Truck — blue
+      case 2:
+        r = 1.0f;
+        g = 0.5f;
+        b = 0.0f;
+        break;  // Construction vehicle — orange
+      case 3:
+        r = 0.5f;
+        g = 0.0f;
+        b = 1.0f;
+        break;  // Bus — purple
+      case 4:
+        r = 0.0f;
+        g = 1.0f;
+        b = 1.0f;
+        break;  // Trailer — cyan
+      case 5:
+        r = 1.0f;
+        g = 1.0f;
+        b = 0.0f;
+        break;  // Barrier — yellow
+      case 6:
+        r = 1.0f;
+        g = 0.0f;
+        b = 1.0f;
+        break;  // Motorcycle — magenta
+      case 7:
+        r = 0.0f;
+        g = 0.5f;
+        b = 1.0f;
+        break;  // Bicycle — sky blue
+      case 8:
+        r = 1.0f;
+        g = 0.0f;
+        b = 0.0f;
+        break;  // Pedestrian — red
+      case 9:
+        r = 1.0f;
+        g = 0.8f;
+        b = 0.0f;
+        break;  // Traffic cone — amber
       default:
         break;
     }

@@ -60,7 +60,7 @@ Eve has 12 cameras total — 8 panoramic and 4 lower. BEVFusion uses **6 of the 
 
 ### LiDAR
 
-Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre-merged by a `lidar_aggregator` node into `/lidar/all/points_merged`. **BEVFusion currently defaults to the single `lidar_cc` sensor** (`/lidar_cc/velodyne_points`, set via `input_lidar_topic`), not the merged cloud — there's an open TODO (`kLidarTopic` comment in `bevfusion_node.hpp`) to switch to the merged topic once the `ring` field requirement in `processLidar()` is relaxed to be optional. `lidar_frame_id` (default `lidar_cc`) must match whichever LiDAR topic is actually configured, since it's used as the TF target for camera extrinsics.
+Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre-merged by a `lidar_aggregator` node into `/lidar/all/points_merged`. **BEVFusion currently defaults to the single `lidar_cc` sensor** (`/lidar_cc/velodyne_points`, set via `input_lidar_topic`), not the merged cloud. The `ring` field is made optional via the `has_ring` parameter (default `false`) — set it to `true` for `lidar_cc` (which includes a `ring` field) or keep it `false` for merged clouds that may lack one. `lidar_frame_id` (default `lidar_cc`) must match whichever LiDAR topic is actually configured, since it's used as the TF target for camera extrinsics.
 
 ## Topics
 
@@ -87,9 +87,11 @@ Each callback (`syncedCallback` in `bevfusion_node.cpp`) filters the incoming `M
 | `input_lidar_topic` (default `/lidar_cc/velodyne_points`) | `sensor_msgs/PointCloud2` | LiDAR point cloud, must contain `x`, `y`, `z`, `intensity`, and `ring` fields |
 | `camera_info` (remappable, wired to `/multi_camera_sync/multi_camera_info` in `perception.launch.yaml`) | `deep_msgs/MultiCameraInfo` | Camera intrinsics for all cameras (cached once, not time-synced) |
 
-`processLidar()` requires a `ring` field in the incoming `PointCloud2` — if the configured LiDAR source lacks one, the point cloud iterator will fail. There's a tracked TODO in `bevfusion_node.hpp` to switch the default LiDAR input to the merged `/lidar/all/points_merged` topic and make the `ring` field optional (padding with `0.0f` when absent) rather than required.
+`processLidar()` supports an **optional** `ring` field in the incoming `PointCloud2`. Set the `has_ring` parameter to `true` (default `false`) if the configured LiDAR source includes a `ring` field (e.g. `lidar_cc` Velodyne). When `false`, ring values are omitted and only `x, y, z, intensity` are extracted per point — ensure the model's `num_features` parameter matches.
 
 **Camera extrinsics via TF:** The physical mounting position and orientation of each camera (extrinsics) are looked up at runtime from the ROS 2 TF tree using `tf2_ros::Buffer` and `tf2_ros::TransformListener`. `computeCalibrationMatrices()` requests the transform from each camera's frame ID (e.g. `camera_pano_nn`) to the configured `lidar_frame_id` (default `lidar_cc`) — **not** `base_link`. Since camera mounts are fixed, these transforms are *static* — they are published once on `/tf_static` by the sensor launch infrastructure. The node does not subscribe to `/tf_static` directly; `tf2_ros::TransformListener` creates that subscription internally and caches all available transforms in the `Buffer`. Calibration (camera intrinsics, camera→lidar extrinsics, lidar→image projection, and the image augmentation matrix) is computed once when the first `MultiCameraInfo` message arrives (or immediately in `on_activate()` if camera info was already cached), and again is *not* recomputed per-frame.
+
+**Output frame transform:** `createDetections3D()` performs a `tf_buffer_->lookupTransform(target_frame_, lidar_frame_id_, stamp)` per callback and applies `tf2::doTransform` to each bounding box pose, so published detections are correctly expressed in `target_frame` (default `base_link`).
 
 ### Published
 
@@ -151,7 +153,7 @@ colcon build --packages-select cuda_bevfusion_vendor bevfusion
 
 `bevfusion` itself builds two libraries plus an executable: `bevfusion_wato_core` (the ROS-free `BEVFusionCore` GPU/TensorRT wrapper), `bevfusion_node` (the ROS 2 lifecycle node, registered as a component via `rclcpp_components_register_node`), and the `bevfusion_node` executable (`main.cpp`, for standalone/non-composed runs).
 
-Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filters`, `vision_msgs`, `visualization_msgs`, `deep_msgs`, `sensor_msgs`, `geometry_msgs`, `tf2_ros`, `tf2_geometry_msgs`, `tf2_eigen`, `eigen3_cmake_module`, `diagnostic_updater`, `cv_bridge`, `OpenCV`, CUDA Toolkit (`nvinfer`, `nvinfer_plugin`, `nvonnxparser`), `cuda_bevfusion_vendor`.
+Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filters`, `vision_msgs`, `visualization_msgs`, `deep_msgs`, `sensor_msgs`, `geometry_msgs`, `tf2_ros`, `tf2_geometry_msgs`, `tf2_eigen`, `eigen3_cmake_module`, `diagnostic_updater`, `OpenCV`, CUDA Toolkit (`nvinfer`, `nvinfer_plugin`, `nvonnxparser`), `cuda_bevfusion_vendor`.
 
 ### Testing
 

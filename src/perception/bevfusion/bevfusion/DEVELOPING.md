@@ -64,9 +64,9 @@ graph TD
 * **`syncedCallback(multi_image_msg, lidar_msg)`**
   * **Purpose:** The main pipeline driver. Whenever a synchronized `MultiImageCompressed` + `PointCloud2` frame arrives:
         1. Filters/reorders `multi_image_msg->images` to match `camera_names_`, JPEG-decodes each (`cv::imdecode`) and converts BGR→RGB into raw pointer arrays (`unsigned char*`), resizing if a decoded image doesn't match the configured `image_width`/`image_height`.
-        2. Parses the `PointCloud2` message into a flat `x, y, z, intensity, ring` format (`processLidar()`).
+        2. Parses the `PointCloud2` message into a flat `x, y, z, intensity, ring` format (`processLidar()`). The `ring` field is optional — if the `has_ring` parameter is `false`, ring values are omitted (padded with a zero feature implicitly by the model).
         3. Validates camera count, image format, and LiDAR point count/format against `config_`, then calls `core_->infer(...)`.
-        4. Converts the output bounding boxes into ROS `Detection3DArray` and `MarkerArray` messages.
+        4. Converts the output bounding boxes into ROS `Detection3DArray` (`createDetections3D()`) and `MarkerArray` (`createMarkers()`) messages. Each bounding box is transformed from `lidar_frame_id` to `target_frame` via a single `tf_buffer_->lookupTransform` + `tf2::doTransform` call.
         5. Publishes the results and updates statistics/diagnostics.
   * **Why:** Fusing data requires temporal alignment (messages must represent the same moment in time). We process only when we have a matching set of camera and LiDAR frames, and validate defensively since malformed input would otherwise crash the CUDA pipeline.
 
@@ -117,26 +117,27 @@ struct BoundingBox {
 };
 ```
 
-`toDetection3D()` (`bevfusion_node.cpp`) maps to `vision_msgs::Detection3D` as implemented:
-* `detection.header.frame_id = target_frame_` (default `base_link` — see Gotcha #6 below about the current frame mismatch)
-* `detection.bbox.center.position.x/y/z = position.x/y/z`
-* `detection.bbox.center.orientation` — built via `tf2::Quaternion::setRPY(0, 0, z_rotation)`
-* `detection.bbox.size.x = size.l`, `.y = size.w`, `.z = size.h` (nuScenes convention: l=forward, w=lateral, h=vertical)
+`createDetections3D()` (`bevfusion_node.cpp`) maps to `vision_msgs::Detection3D` as implemented:
+* BEVFusion outputs boxes in `lidar_frame_id`. A single `tf_buffer_->lookupTransform(target_frame_, lidar_frame_id_, stamp, timeout)` is done per callback and each pose is transformed to `target_frame` via `tf2::doTransform`.
+* `detection.header.frame_id = target_frame_` (default `base_link`)
+* `detection.bbox.center` — position from bbox, orientation from `tf2::Quaternion::setRPY(0, 0, -z_rotation)` (negated to convert BEV-map convention to ROS convention), both transformed to `target_frame`
+* `detection.bbox.size.x = size.w`, `.y = size.l`, `.z = size.h`
 * `detection.results[0].hypothesis.class_id = std::to_string(id)`
 * `detection.results[0].hypothesis.score = score`
 
 ### Converting `BoundingBox` → `MarkerArray` (for Foxglove)
 
-`toMarker()` (`bevfusion_node.cpp`) creates one `visualization_msgs::Marker` per bbox, as implemented:
+`createMarkers()` (`bevfusion_node.cpp`) creates one `visualization_msgs::Marker` per bbox, as implemented:
 * `marker.type = Marker::CUBE`
-* `marker.pose` = same position/orientation as the `Detection3D` center
-* `marker.scale.x/y/z = size.l/w/h`
-* Color by class via a `switch (bbox.id)` — **see the "known bug" warning below the nuScenes class table**: the current color mapping (car/pedestrian/truck for ids 0/1/2) doesn't match the real nuScenes id ordering, so only `id == 0` (car → green) is colored correctly today
-* `marker.color.a = 0.8`, `marker.lifetime = 0.1s` (so stale markers disappear)
+* `marker.pose` = same position/orientation as the `Detection3D` center (already in `target_frame`)
+* `marker.scale.x/y/z = size.w/l/h`
+* Color by class via a `switch (class_id)` — all 10 nuScenes classes are mapped to distinct colors (see the class ID table below)
+* `marker.color.a = 0.8`, `marker.lifetime = 0.5s` (so stale markers disappear)
 * `marker.ns = "bevfusion_detections"`, `marker.id` = index into the current frame's marker array
 * `marker.header.frame_id = target_frame_`
+* A `DELETEALL` marker is prepended to clear stale markers from the previous frame
 
-Not yet implemented: `marker.text` labels (class name + score) for Foxglove hover tooltips — this is a possible follow-up, not currently in `toMarker()`.
+Not yet implemented: `marker.text` labels (class name + score) for Foxglove hover tooltips — this is a possible follow-up.
 
 ---
 
@@ -167,7 +168,7 @@ The resulting 4x4 matrix scales by `resize_lim` on the X/Y diagonal and translat
 ---
 
 ## CUDA info
-1. **CUDA Streams**: `Core::forward()` takes a `cudaStream_t`. To create and destroy it, the node calls `cudaStreamCreate(&stream_)` and `cudaStreamDestroy(stream_)`. These require `<cuda_runtime.h>` and linking against the CUDA runtime (`cudart`).
+1. **CUDA Streams**: `Core::forward()` takes a `cudaStream_t`. To create and destroy it, the node calls `cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking)` and `cudaStreamDestroy(stream_)`. The `NonBlocking` flag prevents BEVFusion's GPU ops from implicitly synchronizing with the null (default) CUDA stream used by the rest of the application. These require `<cuda_runtime.h>` and linking against the CUDA runtime (`cudart`).
 2. **FP16 Types**: The library expects LiDAR points as `nvtype::half*`. This is a wrapper around CUDA's `__half` type from `<cuda_fp16.h>`. the compiler needs the CUDA headers to use this type and the intrinsics for converting standard 32-bit `float` to 16-bit `half`.
 
 ## Config and Launch
@@ -212,7 +213,21 @@ The BoundingBox `id` field maps to nuScenes object classes:
 
 Use these for setting `class_id` in Detection3D and marker colors.
 
-> WARNING — known bug: `toMarker()`'s color switch in `bevfusion_node.cpp` currently treats `id == 0` as car, `id == 1` as pedestrian, and `id == 2` as truck. Per the nuScenes mapping above, `id == 1` is actually `truck` and `id == 8` is `pedestrian` — the marker coloring (not the `Detection3D.class_id`, which just stores the raw id) is mislabeled for anything other than car. This doesn't affect `Detection3D` correctness since it passes through the raw id, but Foxglove marker colors will be wrong for non-car classes until this is fixed.
+The `createMarkers()` color mapping matches the nuScenes class table:
+
+| ID | Class | Marker color |
+|---|---|---|
+| 0 | car | Green |
+| 1 | truck | Blue |
+| 2 | construction_vehicle | Orange |
+| 3 | bus | Purple |
+| 4 | trailer | Cyan |
+| 5 | barrier | Yellow |
+| 6 | motorcycle | Magenta |
+| 7 | bicycle | Sky blue |
+| 8 | pedestrian | Red |
+| 9 | traffic_cone | Amber |
+| other | — | White |
 
 ---
 
@@ -222,15 +237,13 @@ Use these for setting `class_id` in Detection3D and marker colors.
 
 2. **Image resolution — resolved**: The model was trained on nuScenes' `1600×900 → 704×256` (resize_lim `0.48`). Eve's cameras are `1280×1024`, so `image_width`/`image_height`/`resize_lim` in `params.yaml` are set to `1280`/`1024`/`0.55` to reproduce roughly the same crop geometry into the same `704×256` network input — see `NormalizationParameter` construction in `BEVFusionCore::initialize()` and the `img_aug_matrix` math above. If you retrain on Eve-resolution data, revisit both `NormalizationParameter` and the aug matrix together.
 
-3. **Lidar point format and iterators**: `processLidar()` (`bevfusion_node.cpp`) uses `#include <sensor_msgs/point_cloud2_iterator.hpp>` and `PointCloud2ConstIterator<float>`/`PointCloud2ConstIterator<uint16_t>` to extract `x, y, z, intensity, ring` without manual byte math, producing exactly 5 floats per point (ring cast to float) as required by `BEVFusionCore::infer()`. **Current limitation:** the `ring` field is required — `processLidar()` will throw if the configured LiDAR topic's `PointCloud2` doesn't have a `ring` field. There's no fallback padding with `0.0f` yet (tracked as a TODO alongside switching to the merged LiDAR topic, which may not publish `ring`).
+3. **LiDAR point format and iterators**: `processLidar()` uses `PointCloud2ConstIterator<float>`/`PointCloud2ConstIterator<uint16_t>` to extract `x, y, z, intensity` (and optionally `ring`) without manual byte math. The `ring` field is **optional** — set the `has_ring` parameter to `true` if the configured LiDAR topic publishes a `ring` field (e.g. `lidar_cc`), or `false` to skip it (e.g. for merged clouds that may lack `ring`). When `has_ring` is `false`, only 4 features per point are emitted and you must ensure `num_features` in the model config matches.
 
 4. **Thread safety**: The CUDA-BEVFusion `Core` is **not thread-safe**. Don't call `forward()` from multiple callbacks simultaneously. Use a mutex or ensure single-threaded execution.
 
 5. **`dlopen` for custom_layernorm**: Must be called before `create_core()`. Include `<dlfcn.h>` in `bevfusion_core.cpp`. If it fails silently, TRT will fail to deserialize the head.bbox engine. Always check the return value.
 
-6. **Frame IDs and `target_frame` — currently a mismatch, not yet resolved:** BEVFusion outputs bounding boxes numerically in whatever frame the input LiDAR points and the `camera_to_lidar` calibration matrix are actually in — today that's `lidar_frame_id` (default `lidar_cc`), since `computeCalibrationMatrices()` resolves TF as `lookupTransform(lidar_frame_id_, camera_frame)` and `processLidar()` passes through the raw LiDAR points untransformed. However, `toDetection3D()` / `toMarker()` stamp the *output* messages with `header.frame_id = target_frame_` (default `base_link`) **without actually transforming the box coordinates**. So as configured today, published detections carry a `base_link` frame_id but their numeric coordinates are still in `lidar_cc`. This needs to be fixed one of two ways before relying on downstream consumers (e.g. `tracking`) that assume `base_link`:
-   1. Transform the output 3D bounding boxes from `lidar_frame_id` to `target_frame` *after* inference using `tf2`, or
-   2. **(Recommended, not yet implemented)** Feed LiDAR points already transformed into `target_frame`, and ensure `camera_to_lidar` is actually `camera_to_target_frame` (i.e. set `lidar_frame_id` to the same value as `target_frame`). BEVFusion treats the "lidar" frame as just a central origin, so if everything is fed in `base_link`, it outputs in `base_link` for free.
+6. **Frame IDs — resolved**: BEVFusion outputs bounding boxes in `lidar_frame_id`. `createDetections3D()` now performs a `tf_buffer_->lookupTransform(target_frame_, lidar_frame_id_, stamp)` per callback and applies `tf2::doTransform` to each bounding box pose before stamping the output with `target_frame_` (default `base_link`). Output detections are correctly expressed in `target_frame`.
 
 7. **First inference is slow**: TRT engine deserialization + warmup takes 5-15 seconds. Consider calling `core_->infer()` once with dummy data during `on_configure()` or `on_activate()` so the first real frame isn't delayed.
 
