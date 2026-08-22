@@ -24,8 +24,6 @@
 
 #include <bevfusion/bevfusion.hpp>
 #include <opencv2/core/mat.hpp>
-#include <vision_msgs/msg/detection2_d.hpp>
-#include <vision_msgs/msg/detection2_d_array.hpp>
 
 namespace wato::perception::bevfusion
 {

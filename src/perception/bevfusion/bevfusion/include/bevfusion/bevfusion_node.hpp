@@ -40,9 +40,7 @@
 #include <message_filters/synchronizer.h>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
-#include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <vision_msgs/msg/detection2_d_array.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 

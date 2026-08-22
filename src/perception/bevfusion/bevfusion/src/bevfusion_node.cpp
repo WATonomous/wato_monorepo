@@ -38,14 +38,11 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
-#include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
-#include <visualization_msgs/msg/image_marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
@@ -270,10 +267,15 @@ void BEVFusionNode::syncedCallback(
   int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
 
   // Run inference
-  RCLCPP_DEBUG(
-    this->get_logger(), "Calling core_->infer with %zu images and %d LiDAR points", camera_images.size(), num_points);
+  RCLCPP_DEBUG_THROTTLE(
+    this->get_logger(),
+    *this->get_clock(),
+    1000,
+    "Calling core_->infer with %zu images and %d LiDAR points",
+    camera_images.size(),
+    num_points);
   std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
-  RCLCPP_INFO(this->get_logger(), "Found %zu bounding boxes", bboxes.size());
+  RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu bounding boxes", bboxes.size());
 
   // Create detections and markers from bboxes
   auto detections_3d = createDetections3D(bboxes, filtered_multi_image_msg->header.stamp);
