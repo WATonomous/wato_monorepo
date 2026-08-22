@@ -81,7 +81,7 @@ bool BEVFusionCore::initialize()
 {
   // Must load this plugin before create_core() — TRT will fail to deserialize head.bbox.plan without it
   if (dlopen("libcustom_layernorm.so", RTLD_NOW) == nullptr) {
-    std::cerr << "[BEVFusionCore] Failed to load libcustom_layernorm.so: " << dlerror() << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: Failed to load libcustom_layernorm.so: " << dlerror() << std::endl;
     return false;
   }
 
@@ -89,14 +89,14 @@ bool BEVFusionCore::initialize()
   if (!checkModelFilesExist()) {
     std::cout << "[BEVFusionCore] Building TRT engines. Please hold for several minutes..." << std::endl;
     if (!buildTRTEngines()) {
-      std::cerr << "[BEVFusionCore] Failed to build TensorRT engines" << std::endl;
+      std::cerr << "[BEVFusionCore] ERROR: Failed to build TensorRT engines" << std::endl;
       return false;
     }
   }
 
   // Ensure that all required model files exist after the build step
   if (!checkModelFilesExist()) {
-    std::cerr << "[BEVFusionCore] Missing plan/onnx files, cannot create core!" << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: Missing plan/onnx files, cannot create core!" << std::endl;
     return false;
   }
 
@@ -180,15 +180,15 @@ bool BEVFusionCore::initialize()
 
   pipeline_ = ::bevfusion::create_core(param);
   if (pipeline_ == nullptr) {
-    std::cerr
-      << "[BEVFusionCore] Failed to create BEVFusion pipeline. Ensure model files exist and GPU memory is sufficient."
-      << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: Failed to create BEVFusion pipeline. Ensure model files exist and GPU memory "
+                 "is sufficient."
+              << std::endl;
     return false;
   }
 
   // dedicated stream: BEVFusion's GPU ops stay ordered in their own queue, not on the null (default) stream shared by everything else
   if (cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking) != cudaSuccess) {
-    std::cerr << "[BEVFusionCore] cudaStreamCreate failed." << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: cudaStreamCreate failed." << std::endl;
     pipeline_.reset();
     return false;
   }
@@ -201,19 +201,19 @@ std::vector<BoundingBox> BEVFusionCore::infer(
   const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points)
 {
   if (!initialized_) {
-    std::cerr << "Error: BEVFusionCore::infer called before initialization." << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: infer called before initialization." << std::endl;
     return {};  // guard check, return empty vector if pipeline is not initialized
   }
   if (!has_calibration_) {
-    std::cerr << "Error: BEVFusionCore::infer called before calibration was updated." << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: infer called before calibration was updated." << std::endl;
     return {};
   }
 
-  // Basic input validation / diagnostics to catch malformed inputs before hitting vendor code
-  std::cout << "[BEVFusionCore] infer called: camera_images=" << camera_images.size()
-            << ", expected_num_cameras=" << config_.num_cameras << ", lidar_points.size=" << lidar_points.size()
-            << ", num_points=" << num_points << std::endl;
+  // std::cout << "[BEVFusionCore] infer called: camera_images=" << camera_images.size()
+  //           << ", expected_num_cameras=" << config_.num_cameras << ", lidar_points.size=" << lidar_points.size()
+  //           << ", num_points=" << num_points << std::endl;
 
+  // Ensure images are not empty
   for (size_t i = 0; i < camera_images.size(); ++i) {
     if (camera_images[i] == nullptr) {
       std::cerr << "[BEVFusionCore] ERROR: camera_images[" << i << "] is null" << std::endl;
@@ -221,16 +221,12 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     }
   }
 
+  // Ensure lidar points are of expected size.
   const size_t expected_lidar_floats = static_cast<size_t>(num_points) * static_cast<size_t>(config_.num_features);
   if (lidar_points.size() != expected_lidar_floats) {
-    std::cerr << "[BEVFusionCore] WARNING: lidar_points.size() (" << lidar_points.size()
+    std::cerr << "[BEVFusionCore] ERROR: lidar_points.size() (" << lidar_points.size()
               << ") != num_points * num_features (" << expected_lidar_floats << ")" << std::endl;
-    // If lidar_points contains more data than expected, we trim locally to avoid downstream issues.
-    if (lidar_points.size() < expected_lidar_floats) {
-      std::cerr << "[BEVFusionCore] ERROR: insufficient LiDAR data for declared num_points; aborting infer."
-                << std::endl;
-      return {};
-    }
+    return {};
   }
 
   // Convert LiDAR points to FP16 from any format (FP32, FP16, or INT8)
@@ -256,11 +252,11 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     num_points,
     stream_);
 
-  std::cout << "[BEVFusionCore] pipeline_->forward returned " << detections.size() << " detections" << std::endl;
-  if (detections.empty()) {
-    std::cerr << "[BEVFusionCore] WARNING: pipeline returned zero detections. has_calibration=" << has_calibration_
-              << ", pipeline_ptr=" << pipeline_.get() << ", precision=" << config_.precision << std::endl;
-  }
+  // std::cout << "[BEVFusionCore] pipeline_->forward returned " << detections.size() << " detections" << std::endl;
+  // if (detections.empty()) {
+  //   std::cerr << "[BEVFusionCore] WARNING: pipeline returned zero detections. has_calibration=" << has_calibration_
+  //             << ", pipeline_ptr=" << pipeline_.get() << ", precision=" << config_.precision << std::endl;
+  // }
 
   // map vendor type to our bounding box type
   std::vector<BoundingBox> result;
@@ -285,7 +281,7 @@ void BEVFusionCore::updateCalibration(
   const std::vector<float> & img_aug_matrix)
 {
   if (!initialized_) {
-    std::cerr << "Error: BEVFusionCore::updateCalibration called before initialization." << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: updateCalibration called before initialization." << std::endl;
     return;
   }
   pipeline_->update(
@@ -348,44 +344,49 @@ bool BEVFusionCore::buildTRTEngines() const
 bool BEVFusionCore::compileTrtModel(
   const std::string & name, const std::filesystem::path & onnx_file, const std::filesystem::path & plan_file) const
 {
+  // Pre-checks
   if (std::filesystem::exists(plan_file)) {
     std::cout << "[BEVFusionCore][compileTrtModel] Model " << plan_file << " already built!" << std::endl;
     return true;
   }
-
   if (!std::filesystem::exists(onnx_file)) {
-    std::cerr << "[BEVFusionCore][compileTrtModel] The model [" << onnx_file << "] does not exist." << std::endl;
+    std::cerr << "[BEVFusionCore][compileTrtModel] ERROR: The model [" << onnx_file << "] does not exist." << std::endl;
     return false;
   }
 
+  // Create build directory
   std::error_code ec;
   std::filesystem::create_directories(plan_file.parent_path(), ec);
   if (ec) {
-    std::cerr << "[BEVFusionCore] Failed to create build directory: " << ec.message() << std::endl;
+    std::cerr << "[BEVFusionCore] ERROR: Failed to create build directory: " << ec.message() << std::endl;
     return false;
   }
 
+  // Create TRT Builder
   std::cout << "[BEVFusionCore][compileTrtModel] Building the model: " << plan_file << std::endl;
-
   std::unique_ptr<nvinfer1::IBuilder> builder(nvinfer1::createInferBuilder(g_trt_logger));
   if (!builder) {
-    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to create TRT builder for " << name << std::endl;
+    std::cerr << "[BEVFusionCore][compileTrtModel] ERROR: Failed to create TRT builder for " << name << std::endl;
     return false;
   }
 
+  // Create empty network to load the model into
   // TRT10+: explicit batch is the only mode, no creation flag needed/available.
   std::unique_ptr<nvinfer1::INetworkDefinition> network(builder->createNetworkV2(0U));
 
+  // Parse the ONNX model file
   std::unique_ptr<nvonnxparser::IParser> parser(nvonnxparser::createParser(*network, g_trt_logger));
   if (!parser->parseFromFile(onnx_file.string().c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kWARNING))) {
-    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to parse ONNX: " << onnx_file << std::endl;
+    std::cerr << "[BEVFusionCore][compileTrtModel] ERROR: Failed to parse ONNX: " << onnx_file << std::endl;
     return false;
   }
 
+  // Set builder configurations
   std::unique_ptr<nvinfer1::IBuilderConfig> config(builder->createBuilderConfig());
   config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 2048ULL * 1024 * 1024);
   config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
 
+  // Force allowed tensor formats on inputs and outputs
   for (int i = 0; i < network->getNbInputs(); ++i) {
     network->getInput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
   }
@@ -393,15 +394,17 @@ bool BEVFusionCore::compileTrtModel(
     network->getOutput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
   }
 
+  // Build serialized engine plan
   std::unique_ptr<nvinfer1::IHostMemory> serialized(builder->buildSerializedNetwork(*network, *config));
   if (!serialized) {
-    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to build model " << plan_file << std::endl;
+    std::cerr << "[BEVFusionCore][compileTrtModel] ERROR: Failed to build model " << plan_file << std::endl;
     return false;
   }
 
+  // Save the serialized engine to the plan file
   std::ofstream out(plan_file, std::ios::binary);
   if (!out) {
-    std::cerr << "[BEVFusionCore][compileTrtModel] Failed to open " << plan_file << " for writing." << std::endl;
+    std::cerr << "[BEVFusionCore][compileTrtModel] ERROR: Failed to open " << plan_file << " for writing." << std::endl;
     return false;
   }
   out.write(static_cast<const char *>(serialized->data()), static_cast<std::streamsize>(serialized->size()));

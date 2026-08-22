@@ -206,6 +206,21 @@ private:
   bool processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
 
   /**
+   * @brief Validate and normalize an image.
+   * @param img The image to validate and normalize
+   * @param index The index of the image
+   * @return True if the image was validated and normalized successfully, false otherwise
+   */
+  bool validateAndNormalizeImage(cv::Mat & img, size_t index);
+
+  /**
+   * @brief Validate and trim LiDAR data.
+   * @param lidar_data The LiDAR data to validate and trim
+   * @return True if the LiDAR data was validated and trimmed successfully, false otherwise
+   */
+  bool validateAndTrimLidar(std::vector<float> & lidar_data);
+
+  /**
    * @brief Create a Detection3DArray from bounding boxes and timestamp.
    * @param bboxes Vector of BoundingBox objects
    * @param stamp Timestamp for the detections

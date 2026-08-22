@@ -177,7 +177,8 @@ void BEVFusionNode::syncedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
-  RCLCPP_INFO(this->get_logger(), "[SYNC] Lidar and multi_image synced, processing");
+  RCLCPP_DEBUG_THROTTLE(
+    this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image synced, processing");
   multi_image_msg_count_++;
   lidar_msg_count_++;
   synced_msg_count_++;
@@ -206,6 +207,7 @@ void BEVFusionNode::syncedCallback(
   const auto start = std::chrono::steady_clock::now();
 
   // Filter images to only those in the camera_names_ list and in the same order as camera_names_
+  // TODO(Ashish): Consider using a hashmap for more efficient lookup
   deep_msgs::msg::MultiImageCompressed::SharedPtr filtered_multi_image_msg =
     std::make_shared<deep_msgs::msg::MultiImageCompressed>();
   filtered_multi_image_msg->images.reserve(camera_names_.size());
@@ -231,9 +233,8 @@ void BEVFusionNode::syncedCallback(
     if (bgr.empty()) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
-      return;  // Skip this callback if any image fails to decompress
+      return;
     }
-
     rgb_images.emplace_back();
     cv::cvtColor(bgr, rgb_images.back(), cv::COLOR_BGR2RGB);
     camera_images.push_back(rgb_images.back().data);
@@ -246,8 +247,7 @@ void BEVFusionNode::syncedCallback(
     return;
   }
 
-  // --- Validate inputs before calling core_->infer ---
-  // Camera count
+  // Camera count validation
   if (camera_images.size() != static_cast<size_t>(config_.num_cameras)) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
@@ -259,67 +259,17 @@ void BEVFusionNode::syncedCallback(
     return;
   }
 
-  // Ensure each image is continuous, 3-channel 8-bit and matches configured resolution. Resize/copy if necessary.
-  // TODO(bevfusion_team) - Is this necessary / correct?
+  // Image validation
   for (size_t i = 0; i < rgb_images.size(); ++i) {
-    cv::Mat & img = rgb_images[i];
-    if (img.empty()) {
-      RCLCPP_WARN_THROTTLE(
-        this->get_logger(), *this->get_clock(), 5000, "Empty image at camera index %zu; skipping frame", i);
-      return;
-    }
-    if (img.type() != CV_8UC3) {
-      img.convertTo(img, CV_8U);
-      if (img.channels() != 3) {
-        cv::cvtColor(img, img, cv::COLOR_GRAY2RGB);
-      }
-    }
-    if (!img.isContinuous()) {
-      img = img.clone();
-    }
-    if (img.cols != config_.image_width || img.rows != config_.image_height) {
-      cv::Mat resized;
-      cv::resize(img, resized, cv::Size(config_.image_width, config_.image_height), 0, 0, cv::INTER_LINEAR);
-      img = std::move(resized);
-    }
-    camera_images[i] = img.data;
+    if (!validateAndNormalizeImage(rgb_images[i], i)) return;
+    camera_images[i] = rgb_images[i].data;
   }
 
-  // LiDAR data validation
-  if (lidar_data.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "LiDAR data empty after processing; skipping frame");
-    return;
-  }
-  if (lidar_data.size() % config_.num_features != 0) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "LiDAR data length (%zu) is not a multiple of %d — trimming to nearest multiple",
-      lidar_data.size(),
-      config_.num_features);
-    lidar_data.resize((lidar_data.size() / config_.num_features) * config_.num_features);
-  }
+  // LiDAR validation
+  if (!validateAndTrimLidar(lidar_data)) return;
   int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
-  if (num_points <= 0) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "No valid LiDAR points after trimming; skipping frame");
-    return;
-  }
-  if (num_points > config_.max_points) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "LiDAR point count (%d) exceeds configured max_points (%d); truncating to max_points",
-      num_points,
-      config_.max_points);
-    lidar_data.resize(static_cast<size_t>(config_.max_points) * config_.num_features);
-    num_points = config_.max_points;
-  }
 
-  // conversion to nvtype::half is done inside BEVFusionCore::infer, so we can just pass lidar_data as is.
+  // Run inference
   RCLCPP_DEBUG(
     this->get_logger(), "Calling core_->infer with %zu images and %d LiDAR points", camera_images.size(), num_points);
   std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
@@ -478,9 +428,9 @@ void BEVFusionNode::computeCalibrationMatrices()
   }
 
   // Log matrix values neatly
-  RCLCPP_INFO(this->get_logger(), "Camera intrinsics: ");
+  RCLCPP_DEBUG(this->get_logger(), "Camera intrinsics: ");
   for (size_t i = 0; i < camera_intrinsics.size(); i += 4) {
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       this->get_logger(),
       "[%f %f %f %f]",
       camera_intrinsics[i],
@@ -488,9 +438,9 @@ void BEVFusionNode::computeCalibrationMatrices()
       camera_intrinsics[i + 2],
       camera_intrinsics[i + 3]);
   }
-  RCLCPP_INFO(this->get_logger(), "Camera to lidar: ");
+  RCLCPP_DEBUG(this->get_logger(), "Camera to lidar: ");
   for (size_t i = 0; i < camera_to_lidar.size(); i += 4) {
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       this->get_logger(),
       "[%f %f %f %f]",
       camera_to_lidar[i],
@@ -498,9 +448,9 @@ void BEVFusionNode::computeCalibrationMatrices()
       camera_to_lidar[i + 2],
       camera_to_lidar[i + 3]);
   }
-  RCLCPP_INFO(this->get_logger(), "Lidar to image projection: ");
+  RCLCPP_DEBUG(this->get_logger(), "Lidar to image projection: ");
   for (size_t i = 0; i < lidar_to_image_projection.size(); i += 4) {
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       this->get_logger(),
       "[%f %f %f %f]",
       lidar_to_image_projection[i],
@@ -508,9 +458,9 @@ void BEVFusionNode::computeCalibrationMatrices()
       lidar_to_image_projection[i + 2],
       lidar_to_image_projection[i + 3]);
   }
-  RCLCPP_INFO(this->get_logger(), "Image aug matrix: ");
+  RCLCPP_DEBUG(this->get_logger(), "Image aug matrix: ");
   for (size_t i = 0; i < img_aug_matrix.size(); i += 4) {
-    RCLCPP_INFO(
+    RCLCPP_DEBUG(
       this->get_logger(),
       "[%f %f %f %f]",
       img_aug_matrix[i],
@@ -527,6 +477,82 @@ void BEVFusionNode::computeCalibrationMatrices()
     calibration_initialized_ = true;
   }
   RCLCPP_INFO(this->get_logger(), "Calibration computed successfully");
+}
+
+bool BEVFusionNode::validateAndNormalizeImage(cv::Mat & img, size_t index)
+{
+  // Ensure image is not null or empty
+  if (img.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "Empty image at camera index %zu; skipping frame", index);
+    return false;
+  }
+
+  // Ensure image is 3-channel, 8-bit unsigned BGR format, as expected by the CUDA inference kernel.
+  if (img.type() != CV_8UC3) {
+    img.convertTo(img, CV_8U);
+    if (img.channels() != 3) {
+      cv::cvtColor(img, img, cv::COLOR_GRAY2RGB);
+    }
+  }
+
+  // Ensure image is contiguous (i.e. no memory gaps or broken blocks)
+  if (!img.isContinuous()) {
+    img = img.clone();
+  }
+
+  // Resize image if necessary
+  // TODO(Ashish): Check if there's a better way to handle this, as resizing can be expensive
+  if (img.cols != config_.image_width || img.rows != config_.image_height) {
+    cv::Mat resized;
+    cv::resize(img, resized, cv::Size(config_.image_width, config_.image_height), 0, 0, cv::INTER_LINEAR);
+    img = std::move(resized);
+  }
+
+  return true;
+}
+
+bool BEVFusionNode::validateAndTrimLidar(std::vector<float> & lidar_data)
+{
+  // Ensure LiDAR data is not empty
+  if (lidar_data.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "LiDAR data empty after processing; skipping frame");
+    return false;
+  }
+
+  // Ensure LiDAR data length is a multiple of num_features (no stray floats at the end)
+  if (lidar_data.size() % config_.num_features != 0) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "LiDAR data length (%zu) is not a multiple of %d — trimming to nearest multiple",
+      lidar_data.size(),
+      config_.num_features);
+    lidar_data.resize((lidar_data.size() / config_.num_features) * config_.num_features);
+  }
+  int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
+  if (num_points <= 0) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "No valid LiDAR points after trimming; skipping frame");
+    return false;
+  }
+
+  // Truncate LiDAR data if it exceeds max_points
+  if (num_points > config_.max_points) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "LiDAR point count (%d) exceeds configured max_points (%d); truncating to max_points",
+      num_points,
+      config_.max_points);
+    lidar_data.resize(static_cast<size_t>(config_.max_points) * config_.num_features);
+    num_points = config_.max_points;
+  }
+
+  return true;
 }
 
 vision_msgs::msg::Detection3DArray BEVFusionNode::createDetections3D(
