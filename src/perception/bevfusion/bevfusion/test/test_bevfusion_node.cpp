@@ -643,9 +643,11 @@ TEST_CASE("createDetections3D: empty input and null tf_buffer are handled safely
 // // =============================================================================
 
 // =============================================================================
-// TEST: Marker class coloring for car, pedestrian, truck
+// TEST: Marker class coloring — all 10 nuScenes classes
 // WHY: Foxglove visualization uses color to distinguish object classes.
 //      If colors are swapped, the operator sees trucks colored as cars, etc.
+//      nuScenes: 0=car, 1=truck, 2=construction_vehicle, 3=bus, 4=trailer,
+//                5=barrier, 6=motorcycle, 7=bicycle, 8=pedestrian, 9=traffic_cone
 // =============================================================================
 TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
 {
@@ -664,9 +666,49 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
     REQUIRE(m.color.b == Catch::Approx(0.0f));
   }
 
-  SECTION("Pedestrian (id=1) is yellow")
+  SECTION("Truck (id=1) is blue")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 1, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(0.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.0f));
+    REQUIRE(m.color.b == Catch::Approx(1.0f));
+  }
+
+  SECTION("Construction vehicle (id=2) is orange")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 2, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(1.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.5f));
+    REQUIRE(m.color.b == Catch::Approx(0.0f));
+  }
+
+  SECTION("Bus (id=3) is purple")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 3, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(0.5f));
+    REQUIRE(m.color.g == Catch::Approx(0.0f));
+    REQUIRE(m.color.b == Catch::Approx(1.0f));
+  }
+
+  SECTION("Trailer (id=4) is cyan")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 4, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(0.0f));
+    REQUIRE(m.color.g == Catch::Approx(1.0f));
+    REQUIRE(m.color.b == Catch::Approx(1.0f));
+  }
+
+  SECTION("Barrier (id=5) is yellow")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 5, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
     const auto & m = markers.markers[1];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
@@ -674,14 +716,44 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
     REQUIRE(m.color.b == Catch::Approx(0.0f));
   }
 
-  SECTION("Truck (id=2) is blue")
+  SECTION("Motorcycle (id=6) is magenta")
   {
-    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 2, 0.9f)};
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 6, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(1.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.0f));
+    REQUIRE(m.color.b == Catch::Approx(1.0f));
+  }
+
+  SECTION("Bicycle (id=7) is sky blue")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 7, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
     const auto & m = markers.markers[1];
     REQUIRE(m.color.r == Catch::Approx(0.0f));
-    REQUIRE(m.color.g == Catch::Approx(0.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.5f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
+  }
+
+  SECTION("Pedestrian (id=8) is red")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 8, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(1.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.0f));
+    REQUIRE(m.color.b == Catch::Approx(0.0f));
+  }
+
+  SECTION("Traffic cone (id=9) is amber")
+  {
+    detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 9, 0.9f)};
+    auto markers = node->createMarkers(detections_3d);
+    const auto & m = markers.markers[1];
+    REQUIRE(m.color.r == Catch::Approx(1.0f));
+    REQUIRE(m.color.g == Catch::Approx(0.8f));
+    REQUIRE(m.color.b == Catch::Approx(0.0f));
   }
 
   SECTION("Unknown class (id=99) defaults to white")
