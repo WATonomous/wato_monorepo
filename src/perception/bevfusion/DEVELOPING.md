@@ -1,5 +1,4 @@
 # BEVFusion - Developer Guide
-
 ## Overview
 
 **BEVFusion** is a ROS 2 lifecycle composable node that fuses camera and LiDAR data into a unified Bird's-Eye View (BEV) representation for 3D object detection. *(Note: Map segmentation is supported by the architecture but not currently implemented in the CUDA-BEVFusion C++ wrapper).*

@@ -104,7 +104,7 @@ std::vector<BoundingBox> forward(
 
 ## Converting `BoundingBox` → `Detection3DArray`
 
-Each [BoundingBox](file:///home/ashish/Documents/Lidar_AI_Solution/CUDA-BEVFusion/src/bevfusion/head-transbbox.hpp#L60-L67) has:
+Each BoundingBox has:
 
 ```cpp
 struct BoundingBox {
