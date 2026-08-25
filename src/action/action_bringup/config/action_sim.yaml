@@ -110,7 +110,7 @@
     standby_speed: 0.0
     standby_steering: 0.0
     standby_msg: "standby"
-    invert_steering: false
+    invert_steering: true
     disable_standby: true
 
     # Vehicle model
