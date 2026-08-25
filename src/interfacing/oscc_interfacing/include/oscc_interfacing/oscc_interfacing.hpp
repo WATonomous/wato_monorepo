@@ -216,6 +216,17 @@ private:
    */
   float engage_authority_scale() const;
 
+  /**
+   * @brief Current authority scale in [0, 1] applied to the brake command.
+   *
+   * Separate from engage_authority_scale() because braking must recover full
+   * authority quickly. Ramps 0 -> 1 over brake_ramp_ms_ (clamped at configure
+   * time to at most arm_ramp_ms_) during ENGAGING so an engage taken while the
+   * vehicle is rolling decelerates smoothly instead of stopping hard. Returns
+   * 1.0 for any non-ENGAGING state, or if brake_ramp_ms_ is zero.
+   */
+  float brake_authority_scale() const;
+
   // Callback groups
   rclcpp::CallbackGroup::SharedPtr oscc_api_group_;  // Group A
   rclcpp::CallbackGroup::SharedPtr feedback_group_;  // Group B
@@ -259,6 +270,7 @@ private:
   // Graceful engage parameters
   bool enable_graceful_arm_{true};  // If false, autonomy gets full authority instantly on arm
   double arm_ramp_ms_{600.0};  // Authority ramp-up duration on graceful arm
+  double brake_ramp_ms_{1000.0};  // Brake authority ramp-up duration on graceful arm (0 = instant)
 
   // Command state — protected by Group A serialization
   float last_forward_{0.0};
