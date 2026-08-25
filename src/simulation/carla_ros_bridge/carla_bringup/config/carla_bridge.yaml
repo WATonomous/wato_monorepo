@@ -87,7 +87,7 @@ lidar_publisher:
     top_lidar.dropoff_zero_intensity: 0.1     # Dropout probability for zero-intensity points
     # Atmosphere and noise
     top_lidar.atmosphere_attenuation_rate: 0.004  # Intensity loss per meter
-    top_lidar.noise_stddev: 2.0               # Distance noise std dev (0.0 = no noise)
+    top_lidar.noise_stddev: 0.03              # ±3 cm, matches VLP-32C spec
 
 # BBox Publisher Configuration
 bbox_publisher:
