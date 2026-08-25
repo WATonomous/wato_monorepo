@@ -415,9 +415,7 @@ class CameraPublisherNode(LifecycleNode):
                 noise = np.random.normal(
                     0.0, camera.config.noise_stddev, array.shape
                 ).astype(np.int16)
-                array = np.clip(
-                    array.astype(np.int16) + noise, 0, 255
-                ).astype(np.uint8)
+                array = np.clip(array.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
             image_msg.data = array.tobytes()
 
