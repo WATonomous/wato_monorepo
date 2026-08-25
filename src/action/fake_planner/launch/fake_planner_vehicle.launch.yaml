@@ -1,0 +1,160 @@
+# fake_planner_vehicle.launch.yaml
+#
+# The controller test rig on the real car. Thin wrapper over fake_planner.launch.yaml (which holds
+# the actual nodes) that swaps CARLA's plumbing for the vehicle's and flips the defaults that are
+# convenient in sim but wrong on hardware. Every other arg is forwarded untouched.
+#
+#     ros2 launch fake_planner fake_planner_vehicle.launch.yaml
+#     ros2 launch fake_planner fake_planner_vehicle.launch.yaml maneuver:=sine_with_dwell
+#
+# THIS DRIVES A REAL VEHICLE. Before launching:
+#   - Bring up world_modeling far enough to publish /world_modeling/transform/odometry and the TF
+#     chain odom -> base_footprint -> rear_axle. Without odom the node never anchors; without TF
+#     the controller can't transform the trajectory.
+#   - Check the maneuver fits the space you have. Speeds are baked into the JSON, not settable
+#     here: the shipped maneuvers run at 4-5 m/s and need 50-100 m of clear run, and
+#     brake_in_curve sweeps a 100 degree arc at an 18 m radius.
+#   - Confirm the ackermann mux is arming /action/ackermann and that a manual override can win.
+#
+# Nothing moves on launch: start_on_activate is false, so the stack comes up activated but silent
+# with the controller in standby. Release it deliberately with the node's start_trajectory service
+# (stop_trajectory puts it back), and inspect /action/fake_planner/trajectory_markers first.
+
+launch:
+  # -- Vehicle plumbing. These are what make this the vehicle launch.
+  - arg:
+      name: odom_topic
+      default: "/world_modeling/transform/odometry"
+      description: The vehicle's fused odometry (controller speed + trajectory anchoring)
+
+  - arg:
+      name: ackermann_topic
+      default: "/action/ackermann"
+      description: Command topic into the ackermann mux, same as the real action stack uses
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: Wall clock. There is no /clock publisher on the car.
+
+  - arg:
+      name: pure_pursuit_config
+      default: "$(find-pkg-share action_bringup)/config/action.yaml"
+      description: The deployed pure pursuit tuning, so the rig tests the controller as the car runs it.
+
+  # A jump this size in fused odometry is a localization correction, and re-laying the maneuver
+  # from the corrected pose would swing the path under the car while it is driving.
+  - arg:
+      name: respawn_jump_m
+      default: "0.0"
+      description: Disabled on the vehicle. Non-zero re-anchors the maneuver on an odom jump that large.
+
+  # Same value as the rig and the sim launch, pinned here anyway: on hardware this is not an
+  # argument the file inherits, it is the file's promise.
+  - arg:
+      name: start_on_activate
+      default: "false"
+      description: Hold in standby until the start_trajectory service is called.
+
+  # -- Everything else is environment-neutral and just forwarded to the rig.
+  - arg:
+      name: trajectory_topic
+      default: "/action/fake_planner/trajectory"
+      description: Trajectory topic, from the fake planner to the controller
+
+  - arg:
+      name: behaviour_topic
+      default: "/action/fake_planner/execute_behaviour"
+      description: Behaviour heartbeat topic, from the fake planner to the controller
+
+  - arg:
+      name: frame_id
+      default: "odom"
+      description: Frame the trajectory is published in (must be TF-connected to rear_axle)
+
+  - arg:
+      name: controller
+      default: "pure_pursuit"
+      description: "Controller under test: pure_pursuit or mpc"
+
+  - arg:
+      name: maneuver
+      default: "steady_state_slalom"
+      description: Maneuver to replay, by name under the package's maneuvers/ folder (without .json)
+
+  - arg:
+      name: maneuver_file
+      default: "$(find-pkg-share fake_planner)/maneuvers/$(var maneuver).json"
+      description: Full path to the maneuver JSON; overrides `maneuver` when set explicitly
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Configure and activate the managed nodes. Publishing is still gated by start_on_activate.
+
+  # Every maneuver that belongs on the real car is vehicle-relative, so auto resolves to anchoring
+  # on. (The oval is in absolute CARLA track coords and has no meaning here.)
+  - arg:
+      name: anchoring
+      default: "auto"
+      description: auto|relative|absolute. auto lays the maneuver from the pose the car is sitting at when it launches.
+
+  - arg:
+      name: standby_speed
+      default: "0.0"
+      description: Hold still in standby. The controllers' own -0.5 default reverses the car.
+
+  - arg:
+      name: transition_timeout_s
+      default: "10.0"
+      description: How long the lifecycle manager waits for each configure/activate transition
+
+  - arg:
+      name: bond_timeout_s
+      default: "4.0"
+      description: Bond heartbeat timeout, used only when bond_enabled is true
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection for the managed nodes
+
+  - include:
+      file: "$(find-pkg-share fake_planner)/launch/fake_planner.launch.yaml"
+      arg:
+        - name: odom_topic
+          value: "$(var odom_topic)"
+        - name: ackermann_topic
+          value: "$(var ackermann_topic)"
+        - name: trajectory_topic
+          value: "$(var trajectory_topic)"
+        - name: behaviour_topic
+          value: "$(var behaviour_topic)"
+        - name: frame_id
+          value: "$(var frame_id)"
+        - name: controller
+          value: "$(var controller)"
+        - name: pure_pursuit_config
+          value: "$(var pure_pursuit_config)"
+        - name: maneuver
+          value: "$(var maneuver)"
+        - name: maneuver_file
+          value: "$(var maneuver_file)"
+        - name: use_sim_time
+          value: "$(var use_sim_time)"
+        - name: autostart
+          value: "$(var autostart)"
+        - name: start_on_activate
+          value: "$(var start_on_activate)"
+        - name: anchoring
+          value: "$(var anchoring)"
+        - name: standby_speed
+          value: "$(var standby_speed)"
+        - name: respawn_jump_m
+          value: "$(var respawn_jump_m)"
+        - name: transition_timeout_s
+          value: "$(var transition_timeout_s)"
+        - name: bond_timeout_s
+          value: "$(var bond_timeout_s)"
+        - name: bond_enabled
+          value: "$(var bond_enabled)"

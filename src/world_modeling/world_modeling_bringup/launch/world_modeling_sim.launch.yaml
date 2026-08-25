@@ -1,15 +1,34 @@
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
+# Full world modeling stack for simulation (CARLA / bags).
+#
 # Usage:
-#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml
-#   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map use_sim_time:=true
-#   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
+#   Full stack (Town10HD, default):  ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml
+#   Full stack (oval track):         ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=oval
+#   Map + markers only:              ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map_only:=true
+#
+# `map` must match the CARLA world the simulation launch's scenario:= builds, or the ego spawns
+# somewhere the lanelet map does not cover.
+#
+
+# map_only:=true runs just world_model + the lanelet map markers (3 nodes instead of 15) --
+# lane geometry with no planning chain, for when something else is producing the trajectory
+# or you only want to look at the map. Nothing here depends on what that something else is.
 ---
 launch:
   - arg:
+      name: map
+      default: "town"
+      description: >-
+        Map to load; selects config/world_model_<map>.yaml.
+        "town" (default) = Town10HD, "oval" = the generated 4-lane oval track. The oval is opt-in
+        because its .osm is git-ignored and only exists after
+        `python3 tools/generate_oval_track.py`.
+
+  - arg:
       name: config_file
-      default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
-      description: Path to the world_model configuration file
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_$(var map).yaml
+      description: Path to the world_model configuration file (overrides map:=)
 
   - arg:
       name: eidos_config_file
@@ -23,8 +42,13 @@ launch:
 
   - arg:
       name: use_sim_time
-      default: "false"
+      default: "true"
       description: Use simulation time from /clock topic
+
+  - arg:
+      name: map_only
+      default: "false"
+      description: Run only world_model + lanelet map markers (pairs with the fake planner)
 
   - arg:
       name: autostart
@@ -41,13 +65,9 @@ launch:
       default: "info"
       description: Log level for behaviour_node
 
-  - arg:
-      name: use_sim_time
-      default: "true"
-      description: Use simulation time from /clock topic
-
   # Prediction - generates trajectory hypotheses for tracked objects
   - node:
+      unless: "$(var map_only)"
       pkg: prediction
       exec: prediction_node
       name: prediction_node
@@ -55,6 +75,8 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share prediction)/config/params.yaml
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: tracks_3d
           to: /carla/tracked_detections_3d
@@ -63,7 +85,7 @@ launch:
         - from: lanelet_ahead
           to: lanelet/lanelet_ahead
 
-  # World Model
+  # World Model -- loads the lanelet map (kept in map_only)
   - node:
       pkg: world_model
       exec: world_model_node
@@ -72,6 +94,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "world_objects"
           to: "world_objects_enriched"
@@ -84,7 +108,7 @@ launch:
         - from: "lanelet_ahead"
           to: "lanelet/lanelet_ahead"
 
-  # Lanelet Visualization Markers
+  # Lanelet Visualization Markers -- map geometry (kept in map_only)
   - node:
       pkg: lanelet_markers
       exec: map_viz_markers_node
@@ -93,6 +117,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "lane_context"
           to: "lanelet/lane_context"
@@ -102,6 +128,7 @@ launch:
           to: "lanelet/map_viz_markers"
 
   - node:
+      unless: "$(var map_only)"
       pkg: lanelet_markers
       exec: lane_context_markers_node
       name: lane_context_markers_node
@@ -109,6 +136,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "lane_context"
           to: "lanelet/lane_context"
@@ -116,6 +145,7 @@ launch:
           to: "lanelet/lane_context_markers"
 
   - node:
+      unless: "$(var map_only)"
       pkg: lanelet_markers
       exec: route_ahead_markers_node
       name: route_ahead_markers_node
@@ -123,6 +153,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "route_ahead"
           to: "lanelet/route_ahead"
@@ -130,6 +162,7 @@ launch:
           to: "lanelet/route_ahead_markers"
 
   - node:
+      unless: "$(var map_only)"
       pkg: lanelet_markers
       exec: area_occupancy_markers_node
       name: area_occupancy_markers_node
@@ -137,6 +170,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "area_occupancy"
           to: "area_occupancy"
@@ -144,6 +179,7 @@ launch:
           to: "area_occupancy_markers"
 
   - node:
+      unless: "$(var map_only)"
       pkg: lanelet_markers
       exec: lanelet_ahead_markers_node
       name: lanelet_ahead_markers_node
@@ -151,6 +187,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "lanelet_ahead"
           to: "lanelet/lanelet_ahead"
@@ -160,6 +198,7 @@ launch:
   # World Model Visualization Markers
   # Pre-enrichment: subscribes to world_object_seeds (from prediction)
   - node:
+      unless: "$(var map_only)"
       pkg: world_model_markers
       exec: world_objects_markers_node
       name: world_objects_markers_seed_node
@@ -167,6 +206,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "world_objects"
           to: "world_object_seeds"
@@ -175,6 +216,7 @@ launch:
 
   # Post-enrichment: subscribes to world_objects (from world model)
   - node:
+      unless: "$(var map_only)"
       pkg: world_model_markers
       exec: world_objects_markers_node
       name: world_objects_markers_node
@@ -182,6 +224,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "world_objects"
           to: "world_objects_enriched"
@@ -190,6 +234,7 @@ launch:
 
   # Costmap Node
   - node:
+      unless: "$(var map_only)"
       pkg: costmap
       exec: costmap_node
       name: costmap_node
@@ -197,6 +242,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: world_objects
           to: world_objects_enriched
@@ -213,6 +260,7 @@ launch:
 
   # Costmap Footprint Markers
   - node:
+      unless: "$(var map_only)"
       pkg: costmap_markers
       exec: costmap_markers_node
       name: costmap_markers_node
@@ -220,6 +268,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: footprint
           to: costmap_footprint
@@ -228,6 +278,7 @@ launch:
 
   # Behaviour Node
   - node:
+      unless: "$(var map_only)"
       pkg: behaviour
       exec: behaviour_node
       name: behaviour_node
@@ -235,6 +286,8 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share behaviour)/config/params.yaml
+        - name: use_sim_time
+          value: $(var use_sim_time)
       ros_args: "--log-level world_modeling.behaviour_node:=$(var log_bt)"
       remap:
         - from: execute_behaviour
@@ -265,6 +318,7 @@ launch:
 
   # Behaviour Tree visualization markers
   - node:
+      unless: "$(var map_only)"
       pkg: behaviour_markers
       exec: behaviour_markers_node
       name: behaviour_markers_node
@@ -272,6 +326,8 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share behaviour_markers)/config/behaviour_markers.yaml
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: execute_behaviour
           to: /behaviour/execute_behaviour
@@ -288,6 +344,7 @@ launch:
 
   # Eidos SLAM Node
   - node:
+      unless: "$(var map_only)"
       pkg: eidos
       exec: eidos_node
       name: eidos_node
@@ -295,9 +352,16 @@ launch:
       output: screen
       param:
         - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        # NOTE: eidos_map_path is declared and forwarded by callers but never applied here
+        # (the base world_modeling.launch.yaml binds it to map.load_path). Wiring it in would
+        # make the default sim run load the test-track map, so it is left disconnected until
+        # the intended sim behaviour is decided.
 
-  # Lifecycle Manager
+  # Lifecycle Manager -- full stack
   - node:
+      unless: "$(var map_only)"
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: world_modeling_lifecycle_manager
@@ -312,6 +376,31 @@ launch:
             - /world_modeling/eidos_node
         - name: autostart
           value: $(var autostart)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
+
+  # Lifecycle Manager -- map_only (world_model is the only managed node left)
+  - node:
+      if: "$(var map_only)"
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: world_modeling_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/world_model
+        - name: autostart
+          value: $(var autostart)
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - name: transition_timeout_s
           value: 10.0
         - name: bond_timeout_s

@@ -335,6 +335,9 @@ services:
         - "${SIMULATION_IMAGE:?}:main"
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
+    volumes:
+      # The oval track scenario reads maps/osm/oval_track_4_lane.xodr from here.
+      - ${MONO_DIR}/maps:/opt/watonomous/maps
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}

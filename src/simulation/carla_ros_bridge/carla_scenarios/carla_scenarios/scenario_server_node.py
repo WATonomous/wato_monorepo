@@ -203,6 +203,13 @@ class ScenarioServerNode(LifecycleNode):
             callback_group=self.service_cb_group,
         )
 
+        self.reset_ego_service = self.create_service(
+            Trigger,
+            "~/reset_ego",
+            self.reset_ego_callback,
+            callback_group=self.service_cb_group,
+        )
+
         # Create client for lifecycle manager's prepare_for_scenario_switch service
         # Uses namespace-relative path - both nodes share the same namespace
         self.client_cb_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
@@ -389,6 +396,67 @@ class ScenarioServerNode(LifecycleNode):
 
         return response
 
+    def reset_ego_callback(self, request, response):
+        """
+        Put the ego back at the pose the scenario spawned it at.
+
+        Teleports the existing actor rather than reloading the scenario, so the map stays
+        loaded and the managed lifecycle nodes are never torn down. Resets the ego only --
+        NPC traffic keeps running. Use switch_scenario for a full world reset.
+        """
+        if not self.current_scenario:
+            response.success = False
+            response.message = "No scenario loaded"
+            return response
+
+        ego = getattr(self.current_scenario, "ego_vehicle", None)
+        spawn_point = getattr(self.current_scenario, "ego_spawn_point", None)
+        if ego is None or spawn_point is None:
+            response.success = False
+            response.message = "Scenario did not record an ego spawn pose"
+            return response
+
+        try:
+            if not ego.is_alive:
+                response.success = False
+                response.message = "Ego actor is no longer alive; use switch_scenario"
+                return response
+
+            # A teleport alone keeps the previous velocity and any throttle the controller had
+            # applied, so the car would arrive at the spawn point already rolling.
+            ego.set_target_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+            ego.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+            try:
+                ego.apply_control(
+                    carla.VehicleControl(throttle=0.0, steer=0.0, brake=1.0)
+                )
+            except RuntimeError as e:
+                # Not fatal: some actors reject control while in autopilot. Worth a line rather
+                # than silence, since it means the car may roll away from the spawn point.
+                self.get_logger().debug(
+                    f"Could not apply a braking control to the ego: {e}"
+                )
+
+            ego.set_transform(spawn_point)
+
+            # Deliberately no tick() here. This callback is in a ReentrantCallbackGroup under a
+            # MultiThreadedExecutor, so ticking would race _tick_callback's own tick and advance
+            # synchronous mode twice. The tick timer runs at carla_fps, so the teleport lands
+            # within a frame anyway.
+
+            loc = spawn_point.location
+            response.success = True
+            response.message = (
+                f"Ego reset to spawn pose ({loc.x:.2f}, {loc.y:.2f}, {loc.z:.2f})"
+            )
+            self.get_logger().info(response.message)
+        except Exception as e:
+            response.success = False
+            response.message = f"Failed to reset ego: {e}"
+            self.get_logger().error(response.message)
+
+        return response
+
     def get_scenarios_callback(self, request, response):
         """Handle get available scenarios service request."""
         response.scenario_names = list(self.available_scenarios.keys())
@@ -402,6 +470,7 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
             "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
+            "carla_scenarios.scenarios.oval_track_scenario": "Oval Track (OpenDRIVE)",
         }
         self.available_scenarios.update(builtin_scenarios)
 
