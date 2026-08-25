@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>Plugin-based LiDAR-Inertial-GNSS SLAM system (v2 architecture)</description>
   <maintainer email="infra@watonomous.ca">WATonomous</maintainer>
-  <license>MIT</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
@@ -23,13 +23,13 @@
   <depend>pluginlib</depend>
 
   <build_depend>libpcl-all-dev</build_depend>
-  <build_depend>sqlite3_vendor</build_depend>
+  <build_depend>libsqlite3-dev</build_depend>
   <build_depend>gtsam</build_depend>
   <build_depend>eigen</build_depend>
   <build_depend>small_gicp_vendor</build_depend>
 
   <exec_depend>libpcl-all-dev</exec_depend>
-  <exec_depend>sqlite3_vendor</exec_depend>
+  <exec_depend>libsqlite3-dev</exec_depend>
   <exec_depend>gtsam</exec_depend>
   <exec_depend>eigen</exec_depend>
   <exec_depend>small_gicp_vendor</exec_depend>
