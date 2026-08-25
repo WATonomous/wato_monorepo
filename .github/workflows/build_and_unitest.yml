@@ -67,6 +67,7 @@ jobs:
         id: buildx
 
       - name: Docker Login
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
@@ -81,6 +82,7 @@ jobs:
         shell: bash
 
       - name: Build and Test Module with Watod
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_BAKE: true
