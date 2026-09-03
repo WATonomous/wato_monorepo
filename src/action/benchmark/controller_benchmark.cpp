@@ -33,6 +33,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <numeric>
@@ -40,6 +41,7 @@
 #include <vector>
 
 #include "mpc_controller/mpc_core.hpp"
+#include "reference_controllers.hpp"
 
 using mpc_controller::MpcConfig;
 using mpc_controller::MpcCore;
@@ -108,12 +110,23 @@ struct Pose
   double x, y, theta, v;
 };
 
-static Pose step_plant(const Pose & s, double steering, double cmd_speed)
+// Steering actuator lag. 0 => the command is realised instantly (the plant the
+// WATonomous controllers implicitly assume); >0 => a first-order lag, which is what
+// a real steering column does and what Autoware's model compensates for.
+static double STEER_LAG_TAU = 0.0;
+
+// `steer_state` is the vehicle's ACTUAL steering angle, advanced in place.
+static Pose step_plant(const Pose & s, double steer_cmd, double cmd_speed, double & steer_state)
 {
+  if (STEER_LAG_TAU > 1e-9) {
+    steer_state += (steer_cmd - steer_state) * (CONTROL_DT / STEER_LAG_TAU);
+  } else {
+    steer_state = steer_cmd;
+  }
   Pose n;
   n.x = s.x + s.v * std::cos(s.theta) * CONTROL_DT;
   n.y = s.y + s.v * std::sin(s.theta) * CONTROL_DT;
-  n.theta = s.theta + s.v / WHEELBASE * std::tan(steering) * CONTROL_DT;
+  n.theta = s.theta + s.v / WHEELBASE * std::tan(steer_state) * CONTROL_DT;
   n.v = s.v + (cmd_speed - s.v) * (CONTROL_DT / SPEED_LAG_TAU);
   return n;
 }
@@ -368,6 +381,7 @@ static RunLog simulate_mpc(const Trajectory & traj, double duration)
 
   Pose s{traj.points[0].pose.position.x, traj.points[0].pose.position.y, traj_yaw(traj, 0), 0.0};
   double prev_steering = 0.0, prev_accel = 0.0;
+  double steer_state = 0.0;
 
   int steps = static_cast<int>(duration / CONTROL_DT);
   for (int n = 0; n < steps; ++n) {
@@ -397,7 +411,7 @@ static RunLog simulate_mpc(const Trajectory & traj, double duration)
     auto t1 = std::chrono::steady_clock::now();
     log.solve_ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
 
-    s = step_plant(s, steering, cmd_speed);
+    s = step_plant(s, steering, cmd_speed, steer_state);
 
     double e;
     size_t idx;
@@ -422,6 +436,7 @@ static RunLog simulate_pp(const Trajectory & traj, double duration, const PpConf
 {
   RunLog log;
   Pose s{traj.points[0].pose.position.x, traj.points[0].pose.position.y, traj_yaw(traj, 0), 0.0};
+  double steer_state = 0.0;
 
   int steps = static_cast<int>(duration / CONTROL_DT);
   for (int n = 0; n < steps; ++n) {
@@ -435,7 +450,7 @@ static RunLog simulate_pp(const Trajectory & traj, double duration, const PpConf
       break;
     }
 
-    s = step_plant(s, r.steering_angle, r.target_speed);
+    s = step_plant(s, r.steering_angle, r.target_speed, steer_state);
 
     double e;
     size_t idx;
@@ -447,6 +462,100 @@ static RunLog simulate_pp(const Trajectory & traj, double duration, const PpConf
     log.steering.push_back(r.steering_angle);
     log.speed.push_back(s.v);
     log.cmd_speed.push_back(r.target_speed);
+    log.x.push_back(s.x);
+    log.y.push_back(s.y);
+    log.duration = (n + 1) * CONTROL_DT;
+
+    if (idx >= traj.points.size() - 3) break;
+  }
+  return log;
+}
+
+
+// ---------------------------------------------------------------------------
+// Reference-controller simulations
+// ---------------------------------------------------------------------------
+
+static RunLog simulate_rpp(const Trajectory & traj, double duration)
+{
+  using namespace reference_controllers;
+  RunLog log;
+  RppConfig cfg;
+  Pose s{traj.points[0].pose.position.x, traj.points[0].pose.position.y, traj_yaw(traj, 0), 0.0};
+  double steer_state = 0.0;
+
+  int steps = static_cast<int>(duration / CONTROL_DT);
+  for (int n = 0; n < steps; ++n) {
+    auto t0 = std::chrono::steady_clock::now();
+    auto r = regulated_pure_pursuit(traj, s.x, s.y, s.theta, s.v, WHEELBASE, cfg);
+    auto t1 = std::chrono::steady_clock::now();
+    log.solve_ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
+
+    if (!r.found) { log.no_command++; break; }
+
+    s = step_plant(s, r.steering_angle, r.target_speed, steer_state);
+
+    double e; size_t idx;
+    cross_track(traj, s.x, s.y, e, idx);
+    double herr = std::atan2(std::sin(s.theta - traj_yaw(traj, idx)), std::cos(s.theta - traj_yaw(traj, idx)));
+
+    log.cte.push_back(e);
+    log.heading_err.push_back(herr);
+    log.steering.push_back(r.steering_angle);
+    log.speed.push_back(s.v);
+    log.cmd_speed.push_back(r.target_speed);
+    log.x.push_back(s.x);
+    log.y.push_back(s.y);
+    log.duration = (n + 1) * CONTROL_DT;
+
+    if (idx >= traj.points.size() - 3) break;
+  }
+  return log;
+}
+
+static RunLog simulate_error_mpc(const Trajectory & traj, double duration)
+{
+  using namespace reference_controllers;
+  RunLog log;
+  ErrorMpcConfig cfg;
+  ErrorStateMpc mpc(cfg, WHEELBASE);
+  auto info = PathInfo::build(traj);
+
+  Pose s{traj.points[0].pose.position.x, traj.points[0].pose.position.y, traj_yaw(traj, 0), 0.0};
+  double steer_state = 0.0;
+  double last_cmd = 0.0;
+
+  int steps = static_cast<int>(duration / CONTROL_DT);
+  for (int n = 0; n < steps; ++n) {
+    // Autoware's MPC is lateral-only; a separate longitudinal controller tracks the
+    // trajectory's velocity profile. Model that as a direct speed command.
+    size_t nearest = 0; double best = 1e18;
+    for (size_t i = 0; i < traj.points.size(); ++i) {
+      double d = std::hypot(traj.points[i].pose.position.x - s.x, traj.points[i].pose.position.y - s.y);
+      if (d < best) { best = d; nearest = i; }
+    }
+    double cmd_speed = traj.points[nearest].max_speed;
+
+    auto t0 = std::chrono::steady_clock::now();
+    auto sol = mpc.solve(traj, info, s.x, s.y, s.theta, std::max(s.v, 0.1), steer_state);
+    auto t1 = std::chrono::steady_clock::now();
+    log.solve_ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
+
+    double steering;
+    if (sol.solved) { steering = sol.steering_angle; last_cmd = steering; }
+    else { log.failures++; steering = last_cmd; }
+
+    s = step_plant(s, steering, cmd_speed, steer_state);
+
+    double e; size_t idx;
+    cross_track(traj, s.x, s.y, e, idx);
+    double herr = std::atan2(std::sin(s.theta - traj_yaw(traj, idx)), std::cos(s.theta - traj_yaw(traj, idx)));
+
+    log.cte.push_back(e);
+    log.heading_err.push_back(herr);
+    log.steering.push_back(steering);
+    log.speed.push_back(s.v);
+    log.cmd_speed.push_back(cmd_speed);
     log.x.push_back(s.x);
     log.y.push_back(s.y);
     log.duration = (n + 1) * CONTROL_DT;
@@ -512,6 +621,7 @@ int main(int argc, char ** argv)
 {
   std::string only = (argc > 1) ? argv[1] : "";
   std::string outpath = (argc > 2) ? argv[2] : "";
+  if (argc > 3) STEER_LAG_TAU = std::atof(argv[3]);
 
   struct Scenario
   {
@@ -556,10 +666,14 @@ int main(int argc, char ** argv)
     auto mpc_log = simulate_mpc(sc.traj, sc.duration);
     auto pp_log = simulate_pp(sc.traj, sc.duration, pp_deployed);
     auto ppm_log = simulate_pp(sc.traj, sc.duration, pp_matched);
+    auto rpp_log = simulate_rpp(sc.traj, sc.duration);
+    auto emp_log = simulate_error_mpc(sc.traj, sc.duration);
 
     emit_metrics(out, "mpc", mpc_log, false);
     emit_metrics(out, "pure_pursuit_deployed", pp_log, false);
-    emit_metrics(out, "pure_pursuit_matched_limits", ppm_log, true);
+    emit_metrics(out, "pure_pursuit_matched_limits", ppm_log, false);
+    emit_metrics(out, "nav2_regulated_pure_pursuit", rpp_log, false);
+    emit_metrics(out, "autoware_error_state_mpc", emp_log, true);
 
     fprintf(out, "      }\n");
     fprintf(out, "    }%s\n", i + 1 == run.size() ? "" : ",");
