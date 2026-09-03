@@ -174,6 +174,12 @@ private:
   void updateStatistics(double time_taken);
 
   /**
+   * @brief Accumulate per-stage timings for one processed frame.
+   */
+  void updateStageStatistics(double decompress_ms, double lidar_ms, double infer_ms, double publish_ms,
+    double input_age_ms);
+
+  /**
    * @brief Tick topic diagnostics and refresh updater.
    * @param timestamp Timestamp from the processed detection array
    */
@@ -288,6 +294,14 @@ private:
   std::atomic<double> last_processing_time_ms_{0.0};
   std::chrono::steady_clock::time_point last_stats_log_time_;
   static constexpr std::chrono::seconds kStatsLogInterval{30};
+
+  // Per-stage timing accumulators (milliseconds, summed over total_processed_ frames)
+  std::atomic<double> total_decompress_time_ms_{0.0};
+  std::atomic<double> total_lidar_time_ms_{0.0};
+  std::atomic<double> total_infer_time_ms_{0.0};
+  std::atomic<double> total_publish_time_ms_{0.0};
+  // Age of the camera frame (now - image stamp) when the synced callback starts.
+  std::atomic<double> total_input_age_ms_{0.0};
 
   // Statistics
   std::atomic<uint64_t> multi_image_msg_count_{0};

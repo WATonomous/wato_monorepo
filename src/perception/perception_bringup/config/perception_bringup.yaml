@@ -516,15 +516,20 @@ multi_camera_sync:
 
     # Specify whether inputted lidar topic has the 5th parameter (ring id)
     # Merged lidar points do not while single lidars do.
-    has_ring: false
+    has_ring: true
 
     # ApproximateTime synchronization
-    sync_queue_size: 5
+    # Keep this small: the node consumes at ~11 Hz while the cameras publish at 20 Hz,
+    # so any spare queue slot fills with stale frames instead of adding throughput.
+    sync_queue_size: 2
     sync_max_time_diff_ms: 200.0
 
     # QoS
+    # Subscriber depth is a latency knob, not a throughput knob. At 20 Hz input a
+    # depth of 10 buys 500 ms of buffering that the node can never work off, so
+    # detections come out ~400 ms stale. Depth 1 drops stale frames on arrival.
     qos_subscriber_reliability: "best_effort"
-    qos_subscriber_depth: 10
+    qos_subscriber_depth: 1
     qos_publisher_reliability: "reliable"
     qos_publisher_durability: "transient_local"
     qos_publisher_depth: 10

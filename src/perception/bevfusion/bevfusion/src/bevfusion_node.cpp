@@ -218,6 +218,8 @@ void BEVFusionNode::syncedCallback(
     }
   }
 
+  const auto stage_decompress_begin = std::chrono::steady_clock::now();
+
   std::vector<const unsigned char *> camera_images;
   std::vector<cv::Mat> rgb_images;
   camera_images.reserve(filtered_multi_image_msg->images.size());
@@ -236,6 +238,8 @@ void BEVFusionNode::syncedCallback(
     cv::cvtColor(bgr, rgb_images.back(), cv::COLOR_BGR2RGB);
     camera_images.push_back(rgb_images.back().data);
   }
+
+  const auto stage_decompress_end = std::chrono::steady_clock::now();
 
   // Process LiDAR data
   std::vector<float> lidar_data;
@@ -266,6 +270,8 @@ void BEVFusionNode::syncedCallback(
   if (!validateAndTrimLidar(lidar_data)) return;
   int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
 
+  const auto stage_lidar_end = std::chrono::steady_clock::now();
+
   // Run inference
   RCLCPP_DEBUG_THROTTLE(
     this->get_logger(),
@@ -274,7 +280,9 @@ void BEVFusionNode::syncedCallback(
     "Calling core_->infer with %zu images and %d LiDAR points",
     camera_images.size(),
     num_points);
+  const auto stage_infer_begin = std::chrono::steady_clock::now();
   std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
+  const auto stage_infer_end = std::chrono::steady_clock::now();
   RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu bounding boxes", bboxes.size());
 
   // Create detections and markers from bboxes
@@ -286,6 +294,16 @@ void BEVFusionNode::syncedCallback(
   // Update statistics and diagnostics
   const auto end = std::chrono::steady_clock::now();
   const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
+
+  using ms = std::chrono::duration<double, std::milli>;
+  const double input_age_ms =
+    (this->now() - rclcpp::Time(filtered_multi_image_msg->header.stamp)).nanoseconds() / 1e6;
+  updateStageStatistics(
+    ms(stage_decompress_end - stage_decompress_begin).count(),
+    ms(stage_lidar_end - stage_decompress_end).count(),
+    ms(stage_infer_end - stage_infer_begin).count(),
+    ms(end - stage_infer_end).count(),
+    input_age_ms);
   updateStatistics(time_taken);
   updateDiagnostics(detections_3d.header.stamp);
 }
@@ -788,6 +806,35 @@ bool BEVFusionNode::processLidar(
   return true;
 }
 
+namespace
+{
+void atomicAdd(std::atomic<double> & accumulator, double value)
+{
+  double current = accumulator.load();
+  while (!accumulator.compare_exchange_weak(current, current + value)) {
+  }
+}
+}  // namespace
+
+void BEVFusionNode::updateStageStatistics(
+  double decompress_ms, double lidar_ms, double infer_ms, double publish_ms, double input_age_ms)
+{
+  atomicAdd(total_decompress_time_ms_, decompress_ms);
+  atomicAdd(total_lidar_time_ms_, lidar_ms);
+  atomicAdd(total_infer_time_ms_, infer_ms);
+  atomicAdd(total_publish_time_ms_, publish_ms);
+  atomicAdd(total_input_age_ms_, input_age_ms);
+
+  RCLCPP_DEBUG(
+    this->get_logger(),
+    "[TIMING] decompress=%.2f ms lidar=%.2f ms infer=%.2f ms publish=%.2f ms input_age=%.2f ms",
+    decompress_ms,
+    lidar_ms,
+    infer_ms,
+    publish_ms,
+    input_age_ms);
+}
+
 void BEVFusionNode::updateStatistics(double time_taken)
 {
   total_processed_++;
@@ -822,6 +869,19 @@ void BEVFusionNode::logStatistics() const
 
   RCLCPP_INFO(
     this->get_logger(), "Statistics: %lu arrays processed, average processing time: %.3f ms", processed, avg_time);
+
+  if (processed > 0) {
+    const double n = static_cast<double>(processed);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Statistics (avg per frame): decompress %.2f ms | lidar prep %.2f ms | infer %.2f ms | publish %.2f ms "
+      "| input age at callback %.2f ms",
+      total_decompress_time_ms_.load() / n,
+      total_lidar_time_ms_.load() / n,
+      total_infer_time_ms_.load() / n,
+      total_publish_time_ms_.load() / n,
+      total_input_age_ms_.load() / n);
+  }
 }
 
 rclcpp::QoS BEVFusionNode::createSubscriberQoS(const std::string & reliability, int depth)
