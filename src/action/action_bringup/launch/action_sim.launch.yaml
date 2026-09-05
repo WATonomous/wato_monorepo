@@ -76,6 +76,8 @@ launch:
       namespace: "action"
       output: screen
       param:
+        # Package defaults first, then simulation overrides (later wins).
+        - from: "$(find-pkg-share mpc_controller)/config/mpc_controller.yaml"
         - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
       remap:
         # Subscribers
