@@ -239,10 +239,9 @@ void BEVFusionNode::syncedCallback(
     return;
   }
 
-  const auto start = std::chrono::steady_clock::now();
+  const auto t_start = std::chrono::steady_clock::now();
 
   // Filter images to only those in the camera_names_ list and in the same order as camera_names_
-  // TODO(Ashish): Consider using a hashmap for more efficient lookup
   deep_msgs::msg::MultiImageCompressed::SharedPtr filtered_multi_image_msg =
     std::make_shared<deep_msgs::msg::MultiImageCompressed>();
   filtered_multi_image_msg->images.reserve(camera_names_.size());
@@ -262,6 +261,7 @@ void BEVFusionNode::syncedCallback(
   rgb_images.reserve(filtered_multi_image_msg->images.size());
 
   // Decompress the images
+  const auto t_before_decode = std::chrono::steady_clock::now();
   for (size_t i = 0; i < filtered_multi_image_msg->images.size(); ++i) {
     const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
     cv::Mat bgr = decompressImage(filtered_multi_image_msg->images[i]);
@@ -274,6 +274,7 @@ void BEVFusionNode::syncedCallback(
     cv::cvtColor(bgr, rgb_images.back(), cv::COLOR_BGR2RGB);
     camera_images.push_back(rgb_images.back().data);
   }
+  const auto t_after_decode = std::chrono::steady_clock::now();
 
   // Process LiDAR data
   std::vector<float> lidar_data;
@@ -303,6 +304,7 @@ void BEVFusionNode::syncedCallback(
   // LiDAR validation
   if (!validateAndTrimLidar(lidar_data)) return;
   int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
+  const auto t_after_lidar = std::chrono::steady_clock::now();
 
   // Run inference
   RCLCPP_DEBUG_THROTTLE(
@@ -314,17 +316,36 @@ void BEVFusionNode::syncedCallback(
     num_points);
   std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
   RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu bounding boxes", bboxes.size());
+  const auto t_after_infer = std::chrono::steady_clock::now();
 
   // Create detections and markers from bboxes
   auto detections_3d = createDetections3D(bboxes, filtered_multi_image_msg->header.stamp);
   auto markers = createMarkers(detections_3d);
   detection_pub_->publish(detections_3d);
   marker_pub_->publish(markers);
+  const auto t_after_postproc = std::chrono::steady_clock::now();
+
+  // Calculate stage durations in milliseconds
+  const double decode_ms = std::chrono::duration<double, std::milli>(t_after_decode - t_before_decode).count();
+  const double lidar_ms = std::chrono::duration<double, std::milli>(t_after_lidar - t_after_decode).count();
+  const double infer_ms = std::chrono::duration<double, std::milli>(t_after_infer - t_after_lidar).count();
+  const double postproc_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_after_infer).count();
+  const double total_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_start).count();
+
+  RCLCPP_INFO_THROTTLE(
+    this->get_logger(),
+    *this->get_clock(),
+    5000,
+    "[PROFILER] Callback: %.2f ms | JPEG Decode: %.2f ms | LiDAR Prep: %.2f ms | GPU Infer: %.2f ms | PostProc: %.2f "
+    "ms",
+    total_ms,
+    decode_ms,
+    lidar_ms,
+    infer_ms,
+    postproc_ms);
 
   // Update statistics and diagnostics
-  const auto end = std::chrono::steady_clock::now();
-  const double time_taken = std::chrono::duration<double, std::milli>(end - start).count();
-  updateStatistics(time_taken);
+  updateStatistics(total_ms);
   updateDiagnostics(detections_3d.header.stamp);
 }
 
