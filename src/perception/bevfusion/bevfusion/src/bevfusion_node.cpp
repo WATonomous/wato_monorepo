@@ -74,11 +74,7 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::string>("lidar_topic", kLidarTopic);
 
   // Directory containing all .plan and .onnx engine files for the model
-  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50int8");
-  this->declare_parameter<std::string>("build_dir", "/opt/watonomous/models/bevfusion/resnet50int8/build");
-
-  // Model precision
-  this->declare_parameter<std::string>("precision", "int8");
+  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50_trt11_int8");
 
   // Detection confidence, bounding boxes below threshold are discarded
   this->declare_parameter<double>("confidence_threshold", 0.3);
@@ -137,7 +133,8 @@ void BEVFusionNode::declareParameters()
 
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
-  const std::string build_dir = this->get_parameter("build_dir").as_string();
+  const std::string build_dir = model_dir + "/build";
+  const std::string precision = (model_dir.find("int8") != std::string::npos) ? "int8" : "fp16";
   camera_names_ = this->get_parameter("camera_names").as_string_array();
 
   // ROS params use double; BEVFusionInputConfig uses float — convert on read
@@ -159,7 +156,7 @@ void BEVFusionNode::declareParameters()
   config_.head_bbox_plan = build_dir + "/head.bbox.plan";
   config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
 
-  config_.precision = this->get_parameter("precision").as_string();
+  config_.precision = precision;
   config_.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
 
   config_.num_cameras = static_cast<int>(camera_names_.size());

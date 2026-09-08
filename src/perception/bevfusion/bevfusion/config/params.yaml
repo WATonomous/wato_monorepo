@@ -14,11 +14,7 @@ bevfusion_node:
     has_ring: true
 
     # Directory containing all TensorRT .plan and .onnx engine files
-    model_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11"
-    build_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11/build"
-
-    # Model precision - can be "fp16" or "int8"
-    precision: "int8"
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50_trt11_int8"
 
     # Camera frame IDs — must match the 6 nuScenes-layout cameras on Eve
     camera_names:
