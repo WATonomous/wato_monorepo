@@ -27,6 +27,7 @@
 // Other
 #include <deep_msgs/msg/multi_camera_info.hpp>
 #include <deep_msgs/msg/multi_detection2_d_array.hpp>
+#include <deep_msgs/msg/multi_image.hpp>
 #include <deep_msgs/msg/multi_image_compressed.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <diagnostic_updater/publisher.hpp>
@@ -35,6 +36,7 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
@@ -67,7 +69,8 @@ public:
   // Default topic names (matches the remap "from" names in the launch file)
   static constexpr auto kCameraInfoTopic = "camera_info";
   static constexpr auto kLidarTopic = "/lidar_cc/velodyne_points";
-  static constexpr auto kMultiImageTopic = "/multi_camera_sync/multi_image_compressed";
+  static constexpr auto kMultiImageCompressedTopic = "/multi_camera_sync/multi_image_compressed";
+  static constexpr auto kMultiImageRawTopic = "/multi_camera_sync/multi_image_raw";
   static constexpr auto kOutputDetectionsTopic = "output_detections";
   static constexpr auto kOutputMarkersTopic = "output_markers";
 
@@ -118,13 +121,35 @@ private:
   void declareParameters();
 
   /**
-   * @brief Main processing callback for synced camera and LiDAR data.
+   * @brief Main processing callback for synced compressed camera and LiDAR data.
    * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
-   * @param point_cloud_msg PointCloud2 containing point cloud data
+   * @param lidar_msg PointCloud2 containing point cloud data
    */
-  void syncedCallback(
+  void syncedCompressedCallback(
     const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & point_cloud_msg);
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+
+  /**
+   * @brief Main processing callback for batched raw MultiImage + LiDAR.
+   * @param multi_image_msg MultiImage containing raw images from multiple cameras
+   * @param lidar_msg PointCloud2 containing point cloud data
+   */
+  void syncedRawCallback(
+    const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+
+  /**
+   * @brief Synced callback helper for processing a frame of 6 RGB images and LiDAR cloud.
+   * @param rgb_images Vector of RGB images (6 cameras)
+   * @param lidar_msg PointCloud2 containing point cloud data
+   * @param header Header for timestamp synchronization
+   * @param t_start Start time of callback processing
+   */
+  void processFrame(
+    std::vector<cv::Mat> & rgb_images,
+    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
+    const std_msgs::msg::Header & header,
+    std::chrono::steady_clock::time_point t_start);
 
   /**
    * @brief Camera info callback to initialize calibration.
@@ -180,14 +205,22 @@ private:
   void updateDiagnostics(const std_msgs::msg::Header::_stamp_type & timestamp);
 
   // Aliases
-  using MultiImageMsg = deep_msgs::msg::MultiImageCompressed;
+  using MultiImageCompressedMsg = deep_msgs::msg::MultiImageCompressed;
+  using MultiImageRawMsg = deep_msgs::msg::MultiImage;
   using MultiCameraInfoMsg = deep_msgs::msg::MultiCameraInfo;
   using PointCloud2Msg = sensor_msgs::msg::PointCloud2;
-  using ImageSub = message_filters::Subscriber<MultiImageMsg, rclcpp_lifecycle::LifecycleNode>;
+
+  using MultiImageCompressedSub = message_filters::Subscriber<MultiImageCompressedMsg, rclcpp_lifecycle::LifecycleNode>;
+  using MultiImageRawSub = message_filters::Subscriber<MultiImageRawMsg, rclcpp_lifecycle::LifecycleNode>;
   using LidarSub = message_filters::Subscriber<PointCloud2Msg, rclcpp_lifecycle::LifecycleNode>;
-  using SyncPolicy = message_filters::sync_policies::
+
+  using MultiImageCompressedSyncPolicy = message_filters::sync_policies::
     ApproximateTime<deep_msgs::msg::MultiImageCompressed, sensor_msgs::msg::PointCloud2>;
-  using Synchronizer = message_filters::Synchronizer<SyncPolicy>;
+  using MultiImageCompressedSynchronizer = message_filters::Synchronizer<MultiImageCompressedSyncPolicy>;
+
+  using MultiImageRawSyncPolicy =
+    message_filters::sync_policies::ApproximateTime<deep_msgs::msg::MultiImage, sensor_msgs::msg::PointCloud2>;
+  using MultiImageRawSynchronizer = message_filters::Synchronizer<MultiImageRawSyncPolicy>;
   /**
    * @brief Decompress a CompressedImage to cv::Mat in BGR format.
    * @param compressed_img The compressed image message
@@ -254,7 +287,9 @@ private:
   std::atomic<bool> calibration_initialized_{false};
 
   // Subscription topics for approximate time sync
-  std::string multi_image_topic_;
+  bool use_raw_images_{false};
+  std::string multi_image_raw_topic_;
+  std::string multi_image_compressed_topic_;
   std::string lidar_topic_;
 
   // 3D detection: TF target frame
@@ -266,14 +301,16 @@ private:
 
   // Subscribers
   std::shared_ptr<LidarSub> lidar_sub_;
-  std::shared_ptr<ImageSub> multi_image_sub_;
+  std::shared_ptr<MultiImageCompressedSub> multi_image_compressed_sub_;
+  std::shared_ptr<MultiImageRawSub> multi_image_raw_sub_;
 
   // QoS profiles
   rclcpp::QoS subscriber_qos_;
   rclcpp::QoS publisher_qos_;
 
   // Synchronization
-  std::shared_ptr<Synchronizer> sync_;
+  std::shared_ptr<MultiImageCompressedSynchronizer> compressed_sync_;
+  std::shared_ptr<MultiImageRawSynchronizer> raw_sync_;
   int sync_queue_size_{10};
   double sync_max_time_diff_ms_{200.0};
   double sync_max_time_diff_sec_;

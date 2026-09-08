@@ -61,20 +61,28 @@ graph TD
 * **`computeCalibrationMatrices()`**
   * **Purpose:** Queries TF2 for the camera-to-lidar transforms (extrinsics), extracts the cached intrinsics, computes the projection matrices, and formats them into the `6 x 4 x 4` format expected by `BEVFusionCore`.
   * **Why:** Resolving coordinate frame transforms (e.g., from `camera_front` to `base_link`) must be done through ROS's TF2 system.
-* **`syncedCallback(multi_image_msg, lidar_msg)`**
-  * **Purpose:** The main pipeline driver. Whenever a synchronized `MultiImageCompressed` + `PointCloud2` frame arrives:
-        1. Filters/reorders `multi_image_msg->images` to match `camera_names_`, JPEG-decodes each (`cv::imdecode`) and converts BGR→RGB into raw pointer arrays (`unsigned char*`), resizing if a decoded image doesn't match the configured `image_width`/`image_height`.
-        2. Parses the `PointCloud2` message into a flat `x, y, z, intensity, ring` format (`processLidar()`). The `ring` field is optional — if the `has_ring` parameter is `false`, ring values are omitted (padded with a zero feature implicitly by the model).
-        3. Validates camera count, image format, and LiDAR point count/format against `config_`, then calls `core_->infer(...)`.
-        4. Converts the output bounding boxes into ROS `Detection3DArray` (`createDetections3D()`) and `MarkerArray` (`createMarkers()`) messages. Each bounding box is transformed from `lidar_frame_id` to `target_frame` via a single `tf_buffer_->lookupTransform` + `tf2::doTransform` call.
-        5. Publishes the results and updates statistics/diagnostics.
-  * **Why:** Fusing data requires temporal alignment (messages must represent the same moment in time). We process only when we have a matching set of camera and LiDAR frames, and validate defensively since malformed input would otherwise crash the CUDA pipeline.
+* **`syncedCompressedCallback(multi_image_msg, lidar_msg)`**
+  * **Purpose:** Main driver when `use_raw_images` is `false`. Subscribes to `input_multi_image_compressed_topic` (`deep_msgs/msg/MultiImageCompressed`).
+  * **Flow:** Reorders camera frames to match `camera_names_`, decompresses JPEG images concurrently using CPU worker threads (`std::async` + `cv::imdecode`), converts BGR→RGB, and passes the images to `processFrame(...)`.
+* **`syncedRawCallback(multi_image_msg, lidar_msg)`**
+  * **Purpose:** Main driver when `use_raw_images` is `true`. Subscribes to `input_multi_image_raw_topic` (`deep_msgs/msg/MultiImage`).
+  * **Flow:** Reorders camera frames to match `camera_names_`, wraps raw pixel buffers into `cv::Mat` instances without CPU decompression overhead (0 ms decode time, leveraging ROS 2 zero-copy intra-process transport), converts encoding to RGB, and passes the images to `processFrame(...)`.
+* **`processFrame(rgb_images, lidar_msg, header, t_start)`**
+  * **Purpose:** The centralized execution pipeline invoked by both synced callbacks.
+  * **Steps:**
+
+        1. Checks core and calibration readiness.
+        2. Parses and trims the `PointCloud2` message into `x, y, z, intensity, ring` floats (`processLidar()`, `validateAndTrimLidar()`).
+        3. Validates camera counts and resizes/normalizes images (`validateAndNormalizeImage()`).
+        4. Executes TensorRT GPU inference (`core_->infer(...)`).
+        5. Converts output 3D bounding boxes into ROS `Detection3DArray` (`createDetections3D()`) and `MarkerArray` (`createMarkers()`) messages, transforming from `lidar_frame_id` to `target_frame`.
+        6. Publishes detection topics, logs stage-by-stage profiler metrics (`[PROFILER]`), and updates diagnostic statistics.
 
 # Other Helpful Notes
 
 ## How do we pass in the video feed?
 
-**Frame by frame, as raw image pointers, after decompressing on the CPU.** Images arrive JPEG-compressed inside `deep_msgs/MultiImageCompressed`; `syncedCallback()` decodes each with `cv::imdecode`, converts BGR→RGB, and passes the resulting `cv::Mat::data` pointers straight through to `BEVFusionCore::infer()`, which forwards them unchanged to the CUDA-BEVFusion `Core::forward()` API ([bevfusion.hpp](https://github.com/WATonomous/wato-cuda-bevfusion/blob/master/CUDA-BEVFusion/src/bevfusion/bevfusion.hpp)):
+**Frame by frame, as raw image pointers.** When `use_raw_images` is `false`, images arrive JPEG-compressed inside `deep_msgs/MultiImageCompressed` and `syncedCompressedCallback()` decompresses them in parallel via `cv::imdecode`. When `use_raw_images` is `true`, `syncedRawCallback()` receives raw `deep_msgs/MultiImage` messages directly. In both modes, `processFrame()` passes the resulting `cv::Mat::data` pointers straight through to `BEVFusionCore::infer()`, which forwards them to CUDA-BEVFusion `Core::forward()`:
 
 ```cpp
 std::vector<BoundingBox> forward(

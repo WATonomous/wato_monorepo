@@ -71,8 +71,10 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::string>("target_frame", "base_link");
 
   // Topics
-  this->declare_parameter<std::string>("input_multi_image_topic", kMultiImageTopic);
-  this->declare_parameter<std::string>("lidar_topic", kLidarTopic);
+  this->declare_parameter<bool>("use_raw_images", false);
+  this->declare_parameter<std::string>("input_multi_image_raw_topic", kMultiImageRawTopic);
+  this->declare_parameter<std::string>("input_multi_image_compressed_topic", kMultiImageCompressedTopic);
+  this->declare_parameter<std::string>("input_lidar_topic", kLidarTopic);
 
   // Directory containing all .plan and .onnx engine files for the model
   this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50_trt11_int8");
@@ -129,8 +131,10 @@ void BEVFusionNode::declareParameters()
 
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
   target_frame_ = this->get_parameter("target_frame").as_string();
-  multi_image_topic_ = this->get_parameter("input_multi_image_topic").as_string();
-  lidar_topic_ = this->get_parameter("lidar_topic").as_string();
+  use_raw_images_ = this->get_parameter("use_raw_images").as_bool();
+  multi_image_raw_topic_ = this->get_parameter("input_multi_image_raw_topic").as_string();
+  multi_image_compressed_topic_ = this->get_parameter("input_multi_image_compressed_topic").as_string();
+  lidar_topic_ = this->get_parameter("input_lidar_topic").as_string();
 
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
@@ -209,12 +213,161 @@ void BEVFusionNode::declareParameters()
   core_ = std::make_unique<BEVFusionCore>(config_);
 }
 
-void BEVFusionNode::syncedCallback(
+void BEVFusionNode::processFrame(
+  std::vector<cv::Mat> & rgb_images,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
+  const std_msgs::msg::Header & header,
+  const std::chrono::steady_clock::time_point t_start)
+{
+  // Camera count validation
+  if (rgb_images.size() != static_cast<size_t>(config_.num_cameras)) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
+      rgb_images.size(),
+      config_.num_cameras);
+    return;
+  }
+
+  // Image validation & raw pointer array setup
+  std::vector<const unsigned char *> camera_images(rgb_images.size());
+  for (size_t i = 0; i < rgb_images.size(); ++i) {
+    if (!validateAndNormalizeImage(rgb_images[i], i)) return;
+    camera_images[i] = rgb_images[i].data;
+  }
+
+  // Mark time after image processing
+  const auto t_after_image = std::chrono::steady_clock::now();
+
+  // Process LiDAR data
+  std::vector<float> lidar_data;
+  if (!processLidar(lidar_msg, lidar_data)) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Failed to process LiDAR data; skipping frame");
+    return;
+  }
+
+  // LiDAR validation
+  if (!validateAndTrimLidar(lidar_data)) return;
+  int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
+
+  // Mark time after LiDAR processing
+  const auto t_after_lidar = std::chrono::steady_clock::now();
+
+  // Run inference
+  RCLCPP_DEBUG_THROTTLE(
+    this->get_logger(),
+    *this->get_clock(),
+    1000,
+    "Calling core_->infer with %zu images and %d LiDAR points",
+    camera_images.size(),
+    num_points);
+  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
+  RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu bounding boxes", bboxes.size());
+  const auto t_after_infer = std::chrono::steady_clock::now();
+
+  // Create detections and markers from bboxes
+  auto detections_3d = createDetections3D(bboxes, header.stamp);
+  auto markers = createMarkers(detections_3d);
+  detection_pub_->publish(detections_3d);
+  marker_pub_->publish(markers);
+  const auto t_after_postproc = std::chrono::steady_clock::now();
+
+  // Calculate stage durations in milliseconds
+  const double image_ms = std::chrono::duration<double, std::milli>(t_after_image - t_start).count();
+  const double lidar_ms = std::chrono::duration<double, std::milli>(t_after_lidar - t_after_image).count();
+  const double infer_ms = std::chrono::duration<double, std::milli>(t_after_infer - t_after_lidar).count();
+  const double postproc_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_after_infer).count();
+  const double total_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_start).count();
+
+  RCLCPP_INFO_THROTTLE(
+    this->get_logger(),
+    *this->get_clock(),
+    5000,
+    "[PROFILER] Callback: %.2f ms | Image Prep: %.2f ms | LiDAR Prep: %.2f ms | GPU Infer: %.2f ms | PostProc: %.2f ms",
+    total_ms,
+    image_ms,
+    lidar_ms,
+    infer_ms,
+    postproc_ms);
+
+  // Update statistics and diagnostics
+  updateStatistics(total_ms);
+  updateDiagnostics(detections_3d.header.stamp);
+}
+
+void BEVFusionNode::syncedRawCallback(
+  const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
+{
+  RCLCPP_DEBUG_THROTTLE(
+    this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image raw synced, processing");
+
+  multi_image_msg_count_++;
+  lidar_msg_count_++;
+  synced_msg_count_++;
+
+  // Basic checks
+  if (!core_ || !core_->isInitialized()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
+    return;
+  }
+  if (!calibration_initialized_.load() || !core_->hasCalibration()) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
+    return;
+  }
+  if (!multi_image_msg || multi_image_msg->images.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] MultiImage message is null or empty; skipping");
+    return;
+  }
+  if (!lidar_msg || lidar_msg->data.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "[SYNC] LiDAR point cloud message is null or empty; skipping");
+    return;
+  }
+
+  const auto t_start = std::chrono::steady_clock::now();
+
+  // Filter images to only those in the camera_names_ list and in the same order as camera_names_
+  deep_msgs::msg::MultiImage::SharedPtr filtered_multi_image_msg = std::make_shared<deep_msgs::msg::MultiImage>();
+  filtered_multi_image_msg->images.reserve(camera_names_.size());
+  filtered_multi_image_msg->header = multi_image_msg->header;
+  for (const auto & camera_name : camera_names_) {
+    for (const auto & image : multi_image_msg->images) {
+      if (image.header.frame_id == camera_name) {
+        filtered_multi_image_msg->images.push_back(image);
+        break;
+      }
+    }
+  }
+
+  // Ensure images are RGB format
+  const size_t num_imgs = filtered_multi_image_msg->images.size();
+  std::vector<cv::Mat> rgb_images(num_imgs);
+  for (size_t i = 0; i < num_imgs; ++i) {
+    const auto & raw_img = filtered_multi_image_msg->images[i];
+    cv::Mat mat(raw_img.height, raw_img.width, CV_8UC3, const_cast<unsigned char *>(raw_img.data.data()), raw_img.step);
+    if (raw_img.encoding != "rgb8") {
+      cv::cvtColor(mat, rgb_images[i], cv::COLOR_BGR2RGB);
+    } else {
+      rgb_images[i] = mat.clone();
+    }
+  }
+
+  // Continue with frame processing
+  processFrame(rgb_images, lidar_msg, filtered_multi_image_msg->header, t_start);
+}
+
+void BEVFusionNode::syncedCompressedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
   RCLCPP_DEBUG_THROTTLE(
-    this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image synced, processing");
+    this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image compressed synced, processing");
+
   multi_image_msg_count_++;
   lidar_msg_count_++;
   synced_msg_count_++;
@@ -256,6 +409,7 @@ void BEVFusionNode::syncedCallback(
     }
   }
 
+  // Setup variables for parallel decompression
   const size_t num_imgs = filtered_multi_image_msg->images.size();
   std::vector<cv::Mat> rgb_images(num_imgs);
   std::vector<bool> decode_success(num_imgs, true);
@@ -263,7 +417,7 @@ void BEVFusionNode::syncedCallback(
   decode_futures.reserve(num_imgs);
 
   // Parallel multi-threaded JPEG decompression across CPU worker threads
-  const auto t_before_decode = std::chrono::steady_clock::now();
+  // Each thread decompresses one image, converts it to RGB format, and stores it in rgb_images
   for (size_t i = 0; i < num_imgs; ++i) {
     decode_futures.push_back(
       std::async(std::launch::async, [this, i, &filtered_multi_image_msg, &rgb_images, &decode_success]() {
@@ -276,12 +430,12 @@ void BEVFusionNode::syncedCallback(
       }));
   }
 
+  // Wait for all threads to finish decompression
   for (auto & f : decode_futures) {
     f.get();
   }
 
-  std::vector<const unsigned char *> camera_images;
-  camera_images.reserve(num_imgs);
+  // Check if all images were decompressed successfully
   for (size_t i = 0; i < num_imgs; ++i) {
     if (!decode_success[i]) {
       const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
@@ -289,81 +443,10 @@ void BEVFusionNode::syncedCallback(
         this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
       return;
     }
-    camera_images.push_back(rgb_images[i].data);
-  }
-  const auto t_after_decode = std::chrono::steady_clock::now();
-
-  // Process LiDAR data
-  std::vector<float> lidar_data;
-  if (!processLidar(lidar_msg, lidar_data)) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Failed to process LiDAR data; skipping frame");
-    return;
   }
 
-  // Camera count validation
-  if (camera_images.size() != static_cast<size_t>(config_.num_cameras)) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
-      camera_images.size(),
-      config_.num_cameras);
-    return;
-  }
-
-  // Image validation
-  for (size_t i = 0; i < rgb_images.size(); ++i) {
-    if (!validateAndNormalizeImage(rgb_images[i], i)) return;
-    camera_images[i] = rgb_images[i].data;
-  }
-
-  // LiDAR validation
-  if (!validateAndTrimLidar(lidar_data)) return;
-  int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
-  const auto t_after_lidar = std::chrono::steady_clock::now();
-
-  // Run inference
-  RCLCPP_DEBUG_THROTTLE(
-    this->get_logger(),
-    *this->get_clock(),
-    1000,
-    "Calling core_->infer with %zu images and %d LiDAR points",
-    camera_images.size(),
-    num_points);
-  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
-  RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu bounding boxes", bboxes.size());
-  const auto t_after_infer = std::chrono::steady_clock::now();
-
-  // Create detections and markers from bboxes
-  auto detections_3d = createDetections3D(bboxes, filtered_multi_image_msg->header.stamp);
-  auto markers = createMarkers(detections_3d);
-  detection_pub_->publish(detections_3d);
-  marker_pub_->publish(markers);
-  const auto t_after_postproc = std::chrono::steady_clock::now();
-
-  // Calculate stage durations in milliseconds
-  const double decode_ms = std::chrono::duration<double, std::milli>(t_after_decode - t_before_decode).count();
-  const double lidar_ms = std::chrono::duration<double, std::milli>(t_after_lidar - t_after_decode).count();
-  const double infer_ms = std::chrono::duration<double, std::milli>(t_after_infer - t_after_lidar).count();
-  const double postproc_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_after_infer).count();
-  const double total_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_start).count();
-
-  RCLCPP_INFO_THROTTLE(
-    this->get_logger(),
-    *this->get_clock(),
-    5000,
-    "[PROFILER] Callback: %.2f ms | JPEG Decode: %.2f ms | LiDAR Prep: %.2f ms | GPU Infer: %.2f ms | PostProc: %.2f "
-    "ms",
-    total_ms,
-    decode_ms,
-    lidar_ms,
-    infer_ms,
-    postproc_ms);
-
-  // Update statistics and diagnostics
-  updateStatistics(total_ms);
-  updateDiagnostics(detections_3d.header.stamp);
+  // Continue with frame processing
+  processFrame(rgb_images, lidar_msg, filtered_multi_image_msg->header, t_start);
 }
 
 void BEVFusionNode::multiCameraInfoCallback(
@@ -747,7 +830,6 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
   return marker_array;
 }
 
-// Copied from attribute assigner. I'll be honest I don't fully understrand this CV library syntax.
 cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
 {
   try {
@@ -1014,17 +1096,30 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       subscriber_qos_,
       std::bind(&BEVFusionNode::multiCameraInfoCallback, this, std::placeholders::_1));
 
-    multi_image_sub_ =
-      std::make_shared<ImageSub>(this->shared_from_this(), multi_image_topic_, subscriber_qos_.get_rmw_qos_profile());
     lidar_sub_ =
       std::make_shared<LidarSub>(this->shared_from_this(), lidar_topic_, subscriber_qos_.get_rmw_qos_profile());
 
-    // ApproximateTime synchronizer
-    // We use the message filters sync queue to synchronize the camera images and lidar data based on the timestamps.
-    sync_ = std::make_shared<Synchronizer>(SyncPolicy(sync_queue_size_), *multi_image_sub_, *lidar_sub_);
-    sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
-    sync_->registerCallback(
-      std::bind(&BEVFusionNode::syncedCallback, this, std::placeholders::_1, std::placeholders::_2));
+    if (use_raw_images_) {
+      RCLCPP_INFO(this->get_logger(), "Configuring MultiImage (raw) subscriber (use_raw_images=true):");
+      RCLCPP_INFO(this->get_logger(), "  - MultiImage (raw) topic: '%s'", multi_image_raw_topic_.c_str());
+      multi_image_raw_sub_ = std::make_shared<MultiImageRawSub>(
+        this->shared_from_this(), multi_image_raw_topic_, subscriber_qos_.get_rmw_qos_profile());
+      raw_sync_ = std::make_shared<MultiImageRawSynchronizer>(
+        MultiImageRawSyncPolicy(sync_queue_size_), *multi_image_raw_sub_, *lidar_sub_);
+      raw_sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
+      raw_sync_->registerCallback(
+        std::bind(&BEVFusionNode::syncedRawCallback, this, std::placeholders::_1, std::placeholders::_2));
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Configuring MultiImageCompressed subscriber (use_raw_images=false):");
+      RCLCPP_INFO(this->get_logger(), "  - MultiImageCompressed topic: '%s'", multi_image_compressed_topic_.c_str());
+      multi_image_compressed_sub_ = std::make_shared<MultiImageCompressedSub>(
+        this->shared_from_this(), multi_image_compressed_topic_, subscriber_qos_.get_rmw_qos_profile());
+      compressed_sync_ = std::make_shared<MultiImageCompressedSynchronizer>(
+        MultiImageCompressedSyncPolicy(sync_queue_size_), *multi_image_compressed_sub_, *lidar_sub_);
+      compressed_sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
+      compressed_sync_->registerCallback(
+        std::bind(&BEVFusionNode::syncedCompressedCallback, this, std::placeholders::_1, std::placeholders::_2));
+    }
 
     // Create publishers
     detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kOutputDetectionsTopic, publisher_qos_);
@@ -1064,7 +1159,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
     RCLCPP_INFO(this->get_logger(), "Subscribed to:");
     RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo: '%s'", multi_camera_info_sub_->get_topic_name());
-    RCLCPP_INFO(this->get_logger(), "  - MultiImage: '%s'", multi_image_sub_->getTopic().c_str());
+    RCLCPP_INFO(
+      this->get_logger(),
+      "  - MultiImage: '%s'",
+      use_raw_images_ ? multi_image_raw_sub_->getTopic().c_str() : multi_image_compressed_sub_->getTopic().c_str());
     RCLCPP_INFO(this->get_logger(), "  - LiDAR: '%s'", lidar_sub_->getTopic().c_str());
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
     RCLCPP_INFO(this->get_logger(), "  - 3D Detections: '%s'", detection_pub_->get_topic_name());
@@ -1095,8 +1193,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     marker_pub_->on_deactivate();
   }
 
-  sync_.reset();
-  multi_image_sub_.reset();
+  raw_sync_.reset();
+  compressed_sync_.reset();
+  multi_image_raw_sub_.reset();
+  multi_image_compressed_sub_.reset();
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   calibration_initialized_ = false;
@@ -1111,8 +1211,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up BEVFusion node");
 
-  sync_.reset();
-  multi_image_sub_.reset();
+  raw_sync_.reset();
+  compressed_sync_.reset();
+  multi_image_raw_sub_.reset();
+  multi_image_compressed_sub_.reset();
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   {
@@ -1158,8 +1260,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
 
-  sync_.reset();
-  multi_image_sub_.reset();
+  raw_sync_.reset();
+  compressed_sync_.reset();
+  multi_image_raw_sub_.reset();
+  multi_image_compressed_sub_.reset();
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   {

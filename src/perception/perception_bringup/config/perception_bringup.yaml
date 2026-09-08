@@ -459,7 +459,9 @@ multi_camera_sync:
     target_frame: "base_link"  # Target coordinate frame for 3D detections
 
     # Input topics for message filters (remapping does not work for message_filters)
-    input_multi_image_topic: "/multi_camera_sync/multi_image_compressed"  # Topic for synchronized compressed images (sensor_msgs/msg/CompressedImage)
+    use_raw_images: false  # true: subscribe to /multi_camera_sync/multi_image_raw; false: subscribe to /multi_camera_sync/multi_image_compressed
+    input_multi_image_raw_topic: "/multi_camera_sync/multi_image_raw"  # Batched raw images (deep_msgs/msg/MultiImage)
+    input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
     input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
     # Specify whether inputted lidar topic has the 5th parameter (ring id)
