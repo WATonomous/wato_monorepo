@@ -90,7 +90,6 @@ void BEVFusionNode::declareParameters()
       "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"});
   this->declare_parameter<int>("image_width", 1280);
   this->declare_parameter<int>("image_height", 1024);
-  this->declare_parameter<float>("resize_lim", 0.55f);
   this->declare_parameter<int>("norm_output_width", 704);
   this->declare_parameter<int>("norm_output_height", 256);
   this->declare_parameter<std::string>("interpolation", "bilinear");
@@ -164,9 +163,17 @@ void BEVFusionNode::declareParameters()
   config_.num_cameras = static_cast<int>(camera_names_.size());
   config_.image_width = this->get_parameter("image_width").as_int();
   config_.image_height = this->get_parameter("image_height").as_int();
-  config_.resize_lim = static_cast<float>(this->get_parameter("resize_lim").as_double());
   config_.norm_output_width = this->get_parameter("norm_output_width").as_int();
   config_.norm_output_height = this->get_parameter("norm_output_height").as_int();
+
+  // Calculate resize_lim from the input and output dimensions
+  // This is done to ensure that the shorter side of the image is resized to at least
+  // 'resize_lim' of the original side, and the longer side is resized to a
+  // corresponding ratio to maintain the aspect ratio.
+  config_.resize_lim = std::max(
+    static_cast<float>(config_.norm_output_width) / static_cast<float>(config_.image_width),
+    static_cast<float>(config_.norm_output_height) / static_cast<float>(config_.image_height));
+
   config_.interpolation = this->get_parameter("interpolation").as_string();
   config_.norm_mean = to_float_vec("norm_mean");
   config_.norm_std = to_float_vec("norm_std");

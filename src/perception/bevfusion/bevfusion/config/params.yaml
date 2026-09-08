@@ -35,7 +35,6 @@ bevfusion_node:
     # --- Camera Normalization & Preprocessing ---
     image_width: 1280  # Input image resolution (must match the camera hardware)
     image_height: 1024
-    resize_lim: 0.55  # Min scaling ratio limit - the shortest side is resized to at least 'resize_lim' of original side
     norm_output_width: 704  # Output resolution after resize (Network input)
     norm_output_height: 256
     interpolation: "bilinear"  # Interpolation method for resizing ("bilinear" or "nearest")

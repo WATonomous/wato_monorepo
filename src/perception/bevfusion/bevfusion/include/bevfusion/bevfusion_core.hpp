@@ -48,8 +48,7 @@ struct BEVFusionInputConfig
   int norm_output_width = 704;  // Output resolution after resize (Network input)
   int norm_output_height = 256;
   int num_cameras = 6;
-  float resize_lim =
-    0.48f;  // Min scaling ratio limit - the shortest side is resized to at least 'resize_lim' of original side
+  float resize_lim = 0.55f;  // Multiplier for the shorter side of the image to be resized to
   std::string interpolation = "bilinear";  // Interpolation method for resizing
   std::vector<float> norm_mean = {0.485f, 0.456f, 0.406f};  // Mean subtraction value per RGB channel
   std::vector<float> norm_std = {0.229f, 0.224f, 0.225f};  // Std deviation value per RGB channel
