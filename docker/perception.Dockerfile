@@ -8,9 +8,20 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
-# Copy in source code needed for perception build
+# git-lfs must be installed here since wato-cuda-bevfusion uses LFS
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git-lfs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Clone required repositories.
+# Add COLCON_IGNORE to wato-cuda-bevfusion so colcon doesn't pick up the
+# upstream CUDA-BEVFusion package.xml as a duplicate to our own bevfusion pkg.
 RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
-    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros
+    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
+    git clone --recurse-submodules https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
+    touch wato-cuda-bevfusion/COLCON_IGNORE && \
+    git -C wato-cuda-bevfusion lfs install && \
+    git -C wato-cuda-bevfusion lfs pull
 
 COPY src/perception perception
 
@@ -36,7 +47,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libnvinfer10 \
     libnvinfer-plugin10 \
-    libnvonnxparsers10 && \
+    libnvonnxparsers10 \
+    protobuf-compiler \
+    libprotobuf-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Isaac ROS (NITROS + image_proc + h264_encoder) for GPU-accelerated image
@@ -56,12 +69,4 @@ RUN apt-get update && \
       ros-jazzy-isaac-ros-nitros \
       ros-jazzy-isaac-ros-image-proc \
       ros-jazzy-isaac-ros-h264-encoder && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install protobuf and git-lfs for cuda_bevfusion_vendor
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    protobuf-compiler \
-    libprotobuf-dev \
-    git-lfs && \
     rm -rf /var/lib/apt/lists/*

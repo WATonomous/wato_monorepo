@@ -14,8 +14,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(cuda_bevfusion_vendor)
 
-set(CUDA_BEVFUSION_GIT_REPOSITORY "https://github.com/WATonomous/wato-cuda-bevfusion.git" CACHE STRING "Git repository URL")
-set(CUDA_BEVFUSION_GIT_TAG "master" CACHE STRING "Git tag/branch to checkout")
+# The wato-cuda-bevfusion repo is cloned in the Dockerfile (source stage).
+# Point to that pre-cloned directory so colcon build does NOT re-clone.
+set(CUDA_BEVFUSION_SOURCE_DIR
+    "$ENV{AMENT_WS}/src/wato-cuda-bevfusion"
+    CACHE PATH "Path to the pre-cloned wato-cuda-bevfusion repository")
 
 option(FORCE_BUILD_VENDOR_PKG
   "Force building cuda-bevfusion from source"
@@ -92,23 +95,19 @@ macro(build_cuda_bevfusion)
     set(_stub_rpath "-Wl,-rpath-link,${CMAKE_CURRENT_BINARY_DIR}")
     set(_cuda_stub_link_flags "${_stub_L} ${_stub_rpath}")
 
-    # Build cuda-bevfusion using ExternalProject
+    # Build cuda-bevfusion using ExternalProject.
+    # SOURCE_DIR points to the repo already cloned in the Dockerfile — no
+    # git clone happens at colcon-build time.
     externalproject_add(cuda_bevfusion_src
-        GIT_REPOSITORY ${CUDA_BEVFUSION_GIT_REPOSITORY}
-        GIT_TAG ${CUDA_BEVFUSION_GIT_TAG}
-        GIT_SHALLOW TRUE
-        TIMEOUT 600
+        SOURCE_DIR ${CUDA_BEVFUSION_SOURCE_DIR}
 
         # Specify the source directory subdirectory
         SOURCE_SUBDIR CUDA-BEVFusion
 
-        # 1. Initialize git-lfs and pull the binary files (like libspconv.so)
-        # 2. Patch make_pb.sh to fallback to system protoc
-        # 3. Run the protobuf generation script
-        PATCH_COMMAND git lfs install && git lfs pull
-              COMMAND sed -i "s|protoc=\\\$CONDA_PREFIX/bin/protoc|protoc=protoc|g" <SOURCE_DIR>/CUDA-BEVFusion/src/onnx/make_pb.sh
+        # git-lfs pull is handled in the Dockerfile (source stage) alongside the clone.
+        # Patch make_pb.sh to fallback to system protoc, then generate protobuf sources.
+        PATCH_COMMAND sed -i "s|protoc=\\\$CONDA_PREFIX/bin/protoc|protoc=protoc|g" <SOURCE_DIR>/CUDA-BEVFusion/src/onnx/make_pb.sh
               COMMAND bash <SOURCE_DIR>/CUDA-BEVFusion/src/onnx/make_pb.sh
-
 
         # Explicitly configure using 'cmake -E env' to pass build-time environment variables
         CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
@@ -140,9 +139,6 @@ macro(build_cuda_bevfusion)
 
         INSTALL_COMMAND ""
         CONFIGURE_HANDLED_BY_BUILD TRUE
-
-        # Ensure submodules are recursively cloned
-        GIT_SUBMODULES "CUDA-BEVFusion/bevfusion dependencies/stb dependencies/dlpack libraries/3DSparseConvolution libraries/cuOSD"
     )
 
     externalproject_get_property(cuda_bevfusion_src BINARY_DIR SOURCE_DIR)
