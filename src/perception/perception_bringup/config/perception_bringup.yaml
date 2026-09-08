@@ -464,7 +464,7 @@ multi_camera_sync:
 
     # Specify whether inputted lidar topic has the 5th parameter (ring id)
     # Merged lidar points do not while single lidars do.
-    has_ring: false
+    has_ring: true
 
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50int8_trt11"
@@ -506,12 +506,14 @@ multi_camera_sync:
     feat_height: 32  # Feature map height after projection (by camera backbone)
 
     # --- LiDAR Voxelization & SCN ---
-    min_range: [-54.0, -54.0, -3.0]  # Min 3D range (x,y,z) in meters for voxelization (from lidar frame)
+    min_range: [-54.0, -54.0, -5.0]  # Min 3D range (x,y,z) in meters for voxelization (from lidar frame)
     max_range: [54.0, 54.0, 3.0]  # Max 3D range (from lidar frame)
     voxel_size: [0.075, 0.075, 0.2]  # Size of each voxel (x,y,z) in meters
     max_points_per_voxel: 10  # Max # of points to sample in 1 voxel
     max_points: 300000  # Upper limit on total # of lidar points processed
     max_voxels: 160000  # Upper limit on total # of voxels generated on the grid
+    num_features: 5  # Dimensions per lidar point (x, y, z, intensity, ring)
+    scn_order: "XYZ"  # SCN coordinate order constraint ("XYZ" or "ZYX")
 
     # --- Bounding Box Post-processing & Head ---
     out_size_factor: 8  # Resolution downsampling factor of the detection head output relative to voxels
@@ -540,7 +542,7 @@ detection_lifecycle_manager:
     # Manages model inference and attribute enrichment nodes.
     node_names: ["bevfusion_node"] # "deep_object_detection_node", "attribute_assigner_node"
     autostart: true
-    autostart_delay_s: 20.0
+    # autostart_delay_s: 20.0
     transition_timeout_s: 130.0
     bond_timeout_s: 4.0
     bond_enabled: false

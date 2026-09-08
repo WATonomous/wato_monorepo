@@ -110,6 +110,8 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<int>("max_points_per_voxel", 10);
   this->declare_parameter<int>("max_points", 300000);
   this->declare_parameter<int>("max_voxels", 160000);
+  this->declare_parameter<int>("num_features", 5);
+  this->declare_parameter<std::string>("scn_order", "XYZ");
 
   // BEV Fusion grid geometry
   this->declare_parameter<std::vector<double>>("xbound", std::vector<double>{-54.0, 54.0, 0.3});
@@ -190,6 +192,8 @@ void BEVFusionNode::declareParameters()
   config_.max_points_per_voxel = this->get_parameter("max_points_per_voxel").as_int();
   config_.max_points = this->get_parameter("max_points").as_int();
   config_.max_voxels = this->get_parameter("max_voxels").as_int();
+  config_.num_features = this->get_parameter("num_features").as_int();
+  config_.scn_order = this->get_parameter("scn_order").as_string();
 
   config_.xbound = to_float_vec("xbound");
   config_.ybound = to_float_vec("ybound");
@@ -756,6 +760,8 @@ bool BEVFusionNode::processLidar(
       if (has_ring_) {
         lidar_data.push_back(static_cast<float>(**iter_ring));
         ++(*iter_ring);
+      } else {  // Put a 0.0f for ring if it is not present
+        lidar_data.push_back(0.0f);
       }
     }
   } catch (const std::runtime_error & e) {
