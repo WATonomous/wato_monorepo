@@ -20,6 +20,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -255,24 +256,40 @@ void BEVFusionNode::syncedCallback(
     }
   }
 
-  std::vector<const unsigned char *> camera_images;
-  std::vector<cv::Mat> rgb_images;
-  camera_images.reserve(filtered_multi_image_msg->images.size());
-  rgb_images.reserve(filtered_multi_image_msg->images.size());
+  const size_t num_imgs = filtered_multi_image_msg->images.size();
+  std::vector<cv::Mat> rgb_images(num_imgs);
+  std::vector<bool> decode_success(num_imgs, true);
+  std::vector<std::future<void>> decode_futures;
+  decode_futures.reserve(num_imgs);
 
-  // Decompress the images
+  // Parallel multi-threaded JPEG decompression across CPU worker threads
   const auto t_before_decode = std::chrono::steady_clock::now();
-  for (size_t i = 0; i < filtered_multi_image_msg->images.size(); ++i) {
-    const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
-    cv::Mat bgr = decompressImage(filtered_multi_image_msg->images[i]);
-    if (bgr.empty()) {
+  for (size_t i = 0; i < num_imgs; ++i) {
+    decode_futures.push_back(
+      std::async(std::launch::async, [this, i, &filtered_multi_image_msg, &rgb_images, &decode_success]() {
+        cv::Mat bgr = decompressImage(filtered_multi_image_msg->images[i]);
+        if (bgr.empty()) {
+          decode_success[i] = false;
+          return;
+        }
+        cv::cvtColor(bgr, rgb_images[i], cv::COLOR_BGR2RGB);
+      }));
+  }
+
+  for (auto & f : decode_futures) {
+    f.get();
+  }
+
+  std::vector<const unsigned char *> camera_images;
+  camera_images.reserve(num_imgs);
+  for (size_t i = 0; i < num_imgs; ++i) {
+    if (!decode_success[i]) {
+      const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
       return;
     }
-    rgb_images.emplace_back();
-    cv::cvtColor(bgr, rgb_images.back(), cv::COLOR_BGR2RGB);
-    camera_images.push_back(rgb_images.back().data);
+    camera_images.push_back(rgb_images[i].data);
   }
   const auto t_after_decode = std::chrono::steady_clock::now();
 
