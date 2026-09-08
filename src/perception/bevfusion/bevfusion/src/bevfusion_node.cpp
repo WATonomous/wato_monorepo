@@ -93,6 +93,16 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<float>("resize_lim", 0.55f);
   this->declare_parameter<int>("norm_output_width", 704);
   this->declare_parameter<int>("norm_output_height", 256);
+  this->declare_parameter<std::string>("interpolation", "bilinear");
+  this->declare_parameter<std::vector<double>>("norm_mean", std::vector<double>{0.485, 0.456, 0.406});
+  this->declare_parameter<std::vector<double>>("norm_std", std::vector<double>{0.229, 0.224, 0.225});
+  this->declare_parameter<double>("norm_scale", 1.0 / 255.0);
+  this->declare_parameter<double>("norm_bias", 0.0);
+
+  // Camera geometry & feature map dimensions
+  this->declare_parameter<std::vector<int64_t>>("geometry_dim", std::vector<int64_t>{360, 360, 80});
+  this->declare_parameter<int>("feat_width", 88);
+  this->declare_parameter<int>("feat_height", 32);
 
   // LiDAR voxelization parameters
   this->declare_parameter<std::vector<double>>("min_range", std::vector<double>{-54.0, -54.0, -5.0});
@@ -111,6 +121,10 @@ void BEVFusionNode::declareParameters()
   // Detection post-processing parameters
   this->declare_parameter<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
   this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
+  this->declare_parameter<int>("out_size_factor", 8);
+  this->declare_parameter<std::vector<double>>("transbbox_pc_range", std::vector<double>{-54.0, -54.0});
+  this->declare_parameter<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
+  this->declare_parameter<bool>("sorted_bboxes", true);
 
   this->declare_parameter<bool>("has_ring", false);
   has_ring_ = this->get_parameter("has_ring").as_bool();
@@ -131,6 +145,11 @@ void BEVFusionNode::declareParameters()
     return std::vector<float>(d.begin(), d.end());
   };
 
+  const auto to_int_vec = [this](const std::string & name) {
+    const auto d = this->get_parameter(name).as_integer_array();
+    return std::vector<int>(d.begin(), d.end());
+  };
+
   config_.model_dir = model_dir;
   config_.build_dir = build_dir;
   config_.camera_backbone_plan = build_dir + "/camera.backbone.plan";
@@ -148,6 +167,15 @@ void BEVFusionNode::declareParameters()
   config_.resize_lim = static_cast<float>(this->get_parameter("resize_lim").as_double());
   config_.norm_output_width = this->get_parameter("norm_output_width").as_int();
   config_.norm_output_height = this->get_parameter("norm_output_height").as_int();
+  config_.interpolation = this->get_parameter("interpolation").as_string();
+  config_.norm_mean = to_float_vec("norm_mean");
+  config_.norm_std = to_float_vec("norm_std");
+  config_.norm_scale = static_cast<float>(this->get_parameter("norm_scale").as_double());
+  config_.norm_bias = static_cast<float>(this->get_parameter("norm_bias").as_double());
+
+  config_.geometry_dim = to_int_vec("geometry_dim");
+  config_.feat_width = static_cast<int>(this->get_parameter("feat_width").as_int());
+  config_.feat_height = static_cast<int>(this->get_parameter("feat_height").as_int());
 
   config_.min_range = to_float_vec("min_range");
   config_.max_range = to_float_vec("max_range");
@@ -164,9 +192,10 @@ void BEVFusionNode::declareParameters()
   config_.post_center_range_start = to_float_vec("post_center_range_start");
   config_.post_center_range_end = to_float_vec("post_center_range_end");
 
-  // transbbox_pc_range and transbbox_voxel_size are the XY projections of min_range and voxel_size
-  config_.transbbox_pc_range = {config_.min_range[0], config_.min_range[1]};
-  config_.transbbox_voxel_size = {config_.voxel_size[0], config_.voxel_size[1]};
+  config_.out_size_factor = static_cast<int>(this->get_parameter("out_size_factor").as_int());
+  config_.transbbox_pc_range = to_float_vec("transbbox_pc_range");
+  config_.transbbox_voxel_size = to_float_vec("transbbox_voxel_size");
+  config_.sorted_bboxes = this->get_parameter("sorted_bboxes").as_bool();
 
   core_ = std::make_unique<BEVFusionCore>(config_);
 }
