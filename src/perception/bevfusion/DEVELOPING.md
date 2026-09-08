@@ -19,11 +19,11 @@ Given synchronized camera images and a merged LiDAR point cloud, the node:
 Sensor Inputs
 ─────────────
 /multi_camera_sync/multi_image_compressed  ──┐
-(6 cameras, JPEG-compressed, CPU)             │
-                                              ├──► BEVFusionNode (lifecycle composable)
-/lidar_cc/velodyne_points                     │         │
-(configurable LiDAR topic)                 ──┘         │
-                                                         ▼
+(6 cameras, JPEG-compressed, CPU)            │
+                                             ├──► BEVFusionNode (lifecycle composable)
+/lidar_cc/velodyne_points                    │          │
+(configurable LiDAR topic)                 ──┘          │
+                                                        ▼
                                               BEVFusionCore
                                               ├── Camera preprocessing (JPEG decode + BGR→RGB)
                                               ├── LiDAR preprocessing (float→FP16)
