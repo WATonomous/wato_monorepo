@@ -488,9 +488,38 @@ multi_camera_sync:
     # --- Camera Normalization & Preprocessing ---
     image_width: 1280  # Input image resolution (must match the camera hardware)
     image_height: 1024
+    interpolation: "bilinear"  # Interpolation method for resizing ("bilinear" or "nearest")
+
+    # --- LiDAR Voxelization & SCN ---
+    max_points_per_voxel: 10  # Max # of points to sample in 1 voxel
+    max_points: 300000  # Upper limit on total # of lidar points processed
+    max_voxels: 160000  # Upper limit on total # of voxels generated on the grid
+
+    # --- Bounding Box Post-processing & Head ---
+    post_center_range_start: [-61.2, -61.2, -10.0]  # BBox center filter lower boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
+    post_center_range_end: [61.2, 61.2, 10.0]  # BBox center filter upper boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
+    sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
+
+    # ApproximateTime synchronization
+    sync_queue_size: 5
+    sync_max_time_diff_ms: 200.0
+
+    # QoS
+    qos_subscriber_reliability: "best_effort"
+    qos_subscriber_depth: 2
+    qos_publisher_reliability: "reliable"
+    qos_publisher_durability: "transient_local"
+    qos_publisher_depth: 5
+
+    # -------------------------------------------------------------------------
+    # Retrain-Dependent Parameters
+    # - Parameters below this point can only be modified if the BEVFusion
+    #   Pytorch model is retrained and TensorRT engine files are regenerated
+    # -------------------------------------------------------------------------
+
+    # --- Camera Normalization & Preprocessing ---
     norm_output_width: 704  # Output resolution after resize (Network input)
     norm_output_height: 256
-    interpolation: "bilinear"  # Interpolation method for resizing ("bilinear" or "nearest")
     norm_mean: [0.485, 0.456, 0.406]  # Mean subtraction value per RGB channel
     norm_std: [0.229, 0.224, 0.225]  # Std deviation value per RGB channel
     norm_scale: 0.00392156862745098  # Input image pixel scaling factor ([0,255] -> [0,1])
@@ -509,9 +538,6 @@ multi_camera_sync:
     min_range: [-54.0, -54.0, -5.0]  # Min 3D range (x,y,z) in meters for voxelization (from lidar frame)
     max_range: [54.0, 54.0, 3.0]  # Max 3D range (from lidar frame)
     voxel_size: [0.075, 0.075, 0.2]  # Size of each voxel (x,y,z) in meters
-    max_points_per_voxel: 10  # Max # of points to sample in 1 voxel
-    max_points: 300000  # Upper limit on total # of lidar points processed
-    max_voxels: 160000  # Upper limit on total # of voxels generated on the grid
     num_features: 5  # Dimensions per lidar point (x, y, z, intensity, ring)
     scn_order: "XYZ"  # SCN coordinate order constraint ("XYZ" or "ZYX")
 
@@ -519,20 +545,10 @@ multi_camera_sync:
     out_size_factor: 8  # Resolution downsampling factor of the detection head output relative to voxels
     transbbox_pc_range: [-54.0, -54.0]  # 2D point cloud start boundary [min_x, min_y] for the head
     transbbox_voxel_size: [0.075, 0.075]  # 2D voxel size [dX, dY] in the horizontal plane
-    post_center_range_start: [-61.2, -61.2, -10.0]  # BBox center filter lower boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
-    post_center_range_end: [61.2, 61.2, 10.0]  # BBox center filter upper boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
-    sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
 
-    # ApproximateTime synchronization
-    sync_queue_size: 5
-    sync_max_time_diff_ms: 200.0
-
-    # QoS
-    qos_subscriber_reliability: "best_effort"
-    qos_subscriber_depth: 2
-    qos_publisher_reliability: "reliable"
-    qos_publisher_durability: "transient_local"
-    qos_publisher_depth: 5
+    # -------------------------------------------------------------------------
+    # End of Retrain-Dependent Parameters
+    # -------------------------------------------------------------------------
 
 # =============================================================================
 # Lifecycle Managers
