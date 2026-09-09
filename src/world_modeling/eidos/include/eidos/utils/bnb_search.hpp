@@ -284,13 +284,60 @@ inline int scorePoseAtLevel(
   const int per_point_max = (score_mode == ScoreMode::DistanceField) ? 255 : hit_weight;
 
   int score = 0;
-  for (int i = 0; i < n; ++i) {
+
+  // Transform one query point into the map frame under the candidate pose. Shared by both
+  // scoring paths so they cannot drift apart.
+  const auto mapPoint = [&](int i) {
     const auto & q = query[static_cast<std::size_t>(i)];
-    const Eigen::Vector3d p(
+    return Eigen::Vector3d(
       c * q.x() - s * q.y() + translation.x(), s * q.x() + c * q.y() + translation.y(), q.z() + translation.z());
-    if (score_mode == ScoreMode::DistanceField) {
-      score += leaf ? lvl.scoreAt(p) : lvl.scoreBound(p);
-    } else if (leaf ? lvl.hit(p) : lvl.hitBound(p)) {
+  };
+
+  if (score_mode == ScoreMode::DistanceField) {
+    // Distance-field scoring is a hash probe per point into a table far larger than cache
+    // (hundreds of MB at level 0 on a km-scale map), so it is bound by memory latency rather
+    // than arithmetic. Points are independent, so the loop runs a small software pipeline:
+    // issue the cache miss for a point kPrefetch ahead, then score the current one against a
+    // line that has had time to arrive. scoreBound() IS scoreAt() at every level (levels above
+    // 0 are stored pre-max-pooled), so one path covers both, unlike the occupancy branch below.
+    //
+    // Results are bit-identical to the unpipelined form: prefetching is advisory, and the
+    // early-exit test below is evaluated in the same order against the same running score.
+    constexpr int kPrefetch = 8;  // Power of two, so the ring index below is a mask.
+    // Keys already computed and prefetched but not yet scored. Carrying them means each point's
+    // rotation and key packing happen exactly once, rather than once to prefetch and again to
+    // score.
+    int64_t pending[kPrefetch];
+    const int primed = n < kPrefetch ? n : kPrefetch;
+    for (int j = 0; j < primed; ++j) {
+      pending[j] = lvl.scoreKey(mapPoint(j));
+      lvl.scores.prefetch(pending[j]);
+    }
+
+    for (int i = 0; i < n; ++i) {
+      const int slot = i & (kPrefetch - 1);
+      const int64_t key = pending[slot];
+
+      // Refill this slot with the point kPrefetch further on, whose line then has the rest of
+      // this iteration's work to arrive in.
+      const int ahead = i + kPrefetch;
+      if (ahead < n) {
+        pending[slot] = lvl.scoreKey(mapPoint(ahead));
+        lvl.scores.prefetch(pending[slot]);
+      }
+
+      score += lvl.scoreAtKey(key);
+      if (point_tests_out != nullptr) ++(*point_tests_out);
+
+      const int remaining = n - i - 1;
+      if (score + remaining * per_point_max < min_required) return score;  // cannot reach min_required.
+    }
+    return score;
+  }
+
+  for (int i = 0; i < n; ++i) {
+    const Eigen::Vector3d p = mapPoint(i);
+    if (leaf ? lvl.hit(p) : lvl.hitBound(p)) {
       score += hit_weight;
     } else if (!(leaf ? lvl.isFree(p) : lvl.isFreeBound(p))) {
       score += 1;  // unknown: neither occupied nor known-free.

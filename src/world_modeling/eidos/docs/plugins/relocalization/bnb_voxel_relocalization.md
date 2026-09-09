@@ -44,8 +44,13 @@ GPS-free global relocalization. Given only a prior `.map` file, one LiDAR scan, 
 | `submap_leaf_size` | double | `0.4` | Voxel downsample leaf size for the GICP submap (meters). |
 | `max_correspondence_distance` | double | `2.0` | GICP max correspondence distance (meters). |
 | `max_icp_iterations` | int | `100` | GICP max iterations. |
-| `num_threads` | int | `16` | Thread count for GICP and preprocessing. |
+| `num_threads` | int | `16` | Thread count for GICP and preprocessing. The branch-and-bound loop itself uses `max(num_threads, omp_get_max_threads())` — see `search_task_multiplier`. |
 | `num_neighbors` | int | `10` | Number of neighbors for normal/covariance estimation. |
+| `search_task_multiplier` | int | `4` | Root chunks cut per roll/pitch offset, as a multiple of the search thread count. With the default `rp_search_steps: 1` there is exactly one offset, so this times the thread count is the entire search's task count. |
+| `use_odom_carry_forward` | bool | `true` | Advance the lock along odometry accumulated during the search, so the returned pose describes the vehicle *now* rather than when its scan was taken. See "Carrying a lock forward" below. |
+| `odom_topic` | string | `"liso/odometry_incremental"` | Odom-frame odometry to measure the carry-forward delta from. Must match `liso_factor`'s `odometry_incremental_topic`. |
+| `odom_buffer_seconds` | double | `300.0` | Odometry history retained (s). Must exceed the worst-case search duration, or the scan-time sample the delta is measured from is trimmed before the search returns and carry-forward declines rather than extrapolates. |
+| `carry_forward_warn_distance` | double | `15.0` | WARN when the carry-forward correction exceeds this (m). |
 | `publish_debug_grid` | bool | `true` | Whether to publish a latched debug OccupancyGrid of the voxel pyramid. |
 | `debug_grid_topic` | string | `"slam/visualization/reloc_voxel_grid"` | Topic for the published debug voxel grid. |
 | `use_free_space` | bool | `false` | Master switch for the free-space scoring channel (see Status below). Only meaningful under `score_mode: occupancy`; under `score_mode: distance_field` the channel is never built or raycast at all, because a distance field already scores a point far from all structure at ~0, continuously, which is what this channel was approximating. `false` reproduces today's binary hit-count score exactly -- ranking is bit-identical. Off by default: the measurement that would validate it turned out to be inconclusive rather than negative -- see Status. |
@@ -60,6 +65,7 @@ GPS-free global relocalization. Given only a prior `.map` file, one LiDAR scan, 
 ## Notes
 
 - Runs on a background worker thread; `tryRelocalize()` returns `std::nullopt` until a result is ready and never blocks the SLAM loop.
+- **The scan is latched once per attempt.** The live scan/query buffers keep advancing at sensor rate while a multi-second search runs, so the worker snapshots them at search start and both the search and `gicpPolish()` use that one scan. Previously GICP refined against `latest_scan_` — a cloud captured seconds later, from a different place, than the one the hypotheses being refined were derived from, which registers the wrong data against the right guess. Latching also gives the result a well-defined timestamp, which is what "Carrying a lock forward" below needs.
 - The pyramid is built once on the first attempt from clouds already resident in memory after `loadMap`, so there is no map schema change and existing `.map` files work unmodified. Build cost is seconds.
 - **Pyramid memory is recovered, not just dropped, once the plugin is done with it** -- after a successful lock, on `deactivate()`, and in the destructor. `VoxelPyramid::releaseMemory()` is used rather than `clear()`: it additionally `malloc_trim()`s under glibc, because freeing the pyramid's buffers does not by itself guarantee the OS reclaims that memory (freed heap normally stays in the allocator's arena). Each release logs process RSS immediately before and after (`pyramid released (<context>): RSS X MB -> Y MB`), so the recovery is checkable in a field log rather than assumed -- this was an explicit condition of accepting the distance field's larger memory footprint (see below). Deactivating also resets the build flags, so a later `activate()` rebuilds a fresh pyramid rather than searching an emptied one.
 - Requires the prior map to be gravity-aligned. Maps built by eidos satisfy this because LISO gravity-aligns during IMU warmup; imported maps may not.
@@ -69,6 +75,70 @@ GPS-free global relocalization. Given only a prior `.map` file, one LiDAR scan, 
 - Acceptance requires all of: GICP convergence, `min_inlier_ratio`, `min_match_score`, and the uniqueness gate `min_score_ratio` against the best spatially distinct runner-up -- both now evaluated on the normalized score, in either score mode.
 - This is initial-lock only. Once the node reaches TRACKING the plugin is never polled again; steady-state localization is LISO scan-to-submap matching.
 - Set `publish_debug_grid` and view `debug_grid_topic` in RViz overlaid on `slam/visualization/map` to confirm the pyramid aligns with the map.
+
+## Carrying a lock forward
+
+A branch-and-bound result describes where the vehicle was **when the scan it searched was taken**.
+`InitSequencer` applies it as the vehicle's *current* pose — `LisoFactor::onTrackingBegin()` rebuilds
+its submap around it and seeds `last_matched_pose_` from it. On a search that takes seconds those
+are not the same place: at 5 m/s a 23 s search hands the tracker a pose ~115 m behind the vehicle,
+and scan-to-submap matching against a submap built there does not converge.
+
+The plugin therefore timestamps the scan it searches (`latest_scan_stamp_`), samples the odom-frame
+pose at that instant, and on a successful lock composes the motion accumulated since:
+
+```
+T_map_base(now) = T_map_base(scan) · T_odom_base(scan)⁻¹ · T_odom_base(now)
+```
+
+The odometry comes from `LisoFactor`'s incremental odometry topic, which runs from its own
+subscription throughout `RELOCALIZING` independently of the SLAM state machine, so the stream is
+live for the whole search. The odom frame is fixed across the interval — LISO only re-anchors on
+`onTrackingBegin()`, which cannot fire until this result is returned — so the `between()` is exactly
+the body motion over it. Samples are interpolated on the manifold (`gtsam::interpolate`), and
+extrapolation outside the buffered interval is **refused** rather than guessed: a lock moved by a
+guessed delta is worse than one the caller knows was not moved.
+
+Every lock logs the correction (`carry-forward: search took X s, vehicle moved Y m / Z deg since its
+scan`), so the search's cost in metres of vehicle travel is visible directly in a field log. If the
+odometry sample is missing the lock is returned uncompensated with a WARN, which is the old
+behaviour.
+
+## Search latency
+
+`relocalization_timeout` is 180 s in the example config because the search does not complete inside
+30 s on a 1.4 km × 1.3 km map. Each attempt now logs its own breakdown:
+
+```
+[bnb_voxel_relocalization] attempt timing: build 12.3 s + search 9.8 s + gicp 1.1 s = 23.2 s total (locked)
+```
+
+so which phase is spending the budget is readable off the log rather than inferred. Three costs were
+removed from that path:
+
+- **Per-scan preprocessing.** `lidarCallback` ran `small_gicp::preprocess_points` on *every* incoming
+  scan at sensor rate — building a KD-tree that was then discarded outright, plus all-cores
+  covariance estimation — while at most one scan per search is ever used. At 10 Hz that competed for
+  the same cores as the search running alongside it. The callback now only voxel-downsamples;
+  `gicpPolish()` derives covariances once, for the one scan that reaches it.
+- **Search task granularity.** Roots were cut into `num_threads` chunks, and with the default
+  `rp_search_steps: 1` (one roll/pitch offset) that chunk count *is* the whole search's task count —
+  16 tasks on a 32-core box left half the machine idle. Chunks are now cut at
+  `search_task_multiplier ×` the thread count and scheduled dynamically, since chunk cost varies by
+  an order of magnitude with how much structure each root's subtree holds.
+- **Distance-field lookup latency.** Level 0 is a ~144 MB open-addressed table, so scoring a pose is
+  bound by one cache miss per query point. `scorePoseAtLevel()` now runs a short software pipeline,
+  issuing the miss for a point ahead while scoring the current one. Results are bit-identical —
+  prefetching is advisory and the early-exit test is evaluated in the same order.
+
+The remaining known cost is the pyramid build, which is a serial rasterization over every prior
+keyframe. Parallelizing it requires per-thread grids merged at the end, because `VoxelPyramid::insert`
+is not thread-safe.
+
+> **These three changes are unmeasured.** They were derived from reading the code, not from a
+> profile: each removes work that is provably redundant or provably idle capacity, but no
+> before/after timing exists on `ring_road.map`. The `attempt timing` line above is what settles it —
+> run it and compare.
 
 ## Known Limitations
 

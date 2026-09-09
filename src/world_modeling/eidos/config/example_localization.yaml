@@ -178,6 +178,23 @@
       max_icp_iterations: 100                  # GICP max iterations
       num_threads: 16
       num_neighbors: 10
+      # Root chunks cut per roll/pitch offset, as a multiple of the search thread count. With
+      # rp_search_steps: 1 there is exactly ONE offset, so this multiplied by the thread count IS
+      # the whole search's task count -- at 1x it was leaving cores idle on a box with more cores
+      # than num_threads. Higher also gives the dynamic schedule more to balance, since chunk cost
+      # varies with how much structure each root's subtree holds. Costs a little pruning
+      # efficiency: each chunk keeps its own incumbent instead of sharing a global one.
+      search_task_multiplier: 4
+      # Carry a lock forward over the search's own duration. The branch-and-bound result describes
+      # the vehicle at the scan it searched; on a multi-second search the vehicle has since moved,
+      # and InitSequencer applies the returned pose as the CURRENT one (LisoFactor::onTrackingBegin
+      # rebuilds its submap and seeds last_matched_pose_ from it). This composes the odom-frame
+      # motion accumulated since that scan onto the lock. Without it a 23 s search at 5 m/s hands
+      # the tracker a pose ~115 m behind the vehicle, which simply fails to converge.
+      use_odom_carry_forward: true
+      odom_topic: "liso/odometry_incremental"  # Must match liso_factor's odometry_incremental_topic
+      odom_buffer_seconds: 300.0               # Odometry history retained; must exceed the worst-case search duration
+      carry_forward_warn_distance: 15.0        # WARN if the carried-forward correction exceeds this (m)
       publish_debug_grid: true                 # Latched OccupancyGrid of the map voxel pyramid
       debug_grid_topic: "slam/visualization/reloc_voxel_grid"
       # Free-space channel: a query point landing in known-empty map space counts as negative

@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -26,6 +27,7 @@
 
 #include <gtsam/inference/Key.h>
 #include <nav_msgs/msg/occupancy_grid.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -135,6 +137,44 @@ private:
    * @param msg Incoming IMU message.
    */
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  /**
+   * @brief Buffer an odom-frame pose for the carry-forward delta.
+   *
+   * Appends to `odom_buffer_` and trims anything older than `odom_buffer_seconds_`. The buffer
+   * only has to span one search, but is sized generously because a search that overruns is
+   * exactly the case carry-forward exists for.
+   *
+   * @param msg Incoming odometry message (odom frame, from LisoFactor's incremental odometry).
+   */
+  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  /**
+   * @brief Odom-frame pose at a given sensor time, linearly interpolated between samples.
+   *
+   * @param stamp Sensor time (seconds) to sample at.
+   * @param[out] pose Interpolated odom-frame pose, untouched on failure.
+   * @return True if `stamp` lies within the buffered interval (extrapolation is refused: a lock
+   *   carried forward on an extrapolated delta would be silently wrong rather than absent).
+   */
+  bool odomAt(double stamp, gtsam::Pose3 & pose);
+
+  /**
+   * @brief Advance a lock from the scan it was computed on to the vehicle's current pose.
+   *
+   * A branch-and-bound lock describes the pose at `search_scan_stamp_`. When the search takes
+   * seconds, the vehicle has moved on, and InitSequencer applies the returned pose as if it were
+   * current -- LisoFactor::onTrackingBegin() rebuilds its submap and seeds `last_matched_pose_`
+   * from it. This composes the odom-frame motion accumulated between the scan and the newest
+   * odometry sample onto the lock:
+   *
+   *   `T_map_base(now) = T_map_base(scan) * T_odom_base(scan)^-1 * T_odom_base(now)`
+   *
+   * @param locked Map-frame pose as computed against the search scan.
+   * @param[out] out Carried-forward map-frame pose; set to `locked` when no delta is available.
+   * @return True if a delta was applied, false if the lock was passed through uncompensated.
+   */
+  bool carryForward(const gtsam::Pose3 & locked, gtsam::Pose3 & out);
 
   /// @brief Worker thread entry point: builds the pyramid (once), then searches and polishes.
   void workerMain();
@@ -297,12 +337,45 @@ private:
   // Subscriptions / publisher
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::OccupancyGrid>::SharedPtr debug_grid_pub_;
 
   // Buffered sensor data -- written by callbacks, read by the worker thread.
   small_gicp::PointCloud::Ptr latest_scan_;  ///< Downsampled body-frame scan, for GICP polish.
   std::vector<Eigen::Vector3d> latest_query_;  ///< De-tilted, subsampled scan, for BnB search.
+  /// Sensor timestamp (seconds) of the scan that produced latest_scan_/latest_query_. This is the
+  /// instant the eventual lock pose actually describes, and is what motionSince() measures the
+  /// carry-forward delta from -- see the class doc on odometry carry-forward.
+  double latest_scan_stamp_ = 0.0;
   std::mutex scan_lock_;
+
+  // ---- Search-time scan snapshot ----
+  // The scan the CURRENT search is working on, latched once at search start. The live buffers
+  // above keep advancing at sensor rate while a multi-second search runs, so the worker must not
+  // read them again mid-search: the branch-and-bound hypotheses describe the pose of THIS scan,
+  // and refining them in gicpPolish() against a newer cloud registers the wrong data against the
+  // right guess. Worker-owned (written and read only on the worker thread between latching and
+  // completion), so it needs no lock of its own.
+  small_gicp::PointCloud::Ptr search_scan_;  ///< Scan the in-flight search/GICP is bound to.
+  double search_scan_stamp_ = 0.0;  ///< Sensor stamp (s) of search_scan_.
+  bool has_search_odom_ = false;  ///< Whether search_odom_ was resolved at latch time.
+  gtsam::Pose3 search_odom_;  ///< Odom-frame pose sampled at search_scan_stamp_.
+
+  // ---- Odometry carry-forward ----
+  // A bounded, time-ordered ring of recent odom-frame poses (from LisoFactor's incremental
+  // odometry topic, which runs throughout RELOCALIZING independently of the SLAM state machine).
+  // A branch-and-bound lock describes where the vehicle was when its scan was taken; by the time
+  // a multi-second search returns, the vehicle has moved. carryForward() composes the odometry
+  // delta accumulated since that scan onto the lock so the pose handed to the state machine
+  // describes the vehicle NOW. Without it InitSequencer seeds LisoFactor's submap and prior at a
+  // stale position (see LisoFactor::onTrackingBegin, which treats the pose as current).
+  struct OdomSample
+  {
+    double stamp = 0.0;  ///< Sensor stamp (seconds).
+    gtsam::Pose3 pose;  ///< Odom-frame pose at that stamp.
+  };
+  std::deque<OdomSample> odom_buffer_;  ///< Time-ordered, trimmed to odom_buffer_seconds_.
+  std::mutex odom_lock_;
 
   double latest_imu_roll_ = 0.0;
   double latest_imu_pitch_ = 0.0;
@@ -479,6 +552,32 @@ private:
   int num_neighbors_ = 10;
   bool publish_debug_grid_ = true;
   std::string debug_grid_topic_;
+
+  // ---- Odometry carry-forward parameters ----
+  /// Odom-frame odometry topic, normally LisoFactor's `odometry_incremental_topic`. LISO runs its
+  /// scan-to-submap loop from its own subscription throughout RELOCALIZING, independently of the
+  /// SLAM state machine, so this stream is live for the whole search.
+  std::string odom_topic_ = "liso/odometry_incremental";
+  /// Master switch for carrying a lock forward along odometry. When false the lock is returned as
+  /// computed, which is only correct if the search finished within roughly one scan period.
+  bool use_odom_carry_forward_ = true;
+  /// How much odometry history to retain (seconds). Must exceed the worst-case search duration,
+  /// or the scan-time sample the delta is measured from will have been trimmed before the search
+  /// returns and carry-forward will decline rather than extrapolate.
+  double odom_buffer_seconds_ = 300.0;
+  /// Warn if the carry-forward translation exceeds this (m) -- a large correction is legitimate on
+  /// a slow search, but it also flags the search being far slower than the motion assumptions.
+  double carry_forward_warn_distance_ = 15.0;
+
+  /// Root chunks to cut per roll/pitch offset, as a multiple of the search thread count. The
+  /// parallel loop over (offset x chunk) tasks is the search's only parallelism, so with the
+  /// default `rp_search_steps: 1` there is exactly ONE offset and the task count IS the chunk
+  /// count -- cutting only `num_threads_` chunks left a 32-core box half idle whenever
+  /// `num_threads_` was configured at 16. Oversubscribing also gives `schedule(dynamic)` something
+  /// to balance with, which matters because chunk cost varies by an order of magnitude with how
+  /// much structure each root's subtree contains. Costs a little pruning efficiency, since each
+  /// chunk keeps its own incumbent rather than sharing a global one.
+  int search_task_multiplier_ = 4;
 
   // ---- Free-space channel parameters ----
   // A query point landing in known-empty space is negative evidence (it should have hit the map

@@ -206,6 +206,23 @@ public:
     return keys_[idx] == kEmptyKey ? static_cast<uint8_t>(0) : values_[idx];
   }
 
+  /**
+   * @brief Warm the cache line holding `key`'s first probe slot.
+   *
+   * The level-0 field on a km-scale map is hundreds of MB, so scoring a pose is bound by the
+   * cache miss each lookup takes, not by the arithmetic around it. Query points are independent,
+   * so a caller can issue the miss for a later point while still working on the current one --
+   * see scorePoseAtLevel()'s pipelined loop. Purely advisory: prefetching the wrong slot (or
+   * nothing at all) changes timing only, never results.
+   *
+   * @param key Packed voxel key to prefetch.
+   */
+  void prefetch(int64_t key) const
+  {
+    if (capacity_ == 0) return;
+    __builtin_prefetch(&keys_[VoxelHash{}(key) & (capacity_ - 1)], 0, 1);
+  }
+
   /// @brief Number of stored entries.
   /// @return Entry count.
   std::size_t size() const
@@ -430,8 +447,25 @@ struct VoxelLevel
    */
   uint8_t scoreAt(const Eigen::Vector3d & p) const
   {
-    return scores.at(packVoxel(
-      voxelIndex(p.x(), inv_resolution), voxelIndex(p.y(), inv_resolution), voxelIndex(p.z(), inv_resolution)));
+    return scores.at(scoreKey(p));
+  }
+
+  /// @brief Packed distance-field key for a map-frame point, without looking it up.
+  /// Split out of scoreAt() so a caller can prefetch a point's slot ahead of scoring it.
+  /// @param p Point in map frame.
+  /// @return Packed voxel key at this level's resolution.
+  int64_t scoreKey(const Eigen::Vector3d & p) const
+  {
+    return packVoxel(
+      voxelIndex(p.x(), inv_resolution), voxelIndex(p.y(), inv_resolution), voxelIndex(p.z(), inv_resolution));
+  }
+
+  /// @brief Look up an already-packed distance-field key (see scoreKey()).
+  /// @param key Packed voxel key at this level's resolution.
+  /// @return Stored falloff value in `[0, 255]`, or 0 if absent.
+  uint8_t scoreAtKey(int64_t key) const
+  {
+    return scores.at(key);
   }
 
   /**

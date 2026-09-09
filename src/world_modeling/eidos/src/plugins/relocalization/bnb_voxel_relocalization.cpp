@@ -14,6 +14,7 @@
 
 #include "eidos/plugins/relocalization/bnb_voxel_relocalization.hpp"
 
+#include <omp.h>
 #include <tf2_ros/buffer.h>
 
 #include <algorithm>
@@ -33,6 +34,7 @@
 
 #include <pluginlib/class_list_macros.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
+#include <small_gicp/util/downsampling_omp.hpp>
 
 #include "eidos/map/map_manager.hpp"
 #include "eidos/utils/conversions.hpp"
@@ -200,6 +202,11 @@ void BnbVoxelRelocalization::onInitialize()
   node_->declare_parameter(prefix + ".debug_res_sweep", debug_res_sweep_);
   node_->declare_parameter(prefix + ".debug_self_test", debug_self_test_);
   node_->declare_parameter(prefix + ".debug_use_self_query", debug_use_self_query_);
+  node_->declare_parameter(prefix + ".odom_topic", odom_topic_);
+  node_->declare_parameter(prefix + ".use_odom_carry_forward", use_odom_carry_forward_);
+  node_->declare_parameter(prefix + ".odom_buffer_seconds", odom_buffer_seconds_);
+  node_->declare_parameter(prefix + ".carry_forward_warn_distance", carry_forward_warn_distance_);
+  node_->declare_parameter(prefix + ".search_task_multiplier", search_task_multiplier_);
   node_->declare_parameter(prefix + ".rp_search_range", rp_search_range_);
   node_->declare_parameter(prefix + ".rp_search_steps", rp_search_steps_);
   node_->declare_parameter(prefix + ".search_corridor", search_corridor_);
@@ -268,6 +275,12 @@ void BnbVoxelRelocalization::onInitialize()
   node_->get_parameter(prefix + ".debug_res_sweep", debug_res_sweep_);
   node_->get_parameter(prefix + ".debug_self_test", debug_self_test_);
   node_->get_parameter(prefix + ".debug_use_self_query", debug_use_self_query_);
+  node_->get_parameter(prefix + ".odom_topic", odom_topic_);
+  node_->get_parameter(prefix + ".use_odom_carry_forward", use_odom_carry_forward_);
+  node_->get_parameter(prefix + ".odom_buffer_seconds", odom_buffer_seconds_);
+  node_->get_parameter(prefix + ".carry_forward_warn_distance", carry_forward_warn_distance_);
+  node_->get_parameter(prefix + ".search_task_multiplier", search_task_multiplier_);
+  if (search_task_multiplier_ < 1) search_task_multiplier_ = 1;
   node_->get_parameter(prefix + ".rp_search_range", rp_search_range_);
   node_->get_parameter(prefix + ".rp_search_steps", rp_search_steps_);
   node_->get_parameter(prefix + ".search_corridor", search_corridor_);
@@ -337,6 +350,17 @@ void BnbVoxelRelocalization::onInitialize()
     std::bind(&BnbVoxelRelocalization::imuCallback, this, std::placeholders::_1),
     sub_opts);
 
+  // Odom-frame odometry, for carrying a lock forward over the search's own duration. Reliable
+  // QoS, not SensorDataQoS: dropping samples here does not merely blur a scan, it punches a hole
+  // in the very interval the carry-forward delta is measured across.
+  if (use_odom_carry_forward_) {
+    odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
+      odom_topic_,
+      rclcpp::QoS(50),
+      std::bind(&BnbVoxelRelocalization::odomCallback, this, std::placeholders::_1),
+      sub_opts);
+  }
+
   if (publish_debug_grid_) {
     debug_grid_pub_ =
       node_->create_publisher<nav_msgs::msg::OccupancyGrid>(debug_grid_topic_, rclcpp::QoS(1).transient_local());
@@ -375,6 +399,15 @@ void BnbVoxelRelocalization::deactivate()
   root_headings_.shrink_to_fit();
   prefilter_candidates_.clear();
   prefilter_candidates_.shrink_to_fit();
+  search_scan_.reset();
+  has_search_odom_ = false;
+  {
+    // A future activate() starts a new odom epoch: LisoFactor re-anchors its incremental pose on
+    // onTrackingBegin(), so samples from before this point are not comparable to samples after it
+    // and must not be interpolated across.
+    std::lock_guard<std::mutex> lock(odom_lock_);
+    odom_buffer_.clear();
+  }
   pyramid_built_ = false;
   pyramid_failed_ = false;
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
@@ -440,7 +473,15 @@ void BnbVoxelRelocalization::lidarCallback(const sensor_msgs::msg::PointCloud2::
     pt.head<3>() = T_base_lidar_ * pt.head<3>();
   }
 
-  auto [ds, tree] = small_gicp::preprocess_points(*raw, scan_ds_resolution_, num_neighbors_, num_threads_);
+  // Downsample only. This runs on EVERY incoming scan (10 Hz) but at most one scan per search is
+  // ever used, so the KD-tree and per-point covariances preprocess_points() also computes were
+  // pure waste here -- the tree was discarded outright, and the covariances are needed only by
+  // the single scan that reaches gicpPolish(), which now derives them itself. That mattered for
+  // more than tidiness: covariance estimation is an all-cores job, so at sensor rate it was
+  // competing for the same cores as the branch-and-bound search running alongside it.
+  auto ds = small_gicp::voxelgrid_sampling_omp<small_gicp::PointCloud, small_gicp::PointCloud>(
+    *raw, scan_ds_resolution_, num_threads_);
+  if (!ds || ds->empty()) return;
 
   // Build the de-tilted BnB query set from the same downsampled cloud used for GICP, since the
   // search cost is linear in query size and full-resolution points would dominate runtime.
@@ -489,9 +530,131 @@ void BnbVoxelRelocalization::lidarCallback(const sensor_msgs::msg::PointCloud2::
     query = std::move(strided);
   }
 
+  // The stamp travels with the scan, not the wall clock: it is the instant the pose eventually
+  // recovered from this scan actually describes, and carryForward() measures its odometry delta
+  // from exactly here.
+  const double stamp = rclcpp::Time(msg->header.stamp).seconds();
+
   std::lock_guard<std::mutex> lock(scan_lock_);
   latest_scan_ = ds;
   latest_query_ = std::move(query);
+  latest_scan_stamp_ = stamp;
+}
+
+// ---------------------------------------------------------------------------
+// Odometry carry-forward
+// ---------------------------------------------------------------------------
+void BnbVoxelRelocalization::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
+  const auto & p = msg->pose.pose.position;
+  const auto & q = msg->pose.pose.orientation;
+  Eigen::Quaterniond quat(q.w, q.x, q.y, q.z);
+  if (quat.squaredNorm() < 0.5) return;
+  quat.normalize();
+
+  OdomSample sample;
+  sample.stamp = rclcpp::Time(msg->header.stamp).seconds();
+  sample.pose = gtsam::Pose3(gtsam::Rot3(quat), gtsam::Point3(p.x, p.y, p.z));
+
+  std::lock_guard<std::mutex> lock(odom_lock_);
+  // Guard against a bag loop or a sim-time jump backwards: a non-monotonic buffer would break
+  // odomAt()'s ordered scan and silently return a nonsense delta.
+  if (!odom_buffer_.empty() && sample.stamp < odom_buffer_.back().stamp) {
+    odom_buffer_.clear();
+  }
+  odom_buffer_.push_back(sample);
+  while (!odom_buffer_.empty() && sample.stamp - odom_buffer_.front().stamp > odom_buffer_seconds_) {
+    odom_buffer_.pop_front();
+  }
+}
+
+bool BnbVoxelRelocalization::odomAt(double stamp, gtsam::Pose3 & pose)
+{
+  std::lock_guard<std::mutex> lock(odom_lock_);
+  if (odom_buffer_.size() < 2) return false;
+  // Refuse to extrapolate. Outside the buffered interval the delta is a guess, and a lock moved
+  // by a guessed delta is worse than a lock the caller knows was not moved at all.
+  if (stamp < odom_buffer_.front().stamp || stamp > odom_buffer_.back().stamp) return false;
+
+  auto it = std::lower_bound(
+    odom_buffer_.begin(), odom_buffer_.end(), stamp, [](const OdomSample & s, double t) { return s.stamp < t; });
+  if (it == odom_buffer_.begin()) {
+    pose = it->pose;
+    return true;
+  }
+  const OdomSample & hi = *it;
+  const OdomSample & lo = *(it - 1);
+  const double span = hi.stamp - lo.stamp;
+  if (span <= 0.0) {
+    pose = hi.pose;
+    return true;
+  }
+  // Interpolate on the manifold rather than componentwise: Pose3::interpolateRt slerps the
+  // rotation, so a delta spanning a turn stays a rigid motion.
+  pose = gtsam::interpolate(lo.pose, hi.pose, (stamp - lo.stamp) / span);
+  return true;
+}
+
+bool BnbVoxelRelocalization::carryForward(const gtsam::Pose3 & locked, gtsam::Pose3 & out)
+{
+  out = locked;
+  if (!use_odom_carry_forward_) return false;
+
+  if (!has_search_odom_) {
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "[%s] carry-forward unavailable: no odometry sample at the search scan's stamp (%.3f). The "
+      "lock describes where the vehicle was when that scan was taken, not where it is now -- check "
+      "that '%s' is publishing during RELOCALIZING",
+      name_.c_str(),
+      search_scan_stamp_,
+      odom_topic_.c_str());
+    return false;
+  }
+
+  gtsam::Pose3 odom_now;
+  double now_stamp = 0.0;
+  {
+    std::lock_guard<std::mutex> lock(odom_lock_);
+    if (odom_buffer_.empty()) return false;
+    odom_now = odom_buffer_.back().pose;
+    now_stamp = odom_buffer_.back().stamp;
+  }
+
+  // The odom frame is a fixed frame over the search: LisoFactor accumulates incremental_pose_ in
+  // it continuously and only re-anchors on onTrackingBegin(), which cannot fire until this result
+  // is returned. So the between() below is exactly the body motion over the interval.
+  const gtsam::Pose3 delta = search_odom_.between(odom_now);
+  out = locked.compose(delta);
+
+  const double moved = delta.translation().norm();
+  const double dt = now_stamp - search_scan_stamp_;
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "\033[32m[%s] carry-forward: search took %.1f s, vehicle moved %.2f m / %.1f deg since its scan; "
+    "lock (%.1f,%.1f,%.1f) -> (%.1f,%.1f,%.1f)\033[0m",
+    name_.c_str(),
+    dt,
+    moved,
+    std::fabs(delta.rotation().yaw()) * 180.0 / M_PI,
+    locked.translation().x(),
+    locked.translation().y(),
+    locked.translation().z(),
+    out.translation().x(),
+    out.translation().y(),
+    out.translation().z());
+
+  if (moved > carry_forward_warn_distance_) {
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "[%s] carry-forward moved the lock %.1f m (> %.1f m): the search is slow enough relative to "
+      "vehicle speed that the scan it locked on may no longer overlap the submap LisoFactor will "
+      "build at the carried-forward pose",
+      name_.c_str(),
+      moved,
+      carry_forward_warn_distance_);
+  }
+  return true;
 }
 
 void BnbVoxelRelocalization::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -560,7 +723,14 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::tryRelocalize(  // N
 // ---------------------------------------------------------------------------
 void BnbVoxelRelocalization::workerMain()
 {
+  // Phase timing. Relocalization latency is what the search's anytime budget and the vehicle's
+  // carry-forward distance are both spent against, so which phase consumed it has to be readable
+  // straight off a field log rather than inferred from where the log goes quiet.
+  const auto t_worker_start = std::chrono::steady_clock::now();
+  double build_s = 0.0;
+
   if (!pyramid_built_ && !pyramid_failed_) {
+    const auto t_build_start = std::chrono::steady_clock::now();
     if (!buildPyramid()) {
       // Either stop_requested_ fired mid-build, or the map has no usable clouds
       // (pyramid_failed_ is set in the latter case so we never retry).
@@ -568,6 +738,8 @@ void BnbVoxelRelocalization::workerMain()
       return;
     }
     pyramid_built_ = true;
+    build_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_build_start).count();
+    RCLCPP_INFO(node_->get_logger(), "[%s] pyramid build: %.1f s", name_.c_str(), build_s);
     if (publish_debug_grid_) publishDebugGrid();
   }
 
@@ -576,11 +748,19 @@ void BnbVoxelRelocalization::workerMain()
     return;
   }
 
+  // Latch the scan, its query set and its stamp together, ONCE, for the whole attempt. The live
+  // buffers keep advancing at 10 Hz while the search runs for seconds, so re-reading them later
+  // would pair hypotheses derived from this scan with a different, newer cloud in gicpPolish() --
+  // refining the right guess against the wrong data. search_scan_stamp_ is also the instant the
+  // eventual lock describes, which is what carryForward() measures its delta from.
   std::vector<Eigen::Vector3d> query;
   {
     std::lock_guard<std::mutex> lock(scan_lock_);
     query = latest_query_;
+    search_scan_ = latest_scan_;
+    search_scan_stamp_ = latest_scan_stamp_;
   }
+  has_search_odom_ = use_odom_carry_forward_ && odomAt(search_scan_stamp_, search_odom_);
 
   // TEMPORARY diagnostic switch: when set (with debug_probe_pose_ also set), substitute a
   // keyframe self-query for the live scan and run it through the FULL production search path --
@@ -622,14 +802,36 @@ void BnbVoxelRelocalization::workerMain()
     return;
   }
 
+  const auto t_search_start = std::chrono::steady_clock::now();
   auto hypotheses = searchPoses(query);
+  const double search_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_search_start).count();
   if (stop_requested_.load()) {
     search_running_ = false;
     return;
   }
 
+  const auto t_gicp_start = std::chrono::steady_clock::now();
   auto result = gicpPolish(hypotheses);
+  const double gicp_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_gicp_start).count();
+  const double total_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t_worker_start).count();
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "[%s] attempt timing: build %.1f s + search %.1f s + gicp %.1f s = %.1f s total (%s)",
+    name_.c_str(),
+    build_s,
+    search_s,
+    gicp_s,
+    total_s,
+    result.has_value() ? "locked" : "no lock");
+
   if (result.has_value()) {
+    // The GICP pose describes the vehicle at search_scan_stamp_. Advance it along the odometry
+    // accumulated while the search ran, so InitSequencer -- which applies this as the CURRENT pose
+    // (LisoFactor::onTrackingBegin() rebuilds its submap and seeds last_matched_pose_ from it) --
+    // receives where the vehicle is now rather than where it was when the scan was taken.
+    gtsam::Pose3 carried;
+    carryForward(result->pose, carried);
+    result->pose = carried;
     {
       std::lock_guard<std::mutex> lock(result_mtx_);
       result_ = result;
@@ -640,6 +842,7 @@ void BnbVoxelRelocalization::workerMain()
     // glibc) rather than clear() -- the user's memory-recovery requirement is that this is
     // actually recoverable, not merely dropped into the allocator's arena.
     releasePyramidMemory("lock");
+    search_scan_.reset();
     roots_.clear();
     roots_.shrink_to_fit();
     root_headings_.clear();
@@ -650,6 +853,7 @@ void BnbVoxelRelocalization::workerMain()
   }
 
   // No acceptable candidate this round -- let a later tick relaunch with a fresher scan.
+  search_scan_.reset();
   search_running_ = false;
 }
 
@@ -1468,6 +1672,11 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
   std::vector<ScoredHypothesis> nms_result;
   if (query.empty() || roots_.empty()) return nms_result;
 
+  // Width the search actually gets to run at. num_threads_ is a configured cap shared with GICP
+  // and preprocessing; the branch-and-bound loop below is the one place where leaving cores idle
+  // costs wall-clock directly, so it uses the full machine when num_threads_ is set lower.
+  const int search_threads = std::max(1, std::max(num_threads_, omp_get_max_threads()));
+
   std::vector<double> roll_offsets, pitch_offsets;
   if (rp_search_steps_ <= 1) {
     roll_offsets = {0.0};
@@ -1534,7 +1743,13 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     for (const auto & q : query) prep.rotated_query.push_back(r_offset * q);
 
     auto kept_roots = prefilterRoots(prep.rotated_query, prep.dr, prep.dp);
-    prep.root_chunks = chunkRoots(kept_roots, num_threads_);
+    // Cut enough chunks to keep every worker fed AND give schedule(dynamic) room to balance.
+    // With the default rp_search_steps: 1 there is exactly one roll/pitch offset, so the task
+    // count for the whole search IS this chunk count -- cutting num_threads_ (16) of them left
+    // half of a 32-core box idle for the entire search. Chunk cost is also highly uneven, since
+    // it depends on how much structure each root's subtree contains, so equal-sized chunks do not
+    // mean equal-length tasks; oversubscribing is what lets the late finishers overlap.
+    prep.root_chunks = chunkRoots(kept_roots, search_threads * search_task_multiplier_);
 
     // -------------------------------------------------------------------
     // TRACE 9 -- prefilter kept-set: TRACE 4 (further below) recomputes a ranking independently of
@@ -1759,7 +1974,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
   // alone. branchAndBound() itself only reads its pyramid/query/roots arguments and writes to its
   // own local frontier/solutions plus the SearchStats reference we pass in, which is unique per
   // task.
-#pragma omp parallel for
+  // Dynamic, not static: chunk cost varies by an order of magnitude with how much structure each
+  // root's subtree holds, so a static split finishes most tasks early and then waits on a few.
+#pragma omp parallel for schedule(dynamic, 1) num_threads(search_threads)
   for (int t = 0; t < static_cast<int>(tasks.size()); ++t) {
     if (stop_requested_.load()) continue;
 
@@ -4214,15 +4431,25 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
     return std::nullopt;
   }
 
-  small_gicp::PointCloud::Ptr live_scan;
-  {
-    std::lock_guard<std::mutex> lock(scan_lock_);
-    if (!latest_scan_ || latest_scan_->empty()) {
-      RCLCPP_INFO(node_->get_logger(), "[%s] no live scan available for GICP polish", name_.c_str());
-      return std::nullopt;
-    }
-    live_scan = latest_scan_;
+  // The scan latched at search start, NOT latest_scan_. The hypotheses being refined here are
+  // poses OF THAT SCAN; by now the live buffer holds a cloud captured seconds later from a
+  // different place, and refining against it would register the wrong data against the right
+  // guess. It is also what makes the result's stamp well-defined for carryForward().
+  if (!search_scan_ || search_scan_->empty()) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] no live scan available for GICP polish", name_.c_str());
+    return std::nullopt;
   }
+  // Covariances for the source cloud, computed once for the one scan that actually reaches GICP.
+  // lidarCallback() deliberately no longer does this per scan -- see the note there.
+  auto [live_scan, live_tree] =
+    small_gicp::preprocess_points(*search_scan_, scan_ds_resolution_, num_neighbors_, num_threads_);
+  if (!live_scan || live_scan->empty()) {
+    RCLCPP_INFO(node_->get_logger(), "[%s] GICP source preprocessing produced an empty cloud", name_.c_str());
+    return std::nullopt;
+  }
+  // small_gicp::align() takes the TARGET's tree only; the source tree is a by-product of the call
+  // above (which we make for its covariances) and has no consumer.
+  (void)live_tree;
 
   double imu_roll = 0.0, imu_pitch = 0.0;
   {
