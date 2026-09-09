@@ -1,0 +1,113 @@
+# action_sim_pp.launch.yaml
+# Simulation action stack with the Ackermann Pure Pursuit controller instead of MPC.
+# Mirrors action_sim.launch.yaml (Lattice + Trajectory planners, CARLA remaps) but
+# swaps the controller so the adaptive-lookahead pure pursuit can be tested in CARLA.
+#   ros2 launch action_bringup action_sim_pp.launch.yaml
+
+launch:
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection
+
+  # Lattice Planner
+  - node:
+      pkg: "lattice_planning"
+      exec: "lattice_planning_node"
+      name: "lattice_planning_node"
+      namespace: "action/lattice_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        - from: "lanelet_ahead"
+          to: "/world_modeling/lanelet/lanelet_ahead"
+        - from: "odom"
+          to: "/ego/odom"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+
+  # Trajectory Planner
+  - node:
+      pkg: "trajectory_planner"
+      exec: "trajectory_planner_node"
+      name: "trajectory_planner_node"
+      namespace: "action/trajectory_planning"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        - from: "input_path"
+          to: "/action/lattice_planning/path"
+        - from: "costmap"
+          to: "/world_modeling/costmap"
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "lane_context"
+          to: "/world_modeling/lanelet/lane_context"
+        - from: "odom"
+          to: "/ego/odom"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+
+  # Lattice Planning Markers
+  - node:
+      pkg: "lattice_planning_markers"
+      exec: "lattice_planning_markers_node"
+      name: "lattice_planning_markers_node"
+      namespace: "action/lattice_planning_markers"
+      output: "screen"
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        - from: "path"
+          to: "/action/lattice_planning/path"
+        - from: "available_paths"
+          to: "/action/lattice_planning/available_paths"
+
+  # Pure Pursuit Controller
+  - node:
+      pkg: ackermann_pure_pursuit
+      exec: pure_pursuit_node
+      name: pure_pursuit_node
+      namespace: "action"
+      output: screen
+      param:
+        - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      remap:
+        # Subscribers
+        - from: "trajectory"
+          to: "/action/trajectory_planning/trajectory"
+        - from: "execute_behaviour"
+          to: "/behaviour/execute_behaviour"
+        - from: "odom"
+          to: "/ego/odom"
+        # Publishers
+        - from: "ackermann"
+          to: "/carla/ackermann_control/command"
+
+  # Lifecycle Manager
+  - node:
+      pkg: "wato_lifecycle_manager"
+      exec: "wato_lifecycle_manager_node"
+      name: "action_lifecycle_manager"
+      namespace: "action"
+      param:
+        - name: "node_names"
+          value:
+            - /action/lattice_planning/lattice_planning_node
+            - /action/trajectory_planning/trajectory_planner_node
+            - /action/pure_pursuit_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
