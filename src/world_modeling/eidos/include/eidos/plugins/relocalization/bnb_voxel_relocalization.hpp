@@ -83,6 +83,16 @@ public:
   std::optional<RelocalizationResult> tryRelocalize(double timestamp) override;
 
 private:
+  /// @brief Thread count for the compute-bound relocalization loops (root scoring, prefilter,
+  /// branch-and-bound).
+  ///
+  /// `num_threads_` is a configured cap shared with GICP and point preprocessing, and is commonly
+  /// set below the machine's core count. These loops are the ones where leaving cores idle costs
+  /// relocalization latency directly -- measured on a 32-core box, capping them at 16 left half
+  /// the machine unused for the whole search -- so they take the larger of the two.
+  /// @return Threads to run the search-side parallel loops with.
+  int searchThreads() const;
+
   /// @brief Whether a body-frame height lies inside the configured matching band.
   /// @param z Body-frame z in metres (base frame sits at ground level).
   /// @return True if the point should be used for matching.

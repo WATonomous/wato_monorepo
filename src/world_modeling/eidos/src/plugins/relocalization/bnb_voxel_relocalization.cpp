@@ -426,6 +426,11 @@ BnbVoxelRelocalization::~BnbVoxelRelocalization()
   prefilter_candidates_.shrink_to_fit();
 }
 
+int BnbVoxelRelocalization::searchThreads() const
+{
+  return std::max(1, std::max(num_threads_, omp_get_max_threads()));
+}
+
 void BnbVoxelRelocalization::releasePyramidMemory(const char * context)
 {
   if (pyramid_.empty()) return;  // Nothing to release; avoid a spurious RSS log on every exit path.
@@ -1304,7 +1309,7 @@ std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::score
   // Parallel over roots, exactly like the coarse path below and every other per-root loop in this
   // file: each iteration writes only its own slot and the pyramid is read-only, so no
   // synchronisation is required.
-#pragma omp parallel for schedule(static) num_threads(num_threads_)
+#pragma omp parallel for schedule(static) num_threads(searchThreads())
   for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(roots_.size()); ++i) {
     const std::size_t idx = static_cast<std::size_t>(i);
     // OpenMP forbids breaking out of a parallel for, so a stop request marks the remaining roots
@@ -1424,7 +1429,7 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
     // this loop dominated prefilter cost when serial (20 s over a 3337-root corridor),
     // while the main search was already parallel.
     std::vector<std::pair<int, std::size_t>> scored(roots_.size());
-#pragma omp parallel for schedule(static) num_threads(num_threads_)
+#pragma omp parallel for schedule(static) num_threads(searchThreads())
     for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(roots_.size()); ++i) {
       const std::size_t idx = static_cast<std::size_t>(i);
       // OpenMP forbids breaking out of a parallel for, so a stop request marks the
@@ -1672,10 +1677,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
   std::vector<ScoredHypothesis> nms_result;
   if (query.empty() || roots_.empty()) return nms_result;
 
-  // Width the search actually gets to run at. num_threads_ is a configured cap shared with GICP
-  // and preprocessing; the branch-and-bound loop below is the one place where leaving cores idle
-  // costs wall-clock directly, so it uses the full machine when num_threads_ is set lower.
-  const int search_threads = std::max(1, std::max(num_threads_, omp_get_max_threads()));
+  const int search_threads = searchThreads();
 
   std::vector<double> roll_offsets, pitch_offsets;
   if (rp_search_steps_ <= 1) {

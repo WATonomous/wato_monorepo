@@ -131,14 +131,37 @@ removed from that path:
   issuing the miss for a point ahead while scoring the current one. Results are bit-identical —
   prefetching is advisory and the early-exit test is evaluated in the same order.
 
-The remaining known cost is the pyramid build, which is a serial rasterization over every prior
-keyframe. Parallelizing it requires per-thread grids merged at the end, because `VoxelPyramid::insert`
-is not thread-safe.
+- **Idle cores in the root prefilter.** `scoreRootsFine()` and `prefilterRoots()` scored roots under
+  `num_threads(num_threads_)`, the same 16-on-32 cap as the search. These loops now use
+  `searchThreads()` — `max(num_threads, omp_get_max_threads())` — like the search itself.
 
-> **These three changes are unmeasured.** They were derived from reading the code, not from a
-> profile: each removes work that is provably redundant or provably idle capacity, but no
-> before/after timing exists on `ring_road.map`. The `attempt timing` line above is what settles it —
-> run it and compare.
+Measured on `ring_road.map` (992 keyframes, 1.4 km × 1.3 km) against the
+`may_30_ring_road_test_2` bag, 20 attempts on a 32-core box:
+
+| Phase | Time |
+|---|---|
+| Pyramid build (once, first attempt only) | 4.2 s |
+| Root prefilter (11613 → 256 roots) | ~2.5 s |
+| Branch-and-bound proper (128 tasks) | ~1.2 s |
+| GICP polish | 0.0 s (never reached — see below) |
+| **First attempt, total** | **8.0 s** |
+| **Each subsequent attempt** | **~3.6–4.0 s** |
+
+against the 23+ s the plugin previously took. The `128 tasks` in the search log line confirms the
+chunking fix (it was 16). The prefilter is now the dominant per-attempt cost at roughly two thirds
+of each search; the `searchThreads()` change above targets it and is the one item in this list
+**not** yet re-measured.
+
+The remaining structural cost is the pyramid build, a serial rasterization over every prior
+keyframe. Parallelizing it requires per-thread grids merged at the end, because `VoxelPyramid::insert`
+is not thread-safe — not attempted here.
+
+**None of this makes the plugin lock on this map.** Every one of those 20 attempts was rejected by
+the uniqueness gate with `best=0.774 [hit_fraction=0.998]` against `runner_up=0.771
+[hit_fraction=1.000]` — essentially every query point lands on structure at essentially every pose,
+which is the saturation documented under Status. Latency work and the scoring problem are
+independent: this section makes each attempt cheap, so more of them fit inside
+`relocalization_timeout`, but the score still has to discriminate before any of them can succeed.
 
 ## Known Limitations
 
