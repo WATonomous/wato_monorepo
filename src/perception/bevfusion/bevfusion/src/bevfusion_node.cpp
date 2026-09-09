@@ -219,6 +219,23 @@ void BEVFusionNode::processFrame(
   const std_msgs::msg::Header & header,
   const std::chrono::steady_clock::time_point t_start)
 {
+  // Basic checks
+  if (!core_ || !core_->isInitialized() || !core_->hasCalibration()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "processFrame called with core not ready; skipping");
+    return;
+  }
+  if (!lidar_msg) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "processFrame called with null lidar_msg; skipping");
+    return;
+  }
+  if (rgb_images.empty()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "processFrame called with empty rgb_images; skipping");
+    return;
+  }
+
   // Camera count validation
   if (rgb_images.size() != static_cast<size_t>(config_.num_cameras)) {
     RCLCPP_WARN_THROTTLE(
@@ -440,7 +457,11 @@ void BEVFusionNode::syncedCompressedCallback(
     if (!decode_success[i]) {
       const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
       RCLCPP_WARN_THROTTLE(
-        this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image for frame_id '%s'", frame_id.c_str());
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "[SYNC] Failed to decompress image for frame_id '%s'",
+        frame_id.c_str());
       return;
     }
   }

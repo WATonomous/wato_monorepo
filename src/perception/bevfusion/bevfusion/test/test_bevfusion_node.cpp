@@ -149,11 +149,33 @@ TEST_CASE("declareParameters: NodeOptions overrides are respected", "[params][fa
 }
 
 // =============================================================================
-// TEST: syncedCallback early exits on uninitialized core
+// TEST: on_configure returns FAILURE when model files are missing
+// WHY: Ensures that if model files are missing or unreadable, the node fails
+//      configuration gracefully and logs an error without proceeding to activate.
+// =============================================================================
+TEST_CASE("BEVFusionNode: on_configure returns FAILURE when model files are missing", "[node][configure][fast]")
+{
+  if (!rclcpp::ok()) {
+    rclcpp::init(0, nullptr);
+  }
+
+  rclcpp::NodeOptions options;
+  options.append_parameter_override("model_dir", "/tmp/nonexistent_model_dir_xyz");
+
+  auto node = std::make_shared<BEVFusionNode>(options);
+
+  auto result = node->on_configure(node->get_current_state());
+  REQUIRE(result == rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE);
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: syncedCompressedCallback early exits on uninitialized core
 // WHY: Ensures that the node does not crash when receiving data before the
 //      GPU models are fully loaded or before calibration is ready.
 // =============================================================================
-TEST_CASE("BEVFusionNode: syncedCallback safely aborts without initialization", "[node][fast]")
+TEST_CASE("BEVFusionNode: syncedCompressedCallback safely aborts without initialization", "[node][fast]")
 {
   auto node = make_configured_node();
 
@@ -161,7 +183,7 @@ TEST_CASE("BEVFusionNode: syncedCallback safely aborts without initialization", 
   auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
 
   // Should increment counters and abort without crashing
-  node->syncedCallback(multi_image_msg, lidar_msg);
+  node->syncedCompressedCallback(multi_image_msg, lidar_msg);
 
   REQUIRE(node->multi_image_msg_count_ == 1);
   REQUIRE(node->lidar_msg_count_ == 1);
@@ -170,6 +192,42 @@ TEST_CASE("BEVFusionNode: syncedCallback safely aborts without initialization", 
   // It shouldn't have processed anything since it aborted early
   REQUIRE(node->total_processed_.load() == 0);
 
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: syncedRawCallback early exits on uninitialized core
+// WHY: Ensures raw MultiImage callback handles early aborts safely without crashing.
+// =============================================================================
+TEST_CASE("BEVFusionNode: syncedRawCallback safely aborts without initialization", "[node][fast]")
+{
+  auto node = make_configured_node();
+
+  auto multi_image_msg = std::make_shared<deep_msgs::msg::MultiImage>();
+  auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+
+  node->syncedRawCallback(multi_image_msg, lidar_msg);
+
+  REQUIRE(node->multi_image_msg_count_ == 1);
+  REQUIRE(node->lidar_msg_count_ == 1);
+  REQUIRE(node->synced_msg_count_ == 1);
+  REQUIRE(node->total_processed_.load() == 0);
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: processFrame early exits on uninitialized core or missing calibration
+// WHY: Verifies processFrame pipeline helper safely guards against uninitialized core/calibration.
+// =============================================================================
+TEST_CASE("BEVFusionNode: processFrame safely aborts when uninitialized or uncalibrated", "[node][fast]")
+{
+  auto node = make_configured_node();
+  std::vector<cv::Mat> images(6, cv::Mat(1024, 1280, CV_8UC3));
+  auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
+  std_msgs::msg::Header header;
+  node->processFrame(images, lidar_msg, header, std::chrono::steady_clock::time_point{});
+  REQUIRE(node->total_processed_.load() == 0);
   rclcpp::shutdown();
 }
 
@@ -611,7 +669,7 @@ TEST_CASE("createDetections3D: returns empty array when TF lookup fails", "[conv
 
 // =============================================================================
 // TEST: createDetections3D handles empty input and a null tf_buffer safely
-// WHY: syncedCallback may call this with zero boxes (nothing detected), and
+// WHY: syncedCompressedCallback may call this with zero boxes (nothing detected), and
 //      the TF buffer may not be constructed yet during startup races.
 // =============================================================================
 TEST_CASE("createDetections3D: empty input and null tf_buffer are handled safely", "[conversion][fast]")
@@ -1006,7 +1064,7 @@ TEST_CASE("computeCalibrationMatrices: no-op with null cached pointer", "[calibr
 // =============================================================================
 // TEST: computeCalibrationMatrices with valid data sets calibration flag
 // WHY: End-to-end path: camera info cached + TF available → calibration
-//      should succeed and set the flag so syncedCallback proceeds.
+//      should succeed and set the flag so syncedCompressedCallback proceeds.
 // =============================================================================
 TEST_CASE("computeCalibrationMatrices: sets flag with valid camera info and TF", "[calibration][fast]")
 {

@@ -109,6 +109,40 @@ TEST_CASE("BEVFusionCore: isInitialized is false after construction", "[core][fa
 }
 
 // =============================================================================
+// TEST: checkModelFilesExist returns false when model files are missing
+// WHY: Verifies that checkModelFilesExist correctly detects missing ONNX/plan files
+//      and prevents initializing with incomplete model artifacts.
+// =============================================================================
+TEST_CASE("BEVFusionCore: checkModelFilesExist returns false when model files are missing", "[core][fast]")
+{
+  BEVFusionInputConfig config;
+  config.camera_backbone_plan = "/tmp/nonexistent_path_123/camera.backbone.plan";
+  config.camera_vtransform_plan = "/tmp/nonexistent_path_123/camera.vtransform.plan";
+  config.fuser_plan = "/tmp/nonexistent_path_123/fuser.plan";
+  config.head_bbox_plan = "/tmp/nonexistent_path_123/head.bbox.plan";
+  config.lidar_backbone_onnx = "/tmp/nonexistent_path_123/lidar.backbone.onnx";
+
+  BEVFusionCore core(config);
+  REQUIRE_FALSE(core.checkModelFilesExist());
+}
+
+// =============================================================================
+// TEST: compileTrtModel returns false when ONNX file is missing
+// WHY: Ensures that attempting to compile a missing ONNX model handles the failure
+//      gracefully without throwing an unhandled exception or crashing.
+// =============================================================================
+TEST_CASE("BEVFusionCore: compileTrtModel returns false when ONNX file is missing", "[core][fast]")
+{
+  BEVFusionInputConfig config;
+  BEVFusionCore core(config);
+
+  bool success = core.compileTrtModel(
+    "missing_model", "/tmp/nonexistent_dir_abc/missing.onnx", "/tmp/nonexistent_dir_abc/missing.plan");
+
+  REQUIRE_FALSE(success);
+}
+
+// =============================================================================
 // TEST 2: infer() guard before initialize()
 // WHY: infer() requires pipeline_ and stream_ to be live. Calling it before
 //      initialize() would dereference a null pipeline_ — undefined behavior.
