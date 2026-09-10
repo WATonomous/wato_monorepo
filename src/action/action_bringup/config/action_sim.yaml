@@ -76,6 +76,14 @@
     footprint_x_max: 3.5
     footprint_y_max: 1.2
 
+    # Deterministic costmap-only lateral obstacle avoidance with atomic braking fallback.
+    elastic_band_enabled: true
+    eb_max_deviation: 0.8
+    eb_lateral_search_step: 0.1
+    eb_clearance_margin: 0.3
+    eb_transition_distance: 5.0
+    eb_preferred_side: "left"
+
 # =============================================================================
 # Lattice Planning Markers
 # =============================================================================
