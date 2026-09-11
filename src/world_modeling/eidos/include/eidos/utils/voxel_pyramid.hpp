@@ -27,7 +27,7 @@
 #include <vector>
 
 #ifdef __GLIBC__
-#include <malloc.h>  // malloc_trim() in releaseMemory()
+  #include <malloc.h>  // malloc_trim() in releaseMemory()
 #endif
 
 #include <omp.h>  // buildDistanceField()'s parallel splat
@@ -137,12 +137,25 @@ public:
     __builtin_prefetch(&keys_[VoxelHash{}(key) & (capacity_ - 1)], 0, 1);
   }
 
-  std::size_t size() const { return size_; }
-  std::size_t capacity() const { return capacity_; }
+  std::size_t size() const
+  {
+    return size_;
+  }
 
-  std::size_t memoryBytes() const { return capacity_ * (sizeof(int64_t) + sizeof(uint8_t)); }
+  std::size_t capacity() const
+  {
+    return capacity_;
+  }
 
-  bool empty() const { return size_ == 0; }
+  std::size_t memoryBytes() const
+  {
+    return capacity_ * (sizeof(int64_t) + sizeof(uint8_t));
+  }
+
+  bool empty() const
+  {
+    return size_ == 0;
+  }
 
   // Swap-with-empty, not vector::clear(): clear() keeps the buffer allocated, defeating the
   // point of this class over a VoxelSet.
@@ -175,7 +188,7 @@ private:
   std::size_t slotFor(int64_t key) const
   {
     const std::size_t mask = capacity_ - 1;
-    std::size_t idx = VoxelHash{}(key) & mask;
+    std::size_t idx = VoxelHash{}(key)&mask;
     while (keys_[idx] != kEmptyKey && keys_[idx] != key) {
       idx = (idx + 1) & mask;
     }
@@ -213,9 +226,9 @@ struct VoxelLevel
 {
   double resolution = 1.0;
   double inv_resolution = 1.0;
-  VoxelSet voxels;        // Occupied set, dilated when `dilated`.
+  VoxelSet voxels;  // Occupied set, dilated when `dilated`.
   bool dilated = false;
-  VoxelSet free_voxels;   // Known-empty. Level 0 exact; level>0 eroded (see isFreeBound()).
+  VoxelSet free_voxels;  // Known-empty. Level 0 exact; level>0 eroded (see isFreeBound()).
   bool has_free = false;
   VoxelScoreGrid scores;  // Distance-field values; empty in Occupancy mode.
 
@@ -262,7 +275,10 @@ struct VoxelLevel
     return isFree(p);
   }
 
-  uint8_t scoreAt(const Eigen::Vector3d & p) const { return scores.at(scoreKey(p)); }
+  uint8_t scoreAt(const Eigen::Vector3d & p) const
+  {
+    return scores.at(scoreKey(p));
+  }
 
   // Split from scoreAt() so a caller can prefetch ahead of scoring.
   int64_t scoreKey(const Eigen::Vector3d & p) const
@@ -271,11 +287,17 @@ struct VoxelLevel
       voxelIndex(p.x(), inv_resolution), voxelIndex(p.y(), inv_resolution), voxelIndex(p.z(), inv_resolution));
   }
 
-  uint8_t scoreAtKey(int64_t key) const { return scores.at(key); }
+  uint8_t scoreAtKey(int64_t key) const
+  {
+    return scores.at(key);
+  }
 
   // Levels > 0 are pre-max-pooled/dilated by buildDistanceField(), so one lookup is already a
   // valid upper bound -- unlike hitBound() there's no on-the-fly fallback needed.
-  uint8_t scoreBound(const Eigen::Vector3d & p) const { return scoreAt(p); }
+  uint8_t scoreBound(const Eigen::Vector3d & p) const
+  {
+    return scoreAt(p);
+  }
 
   // Estimate, not exact (unordered_set node/bucket accounting); free_voxels counted too since
   // it's a volume that can rival the occupied surface.
@@ -308,18 +330,18 @@ public:
     double free_min_height = 0.0;  // Band on (voxel z - ray origin z); both 0 disables it.
     double free_max_height = 0.0;
     bool free_clear_near_occupied = true;  // Also clear free voxels 26-adjacent to occupied
-                                            // ones, so registration jitter isn't penalised.
+      // ones, so registration jitter isn't penalised.
     std::size_t max_free_voxels = 20000000;  // On overflow, abandon free space (always sound).
 
     ScoreMode score_mode = ScoreMode::DistanceField;  // Under DistanceField, insertRay()/
-                                            // buildFreeSpace() are no-ops -- the falloff already
-                                            // covers what the ternary free state approximated.
-    double df_sigma = 1.0;         // Falloff std-dev (m); ~registration offset to absorb.
+      // buildFreeSpace() are no-ops -- the falloff already
+      // covers what the ternary free state approximated.
+    double df_sigma = 1.0;  // Falloff std-dev (m); ~registration offset to absorb.
     int df_truncation_voxels = 2;  // Kernel radius in level-0 voxels; beyond it, score 0.
     std::size_t max_score_voxels = 40000000;  // On overflow, abandon the field and fall back to
-                                            // Occupancy (see distanceFieldAbandoned()).
-    int build_threads = 1;         // Threads for buildDistanceField()'s level-0 splat (the
-                                            // most expensive finalize() step). 1 = serial.
+      // Occupancy (see distanceFieldAbandoned()).
+    int build_threads = 1;  // Threads for buildDistanceField()'s level-0 splat (the
+      // most expensive finalize() step). 1 = serial.
   };
 
   void beginInsert(const Config & cfg)
@@ -344,9 +366,7 @@ public:
     const int64_t ix = voxelIndex(p.x(), inv);
     const int64_t iy = voxelIndex(p.y(), inv);
     const int64_t iz = voxelIndex(p.z(), inv);
-    if (
-      std::abs(ix) > kVoxelIndexLimit || std::abs(iy) > kVoxelIndexLimit ||
-      std::abs(iz) > kVoxelIndexLimit) {
+    if (std::abs(ix) > kVoxelIndexLimit || std::abs(iy) > kVoxelIndexLimit || std::abs(iz) > kVoxelIndexLimit) {
       ++out_of_range_points_;
       return;
     }
@@ -365,9 +385,7 @@ public:
     const int64_t ix = voxelIndex(p.x(), inv);
     const int64_t iy = voxelIndex(p.y(), inv);
     const int64_t iz = voxelIndex(p.z(), inv);
-    if (
-      std::abs(ix) > kVoxelIndexLimit || std::abs(iy) > kVoxelIndexLimit ||
-      std::abs(iz) > kVoxelIndexLimit) {
+    if (std::abs(ix) > kVoxelIndexLimit || std::abs(iy) > kVoxelIndexLimit || std::abs(iz) > kVoxelIndexLimit) {
       return false;
     }
     shard.insert(packVoxel(ix, iy, iz));
@@ -418,8 +436,7 @@ public:
 
     const int64_t total_steps = std::abs(ix_end - ix) + std::abs(iy_end - iy) + std::abs(iz_end - iz);
 
-    const int64_t margin_voxels =
-      std::max<int64_t>(0, static_cast<int64_t>(std::ceil(cfg_.free_end_margin / r0)));
+    const int64_t margin_voxels = std::max<int64_t>(0, static_cast<int64_t>(std::ceil(cfg_.free_end_margin / r0)));
     const int64_t voxels_to_mark = std::max<int64_t>(0, total_steps - margin_voxels);
     if (voxels_to_mark == 0) return;
 
@@ -503,10 +520,25 @@ public:
     buildDistanceField();
   }
 
-  int numLevels() const { return static_cast<int>(levels_.size()); }
-  const VoxelLevel & level(int l) const { return levels_[static_cast<std::size_t>(l)]; }
-  bool empty() const { return levels_.empty() || levels_[0].voxels.empty(); }
-  std::size_t outOfRangePoints() const { return out_of_range_points_; }
+  int numLevels() const
+  {
+    return static_cast<int>(levels_.size());
+  }
+
+  const VoxelLevel & level(int l) const
+  {
+    return levels_[static_cast<std::size_t>(l)];
+  }
+
+  bool empty() const
+  {
+    return levels_.empty() || levels_[0].voxels.empty();
+  }
+
+  std::size_t outOfRangePoints() const
+  {
+    return out_of_range_points_;
+  }
 
   bool dilationSkipped(int l) const
   {
@@ -518,14 +550,20 @@ public:
     return levels_[static_cast<std::size_t>(level)].free_voxels.size();
   }
 
-  bool freeSpaceAbandoned() const { return free_space_abandoned_; }
+  bool freeSpaceAbandoned() const
+  {
+    return free_space_abandoned_;
+  }
 
   std::size_t scoreVoxelCount(int level) const
   {
     return levels_[static_cast<std::size_t>(level)].scores.size();
   }
 
-  bool distanceFieldAbandoned() const { return distance_field_abandoned_; }
+  bool distanceFieldAbandoned() const
+  {
+    return distance_field_abandoned_;
+  }
 
   // Actual mode this build ended up with -- differs from config().score_mode only after a
   // DistanceField overflow fallback. Callers should read this, not config().score_mode.
@@ -561,7 +599,10 @@ public:
 #endif
   }
 
-  const Config & config() const { return cfg_; }
+  const Config & config() const
+  {
+    return cfg_;
+  }
 
 private:
   // 26- not 6-neighbourhood: children displace diagonally, so 6-connected isn't a valid bound.
@@ -712,7 +753,7 @@ private:
       std::vector<VoxelScoreGrid> shards(static_cast<std::size_t>(nthreads));
 
 #pragma omp parallel for schedule(static) num_threads(nthreads)
-      for (long i = 0; i < static_cast<long>(occ.size()); ++i) {
+      for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(occ.size()); ++i) {
         int64_t ix, iy, iz;
         unpackVoxel(occ[static_cast<std::size_t>(i)], ix, iy, iz);
         VoxelScoreGrid & shard = shards[static_cast<std::size_t>(omp_get_thread_num())];

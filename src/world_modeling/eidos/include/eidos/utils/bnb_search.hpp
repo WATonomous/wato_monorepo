@@ -17,10 +17,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <Eigen/Core>
 #include <queue>
 #include <vector>
-
-#include <Eigen/Core>
 
 #include "eidos/utils/voxel_pyramid.hpp"
 
@@ -34,11 +33,11 @@ struct Hypothesis
 {
   Eigen::Vector3d translation = Eigen::Vector3d::Zero();
   double yaw = 0.0;
-  int score = 0;              // Ternary [0, hit_weight*n] under Occupancy, cell-value sum
-                               // [0, 255*n] under DistanceField. See scorePoseAtLevel().
-  double normalized = 0.0;    // score / max_possible, in [0, 1], valid in both modes.
-  int hits = 0;                // Occupied-hit count (Occupancy) or non-zero-cell count (DistanceField).
-  double hit_fraction = 0.0;   // hits / query point count.
+  int score = 0;  // Ternary [0, hit_weight*n] under Occupancy, cell-value sum
+    // [0, 255*n] under DistanceField. See scorePoseAtLevel().
+  double normalized = 0.0;  // score / max_possible, in [0, 1], valid in both modes.
+  int hits = 0;  // Occupied-hit count (Occupancy) or non-zero-cell count (DistanceField).
+  double hit_fraction = 0.0;  // hits / query point count.
 };
 
 // Tuning parameters for branchAndBound().
@@ -50,7 +49,7 @@ struct SearchConfig
   // textbook BnB pruning at best_score) so spatially distinct runner-ups survive for the
   // caller's NMS/uniqueness gate to compare against.
   double prune_slack = 0.8;
-  double nms_radius = 5.0;      // Minimum separation (m) between distinct reported solutions.
+  double nms_radius = 5.0;  // Minimum separation (m) between distinct reported solutions.
   int max_solutions = 8;
   std::size_t max_nodes = 50000000;  // Safety cap on nodes expanded.
 };
@@ -62,7 +61,7 @@ struct SearchStats
   std::size_t nodes_pruned = 0;
   bool hit_node_cap = false;
   std::size_t greedy_evaluations = 0;  // Scoring calls made by the pre-loop greedy dive.
-  std::size_t point_tests = 0;         // Query-point tests actually performed (post early-exit).
+  std::size_t point_tests = 0;  // Query-point tests actually performed (post early-exit).
 };
 
 // One coarsest-level starting cell for the search frontier. Caller builds the root set (e.g. a
@@ -101,12 +100,14 @@ struct YawDiscretization
     disc.coarsest_level = pyramid.numLevels() - 1;
     const double resolution = pyramid.level(disc.coarsest_level).resolution;
     const double dtheta_coarsest = resolution / max_r;
-    disc.coarse_bins =
-      std::max<int64_t>(1, static_cast<int64_t>(std::ceil((2.0 * kBnbPi) / dtheta_coarsest)));
+    disc.coarse_bins = std::max<int64_t>(1, static_cast<int64_t>(std::ceil((2.0 * kBnbPi) / dtheta_coarsest)));
     return disc;
   }
 
-  int64_t numBins(int level) const { return coarse_bins << (coarsest_level - level); }
+  int64_t numBins(int level) const
+  {
+    return coarse_bins << (coarsest_level - level);
+  }
 
   // Bin centres, not corners: (k + 0.5) * 2pi / n_l.
   double binCentre(int level, int64_t bin) const
@@ -142,9 +143,15 @@ inline Eigen::Vector3d bnbCellCentre(int64_t ix, int64_t iy, int64_t iz, double 
 // < min_required. Default 0 makes early exit impossible, which is what keeps the brute-force
 // oracles (which don't pass this) exhaustive.
 inline int scorePoseAtLevel(
-  const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query,
-  const Eigen::Vector3d & translation, double yaw, int level, int hit_weight = 3, int min_required = 0,
-  std::size_t * point_tests_out = nullptr, ScoreMode score_mode = ScoreMode::DistanceField)
+  const VoxelPyramid & pyramid,
+  const std::vector<Eigen::Vector3d> & query,
+  const Eigen::Vector3d & translation,
+  double yaw,
+  int level,
+  int hit_weight = 3,
+  int min_required = 0,
+  std::size_t * point_tests_out = nullptr,
+  ScoreMode score_mode = ScoreMode::DistanceField)
 {
   const double c = std::cos(yaw);
   const double s = std::sin(yaw);
@@ -212,11 +219,11 @@ inline int scorePoseAtLevel(
 // Per-point breakdown of a score, for diagnostics only.
 struct ScoreBreakdown
 {
-  int hits = 0;     // Occupied points (Occupancy) or non-zero-cell points (DistanceField).
+  int hits = 0;  // Occupied points (Occupancy) or non-zero-cell points (DistanceField).
   int unknown = 0;  // Neither occupied nor free (Occupancy) or zero-cell (DistanceField).
-  int free = 0;     // Known-free points. Always 0 under DistanceField.
-  int raw = 0;      // Same value scorePoseAtLevel() would return for identical arguments.
-  int max_possible = 0;      // hit_weight*n (Occupancy) or 255*n (DistanceField).
+  int free = 0;  // Known-free points. Always 0 under DistanceField.
+  int raw = 0;  // Same value scorePoseAtLevel() would return for identical arguments.
+  int max_possible = 0;  // hit_weight*n (Occupancy) or 255*n (DistanceField).
   double mean_cell_score = 0.0;  // raw / n.
 };
 
@@ -224,8 +231,12 @@ struct ScoreBreakdown
 // composition without perturbing search performance. Same classification as scorePoseAtLevel(),
 // so breakdown.raw always matches what that function returns for identical arguments.
 inline ScoreBreakdown scoreBreakdownAtLevel(
-  const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query,
-  const Eigen::Vector3d & translation, double yaw, int level, int hit_weight = 3,
+  const VoxelPyramid & pyramid,
+  const std::vector<Eigen::Vector3d> & query,
+  const Eigen::Vector3d & translation,
+  double yaw,
+  int level,
+  int hit_weight = 3,
   ScoreMode score_mode = ScoreMode::DistanceField)
 {
   const double c = std::cos(yaw);
@@ -293,8 +304,11 @@ struct BnbNodeGreaterByBound
 // level-0 leaves are recorded as solutions, internal nodes expand into 16 children (8 translation
 // x 2 yaw) whose bounds exceed the current prune threshold.
 inline std::vector<Hypothesis> branchAndBound(
-  const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query, const std::vector<RootCell> & roots,
-  const SearchConfig & cfg, SearchStats & stats)
+  const VoxelPyramid & pyramid,
+  const std::vector<Eigen::Vector3d> & query,
+  const std::vector<RootCell> & roots,
+  const SearchConfig & cfg,
+  SearchStats & stats)
 {
   stats = SearchStats{};
   std::vector<Hypothesis> solutions;
@@ -456,8 +470,11 @@ inline std::vector<Hypothesis> branchAndBound(
 // function independently of the bound-and-prune logic. `score_mode` must match what the pyramid
 // was actually built with, or this reads an empty/wrong score channel.
 inline std::vector<Hypothesis> bruteForceCoarse(
-  const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query, const std::vector<RootCell> & roots,
-  int max_results, ScoreMode score_mode = ScoreMode::DistanceField)
+  const VoxelPyramid & pyramid,
+  const std::vector<Eigen::Vector3d> & query,
+  const std::vector<RootCell> & roots,
+  int max_results,
+  ScoreMode score_mode = ScoreMode::DistanceField)
 {
   std::vector<Hypothesis> results;
   if (query.empty() || roots.empty() || pyramid.empty() || pyramid.numLevels() <= 0) return results;
@@ -482,9 +499,8 @@ inline std::vector<Hypothesis> bruteForceCoarse(
       h.score = breakdown.raw;
       h.hits = breakdown.hits;
       h.hit_fraction = static_cast<double>(breakdown.hits) / static_cast<double>(query.size());
-      h.normalized = breakdown.max_possible > 0
-                       ? static_cast<double>(h.score) / static_cast<double>(breakdown.max_possible)
-                       : 0.0;
+      h.normalized =
+        breakdown.max_possible > 0 ? static_cast<double>(h.score) / static_cast<double>(breakdown.max_possible) : 0.0;
       results.push_back(h);
     }
   }
@@ -501,8 +517,12 @@ inline std::vector<Hypothesis> bruteForceCoarse(
 // branch-and-bound equivalence testing; intentionally slow (cubic in box size x query size x yaw
 // bins) -- only suitable for small boxes in tests.
 inline std::vector<Hypothesis> bruteForceLeaf(
-  const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query, const Eigen::Vector3d & box_min,
-  const Eigen::Vector3d & box_max, int max_results, ScoreMode score_mode = ScoreMode::DistanceField)
+  const VoxelPyramid & pyramid,
+  const std::vector<Eigen::Vector3d> & query,
+  const Eigen::Vector3d & box_min,
+  const Eigen::Vector3d & box_max,
+  int max_results,
+  ScoreMode score_mode = ScoreMode::DistanceField)
 {
   std::vector<Hypothesis> results;
   if (query.empty() || pyramid.empty() || pyramid.numLevels() <= 0) return results;

@@ -14,17 +14,18 @@
 
 #pragma once
 
+#include <gtsam/inference/Key.h>
+
 #include <atomic>
 #include <cstddef>
+#include <Eigen/Geometry>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
-#include <Eigen/Geometry>
-
-#include <gtsam/inference/Key.h>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
@@ -122,7 +123,9 @@ private:
   // set, in the same pass as occupancy insertion (VoxelPyramid::insertRay() isn't thread-safe, so
   // a second pass would double the iteration cost for nothing).
   bool insertKeyframeCloud(
-    gtsam::Key key, const std::string & data_key, const Eigen::Isometry3d & world_t,
+    gtsam::Key key,
+    const std::string & data_key,
+    const Eigen::Isometry3d & world_t,
     const Eigen::Vector3d & sensor_offset_body);
 
   // Thread-safe insertKeyframeCloud() for buildPyramid()'s parallel path: rasterizes into a
@@ -130,8 +133,11 @@ private:
   // VoxelPyramid::insertIntoShard()). Safe to call concurrently across keyframes as long as each
   // thread owns its shard/out_of_range and no keyframe is shared between threads.
   bool insertKeyframeCloudShard(
-    gtsam::Key key, const std::string & data_key, const Eigen::Isometry3d & world_t,
-    eidos::reloc::VoxelSet & shard, std::size_t & out_of_range);
+    gtsam::Key key,
+    const std::string & data_key,
+    const Eigen::Isometry3d & world_t,
+    eidos::reloc::VoxelSet & shard,
+    std::size_t & out_of_range);
 
   void buildRoots();
   void publishDebugGrid();
@@ -142,8 +148,11 @@ private:
   // downsampled exactly like the live path -- so the result is, by construction, exactly
   // registered to the map. Used by the debug_self_test_/debug_use_self_query_ diagnostics.
   bool buildSelfQuery(
-    const Eigen::Vector3d & near_position, std::vector<Eigen::Vector3d> & query_out,
-    Eigen::Vector3d & kf_translation_out, double & kf_yaw_out, int & kf_index_out);
+    const Eigen::Vector3d & near_position,
+    std::vector<Eigen::Vector3d> & query_out,
+    Eigen::Vector3d & kf_translation_out,
+    double & kf_yaw_out,
+    int & kf_index_out);
 
   // Cheaply ranks roots and keeps only the top root_prefilter_keep_ before branchAndBound() --
   // a heuristic shortcut (wrong survivors are still caught by the GICP/uniqueness gates
@@ -215,7 +224,7 @@ private:
   pcl::PointCloud<PoseType>::Ptr poses6d_;
   std::vector<TrajectoryEntry> trajectory_;
   std::vector<eidos::reloc::RootCell> roots_;
-  std::vector<float> root_headings_;         // Heading of the entry that admitted each root cell.
+  std::vector<float> root_headings_;  // Heading of the entry that admitted each root cell.
   std::vector<ScoredHypothesis> prefilter_candidates_;  // Fine prefilter's per-offset argmax poses.
 
   // Mean normalized score of random corridor poses -- the measured "no real match" floor, since
@@ -223,8 +232,8 @@ private:
   double last_chance_floor_ = 0.0;
   bool build_free_space_this_run_ = false;  // Whether free-space raycast actually ran this build.
   eidos::reloc::ScoreMode active_score_mode_ = eidos::reloc::ScoreMode::DistanceField;  // Mode
-                                             // actually built with (may differ from score_mode_
-                                             // after an overflow fallback).
+    // actually built with (may differ from score_mode_
+    // after an overflow fallback).
 
   // ---- Parameters ----
   std::string pointcloud_from_;
@@ -248,10 +257,10 @@ private:
 
   // Diagnostic switches, all zero-cost/zero-behaviour-change when false and debug_probe_pose_
   // unset -- see each block's doc comment in the .cpp for procedure/rationale.
-  bool debug_band_sweep_ = false;       // Height-band discrimination sweep.
-  bool debug_res_sweep_ = false;        // Resolution/scoring-mode/min-observation sweep.
-  bool debug_self_test_ = false;        // Scores a keyframe's own cloud at its own pose.
-  bool debug_use_self_query_ = false;   // Runs a self-query through the full production path.
+  bool debug_band_sweep_ = false;  // Height-band discrimination sweep.
+  bool debug_res_sweep_ = false;  // Resolution/scoring-mode/min-observation sweep.
+  bool debug_self_test_ = false;  // Scores a keyframe's own cloud at its own pose.
+  bool debug_use_self_query_ = false;  // Runs a self-query through the full production path.
 
   double rp_search_range_ = 0.02;
   int rp_search_steps_ = 1;  // 1 = trust IMU gravity; each extra step multiplies search cost
@@ -299,7 +308,7 @@ private:
 
   // ---- Free-space channel (occupancy mode only; ignored under DistanceField) ----
   bool use_free_space_ = false;  // Off by default: didn't help on ring_road.map (the underlying
-                                  // occupancy score wasn't discriminative there to begin with).
+    // occupancy score wasn't discriminative there to begin with).
   int free_rays_per_keyframe_ = 2000;
   double free_max_range_ = 40.0;
   double free_end_margin_ = 1.0;

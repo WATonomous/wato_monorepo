@@ -18,13 +18,13 @@
 #include <tf2_ros/buffer.h>
 
 #include <algorithm>
-#include <random>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <random>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -90,8 +90,7 @@ std::size_t raycastStride(std::size_t n, int target)
 
 // Parses "distance_field"/"occupancy"; an unrecognised value WARNs and falls back to
 // distance_field rather than throwing, so a launch-file typo degrades gracefully.
-eidos::reloc::ScoreMode parseScoreMode(
-  const std::string & raw, const rclcpp::Logger & logger, const std::string & name)
+eidos::reloc::ScoreMode parseScoreMode(const std::string & raw, const rclcpp::Logger & logger, const std::string & name)
 {
   if (raw == "distance_field") return eidos::reloc::ScoreMode::DistanceField;
   if (raw == "occupancy") return eidos::reloc::ScoreMode::Occupancy;
@@ -589,7 +588,13 @@ void BnbVoxelRelocalization::workerMain()
         node_->get_logger(),
         "[%s] debug_use_self_query: substituting keyframe %d self-query (n=%zu) at pose (%.2f,%.2f,%.2f) "
         "yaw=%.1fdeg for the live scan",
-        name_.c_str(), kf_idx, self_query.size(), kf_t.x(), kf_t.y(), kf_t.z(), kf_yaw * 180.0 / M_PI);
+        name_.c_str(),
+        kf_idx,
+        self_query.size(),
+        kf_t.x(),
+        kf_t.y(),
+        kf_t.z(),
+        kf_yaw * 180.0 / M_PI);
       query = std::move(self_query);
     } else {
       RCLCPP_WARN(
@@ -709,7 +714,8 @@ bool BnbVoxelRelocalization::buildPyramid()
   // voxel and is far cheaper to rasterize than a full-resolution "*/cloud" -- and is otherwise kept
   // as the fallback of last resort, exactly as before.
   const std::string cloud_suffix = "/cloud";
-  const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
+  const bool has_fallback =
+    pointcloud_from_.size() >= cloud_suffix.size() &&
     pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) == 0;
   const std::string fallback_key =
     has_fallback ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
@@ -750,7 +756,10 @@ bool BnbVoxelRelocalization::buildPyramid()
         inserted_any = true;
         used_key = pointcloud_from_;
       }
-      if (!inserted_any && has_fallback && !tried_fallback && insertKeyframeCloud(key, fallback_key, T, sensor_offset_body)) {
+      if (
+        !inserted_any && has_fallback && !tried_fallback &&
+        insertKeyframeCloud(key, fallback_key, T, sensor_offset_body))
+      {
         inserted_any = true;
         used_key = fallback_key;
       }
@@ -779,11 +788,12 @@ bool BnbVoxelRelocalization::buildPyramid()
       TrajectoryEntry entry;
       std::string used_key;
     };
+
     std::vector<Slot> slots(key_list.size());
     std::atomic<bool> aborted{false};
 
 #pragma omp parallel for schedule(dynamic) num_threads(nthreads)
-    for (long i = 0; i < static_cast<long>(key_list.size()); ++i) {
+    for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(key_list.size()); ++i) {
       if (aborted.load(std::memory_order_relaxed)) continue;
       if (stop_requested_.load()) {
         aborted.store(true, std::memory_order_relaxed);
@@ -819,8 +829,8 @@ bool BnbVoxelRelocalization::buildPyramid()
         used_key = pointcloud_from_;
       }
       if (
-        !inserted_any && has_fallback && !tried_fallback &&
-        insertKeyframeCloudShard(key, fallback_key, T, shard, oor)) {
+        !inserted_any && has_fallback && !tried_fallback && insertKeyframeCloudShard(key, fallback_key, T, shard, oor))
+      {
         inserted_any = true;
         used_key = fallback_key;
       }
@@ -941,7 +951,9 @@ bool BnbVoxelRelocalization::buildPyramid()
 }
 
 bool BnbVoxelRelocalization::insertKeyframeCloud(
-  gtsam::Key key, const std::string & data_key, const Eigen::Isometry3d & world_t,
+  gtsam::Key key,
+  const std::string & data_key,
+  const Eigen::Isometry3d & world_t,
   const Eigen::Vector3d & sensor_offset_body)
 {
   const Eigen::Vector3d origin_world = world_t * sensor_offset_body;
@@ -983,8 +995,11 @@ bool BnbVoxelRelocalization::insertKeyframeCloud(
 }
 
 bool BnbVoxelRelocalization::insertKeyframeCloudShard(
-  gtsam::Key key, const std::string & data_key, const Eigen::Isometry3d & world_t,
-  eidos::reloc::VoxelSet & shard, std::size_t & out_of_range)
+  gtsam::Key key,
+  const std::string & data_key,
+  const Eigen::Isometry3d & world_t,
+  eidos::reloc::VoxelSet & shard,
+  std::size_t & out_of_range)
 {
   auto pcl_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key, data_key);
   if (pcl_opt.has_value() && *pcl_opt && !(*pcl_opt)->empty()) {
@@ -1103,7 +1118,7 @@ void BnbVoxelRelocalization::publishDebugGrid()
       node_->get_logger(),
       "[%s] debug grid extent too large to publish (%ldx%ld cells), skipping",
       name_.c_str(),
-      static_cast<long>(width),   // NOLINT(runtime/int)
+      static_cast<long>(width),  // NOLINT(runtime/int)
       static_cast<long>(height));  // NOLINT(runtime/int)
     return;
   }
@@ -1134,7 +1149,7 @@ void BnbVoxelRelocalization::publishDebugGrid()
       node_->get_logger(),
       "[%s] published debug voxel grid: %ldx%ld cells @ %.2fm",
       name_.c_str(),
-      static_cast<long>(width),   // NOLINT(runtime/int)
+      static_cast<long>(width),  // NOLINT(runtime/int)
       static_cast<long>(height),  // NOLINT(runtime/int)
       res);
   }
@@ -1263,8 +1278,7 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
   if (!prefilter_fine_) {
     // Original coarse-level ranking, kept for A/B testing. Same discretisation branchAndBound()
     // computes internally, so the yaw bins scored here line up with the ones it seeds from.
-    const eidos::reloc::YawDiscretization yaw_disc =
-      eidos::reloc::YawDiscretization::compute(rotated_query, pyramid_);
+    const eidos::reloc::YawDiscretization yaw_disc = eidos::reloc::YawDiscretization::compute(rotated_query, pyramid_);
     if (yaw_disc.max_range <= 0.0) return roots_;  // degenerate query, let branchAndBound() handle it.
 
     const int coarsest_level = pyramid_.numLevels() - 1;
@@ -1297,10 +1311,10 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
 
     const std::size_t keep = std::min(static_cast<std::size_t>(root_prefilter_keep_), scored.size());
     std::nth_element(
-      scored.begin(), scored.begin() + static_cast<std::ptrdiff_t>(keep), scored.end(),
-      [](const std::pair<int, std::size_t> & a, const std::pair<int, std::size_t> & b) {
-        return a.first > b.first;
-      });
+      scored.begin(),
+      scored.begin() + static_cast<std::ptrdiff_t>(keep),
+      scored.end(),
+      [](const std::pair<int, std::size_t> & a, const std::pair<int, std::size_t> & b) { return a.first > b.first; });
     scored.resize(keep);
 
     std::vector<eidos::reloc::RootCell> kept;
@@ -1316,7 +1330,9 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
   // partial_sort, not nth_element: nth_element's unspecified tie handling is what discarded the
   // true root in the coarse path. Ties broken on idx, so selection is fully deterministic.
   std::partial_sort(
-    scored.begin(), scored.begin() + static_cast<std::ptrdiff_t>(keep), scored.end(),
+    scored.begin(),
+    scored.begin() + static_cast<std::ptrdiff_t>(keep),
+    scored.end(),
     [](const FineRootScore & a, const FineRootScore & b) {
       return a.score != b.score ? a.score > b.score : a.idx < b.idx;
     });
@@ -1324,15 +1340,14 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
   // Emit the top roots' argmax poses as real candidates (not just a kept-root list): BnB's own
   // coarse bound saturates too, so a surviving root gets no guidance from it either. Capped at
   // 4*num_gicp_candidates_ -- GICP can't productively use more than that.
-  const std::size_t n_candidates =
-    std::min(keep, static_cast<std::size_t>(std::max(4 * num_gicp_candidates_, 0)));
+  const std::size_t n_candidates = std::min(keep, static_cast<std::size_t>(std::max(4 * num_gicp_candidates_, 0)));
   for (std::size_t i = 0; i < n_candidates; ++i) {
     const FineRootScore & fr = scored[i];
     if (fr.score < 0) continue;  // stop_requested_ fired mid-scan
     // Re-score against the FULL query at level 0, same as branchAndBound()'s leafHypothesis(), so
     // this sits on equal footing when merged/NMS'd with BnB output in searchPoses().
-    const eidos::reloc::ScoreBreakdown breakdown = eidos::reloc::scoreBreakdownAtLevel(
-      pyramid_, rotated_query, fr.pos, fr.yaw, 0, hit_weight_, active_score_mode_);
+    const eidos::reloc::ScoreBreakdown breakdown =
+      eidos::reloc::scoreBreakdownAtLevel(pyramid_, rotated_query, fr.pos, fr.yaw, 0, hit_weight_, active_score_mode_);
     eidos::reloc::Hypothesis hyp;
     hyp.translation = fr.pos;
     hyp.yaw = fr.yaw;
@@ -1355,8 +1370,11 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
 // Self-query builder -- a query drawn from a prior-map keyframe's own cloud, exactly registered to
 // the map by construction. Shared by debug_self_test_ and debug_use_self_query_.
 bool BnbVoxelRelocalization::buildSelfQuery(
-  const Eigen::Vector3d & near_position, std::vector<Eigen::Vector3d> & query_out,
-  Eigen::Vector3d & kf_translation_out, double & kf_yaw_out, int & kf_index_out)
+  const Eigen::Vector3d & near_position,
+  std::vector<Eigen::Vector3d> & query_out,
+  Eigen::Vector3d & kf_translation_out,
+  double & kf_yaw_out,
+  int & kf_index_out)
 {
   query_out.clear();
   kf_translation_out = Eigen::Vector3d::Zero();
@@ -1390,8 +1408,12 @@ bool BnbVoxelRelocalization::buildSelfQuery(
   }
   if (!have_kf) {
     RCLCPP_WARN(
-      node_->get_logger(), "[%s] buildSelfQuery: no prior-map keyframe found near (%.2f,%.2f,%.2f)", name_.c_str(),
-      near_position.x(), near_position.y(), near_position.z());
+      node_->get_logger(),
+      "[%s] buildSelfQuery: no prior-map keyframe found near (%.2f,%.2f,%.2f)",
+      name_.c_str(),
+      near_position.x(),
+      near_position.y(),
+      near_position.z());
     return false;
   }
 
@@ -1411,18 +1433,21 @@ bool BnbVoxelRelocalization::buildSelfQuery(
         node_->get_logger(),
         "[%s] buildSelfQuery: rotation convention check failed for kf=%d (err=%.3e > 1e-6) -- every de-tilt in "
         "this plugin is suspect, not just this diagnostic",
-        name_.c_str(), kf_idx, conv_err);
+        name_.c_str(),
+        kf_idx,
+        conv_err);
     }
   }
 
   // Keyframe's own body-frame cloud (untransformed, unfiltered) -- same retrieval/fallback as
   // insertKeyframeCloud()/buildPyramid().
   const std::string cloud_suffix = "/cloud";
-  const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
+  const bool has_fallback =
+    pointcloud_from_.size() >= cloud_suffix.size() &&
     pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) == 0;
-  const std::string fallback_key = has_fallback
-    ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
-    : std::string();
+  const std::string fallback_key =
+    has_fallback ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
+                 : std::string();
   auto tryKey = [&](const std::string & data_key, std::vector<Eigen::Vector3d> & out) -> bool {
     auto pcl_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(kf_key, data_key);
     if (pcl_opt.has_value() && *pcl_opt && !(*pcl_opt)->empty()) {
@@ -1443,8 +1468,8 @@ bool BnbVoxelRelocalization::buildSelfQuery(
   };
   std::vector<Eigen::Vector3d> kf_body;
   const bool retrieved = (has_fallback && prefer_downsampled_source_)
-    ? (tryKey(fallback_key, kf_body) || tryKey(pointcloud_from_, kf_body))
-    : (tryKey(pointcloud_from_, kf_body) || (has_fallback && tryKey(fallback_key, kf_body)));
+                           ? (tryKey(fallback_key, kf_body) || tryKey(pointcloud_from_, kf_body))
+                           : (tryKey(pointcloud_from_, kf_body) || (has_fallback && tryKey(fallback_key, kf_body)));
   if (!retrieved || kf_body.empty()) {
     RCLCPP_WARN(node_->get_logger(), "[%s] buildSelfQuery: no usable cloud found for kf=%d", name_.c_str(), kf_idx);
     return false;
@@ -1508,6 +1533,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     double dr;
     double dp;
   };
+
   std::vector<OffsetPair> offsets;
   offsets.reserve(roll_offsets.size() * pitch_offsets.size());
   for (double dr : roll_offsets) {
@@ -1525,6 +1551,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     std::vector<Eigen::Vector3d> rotated_query;
     std::vector<std::vector<eidos::reloc::RootCell>> root_chunks;
   };
+
   std::vector<OffsetPrep> preps(offsets.size());
 
   const std::size_t roots_before = roots_.size();
@@ -1686,9 +1713,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           "ref_fine_rank=%zu/%zu ties_at_ref=%d best_fine_score=%d best_fine_pose=(%.2f,%.2f,%.2f) "
           "yaw=%.1fdeg",
           name_.c_str(),
-          static_cast<long>(trace9_ref_ix),   // NOLINT(runtime/int)
-          static_cast<long>(trace9_ref_iy),   // NOLINT(runtime/int)
-          static_cast<long>(trace9_ref_iz),   // NOLINT(runtime/int)
+          static_cast<long>(trace9_ref_ix),  // NOLINT(runtime/int)
+          static_cast<long>(trace9_ref_iy),  // NOLINT(runtime/int)
+          static_cast<long>(trace9_ref_iz),  // NOLINT(runtime/int)
           trace9_in_kept ? "yes" : "NO",
           trace9_ref_fine_score,
           trace9_ref_fine_rank,
@@ -1723,6 +1750,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     std::size_t offset_idx;
     std::size_t chunk_idx;
   };
+
   std::vector<Task> tasks;
   for (std::size_t oi = 0; oi < preps.size(); ++oi) {
     for (std::size_t ci = 0; ci < preps[oi].root_chunks.size(); ++ci) {
@@ -1754,8 +1782,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     // Node budget split across tasks so the search stays anytime against relocalization_timeout;
     // the frontier explores best-scoring regions first, so truncation costs optimality, not
     // soundness -- and any survivor still has to clear the GICP/uniqueness gates.
-    scfg.max_nodes = std::max<std::size_t>(
-      1000, static_cast<std::size_t>(max_search_nodes_) / std::max<std::size_t>(1, tasks.size()));
+    scfg.max_nodes =
+      std::max<std::size_t>(1000, static_cast<std::size_t>(max_search_nodes_) / std::max<std::size_t>(1, tasks.size()));
     eidos::reloc::SearchStats stats;
     auto hyps = eidos::reloc::branchAndBound(pyramid_, prep.rotated_query, chunk, scfg, stats);
     per_task_stats[static_cast<std::size_t>(t)] = stats;
@@ -1828,8 +1856,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         if (r.ix == trace_ref_ix && r.iy == trace_ref_iy && r.iz == trace_ref_iz) {
           trace_root_index = static_cast<int>(i);
         }
-        const Eigen::Vector3d centre =
-          eidos::reloc::bnbCellCentre(r.ix, r.iy, r.iz, trace_coarse_lvl.resolution);
+        const Eigen::Vector3d centre = eidos::reloc::bnbCellCentre(r.ix, r.iy, r.iz, trace_coarse_lvl.resolution);
         nearest_root_dist = std::min(nearest_root_dist, (centre - probe_t).norm());
       }
       RCLCPP_INFO(
@@ -1837,9 +1864,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         "[%s] TRACE 2 corridor roots: ref_cell=(%ld,%ld,%ld) present=%s root_index=%d "
         "total_roots=%zu nearest_root_centre_dist=%.2fm",
         name_.c_str(),
-        static_cast<long>(trace_ref_ix),   // NOLINT(runtime/int)
-        static_cast<long>(trace_ref_iy),   // NOLINT(runtime/int)
-        static_cast<long>(trace_ref_iz),   // NOLINT(runtime/int)
+        static_cast<long>(trace_ref_ix),  // NOLINT(runtime/int)
+        static_cast<long>(trace_ref_iy),  // NOLINT(runtime/int)
+        static_cast<long>(trace_ref_iz),  // NOLINT(runtime/int)
         trace_root_index >= 0 ? "yes" : "NO",
         trace_root_index,
         roots_.size(),
@@ -1855,18 +1882,30 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       for (const auto & e : trajectory_) {
         const double d = (e.position - probe_t).norm();
         if (d < 30.0) ++near_traj;
-        if (d < nearest_traj) { nearest_traj = d; nearest_traj_pos = e.position; }
+        if (d < nearest_traj) {
+          nearest_traj = d;
+          nearest_traj_pos = e.position;
+        }
       }
+      const int64_t nearest_traj_ix = eidos::reloc::voxelIndex(nearest_traj_pos.x(), trace_coarse_lvl.inv_resolution);
+      const int64_t nearest_traj_iy = eidos::reloc::voxelIndex(nearest_traj_pos.y(), trace_coarse_lvl.inv_resolution);
+      const int64_t nearest_traj_iz = eidos::reloc::voxelIndex(nearest_traj_pos.z(), trace_coarse_lvl.inv_resolution);
       RCLCPP_INFO(
         node_->get_logger(),
         "[%s] TRACE 2b trajectory: %d entries within 30m of ref, nearest at (%.2f,%.2f,%.2f) d=%.2fm "
         "-> its cell=(%ld,%ld,%ld); ref cell=(%ld,%ld,%ld)",
-        name_.c_str(), near_traj,
-        nearest_traj_pos.x(), nearest_traj_pos.y(), nearest_traj_pos.z(), nearest_traj,
-        static_cast<long>(eidos::reloc::voxelIndex(nearest_traj_pos.x(), trace_coarse_lvl.inv_resolution)),
-        static_cast<long>(eidos::reloc::voxelIndex(nearest_traj_pos.y(), trace_coarse_lvl.inv_resolution)),
-        static_cast<long>(eidos::reloc::voxelIndex(nearest_traj_pos.z(), trace_coarse_lvl.inv_resolution)),
-        static_cast<long>(trace_ref_ix), static_cast<long>(trace_ref_iy), static_cast<long>(trace_ref_iz));
+        name_.c_str(),
+        near_traj,
+        nearest_traj_pos.x(),
+        nearest_traj_pos.y(),
+        nearest_traj_pos.z(),
+        nearest_traj,
+        static_cast<long>(nearest_traj_ix),  // NOLINT(runtime/int)
+        static_cast<long>(nearest_traj_iy),  // NOLINT(runtime/int)
+        static_cast<long>(nearest_traj_iz),  // NOLINT(runtime/int)
+        static_cast<long>(trace_ref_ix),  // NOLINT(runtime/int)
+        static_cast<long>(trace_ref_iy),  // NOLINT(runtime/int)
+        static_cast<long>(trace_ref_iz));  // NOLINT(runtime/int)
 
       std::string near_roots;
       for (const auto & r : roots_) {
@@ -1875,8 +1914,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         }
       }
       RCLCPP_INFO(
-        node_->get_logger(), "[%s] TRACE 2c roots adjacent to ref cell: %s",
-        name_.c_str(), near_roots.empty() ? "NONE" : near_roots.c_str());
+        node_->get_logger(),
+        "[%s] TRACE 2c roots adjacent to ref cell: %s",
+        name_.c_str(),
+        near_roots.empty() ? "NONE" : near_roots.c_str());
     }
 
     // TRACE 3 -- yaw binning: bin the reference yaw with the SAME YawDiscretization the search
@@ -1884,16 +1925,14 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     // DISCRETE cell/bin score against a CONTINUOUS score of the exact reference pose at the same
     // level. A wild gap between the two means the discretisation -- not the underlying score
     // field -- is where the true pose is being lost.
-    const eidos::reloc::YawDiscretization trace_yaw_disc =
-      eidos::reloc::YawDiscretization::compute(pq, pyramid_);
+    const eidos::reloc::YawDiscretization trace_yaw_disc = eidos::reloc::YawDiscretization::compute(pq, pyramid_);
     if (trace_yaw_disc.max_range > 0.0) {
       const int64_t n_coarse_bins = trace_yaw_disc.numBins(trace_coarsest_level);
       // Wrap probe_yaw into [0, 2*pi) before binning -- binCentre()/numBins() assume a bin index
       // in [0, n_coarse_bins), and a raw atan2-range yaw can be negative.
       double yaw_wrapped = std::fmod(probe_yaw, 2.0 * M_PI);
       if (yaw_wrapped < 0.0) yaw_wrapped += 2.0 * M_PI;
-      int64_t ref_yaw_bin =
-        static_cast<int64_t>(yaw_wrapped / (2.0 * M_PI) * static_cast<double>(n_coarse_bins));
+      int64_t ref_yaw_bin = static_cast<int64_t>(yaw_wrapped / (2.0 * M_PI) * static_cast<double>(n_coarse_bins));
       ref_yaw_bin = std::clamp<int64_t>(ref_yaw_bin, 0, n_coarse_bins - 1);
       const double bin_centre = trace_yaw_disc.binCentre(trace_coarsest_level, ref_yaw_bin);
       double yaw_err_deg = (bin_centre - probe_yaw) * 180.0 / M_PI;
@@ -1901,14 +1940,13 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       while (yaw_err_deg > 180.0) yaw_err_deg -= 360.0;
       while (yaw_err_deg <= -180.0) yaw_err_deg += 360.0;
 
-      const Eigen::Vector3d trace_cell_centre = eidos::reloc::bnbCellCentre(
-        trace_ref_ix, trace_ref_iy, trace_ref_iz, trace_coarse_lvl.resolution);
+      const Eigen::Vector3d trace_cell_centre =
+        eidos::reloc::bnbCellCentre(trace_ref_ix, trace_ref_iy, trace_ref_iz, trace_coarse_lvl.resolution);
       // active_score_mode_/hit_weight_ passed explicitly (not defaulted): scorePoseAtLevel()'s
       // trailing ScoreMode parameter defaults to DistanceField, so omitting it here would
       // silently score against the wrong channel if the pyramid fell back to Occupancy.
       const int discrete_score = eidos::reloc::scorePoseAtLevel(
-        pyramid_, pq, trace_cell_centre, bin_centre, trace_coarsest_level, hit_weight_, 0, nullptr,
-        active_score_mode_);
+        pyramid_, pq, trace_cell_centre, bin_centre, trace_coarsest_level, hit_weight_, 0, nullptr, active_score_mode_);
       const int continuous_score = eidos::reloc::scorePoseAtLevel(
         pyramid_, pq, probe_t, probe_yaw, trace_coarsest_level, hit_weight_, 0, nullptr, active_score_mode_);
       RCLCPP_INFO(
@@ -1916,7 +1954,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         "[%s] TRACE 3 yaw binning: bin=%ld/%ld bin_centre=%.1fdeg ref_yaw=%.1fdeg err=%.1fdeg "
         "discrete_cell_score=%d continuous_score=%d",
         name_.c_str(),
-        static_cast<long>(ref_yaw_bin),    // NOLINT(runtime/int)
+        static_cast<long>(ref_yaw_bin),  // NOLINT(runtime/int)
         static_cast<long>(n_coarse_bins),  // NOLINT(runtime/int)
         bin_centre * 180.0 / M_PI,
         probe_yaw * 180.0 / M_PI,
@@ -1932,15 +1970,15 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     // its exact computation (read-only) to read off where the reference root ranks.
     if (trace_root_index < 0) {
       RCLCPP_WARN(
-        node_->get_logger(), "[%s] TRACE 4 prefilter: reference cell is not a root (see TRACE 2), skipping",
+        node_->get_logger(),
+        "[%s] TRACE 4 prefilter: reference cell is not a root (see TRACE 2), skipping",
         name_.c_str());
     } else if (trace_yaw_disc.max_range <= 0.0) {
       RCLCPP_WARN(
         node_->get_logger(), "[%s] TRACE 4 prefilter: degenerate query (max_range<=0), skipped", name_.c_str());
     } else {
       const std::size_t trace_n = pq.size();
-      const std::size_t trace_target =
-        std::min(trace_n, static_cast<std::size_t>(std::max(root_prefilter_points_, 1)));
+      const std::size_t trace_target = std::min(trace_n, static_cast<std::size_t>(std::max(root_prefilter_points_, 1)));
       std::vector<Eigen::Vector3d> trace_sub_query;
       trace_sub_query.reserve(trace_target);
       if (trace_target > 0 && trace_n > 0) {
@@ -1964,7 +2002,15 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         for (int64_t k = 0; k < trace4_n_bins; ++k) {
           const double yaw = trace_yaw_disc.binCentre(trace_coarsest_level, k);
           const int score = eidos::reloc::scorePoseAtLevel(  // hard-coded 3, mirrors prefilterRoots()'s coarse path
-            pyramid_, trace_sub_query, centre, yaw, trace_coarsest_level, 3, 0, nullptr, active_score_mode_);
+            pyramid_,
+            trace_sub_query,
+            centre,
+            yaw,
+            trace_coarsest_level,
+            3,
+            0,
+            nullptr,
+            active_score_mode_);
           if (score > best) best = score;
         }
         trace_root_scores[idx] = best;
@@ -1975,8 +2021,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       for (int s : trace_root_scores) {
         if (s > ref_prefilter_score) ++rank;
       }
-      const bool prefilter_active =
-        root_prefilter_keep_ > 0 && root_prefilter_keep_ < static_cast<int>(roots_.size());
+      const bool prefilter_active = root_prefilter_keep_ > 0 && root_prefilter_keep_ < static_cast<int>(roots_.size());
       const bool survived = !prefilter_active || rank <= root_prefilter_keep_;
       RCLCPP_INFO(
         node_->get_logger(),
@@ -2059,7 +2104,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           cell_centre.y(),
           cell_centre.z(),
           static_cast<long>(yaw_bin),  // NOLINT(runtime/int)
-          static_cast<long>(n_bins),   // NOLINT(runtime/int)
+          static_cast<long>(n_bins),  // NOLINT(runtime/int)
           bin_centre * 180.0 / M_PI,
           yaw_err_deg,
           bound_cc,
@@ -2077,8 +2122,11 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     // max_score_voxels fallback), except the exact/+-1/+-2 voxel occupancy tolerance sweep further
     // down, which stays as originally measured regardless of mode.
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE active score_mode=%s (requested=%s)", name_.c_str(),
-      scoreModeLabel(active_score_mode_), scoreModeLabel(score_mode_));
+      node_->get_logger(),
+      "[%s] PROBE active score_mode=%s (requested=%s)",
+      name_.c_str(),
+      scoreModeLabel(active_score_mode_),
+      scoreModeLabel(score_mode_));
 
     const auto probe_bd =
       eidos::reloc::scoreBreakdownAtLevel(pyramid_, pq, probe_t, probe_yaw, 0, hit_weight_, active_score_mode_);
@@ -2089,9 +2137,20 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(),
       "[%s] PROBE pose=(%.1f,%.1f,%.1f) yaw=%.1f -> hits=%d unknown=%d free=%d raw=%d max_possible=%d "
       "normalized=%.3f hit_fraction=%.3f mean_cell_score=%.1f (n=%zu)",
-      name_.c_str(), probe_t.x(), probe_t.y(), probe_t.z(), debug_probe_pose_[3], probe_bd.hits,
-      probe_bd.unknown, probe_bd.free, probe_bd.raw, probe_bd.max_possible, probe_normalized,
-      probe_hit_fraction, probe_bd.mean_cell_score, pq.size());
+      name_.c_str(),
+      probe_t.x(),
+      probe_t.y(),
+      probe_t.z(),
+      debug_probe_pose_[3],
+      probe_bd.hits,
+      probe_bd.unknown,
+      probe_bd.free,
+      probe_bd.raw,
+      probe_bd.max_possible,
+      probe_normalized,
+      probe_hit_fraction,
+      probe_bd.mean_cell_score,
+      pq.size());
 
     // Rebuild the query WITHOUT the height band to show whether the band (vs. the search/map
     // itself) is discarding matching structure. Only isolates the query side -- the map was
@@ -2134,23 +2193,27 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         }
         if (sub.empty()) {
           row += " [" + std::to_string(static_cast<int>(kBucketEdges[b])) + "-" +
-            std::to_string(static_cast<int>(kBucketEdges[b + 1])) + "m n=0]";
+                 std::to_string(static_cast<int>(kBucketEdges[b + 1])) + "m n=0]";
           continue;
         }
         const auto bd =
           eidos::reloc::scoreBreakdownAtLevel(pyramid_, sub, probe_t, probe_yaw, 0, hit_weight_, active_score_mode_);
         const double hit_frac = static_cast<double>(bd.hits) / static_cast<double>(sub.size());
         row += " [" + std::to_string(static_cast<int>(kBucketEdges[b])) + "-" +
-          std::to_string(static_cast<int>(kBucketEdges[b + 1])) + "m n=" + std::to_string(sub.size()) +
-          " hit=" + std::to_string(static_cast<int>(hit_frac * 100.0 + 0.5)) + "%]";
+               std::to_string(static_cast<int>(kBucketEdges[b + 1])) + "m n=" + std::to_string(sub.size()) +
+               " hit=" + std::to_string(static_cast<int>(hit_frac * 100.0 + 0.5)) + "%]";
       }
       return row;
     };
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE range-bucket hit%% (height band ON): %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE range-bucket hit%% (height band ON): %s",
+      name_.c_str(),
       rangeBucketRow(pq).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE range-bucket hit%% (height band OFF):%s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE range-bucket hit%% (height band OFF):%s",
+      name_.c_str(),
       rangeBucketRow(unfiltered_query).c_str());
 
     // TOLERANCE SWEEP: exact (level(0).hit()) vs. +-1 voxel (hitBound()) vs. +-2 voxel (hand-rolled
@@ -2172,8 +2235,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       for (int dx = -2; dx <= 2; ++dx) {
         for (int dy = -2; dy <= 2; ++dy) {
           for (int dz = -2; dz <= 2; ++dz) {
-            if (probe_lvl0.voxels.find(eidos::reloc::packVoxel(vx + dx, vy + dy, vz + dz)) !=
-                probe_lvl0.voxels.end()) {
+            if (probe_lvl0.voxels.find(eidos::reloc::packVoxel(vx + dx, vy + dy, vz + dz)) != probe_lvl0.voxels.end()) {
               return true;
             }
           }
@@ -2203,19 +2265,25 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         const double frac =
           bucket_n[b] > 0 ? static_cast<double>(bucket_hits[b]) / static_cast<double>(bucket_n[b]) : 0.0;
         row += " [" + std::to_string(static_cast<int>(kBucketEdges[b])) + "-" +
-          std::to_string(static_cast<int>(kBucketEdges[b + 1])) + "m n=" + std::to_string(bucket_n[b]) +
-          " hit=" + std::to_string(static_cast<int>(frac * 100.0 + 0.5)) + "%]";
+               std::to_string(static_cast<int>(kBucketEdges[b + 1])) + "m n=" + std::to_string(bucket_n[b]) +
+               " hit=" + std::to_string(static_cast<int>(frac * 100.0 + 0.5)) + "%]";
       }
       return row;
     };
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE tolerance sweep exact (0 vox):    %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE tolerance sweep exact (0 vox):    %s",
+      name_.c_str(),
       toleranceRow(hitExact).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE tolerance sweep +/-1 voxel:       %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE tolerance sweep +/-1 voxel:       %s",
+      name_.c_str(),
       toleranceRow(hitPm1).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE tolerance sweep +/-2 voxels:      %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE tolerance sweep +/-2 voxels:      %s",
+      name_.c_str(),
       toleranceRow(hitPm2).c_str());
 
     // Sweep yaw at the probe's translation. If the score is flat in yaw, the query is
@@ -2230,11 +2298,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       yaw_row += " " + std::to_string(deg) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
-        std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
+                 std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
     }
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE yaw sweep (normalized%%/hit_fraction%%):%s", name_.c_str(),
-      yaw_row.c_str());
+      node_->get_logger(), "[%s] PROBE yaw sweep (normalized%%/hit_fraction%%):%s", name_.c_str(), yaw_row.c_str());
 
     // FINE LOCAL SWEEPS: tighter than the yaw sweep above, to tell a sharp local peak (good, the
     // search can converge) from a flat lobe (bad, no gradient to find it by) apart.
@@ -2246,12 +2313,14 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       // raw/max_possible: correct in both modes (max_possible differs by mode)
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
-      fine_yaw_row += " " + std::to_string(ddeg) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) +
-        "/" + std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
+      fine_yaw_row += " " + std::to_string(ddeg) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
+                      std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
     }
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE fine yaw sweep +/-10deg@1deg (normalized%%/hit_fraction%%):%s",
-      name_.c_str(), fine_yaw_row.c_str());
+      node_->get_logger(),
+      "[%s] PROBE fine yaw sweep +/-10deg@1deg (normalized%%/hit_fraction%%):%s",
+      name_.c_str(),
+      fine_yaw_row.c_str());
 
     // offsetLabel renders tenths-of-a-metre steps (e.g. i=-25 -> "-2.5") without pulling in
     // <cstdio>/<sstream>, matching the plain std::to_string style already used in this block.
@@ -2268,10 +2337,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       x_row += " " + offsetLabel(t10) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
-        std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
+               std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
     }
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE x sweep +/-3m@0.5m (normalized%%/hit_fraction%%):%s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE x sweep +/-3m@0.5m (normalized%%/hit_fraction%%):%s",
+      name_.c_str(),
       x_row.c_str());
 
     std::string y_row;
@@ -2283,10 +2354,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       y_row += " " + offsetLabel(t10) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
-        std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
+               std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
     }
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE y sweep +/-3m@0.5m (normalized%%/hit_fraction%%):%s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE y sweep +/-3m@0.5m (normalized%%/hit_fraction%%):%s",
+      name_.c_str(),
       y_row.c_str());
 
     // CHANCE BASELINE: how far above chance (36 headings at this translation) the true yaw's hit
@@ -2318,13 +2391,23 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(),
       "[%s] PROBE chance baseline (36 yaws @10deg at probe translation): mean_hit=%.3f max_hit=%.3f "
       "true_hit=%.3f true/mean=%.3f",
-      name_.c_str(), chance_hit_mean, chance_hit_max, probe_hit_fraction, chance_ratio);
+      name_.c_str(),
+      chance_hit_mean,
+      chance_hit_max,
+      probe_hit_fraction,
+      chance_ratio);
     RCLCPP_INFO(
       node_->get_logger(),
       "[%s] PROBE chance baseline active score_mode=%s (36 yaws @10deg): mean_norm=%.3f "
       "max_norm=%.3f true_norm=%.3f true/mean=%.3f true_yaw_rank=%d/%d",
-      name_.c_str(), scoreModeLabel(active_score_mode_), chance_norm_mean, chance_norm_max,
-      probe_normalized, chance_norm_ratio, true_yaw_rank, chance_samples);
+      name_.c_str(),
+      scoreModeLabel(active_score_mode_),
+      chance_norm_mean,
+      chance_norm_max,
+      probe_normalized,
+      chance_norm_ratio,
+      true_yaw_rank,
+      chance_samples);
 
     // Sweep z at the probe's translation and yaw, to expose any vertical frame offset.
     std::string z_row;
@@ -2336,7 +2419,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       z_row += " " + std::to_string(static_cast<int>(dz)) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) +
-        "/" + std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
+               "/" + std::to_string(static_cast<int>(hitf * 100.0 + 0.5));
     }
     RCLCPP_INFO(
       node_->get_logger(), "[%s] PROBE dz sweep (normalized%%/hit_fraction%%):%s", name_.c_str(), z_row.c_str());
@@ -2359,8 +2442,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           std::vector<Eigen::Vector3d> rq;
           rq.reserve(pq.size());
           for (const auto & p : pq) rq.push_back(radj * p);
-          const auto bd = eidos::reloc::scoreBreakdownAtLevel(
-            pyramid_, rq, probe_t, probe_yaw, 0, hit_weight_, active_score_mode_);
+          const auto bd =
+            eidos::reloc::scoreBreakdownAtLevel(pyramid_, rq, probe_t, probe_yaw, 0, hit_weight_, active_score_mode_);
           const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
           if (norm > row_best) row_best = norm;
           if (norm > best_norm) {
@@ -2369,17 +2452,23 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
             best_dp = static_cast<double>(ip) * 0.5;
           }
         }
-        pitch_row += " " + std::to_string(static_cast<int>(static_cast<double>(ip) * 0.5 * 10)) + "d:" +
-          std::to_string(static_cast<int>(row_best * 100.0 + 0.5));
+        pitch_row += " " + std::to_string(static_cast<int>(static_cast<double>(ip) * 0.5 * 10)) +
+                     "d:" + std::to_string(static_cast<int>(row_best * 100.0 + 0.5));
       }
       RCLCPP_INFO(
         node_->get_logger(),
         "[%s] PROBE roll/pitch sweep +/-4deg@0.5deg: argmax roll=%+.1fdeg pitch=%+.1fdeg norm=%.3f "
         "(at zero offset norm=%.3f)",
-        name_.c_str(), best_dr, best_dp, best_norm, probe_normalized);
+        name_.c_str(),
+        best_dr,
+        best_dp,
+        best_norm,
+        probe_normalized);
       RCLCPP_INFO(
-        node_->get_logger(), "[%s] PROBE roll/pitch sweep best-per-pitch (pitch_deg*10:norm%%):%s",
-        name_.c_str(), pitch_row.c_str());
+        node_->get_logger(),
+        "[%s] PROBE roll/pitch sweep best-per-pitch (pitch_deg*10:norm%%):%s",
+        name_.c_str(),
+        pitch_row.c_str());
     }
 
     // EXACT vs +/-1 VOXEL DISCRIMINATION CHECK: the overall hit-fraction jump above (~38% exact ->
@@ -2389,8 +2478,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const double c = std::cos(yaw), s = std::sin(yaw);
       std::size_t hits = 0;
       for (const auto & q : pq) {
-        const Eigen::Vector3d p(
-          c * q.x() - s * q.y() + t.x(), s * q.x() + c * q.y() + t.y(), q.z() + t.z());
+        const Eigen::Vector3d p(c * q.x() - s * q.y() + t.x(), s * q.x() + c * q.y() + t.y(), q.z() + t.z());
         if (test(p)) ++hits;
       }
       return static_cast<double>(hits) / n_pts;
@@ -2411,15 +2499,19 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       std::string row;
       for (int i = 0; i < kNumCoarseYaws; ++i) {
         row += " " + std::to_string(i * 10) + ":" +
-          std::to_string(static_cast<int>(vals[static_cast<std::size_t>(i)] * 100.0 + 0.5));
+               std::to_string(static_cast<int>(vals[static_cast<std::size_t>(i)] * 100.0 + 0.5));
       }
       return row;
     };
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE coarse yaw sweep 36@10deg hit_fraction%% exact:   %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE coarse yaw sweep 36@10deg hit_fraction%% exact:   %s",
+      name_.c_str(),
       formatCoarseRow(coarse_exact).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE coarse yaw sweep 36@10deg hit_fraction%% +/-1vox: %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE coarse yaw sweep 36@10deg hit_fraction%% +/-1vox: %s",
+      name_.c_str(),
       formatCoarseRow(coarse_pm1).c_str());
 
     // 2. CHANCE BASELINE under each test, plus true yaw's RANK among the 36 (1=best) -- the number
@@ -2444,12 +2536,24 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(),
       "[%s] PROBE chance baseline exact:   mean_hit=%.3f max_hit=%.3f true_hit=%.3f true/mean=%.3f "
       "true_rank=%d/%d",
-      name_.c_str(), exact_mean, exact_max, true_hit_exact, exact_chance_ratio, exact_rank, kNumCoarseYaws);
+      name_.c_str(),
+      exact_mean,
+      exact_max,
+      true_hit_exact,
+      exact_chance_ratio,
+      exact_rank,
+      kNumCoarseYaws);
     RCLCPP_INFO(
       node_->get_logger(),
       "[%s] PROBE chance baseline +/-1vox: mean_hit=%.3f max_hit=%.3f true_hit=%.3f true/mean=%.3f "
       "true_rank=%d/%d",
-      name_.c_str(), pm1_mean, pm1_max, true_hit_pm1, pm1_chance_ratio, pm1_rank, kNumCoarseYaws);
+      name_.c_str(),
+      pm1_mean,
+      pm1_max,
+      true_hit_pm1,
+      pm1_chance_ratio,
+      pm1_rank,
+      kNumCoarseYaws);
 
     // 3. Same exact vs +-1vox comparison over the fine local windows above, to see whether a local
     // peak appears under tolerance where exact has none.
@@ -2463,10 +2567,14 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return row;
     };
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE fine yaw sweep +/-10deg@1deg hit_fraction%% exact:   %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE fine yaw sweep +/-10deg@1deg hit_fraction%% exact:   %s",
+      name_.c_str(),
       formatFineYawRow(hitExact).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE fine yaw sweep +/-10deg@1deg hit_fraction%% +/-1vox: %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE fine yaw sweep +/-10deg@1deg hit_fraction%% +/-1vox: %s",
+      name_.c_str(),
       formatFineYawRow(hitPm1).c_str());
 
     auto formatXRow = [&](auto && test) {
@@ -2479,10 +2587,14 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return row;
     };
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE x sweep +/-3m@0.5m hit_fraction%% exact:   %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE x sweep +/-3m@0.5m hit_fraction%% exact:   %s",
+      name_.c_str(),
       formatXRow(hitExact).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE x sweep +/-3m@0.5m hit_fraction%% +/-1vox: %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE x sweep +/-3m@0.5m hit_fraction%% +/-1vox: %s",
+      name_.c_str(),
       formatXRow(hitPm1).c_str());
 
     auto formatYRow = [&](auto && test) {
@@ -2495,10 +2607,14 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return row;
     };
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE y sweep +/-3m@0.5m hit_fraction%% exact:   %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE y sweep +/-3m@0.5m hit_fraction%% exact:   %s",
+      name_.c_str(),
       formatYRow(hitExact).c_str());
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] PROBE y sweep +/-3m@0.5m hit_fraction%% +/-1vox: %s", name_.c_str(),
+      node_->get_logger(),
+      "[%s] PROBE y sweep +/-3m@0.5m hit_fraction%% +/-1vox: %s",
+      name_.c_str(),
       formatYRow(hitPm1).c_str());
   }
 
@@ -2556,12 +2672,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
 
     // Same retrieval/fallback insertKeyframeCloud() uses. Returns body-frame, unfiltered points.
     const std::string cloud_suffix = "/cloud";
-    const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
-      pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) ==
-        0;
-    const std::string fallback_key = has_fallback
-      ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
-      : std::string();
+    const bool has_fallback =
+      pointcloud_from_.size() >= cloud_suffix.size() &&
+      pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) == 0;
+    const std::string fallback_key =
+      has_fallback ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
+                   : std::string();
     auto retrieveBody = [&](gtsam::Key key, std::vector<Eigen::Vector3d> & out) -> bool {
       auto tryKey = [&](const std::string & data_key) -> bool {
         auto pcl_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key, data_key);
@@ -2632,16 +2748,22 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       std::string row1, row2;
       for (int b = 0; b < kHistBins; ++b) {
         if (counts[b] == 0) continue;
-        const int pct =
-          static_cast<int>(100.0 * static_cast<double>(counts[b]) / static_cast<double>(zs.size()) + 0.5);
+        const int pct = static_cast<int>(100.0 * static_cast<double>(counts[b]) / static_cast<double>(zs.size()) + 0.5);
         if (pct == 0) continue;
         const double lo = kHistLo + static_cast<double>(b) * kHistBin;
         std::string & row = (b < kHistBins / 2) ? row1 : row2;
         row += " " + formatHalf(lo) + ":" + std::to_string(pct);
       }
       RCLCPP_INFO(
-        node_->get_logger(), "[%s] DIAG zhist %s: n=%zu p5=%.2f p50=%.2f p95=%.2f bins[z_lo:pct%%]:%s",
-        name_.c_str(), label, zs.size(), percentile(0.05), percentile(0.50), percentile(0.95), row1.c_str());
+        node_->get_logger(),
+        "[%s] DIAG zhist %s: n=%zu p5=%.2f p50=%.2f p95=%.2f bins[z_lo:pct%%]:%s",
+        name_.c_str(),
+        label,
+        zs.size(),
+        percentile(0.05),
+        percentile(0.50),
+        percentile(0.95),
+        row1.c_str());
       if (!row2.empty()) {
         RCLCPP_INFO(node_->get_logger(), "[%s] DIAG zhist %s (cont'd):%s", name_.c_str(), label, row2.c_str());
       }
@@ -2670,12 +2792,13 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       double lo;
       double hi;
     };
+
     const BandCase kBands[] = {
-      {"off", -1000.0, 1000.0},   // no band at all, road surface included
-      {"current", 0.6, 6.0},      // today's default
+      {"off", -1000.0, 1000.0},  // no band at all, road surface included
+      {"current", 0.6, 6.0},  // today's default
       {"withground", -0.5, 6.0},  // adds the road surface back
-      {"noground", 0.3, 20.0},    // strip only the road, keep all structure incl. canopy
-      {"struct", 0.3, 3.0},       // strip road AND canopy: curbs, barriers, vehicles, walls, pole bases
+      {"noground", 0.3, 20.0},  // strip only the road, keep all structure incl. canopy
+      {"struct", 0.3, 3.0},  // strip road AND canopy: curbs, barriers, vehicles, walls, pole bases
       {"mid", 1.0, 4.0},
       {"canopy", 3.0, 10.0},  // CONTROL: canopy only. Expected to discriminate WORST.
     };
@@ -2733,8 +2856,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
 
       if (bq.size() < 20 || local.empty()) {
         RCLCPP_INFO(
-          node_->get_logger(), "[%s] DIAG band %s: degenerate (query=%zu map_voxels=%zu), skipped", name_.c_str(),
-          band.label, bq.size(), local.level(0).voxels.size());
+          node_->get_logger(),
+          "[%s] DIAG band %s: degenerate (query=%zu map_voxels=%zu), skipped",
+          name_.c_str(),
+          band.label,
+          bq.size(),
+          local.level(0).voxels.size());
         local.releaseMemory();
         continue;
       }
@@ -2748,8 +2875,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       int max_possible = 1;
       for (int i = 0; i < kNumYaw; ++i) {
         const double yaw_i = probe_yaw + static_cast<double>(i) * (2.0 * M_PI / static_cast<double>(kNumYaw));
-        const auto bd = eidos::reloc::scoreBreakdownAtLevel(
-          local, bq, probe_t, yaw_i, 0, hit_weight_, local.effectiveScoreMode());
+        const auto bd =
+          eidos::reloc::scoreBreakdownAtLevel(local, bq, probe_t, yaw_i, 0, hit_weight_, local.effectiveScoreMode());
         yaw_raws[i] = static_cast<double>(bd.raw);
         if (i == 0) {
           true_raw = static_cast<double>(bd.raw);
@@ -2773,10 +2900,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       xy_raws.reserve(81);
       for (int dxi = -4; dxi <= 4; ++dxi) {
         for (int dyi = -4; dyi <= 4; ++dyi) {
-          const Eigen::Vector3d t =
-            probe_t + Eigen::Vector3d(static_cast<double>(dxi), static_cast<double>(dyi), 0.0);
-          const auto bd = eidos::reloc::scoreBreakdownAtLevel(
-            local, bq, t, probe_yaw, 0, hit_weight_, local.effectiveScoreMode());
+          const Eigen::Vector3d t = probe_t + Eigen::Vector3d(static_cast<double>(dxi), static_cast<double>(dyi), 0.0);
+          const auto bd =
+            eidos::reloc::scoreBreakdownAtLevel(local, bq, t, probe_yaw, 0, hit_weight_, local.effectiveScoreMode());
           const double raw = static_cast<double>(bd.raw);
           xy_raws.push_back(raw);
           xy_sum += raw;
@@ -2794,8 +2920,19 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         node_->get_logger(),
         "[%s] DIAG band %s z=[%.2f,%.2f] query=%zu map_voxels=%zu yaw_rank=%d/%d yaw_ratio=%.3f norm=%.3f "
         "xy_rank=%d/%d xy_ratio=%.3f",
-        name_.c_str(), band.label, band.lo, band.hi, bq.size(), local.level(0).voxels.size(), yaw_rank, kNumYaw,
-        yaw_ratio, yaw_norm, xy_rank, static_cast<int>(xy_raws.size()), xy_ratio);
+        name_.c_str(),
+        band.label,
+        band.lo,
+        band.hi,
+        bq.size(),
+        local.level(0).voxels.size(),
+        yaw_rank,
+        kNumYaw,
+        yaw_ratio,
+        yaw_norm,
+        xy_rank,
+        static_cast<int>(xy_raws.size()),
+        xy_ratio);
 
       local.releaseMemory();
     }
@@ -2854,12 +2991,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     }
 
     const std::string cloud_suffix = "/cloud";
-    const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
-      pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) ==
-        0;
-    const std::string fallback_key = has_fallback
-      ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
-      : std::string();
+    const bool has_fallback =
+      pointcloud_from_.size() >= cloud_suffix.size() &&
+      pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) == 0;
+    const std::string fallback_key =
+      has_fallback ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
+                   : std::string();
     auto retrieveBody = [&](gtsam::Key key, std::vector<Eigen::Vector3d> & out) -> bool {
       auto tryKey = [&](const std::string & data_key) -> bool {
         auto pcl_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key, data_key);
@@ -2929,35 +3066,40 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     struct ResCase
     {
       const char * label;
-      double res;           // min_voxel_size for the local pyramid
-      double sigma;         // df_sigma (ignored under occupancy)
-      int trunc;             // df_truncation_voxels (ignored under occupancy)
+      double res;  // min_voxel_size for the local pyramid
+      double sigma;  // df_sigma (ignored under occupancy)
+      int trunc;  // df_truncation_voxels (ignored under occupancy)
       bool distance_field;  // true => ScoreMode::DistanceField, false => ScoreMode::Occupancy
-      int min_points;        // keep a voxel only if >= this many source points fall in it
+      int min_points;  // keep a voxel only if >= this many source points fall in it
     };
+
     const ResCase kCases[] = {
-      {"base_df_1.0",   1.00, 1.00, 2, true,   1},
-      {"df_1.0_mp3",    1.00, 1.00, 2, true,   3},
-      {"df_1.0_mp10",   1.00, 1.00, 2, true,  10},
-      {"df_1.0_mp30",   1.00, 1.00, 2, true,  30},
-      {"occ_1.0",       1.00, 0.00, 0, false,  1},
-      {"occ_1.0_mp10",  1.00, 0.00, 0, false, 10},
-      {"df_0.5",        0.50, 0.50, 3, true,   1},
-      {"df_0.5_mp10",   0.50, 0.50, 3, true,  10},
-      {"occ_0.5",       0.50, 0.00, 0, false,  1},
-      {"df_0.25_s0.25", 0.25, 0.25, 4, true,   1},
-      {"df_0.25_s0.5",  0.25, 0.50, 4, true,   1},
-      {"occ_0.25",      0.25, 0.00, 0, false,  1},
+      {"base_df_1.0", 1.00, 1.00, 2, true, 1},
+      {"df_1.0_mp3", 1.00, 1.00, 2, true, 3},
+      {"df_1.0_mp10", 1.00, 1.00, 2, true, 10},
+      {"df_1.0_mp30", 1.00, 1.00, 2, true, 30},
+      {"occ_1.0", 1.00, 0.00, 0, false, 1},
+      {"occ_1.0_mp10", 1.00, 0.00, 0, false, 10},
+      {"df_0.5", 0.50, 0.50, 3, true, 1},
+      {"df_0.5_mp10", 0.50, 0.50, 3, true, 10},
+      {"occ_0.5", 0.50, 0.00, 0, false, 1},
+      {"df_0.25_s0.25", 0.25, 0.25, 4, true, 1},
+      {"df_0.25_s0.5", 0.25, 0.50, 4, true, 1},
+      {"occ_0.25", 0.25, 0.00, 0, false, 1},
       // Added after the true pose scored BELOW ambient density at 1m containment -- the signature
       // of a systematic query-to-map offset landing in the thin free layer beside surfaces. Only a
       // fine-enough resolution can resolve that as a real peak instead of noise.
-      {"df_0.25_s0.15", 0.25, 0.15, 2, true,   1},   // 0.5 m truncation
-      {"occ_0.25_mp5",  0.25, 0.00, 0, false,  5},   // fine AND observation-thresholded
+      {"df_0.25_s0.15", 0.25, 0.15, 2, true, 1},  // 0.5 m truncation
+      {"occ_0.25_mp5", 0.25, 0.00, 0, false, 5},  // fine AND observation-thresholded
     };
 
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] DIAG res sweep: %zu nearby keyframes, %zu band points, query=%zu", name_.c_str(),
-      near_kfs.size(), band_pts.size(), q.size());
+      node_->get_logger(),
+      "[%s] DIAG res sweep: %zu nearby keyframes, %zu band points, query=%zu",
+      name_.c_str(),
+      near_kfs.size(),
+      band_pts.size(),
+      q.size());
 
     for (const auto & rc : kCases) {
       if (stop_requested_.load()) break;
@@ -2981,7 +3123,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       eidos::reloc::VoxelPyramid::Config cfg_case = pyramid_.config();
       cfg_case.min_voxel_size = rc.res;
       cfg_case.num_levels = 1;  // only level 0 is ever scored below; coarser levels would only
-                                 // cost build time, especially at the 0.25 m cases.
+        // cost build time, especially at the 0.25 m cases.
       cfg_case.build_free_space = false;
       cfg_case.max_height = 0.0;  // band already applied in body frame, above (band_pts).
       cfg_case.score_mode =
@@ -2999,7 +3141,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         int64_t ix, iy, iz;
         eidos::reloc::unpackVoxel(kv.first, ix, iy, iz);
         local.insert(Eigen::Vector3d(
-          (static_cast<double>(ix) + 0.5) * rc.res, (static_cast<double>(iy) + 0.5) * rc.res,
+          (static_cast<double>(ix) + 0.5) * rc.res,
+          (static_cast<double>(iy) + 0.5) * rc.res,
           (static_cast<double>(iz) + 0.5) * rc.res));
       }
       local.finalize();
@@ -3116,9 +3259,29 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         "[%s] DIAG res %s res=%.2f mode=%s sigma=%.2f mp=%d map_vox=%zu raw_vox=%zu query=%zu yaw_rank=%d/%d "
         "yaw_ratio=%.3f fyaw_rank=%d/%d fyaw_argmax=%+ddeg xy_rank=%d/%zu xy_argmax=(%.2f,%.2f) z_rank=%d/%d "
         "z_argmax=%.2f norm=%.3f df_abandoned=%s",
-        name_.c_str(), rc.label, rc.res, rc.distance_field ? "df" : "occ", rc.sigma, rc.min_points,
-        local.level(0).voxels.size(), counts.size(), q.size(), yaw_rank, kNumYaw, yaw_ratio, fyaw_rank, kNumFineYaw,
-        fyaw_argmax_d, xy_rank, xy_raws.size(), xy_argmax_dx, xy_argmax_dy, z_rank, kNumZ, z_argmax_dz, norm,
+        name_.c_str(),
+        rc.label,
+        rc.res,
+        rc.distance_field ? "df" : "occ",
+        rc.sigma,
+        rc.min_points,
+        local.level(0).voxels.size(),
+        counts.size(),
+        q.size(),
+        yaw_rank,
+        kNumYaw,
+        yaw_ratio,
+        fyaw_rank,
+        kNumFineYaw,
+        fyaw_argmax_d,
+        xy_rank,
+        xy_raws.size(),
+        xy_argmax_dx,
+        xy_argmax_dy,
+        z_rank,
+        kNumZ,
+        z_argmax_dz,
+        norm,
         local.distanceFieldAbandoned() ? "yes" : "no");
 
       // Step 9: release this case's pyramid before the next -- the 0.25m cases can be multi-hundred-MB.
@@ -3140,12 +3303,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
 
     // Same retrieval/fallback insertKeyframeCloud() uses. Returns body-frame, unfiltered points.
     const std::string cloud_suffix = "/cloud";
-    const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
-      pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) ==
-        0;
-    const std::string fallback_key = has_fallback
-      ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
-      : std::string();
+    const bool has_fallback =
+      pointcloud_from_.size() >= cloud_suffix.size() &&
+      pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) == 0;
+    const std::string fallback_key =
+      has_fallback ? pointcloud_from_.substr(0, pointcloud_from_.size() - cloud_suffix.size()) + "/gicp_cloud"
+                   : std::string();
     auto retrieveBody = [&](gtsam::Key key, std::vector<Eigen::Vector3d> & out) -> bool {
       auto tryKey = [&](const std::string & data_key) -> bool {
         auto pcl_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key, data_key);
@@ -3217,9 +3380,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       double xy_argmax_dx = 0.0;
       double xy_argmax_dy = 0.0;
     };
+
     auto scoreSelf = [&](
-                       const eidos::reloc::VoxelPyramid & pyr, const std::vector<Eigen::Vector3d> & q,
-                       const Eigen::Vector3d & t_ref, double yaw_ref) -> SelfMetrics {
+                       const eidos::reloc::VoxelPyramid & pyr,
+                       const std::vector<Eigen::Vector3d> & q,
+                       const Eigen::Vector3d & t_ref,
+                       double yaw_ref) -> SelfMetrics {
       SelfMetrics m;
       if (q.empty() || pyr.empty()) return m;
       const eidos::reloc::ScoreMode mode = pyr.effectiveScoreMode();
@@ -3310,8 +3476,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     // within kExcludeRadius of `exclude_pos` -- the leave-one-out map C2/C3 score against.
     constexpr double kExcludeRadius = 3.0;
     auto buildLocalMap = [&](
-                           const Eigen::Vector3d & center, const Eigen::Vector3d & exclude_pos,
-                           std::size_t & included, std::size_t & excluded) {
+                           const Eigen::Vector3d & center,
+                           const Eigen::Vector3d & exclude_pos,
+                           std::size_t & included,
+                           std::size_t & excluded) {
       eidos::reloc::VoxelPyramid::Config cfg = pyramid_.config();
       cfg.num_levels = 1;
       cfg.build_free_space = false;
@@ -3358,23 +3526,42 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     } else {
       const double best_d = (t_ref - probe_t).norm();
       RCLCPP_INFO(
-        node_->get_logger(), "[%s] DIAG self kf=%d pos=(%.1f,%.1f,%.1f) d_probe=%.2fm", name_.c_str(), kf_idx,
-        t_ref.x(), t_ref.y(), t_ref.z(), best_d);
+        node_->get_logger(),
+        "[%s] DIAG self kf=%d pos=(%.1f,%.1f,%.1f) d_probe=%.2fm",
+        name_.c_str(),
+        kf_idx,
+        t_ref.x(),
+        t_ref.y(),
+        t_ref.z(),
+        best_d);
 
       // C1 -- plumbing control: scored against the pyramid that already includes this keyframe, so
       // exact hit must be ~100% and yaw_rank 1/36; anything less is a transform/scoring bug.
       if (selfq.size() < 20 || pyramid_.empty()) {
         RCLCPP_WARN(
-          node_->get_logger(), "[%s] DIAG self C1: degenerate (query=%zu, pyramid empty=%d), skipped", name_.c_str(),
-          selfq.size(), pyramid_.empty() ? 1 : 0);
+          node_->get_logger(),
+          "[%s] DIAG self C1: degenerate (query=%zu, pyramid empty=%d), skipped",
+          name_.c_str(),
+          selfq.size(),
+          pyramid_.empty() ? 1 : 0);
       } else {
         const SelfMetrics c1 = scoreSelf(pyramid_, selfq, t_ref, yaw_ref);
         RCLCPP_INFO(
           node_->get_logger(),
           "[%s] DIAG self C1 kf=%d d_probe=%.2fm query=%zu exact_hit=%.1f%% yaw_rank=%d/36 yaw_ratio=%.3f "
           "fyaw_rank=%d/41 fyaw_argmax=%+ddeg xy_rank=%d/289 xy_argmax=(%.2f,%.2f)",
-          name_.c_str(), kf_idx, best_d, selfq.size(), c1.exact_hit_pct, c1.yaw_rank, c1.yaw_ratio, c1.fyaw_rank,
-          c1.fyaw_argmax, c1.xy_rank, c1.xy_argmax_dx, c1.xy_argmax_dy);
+          name_.c_str(),
+          kf_idx,
+          best_d,
+          selfq.size(),
+          c1.exact_hit_pct,
+          c1.yaw_rank,
+          c1.yaw_ratio,
+          c1.fyaw_rank,
+          c1.fyaw_argmax,
+          c1.xy_rank,
+          c1.xy_argmax_dx,
+          c1.xy_argmax_dy);
       }
 
       // C2 -- scene control: scored against a local map with this keyframe's neighbourhood
@@ -3383,16 +3570,31 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       eidos::reloc::VoxelPyramid local2 = buildLocalMap(t_ref, t_ref, c2_included, c2_excluded);
       if (selfq.size() < 20 || local2.empty()) {
         RCLCPP_WARN(
-          node_->get_logger(), "[%s] DIAG self C2: degenerate (query=%zu, included_kf=%zu, excluded_kf=%zu), skipped",
-          name_.c_str(), selfq.size(), c2_included, c2_excluded);
+          node_->get_logger(),
+          "[%s] DIAG self C2: degenerate (query=%zu, included_kf=%zu, excluded_kf=%zu), skipped",
+          name_.c_str(),
+          selfq.size(),
+          c2_included,
+          c2_excluded);
       } else {
         const SelfMetrics c2 = scoreSelf(local2, selfq, t_ref, yaw_ref);
         RCLCPP_INFO(
           node_->get_logger(),
           "[%s] DIAG self C2 kf=%d included_kf=%zu excluded_kf=%zu map_vox=%zu query=%zu exact_hit=%.1f%% "
           "yaw_rank=%d/36 yaw_ratio=%.3f fyaw_rank=%d/41 fyaw_argmax=%+ddeg xy_rank=%d/289 xy_argmax=(%.2f,%.2f)",
-          name_.c_str(), kf_idx, c2_included, c2_excluded, local2.level(0).voxels.size(), selfq.size(),
-          c2.exact_hit_pct, c2.yaw_rank, c2.yaw_ratio, c2.fyaw_rank, c2.fyaw_argmax, c2.xy_rank, c2.xy_argmax_dx,
+          name_.c_str(),
+          kf_idx,
+          c2_included,
+          c2_excluded,
+          local2.level(0).voxels.size(),
+          selfq.size(),
+          c2.exact_hit_pct,
+          c2.yaw_rank,
+          c2.yaw_ratio,
+          c2.fyaw_rank,
+          c2.fyaw_argmax,
+          c2.xy_rank,
+          c2.xy_argmax_dx,
           c2.xy_argmax_dy);
       }
       local2.releaseMemory();
@@ -3409,14 +3611,17 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       }
       if (trajectory_.empty() || kf_traj_idx >= trajectory_.size()) {
         RCLCPP_INFO(
-          node_->get_logger(), "[%s] DIAG self C3: kf not found in trajectory_ (size=%zu), skipping", name_.c_str(),
+          node_->get_logger(),
+          "[%s] DIAG self C3: kf not found in trajectory_ (size=%zu), skipping",
+          name_.c_str(),
           trajectory_.size());
       } else {
         const std::size_t idx2 = (kf_traj_idx + 150) % trajectory_.size();
         const TrajectoryEntry & entry2 = trajectory_[idx2];
         if (entry2.cloud_index < 0 || static_cast<std::size_t>(entry2.cloud_index) >= poses6d_->points.size()) {
           RCLCPP_INFO(
-            node_->get_logger(), "[%s] DIAG self C3: second keyframe's cloud_index out of range, skipping",
+            node_->get_logger(),
+            "[%s] DIAG self C3: second keyframe's cloud_index out of range, skipping",
             name_.c_str());
         } else {
           Eigen::Affine3f world_t2 = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(entry2.cloud_index)]);
@@ -3437,17 +3642,31 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           if (selfq2.size() < 20 || local3.empty()) {
             RCLCPP_WARN(
               node_->get_logger(),
-              "[%s] DIAG self C3: degenerate (query=%zu, included_kf=%zu, excluded_kf=%zu), skipped", name_.c_str(),
-              selfq2.size(), c3_included, c3_excluded);
+              "[%s] DIAG self C3: degenerate (query=%zu, included_kf=%zu, excluded_kf=%zu), skipped",
+              name_.c_str(),
+              selfq2.size(),
+              c3_included,
+              c3_excluded);
           } else {
             const SelfMetrics c3 = scoreSelf(local3, selfq2, t_ref2, yaw2);
             RCLCPP_INFO(
               node_->get_logger(),
               "[%s] DIAG self C3 kf=%d included_kf=%zu excluded_kf=%zu map_vox=%zu query=%zu exact_hit=%.1f%% "
               "yaw_rank=%d/36 yaw_ratio=%.3f fyaw_rank=%d/41 fyaw_argmax=%+ddeg xy_rank=%d/289 xy_argmax=(%.2f,%.2f)",
-              name_.c_str(), entry2.cloud_index, c3_included, c3_excluded, local3.level(0).voxels.size(),
-              selfq2.size(), c3.exact_hit_pct, c3.yaw_rank, c3.yaw_ratio, c3.fyaw_rank, c3.fyaw_argmax, c3.xy_rank,
-              c3.xy_argmax_dx, c3.xy_argmax_dy);
+              name_.c_str(),
+              entry2.cloud_index,
+              c3_included,
+              c3_excluded,
+              local3.level(0).voxels.size(),
+              selfq2.size(),
+              c3.exact_hit_pct,
+              c3.yaw_rank,
+              c3.yaw_ratio,
+              c3.fyaw_rank,
+              c3.fyaw_argmax,
+              c3.xy_rank,
+              c3.xy_argmax_dx,
+              c3.xy_argmax_dy);
           }
           local3.releaseMemory();
         }
@@ -3542,8 +3761,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         pyramid_, pq, probe_t, probe_yaw, 0, hit_weight_, 0, nullptr, active_score_mode_);
       if (nms_result.empty()) {
         RCLCPP_WARN(
-          node_->get_logger(), "[%s] TRACE 5 search output: no hypotheses returned; ref_leaf_score=%d",
-          name_.c_str(), ref_leaf_score);
+          node_->get_logger(),
+          "[%s] TRACE 5 search output: no hypotheses returned; ref_leaf_score=%d",
+          name_.c_str(),
+          ref_leaf_score);
       } else {
         const auto & best = nms_result[0].hyp;
         const double best_t_err = (best.translation - probe_t).norm();
@@ -3577,7 +3798,11 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
               node_->get_logger(),
               "[%s] TRACE 5 search output: hypothesis #%d is within 10m/20deg of reference "
               "(t_err=%.2fm yaw_err=%.1fdeg score=%d)",
-              name_.c_str(), near_rank, t_err, std::abs(yaw_err_deg), h.score);
+              name_.c_str(),
+              near_rank,
+              t_err,
+              std::abs(yaw_err_deg),
+              h.score);
             break;
           }
         }
@@ -3586,7 +3811,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
             node_->get_logger(),
             "[%s] TRACE 5 search output: no returned hypothesis within 10m/20deg of reference "
             "(%zu hypotheses checked)",
-            name_.c_str(), nms_result.size());
+            name_.c_str(),
+            nms_result.size());
         }
       }
     }
@@ -3598,8 +3824,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     // descended from, that is a pruning/indexing bug in the search; if they agree but neither is
     // near the reference, the search is sound and the SCORE is the problem.
     {
-      const eidos::reloc::YawDiscretization trace_yaw_disc =
-        eidos::reloc::YawDiscretization::compute(pq, pyramid_);
+      const eidos::reloc::YawDiscretization trace_yaw_disc = eidos::reloc::YawDiscretization::compute(pq, pyramid_);
       if (nms_result.empty() || trace_yaw_disc.max_range <= 0.0) {
         RCLCPP_WARN(
           node_->get_logger(),
@@ -3615,20 +3840,16 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
 
         if (brute.empty()) {
           RCLCPP_WARN(
-            node_->get_logger(), "[%s] TRACE 6 BnB vs exhaustive: bruteForceCoarse returned nothing",
-            name_.c_str());
+            node_->get_logger(), "[%s] TRACE 6 BnB vs exhaustive: bruteForceCoarse returned nothing", name_.c_str());
         } else {
           const auto & bnb_best = nms_result[0].hyp;
           const auto & brute_best = brute[0];
           const int64_t bnb_cell_ix = eidos::reloc::voxelIndex(bnb_best.translation.x(), trace6_lvl.inv_resolution);
           const int64_t bnb_cell_iy = eidos::reloc::voxelIndex(bnb_best.translation.y(), trace6_lvl.inv_resolution);
           const int64_t bnb_cell_iz = eidos::reloc::voxelIndex(bnb_best.translation.z(), trace6_lvl.inv_resolution);
-          const int64_t brute_cell_ix =
-            eidos::reloc::voxelIndex(brute_best.translation.x(), trace6_lvl.inv_resolution);
-          const int64_t brute_cell_iy =
-            eidos::reloc::voxelIndex(brute_best.translation.y(), trace6_lvl.inv_resolution);
-          const int64_t brute_cell_iz =
-            eidos::reloc::voxelIndex(brute_best.translation.z(), trace6_lvl.inv_resolution);
+          const int64_t brute_cell_ix = eidos::reloc::voxelIndex(brute_best.translation.x(), trace6_lvl.inv_resolution);
+          const int64_t brute_cell_iy = eidos::reloc::voxelIndex(brute_best.translation.y(), trace6_lvl.inv_resolution);
+          const int64_t brute_cell_iz = eidos::reloc::voxelIndex(brute_best.translation.z(), trace6_lvl.inv_resolution);
           const bool coarse_cell_match =
             bnb_cell_ix == brute_cell_ix && bnb_cell_iy == brute_cell_iy && bnb_cell_iz == brute_cell_iz;
 
@@ -3694,7 +3915,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
             RCLCPP_INFO(
               node_->get_logger(),
               "[%s] TRACE 6 BnB vs exhaustive: reference root brute-force score=%d rank=%d/%zu",
-              name_.c_str(), ref_brute_score, brute_rank, roots_.size());
+              name_.c_str(),
+              ref_brute_score,
+              brute_rank,
+              roots_.size());
           }
         }
       }
@@ -3719,8 +3943,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           if ((entry.position - probe_t).norm() > submap_radius_) continue;
           auto cloud_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(entry.key, pointcloud_from_);
           if (!cloud_opt.has_value() || !*cloud_opt || (*cloud_opt)->empty()) continue;
-          Eigen::Affine3f world_t =
-            poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(entry.cloud_index)]);
+          Eigen::Affine3f world_t = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(entry.cloud_index)]);
           Eigen::Isometry3d T;
           T.matrix() = world_t.matrix().cast<double>();
           for (const auto & pt : (*cloud_opt)->points) {
@@ -3730,7 +3953,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         }
         if (trace_submap_merged->empty()) {
           RCLCPP_WARN(
-            node_->get_logger(), "[%s] TRACE 7 GICP from truth: empty submap near reference pose, skipped",
+            node_->get_logger(),
+            "[%s] TRACE 7 GICP from truth: empty submap near reference pose, skipped",
             name_.c_str());
         } else {
           auto [trace_submap, trace_submap_tree] =
@@ -3754,8 +3978,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           trace_setting.max_iterations = max_icp_iterations_;
           trace_setting.num_threads = num_threads_;
 
-          auto trace_result = small_gicp::align(
-            *trace_submap, *trace_live_scan, *trace_submap_tree, trace_init_guess, trace_setting);
+          auto trace_result =
+            small_gicp::align(*trace_submap, *trace_live_scan, *trace_submap_tree, trace_init_guess, trace_setting);
           const double trace_inlier_ratio =
             static_cast<double>(trace_result.num_inliers) / static_cast<double>(trace_live_scan->size());
           const Eigen::Isometry3d trace_delta = trace_init_guess.inverse() * trace_result.T_target_source;
@@ -3801,15 +4025,18 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         (static_cast<double>(r.ix) + 0.5) * res,
         (static_cast<double>(r.iy) + 0.5) * res,
         (static_cast<double>(r.iz) + 0.5) * res);
-      const auto bd = eidos::reloc::scoreBreakdownAtLevel(
-        pyramid_, query, centre, yaw_pick(rng), 0, hit_weight_, active_score_mode_);
+      const auto bd =
+        eidos::reloc::scoreBreakdownAtLevel(pyramid_, query, centre, yaw_pick(rng), 0, hit_weight_, active_score_mode_);
       sum += static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       ++n;
     }
     last_chance_floor_ = n > 0 ? sum / static_cast<double>(n) : 0.0;
     RCLCPP_INFO(
-      node_->get_logger(), "[%s] chance floor: %.3f (mean normalized over %d random corridor poses)",
-      name_.c_str(), last_chance_floor_, n);
+      node_->get_logger(),
+      "[%s] chance floor: %.3f (mean normalized over %d random corridor poses)",
+      name_.c_str(),
+      last_chance_floor_,
+      n);
   } else {
     last_chance_floor_ = 0.0;
   }
@@ -3885,8 +4112,7 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   near_roots.reserve(roots_.size());
   const double coarse_res = pyramid_.level(pyramid_.numLevels() - 1).resolution;
   for (const auto & root : roots_) {
-    const Eigen::Vector3d centre =
-      eidos::reloc::bnbCellCentre(root.ix, root.iy, root.iz, coarse_res);
+    const Eigen::Vector3d centre = eidos::reloc::bnbCellCentre(root.ix, root.iy, root.iz, coarse_res);
     if ((centre - lock_t).norm() <= reanchor_search_radius_) near_roots.push_back(root);
   }
   if (near_roots.empty()) {
@@ -3906,8 +4132,8 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   eidos::reloc::SearchStats stats;
   auto hyps = eidos::reloc::branchAndBound(pyramid_, query, near_roots, scfg, stats);
 
-  const double search_ms = std::chrono::duration<double, std::milli>(
-    std::chrono::steady_clock::now() - t_start).count();
+  const double search_ms =
+    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_start).count();
   RCLCPP_INFO(
     node_->get_logger(),
     "[%s] re-anchor search: %zu/%zu roots within %.0f m of the lock, %zu hypotheses, %.0f ms",
@@ -3964,8 +4190,8 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
     const double inlier_ratio = static_cast<double>(result.num_inliers) / src->size();
     if (inlier_ratio < min_inlier_ratio_) continue;
 
-    out = gtsam::Pose3(
-      gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
+    out =
+      gtsam::Pose3(gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
 
     const double moved = (out.translation() - locked.translation()).norm();
     RCLCPP_INFO(
@@ -4011,8 +4237,7 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
 // ---------------------------------------------------------------------------
 // Phase D — GICP polish and acceptance
 // ---------------------------------------------------------------------------
-std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
-  const std::vector<ScoredHypothesis> & hypotheses)
+std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(const std::vector<ScoredHypothesis> & hypotheses)
 {
   if (hypotheses.empty()) {
     RCLCPP_INFO(node_->get_logger(), "[%s] no BnB hypotheses survived search", name_.c_str());
@@ -4037,8 +4262,8 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
   const double runner_up_excess = std::max(0.0, runner_up_normalized - floor);
   // A runner-up at or below chance carries no evidence against the winner, so the ratio is
   // unbounded and the gate passes rather than dividing by ~0.
-  const bool uniqueness_ok = hypotheses.size() <= 1 || runner_up_excess <= 0.0 ||
-    (best_excess >= min_score_ratio_ * runner_up_excess);
+  const bool uniqueness_ok =
+    hypotheses.size() <= 1 || runner_up_excess <= 0.0 || (best_excess >= min_score_ratio_ * runner_up_excess);
   if (!uniqueness_ok) {
     RCLCPP_INFO(
       node_->get_logger(),
