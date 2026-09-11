@@ -386,6 +386,17 @@ bool BEVFusionCore::compileTrtModel(
   config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 2048ULL * 1024 * 1024);
   config->setProfilingVerbosity(nvinfer1::ProfilingVerbosity::kDETAILED);
 
+  // These ONNX graphs are exported with explicit Q/DQ nodes (PTQ). On TRT10, the builder needs
+  // kFP16/kINT8 explicitly or it runs those Q/DQ pairs as literal FP32 quantize/dequantize math
+  // instead of fusing them into INT8 kernels. TRT11+ removed those flags — networks are always
+  // strongly typed there, so precision comes straight from the ONNX graph's own tensor types.
+#if NV_TENSORRT_MAJOR < 11
+  config->setFlag(nvinfer1::BuilderFlag::kFP16);
+  if (config_.precision == "int8") {
+    config->setFlag(nvinfer1::BuilderFlag::kINT8);
+  }
+#endif
+
   // Force allowed tensor formats on inputs and outputs
   for (int i = 0; i < network->getNbInputs(); ++i) {
     network->getInput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
