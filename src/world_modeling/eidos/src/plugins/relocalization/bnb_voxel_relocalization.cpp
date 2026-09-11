@@ -46,13 +46,7 @@ namespace eidos
 namespace
 {
 
-/**
- * @brief Compose Ry(pitch) * Rx(roll), the same de-tilt/re-tilt convention used throughout this
- * plugin (mirrors the gravity-alignment math in GpsIcpRelocalization::imuCallback()).
- * @param pitch Pitch angle (rad).
- * @param roll Roll angle (rad).
- * @return Rotation matrix Ry(pitch) * Rx(roll).
- */
+// Ry(pitch) * Rx(roll) -- the de-tilt/re-tilt convention used throughout this plugin.
 Eigen::Matrix3d rotYX(double pitch, double roll)
 {
   Eigen::Matrix3d rx;
@@ -62,17 +56,8 @@ Eigen::Matrix3d rotYX(double pitch, double roll)
   return ry * rx;
 }
 
-/**
- * @brief Split a root list into up to `num_chunks` contiguous, near-equal-size chunks.
- *
- * Used to spread branch-and-bound's parallel work across roots rather than only across
- * roll/pitch offsets. Returns fewer than `num_chunks` chunks (never empty ones) when there are
- * fewer roots than chunks requested.
- *
- * @param roots Roots to split.
- * @param num_chunks Requested chunk count (typically `num_threads_`).
- * @return Non-empty chunks, in order, covering every root in `roots` exactly once.
- */
+// Splits `roots` into up to `num_chunks` contiguous, near-equal-size, non-empty chunks -- spreads
+// branch-and-bound's parallel work across roots rather than only across roll/pitch offsets.
 std::vector<std::vector<eidos::reloc::RootCell>> chunkRoots(
   const std::vector<eidos::reloc::RootCell> & roots, int num_chunks)
 {
@@ -95,12 +80,7 @@ std::vector<std::vector<eidos::reloc::RootCell>> chunkRoots(
   return chunks;
 }
 
-/**
- * @brief Stride for subsampling a keyframe's points down to about `target` free-space rays.
- * @param n Number of points in the keyframe cloud.
- * @param target Desired ray count; `<= 0` means "use every point" (stride 1).
- * @return Stride to iterate the cloud with (always >= 1).
- */
+// Stride for subsampling a keyframe's points to about `target` free-space rays; <= 0 means every point.
 std::size_t raycastStride(std::size_t n, int target)
 {
   if (target <= 0 || n == 0) return 1;
@@ -108,17 +88,8 @@ std::size_t raycastStride(std::size_t n, int target)
   return std::max<std::size_t>(1, n / t);
 }
 
-/**
- * @brief Parse the `score_mode` parameter string into `eidos::reloc::ScoreMode`.
- *
- * An unrecognised value WARNs and falls back to DistanceField (the new default) rather than
- * throwing, so a typo in a launch file degrades gracefully instead of crashing the node.
- *
- * @param raw Raw parameter string: "distance_field" or "occupancy".
- * @param logger Logger for the fallback warning.
- * @param name Plugin instance name, for the log prefix.
- * @return Parsed score mode.
- */
+// Parses "distance_field"/"occupancy"; an unrecognised value WARNs and falls back to
+// distance_field rather than throwing, so a launch-file typo degrades gracefully.
 eidos::reloc::ScoreMode parseScoreMode(
   const std::string & raw, const rclcpp::Logger & logger, const std::string & name)
 {
@@ -133,25 +104,13 @@ eidos::reloc::ScoreMode parseScoreMode(
   return eidos::reloc::ScoreMode::DistanceField;
 }
 
-/// @brief Human-readable label for a score mode, for log lines.
-/// @param mode Score mode to label.
-/// @return "distance_field" or "occupancy".
 const char * scoreModeLabel(eidos::reloc::ScoreMode mode)
 {
   return mode == eidos::reloc::ScoreMode::DistanceField ? "distance_field" : "occupancy";
 }
 
-/**
- * @brief Read the process's current resident set size from /proc/self/status.
- *
- * Used only around releasePyramidMemory()'s calls to VoxelPyramid::releaseMemory(): freeing the
- * pyramid's buffers does not by itself guarantee the OS reclaims that memory (freed heap normally
- * stays in the allocator's arena rather than being returned), so logging RSS immediately before and
- * after is what makes "the memory actually came back" checkable in a field log instead of merely
- * assumed because release was called.
- *
- * @return RSS in megabytes, or 0.0 if /proc/self/status could not be read (non-Linux, sandboxed).
- */
+// Process RSS in MB from /proc/self/status, or 0.0 if unreadable. Used around
+// releasePyramidMemory() so "memory actually came back" is checkable in a log, not assumed.
 double currentRssMb()
 {
   std::ifstream status("/proc/self/status");
@@ -183,10 +142,8 @@ void BnbVoxelRelocalization::onInitialize()
   node_->declare_parameter(prefix + ".pointcloud_from", std::string("liso_factor/cloud"));
   node_->declare_parameter(prefix + ".prefer_downsampled_source", prefer_downsampled_source_);
   node_->declare_parameter(prefix + ".min_voxel_size", min_voxel_size_);
-  // Default to 4, not 6: measurement showed the branch-and-bound bound saturates and carries no
-  // information at coarse resolutions -- with a 40 m-range query, levels at 16 m/32 m/64 m scored
-  // ~100% of query points for essentially every candidate pose, because 26-neighbourhood dilation
-  // of a 32 m voxel covers ~96 m. Levels coarser than ~8 m only multiply work without pruning.
+  // Default 4, not 6: coarser levels' dilation (32m voxel -> ~96m coverage) saturates the BnB
+  // bound at ~100% for nearly every pose, so they add cost without pruning.
   node_->declare_parameter(prefix + ".num_levels", num_levels_);
   node_->declare_parameter(prefix + ".score_mode", std::string("distance_field"));
   node_->declare_parameter(prefix + ".df_sigma", df_sigma_);
@@ -202,10 +159,11 @@ void BnbVoxelRelocalization::onInitialize()
   node_->declare_parameter(prefix + ".debug_res_sweep", debug_res_sweep_);
   node_->declare_parameter(prefix + ".debug_self_test", debug_self_test_);
   node_->declare_parameter(prefix + ".debug_use_self_query", debug_use_self_query_);
-  node_->declare_parameter(prefix + ".odom_topic", odom_topic_);
-  node_->declare_parameter(prefix + ".use_odom_carry_forward", use_odom_carry_forward_);
-  node_->declare_parameter(prefix + ".odom_buffer_seconds", odom_buffer_seconds_);
-  node_->declare_parameter(prefix + ".carry_forward_warn_distance", carry_forward_warn_distance_);
+  node_->declare_parameter(prefix + ".use_trajectory_reanchor", use_trajectory_reanchor_);
+  node_->declare_parameter(prefix + ".reanchor_search_radius", reanchor_search_radius_);
+  node_->declare_parameter(prefix + ".reanchor_max_nodes", reanchor_max_nodes_);
+  node_->declare_parameter(prefix + ".reanchor_min_gap", reanchor_min_gap_);
+  node_->declare_parameter(prefix + ".reanchor_warn_distance", reanchor_warn_distance_);
   node_->declare_parameter(prefix + ".search_task_multiplier", search_task_multiplier_);
   node_->declare_parameter(prefix + ".rp_search_range", rp_search_range_);
   node_->declare_parameter(prefix + ".rp_search_steps", rp_search_steps_);
@@ -275,10 +233,11 @@ void BnbVoxelRelocalization::onInitialize()
   node_->get_parameter(prefix + ".debug_res_sweep", debug_res_sweep_);
   node_->get_parameter(prefix + ".debug_self_test", debug_self_test_);
   node_->get_parameter(prefix + ".debug_use_self_query", debug_use_self_query_);
-  node_->get_parameter(prefix + ".odom_topic", odom_topic_);
-  node_->get_parameter(prefix + ".use_odom_carry_forward", use_odom_carry_forward_);
-  node_->get_parameter(prefix + ".odom_buffer_seconds", odom_buffer_seconds_);
-  node_->get_parameter(prefix + ".carry_forward_warn_distance", carry_forward_warn_distance_);
+  node_->get_parameter(prefix + ".use_trajectory_reanchor", use_trajectory_reanchor_);
+  node_->get_parameter(prefix + ".reanchor_search_radius", reanchor_search_radius_);
+  node_->get_parameter(prefix + ".reanchor_max_nodes", reanchor_max_nodes_);
+  node_->get_parameter(prefix + ".reanchor_min_gap", reanchor_min_gap_);
+  node_->get_parameter(prefix + ".reanchor_warn_distance", reanchor_warn_distance_);
   node_->get_parameter(prefix + ".search_task_multiplier", search_task_multiplier_);
   if (search_task_multiplier_ < 1) search_task_multiplier_ = 1;
   node_->get_parameter(prefix + ".rp_search_range", rp_search_range_);
@@ -324,10 +283,8 @@ void BnbVoxelRelocalization::onInitialize()
   node_->get_parameter("frames.map", map_frame_);
 
   if (use_free_space_ && score_mode_ == eidos::reloc::ScoreMode::DistanceField) {
-    // A distance field already scores a point far from all structure at ~0, continuously, which
-    // is exactly what the three-state occupancy score was approximating with its known-free
-    // channel -- so under distance_field the channel is redundant, not merely unused, and is
-    // skipped entirely at build time (see buildPyramid()) rather than built and ignored.
+    // Redundant under distance_field (a point far from structure already scores ~0), so it's
+    // skipped entirely at build time rather than built and ignored.
     RCLCPP_INFO(
       node_->get_logger(),
       "[%s] use_free_space is set but score_mode=distance_field: the free-space channel is inactive "
@@ -349,17 +306,6 @@ void BnbVoxelRelocalization::onInitialize()
     rclcpp::SensorDataQoS(),
     std::bind(&BnbVoxelRelocalization::imuCallback, this, std::placeholders::_1),
     sub_opts);
-
-  // Odom-frame odometry, for carrying a lock forward over the search's own duration. Reliable
-  // QoS, not SensorDataQoS: dropping samples here does not merely blur a scan, it punches a hole
-  // in the very interval the carry-forward delta is measured across.
-  if (use_odom_carry_forward_) {
-    odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
-      odom_topic_,
-      rclcpp::QoS(50),
-      std::bind(&BnbVoxelRelocalization::odomCallback, this, std::placeholders::_1),
-      sub_opts);
-  }
 
   if (publish_debug_grid_) {
     debug_grid_pub_ =
@@ -388,10 +334,8 @@ void BnbVoxelRelocalization::deactivate()
   active_ = false;
   stop_requested_ = true;
   if (worker_.joinable()) worker_.join();
-  // Deactivation ends this session's use of the pyramid -- release it (see releasePyramidMemory())
-  // and reset the build flags so a future activate() rebuilds fresh instead of searching an
-  // emptied pyramid. Safe without additional synchronisation: the worker was just joined above, so
-  // nothing else touches this worker-owned state concurrently.
+  // Release the pyramid and reset build flags so the next activate() rebuilds fresh. Safe without
+  // extra synchronisation: the worker was just joined above.
   releasePyramidMemory("deactivate");
   roots_.clear();
   roots_.shrink_to_fit();
@@ -400,14 +344,6 @@ void BnbVoxelRelocalization::deactivate()
   prefilter_candidates_.clear();
   prefilter_candidates_.shrink_to_fit();
   search_scan_.reset();
-  has_search_odom_ = false;
-  {
-    // A future activate() starts a new odom epoch: LisoFactor re-anchors its incremental pose on
-    // onTrackingBegin(), so samples from before this point are not comparable to samples after it
-    // and must not be interpolated across.
-    std::lock_guard<std::mutex> lock(odom_lock_);
-    odom_buffer_.clear();
-  }
   pyramid_built_ = false;
   pyramid_failed_ = false;
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
@@ -433,13 +369,10 @@ int BnbVoxelRelocalization::searchThreads() const
 
 void BnbVoxelRelocalization::releasePyramidMemory(const char * context)
 {
-  if (pyramid_.empty()) return;  // Nothing to release; avoid a spurious RSS log on every exit path.
+  if (pyramid_.empty()) return;  // avoid a spurious RSS log on every exit path
   const double rss_before_mb = currentRssMb();
   pyramid_.releaseMemory();
   const double rss_after_mb = currentRssMb();
-  // See currentRssMb()'s doc comment for why this is measured rather than assumed: freeing the
-  // pyramid's buffers does not by itself return that memory to the OS, which is exactly the
-  // failure mode this log is required to guard against.
   RCLCPP_INFO(
     node_->get_logger(),
     "[%s] pyramid released (%s): RSS %.0f MB -> %.0f MB",
@@ -478,14 +411,11 @@ void BnbVoxelRelocalization::lidarCallback(const sensor_msgs::msg::PointCloud2::
     pt.head<3>() = T_base_lidar_ * pt.head<3>();
   }
 
-  // Downsample only. This runs on EVERY incoming scan (10 Hz) but at most one scan per search is
-  // ever used, so the KD-tree and per-point covariances preprocess_points() also computes were
-  // pure waste here -- the tree was discarded outright, and the covariances are needed only by
-  // the single scan that reaches gicpPolish(), which now derives them itself. That mattered for
-  // more than tidiness: covariance estimation is an all-cores job, so at sensor rate it was
-  // competing for the same cores as the branch-and-bound search running alongside it.
+  // Downsample only, not preprocess_points(): this runs on every incoming scan (10 Hz) but only
+  // one scan per search is ever used, so the KD-tree/covariances it would also compute were an
+  // all-cores cost competing with the search for nothing -- gicpPolish() derives those itself.
   auto ds = small_gicp::voxelgrid_sampling_omp<small_gicp::PointCloud, small_gicp::PointCloud>(
-    *raw, scan_ds_resolution_, num_threads_);
+    *raw, scan_ds_resolution_, searchThreads());
   if (!ds || ds->empty()) return;
 
   // Build the de-tilted BnB query set from the same downsampled cloud used for GICP, since the
@@ -536,130 +466,14 @@ void BnbVoxelRelocalization::lidarCallback(const sensor_msgs::msg::PointCloud2::
   }
 
   // The stamp travels with the scan, not the wall clock: it is the instant the pose eventually
-  // recovered from this scan actually describes, and carryForward() measures its odometry delta
-  // from exactly here.
+  // recovered from this scan actually describes, and reanchorToCurrent() measures the staleness
+  // of a finished lock against exactly this.
   const double stamp = rclcpp::Time(msg->header.stamp).seconds();
 
   std::lock_guard<std::mutex> lock(scan_lock_);
   latest_scan_ = ds;
   latest_query_ = std::move(query);
   latest_scan_stamp_ = stamp;
-}
-
-// ---------------------------------------------------------------------------
-// Odometry carry-forward
-// ---------------------------------------------------------------------------
-void BnbVoxelRelocalization::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
-{
-  const auto & p = msg->pose.pose.position;
-  const auto & q = msg->pose.pose.orientation;
-  Eigen::Quaterniond quat(q.w, q.x, q.y, q.z);
-  if (quat.squaredNorm() < 0.5) return;
-  quat.normalize();
-
-  OdomSample sample;
-  sample.stamp = rclcpp::Time(msg->header.stamp).seconds();
-  sample.pose = gtsam::Pose3(gtsam::Rot3(quat), gtsam::Point3(p.x, p.y, p.z));
-
-  std::lock_guard<std::mutex> lock(odom_lock_);
-  // Guard against a bag loop or a sim-time jump backwards: a non-monotonic buffer would break
-  // odomAt()'s ordered scan and silently return a nonsense delta.
-  if (!odom_buffer_.empty() && sample.stamp < odom_buffer_.back().stamp) {
-    odom_buffer_.clear();
-  }
-  odom_buffer_.push_back(sample);
-  while (!odom_buffer_.empty() && sample.stamp - odom_buffer_.front().stamp > odom_buffer_seconds_) {
-    odom_buffer_.pop_front();
-  }
-}
-
-bool BnbVoxelRelocalization::odomAt(double stamp, gtsam::Pose3 & pose)
-{
-  std::lock_guard<std::mutex> lock(odom_lock_);
-  if (odom_buffer_.size() < 2) return false;
-  // Refuse to extrapolate. Outside the buffered interval the delta is a guess, and a lock moved
-  // by a guessed delta is worse than a lock the caller knows was not moved at all.
-  if (stamp < odom_buffer_.front().stamp || stamp > odom_buffer_.back().stamp) return false;
-
-  auto it = std::lower_bound(
-    odom_buffer_.begin(), odom_buffer_.end(), stamp, [](const OdomSample & s, double t) { return s.stamp < t; });
-  if (it == odom_buffer_.begin()) {
-    pose = it->pose;
-    return true;
-  }
-  const OdomSample & hi = *it;
-  const OdomSample & lo = *(it - 1);
-  const double span = hi.stamp - lo.stamp;
-  if (span <= 0.0) {
-    pose = hi.pose;
-    return true;
-  }
-  // Interpolate on the manifold rather than componentwise: Pose3::interpolateRt slerps the
-  // rotation, so a delta spanning a turn stays a rigid motion.
-  pose = gtsam::interpolate(lo.pose, hi.pose, (stamp - lo.stamp) / span);
-  return true;
-}
-
-bool BnbVoxelRelocalization::carryForward(const gtsam::Pose3 & locked, gtsam::Pose3 & out)
-{
-  out = locked;
-  if (!use_odom_carry_forward_) return false;
-
-  if (!has_search_odom_) {
-    RCLCPP_WARN(
-      node_->get_logger(),
-      "[%s] carry-forward unavailable: no odometry sample at the search scan's stamp (%.3f). The "
-      "lock describes where the vehicle was when that scan was taken, not where it is now -- check "
-      "that '%s' is publishing during RELOCALIZING",
-      name_.c_str(),
-      search_scan_stamp_,
-      odom_topic_.c_str());
-    return false;
-  }
-
-  gtsam::Pose3 odom_now;
-  double now_stamp = 0.0;
-  {
-    std::lock_guard<std::mutex> lock(odom_lock_);
-    if (odom_buffer_.empty()) return false;
-    odom_now = odom_buffer_.back().pose;
-    now_stamp = odom_buffer_.back().stamp;
-  }
-
-  // The odom frame is a fixed frame over the search: LisoFactor accumulates incremental_pose_ in
-  // it continuously and only re-anchors on onTrackingBegin(), which cannot fire until this result
-  // is returned. So the between() below is exactly the body motion over the interval.
-  const gtsam::Pose3 delta = search_odom_.between(odom_now);
-  out = locked.compose(delta);
-
-  const double moved = delta.translation().norm();
-  const double dt = now_stamp - search_scan_stamp_;
-  RCLCPP_INFO(
-    node_->get_logger(),
-    "\033[32m[%s] carry-forward: search took %.1f s, vehicle moved %.2f m / %.1f deg since its scan; "
-    "lock (%.1f,%.1f,%.1f) -> (%.1f,%.1f,%.1f)\033[0m",
-    name_.c_str(),
-    dt,
-    moved,
-    std::fabs(delta.rotation().yaw()) * 180.0 / M_PI,
-    locked.translation().x(),
-    locked.translation().y(),
-    locked.translation().z(),
-    out.translation().x(),
-    out.translation().y(),
-    out.translation().z());
-
-  if (moved > carry_forward_warn_distance_) {
-    RCLCPP_WARN(
-      node_->get_logger(),
-      "[%s] carry-forward moved the lock %.1f m (> %.1f m): the search is slow enough relative to "
-      "vehicle speed that the scan it locked on may no longer overlap the submap LisoFactor will "
-      "build at the carried-forward pose",
-      name_.c_str(),
-      moved,
-      carry_forward_warn_distance_);
-  }
-  return true;
 }
 
 void BnbVoxelRelocalization::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -728,10 +542,7 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::tryRelocalize(  // N
 // ---------------------------------------------------------------------------
 void BnbVoxelRelocalization::workerMain()
 {
-  // Phase timing. Relocalization latency is what the search's anytime budget and the vehicle's
-  // carry-forward distance are both spent against, so which phase consumed it has to be readable
-  // straight off a field log rather than inferred from where the log goes quiet.
-  const auto t_worker_start = std::chrono::steady_clock::now();
+  const auto t_worker_start = std::chrono::steady_clock::now();  // phase timing, logged below
   double build_s = 0.0;
 
   if (!pyramid_built_ && !pyramid_failed_) {
@@ -753,11 +564,9 @@ void BnbVoxelRelocalization::workerMain()
     return;
   }
 
-  // Latch the scan, its query set and its stamp together, ONCE, for the whole attempt. The live
-  // buffers keep advancing at 10 Hz while the search runs for seconds, so re-reading them later
-  // would pair hypotheses derived from this scan with a different, newer cloud in gicpPolish() --
-  // refining the right guess against the wrong data. search_scan_stamp_ is also the instant the
-  // eventual lock describes, which is what carryForward() measures its delta from.
+  // Latch the scan/query/stamp together ONCE per attempt -- the live buffers keep advancing at
+  // sensor rate while the search runs for seconds, and gicpPolish() must refine hypotheses against
+  // the same scan they were derived from, not a newer one.
   std::vector<Eigen::Vector3d> query;
   {
     std::lock_guard<std::mutex> lock(scan_lock_);
@@ -765,19 +574,10 @@ void BnbVoxelRelocalization::workerMain()
     search_scan_ = latest_scan_;
     search_scan_stamp_ = latest_scan_stamp_;
   }
-  has_search_odom_ = use_odom_carry_forward_ && odomAt(search_scan_stamp_, search_odom_);
 
-  // TEMPORARY diagnostic switch: when set (with debug_probe_pose_ also set), substitute a
-  // keyframe self-query for the live scan and run it through the FULL production search path --
-  // corridor roots, prefilter, branch-and-bound, NMS, GICP -- exactly like a real search. This is
-  // deliberately different from debug_self_test_ above, which only scores a self-query in
-  // isolation via searchPoses()'s own scoring sweeps: that verifies the SCORER can tell the true
-  // pose apart from the rest, but says nothing about whether the SEARCH MACHINERY built on top of
-  // it -- corridor roots sized by search_corridor_/z_margin_, the root prefilter, the
-  // branch-and-bound node budget, NMS, the GICP acceptance gates -- can actually find a peak that
-  // is definitely present. Substituting the query here, immediately before searchPoses(), routes
-  // it through every one of those stages unmodified, so a failure here with debug_self_test_'s C1
-  // passing cleanly points at the search machinery, not the scorer.
+  // Diagnostic: substitute a keyframe self-query for the live scan, through the FULL production
+  // path (roots, prefilter, BnB, NMS, GICP) -- unlike debug_self_test_, which only scores a
+  // self-query in isolation, this checks whether the search MACHINERY finds a peak known to exist.
   if (debug_use_self_query_ && debug_probe_pose_.size() >= 4) {
     const Eigen::Vector3d probe_t(debug_probe_pose_[0], debug_probe_pose_[1], debug_probe_pose_[2]);
     std::vector<Eigen::Vector3d> self_query;
@@ -830,23 +630,18 @@ void BnbVoxelRelocalization::workerMain()
     result.has_value() ? "locked" : "no lock");
 
   if (result.has_value()) {
-    // The GICP pose describes the vehicle at search_scan_stamp_. Advance it along the odometry
-    // accumulated while the search ran, so InitSequencer -- which applies this as the CURRENT pose
-    // (LisoFactor::onTrackingBegin() rebuilds its submap and seeds last_matched_pose_ from it) --
-    // receives where the vehicle is now rather than where it was when the scan was taken.
-    gtsam::Pose3 carried;
-    carryForward(result->pose, carried);
-    result->pose = carried;
+    // Re-anchor onto the newest scan before handing off, since InitSequencer applies this pose as
+    // the CURRENT one. Must run before releasePyramidMemory() below: it searches the same pyramid.
+    gtsam::Pose3 reanchored;
+    if (reanchorToCurrent(result->pose, reanchored)) {
+      result->pose = reanchored;
+    }
     {
       std::lock_guard<std::mutex> lock(result_mtx_);
       result_ = result;
     }
     result_ready_ = true;
-    // Free search memory now: the plugin is never polled again after a successful lock. See
-    // releasePyramidMemory() for why this is releaseMemory() (which also malloc_trim()s under
-    // glibc) rather than clear() -- the user's memory-recovery requirement is that this is
-    // actually recoverable, not merely dropped into the allocator's arena.
-    releasePyramidMemory("lock");
+    releasePyramidMemory("lock");  // never polled again after a successful lock
     search_scan_.reset();
     roots_.clear();
     roots_.shrink_to_fit();
@@ -870,20 +665,11 @@ bool BnbVoxelRelocalization::buildPyramid()
   eidos::reloc::VoxelPyramid::Config cfg;
   cfg.min_voxel_size = min_voxel_size_;
   cfg.num_levels = num_levels_;
-  // Height filtering happens in the BODY frame (see insertKeyframeCloud and the query builder),
-  // not here. A map-frame clamp is not comparable between map and query and cannot remove ground
-  // on a map whose elevation varies, so the pyramid's own clamp stays disabled.
+  // Height filtering happens in the BODY frame instead (see inHeightBand()) -- a map-frame clamp
+  // can't remove ground on a map whose elevation varies, so the pyramid's own clamp stays disabled.
   cfg.max_height = 0.0;
   cfg.max_voxels_per_level = max_voxels_per_level_;
-  // Under score_mode=distance_field the free-space channel is redundant (see onInitialize()'s
-  // "inactive" log) and is skipped entirely here, not merely built and ignored -- it would be both
-  // wasted build time and wasted memory. build_free_space_this_run_ (worker-owned state) is what
-  // insertKeyframeCloud() actually checks below, rather than use_free_space_ directly, so the
-  // raycast loop itself is skipped rather than just made a pyramid-side no-op.
   build_free_space_this_run_ = use_free_space_ && score_mode_ == eidos::reloc::ScoreMode::Occupancy;
-  // The free-space band reuses min_height_/max_height_ verbatim -- the SAME body-frame band
-  // applied to occupancy insertion below and to the live query in lidarCallback() -- so the three
-  // can never drift out of sync with each other.
   cfg.build_free_space = build_free_space_this_run_;
   cfg.free_max_range = free_max_range_;
   cfg.free_end_margin = free_end_margin_;
@@ -891,24 +677,15 @@ bool BnbVoxelRelocalization::buildPyramid()
   cfg.free_max_height = max_height_;
   cfg.free_clear_near_occupied = free_clear_near_occupied_;
   cfg.max_free_voxels = max_free_voxels_;
-  // Distance-field scoring config -- see the class doc on score_mode_ for the measurement that
-  // motivated defaulting to distance_field. df_sigma_/df_truncation_voxels_ are consumed by the
-  // pyramid's max-dilation build in finalize(); max_score_voxels_ guards the resulting grid size,
-  // with the pyramid falling back to occupancy-equivalent (empty score grids) on overflow -- see
-  // the fallback detection right after pyramid_.finalize() below.
   cfg.score_mode = score_mode_;
   cfg.df_sigma = df_sigma_;
   cfg.df_truncation_voxels = df_truncation_voxels_;
   cfg.max_score_voxels = max_score_voxels_;
+  cfg.build_threads = searchThreads();
   pyramid_.beginInsert(cfg);
 
-  // Free-space rays originate at the LiDAR, not base_link: eidos's configured base_link is
-  // actually base_footprint, which sits at ground level, while the LiDAR sits ~2.1 m above it. A
-  // ray cast from ground level would spend most of its length below the min_height band and would
-  // under-populate free space badly. Prefer the resolved base_link<-lidar TF (translation only,
-  // exactly where the sensor sits); fall back to free_ray_origin_height_ above base_link if the TF
-  // has not resolved yet (lidarCallback() runs on a different thread and may not have fired before
-  // the worker reaches here on a fresh activation).
+  // Free-space rays originate at the LiDAR, not base_link (which sits at ground level and would
+  // under-populate free space). Falls back to free_ray_origin_height_ if the TF hasn't resolved yet.
   const bool origin_from_tf = has_lidar_tf_;
   const Eigen::Vector3d sensor_offset_body =
     origin_from_tf ? T_base_lidar_.translation() : Eigen::Vector3d(0.0, 0.0, free_ray_origin_height_);
@@ -940,51 +717,138 @@ bool BnbVoxelRelocalization::buildPyramid()
 
   std::unordered_map<std::string, std::size_t> source_counts;
 
-  for (gtsam::Key key : key_list) {
-    if (stop_requested_.load()) return false;
-    if (!map_manager_->isPriorMapKey(key)) continue;
+  // Per-keyframe rasterization dominates buildPyramid()'s cost. Parallel below via per-thread
+  // shards (VoxelPyramid::insertIntoShard()/mergeShardsIntoLevel0(), union is commutative so the
+  // result is bit-identical to the serial loop) whenever free space isn't being built -- insertRay()
+  // mutates shared state with no thread-safe equivalent, so that (off-by-default) path keeps the
+  // original serial loop. MapManager lookups here are internally mutex-protected, so calling them
+  // concurrently is safe.
+  if (build_free_space_this_run_) {
+    for (gtsam::Key key : key_list) {
+      if (stop_requested_.load()) return false;
+      if (!map_manager_->isPriorMapKey(key)) continue;
 
-    int idx = map_manager_->getCloudIndex(key);
-    if (idx < 0 || static_cast<std::size_t>(idx) >= poses6d_->points.size()) continue;
+      int idx = map_manager_->getCloudIndex(key);
+      if (idx < 0 || static_cast<std::size_t>(idx) >= poses6d_->points.size()) continue;
 
-    Eigen::Affine3f world_t = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(idx)]);
-    Eigen::Isometry3d T;
-    T.matrix() = world_t.matrix().cast<double>();
+      Eigen::Affine3f world_t = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(idx)]);
+      Eigen::Isometry3d T;
+      T.matrix() = world_t.matrix().cast<double>();
 
-    bool inserted_any = false;
-    bool tried_fallback = false;
-    std::string used_key;
+      bool inserted_any = false;
+      bool tried_fallback = false;
+      std::string used_key;
 
-    if (has_fallback && prefer_downsampled_source_) {
-      tried_fallback = true;
-      if (insertKeyframeCloud(key, fallback_key, T, sensor_offset_body)) {
+      if (has_fallback && prefer_downsampled_source_) {
+        tried_fallback = true;
+        if (insertKeyframeCloud(key, fallback_key, T, sensor_offset_body)) {
+          inserted_any = true;
+          used_key = fallback_key;
+        }
+      }
+      if (!inserted_any && insertKeyframeCloud(key, pointcloud_from_, T, sensor_offset_body)) {
+        inserted_any = true;
+        used_key = pointcloud_from_;
+      }
+      if (!inserted_any && has_fallback && !tried_fallback && insertKeyframeCloud(key, fallback_key, T, sensor_offset_body)) {
         inserted_any = true;
         used_key = fallback_key;
       }
+
+      if (!inserted_any) continue;
+
+      ++source_counts[used_key];
+      TrajectoryEntry entry;
+      entry.position = T.translation();
+      entry.cloud_index = idx;
+      entry.key = key;
+      entry.yaw = gtsam::Rot3(T.rotation()).yaw();
+      trajectory_.push_back(entry);
+      ++rasterized_keyframes;
     }
-    if (!inserted_any && insertKeyframeCloud(key, pointcloud_from_, T, sensor_offset_body)) {
-      inserted_any = true;
-      used_key = pointcloud_from_;
-    }
-    if (!inserted_any && has_fallback && !tried_fallback && insertKeyframeCloud(key, fallback_key, T, sensor_offset_body)) {
-      inserted_any = true;
-      used_key = fallback_key;
+  } else {
+    const int nthreads = std::max(1, searchThreads());
+    std::vector<eidos::reloc::VoxelSet> shards(static_cast<std::size_t>(nthreads));
+    std::vector<std::size_t> shard_out_of_range(static_cast<std::size_t>(nthreads), 0);
+
+    // Per-index scratch, filled in parallel and drained back in key_list order afterward, so
+    // trajectory_/source_counts/rasterized_keyframes come out identical to the serial loop's.
+    struct Slot
+    {
+      bool valid = false;
+      TrajectoryEntry entry;
+      std::string used_key;
+    };
+    std::vector<Slot> slots(key_list.size());
+    std::atomic<bool> aborted{false};
+
+#pragma omp parallel for schedule(dynamic) num_threads(nthreads)
+    for (long i = 0; i < static_cast<long>(key_list.size()); ++i) {
+      if (aborted.load(std::memory_order_relaxed)) continue;
+      if (stop_requested_.load()) {
+        aborted.store(true, std::memory_order_relaxed);
+        continue;
+      }
+      const gtsam::Key key = key_list[static_cast<std::size_t>(i)];
+      if (!map_manager_->isPriorMapKey(key)) continue;
+
+      int idx = map_manager_->getCloudIndex(key);
+      if (idx < 0 || static_cast<std::size_t>(idx) >= poses6d_->points.size()) continue;
+
+      Eigen::Affine3f world_t = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(idx)]);
+      Eigen::Isometry3d T;
+      T.matrix() = world_t.matrix().cast<double>();
+
+      const int tid = omp_get_thread_num();
+      eidos::reloc::VoxelSet & shard = shards[static_cast<std::size_t>(tid)];
+      std::size_t & oor = shard_out_of_range[static_cast<std::size_t>(tid)];
+
+      bool inserted_any = false;
+      bool tried_fallback = false;
+      std::string used_key;
+
+      if (has_fallback && prefer_downsampled_source_) {
+        tried_fallback = true;
+        if (insertKeyframeCloudShard(key, fallback_key, T, shard, oor)) {
+          inserted_any = true;
+          used_key = fallback_key;
+        }
+      }
+      if (!inserted_any && insertKeyframeCloudShard(key, pointcloud_from_, T, shard, oor)) {
+        inserted_any = true;
+        used_key = pointcloud_from_;
+      }
+      if (
+        !inserted_any && has_fallback && !tried_fallback &&
+        insertKeyframeCloudShard(key, fallback_key, T, shard, oor)) {
+        inserted_any = true;
+        used_key = fallback_key;
+      }
+
+      if (!inserted_any) continue;
+
+      Slot & slot = slots[static_cast<std::size_t>(i)];
+      slot.valid = true;
+      slot.entry.position = T.translation();
+      slot.entry.cloud_index = idx;
+      slot.entry.key = key;
+      slot.entry.yaw = gtsam::Rot3(T.rotation()).yaw();
+      slot.used_key = std::move(used_key);
     }
 
-    if (!inserted_any) continue;
+    if (aborted.load()) return false;
 
-    ++source_counts[used_key];
-    TrajectoryEntry entry;
-    entry.position = T.translation();
-    entry.cloud_index = idx;
-    entry.key = key;
-    // Map-frame heading of this keyframe, for the fine root prefilter's heading window (see
-    // buildRoots()/prefilterRoots()). Same gtsam convention verified numerically in
-    // buildSelfQuery() (Rz(yaw) * rotYX(pitch, roll), matched to ~5e-8) -- Rot3::yaw() alone is
-    // exactly the third component of that decomposition, so no separate check is needed here.
-    entry.yaw = gtsam::Rot3(T.rotation()).yaw();
-    trajectory_.push_back(entry);
-    ++rasterized_keyframes;
+    std::size_t total_out_of_range = 0;
+    for (std::size_t oor : shard_out_of_range) total_out_of_range += oor;
+    pyramid_.mergeShardsIntoLevel0(shards, total_out_of_range);
+
+    trajectory_.reserve(slots.size());
+    for (auto & slot : slots) {
+      if (!slot.valid) continue;
+      ++source_counts[slot.used_key];
+      trajectory_.push_back(std::move(slot.entry));
+      ++rasterized_keyframes;
+    }
   }
 
   for (const auto & [key, count] : source_counts) {
@@ -1006,13 +870,8 @@ bool BnbVoxelRelocalization::buildPyramid()
 
   pyramid_.finalize();
 
-  // Determine the ACTUALLY built score mode. score_mode_ is what was requested; the pyramid falls
-  // back to Occupancy internally if max_score_voxels_ is exceeded while building the distance
-  // field, exactly like freeSpaceAbandoned() detects the analogous free-space overflow --
-  // effectiveScoreMode() is the authoritative accessor for this (distanceFieldAbandoned() is the
-  // WARN condition). Everything downstream (SearchConfig::score_mode and every probe diagnostic)
-  // reads active_score_mode_, never score_mode_, so a silent fallback can never be misreported as
-  // the mode that was requested.
+  // The mode ACTUALLY built (may differ from score_mode_ after a max_score_voxels_ overflow
+  // fallback) -- everything downstream reads this, never score_mode_.
   active_score_mode_ = pyramid_.effectiveScoreMode();
   if (pyramid_.distanceFieldAbandoned()) {
     RCLCPP_WARN(
@@ -1060,11 +919,6 @@ bool BnbVoxelRelocalization::buildPyramid()
         l);
     }
   }
-  // Expected and sound: the height band makes the free volume only a few metres thick, so the
-  // "all 8 children free" test that builds coarser free levels empties out at level >= 2 (a fully
-  // free 4 m cell needs 64 stacked free 1 m voxels). Free space is therefore only active at levels
-  // 0-1 -- the coarse bound stays as loose as it always was, and the discrimination happens at the
-  // leaf and in the acceptance gate, which is exactly where the uniqueness ratio is computed.
   if (build_free_space_this_run_ && pyramid_.freeSpaceAbandoned()) {
     RCLCPP_WARN(
       node_->get_logger(),
@@ -1099,11 +953,9 @@ bool BnbVoxelRelocalization::insertKeyframeCloud(
     for (std::size_t i = 0; i < n; ++i) {
       const auto & pt = (*pcl_opt)->points[i];
       if (inHeightBand(pt.z)) pyramid_.insert(world_t * Eigen::Vector3d(pt.x, pt.y, pt.z));
-      // Free-space raycasting rides the SAME loop as the occupancy insertion above -- insertRay()
-      // is not thread-safe, and a second pass over the cloud would double the iteration cost for
-      // no benefit. The endpoint is NOT height-band filtered here: insertRay() applies the band
-      // per-voxel along the ray (relative to the ray origin), so a ray toward an out-of-band
-      // endpoint still marks the in-band portion of its path free.
+      // Rides the same loop as occupancy insertion (insertRay() isn't thread-safe, and a second
+      // pass would double the cost). Endpoint isn't height-filtered here: insertRay() applies the
+      // band per-voxel along the ray, so an out-of-band endpoint still marks the in-band path free.
       if (build_free_space_this_run_ && (i % stride == 0)) {
         if (stop_requested_.load()) break;
         pyramid_.insertRay(origin_world, world_t * Eigen::Vector3d(pt.x, pt.y, pt.z));
@@ -1123,6 +975,33 @@ bool BnbVoxelRelocalization::insertKeyframeCloud(
         if (stop_requested_.load()) break;
         pyramid_.insertRay(origin_world, world_t * p);
       }
+    }
+    return true;
+  }
+
+  return false;
+}
+
+bool BnbVoxelRelocalization::insertKeyframeCloudShard(
+  gtsam::Key key, const std::string & data_key, const Eigen::Isometry3d & world_t,
+  eidos::reloc::VoxelSet & shard, std::size_t & out_of_range)
+{
+  auto pcl_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key, data_key);
+  if (pcl_opt.has_value() && *pcl_opt && !(*pcl_opt)->empty()) {
+    for (const auto & pt : (*pcl_opt)->points) {
+      if (inHeightBand(pt.z) && !pyramid_.insertIntoShard(world_t * Eigen::Vector3d(pt.x, pt.y, pt.z), shard)) {
+        ++out_of_range;
+      }
+    }
+    return true;
+  }
+
+  auto gicp_opt = map_manager_->retrieve<small_gicp::PointCloud::Ptr>(key, data_key);
+  if (gicp_opt.has_value() && *gicp_opt && !(*gicp_opt)->empty()) {
+    const std::size_t n = (*gicp_opt)->size();
+    for (std::size_t i = 0; i < n; ++i) {
+      const Eigen::Vector3d p = (*gicp_opt)->point(i).head<3>();
+      if (inHeightBand(p.z()) && !pyramid_.insertIntoShard(world_t * p, shard)) ++out_of_range;
     }
     return true;
   }
@@ -1154,20 +1033,11 @@ void BnbVoxelRelocalization::buildRoots()
 
     for (int64_t dx = -corridor_cells; dx <= corridor_cells; ++dx) {
       for (int64_t dy = -corridor_cells; dy <= corridor_cells; ++dy) {
-        // Root cells live at the COARSEST pyramid level (8 m by default), so testing the cell
-        // CENTRE against search_corridor_ is wrong: a cell can be kept or dropped based on where
-        // its centre happens to fall even though poses much closer than search_corridor_ sit
-        // inside that same cell -- up to res*sqrt(3)/2 (~6.9 m at 8 m resolution) closer than the
-        // centre-to-trajectory-point distance being tested. This is not a theoretical concern --
-        // it measurably excluded the true pose on the
-        // validation bag: the vehicle starts 19.88 m from the nearest keyframe, but the cell
-        // containing that start point has its CENTRE 23.1 m away, so at the old 20 m default the
-        // true cell was silently never even added as a root. Use a CONSERVATIVE cell-extent test
-        // instead: clamp the trajectory point into the cell's [lo, lo+res] box on each axis and
-        // measure to that clamped point, i.e. to the NEAREST point of the cell. This keeps the
-        // cell whenever ANY pose inside it could be within the corridor, which is what the search
-        // actually needs -- the cell-centre test above silently dropped boundary cells that still
-        // contain in-corridor poses.
+        // Cell-centre distance to the corridor is the wrong test: a boundary cell can contain
+        // in-corridor poses while its centre sits up to res*sqrt(3)/2 outside -- measured to
+        // silently drop the true root on the validation bag. Clamp the trajectory point into the
+        // cell's box instead and measure to that (nearest-point) test, which keeps a cell whenever
+        // ANY pose inside it could be in-corridor.
         const double lo_x = static_cast<double>(cx + dx) * res;
         const double lo_y = static_cast<double>(cy + dy) * res;
         const double nx = std::clamp(entry.position.x(), lo_x, lo_x + res);
@@ -1336,11 +1206,8 @@ std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::score
         for (double z : zs) {
           const Eigen::Vector3d pos(x, y, z);
           for (double off : yaw_offsets_rad) {
-            // hit_weight_ here, NOT the hard-coded 3 the coarse path below passes -- this is the
-            // correction the fine path makes to an existing inconsistency with the configured
-            // weight (see the coarse branch's own comment on that literal). Level 0 (not
-            // coarsest_level): the coarse level is exactly what saturates -- see this function's
-            // header doc comment for the measurement.
+            // hit_weight_ (configured), not the coarse path's hard-coded 3. Level 0, not
+            // coarsest_level: the coarse level is what saturates (see prefilterRoots()'s doc).
             const int score = eidos::reloc::scorePoseAtLevel(
               pyramid_, sub_query, pos, off + heading, 0, hit_weight_, 0, nullptr, active_score_mode_);
             if (score > best_score) {
@@ -1369,25 +1236,11 @@ std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::score
 std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
   const std::vector<Eigen::Vector3d> & rotated_query, double dr, double dp)
 {
-  // WHY THIS FUNCTION HAS TWO PATHS -- MEASURED ROOT CAUSE of a 281 m mislocalization on the
-  // validation bag: the ORIGINAL prefilter (still available as the `prefilter_fine_ == false`
-  // path below) ranks corridor roots by scoring them at the COARSEST pyramid level with a
-  // `root_prefilter_points_`-point subsample. Under the distance-field score the ceiling is
-  // `root_prefilter_points_ * 255` (128 * 255 = 32640 at the default), and the coarsest level's
-  // 26-neighbourhood dilation covers roughly 2.5x the cell size, so essentially every root near
-  // the road saturates at that ceiling: 11611 of 11613 roots tied at the exact maximum on the
-  // validation bag. `std::nth_element` (the old selection algorithm) makes NO guarantee about
-  // which tied elements land in the kept prefix, so the kept set was effectively arbitrary among
-  // the ties and the true root survived with only about a 2% chance. The branch-and-bound BOUND
-  // itself is not the bug -- it is sound everywhere -- it is simply as uninformative as the
-  // prefilter at coarse levels, for exactly the same saturation reason, so a root that slips
-  // through the prefilter gets no help from BnB either.
-  //
-  // Level 0 DOES discriminate: for a query known to be good, the reference pose scored 94623 at
-  // its leaf cell centre (99309 at the exact pose), while the best WRONG pose anywhere in the map
-  // scored 77885 -- a 1.22x margin. So instead of ranking roots by a coarse score that cannot
-  // tell them apart, the fine path (default) ranks them by a heading-constrained LEVEL-0 scan
-  // inside each root's cell -- see scoreRootsFine().
+  // Two paths (prefilter_fine_): the original coarse-level ranking saturates almost every root at
+  // the same ceiling (11611/11613 tied at max on the validation bag) and was the measured cause of
+  // a 281m mislocalization, since std::nth_element's tie handling is unspecified. Level 0 DOES
+  // discriminate (94623 vs. 77885 for the best wrong pose), so the fine path (default) ranks roots
+  // by a heading-constrained level-0 scan instead -- see scoreRootsFine().
   if (root_prefilter_keep_ <= 0 || root_prefilter_keep_ >= static_cast<int>(roots_.size())) {
     return roots_;  // Prefilter disabled: exactly recover the un-filtered behaviour.
   }
@@ -1408,13 +1261,8 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
   }
 
   if (!prefilter_fine_) {
-    // -------------------------------------------------------------------------------------------
-    // ORIGINAL coarse-level ranking, UNCHANGED, kept so `prefilter_fine_: false` reproduces
-    // today's behaviour exactly for A/B testing against the fine path above.
-    // -------------------------------------------------------------------------------------------
-    // Use the same discretisation branchAndBound() will compute internally for this rotated
-    // query, so the coarsest-level yaw bins scored here line up exactly with the ones it will
-    // seed from.
+    // Original coarse-level ranking, kept for A/B testing. Same discretisation branchAndBound()
+    // computes internally, so the yaw bins scored here line up with the ones it seeds from.
     const eidos::reloc::YawDiscretization yaw_disc =
       eidos::reloc::YawDiscretization::compute(rotated_query, pyramid_);
     if (yaw_disc.max_range <= 0.0) return roots_;  // degenerate query, let branchAndBound() handle it.
@@ -1424,16 +1272,10 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
     const int64_t n_coarse_bins = yaw_disc.numBins(coarsest_level);
 
     // (best coarse score over all yaw bins, index into roots_)
-    // Scored in parallel over roots. Each iteration writes only its own slot and the
-    // pyramid is read-only here, so no synchronisation is required. Measurement showed
-    // this loop dominated prefilter cost when serial (20 s over a 3337-root corridor),
-    // while the main search was already parallel.
     std::vector<std::pair<int, std::size_t>> scored(roots_.size());
 #pragma omp parallel for schedule(static) num_threads(searchThreads())
     for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(roots_.size()); ++i) {
       const std::size_t idx = static_cast<std::size_t>(i);
-      // OpenMP forbids breaking out of a parallel for, so a stop request marks the
-      // remaining roots unusable (-1) instead; the caller aborts right after.
       if (stop_requested_.load()) {
         scored[idx] = {-1, idx};
         continue;
@@ -1444,9 +1286,8 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
       int best = -1;
       for (int64_t k = 0; k < n_coarse_bins; ++k) {
         const double yaw = yaw_disc.binCentre(coarsest_level, k);
-        // Trailing score_mode must be active_score_mode_, not the DistanceField default: under
-        // score_mode=occupancy the pyramid never built its score grids, so scoring against the
-        // default here would silently read all-zero cells and defeat the prefilter.
+        // Must be active_score_mode_, not the DistanceField default: under occupancy mode the
+        // pyramid never built score grids, so the default here would silently read all zeros.
         const int score = eidos::reloc::scorePoseAtLevel(
           pyramid_, sub_query, centre, yaw, coarsest_level, 3, 0, nullptr, active_score_mode_);
         if (score > best) best = score;
@@ -1468,43 +1309,28 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
     return kept;
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // FINE, heading-constrained level-0 ranking (default). See scoreRootsFine() for the per-root
-  // scan and this function's header comment above for the saturation measurement that motivates
-  // it.
-  // ---------------------------------------------------------------------------------------------
+  // Fine, heading-constrained level-0 ranking (default) -- see scoreRootsFine().
   auto scored = scoreRootsFine(sub_query);
 
   const std::size_t keep = std::min(static_cast<std::size_t>(root_prefilter_keep_), scored.size());
-  // std::partial_sort, not std::nth_element: nth_element's unspecified handling of tied elements
-  // is PRECISELY what discarded the true root in the coarse path above, so the fine path uses a
-  // fully-ordered, deterministic selection instead. The comparator also breaks ties on `idx`
-  // (ascending), giving a strict weak ordering with NO ties at all -- so which roots land in the
-  // kept prefix is reproducible for identical inputs regardless of standard-library
-  // implementation, not merely "more ordered than nth_element".
+  // partial_sort, not nth_element: nth_element's unspecified tie handling is what discarded the
+  // true root in the coarse path. Ties broken on idx, so selection is fully deterministic.
   std::partial_sort(
     scored.begin(), scored.begin() + static_cast<std::ptrdiff_t>(keep), scored.end(),
     [](const FineRootScore & a, const FineRootScore & b) {
       return a.score != b.score ? a.score > b.score : a.idx < b.idx;
     });
 
-  // Emit the argmax poses of the top-ranked roots as REAL candidates, not just a kept-root list:
-  // because branch-and-bound's own coarse-level bound saturates at the same ceiling that broke
-  // the old prefilter (see this function's header comment), a root surviving into BnB gets no
-  // guidance from the bound either. Materialising the fine scan's own best pose per root means the
-  // correct pose can still surface even if BnB's search over that root's subtree does not
-  // rediscover it. Capped at min(keep, 4 * num_gicp_candidates_): only the GICP polish stage can
-  // use more than a handful of hypotheses productively, so scoring/emitting more than that here
-  // would be wasted work.
+  // Emit the top roots' argmax poses as real candidates (not just a kept-root list): BnB's own
+  // coarse bound saturates too, so a surviving root gets no guidance from it either. Capped at
+  // 4*num_gicp_candidates_ -- GICP can't productively use more than that.
   const std::size_t n_candidates =
     std::min(keep, static_cast<std::size_t>(std::max(4 * num_gicp_candidates_, 0)));
   for (std::size_t i = 0; i < n_candidates; ++i) {
     const FineRootScore & fr = scored[i];
-    if (fr.score < 0) continue;  // stop_requested_ fired mid-scan; skip the unusable entry.
-    // Re-score the argmax pose against the FULL (non-subsampled) rotated query, at level 0, via
-    // the same scoreBreakdownAtLevel() branchAndBound()'s own leafHypothesis() uses -- so a
-    // prefilter candidate's score sits on the same footing as a BnB-produced hypothesis when the
-    // two are merged and NMS'd together in searchPoses().
+    if (fr.score < 0) continue;  // stop_requested_ fired mid-scan
+    // Re-score against the FULL query at level 0, same as branchAndBound()'s leafHypothesis(), so
+    // this sits on equal footing when merged/NMS'd with BnB output in searchPoses().
     const eidos::reloc::ScoreBreakdown breakdown = eidos::reloc::scoreBreakdownAtLevel(
       pyramid_, rotated_query, fr.pos, fr.yaw, 0, hit_weight_, active_score_mode_);
     eidos::reloc::Hypothesis hyp;
@@ -1526,12 +1352,8 @@ std::vector<eidos::reloc::RootCell> BnbVoxelRelocalization::prefilterRoots(
   return kept;
 }
 
-// ---------------------------------------------------------------------------
-// Self-query builder -- a query drawn from a prior-map keyframe's own cloud, exactly registered
-// to the map by construction. Shared by debug_self_test_'s C1/C2/C3 scoring-only diagnostics
-// (searchPoses()) and by debug_use_self_query_'s full-pipeline substitution (workerMain()). See
-// the doc comment in the header for the full contract.
-// ---------------------------------------------------------------------------
+// Self-query builder -- a query drawn from a prior-map keyframe's own cloud, exactly registered to
+// the map by construction. Shared by debug_self_test_ and debug_use_self_query_.
 bool BnbVoxelRelocalization::buildSelfQuery(
   const Eigen::Vector3d & near_position, std::vector<Eigen::Vector3d> & query_out,
   Eigen::Vector3d & kf_translation_out, double & kf_yaw_out, int & kf_index_out)
@@ -1541,10 +1363,7 @@ bool BnbVoxelRelocalization::buildSelfQuery(
   kf_yaw_out = 0.0;
   kf_index_out = -1;
 
-  // -----------------------------------------------------------------------------------------
-  // Select the reference keyframe: the prior-map keyframe whose position is closest to
-  // `near_position`. Same iteration pattern buildPyramid() uses.
-  // -----------------------------------------------------------------------------------------
+  // Nearest prior-map keyframe to near_position, same iteration pattern as buildPyramid().
   gtsam::Key kf_key = 0;
   int kf_idx = -1;
   Eigen::Isometry3d T_kf = Eigen::Isometry3d::Identity();
@@ -1576,12 +1395,8 @@ bool BnbVoxelRelocalization::buildSelfQuery(
     return false;
   }
 
-  // Decompose T_kf's rotation into roll/pitch/yaw with gtsam's own RzRyRx convention
-  // (Rot3::rpy() returns [roll, pitch, yaw] such that R == Rot3::Ypr(yaw, pitch, roll) ==
-  // RzRyRx(roll, pitch, yaw) == Rz(yaw) * Ry(pitch) * Rx(roll) == Rz(yaw) * rotYX(pitch, roll)),
-  // then VERIFY that identity numerically rather than trusting the derivation: if this plugin's
-  // rotYX()/Rz(yaw) composition does not actually match gtsam's convention, every de-tilt in the
-  // file -- not just this function -- is silently wrong.
+  // Decompose into roll/pitch/yaw (gtsam's RzRyRx == Rz(yaw) * rotYX(pitch, roll)) and verify that
+  // identity numerically -- if it doesn't hold, every de-tilt in this file is silently wrong.
   const gtsam::Vector3 rpy_kf = gtsam::Rot3(T_kf.rotation()).rpy();
   const double roll_kf = rpy_kf(0);
   const double pitch_kf = rpy_kf(1);
@@ -1600,9 +1415,8 @@ bool BnbVoxelRelocalization::buildSelfQuery(
     }
   }
 
-  // Retrieve the keyframe's own BODY-frame cloud. Same PCL-typed-then-small_gicp-typed
-  // retrieval, and source-key selection, that insertKeyframeCloud()/buildPyramid() use. Returns
-  // BODY-frame points -- not transformed by the keyframe's world pose, no height band applied.
+  // Keyframe's own body-frame cloud (untransformed, unfiltered) -- same retrieval/fallback as
+  // insertKeyframeCloud()/buildPyramid().
   const std::string cloud_suffix = "/cloud";
   const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
     pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) == 0;
@@ -1636,11 +1450,8 @@ bool BnbVoxelRelocalization::buildSelfQuery(
     return false;
   }
 
-  // Mirror the live query builder's transform chain (lidarCallback()): de-tilt by
-  // rotYX(pitch, roll), drop points beyond max_query_range_ horizontally, keep only the
-  // configured height band, then apply the identical strided downsample to
-  // target_query_points_. The only difference from the live path is WHERE the points and the
-  // roll/pitch come from -- a keyframe's own recorded cloud and pose, not a live scan and IMU.
+  // Mirrors lidarCallback()'s transform chain exactly: de-tilt, range filter, height band, strided
+  // downsample -- only the source of the points/roll/pitch differs (keyframe vs. live scan/IMU).
   const Eigen::Matrix3d r_detilt = rotYX(pitch_kf, roll_kf);
   const double max_range_sq = max_query_range_ > 0.0 ? max_query_range_ * max_query_range_ : 0.0;
   std::vector<Eigen::Vector3d> filtered;
@@ -1705,9 +1516,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     }
   }
 
-  // Per-offset preparation: rotate the query and cheaply prefilter the roots down to the most
-  // promising ones (see prefilterRoots()), then split the survivors into num_threads_ chunks so
-  // the main search loop below has (offset x chunk) tasks to parallelize over, not just offsets.
+  // Per-offset: rotate the query, prefilter roots (see prefilterRoots()), split survivors into
+  // chunks so the search loop below has (offset x chunk) tasks to parallelize over.
   struct OffsetPrep
   {
     double dr = 0.0;
@@ -1726,13 +1536,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
   // into the candidate list right before NMS, further down.
   prefilter_candidates_.clear();
 
-  // Deliberately serial over offsets. prefilterRoots() parallelises internally over roots,
-  // which is far finer-grained than this loop (thousands of roots vs. typically one offset),
-  // and OpenMP serialises nested parallel regions by default -- so parallelising here would
-  // silently disable that inner parallelism. Measured: with a pragma here the prefilter took
-  // 21.8 s; without it the inner loop can actually use every core. This loop's wall time (timed
-  // below) is also where the fine prefilter's level-0 scan cost shows up, so the "root prefilter:
-  // N -> M roots, X ms" log line already reports it -- no separate timer is needed.
+  // Deliberately serial over offsets: prefilterRoots() parallelises internally over roots (far
+  // finer-grained), and OpenMP serialises nested parallel regions -- a pragma here would silently
+  // disable that inner parallelism (measured 21.8s with one vs. full-core without).
   for (int i = 0; i < static_cast<int>(offsets.size()); ++i) {
     if (stop_requested_.load()) continue;
 
@@ -1745,36 +1551,17 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     for (const auto & q : query) prep.rotated_query.push_back(r_offset * q);
 
     auto kept_roots = prefilterRoots(prep.rotated_query, prep.dr, prep.dp);
-    // Cut enough chunks to keep every worker fed AND give schedule(dynamic) room to balance.
-    // With the default rp_search_steps: 1 there is exactly one roll/pitch offset, so the task
-    // count for the whole search IS this chunk count -- cutting num_threads_ (16) of them left
-    // half of a 32-core box idle for the entire search. Chunk cost is also highly uneven, since
-    // it depends on how much structure each root's subtree contains, so equal-sized chunks do not
-    // mean equal-length tasks; oversubscribing is what lets the late finishers overlap.
+    // Oversubscribe chunks (search_task_multiplier_x threads) so schedule(dynamic) has room to
+    // balance -- chunk cost varies widely with how much structure each root's subtree holds.
     prep.root_chunks = chunkRoots(kept_roots, search_threads * search_task_multiplier_);
 
-    // -------------------------------------------------------------------
-    // TRACE 9 -- prefilter kept-set: TRACE 4 (further below) recomputes a ranking independently of
-    // prefilterRoots() itself -- it never reads the vector prefilterRoots() actually returned, only
-    // where the reference root's score falls among every root's score. At the coarsest level the
-    // prefilter's score saturates: it sums `root_prefilter_points_` per-point cell values capped at
-    // 255 each under DistanceField, so a subsample that lands entirely on structure scores the exact
-    // same maximum (root_prefilter_points_ * 255) regardless of exactly how well-aligned it is
-    // beyond that point -- meaning a dense map can tie THOUSANDS of roots at that ceiling. TRACE 4's
-    // "rank 1" in that regime only means "rank 1 among ties"; it says nothing about whether the
-    // reference root is among the `root_prefilter_keep_` that std::nth_element() (see
-    // prefilterRoots() above) actually chose to keep -- nth_element() makes NO guarantee about WHICH
-    // elements tied at its partition value end up on which side of the partition. This checks the
-    // ACTUAL returned `kept_roots` vector directly, and separately measures how saturated the tie
-    // actually is, so the two failure modes ("reference root never made the cut" vs. "tie-breaking
-    // is fine, something else is wrong") are told apart by data, not assumption.
-    // -------------------------------------------------------------------
+    // TRACE 9 -- prefilter kept-set: checks the ACTUAL kept_roots vector directly (unlike TRACE 4's
+    // independent rank recomputation), plus how saturated the coarse-level tie is, so "reference
+    // root never made the cut" and "tie-breaking is fine, something else is wrong" are told apart.
     if (debug_probe_pose_.size() >= 4) {
       const Eigen::Vector3d trace9_probe_t(debug_probe_pose_[0], debug_probe_pose_[1], debug_probe_pose_[2]);
       const int trace9_coarsest = pyramid_.numLevels() - 1;
       const auto & trace9_coarse_lvl = pyramid_.level(trace9_coarsest);
-      // Same cell-centre convention as TRACE 2 / TRACE 8: the coarsest-level voxel index containing
-      // the reference translation, via voxelIndex() -- see bnb_search.hpp's bnbCellCentre() doc.
       const int64_t trace9_ref_ix = eidos::reloc::voxelIndex(trace9_probe_t.x(), trace9_coarse_lvl.inv_resolution);
       const int64_t trace9_ref_iy = eidos::reloc::voxelIndex(trace9_probe_t.y(), trace9_coarse_lvl.inv_resolution);
       const int64_t trace9_ref_iz = eidos::reloc::voxelIndex(trace9_probe_t.z(), trace9_coarse_lvl.inv_resolution);
@@ -1787,14 +1574,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         }
       }
 
-      // Reproduce prefilterRoots()'s own scoring pass EXACTLY -- not a re-derivation -- so
-      // ref_score/max_score/ties_at_max are the same numbers prefilterRoots() itself computed and
-      // handed to std::nth_element(): same strided subsample of size root_prefilter_points_ (see
-      // prefilterRoots() above for why strided, not a prefix), same YawDiscretization computed from
-      // the FULL rotated query (not the subsample), same coarsest level, and the same hard-coded
-      // hit_weight=3 prefilterRoots() itself passes (NOT hit_weight_ -- see its call above; under
-      // ScoreMode::DistanceField this argument is unused anyway, but the literal is matched for
-      // fidelity regardless of mode).
+      // Reproduces prefilterRoots()'s own scoring pass exactly, so these numbers match what it
+      // actually computed and handed to std::nth_element().
       const std::size_t trace9_n = prep.rotated_query.size();
       const std::size_t trace9_target =
         std::min(trace9_n, static_cast<std::size_t>(std::max(root_prefilter_points_, 1)));
@@ -1817,9 +1598,6 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       if (trace9_yaw_disc.max_range > 0.0) {
         const int64_t trace9_n_bins = trace9_yaw_disc.numBins(trace9_coarsest);
         std::vector<int> trace9_scored(roots_.size(), -1);
-        // Parallel over roots, exactly like prefilterRoots()'s own loop (and TRACE 4's mirror of
-        // it): each iteration writes only its own slot and the pyramid is read-only, so no
-        // synchronisation is required.
 #pragma omp parallel for schedule(static) num_threads(num_threads_)
         for (std::ptrdiff_t i2 = 0; i2 < static_cast<std::ptrdiff_t>(roots_.size()); ++i2) {
           const std::size_t idx2 = static_cast<std::size_t>(i2);
@@ -1862,16 +1640,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         trace9_ref_score,
         trace9_max_score);
 
-      // -------------------------------------------------------------------
-      // TRACE 9 fine-prefilter: extends the coarse trace above with the FINE, heading-constrained
-      // level-0 ranking prefilterRoots() actually uses by default (prefilter_fine_ == true).
-      // Calls scoreRootsFine() -- the SAME function prefilterRoots()'s fine path calls, not a
-      // re-derivation -- so ref_fine_score/ref_fine_rank/best_fine_* are the same numbers
-      // prefilterRoots() itself computed this iteration. `in_kept` reuses trace9_in_kept from the
-      // block above rather than re-deriving membership: trace9_in_kept already reflects whichever
-      // path (coarse or fine) prefilterRoots() actually took, straight from the `kept_roots` it
-      // returned, so this can never disagree with the real outcome.
-      // -------------------------------------------------------------------
+      // TRACE 9 fine-prefilter: extends the trace above with the fine, heading-constrained ranking
+      // prefilterRoots() actually uses by default, via the same scoreRootsFine() call it makes.
       if (prefilter_fine_) {
         const auto trace9_fine_scored = scoreRootsFine(trace9_sub_query);
 
@@ -1946,13 +1716,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     roots_after,
     prefilter_ms);
 
-  // Flatten (offset, root-chunk) into one task list so the parallel work below covers roots, not
-  // just the (typically <=9-way) roll/pitch offset grid. This is deliberately more, smaller tasks
-  // than one per offset -- splitting roots across independent BnB runs slightly weakens pruning,
-  // because each chunk maintains its own incumbent rather than sharing a global one, but that
-  // trades a little pruning efficiency for much better core utilisation, which measurement showed
-  // is the dominant factor on a 992-keyframe map (9-way parallelism on a 16-thread box was leaving
-  // most cores idle).
+  // Flatten (offset, root-chunk) into one task list, trading a little pruning efficiency (each
+  // chunk keeps its own incumbent) for much better core utilization than one task per offset.
   struct Task
   {
     std::size_t offset_idx;
@@ -1970,14 +1735,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
 
   const auto t_start = std::chrono::steady_clock::now();
 
-  // Each iteration writes only to its own slot of per_task / per_task_stats (indexed by task id)
-  // and reads only const shared state (pyramid_, preps, cfg) -- no shared mutable state, so this
-  // is race-free, mirroring the reasoning that already applied when this loop ran over offsets
-  // alone. branchAndBound() itself only reads its pyramid/query/roots arguments and writes to its
-  // own local frontier/solutions plus the SearchStats reference we pass in, which is unique per
-  // task.
-  // Dynamic, not static: chunk cost varies by an order of magnitude with how much structure each
-  // root's subtree holds, so a static split finishes most tasks early and then waits on a few.
+  // Each iteration writes only its own per_task/per_task_stats slot -- race-free. Dynamic, not
+  // static: chunk cost varies by an order of magnitude with how much structure each root holds.
 #pragma omp parallel for schedule(dynamic, 1) num_threads(search_threads)
   for (int t = 0; t < static_cast<int>(tasks.size()); ++t) {
     if (stop_requested_.load()) continue;
@@ -1990,18 +1749,11 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     scfg.prune_slack = prune_slack_;
     scfg.nms_radius = nms_radius_;
     scfg.hit_weight = hit_weight_;
-    // active_score_mode_, not score_mode_: the pyramid may have fallen back to occupancy on
-    // max_score_voxels overflow (see buildPyramid()), and the search must score against whatever
-    // the pyramid actually built, not what was originally requested.
-    scfg.score_mode = active_score_mode_;
+    scfg.score_mode = active_score_mode_;  // not score_mode_: may have fallen back to occupancy
     scfg.max_solutions = std::max(num_gicp_candidates_ + 3, 8);
-    // Bound the search so it behaves as an anytime algorithm: relocalization runs against a
-    // hard `relocalization_timeout`, and an unbounded best-first search over a repetitive map
-    // (many hypotheses within `prune_slack` of the best) will not terminate inside it. The
-    // budget is split across concurrent tasks so the total stays predictable. Because the
-    // frontier is ordered by bound and a greedy dive seeds a real incumbent up front, the
-    // best-scoring regions are explored first, so truncation costs optimality, not sanity --
-    // and any survivor must still clear the GICP and uniqueness gates.
+    // Node budget split across tasks so the search stays anytime against relocalization_timeout;
+    // the frontier explores best-scoring regions first, so truncation costs optimality, not
+    // soundness -- and any survivor still has to clear the GICP/uniqueness gates.
     scfg.max_nodes = std::max<std::size_t>(
       1000, static_cast<std::size_t>(max_search_nodes_) / std::max<std::size_t>(1, tasks.size()));
     eidos::reloc::SearchStats stats;
@@ -2014,35 +1766,21 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     per_task[static_cast<std::size_t>(t)] = std::move(local);
   }
 
-  // Diagnostic: score a known pose (e.g. one reported by another relocalizer) with the exact
-  // scorer the search uses. If the probe scores well above the search's best, the scoring and
-  // frames are sound and the search or prefilter is at fault; if it scores comparably, the
-  // failure is in scoring/frames instead. Cheap, and only runs when explicitly configured.
-  //
-  // The range-bucket table is the diagnostic that actually separates the two failure modes the
-  // outcome alone cannot distinguish: a measured hit rate around 45% at ground truth is anomalous
-  // either way, but if near-range points hit at ~90% and far-range at ~20% the cause is map
-  // density falling off with query range, whereas if it is flat ~45% across every bucket the cause
-  // is a systematic misalignment (frame, TF, or timing) -- and those two need completely different
-  // fixes.
+  // Diagnostic: score a known pose with the exact scorer the search uses. If it scores well above
+  // the search's best, the search/prefilter is at fault; if comparably, scoring/frames are. The
+  // range-bucket table below further separates "map density falls off with range" (near-range hits
+  // high, far-range low) from "systematic misalignment" (flat hit rate across every bucket).
   if (debug_probe_pose_.size() >= 4 && !preps.empty()) {
     const Eigen::Vector3d probe_t(debug_probe_pose_[0], debug_probe_pose_[1], debug_probe_pose_[2]);
     const double probe_yaw = debug_probe_pose_[3] * M_PI / 180.0;
     const auto & pq = preps[0].rotated_query;
     const double n_pts = static_cast<double>(std::max<std::size_t>(1, pq.size()));
 
-    // -------------------------------------------------------------------
     // TRACE 1-4: pipeline-order diagnostics against the DISCRETE machinery the search actually
-    // walks (query -> corridor roots -> yaw bins -> prefilter). Every other diagnostic in this
-    // function scores a CONTINUOUS pose; an indexing bug in the discrete machinery (yaw bin <->
-    // angle, cell index <-> centre, corridor construction) would be invisible in all of it, so
-    // these are checked separately, in pipeline order, once per search.
-    // -------------------------------------------------------------------
+    // walks (query -> corridor roots -> yaw bins -> prefilter) -- an indexing bug here would be
+    // invisible to every other diagnostic in this function, which scores a continuous pose.
 
-    // TRACE 1 -- query: point count, the IMU roll/pitch actually applied to de-tilt this scan
-    // (the same latched values lidarCallback() reads), and the resulting horizontal-range /
-    // body-frame-z envelope. Everything downstream operates on this query, so a broken de-tilt
-    // or height band shows up here first.
+    // TRACE 1 -- query: point count, applied IMU roll/pitch, range/z envelope.
     {
       double trace_roll = 0.0, trace_pitch = 0.0;
       {
@@ -2190,12 +1928,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         node_->get_logger(), "[%s] TRACE 3 yaw binning: degenerate query (max_range<=0), skipped", name_.c_str());
     }
 
-    // TRACE 4 -- prefilter: prefilterRoots() is a HEURISTIC ranking shortcut (see its doc
-    // comment) that can legitimately discard the true pose's root before branchAndBound() ever
-    // sees it. It does not expose per-root scores, so this reproduces its exact computation --
-    // same subsample size, same coarsest-level yaw sweep, same hard-coded hit_weight=3 it itself
-    // uses (see prefilterRoots() above) -- for every root, purely to read off where the
-    // reference root ranks. Does not call or alter prefilterRoots() itself.
+    // TRACE 4 -- prefilter: prefilterRoots() doesn't expose per-root scores, so this reproduces
+    // its exact computation (read-only) to read off where the reference root ranks.
     if (trace_root_index < 0) {
       RCLCPP_WARN(
         node_->get_logger(), "[%s] TRACE 4 prefilter: reference cell is not a root (see TRACE 2), skipping",
@@ -2220,8 +1954,6 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
 
       const int64_t trace4_n_bins = trace_yaw_disc.numBins(trace_coarsest_level);
       std::vector<int> trace_root_scores(roots_.size(), -1);
-      // Parallel over roots, exactly like prefilterRoots()'s own loop just below: each iteration
-      // writes only its own slot and the pyramid is read-only, so no synchronisation is required.
 #pragma omp parallel for schedule(static) num_threads(num_threads_)
       for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(roots_.size()); ++i) {
         const std::size_t idx = static_cast<std::size_t>(i);
@@ -2231,10 +1963,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         int best = -1;
         for (int64_t k = 0; k < trace4_n_bins; ++k) {
           const double yaw = trace_yaw_disc.binCentre(trace_coarsest_level, k);
-          // Hard-coded hit_weight=3, not hit_weight_: mirrors prefilterRoots()'s own scoring call
-          // verbatim (see below), since the point of this trace is to reproduce exactly what
-          // that function computes, not to re-score under different weighting.
-          const int score = eidos::reloc::scorePoseAtLevel(
+          const int score = eidos::reloc::scorePoseAtLevel(  // hard-coded 3, mirrors prefilterRoots()'s coarse path
             pyramid_, trace_sub_query, centre, yaw, trace_coarsest_level, 3, 0, nullptr, active_score_mode_);
           if (score > best) best = score;
         }
@@ -2260,35 +1989,15 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         survived ? "yes" : "NO");
     }
 
-    // TRACE 8 -- bound monotonicity walk: TRACE 6 shows the reference pose scores near-perfectly
-    // at the coarsest level and TRACE 5 shows the completed search still returns something far
-    // worse, with the frontier having emptied on its own (hit_node_cap=0) rather than having been
-    // budget-truncated. That combination is only possible if the node containing the reference
-    // pose was PRUNED at some level between the coarsest one and the leaf -- and since pruning
-    // compares a node's `bound` against `prune_threshold`, a sound bound (which must upper-bound
-    // every descendant's exact score, leaf included) can never do that. This walks the reference
-    // pose's own path from the coarsest level down to the leaf, at each level computing the
-    // EXACT SAME quantity branchAndBound() would compute for that node -- same YawDiscretization,
-    // same bnbCellCentre() cell-centre convention, same scorePoseAtLevel() call with the same
-    // hit_weight_/active_score_mode_ -- so any drop below the leaf score is not a re-derivation
-    // that might itself be wrong, it is the actual number the search's pruning test would have
-    // seen.
-    //
-    // Cell-centre convention used below: bnbCellCentre() in bnb_search.hpp:199-205, i.e.
-    // `(index + 0.5) * resolution` -- the CENTRE of the voxel, never the corner. This is exactly
-    // what branchAndBound()'s own `boundOf()` lambda uses (bnb_search.hpp:464-469: `bnbCellCentre(
-    // ix, iy, iz, resolution)` then `yaw_disc.binCentre(level, yaw_bin)`), and bnbCellCentre()'s
-    // own doc comment (bnb_search.hpp:178-198) is the soundness argument the 26-neighbourhood
-    // dilation depends on -- so reproducing anything else here (e.g. the cell corner) would not
-    // be testing what the search actually does.
+    // TRACE 8 -- bound monotonicity walk: if TRACE 6 shows the reference pose scoring near-perfectly
+    // at the coarsest level but TRACE 5 shows the search returning something far worse with an
+    // unforced-empty frontier, the reference node must have been pruned somewhere -- impossible for
+    // a sound bound. Walks the reference pose's path from coarsest level to leaf, computing the
+    // exact same quantity branchAndBound() would at each node (same cell-centre/bin-centre
+    // convention as boundOf()), so any drop below the leaf score is the real pruning-test number.
     if (trace_yaw_disc.max_range > 0.0) {
-      // Yaw-bin lookup at an arbitrary level, generalising TRACE 3's coarsest-level-only version:
-      // equal-width partition of [0, 2*pi) into n_bins, reference yaw wrapped into that range
-      // first. This is not itself how branchAndBound() descends (it only ever doubles an existing
-      // bin index, never re-bins a continuous angle), but by the floor-doubling identity
-      // floor(x*2n) in {2*floor(x*n), 2*floor(x*n)+1} it lands on exactly the bin the search's own
-      // ck = yaw_bin*2 + dk recursion would have produced, so it is a faithful (if independently
-      // computed) stand-in.
+      // Independently-computed yaw bin at an arbitrary level; lands on the same bin the search's
+      // own ck = yaw_bin*2 + dk recursion would reach (floor-doubling identity).
       auto yawBinAt = [&](int level) -> int64_t {
         const int64_t n_bins = trace_yaw_disc.numBins(level);
         double yaw_wrapped = std::fmod(probe_yaw, 2.0 * M_PI);
@@ -2297,12 +2006,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         return std::clamp<int64_t>(bin, 0, n_bins - 1);
       };
 
-      // Level-0 (leaf) reference score, via the SAME cell-centre/bin-centre construction used for
-      // every other level below. This is the number a sound bound at every coarser level must
-      // never fall below -- a parent's bound upper-bounds every descendant's exact score,
-      // including the leaf's -- so it is computed once, up front, and reused as the yardstick for
-      // every level's `deficit` below (not a hard-coded constant, so this stays correct even if
-      // the map/query/config drifts from the numbers in the bug report).
+      // Leaf reference score -- the yardstick every coarser level's bound must never fall below.
       const auto & trace_leaf_lvl = pyramid_.level(0);
       const int64_t leaf_ix = eidos::reloc::voxelIndex(probe_t.x(), trace_leaf_lvl.inv_resolution);
       const int64_t leaf_iy = eidos::reloc::voxelIndex(probe_t.y(), trace_leaf_lvl.inv_resolution);
@@ -2327,24 +2031,16 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         while (yaw_err_deg > 180.0) yaw_err_deg -= 360.0;
         while (yaw_err_deg <= -180.0) yaw_err_deg += 360.0;
 
-        // bound_cc -- THE number branchAndBound() actually computes for the node containing the
-        // reference pose at this level: scorePoseAtLevel() at the cell centre / bin centre, via
-        // the identical call boundOf() makes (bnb_search.hpp:464-469). Not a re-derivation.
+        // bound_cc: what branchAndBound() actually computes for this node (cell/bin centre).
         const int bound_cc = eidos::reloc::scorePoseAtLevel(
           pyramid_, pq, cell_centre, bin_centre, l, hit_weight_, 0, nullptr, active_score_mode_);
-        // bound_exact -- the same scorer at the EXACT reference translation/yaw, still evaluated
-        // against level l's (possibly dilated/coarse) field. Separates two distinct failure
-        // modes: bound_cc << bound_exact means the cell-centre/bin-centre REPRESENTATIVE pose is
-        // losing score relative to the true pose (a discretisation/off-centre problem); bound_exact
-        // itself dropping means level l's grid is too tight for the exact pose regardless of which
-        // representative is used (a dilation-radius/field-construction problem).
+        // bound_exact: same scorer at the exact pose -- separates "representative pose loses
+        // score" (bound_cc << bound_exact) from "level l's field is too tight regardless" (both drop).
         const int bound_exact = eidos::reloc::scorePoseAtLevel(
           pyramid_, pq, probe_t, probe_yaw, l, hit_weight_, 0, nullptr, active_score_mode_);
 
-        // deficit > 0 is a direct, load-bearing proof of an unsound bound at this level: bound_cc
-        // is exactly what the search's own pruning test compares against prune_threshold, and a
-        // sound bound can never fall below a score (leaf_ref_score) that a descendant of this same
-        // node provably achieves.
+        // deficit > 0 proves an unsound bound: bound_cc is what pruning compares against
+        // prune_threshold, and a sound bound can never fall below a score a descendant achieves.
         const int deficit = leaf_ref_score - bound_cc;
         const bool unsound = deficit > 0;
 
@@ -2377,13 +2073,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         node_->get_logger(), "[%s] TRACE 8 bound walk: degenerate query (max_range<=0), skipped", name_.c_str());
     }
 
-    // Every diagnostic below that goes through scoreBreakdownAtLevel()/scorePoseAtLevel() reports
-    // under whichever score mode the pyramid was actually built with (active_score_mode_, which
-    // may differ from score_mode_ on a max_score_voxels fallback -- see buildPyramid()), so these
-    // numbers are directly comparable to the occupancy figures already measured and recorded in
-    // the doc page's Status section. The one deliberate exception is the exact / +/-1 / +/-2 voxel
-    // OCCUPANCY tolerance sweep further below: that reference measurement stays as-is regardless of
-    // mode, since it is what motivated this work in the first place.
+    // Diagnostics below report under active_score_mode_ (may differ from score_mode_ on a
+    // max_score_voxels fallback), except the exact/+-1/+-2 voxel occupancy tolerance sweep further
+    // down, which stays as originally measured regardless of mode.
     RCLCPP_INFO(
       node_->get_logger(), "[%s] PROBE active score_mode=%s (requested=%s)", name_.c_str(),
       scoreModeLabel(active_score_mode_), scoreModeLabel(score_mode_));
@@ -2401,13 +2093,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       probe_bd.unknown, probe_bd.free, probe_bd.raw, probe_bd.max_possible, probe_normalized,
       probe_hit_fraction, probe_bd.mean_cell_score, pq.size());
 
-    // Rebuild the query WITHOUT the min_height/max_height band, from the same buffered scan the
-    // real query is derived from, so the bucket table below can be recomputed to show whether the
-    // band -- rather than the search or the map itself -- is what is throwing away the matching
-    // structure. This can only isolate the QUERY side of the band (the map/pyramid was rasterized
-    // with the band applied and cannot be un-filtered without a full rebuild), but a query point
-    // that hits with the band off and was simply never tested with it on is still a direct,
-    // reliable signal that the band is costing structure.
+    // Rebuild the query WITHOUT the height band to show whether the band (vs. the search/map
+    // itself) is discarding matching structure. Only isolates the query side -- the map was
+    // rasterized with the band applied -- but a hit with the band off is still a reliable signal.
     std::vector<Eigen::Vector3d> unfiltered_query;
     {
       small_gicp::PointCloud::Ptr scan_copy;
@@ -2465,19 +2153,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(), "[%s] PROBE range-bucket hit%% (height band OFF):%s", name_.c_str(),
       rangeBucketRow(unfiltered_query).c_str());
 
-    // TOLERANCE SWEEP: the decisive diagnostic for telling the two candidate causes of the ~40%
-    // (~52% at 0-10m) hit fraction measured at ground truth apart. exact == level(0).hit(), the
-    // same test the search leaf uses; +/-1 voxel == level(0).hitBound() (the 26-neighbourhood
-    // probe already used for the coarse-level bound); +/-2 voxels is a hand-rolled 5x5x5 probe
-    // over the same level-0 exact set (level 0 is never dilated, so this is a direct, honest
-    // widening of the test, not a reuse of a coarser level's inflated occupancy). A jump from
-    // ~40% at exact to ~85%+ at +/-1 voxel would mean the query is simply offset from the map by
-    // about a voxel -- pose, extrinsic, or quantisation error -- and relaxing the test recovers
-    // it (systematic misalignment). Staying near the ~40-52% measured at exact even at +/-2
-    // voxels would mean those query points are genuinely not represented in the map at this
-    // location (vegetation, dynamic objects, seasonal change), which no amount of tolerance can
-    // fix. Range-bucketed the same way as the table above so a range-dependent split within a
-    // single tolerance level is not missed either.
+    // TOLERANCE SWEEP: exact (level(0).hit()) vs. +-1 voxel (hitBound()) vs. +-2 voxel (hand-rolled
+    // 5x5x5 probe). A jump from ~40% exact to ~85%+ at +-1 means a systematic pose/extrinsic offset
+    // (relaxing the test recovers it); staying low even at +-2 means the structure genuinely isn't
+    // in the map there (vegetation, dynamic objects). Range-bucketed like the table above.
     const auto & probe_lvl0 = pyramid_.level(0);
     auto probeTransform = [&](const Eigen::Vector3d & q) {
       const double c = std::cos(probe_yaw), s = std::sin(probe_yaw);
@@ -2547,9 +2226,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     for (int deg = 0; deg < 360; deg += 30) {
       const auto bd = eidos::reloc::scoreBreakdownAtLevel(
         pyramid_, pq, probe_t, deg * M_PI / 180.0, 0, hit_weight_, active_score_mode_);
-      // raw / max_possible, not raw / (hit_weight * n): under distance_field max_possible is
-      // 255 * n rather than hit_weight * n, so this is the one formula that is correct in both
-      // modes (see ScoreBreakdown::max_possible in bnb_search.hpp).
+      // raw/max_possible: correct in both modes (max_possible differs by mode)
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       yaw_row += " " + std::to_string(deg) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
@@ -2559,21 +2236,14 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(), "[%s] PROBE yaw sweep (normalized%%/hit_fraction%%):%s", name_.c_str(),
       yaw_row.c_str());
 
-    // FINE LOCAL SWEEPS: the yaw sweep just above steps 30 degrees, coarse enough that it cannot
-    // tell a sharp local peak at the true pose (good: the search has something to converge onto)
-    // from a broad, nearly-flat lobe (bad: poor local observability at this location) apart. 1
-    // degree steps over +/-10 degrees, and 0.5 m steps over +/-3 m in x and y (the other two axes
-    // held at their probe values), resolve that -- if hit_fraction is essentially flat across
-    // these narrow windows, the true pose is not even a local maximum of the score and the search
-    // has no gradient to find it by.
+    // FINE LOCAL SWEEPS: tighter than the yaw sweep above, to tell a sharp local peak (good, the
+    // search can converge) from a flat lobe (bad, no gradient to find it by) apart.
     std::string fine_yaw_row;
     for (int ddeg = -10; ddeg <= 10; ++ddeg) {
       const double yaw = probe_yaw + static_cast<double>(ddeg) * M_PI / 180.0;
       const auto bd =
         eidos::reloc::scoreBreakdownAtLevel(pyramid_, pq, probe_t, yaw, 0, hit_weight_, active_score_mode_);
-      // raw / max_possible, not raw / (hit_weight * n): under distance_field max_possible is
-      // 255 * n rather than hit_weight * n, so this is the one formula that is correct in both
-      // modes (see ScoreBreakdown::max_possible in bnb_search.hpp).
+      // raw/max_possible: correct in both modes (max_possible differs by mode)
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       fine_yaw_row += " " + std::to_string(ddeg) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) +
@@ -2594,9 +2264,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const Eigen::Vector3d t(probe_t.x() + static_cast<double>(t10) / 10.0, probe_t.y(), probe_t.z());
       const auto bd =
         eidos::reloc::scoreBreakdownAtLevel(pyramid_, pq, t, probe_yaw, 0, hit_weight_, active_score_mode_);
-      // raw / max_possible, not raw / (hit_weight * n): under distance_field max_possible is
-      // 255 * n rather than hit_weight * n, so this is the one formula that is correct in both
-      // modes (see ScoreBreakdown::max_possible in bnb_search.hpp).
+      // raw/max_possible: correct in both modes (max_possible differs by mode)
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       x_row += " " + offsetLabel(t10) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
@@ -2611,9 +2279,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const Eigen::Vector3d t(probe_t.x(), probe_t.y() + static_cast<double>(t10) / 10.0, probe_t.z());
       const auto bd =
         eidos::reloc::scoreBreakdownAtLevel(pyramid_, pq, t, probe_yaw, 0, hit_weight_, active_score_mode_);
-      // raw / max_possible, not raw / (hit_weight * n): under distance_field max_possible is
-      // 255 * n rather than hit_weight * n, so this is the one formula that is correct in both
-      // modes (see ScoreBreakdown::max_possible in bnb_search.hpp).
+      // raw/max_possible: correct in both modes (max_possible differs by mode)
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       y_row += " " + offsetLabel(t10) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) + "/" +
@@ -2623,21 +2289,12 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(), "[%s] PROBE y sweep +/-3m@0.5m (normalized%%/hit_fraction%%):%s", name_.c_str(),
       y_row.c_str());
 
-    // CHANCE BASELINE: how far above chance the true yaw's hit fraction sits at the probe
-    // TRANSLATION. This is the statistic that matters if the raw hit count measured at ground
-    // truth turns out to be driven mostly by how dense the map happens to be right there rather
-    // than by the query actually being aligned to it: if many headings at this same spot score
-    // similarly, true/mean sits near 1.0 and the hit count is not telling us much about
-    // alignment; a genuinely well-aligned pose should sit well above the mean of the 36 headings
-    // sampled here.
+    // CHANCE BASELINE: how far above chance (36 headings at this translation) the true yaw's hit
+    // fraction sits -- if true/mean is near 1.0, the raw hit count is driven by local map density,
+    // not alignment. true_yaw_rank tracks the same thing for the active-mode normalized score.
     double chance_hit_sum = 0.0;
     double chance_hit_max = 0.0;
     int chance_samples = 0;
-    // Also track the ACTIVE-mode normalized score across the same 36 yaws, and the true yaw's
-    // RANK among them (1 = best). This is the statistic that actually decides whether this change
-    // worked: under occupancy the true yaw was measured to rank only 5th of 36 (see the doc page's
-    // Status section) -- no peak at the true pose. If the distance field is discriminative, this
-    // rank should move decisively toward 1/36, directly comparable to that occupancy figure.
     double chance_norm_sum = 0.0;
     double chance_norm_max = 0.0;
     int true_yaw_rank = 1;
@@ -2675,9 +2332,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const Eigen::Vector3d t(probe_t.x(), probe_t.y(), probe_t.z() + dz);
       const auto bd =
         eidos::reloc::scoreBreakdownAtLevel(pyramid_, pq, t, probe_yaw, 0, hit_weight_, active_score_mode_);
-      // raw / max_possible, not raw / (hit_weight * n): under distance_field max_possible is
-      // 255 * n rather than hit_weight * n, so this is the one formula that is correct in both
-      // modes (see ScoreBreakdown::max_possible in bnb_search.hpp).
+      // raw/max_possible: correct in both modes (max_possible differs by mode)
       const double norm = static_cast<double>(bd.raw) / static_cast<double>(std::max(1, bd.max_possible));
       const double hitf = static_cast<double>(bd.hits) / n_pts;
       z_row += " " + std::to_string(static_cast<int>(dz)) + ":" + std::to_string(static_cast<int>(norm * 100.0 + 0.5)) +
@@ -2686,21 +2341,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     RCLCPP_INFO(
       node_->get_logger(), "[%s] PROBE dz sweep (normalized%%/hit_fraction%%):%s", name_.c_str(), z_row.c_str());
 
-    // ROLL/PITCH RESIDUAL SWEEP. The 4-DOF search cannot correct roll or pitch -- it fixes them
-    // from the IMU-derived de-tilt and searches only (x, y, z, yaw) -- so a residual attitude
-    // error is invisible to every other diagnostic here and uncorrectable by the search, yet it
-    // displaces a point at 40 m by 0.7 m per degree, which is most of a voxel at the default
-    // resolution.
-    //
-    // The signature that motivated this: on-route, the live scan hits 85% at +/-1 voxel in the
-    // 0-10 m bucket but only 29% at 20-30 m. A translation error is range-independent and a yaw
-    // error was independently excluded (GICP from truth reports 0.6 deg of yaw correction), so a
-    // range-dependent falloff of that shape is an attitude error about a horizontal axis.
-    //
-    // Sweeps the de-tilt applied to the QUERY rather than moving the pose, since that is exactly
-    // the degree of freedom `rp_search_range`/`rp_search_steps` would search: a non-zero argmax
-    // here means the shipped `rp_search_steps: 1` (trust the IMU) is the wrong default for this
-    // platform, and says how wide the search would have to be.
+    // ROLL/PITCH RESIDUAL SWEEP: the 4-DOF search fixes roll/pitch from the IMU de-tilt, so a
+    // residual attitude error is invisible elsewhere and uncorrectable by the search -- sweeps the
+    // query's de-tilt itself; a non-zero argmax means rp_search_steps:1 (trust IMU) is the wrong
+    // default for this platform.
     {
       std::string best_line;
       double best_norm = -1.0;
@@ -2738,15 +2382,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         name_.c_str(), pitch_row.c_str());
     }
 
-    // EXACT vs +/-1 VOXEL DISCRIMINATION CHECK: the tolerance sweep above already showed the
-    // OVERALL hit fraction jumping from ~38% (exact) toward the 82%+ measured at +/-1 voxel, but
-    // that alone cannot tell "tolerance restores alignment" apart from "tolerance just raises
-    // every pose's score by about the same amount, exact fails to discriminate them (a 60deg
-    // wrong yaw scored 48% against the true yaw's 38% at exact), so the two existing diagnostics
-    // that would show discrimination -- the coarse chance-baseline yaw sweep and the fine local
-    // sweeps -- are recomputed here under hitPm1 next to their existing hitExact numbers. Reuses
-    // probeTransform's rotation math but lets t/yaw vary per sample, which the fixed-probe-pose
-    // lambdas above cannot.
+    // EXACT vs +/-1 VOXEL DISCRIMINATION CHECK: the overall hit-fraction jump above (~38% exact ->
+    // 82%+ at +-1 voxel) alone can't tell "tolerance restores alignment" from "tolerance raises
+    // every pose's score equally" -- recomputes the chance-baseline/fine sweeps under hitPm1.
     auto hitFractionAt = [&](const Eigen::Vector3d & t, double yaw, auto && test) {
       const double c = std::cos(yaw), s = std::sin(yaw);
       std::size_t hits = 0;
@@ -2784,12 +2422,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       node_->get_logger(), "[%s] PROBE coarse yaw sweep 36@10deg hit_fraction%% +/-1vox: %s", name_.c_str(),
       formatCoarseRow(coarse_pm1).c_str());
 
-    // 2. CHANCE BASELINE under each test, plus the RANK of the true yaw among the 36 (1 = best).
-    // Rank is the number that actually settles the question: exact currently ranks the true yaw
-    // poorly (a wrong yaw outscored it, per the finding above) because exact-containment is
-    // measuring local map density, not alignment; if tolerance is the right fix, true_rank under
-    // +/-1vox should climb sharply toward 1, not just true_hit/mean rising in lockstep with every
-    // other yaw's hit fraction.
+    // 2. CHANCE BASELINE under each test, plus true yaw's RANK among the 36 (1=best) -- the number
+    // that settles it: if tolerance is the right fix, true_rank under +-1vox climbs toward 1.
     double exact_sum = 0.0, exact_max = 0.0, pm1_sum = 0.0, pm1_max = 0.0;
     int exact_rank = 1, pm1_rank = 1;
     for (int i = 0; i < kNumCoarseYaws; ++i) {
@@ -2817,10 +2451,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       "true_rank=%d/%d",
       name_.c_str(), pm1_mean, pm1_max, true_hit_pm1, pm1_chance_ratio, pm1_rank, kNumCoarseYaws);
 
-    // 3. Same exact vs +/-1vox comparison over the fine local windows already swept above (fine
-    // yaw, x, y), to see whether a LOCAL peak at the true pose appears under tolerance where exact
-    // has none (exact was measured flat at 35-41% over +/-10deg above). Hit fractions only, not
-    // normalized%, to keep the rows readable.
+    // 3. Same exact vs +-1vox comparison over the fine local windows above, to see whether a local
+    // peak appears under tolerance where exact has none.
     auto formatFineYawRow = [&](auto && test) {
       std::string row;
       for (int ddeg = -10; ddeg <= 10; ++ddeg) {
@@ -2870,38 +2502,19 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       formatYRow(hitPm1).c_str());
   }
 
-  // ===========================================================================================
-  // TEMPORARY DIAGNOSTIC: height-band discrimination sweep.
-  //
-  // Two independent scoring functions (ternary occupancy and the distance field) both failed to
-  // peak at the verified ground-truth pose on ring_road.map, and a randomly rotated scan already
-  // scores ~76% of the true pose's value. That is the signature of a query whose points are
-  // nearly pose-invariant with respect to the map. This sweep asks whether the body-frame height
-  // band (min_height_/max_height_, applied relative to base_link, which here is base_footprint --
-  // GROUND level, not the LiDAR mount) is selecting a non-discriminative slice of the scene:
-  // Part 1 dumps z histograms of the raw scan and nearby prior-map keyframes (no band applied) so
-  // the vertical distribution of available structure is visible directly, in metres above the
-  // road surface. Part 2 re-scores several candidate bands (including today's default) against a
-  // LOCAL pyramid built only from points in that band: "canopy" is the negative control (foliage
-  // is space-filling and seasonally unstable, so it should discriminate WORST), "struct" isolates
-  // the stable ground-level structure (curbs, barriers, vehicles, walls, pole bases), and
-  // "off"/"withground" test whether the road surface -- uninformative in x/y/yaw but present
-  // everywhere -- is diluting the score. A band whose yaw_rank lands at 1/36 with a clearly >1
-  // yaw_ratio is the one the scorer should actually be using. This is NOT wired into the live
-  // search or scoring path in any way -- it is read-only diagnostics, gated behind
-  // debug_band_sweep_ (default false) and debug_probe_pose_, and is meant to be deleted once the
-  // question above is answered.
-  // ===========================================================================================
+  // TEMPORARY DIAGNOSTIC: height-band discrimination sweep. Both scoring functions failed to peak
+  // at the verified ground-truth pose, matching a query nearly pose-invariant w.r.t. the map --
+  // this checks whether the body-frame height band is selecting a non-discriminative slice. Part 1
+  // dumps z histograms (no band applied) of the scan and nearby keyframes; Part 2 re-scores
+  // candidate bands ("canopy" = negative control, "struct" = stable ground-level structure,
+  // "off"/"withground" test road-surface dilution) against a local pyramid built from each band.
+  // Read-only, gated behind debug_band_sweep_ (default false) -- not wired into the live path.
   if (debug_band_sweep_ && debug_probe_pose_.size() >= 4) {
     const Eigen::Vector3d probe_t(debug_probe_pose_[0], debug_probe_pose_[1], debug_probe_pose_[2]);
     const double probe_yaw = debug_probe_pose_[3] * M_PI / 180.0;
 
-    // -----------------------------------------------------------------------------------------
-    // Part 1 setup: buffered live scan, de-tilted and range-filtered exactly like the real query
-    // builder (lidarCallback()), but WITHOUT the height-band filter -- the whole point of this
-    // diagnostic is to see what the band throws away, so the query it starts from must not
-    // already have thrown it away.
-    // -----------------------------------------------------------------------------------------
+    // Part 1 setup: buffered live scan, de-tilted/range-filtered like lidarCallback() but WITHOUT
+    // the height band, so the query doesn't already discard what this diagnostic wants to see.
     small_gicp::PointCloud::Ptr scan_copy;
     {
       std::lock_guard<std::mutex> lock(scan_lock_);
@@ -2925,10 +2538,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       }
     }
 
-    // Prior-map keyframes within 100 m horizontally of the probe. Built once here and reused by
-    // Part 2 below (the yaw/xy sweep needs the SAME set of nearby keyframes the histogram used),
-    // so the getKeyList()/getCloudIndex() walk over the whole map only happens once per search,
-    // not once per candidate band.
+    // Prior-map keyframes within 100 m of the probe, built once and reused by Part 2 below.
     std::vector<std::pair<gtsam::Key, Eigen::Isometry3d>> near_kfs;
     {
       auto key_list = map_manager_->getKeyList();
@@ -2944,11 +2554,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       }
     }
 
-    // Same two-branch retrieval (PCL-typed, then small_gicp-typed) and source-key selection
-    // insertKeyframeCloud()/buildPyramid() use, factored out so it can be reused across every
-    // keyframe and every band below. Returns BODY-frame points -- i.e. NOT transformed by a
-    // keyframe's world pose, and with no height band applied -- since that is exactly what both
-    // the histogram and the per-band local pyramid need before they apply their own filter.
+    // Same retrieval/fallback insertKeyframeCloud() uses. Returns body-frame, unfiltered points.
     const std::string cloud_suffix = "/cloud";
     const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
       pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) ==
@@ -2983,30 +2589,21 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return has_fallback && tryKey(fallback_key);
     };
 
-    // Retrieve every near keyframe's body-frame points ONCE and cache them: Part 2 below needs
-    // ALL of near_kfs for EVERY candidate band, and retrieving the same clouds from map_manager_
-    // repeatedly (6 bands x however many keyframes) would be both slow and pointless, since
-    // retrieveBody()'s result does not depend on the band -- only the height filter applied to it
-    // does. The histogram just below uses a prefix of this same cache.
+    // Cache every near keyframe's points once -- Part 2 needs all of them per candidate band, and
+    // retrieveBody()'s result doesn't depend on the band, only the filter applied afterward.
     std::vector<std::vector<Eigen::Vector3d>> near_kf_bodies(near_kfs.size());
     for (std::size_t i = 0; i < near_kfs.size(); ++i) {
       retrieveBody(near_kfs[i].first, near_kf_bodies[i]);
     }
 
-    // offsetLabel-style tenths-of-a-metre formatter for histogram bin labels (bins are 0.5 m
-    // wide), matching the plain std::to_string style already used by the PROBE block above.
-    auto formatHalf = [](double v) {
+    auto formatHalf = [](double v) {  // tenths-of-a-metre formatter for 0.5m histogram bin labels
       const int tenths = static_cast<int>(std::lround(v * 10.0));
       const int mag = std::abs(tenths);
       return std::string(tenths < 0 ? "-" : "") + std::to_string(mag / 10) + "." + std::to_string(mag % 10);
     };
 
-    // Z HISTOGRAM: bins body-frame z into 0.5 m buckets over [-3.0, 8.0) m (22 bins) and reports
-    // the percentage of points landing in each non-empty bin, plus the 5th/50th/95th percentile
-    // z. This is what makes "the band is above (or below) the discriminative structure" directly
-    // checkable, rather than inferred from downstream score numbers. Split across two log lines
-    // (first half / second half of the bin range) to stay well under the ~900 char budget even
-    // when every bin is populated.
+    // Z HISTOGRAM: 0.5m buckets over [-3.0, 8.0) m, percentage per bin plus 5th/50th/95th
+    // percentile z -- makes "band is above/below the discriminative structure" directly checkable.
     constexpr double kHistLo = -3.0;
     constexpr double kHistHi = 8.0;
     constexpr double kHistBin = 0.5;
@@ -3205,54 +2802,19 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     RCLCPP_INFO(node_->get_logger(), "[%s] DIAG band sweep complete", name_.c_str());
   }
 
-  // ===========================================================================================
-  // TEMPORARY DIAGNOSTIC: resolution / scoring-mode / min-observation-count sweep.
-  //
-  // The band sweep above exonerated the height band: even its best case ("struct", 0.3-3.0 m)
-  // only reached yaw_rank 10.8/36 against a random expectation of 18.5 (ratio 1.050), and the
-  // currently configured default band was already the best of the seven tried. That leaves the
-  // working hypothesis that the prior map is nearly SPACE-FILLING at the 1.0 m level-0 voxel
-  // resolution: 992 keyframes of full-resolution Velodyne accumulate into ~1.1M level-0 voxels
-  // over a driven corridor whose volume is of the same order, so "does this query point land in
-  // an occupied voxel" is close to always-true regardless of pose, independent of which height
-  // slice is asked. This sweep tests that directly along three axes at once: finer voxels (which
-  // shrink each cell's footprint and so should un-saturate occupancy), a per-voxel MINIMUM
-  // OBSERVATION COUNT (which turns a single stray point crossing a cell into "not really
-  // occupied," suppressing the noise floor a 992-keyframe accumulation creates), and both scoring
-  // modes (occupancy vs. distance field) so a resolution effect is not confused with a mode
-  // effect.
-  //
-  // Critically, this sweep reports not just each case's RANK (as the band sweep did) but WHERE
-  // the score actually peaks -- the argmax of the fine yaw sweep and of the fine xy sweep. Rank
-  // alone cannot distinguish two very different failure modes that would otherwise look
-  // identical: a bad rank because the score has no peak anywhere (truly uninformative, matching
-  // the space-filling hypothesis), versus a bad rank because the score DOES peak, just not
-  // exactly at the reference pose. The latter is plausible here: GICP polish from the reference
-  // pose moved 0.58 m before converging, so the "ground truth" pose fed into this diagnostic may
-  // itself be off by roughly that much. A rank far from 1 whose argmax sits CONSISTENTLY at a
-  // specific nonzero offset means the score does peak and the reference pose is simply displaced
-  // (GICP from the reference moved 0.58 m, so a real offset is plausible). A rank far from 1
-  // whose argmax wanders run to run means there is genuinely no peak. That is the one distinction
-  // this diagnostic exists to draw, and it is why fyaw_argmax/xy_argmax/z_argmax are logged
-  // alongside every rank rather than the rank alone.
-  //
-  // This is NOT wired into the live search or scoring path in any way -- it is read-only
-  // diagnostics, gated behind debug_res_sweep_ (default false) and debug_probe_pose_, and is
-  // meant to be deleted once the question above is answered.
-  // ===========================================================================================
+  // TEMPORARY DIAGNOSTIC: resolution/scoring-mode/min-observation-count sweep. The band sweep
+  // exonerated the height band, leaving the hypothesis that the map is nearly space-filling at 1m
+  // resolution -- tests finer voxels, a per-voxel minimum observation count, and both scoring
+  // modes. Reports each case's peak location (argmax), not just rank: a bad rank with a
+  // consistent nonzero argmax means the score peaks but the reference pose is displaced (GICP
+  // moved 0.58m from it); a bad rank with a wandering argmax means there's genuinely no peak.
+  // Read-only, gated behind debug_res_sweep_ (default false) -- not wired into the live path.
   if (debug_res_sweep_ && debug_probe_pose_.size() >= 4) {
     const Eigen::Vector3d probe_t(debug_probe_pose_[0], debug_probe_pose_[1], debug_probe_pose_[2]);
     const double probe_yaw = debug_probe_pose_[3] * M_PI / 180.0;
 
-    // -----------------------------------------------------------------------------------------
-    // Shared setup, duplicated (not hoisted) from the debug_band_sweep_ block immediately above:
-    // hoisting would mean either merging the two `if` guards (so a user could no longer run one
-    // sweep without the other) or lifting these locals out to function scope (extra risk of
-    // accidentally changing what the band-sweep block reads), and this diagnostic is temporary
-    // and read-only either way, so the small duplication is the lower-risk choice. Semantics are
-    // identical to the block above: de-tilted, range-filtered buffered scan (band NOT yet
-    // applied), and prior-map keyframes within 100 m of the probe pose.
-    // -----------------------------------------------------------------------------------------
+    // Shared setup, duplicated (not hoisted) from the debug_band_sweep_ block above -- both blocks
+    // are temporary/read-only, so the duplication is lower-risk than merging their guards.
     small_gicp::PointCloud::Ptr scan_copy;
     {
       std::lock_guard<std::mutex> lock(scan_lock_);
@@ -3325,12 +2887,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return has_fallback && tryKey(fallback_key);
     };
 
-    // Retrieve every near keyframe's RAW body-frame points once, then keep only the ones passing
-    // the plugin's ACTUAL configured height band (inHeightBand()) -- the same band the real
-    // pyramid rasterizes with -- alongside which keyframe each surviving point came from. This
-    // flat list is what every case's Step 1 (below) folds into a per-resolution voxel count
-    // without re-retrieving or re-filtering per case, since neither retrieval nor the height
-    // filter depends on the case's resolution.
+    // Retrieve every near keyframe's points once, keep only those passing the real height band --
+    // reused by every case below since neither retrieval nor the band depends on resolution.
     std::vector<std::pair<std::size_t, Eigen::Vector3d>> band_pts;
     {
       std::vector<Eigen::Vector3d> kf_body;
@@ -3343,10 +2901,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       }
     }
 
-    // Query set: built ONCE, since it does not depend on the case (resolution/mode/min_points all
-    // only affect the MAP side, never the query). Same semantics as the real query builder
-    // (lidarCallback()): band-filter the de-tilted, range-filtered scan, then apply the identical
-    // strided downsample to target_query_points_.
+    // Query: built once (case only affects the map side). Same semantics as lidarCallback().
     std::vector<Eigen::Vector3d> q;
     {
       std::vector<Eigen::Vector3d> filtered;
@@ -3369,11 +2924,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       }
     }
 
-    // Case table. Three axes varied together: resolution (coarser -> finer), scoring mode
-    // (occupancy vs. distance field), and a per-voxel minimum observation count (mp) that treats
-    // a map voxel as occupied only once at least that many source points landed in it -- the
-    // direct test of "is a single stray point across 992 keyframes enough to saturate a cell."
-    // sigma/trunc are meaningless (and ignored by the pyramid) whenever distance_field is false.
+    // Case table: resolution x scoring mode x per-voxel minimum observation count (mp) -- tests
+    // whether a single stray point across 992 keyframes is enough to saturate a cell.
     struct ResCase
     {
       const char * label;
@@ -3396,14 +2948,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       {"df_0.25_s0.25", 0.25, 0.25, 4, true,   1},
       {"df_0.25_s0.5",  0.25, 0.50, 4, true,   1},
       {"occ_0.25",      0.25, 0.00, 0, false,  1},
-      // Added after a measurement showed the true pose scoring BELOW ambient density at 1 m
-      // containment (36% at truth vs. 48% at a 60 deg-wrong yaw) -- the signature of a systematic
-      // query-to-map offset that lands the query just off surfaces, in the thin free layer beside
-      // them. Only a resolution fine enough to resolve a sub-metre offset can show that as a real
-      // peak rather than noise, which is what these two cases (plus the existing 0.25 m cases
-      // above) are for -- df_0.25_s0.15 tightens truncation to well below the map's
-      // inter-structure spacing, and occ_0.25_mp5 is the fine grid WITH observation thresholding,
-      // to check the two effects (resolution, and denoising by count) are separable.
+      // Added after the true pose scored BELOW ambient density at 1m containment -- the signature
+      // of a systematic query-to-map offset landing in the thin free layer beside surfaces. Only a
+      // fine-enough resolution can resolve that as a real peak instead of noise.
       {"df_0.25_s0.15", 0.25, 0.15, 2, true,   1},   // 0.5 m truncation
       {"occ_0.25_mp5",  0.25, 0.00, 0, false,  5},   // fine AND observation-thresholded
     };
@@ -3415,9 +2962,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     for (const auto & rc : kCases) {
       if (stop_requested_.load()) break;
 
-      // Step 1: per-voxel observation counts at THIS case's resolution, in world frame. This is
-      // recomputed per case (unlike band_pts/q above) because the voxel key -- and therefore
-      // which points fall in the same cell -- depends on `rc.res`.
+      // Step 1: per-voxel observation counts at this case's resolution (recomputed per case since
+      // voxel keys depend on rc.res, unlike band_pts/q above).
       std::unordered_map<int64_t, int> counts;
       counts.reserve(band_pts.size() / 4 + 16);
       const double inv_res = 1.0 / rc.res;
@@ -3430,11 +2976,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         ++counts[eidos::reloc::packVoxel(ix, iy, iz)];
       }
 
-      // Step 2: local pyramid, ONE point per surviving voxel (its centre), not the raw
-      // accumulation. Deliberate: the occupancy set is identical either way, and for the distance
-      // field this makes the field's source the thresholded structure rather than the raw point
-      // pile, which is exactly the quantity under test here (does thresholding by observation
-      // count change what the scorer sees).
+      // Step 2: local pyramid, one point per surviving voxel centre (not the raw accumulation) --
+      // makes the distance field's source the thresholded structure, the quantity under test.
       eidos::reloc::VoxelPyramid::Config cfg_case = pyramid_.config();
       cfg_case.min_voxel_size = rc.res;
       cfg_case.num_levels = 1;  // only level 0 is ever scored below; coarser levels would only
@@ -3462,10 +3005,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       local.finalize();
       const eidos::reloc::ScoreMode effective_mode = local.effectiveScoreMode();
 
-      // Step 4: COARSE yaw sweep, 36 yaws starting at the true probe yaw (i==0). This is the same
-      // rank statistic the band sweep computed -- kept for continuity/comparability with those
-      // numbers -- but is not, on its own, enough to interpret a bad rank (see the block comment
-      // above): that is what the fine sweeps and their argmax are for.
+      // Step 4: coarse yaw sweep, 36 yaws from the true probe yaw (i==0) -- same rank statistic as
+      // the band sweep; the fine sweeps and their argmax below are what interpret a bad rank.
       constexpr int kNumYaw = 36;
       double yaw_raws[kNumYaw];
       double true_yaw_raw = 0.0;
@@ -3489,11 +3030,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       const double yaw_ratio = yaw_mean > 0.0 ? true_yaw_raw / yaw_mean : 0.0;
       const double norm = true_yaw_raw / static_cast<double>(max_possible);
 
-      // Step 5: FINE yaw sweep, 1-degree steps over +/-20 deg around the true yaw. fyaw_argmax is
-      // the point of this sweep (see the block comment above): a peak that consistently lands at
-      // the same nonzero degree offset across cases means the score IS discriminating heading,
-      // just not centred exactly on the (possibly slightly wrong) reference; a peak that wanders
-      // means the score has no real relationship to heading at all.
+      // Step 5: fine yaw sweep, 1deg steps over +-20deg. fyaw_argmax consistently nonzero means
+      // the score discriminates heading but off-centre; a wandering argmax means it doesn't at all.
       constexpr int kNumFineYaw = 41;  // d = -20..20 inclusive
       double fyaw_raws[kNumFineYaw];
       double fyaw_true_raw = 0.0;
@@ -3516,11 +3054,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         if (d != 0 && fyaw_raws[idx] > fyaw_true_raw) ++fyaw_rank;
       }
 
-      // Step 6: FINE xy sweep, 17x17 grid at 0.5 m steps over +/-4.0 m, at the true yaw.
-      // xy_argmax is the second half of the point of this diagnostic: a peak sitting consistently
-      // at the same nonzero (dx,dy) is the signature of a displaced-but-real reference pose (GICP
-      // from the reference moved 0.58 m before converging, so an offset of roughly that size is
-      // plausible); a peak that wanders run to run means there is no spatial structure to find.
+      // Step 6: fine xy sweep, 17x17 grid at 0.5m steps over +-4.0m. A consistent nonzero
+      // xy_argmax is a displaced-but-real reference pose; a wandering one means no structure.
       constexpr int kNumXY = 17;  // -4.0 .. 4.0 in 0.5 m steps
       std::vector<double> xy_raws;
       xy_raws.reserve(static_cast<std::size_t>(kNumXY) * static_cast<std::size_t>(kNumXY));
@@ -3549,9 +3084,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         if (raw > xy_true_raw) ++xy_rank;
       }
 
-      // Step 7: z sweep, 0.5 m steps over +/-3.0 m, at the true (x,y,yaw). Same argmax logic as
-      // xy/yaw above, applied to height -- a real vertical registration offset would show up here
-      // as a consistent nonzero z_argmax rather than a wandering one.
+      // Step 7: z sweep, same argmax logic applied to height.
       constexpr int kNumZ = 13;  // -3.0 .. 3.0 in 0.5 m steps
       std::vector<double> z_raws;
       z_raws.reserve(kNumZ);
@@ -3575,11 +3108,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         if (raw > z_true_raw) ++z_rank;
       }
 
-      // Step 8: one log line per case. df_abandoned=yes means the pyramid's own max_score_voxels
-      // guard fired while building THIS case's distance field (see VoxelPyramid::finalize() /
-      // distanceFieldAbandoned()) and it silently fell back to occupancy scoring -- reported
-      // explicitly here (rather than left implicit) so occupancy-shaped numbers under a
-      // "distance_field" case label are never mistaken for an actual distance-field result.
+      // Step 8: one log line per case. df_abandoned=yes means max_score_voxels fired and this
+      // case silently fell back to occupancy -- reported explicitly so it's never mistaken for a
+      // real distance-field result.
       RCLCPP_INFO(
         node_->get_logger(),
         "[%s] DIAG res %s res=%.2f mode=%s sigma=%.2f mp=%d map_vox=%zu raw_vox=%zu query=%zu yaw_rank=%d/%d "
@@ -3590,55 +3121,24 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         fyaw_argmax_d, xy_rank, xy_raws.size(), xy_argmax_dx, xy_argmax_dy, z_rank, kNumZ, z_argmax_dz, norm,
         local.distanceFieldAbandoned() ? "yes" : "no");
 
-      // Step 9: release this case's pyramid before building the next one -- these are local,
-      // scoped VoxelPyramid instances distinct from the search's real pyramid_ member, but the
-      // 0.25 m distance-field cases in particular can still be multi-hundred-MB, and there is no
-      // reason to hold two of them live at once.
+      // Step 9: release this case's pyramid before the next -- the 0.25m cases can be multi-hundred-MB.
       local.releaseMemory();
     }
     RCLCPP_INFO(node_->get_logger(), "[%s] DIAG res sweep complete", name_.c_str());
   }
 
-  // ===========================================================================================
-  // TEMPORARY DIAGNOSTIC: self-test control -- score a prior-map keyframe's OWN cloud at its
-  // OWN pose.
-  //
-  // Every measurement made by the debug_band_sweep_ and debug_res_sweep_ blocks above ran the
-  // LIVE scan through the full acquisition path first: TF extrinsics from the URDF (possibly not
-  // the calibration this map was built with), IMU de-tilt, downsampling, and the height band.
-  // None of those diagnostics -- however many bands, resolutions, scoring modes and observation
-  // thresholds they swept -- can tell apart two very different explanations for the same bad
-  // rank: "the scene truly has no x/y/yaw signal at this resolution" versus "the live-query path
-  // is corrupting an otherwise-good signal before it ever reaches the scorer." This block
-  // resolves that by removing every live-path suspect at once: the query here is a prior-map
-  // keyframe's own body-frame cloud, de-tilted by ITS OWN recovered roll/pitch and scored at ITS
-  // OWN recorded pose -- so it is exactly, trivially registered to the map by construction, free
-  // of calibration error, sensor differences, dynamic objects and IMU de-tilt error.
-  //
-  // C1 tests the PLUMBING: the self-query is scored against the pyramid that ALREADY INCLUDES
-  // this keyframe, so a bad result (exact hit far below 100%, yaw_rank far from 1/36) can only
-  // mean a transform or scoring bug somewhere in this diagnostic itself (or, by extension, in
-  // the shared scoring path it exercises) -- because the query points are, quite literally, a
-  // subset of the map being searched.
-  //
-  // C2/C3 test the SCENE: the self-query is scored against a LOCAL map that has the keyframe
-  // (and everything within kExcludeRadius of it) surgically removed, so the query can no longer
-  // trivially match itself -- this is the honest single-scan localization test for this route. A
-  // bad result here, with C1 passing cleanly, means this scene genuinely lacks single-scan x/y/
-  // yaw observability at the tested resolution: no plumbing bug to blame, no live-path corruption
-  // to blame, just an intrinsically hard (e.g. corridor-shaped, repetitive) piece of geometry.
-  // C1 vs. C2/C3 is precisely the pair that separates those two explanations.
-  //
-  // This is NOT wired into the live search or scoring path in any way -- it is read-only
-  // diagnostics, gated behind debug_self_test_ (default false) and debug_probe_pose_, and is
-  // meant to be deleted once the question above is answered.
-  // ===========================================================================================
+  // TEMPORARY DIAGNOSTIC: self-test control -- scores a prior-map keyframe's own cloud at its own
+  // pose, removing every live-path suspect (TF calibration, IMU de-tilt, downsampling, height
+  // band) that the band/res sweeps above couldn't rule out. C1 tests the PLUMBING: scored against
+  // the pyramid that already includes this keyframe, so a bad result can only mean a transform or
+  // scoring bug (the query is literally a subset of the map). C2/C3 test the SCENE: scored against
+  // a local map with the keyframe (and its neighbourhood) surgically removed -- the honest
+  // single-scan test. C1 passing with C2/C3 failing means the scene genuinely lacks single-scan
+  // x/y/yaw observability, not a bug. Read-only, gated behind debug_self_test_ (default false).
   if (debug_self_test_ && debug_probe_pose_.size() >= 4) {
     const Eigen::Vector3d probe_t(debug_probe_pose_[0], debug_probe_pose_[1], debug_probe_pose_[2]);
 
-    // Same PCL-typed-then-small_gicp-typed retrieval, and source-key selection, that
-    // insertKeyframeCloud()/buildPyramid() and the two sweep blocks above use. Returns
-    // BODY-frame points -- not transformed by a keyframe's world pose, no height band applied.
+    // Same retrieval/fallback insertKeyframeCloud() uses. Returns body-frame, unfiltered points.
     const std::string cloud_suffix = "/cloud";
     const bool has_fallback = pointcloud_from_.size() >= cloud_suffix.size() &&
       pointcloud_from_.compare(pointcloud_from_.size() - cloud_suffix.size(), cloud_suffix.size(), cloud_suffix) ==
@@ -3673,14 +3173,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return has_fallback && tryKey(fallback_key);
     };
 
-    // Mirrors the live query builder's transform chain (lidarCallback()) -- the same filter and
-    // downsample logic the new buildSelfQuery() member function applies internally. Kept here as
-    // a local lambda (renamed to avoid shadowing the member function of the same purpose) only
-    // because C3 below selects its second keyframe by TRAJECTORY POSITION rather than nearest
-    // point, so it cannot use buildSelfQuery()'s nearest-keyframe selection; C1/C2 use
-    // buildSelfQuery() directly instead of this lambda. De-tilt by rotYX(pitch, roll), drop
-    // points beyond max_query_range_ horizontally, keep only the configured height band, then
-    // apply the identical strided downsample to target_query_points_.
+    // Mirrors lidarCallback()'s transform chain, same as buildSelfQuery() -- kept as a separate
+    // lambda only because C3 below selects its second keyframe by trajectory position, not
+    // nearest-point, so it can't use buildSelfQuery()'s selection logic (C1/C2 use it directly).
     auto filterSelfCloud = [&](const std::vector<Eigen::Vector3d> & body_pts, double pitch, double roll) {
       const Eigen::Matrix3d r_detilt = rotYX(pitch, roll);
       const double max_range_sq = max_query_range_ > 0.0 ? max_query_range_ * max_query_range_ : 0.0;
@@ -3709,10 +3204,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return out;
     };
 
-    // Per-control metrics: exact level-0 occupancy hit fraction at the reference pose (computed
-    // directly via VoxelLevel::hit(), so it is meaningful regardless of the active scoring
-    // mode), plus the same coarse-yaw/fine-yaw/fine-xy rank+argmax statistics the two sweeps
-    // above report, computed against whichever pyramid the caller passes in.
+    // Per-control metrics: exact hit fraction plus the same rank+argmax statistics the two
+    // sweeps above report, against whichever pyramid the caller passes in.
     struct SelfMetrics
     {
       double exact_hit_pct = 0.0;
@@ -3731,11 +3224,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       if (q.empty() || pyr.empty()) return m;
       const eidos::reloc::ScoreMode mode = pyr.effectiveScoreMode();
 
-      // Exact hit fraction: deliberately NOT scoreBreakdownAtLevel()'s `hits` (which means
-      // different things in the two modes -- see ScoreBreakdown's doc comment) but the raw
-      // VoxelLevel::hit() containment test, so this one number means the same thing under
-      // either scoring mode: "does the query point literally land in an occupied level-0
-      // voxel."
+      // Raw VoxelLevel::hit() containment, not scoreBreakdownAtLevel()'s hits (mode-dependent) --
+      // so this means the same thing under either scoring mode.
       {
         const double c = std::cos(yaw_ref);
         const double s = std::sin(yaw_ref);
@@ -3816,11 +3306,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return m;
     };
 
-    // Build a LOCAL, single-level VoxelPyramid from every prior-map keyframe within 100 m
-    // (horizontally) of `center`, EXCEPT those within kExcludeRadius of `exclude_pos` -- the
-    // leave-one-out map C2/C3 score against. Same config pattern the two sweeps above use: 1
-    // level, no free space, no map-frame height clamp (the band is applied in body frame below,
-    // exactly like insertKeyframeCloud()/buildPyramid() do).
+    // Local single-level VoxelPyramid from keyframes within 100m of `center`, excluding those
+    // within kExcludeRadius of `exclude_pos` -- the leave-one-out map C2/C3 score against.
     constexpr double kExcludeRadius = 3.0;
     auto buildLocalMap = [&](
                            const Eigen::Vector3d & center, const Eigen::Vector3d & exclude_pos,
@@ -3858,15 +3345,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       return local;
     };
 
-    // -----------------------------------------------------------------------------------------
-    // Select the reference keyframe and build the self-query: the prior-map keyframe whose
-    // position is closest to probe_t, de-tilted/filtered/downsampled exactly like the live query
-    // path. Delegates to buildSelfQuery() (see its doc comment in the header) -- this used to be
-    // inlined here (nearest-keyframe search, rpy decomposition + rotation-convention check,
-    // cloud retrieval, de-tilt/filter/downsample), but debug_use_self_query_ in workerMain()
-    // needs the exact same pipeline to substitute a self-query into the REAL search, so it is now
-    // a shared member function instead of duplicated logic.
-    // -----------------------------------------------------------------------------------------
+    // Reference keyframe and self-query, via the shared buildSelfQuery() (also used by
+    // debug_use_self_query_ in workerMain()).
     std::vector<Eigen::Vector3d> selfq;
     Eigen::Vector3d t_ref = Eigen::Vector3d::Zero();
     double yaw_ref = 0.0;
@@ -3881,14 +3361,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
         node_->get_logger(), "[%s] DIAG self kf=%d pos=(%.1f,%.1f,%.1f) d_probe=%.2fm", name_.c_str(), kf_idx,
         t_ref.x(), t_ref.y(), t_ref.z(), best_d);
 
-      // ---------------------------------------------------------------------------------------
-      // C1 -- PLUMBING control: score the self-query against the pyramid that ALREADY INCLUDES
-      // this keyframe. The query points are a subset of the map being searched, transformed by
-      // the SAME roll/pitch/yaw the map itself was built with, so the exact hit fraction must be
-      // ~100% and yaw_rank must land at 1/36 with a large ratio. Anything less means there is a
-      // transform or scoring bug in this diagnostic (and, by extension, in the shared scoring
-      // path it exercises) -- report that as the single most important finding.
-      // ---------------------------------------------------------------------------------------
+      // C1 -- plumbing control: scored against the pyramid that already includes this keyframe, so
+      // exact hit must be ~100% and yaw_rank 1/36; anything less is a transform/scoring bug.
       if (selfq.size() < 20 || pyramid_.empty()) {
         RCLCPP_WARN(
           node_->get_logger(), "[%s] DIAG self C1: degenerate (query=%zu, pyramid empty=%d), skipped", name_.c_str(),
@@ -3903,13 +3377,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
           c1.fyaw_argmax, c1.xy_rank, c1.xy_argmax_dx, c1.xy_argmax_dy);
       }
 
-      // ---------------------------------------------------------------------------------------
-      // C2 -- SCENE control: score the SAME self-query against a local map that EXCLUDES this
-      // keyframe and everything within kExcludeRadius of it. The query can no longer trivially
-      // match itself, so this is the honest single-scan localization test for this location: a
-      // perfect, calibration-free query against a map that does not contain it. A bad rank here,
-      // with C1 clean, means this scene genuinely lacks single-scan x/y/yaw observability.
-      // ---------------------------------------------------------------------------------------
+      // C2 -- scene control: scored against a local map with this keyframe's neighbourhood
+      // excluded, so it can't trivially match itself -- the honest single-scan test.
       std::size_t c2_included = 0, c2_excluded = 0;
       eidos::reloc::VoxelPyramid local2 = buildLocalMap(t_ref, t_ref, c2_included, c2_excluded);
       if (selfq.size() < 20 || local2.empty()) {
@@ -3928,17 +3397,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
       }
       local2.releaseMemory();
 
-      // ---------------------------------------------------------------------------------------
-      // C3 -- leave-one-out at a SECOND, independent location: repeats C2 for the prior-map
-      // keyframe 150 trajectory entries after kf (~300 m along the driven route, wrapping if the
-      // trajectory is long enough to make that meaningful). One location scoring badly could be
-      // atypical (a corridor, a repetitive stretch); two independent locations agreeing makes the
-      // "this scene lacks single-scan observability" conclusion much harder to argue with.
-      // ---------------------------------------------------------------------------------------
-      // Match by cloud_index rather than gtsam::Key -- buildSelfQuery() returns kf_idx (the
-      // keyframe's cloud index into poses6d_), the same value buildPyramid() used to populate
-      // each TrajectoryEntry::cloud_index, so this recovers the identical trajectory_ position
-      // the old inline key-based lookup did without needing the raw gtsam::Key back out.
+      // C3 -- leave-one-out at a second, independent location (~300m along the route): two
+      // independent locations agreeing makes the "scene lacks observability" conclusion stronger.
+      // Matched by cloud_index, which buildSelfQuery()'s kf_idx and TrajectoryEntry share.
       std::size_t kf_traj_idx = trajectory_.size();
       for (std::size_t i = 0; i < trajectory_.size(); ++i) {
         if (trajectory_[i].cloud_index == kf_idx) {
@@ -4000,18 +3461,10 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     for (auto & sh : v) merged.push_back(sh);
   }
 
-  // Merge the fine prefilter's own argmax poses in alongside branch-and-bound's output, so the two
-  // compete on equal terms in the sort and NMS below.
-  //
-  // This is load-bearing, not a belt-and-braces addition. The coarse bound saturates completely on
-  // this map -- every root scores the maximum 102000 at the coarsest level (measured: 11611 of
-  // 11613 roots tied at the prefilter ceiling) -- so best-first branch-and-bound has no gradient to
-  // follow and its expansion order among the tied frontier is arbitrary. The fine prefilter, by
-  // contrast, ranks at level 0, which is the one level measured to discriminate (94623-99309 at
-  // ground truth versus 77885 for the best wrong pose anywhere on the map). Feeding its argmax
-  // poses straight into the candidate list means the correct pose reaches GICP and the acceptance
-  // gates on the strength of the discriminative score alone, without depending on the saturated
-  // bound to steer the tree search there.
+  // Load-bearing, not belt-and-braces: the coarse bound saturates on this map (11611/11613 roots
+  // tied at the ceiling), so BnB's tied-frontier expansion order is arbitrary and has no gradient
+  // to follow. The fine prefilter ranks at level 0 (the level that discriminates), so its argmax
+  // poses let the correct pose reach GICP on that discriminative score alone.
   for (const auto & cand : prefilter_candidates_) merged.push_back(cand);
 
   eidos::reloc::SearchStats total_stats;
@@ -4197,11 +3650,8 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
             bnb_best.score,
             coarse_cell_match ? "yes" : "NO");
 
-          // Rank of the reference root among ALL roots by brute-force score: reproduces
-          // bruteForceCoarse()'s own per-point classification (scorePoseAtLevel() at the
-          // coarsest level, its hard-coded hit_weight=3, over the FULL query -- brute force
-          // never subsamples, unlike prefilterRoots()) so the rank sits on the same footing as
-          // brute_best above, without needing bruteForceCoarse() to expose per-root scores.
+          // Rank of the reference root by brute-force score (reproduces bruteForceCoarse()'s own
+          // classification, since it doesn't expose per-root scores).
           int trace6_root_index = -1;
           const int64_t rix = eidos::reloc::voxelIndex(probe_t.x(), trace6_lvl.inv_resolution);
           const int64_t riy = eidos::reloc::voxelIndex(probe_t.y(), trace6_lvl.inv_resolution);
@@ -4333,14 +3783,9 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     }
   }
 
-  // Estimate the chance floor for this query/map pair, for the uniqueness gate in gicpPolish().
-  // See that gate for why a raw score quotient is the wrong comparison.
-  //
-  // Sampled from ACTUAL corridor root cells at random yaws rather than from a synthetic
-  // distribution, so the floor reflects the same kind of pose the runner-up is drawn from: the
-  // question the gate asks is "is the winner better than an arbitrary plausible pose on this
-  // map", and an arbitrary plausible pose is exactly a random corridor root. Deterministically
-  // seeded so a rejected relocalization is reproducible from the log.
+  // Chance-floor estimate for gicpPolish()'s uniqueness gate: sampled from actual corridor roots
+  // at random yaws (the same kind of pose the runner-up is drawn from), deterministically seeded
+  // so a rejected relocalization is reproducible from the log.
   if (!roots_.empty() && !query.empty()) {
     constexpr int kFloorSamples = 96;
     const int coarsest = pyramid_.numLevels() - 1;
@@ -4372,6 +3817,197 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
   return nms_result;
 }
 
+std::shared_ptr<small_gicp::PointCloud> BnbVoxelRelocalization::assembleSubmap(
+  const Eigen::Vector3d & centre, double radius) const
+{
+  // Linear scan over the cached trajectory -- never getKdTree(), which is non-const and unsafe to
+  // call off the SLAM thread.
+  auto merged = std::make_shared<small_gicp::PointCloud>();
+  for (const auto & entry : trajectory_) {
+    if ((entry.position - centre).norm() > radius) continue;
+
+    auto cloud_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(entry.key, pointcloud_from_);
+    if (!cloud_opt.has_value() || !*cloud_opt || (*cloud_opt)->empty()) continue;
+
+    Eigen::Affine3f world_t = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(entry.cloud_index)]);
+    Eigen::Isometry3d T;
+    T.matrix() = world_t.matrix().cast<double>();
+    for (const auto & pt : (*cloud_opt)->points) {
+      Eigen::Vector3d p = T * Eigen::Vector3d(pt.x, pt.y, pt.z);
+      merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
+    }
+  }
+  return merged;
+}
+
+// ---------------------------------------------------------------------------
+// Phase E — re-anchor the lock onto the newest scan along the prior trajectory
+// ---------------------------------------------------------------------------
+bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsam::Pose3 & out)
+{
+  if (!use_trajectory_reanchor_) return false;
+
+  // Newest scan and its query set, latched together so the pose recovered below and the cloud it
+  // is refined against describe the same instant.
+  std::vector<Eigen::Vector3d> query;
+  small_gicp::PointCloud::Ptr scan;
+  double stamp = 0.0;
+  {
+    std::lock_guard<std::mutex> lock(scan_lock_);
+    query = latest_query_;
+    scan = latest_scan_;
+    stamp = latest_scan_stamp_;
+  }
+
+  const double gap = stamp - search_scan_stamp_;
+  if (gap < reanchor_min_gap_) {
+    RCLCPP_INFO(
+      node_->get_logger(),
+      "[%s] re-anchor skipped: newest scan is only %.2f s after the searched one",
+      name_.c_str(),
+      gap);
+    return false;
+  }
+  if (query.empty() || !scan || scan->empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] re-anchor skipped: no fresh scan available", name_.c_str());
+    return false;
+  }
+  if (pyramid_.empty() || roots_.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] re-anchor skipped: pyramid already released", name_.c_str());
+    return false;
+  }
+
+  // Restrict the corridor to roots near the lock. The vehicle drove along the mapped route during
+  // the search, so its current position is on that trajectory within roughly (search duration x
+  // speed) of where the lock put it -- a few hundred metres of route, not the whole map.
+  const Eigen::Vector3d lock_t = locked.translation();
+  std::vector<eidos::reloc::RootCell> near_roots;
+  near_roots.reserve(roots_.size());
+  const double coarse_res = pyramid_.level(pyramid_.numLevels() - 1).resolution;
+  for (const auto & root : roots_) {
+    const Eigen::Vector3d centre =
+      eidos::reloc::bnbCellCentre(root.ix, root.iy, root.iz, coarse_res);
+    if ((centre - lock_t).norm() <= reanchor_search_radius_) near_roots.push_back(root);
+  }
+  if (near_roots.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "[%s] re-anchor skipped: no roots within the corridor", name_.c_str());
+    return false;
+  }
+
+  const auto t_start = std::chrono::steady_clock::now();
+
+  eidos::reloc::SearchConfig scfg;
+  scfg.prune_slack = prune_slack_;
+  scfg.nms_radius = nms_radius_;
+  scfg.hit_weight = hit_weight_;
+  scfg.score_mode = active_score_mode_;
+  scfg.max_solutions = std::max(num_gicp_candidates_ + 3, 8);
+  scfg.max_nodes = static_cast<std::size_t>(std::max(1000, reanchor_max_nodes_));
+  eidos::reloc::SearchStats stats;
+  auto hyps = eidos::reloc::branchAndBound(pyramid_, query, near_roots, scfg, stats);
+
+  const double search_ms = std::chrono::duration<double, std::milli>(
+    std::chrono::steady_clock::now() - t_start).count();
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "[%s] re-anchor search: %zu/%zu roots within %.0f m of the lock, %zu hypotheses, %.0f ms",
+    name_.c_str(),
+    near_roots.size(),
+    roots_.size(),
+    reanchor_search_radius_,
+    hyps.size(),
+    search_ms);
+
+  if (hyps.empty()) return false;
+
+  double imu_roll = 0.0, imu_pitch = 0.0;
+  {
+    std::lock_guard<std::mutex> lock(imu_lock_);
+    if (has_imu_) {
+      imu_roll = latest_imu_roll_;
+      imu_pitch = latest_imu_pitch_;
+    }
+  }
+
+  // Covariances for the fresh scan, once.
+  auto [src, src_tree] = small_gicp::preprocess_points(*scan, scan_ds_resolution_, num_neighbors_, searchThreads());
+  (void)src_tree;  // align() takes the target's tree only.
+  if (!src || src->empty()) return false;
+
+  // Refine the top hypotheses under the SAME acceptance gate the original lock passed, so a
+  // re-anchor can never be accepted on weaker evidence than the pose it replaces.
+  const int num_candidates = std::min(num_gicp_candidates_, static_cast<int>(hyps.size()));
+  for (int c = 0; c < num_candidates; ++c) {
+    if (stop_requested_.load()) return false;
+    const auto & hyp = hyps[static_cast<std::size_t>(c)];
+
+    auto submap_merged = assembleSubmap(hyp.translation, submap_radius_);
+    if (submap_merged->empty()) continue;
+    auto [submap, submap_tree] =
+      small_gicp::preprocess_points(*submap_merged, submap_leaf_size_, num_neighbors_, searchThreads());
+
+    gtsam::Pose3 init_pose(
+      gtsam::Rot3::RzRyRx(imu_roll, imu_pitch, hyp.yaw),
+      gtsam::Point3(hyp.translation.x(), hyp.translation.y(), hyp.translation.z()));
+    Eigen::Isometry3d init_guess;
+    init_guess.matrix() = init_pose.matrix();
+
+    small_gicp::RegistrationSetting setting;
+    setting.type = small_gicp::RegistrationSetting::GICP;
+    setting.max_correspondence_distance = max_correspondence_distance_;
+    setting.max_iterations = max_icp_iterations_;
+    setting.num_threads = searchThreads();
+
+    auto result = small_gicp::align(*submap, *src, *submap_tree, init_guess, setting);
+    if (!result.converged) continue;
+
+    const double inlier_ratio = static_cast<double>(result.num_inliers) / src->size();
+    if (inlier_ratio < min_inlier_ratio_) continue;
+
+    out = gtsam::Pose3(
+      gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
+
+    const double moved = (out.translation() - locked.translation()).norm();
+    RCLCPP_INFO(
+      node_->get_logger(),
+      "\033[32m[%s] re-anchored onto a scan %.1f s fresher: vehicle moved %.1f m along the "
+      "trajectory since the searched scan; lock (%.1f,%.1f,%.1f) -> (%.1f,%.1f,%.1f), "
+      "inliers=%zu (%.0f%%)\033[0m",
+      name_.c_str(),
+      gap,
+      moved,
+      locked.translation().x(),
+      locked.translation().y(),
+      locked.translation().z(),
+      out.translation().x(),
+      out.translation().y(),
+      out.translation().z(),
+      result.num_inliers,
+      inlier_ratio * 100.0);
+
+    if (moved > reanchor_warn_distance_) {
+      RCLCPP_WARN(
+        node_->get_logger(),
+        "[%s] re-anchor moved the lock %.1f m (> %.1f m): the search is slow relative to vehicle "
+        "speed. If it approaches reanchor_search_radius (%.0f m) the vehicle can outrun the "
+        "corridor and the re-anchor will start failing",
+        name_.c_str(),
+        moved,
+        reanchor_warn_distance_,
+        reanchor_search_radius_);
+    }
+    return true;
+  }
+
+  RCLCPP_WARN(
+    node_->get_logger(),
+    "[%s] re-anchor failed: no candidate passed GICP on the fresh scan; returning the lock as "
+    "computed against the searched scan (it is %.1f s stale)",
+    name_.c_str(),
+    gap);
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Phase D — GICP polish and acceptance
 // ---------------------------------------------------------------------------
@@ -4391,23 +4027,11 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
   const double best_hit_fraction = hypotheses[0].hyp.hit_fraction;
   const double runner_up_normalized = hypotheses.size() > 1 ? hypotheses[1].hyp.normalized : 0.0;
   const double runner_up_hit_fraction = hypotheses.size() > 1 ? hypotheses[1].hyp.hit_fraction : 0.0;
-  // The ratio is measured in EXCESS OVER THE CHANCE FLOOR, not as a raw quotient of normalized
-  // scores, because neither scoring mode has its "no match at all" value at zero:
-  //
-  //   - distance_field: a randomly rotated scan still lands most of its points within the kernel
-  //     truncation radius of SOME map structure, so it scores a large constant for free. Measured
-  //     on ring_road.map: mean normalized 0.563 over 36 random yaws at ground truth.
-  //   - occupancy: an all-unknown pose floors at 1/hit_weight (0.33 at the default), never 0.
-  //
-  // A raw quotient therefore compresses every comparison toward 1.0 and the gate reads a decisive
-  // win as ambiguous. Measured, with a query known to be correct: best 0.914, runner-up 0.795 ->
-  // raw ratio 1.150, which FAILS the 1.20 default, while the same pair measured above the 0.563
-  // floor is 0.351 / 0.232 = 1.51 and passes comfortably. Subtracting the floor makes
-  // min_score_ratio mean the same thing in both scoring modes and on maps of differing density,
-  // which a raw quotient cannot.
-  //
-  // `last_chance_floor_` is estimated per search from randomly drawn corridor poses (see
-  // estimateChanceFloor()); it is 0.0 when unavailable, which degrades this to the raw quotient.
+  // Ratio measured in EXCESS OVER THE CHANCE FLOOR, not a raw quotient: neither scoring mode's
+  // "no match" value is 0 (distance_field floors ~0.563 on ring_road.map, occupancy at
+  // 1/hit_weight), so a raw quotient compresses every comparison toward 1.0 -- measured best=0.914
+  // runner_up=0.795 fails the 1.20 default as a raw ratio (1.15) but passes easily (1.51) once the
+  // floor is subtracted. last_chance_floor_ is estimated per search; 0.0 degrades to raw quotient.
   const double floor = std::clamp(last_chance_floor_, 0.0, 0.99 * best_normalized);
   const double best_excess = best_normalized - floor;
   const double runner_up_excess = std::max(0.0, runner_up_normalized - floor);
@@ -4433,18 +4057,14 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
     return std::nullopt;
   }
 
-  // The scan latched at search start, NOT latest_scan_. The hypotheses being refined here are
-  // poses OF THAT SCAN; by now the live buffer holds a cloud captured seconds later from a
-  // different place, and refining against it would register the wrong data against the right
-  // guess. It is also what makes the result's stamp well-defined for carryForward().
+  // The scan latched at search start, NOT latest_scan_ -- these hypotheses are poses OF THAT SCAN.
   if (!search_scan_ || search_scan_->empty()) {
     RCLCPP_INFO(node_->get_logger(), "[%s] no live scan available for GICP polish", name_.c_str());
     return std::nullopt;
   }
-  // Covariances for the source cloud, computed once for the one scan that actually reaches GICP.
-  // lidarCallback() deliberately no longer does this per scan -- see the note there.
+  // Covariances computed once, only for the one scan that reaches GICP (not per scan at sensor rate).
   auto [live_scan, live_tree] =
-    small_gicp::preprocess_points(*search_scan_, scan_ds_resolution_, num_neighbors_, num_threads_);
+    small_gicp::preprocess_points(*search_scan_, scan_ds_resolution_, num_neighbors_, searchThreads());
   if (!live_scan || live_scan->empty()) {
     RCLCPP_INFO(node_->get_logger(), "[%s] GICP source preprocessing produced an empty cloud", name_.c_str());
     return std::nullopt;
@@ -4481,23 +4101,7 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
       continue;
     }
 
-    // Assemble world-frame submap: linear scan over the cached trajectory (never getKdTree() --
-    // it is non-const and unsafe to call off the SLAM thread).
-    auto submap_merged = std::make_shared<small_gicp::PointCloud>();
-    for (const auto & entry : trajectory_) {
-      if ((entry.position - hyp.translation).norm() > submap_radius_) continue;
-
-      auto cloud_opt = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(entry.key, pointcloud_from_);
-      if (!cloud_opt.has_value() || !*cloud_opt || (*cloud_opt)->empty()) continue;
-
-      Eigen::Affine3f world_t = poseTypeToAffine3f(poses6d_->points[static_cast<std::size_t>(entry.cloud_index)]);
-      Eigen::Isometry3d T;
-      T.matrix() = world_t.matrix().cast<double>();
-      for (const auto & pt : (*cloud_opt)->points) {
-        Eigen::Vector3d p = T * Eigen::Vector3d(pt.x, pt.y, pt.z);
-        submap_merged->points.emplace_back(p.x(), p.y(), p.z(), 1.0);
-      }
-    }
+    auto submap_merged = assembleSubmap(hyp.translation, submap_radius_);
 
     if (submap_merged->empty()) {
       RCLCPP_INFO(
@@ -4512,7 +4116,7 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
     }
 
     auto [submap, submap_tree] =
-      small_gicp::preprocess_points(*submap_merged, submap_leaf_size_, num_neighbors_, num_threads_);
+      small_gicp::preprocess_points(*submap_merged, submap_leaf_size_, num_neighbors_, searchThreads());
 
     gtsam::Pose3 init_pose(
       gtsam::Rot3::RzRyRx(imu_roll + sh.dr, imu_pitch + sh.dp, hyp.yaw),
@@ -4524,7 +4128,7 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(
     setting.type = small_gicp::RegistrationSetting::GICP;
     setting.max_correspondence_distance = max_correspondence_distance_;
     setting.max_iterations = max_icp_iterations_;
-    setting.num_threads = num_threads_;
+    setting.num_threads = searchThreads();
 
     auto result = small_gicp::align(*submap, *live_scan, *submap_tree, init_guess, setting);
 

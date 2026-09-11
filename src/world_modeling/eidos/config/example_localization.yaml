@@ -41,7 +41,7 @@
       - "imu_factor"
 
     relocalization_plugins:
-      - "gps_icp_relocalization"
+      # - "gps_icp_relocalization"
       - "bnb_voxel_relocalization"
 
     visualization_plugins:
@@ -120,8 +120,6 @@
       fitness_threshold: 0.3
 
     # Branch-and-Bound Voxel Relocalization (GPS-free global search)
-    # Fallback when GPS is unavailable: builds a multi-resolution voxel pyramid
-    # from the prior map and searches (x, y, z, yaw) with no positional prior.
     bnb_voxel_relocalization:
       plugin: "eidos::BnbVoxelRelocalization"
       lidar_topic: "/lidar_cc/velodyne_points"
@@ -130,13 +128,7 @@
       imu_frame: "imu_link"
       pointcloud_from: "liso_factor/cloud"     # Prior-map cloud source
       min_voxel_size: 1.0                      # Finest pyramid level (m)
-      num_levels: 4                            # Coarsest level = 1.0 * 2^3 = 8 m (coarser saturates the BnB bound)
-      # Distance-field score (new default): per-point cell value round(255*exp(-d^2/(2*sigma^2))),
-      # d = distance to the nearest map point, truncated at df_truncation_voxels. Replaces the
-      # binary occupancy score, which was measured on ring_road.map to carry almost no alignment
-      # signal (a randomly rotated scan already hits 76% of query points at +/-1 voxel, and the
-      # true yaw ranked only 5th of 36 -- see the doc page's Status section). IMPLEMENTED BUT NOT
-      # YET VALIDATED to produce a lock -- no measurement exists yet with this scorer.
+      num_levels: 4                            # Coarsest level = 1.0 * 2^3 = 8 m (coarser saturates the BnB bound
       score_mode: "distance_field"             # "distance_field" (new default) or "occupancy" (today's ternary score, kept to A/B the two scorers). An unrecognised value WARNs and falls back to "distance_field"
       df_sigma: 1.0                            # Distance-field falloff sigma (m); ~= the measured ~1 m query-to-map registration offset to absorb
       df_truncation_voxels: 2                  # Distance-field kernel radius, in level-0 voxels
@@ -160,13 +152,6 @@
       max_search_nodes: 200000                 # Total BnB node budget per search (anytime bound)
       prune_slack: 0.8                         # Relax BnB pruning so runners-up survive the uniqueness gate
       nms_radius: 5.0                          # Distinct-solution separation (m)
-      # normalized = raw / max_possible in BOTH score modes (see score_mode above). Under
-      # score_mode=occupancy this is the ternary score: hit=hit_weight, unknown=1, known-free=0,
-      # max_possible=hit_weight*n; an all-unknown pose floors at 1/hit_weight (0.33 at the
-      # default) rather than 0. Under score_mode=distance_field, normalized is instead the MEAN
-      # PER-POINT CELL VALUE scaled to [0,1] (max_possible=255*n) -- not a hit fraction -- so these
-      # two thresholds keep their default VALUES but mean something different depending on mode;
-      # see Hypothesis::hit_fraction in every log line for the mode-independent hit-rate figure.
       min_match_score: 0.45                    # Minimum normalized BnB score required to accept a hypothesis
       min_score_ratio: 1.20                    # Winner's normalized score must beat the best distinct runner-up's by this factor
       num_gicp_candidates: 5                   # Hypotheses handed to GICP
@@ -178,39 +163,18 @@
       max_icp_iterations: 100                  # GICP max iterations
       num_threads: 16
       num_neighbors: 10
-      # Root chunks cut per roll/pitch offset, as a multiple of the search thread count. With
-      # rp_search_steps: 1 there is exactly ONE offset, so this multiplied by the thread count IS
-      # the whole search's task count -- at 1x it was leaving cores idle on a box with more cores
-      # than num_threads. Higher also gives the dynamic schedule more to balance, since chunk cost
-      # varies with how much structure each root's subtree holds. Costs a little pruning
-      # efficiency: each chunk keeps its own incumbent instead of sharing a global one.
       search_task_multiplier: 4
-      # Carry a lock forward over the search's own duration. The branch-and-bound result describes
-      # the vehicle at the scan it searched; on a multi-second search the vehicle has since moved,
-      # and InitSequencer applies the returned pose as the CURRENT one (LisoFactor::onTrackingBegin
-      # rebuilds its submap and seeds last_matched_pose_ from it). This composes the odom-frame
-      # motion accumulated since that scan onto the lock. Without it a 23 s search at 5 m/s hands
-      # the tracker a pose ~115 m behind the vehicle, which simply fails to converge.
-      use_odom_carry_forward: true
-      odom_topic: "liso/odometry_incremental"  # Must match liso_factor's odometry_incremental_topic
-      odom_buffer_seconds: 300.0               # Odometry history retained; must exceed the worst-case search duration
-      carry_forward_warn_distance: 15.0        # WARN if the carried-forward correction exceeds this (m)
+      # Re-anchor the lock onto the newest scan before handing it over. The branch-and-bound result
+      # describes the vehicle at the scan it searched; on a search of tens of seconds the vehicle
+      # has driven on
+      use_trajectory_reanchor: true
+      reanchor_search_radius: 250.0            # How far along the trajectory either side of the lock to look (m).
+                                                # Must cover distance travelled during the search: 90 s at 5 m/s is 450 m.
+      reanchor_max_nodes: 40000                # Node budget for the restricted search (small: a corridor, not the map)
+      reanchor_min_gap: 0.5                    # Skip if the newest scan is within this many seconds of the searched one
+      reanchor_warn_distance: 25.0             # WARN if the re-anchor moves the lock more than this (m)
       publish_debug_grid: true                 # Latched OccupancyGrid of the map voxel pyramid
       debug_grid_topic: "slam/visualization/reloc_voxel_grid"
-      # Free-space channel: a query point landing in known-empty map space counts as negative
-      # evidence (weight 0) instead of merely absent evidence (weight 1, "unknown"). ONLY MEANINGFUL
-      # under score_mode=occupancy -- under score_mode=distance_field this channel is never built or
-      # raycast (see the class doc), because a distance field already scores a point far from all
-      # structure at ~0, continuously, which is what this three-state score was approximating.
-      # use_free_space: false reproduces the plain binary hit-count score exactly (ranking is
-      # bit-identical, since raw = (hit_weight-1)*hits + n is monotone in the hit count).
-      # DEFAULT OFF, deliberately. On ring_road.map it did not improve the lock, because the
-      # occupancy score it refines was measured to carry almost no alignment signal there: at
-      # +/-1 voxel a RANDOMLY rotated scan already hits 76% of query points, so the 0.6-6.0 m band
-      # along that tree-lined route is very nearly space-filling at 1 m resolution. That makes the
-      # measurement inconclusive about free space rather than negative, so the channel stays
-      # available and sound but is not switched on by default on unproven evidence. Re-evaluate it
-      # once the scoring function itself discriminates (see the doc page's Status section).
       use_free_space: false                    # Master switch for the free-space scoring channel (occupancy mode only)
       free_rays_per_keyframe: 2000             # Stride each keyframe's cloud to ~this many free-space rays; <=0 uses every point
       free_max_range: 40.0                     # Clamp free-space ray length (m)

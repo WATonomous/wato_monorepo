@@ -17,8 +17,25 @@ project(eidos)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Colcon/ament does not pin a build type by default, which left this package built without
+# optimization. The BnB relocalization search (voxel pyramid build, branch-and-bound scoring,
+# GICP polish) is squarely CPU-bound and re-runs its hot loops dozens of times per relocalization
+# attempt, so an unoptimized build directly costs wall-clock time to lock. Default to Release
+# only when the invoker hasn't chosen a build type, so an explicit -DCMAKE_BUILD_TYPE=Debug still
+# wins.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+  # AVX2+FMA is a safe baseline for any x86-64 deployment target of the last decade (this is NOT
+  # -march=native: that would bake in the exact build host's ISA, which risks SIGILL if a built
+  # image is later run on older/different silicon). Restricted to x86_64 so this build still works
+  # on an arm64 dev machine.
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    add_compile_options(-mavx2 -mfma)
+  endif()
 endif()
 
 # ---- Dependencies ----

@@ -27,106 +27,66 @@
 namespace eidos::reloc
 {
 
-/// @brief Pi, spelled out locally so this header does not depend on the
-/// non-standard `M_PI` macro (which is not guaranteed by <cmath> under
-/// `-std=c++17 -Wpedantic`).
-constexpr double kBnbPi = 3.14159265358979323846;
+constexpr double kBnbPi = 3.14159265358979323846;  // M_PI isn't guaranteed under -std=c++17 -Wpedantic
 
-/// @brief A scored 4-DOF pose hypothesis.
+// A scored 4-DOF pose hypothesis.
 struct Hypothesis
 {
-  Eigen::Vector3d translation = Eigen::Vector3d::Zero();  ///< Map-frame translation (m).
-  double yaw = 0.0;  ///< Map-frame yaw about Z (rad).
-  int score = 0;  ///< Raw score: ternary in `[0, hit_weight * n]` under Occupancy, or the
-                  ///< sum of per-point distance-field cell values in `[0, 255 * n]` under
-                  ///< DistanceField; see scorePoseAtLevel().
-  double normalized = 0.0;  ///< `score / max_possible`, in `[0, 1]`, valid in both modes
-                  ///< (see ScoreBreakdown::max_possible).
-  int hits = 0;  ///< Occupancy: occupied-hit count. DistanceField: count of points whose
-                  ///< cell value is non-zero, i.e. within `df_truncation_voxels`.
-  double hit_fraction = 0.0;  ///< `hits / query point count`, for diagnostics.
+  Eigen::Vector3d translation = Eigen::Vector3d::Zero();
+  double yaw = 0.0;
+  int score = 0;              // Ternary [0, hit_weight*n] under Occupancy, cell-value sum
+                               // [0, 255*n] under DistanceField. See scorePoseAtLevel().
+  double normalized = 0.0;    // score / max_possible, in [0, 1], valid in both modes.
+  int hits = 0;                // Occupied-hit count (Occupancy) or non-zero-cell count (DistanceField).
+  double hit_fraction = 0.0;   // hits / query point count.
 };
 
-/// @brief Tuning parameters for `branchAndBound()`.
+// Tuning parameters for branchAndBound().
 struct SearchConfig
 {
-  /// Per-point weight W for an occupied hit in the ternary score (raw score in
-  /// `[0, W*n]`): occupied contributes W, known-free contributes 0, unknown
-  /// contributes 1. See scorePoseAtLevel() for the full soundness argument. Only
-  /// consulted under `ScoreMode::Occupancy`.
-  int hit_weight = 3;
-  /// Scoring model this search evaluates against -- see ScoreMode. DistanceField (the
-  /// new default) sums per-point cell values in `[0, 255]`; Occupancy reproduces the
-  /// original ternary score bit-for-bit. Threaded through to every scorePoseAtLevel() /
-  /// scoreBreakdownAtLevel() call this search makes, so the bound computation, the leaf
-  /// scoring, and the pyramid this search runs against must agree -- callers whose
-  /// pyramid fell back to Occupancy after a distance-field budget overflow should read
-  /// `VoxelPyramid::effectiveScoreMode()` rather than assume this default.
+  int hit_weight = 3;  // Occupied-hit weight under ScoreMode::Occupancy (raw score in [0, W*n]).
   ScoreMode score_mode = ScoreMode::DistanceField;
-  /// Prune children whose bound does not exceed `best_score * prune_slack`.
-  /// Textbook branch-and-bound prunes at `best_score` itself; the slack here
-  /// is intentional so that spatially distinct runner-up hypotheses survive
-  /// long enough to be collected. Those runners-up are exactly what the
-  /// caller's non-maximum-suppression / uniqueness gate needs to compare the
-  /// best solution against -- pruning at `best_score` would leave that gate
-  /// with nothing else to look at.
+  // Prune children whose bound doesn't exceed best_score * prune_slack. Slack < 1.0 (vs.
+  // textbook BnB pruning at best_score) so spatially distinct runner-ups survive for the
+  // caller's NMS/uniqueness gate to compare against.
   double prune_slack = 0.8;
-  /// Minimum Euclidean separation (m) between distinct reported solutions.
-  double nms_radius = 5.0;
-  /// Maximum number of distinct hypotheses to return.
+  double nms_radius = 5.0;      // Minimum separation (m) between distinct reported solutions.
   int max_solutions = 8;
-  /// Safety cap on the number of nodes expanded before aborting the search.
-  std::size_t max_nodes = 50000000;
+  std::size_t max_nodes = 50000000;  // Safety cap on nodes expanded.
 };
 
-/// @brief Counters describing one `branchAndBound()` run.
+// Counters describing one branchAndBound() run.
 struct SearchStats
 {
-  std::size_t nodes_expanded = 0;  ///< Nodes popped from the frontier and processed.
-  std::size_t nodes_pruned = 0;  ///< Candidate children rejected without being queued.
-  bool hit_node_cap = false;  ///< True if `SearchConfig::max_nodes` cut the search short.
-  std::size_t greedy_evaluations = 0;  ///< Scoring calls made by the pre-loop greedy dive.
-  std::size_t point_tests = 0;  ///< Total query-point tests actually performed (post early-exit).
+  std::size_t nodes_expanded = 0;
+  std::size_t nodes_pruned = 0;
+  bool hit_node_cap = false;
+  std::size_t greedy_evaluations = 0;  // Scoring calls made by the pre-loop greedy dive.
+  std::size_t point_tests = 0;         // Query-point tests actually performed (post early-exit).
 };
 
-/// @brief One coarsest-level starting cell for the search frontier.
-///
-/// The caller is responsible for building the set of roots (e.g. a
-/// trajectory corridor at the coarsest pyramid resolution); this header only
-/// consumes them.
+// One coarsest-level starting cell for the search frontier. Caller builds the root set (e.g. a
+// trajectory corridor); this header only consumes it.
 struct RootCell
 {
-  int64_t ix = 0;  ///< Coarsest-level voxel index along x.
-  int64_t iy = 0;  ///< Coarsest-level voxel index along y.
-  int64_t iz = 0;  ///< Coarsest-level voxel index along z.
+  int64_t ix = 0;
+  int64_t iy = 0;
+  int64_t iz = 0;
 };
 
-/**
- * @brief Shared yaw-discretisation math, used identically by the branch-and-bound
- * search and both brute-force oracles so the three cannot drift apart.
- *
- * The yaw step at a level is sized so that a full bin's worth of rotation
- * displaces a point at `max_range` by about one voxel at that level's
- * resolution: `dtheta_l = r_l / max_range`. Bin counts double per level going
- * from coarse to fine, mirroring how translation cells double per level, so
- * that the 16-way branching factor (8 translation children x 2 yaw children)
- * is exact.
- */
+// Shared yaw-discretisation math, used identically by branchAndBound() and both brute-force
+// oracles so the three can't drift apart. Yaw step at a level is sized so a full bin's rotation
+// displaces a point at max_range by about one voxel at that level's resolution; bin counts
+// double per level going finer, matching how translation cells double, so the branching factor
+// (8 translation children x 2 yaw children = 16) is exact.
 struct YawDiscretization
 {
-  double max_range = 0.0;  ///< Max horizontal norm over the query points (m).
-  int coarsest_level = 0;  ///< Index of the coarsest pyramid level (`numLevels() - 1`).
-  int64_t coarse_bins = 1;  ///< Number of yaw bins at `coarsest_level`.
+  double max_range = 0.0;
+  int coarsest_level = 0;
+  int64_t coarse_bins = 1;
 
-  /**
-   * @brief Compute the shared discretisation for a query set against a pyramid.
-   *
-   * @param query Body-frame, gravity-de-tilted query points.
-   * @param pyramid Pyramid supplying per-level resolutions.
-   * @return Populated discretisation. `max_range == 0.0` signals a degenerate
-   *   query set (all points on the vertical axis) or an empty pyramid; callers
-   *   must check for this and return no results rather than divide by zero.
-   */
+  // max_range == 0.0 signals a degenerate query (all points on the vertical axis) or an empty
+  // pyramid -- callers must check and return no results rather than divide by zero.
   static YawDiscretization compute(const std::vector<Eigen::Vector3d> & query, const VoxelPyramid & pyramid)
   {
     YawDiscretization disc;
@@ -146,28 +106,9 @@ struct YawDiscretization
     return disc;
   }
 
-  /**
-   * @brief Number of yaw bins at a level.
-   *
-   * Bin counts double per level going down: `n_l = coarse_bins * 2^(coarsest_level - l)`.
-   *
-   * @param level Pyramid level, 0 is finest.
-   * @return Bin count at that level.
-   */
-  int64_t numBins(int level) const
-  {
-    return coarse_bins << (coarsest_level - level);
-  }
+  int64_t numBins(int level) const { return coarse_bins << (coarsest_level - level); }
 
-  /**
-   * @brief Bin-centre yaw angle for a bin index at a level.
-   *
-   * Bin centres, not corners, are used: `(k + 0.5) * 2*pi / n_l`.
-   *
-   * @param level Pyramid level, 0 is finest.
-   * @param bin Bin index in `[0, numBins(level))`.
-   * @return Yaw angle in radians.
-   */
+  // Bin centres, not corners: (k + 0.5) * 2pi / n_l.
   double binCentre(int level, int64_t bin) const
   {
     const int64_t n = numBins(level);
@@ -175,27 +116,11 @@ struct YawDiscretization
   }
 };
 
-/**
- * @brief Cell-centre translation for an integer voxel index at a resolution.
- *
- * Node poses are represented at the CELL CENTRE, never the cell corner. This
- * is what lets `VoxelLevel::hitBound()`'s 26-neighbourhood dilation serve as a
- * valid upper bound: a child's representative pose differs from its parent's
- * by at most `r_l/2` per translation axis (half a cell) plus at most
- * `max_range * dtheta_l / 2 = r_l/2` from the half-bin yaw offset, for a total
- * per-axis displacement bounded by `r_l`. That means a query point's voxel
- * index at resolution `r_l` can change by at most one step between a node and
- * any of its descendants -- exactly the neighbourhood the dilation covers. A
- * corner-based representative would allow up to a full `r_l` of translation
- * displacement on top of the yaw offset and would break the bound, letting
- * branch-and-bound prune away the true pose.
- *
- * @param ix Voxel index along x.
- * @param iy Voxel index along y.
- * @param iz Voxel index along z.
- * @param resolution Voxel edge length at this level (m).
- * @return Map-frame translation of the cell centre.
- */
+// Cell-centre translation for an integer voxel index. Node poses are represented at the cell
+// centre, never the corner: that bounds a child's displacement from its parent to at most r_l
+// per axis (half a cell of translation + half a bin of yaw), which is exactly the neighbourhood
+// hitBound()'s 26-neighbourhood dilation covers. A corner-based representative would exceed that
+// bound and let branch-and-bound prune away the true pose.
 inline Eigen::Vector3d bnbCellCentre(int64_t ix, int64_t iy, int64_t iz, double resolution)
 {
   return Eigen::Vector3d(
@@ -204,69 +129,18 @@ inline Eigen::Vector3d bnbCellCentre(int64_t ix, int64_t iy, int64_t iz, double 
     (static_cast<double>(iz) + 0.5) * resolution);
 }
 
-/**
- * @brief Score a candidate pose against one pyramid level.
- *
- * This is the single scoring routine shared by the branch-and-bound bound
- * computation, its leaf scoring, and both brute-force oracles, so they cannot
- * drift apart. Query points are transformed by a yaw rotation about Z
- * followed by the translation, then classified per point into one of three
- * states -- occupied, known-free, or unknown -- and summed into a ternary
- * score (see the module-level contract this header implements): occupied
- * contributes `hit_weight`, known-free contributes 0, unknown contributes 1.
- * Occupied/free are tested via `hitBound()`/`isFreeBound()` (upper/lower
- * bounds) for any level above 0, and the exact `hit()`/`isFree()` at level 0.
- *
- * Because a query point can never contribute more than `hit_weight`, the
- * score is always in `[0, hit_weight * n]` -- deliberately non-negative, so
- * that `prune_slack * best_score` stays a valid relaxed prune threshold.
- *
- * BACKWARD COMPATIBILITY: when the pyramid was built with
- * `build_free_space = false`, no voxel is ever known-free, so every point is
- * either occupied or unknown and the score reduces to
- * `hit_weight * hits + (n - hits) = (hit_weight - 1) * hits + n`, which is
- * strictly monotone in the hit count for any `hit_weight > 1`. Ranking by this
- * score is therefore bit-identical to ranking by the old pure hit count.
- *
- * @param pyramid Pyramid to score against.
- * @param query Body-frame, gravity-de-tilted query points.
- * @param translation Candidate map-frame translation.
- * @param yaw Candidate map-frame yaw about Z (rad).
- * @param level Pyramid level to score against, 0 is finest.
- * @param hit_weight Per-point weight W for an occupied hit. Defaults to 3, matching
- *   `SearchConfig::hit_weight`, so callers that only care about the binary/ternary
- *   ranking do not need to thread a config through. Only consulted under
- *   `ScoreMode::Occupancy`; under `ScoreMode::DistanceField` a point's contribution is
- *   the stored cell value in `[0, 255]` instead, via `scoreAt()`/`scoreBound()`.
- * @param min_required Optional score floor. Once the remaining, unscored points
- *   could not possibly bring the running score up to `min_required`, scoring
- *   stops early and the (necessarily truncated) partial count is returned. The
- *   maximum a single remaining point can contribute is `hit_weight` under
- *   `ScoreMode::Occupancy` or `255` under `ScoreMode::DistanceField`, so the
- *   impossibility test is `score + remaining * per_point_max < min_required`.
- *   Defaults to 0, under which that bound can never hold, so scoring always
- *   runs to completion -- this is what keeps the brute-force oracles, which
- *   call this function without the argument, exhaustive.
- *
- *   SOUNDNESS INVARIANT: early exit only fires when reaching `min_required` is
- *   arithmetically impossible, so any value `> min_required - 1` (equivalently
- *   any value a caller compares against a threshold as `> min_required - 1`)
- *   returned here was necessarily scored to completion and is EXACT. A
- *   truncated return is always `< min_required`. Callers that reject nodes
- *   scoring `< min_required` therefore never mistake a truncated partial count
- *   for a true bound, and never push a node whose score was truncated.
- * @param point_tests_out Optional accumulator incremented once per query point
- *   actually tested, so callers can measure the early-exit benefit.
- * @param score_mode Scoring model to evaluate. `Occupancy` reproduces the original
- *   ternary score bit-for-bit (see the BACKWARD COMPATIBILITY note above) and is
- *   UNCHANGED by this parameter's addition. `DistanceField` (the default, matching
- *   `SearchConfig::score_mode`) instead sums each point's stored cell value via
- *   `scoreAt()`/`scoreBound()`, ignoring the free-space channel entirely -- a point far
- *   from all structure already scores near 0 continuously, which is what the ternary
- *   unknown/free split was approximating.
- * @return The score (ternary under Occupancy, cell-value sum under DistanceField), or a
- *   truncated partial count strictly below `min_required` if scoring was abandoned early.
- */
+// Scores a candidate pose against one pyramid level -- the single routine shared by the
+// branch-and-bound bound computation, its leaf scoring, and both brute-force oracles, so they
+// can't drift apart. Occupancy mode classifies each point occupied/free/unknown via
+// hitBound()/isFreeBound() (level 0 uses the exact hit()/isFree()) and sums hit_weight/0/1;
+// DistanceField mode sums each point's stored falloff cell value instead. Score is always
+// non-negative, which is what keeps prune_slack * best_score a valid relaxed threshold.
+//
+// `min_required`: once the remaining unscored points can't possibly reach it, scoring stops
+// early and returns a truncated partial count. Soundness invariant: any returned value >
+// min_required - 1 was therefore always scored to completion (exact); only a truncated return is
+// < min_required. Default 0 makes early exit impossible, which is what keeps the brute-force
+// oracles (which don't pass this) exhaustive.
 inline int scorePoseAtLevel(
   const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query,
   const Eigen::Vector3d & translation, double yaw, int level, int hit_weight = 3, int min_required = 0,
@@ -278,15 +152,10 @@ inline int scorePoseAtLevel(
   const bool leaf = (level == 0);
 
   const int n = static_cast<int>(query.size());
-  // The maximum a single remaining point could still contribute, for the min_required
-  // impossibility test below: hit_weight under the ternary Occupancy score, 255 (a
-  // uint8_t cell value) under DistanceField.
   const int per_point_max = (score_mode == ScoreMode::DistanceField) ? 255 : hit_weight;
 
   int score = 0;
 
-  // Transform one query point into the map frame under the candidate pose. Shared by both
-  // scoring paths so they cannot drift apart.
   const auto mapPoint = [&](int i) {
     const auto & q = query[static_cast<std::size_t>(i)];
     return Eigen::Vector3d(
@@ -294,19 +163,11 @@ inline int scorePoseAtLevel(
   };
 
   if (score_mode == ScoreMode::DistanceField) {
-    // Distance-field scoring is a hash probe per point into a table far larger than cache
-    // (hundreds of MB at level 0 on a km-scale map), so it is bound by memory latency rather
-    // than arithmetic. Points are independent, so the loop runs a small software pipeline:
-    // issue the cache miss for a point kPrefetch ahead, then score the current one against a
-    // line that has had time to arrive. scoreBound() IS scoreAt() at every level (levels above
-    // 0 are stored pre-max-pooled), so one path covers both, unlike the occupancy branch below.
-    //
-    // Results are bit-identical to the unpipelined form: prefetching is advisory, and the
-    // early-exit test below is evaluated in the same order against the same running score.
-    constexpr int kPrefetch = 8;  // Power of two, so the ring index below is a mask.
-    // Keys already computed and prefetched but not yet scored. Carrying them means each point's
-    // rotation and key packing happen exactly once, rather than once to prefetch and again to
-    // score.
+    // A hash probe per point into a table far larger than cache (hundreds of MB at level 0 on a
+    // km-scale map) is memory-latency bound, so this software-pipelines: prefetch kPrefetch
+    // points ahead, score the current one against a line that's had time to arrive. Bit-identical
+    // to the unpipelined form -- prefetch is advisory only.
+    constexpr int kPrefetch = 8;  // power of two, so the ring index below is a mask
     int64_t pending[kPrefetch];
     const int primed = n < kPrefetch ? n : kPrefetch;
     for (int j = 0; j < primed; ++j) {
@@ -318,8 +179,6 @@ inline int scorePoseAtLevel(
       const int slot = i & (kPrefetch - 1);
       const int64_t key = pending[slot];
 
-      // Refill this slot with the point kPrefetch further on, whose line then has the rest of
-      // this iteration's work to arrive in.
       const int ahead = i + kPrefetch;
       if (ahead < n) {
         pending[slot] = lvl.scoreKey(mapPoint(ahead));
@@ -330,7 +189,7 @@ inline int scorePoseAtLevel(
       if (point_tests_out != nullptr) ++(*point_tests_out);
 
       const int remaining = n - i - 1;
-      if (score + remaining * per_point_max < min_required) return score;  // cannot reach min_required.
+      if (score + remaining * per_point_max < min_required) return score;
     }
     return score;
   }
@@ -340,58 +199,30 @@ inline int scorePoseAtLevel(
     if (leaf ? lvl.hit(p) : lvl.hitBound(p)) {
       score += hit_weight;
     } else if (!(leaf ? lvl.isFree(p) : lvl.isFreeBound(p))) {
-      score += 1;  // unknown: neither occupied nor known-free.
+      score += 1;  // unknown
     }
-    // else: known-free, contributes 0.
     if (point_tests_out != nullptr) ++(*point_tests_out);
 
     const int remaining = n - i - 1;
-    if (score + remaining * per_point_max < min_required) return score;  // cannot possibly reach min_required.
+    if (score + remaining * per_point_max < min_required) return score;
   }
   return score;
 }
 
-/// @brief Per-point breakdown of a score, for diagnostics only. Meaning of each field
-/// depends on the mode it was computed under (see scoreBreakdownAtLevel()).
+// Per-point breakdown of a score, for diagnostics only.
 struct ScoreBreakdown
 {
-  int hits = 0;  ///< Occupancy: points landing in occupied (or hitBound-occupied) space.
-                 ///< DistanceField: points whose cell value is non-zero, i.e. within
-                 ///< `df_truncation_voxels` of some occupied voxel.
-  int unknown = 0;  ///< Occupancy: points in neither occupied nor known-free space.
-                 ///< DistanceField: points whose cell value is 0 (absent from the field).
-  int free = 0;  ///< Occupancy: points landing in known-free space. Always 0 under
-                 ///< DistanceField -- that mode ignores the free-space channel entirely.
-  int raw = 0;  ///< The score scorePoseAtLevel() returns for identical arguments:
-                ///< `hit_weight * hits + unknown` under Occupancy, the sum of per-point
-                ///< cell values under DistanceField.
-  int max_possible = 0;  ///< Upper bound on `raw`: `hit_weight * n` under Occupancy,
-                ///< `255 * n` under DistanceField -- lets a caller normalise `raw`
-                ///< without knowing which mode produced it.
-  double mean_cell_score = 0.0;  ///< `raw / n`, for diagnostics: the average per-point
-                ///< contribution, regardless of mode.
+  int hits = 0;     // Occupied points (Occupancy) or non-zero-cell points (DistanceField).
+  int unknown = 0;  // Neither occupied nor free (Occupancy) or zero-cell (DistanceField).
+  int free = 0;     // Known-free points. Always 0 under DistanceField.
+  int raw = 0;      // Same value scorePoseAtLevel() would return for identical arguments.
+  int max_possible = 0;      // hit_weight*n (Occupancy) or 255*n (DistanceField).
+  double mean_cell_score = 0.0;  // raw / n.
 };
 
-/**
- * @brief Exhaustively break a score down into its per-point components.
- *
- * Diagnostics only: unlike scorePoseAtLevel(), this always tests every query
- * point (no `min_required` early exit), so callers can log the composition of
- * a score without perturbing search performance. Uses the exact same per-point
- * classification as scorePoseAtLevel(), so `breakdown.raw` always equals what
- * `scorePoseAtLevel(..., level, hit_weight, 0, nullptr, score_mode)` returns
- * for identical arguments.
- *
- * @param pyramid Pyramid to score against.
- * @param query Body-frame, gravity-de-tilted query points.
- * @param translation Candidate map-frame translation.
- * @param yaw Candidate map-frame yaw about Z (rad).
- * @param level Pyramid level to score against, 0 is finest.
- * @param hit_weight Per-point weight W for an occupied hit; see scorePoseAtLevel(). Only
- *   consulted under `ScoreMode::Occupancy`.
- * @param score_mode Scoring model to evaluate; see scorePoseAtLevel().
- * @return The per-point breakdown and the resulting raw score.
- */
+// Exhaustive per-point breakdown (no min_required early exit), so callers can log a score's
+// composition without perturbing search performance. Same classification as scorePoseAtLevel(),
+// so breakdown.raw always matches what that function returns for identical arguments.
 inline ScoreBreakdown scoreBreakdownAtLevel(
   const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query,
   const Eigen::Vector3d & translation, double yaw, int level, int hit_weight = 3,
@@ -433,37 +264,23 @@ inline ScoreBreakdown scoreBreakdownAtLevel(
   return out;
 }
 
-/**
- * @brief One frontier node in the branch-and-bound search.
- *
- * `bound` is the score computed by `scorePoseAtLevel()` at `level`: an upper
- * bound for `level > 0`, and the exact leaf score for `level == 0`.
- */
+// One frontier node. `bound` is scorePoseAtLevel()'s value at `level`: an upper bound for
+// level > 0, the exact leaf score at level 0.
 struct BnbNode
 {
-  int level = 0;  ///< Pyramid level this node lives at, 0 is finest.
-  int64_t ix = 0;  ///< Voxel index along x at `level`.
-  int64_t iy = 0;  ///< Voxel index along y at `level`.
-  int64_t iz = 0;  ///< Voxel index along z at `level`.
-  int64_t yaw_bin = 0;  ///< Yaw bin index at `level`.
-  int bound = 0;  ///< Upper bound (or exact leaf score) for this node.
+  int level = 0;
+  int64_t ix = 0;
+  int64_t iy = 0;
+  int64_t iz = 0;
+  int64_t yaw_bin = 0;
+  int bound = 0;
 };
 
-/// @brief Orders `BnbNode`s so the priority queue pops the highest bound first,
-/// breaking ties by depth.
+// Max-heap by bound; ties broken by popping the DEEPER (smaller-level) node first, which pushes
+// the search depth-first through tied regions and raises the incumbent sooner. Still exact
+// best-first search -- only the tie-break order changes, never which nodes are admissible.
 struct BnbNodeGreaterByBound
 {
-  /// @param a Left-hand node.
-  /// @param b Right-hand node.
-  /// @return True if `a` should sort below `b`: either `a`'s bound is smaller,
-  ///   or the bounds are equal and `a` is the shallower (larger-level) node.
-  ///
-  /// Bounds are small integers and tie constantly, so on a tie the DEEPER node
-  /// (smaller `level`) is popped first -- `a.level > b.level` sorts `a` below
-  /// `b`. This pushes the search depth-first through tied regions, raising the
-  /// incumbent earlier so the prune threshold actually bites sooner. It is
-  /// still an exact best-first search: only the tie-break order changes, never
-  /// which nodes are admissible.
   bool operator()(const BnbNode & a, const BnbNode & b) const
   {
     if (a.bound != b.bound) return a.bound < b.bound;
@@ -471,25 +288,10 @@ struct BnbNodeGreaterByBound
   }
 };
 
-/**
- * @brief Best-first branch-and-bound search for the 4-DOF pose maximizing hits.
- *
- * Seeds the frontier with every root cell crossed with every coarsest-level
- * yaw bin, then repeatedly pops the highest-bound node: level-0 leaves are
- * recorded as solutions, and internal nodes expand into 16 children (8
- * translation children x 2 yaw children) whose bounds exceed the current
- * prune threshold. See `SearchConfig::prune_slack` for why that threshold sits
- * below `best_score` rather than at it, and `bnbCellCentre()` for why node
- * poses are cell-centre / bin-centre rather than corner-based.
- *
- * @param pyramid Occupancy pyramid to search against.
- * @param query Body-frame, gravity-de-tilted query points.
- * @param roots Starting cells at the pyramid's coarsest level.
- * @param cfg Search tuning parameters.
- * @param stats Output: counters describing this run.
- * @return Up to `cfg.max_solutions` hypotheses, sorted by score descending and
- *   mutually separated by more than `cfg.nms_radius`.
- */
+// Best-first branch-and-bound search for the 4-DOF pose maximizing hits. Seeds the frontier with
+// every root cell x every coarsest-level yaw bin, then repeatedly pops the highest-bound node:
+// level-0 leaves are recorded as solutions, internal nodes expand into 16 children (8 translation
+// x 2 yaw) whose bounds exceed the current prune threshold.
 inline std::vector<Hypothesis> branchAndBound(
   const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query, const std::vector<RootCell> & roots,
   const SearchConfig & cfg, SearchStats & stats)
@@ -499,15 +301,10 @@ inline std::vector<Hypothesis> branchAndBound(
   if (query.empty() || roots.empty() || pyramid.empty() || pyramid.numLevels() <= 0) return solutions;
 
   const YawDiscretization yaw_disc = YawDiscretization::compute(query, pyramid);
-  if (yaw_disc.max_range <= 0.0) return solutions;  // degenerate query set, guard div-by-zero.
+  if (yaw_disc.max_range <= 0.0) return solutions;
 
   const int coarsest = pyramid.numLevels() - 1;
 
-  // Bound/score a node's representative pose (cell centre, bin centre) against
-  // its own level, via the single shared scoring routine. `min_required` is
-  // forwarded to `scorePoseAtLevel()`'s early exit -- see the soundness
-  // invariant documented there: a value this returns that is `> min_required - 1`
-  // is always exact, never truncated, so it is safe to push onto the frontier.
   auto boundOf = [&](int level, int64_t ix, int64_t iy, int64_t iz, int64_t yaw_bin, int min_required) -> int {
     const double resolution = pyramid.level(level).resolution;
     const Eigen::Vector3d translation = bnbCellCentre(ix, iy, iz, resolution);
@@ -516,10 +313,6 @@ inline std::vector<Hypothesis> branchAndBound(
       pyramid, query, translation, yaw, level, cfg.hit_weight, min_required, &stats.point_tests, cfg.score_mode);
   };
 
-  // Build the Hypothesis for a level-0 leaf, including the hits/hit_fraction breakdown
-  // that scorePoseAtLevel()'s single ternary count does not expose. Exhaustive (via
-  // scoreBreakdownAtLevel(), which never early-exits), but only ever called once per
-  // accepted leaf, not per node -- negligible next to the bound evaluations above.
   auto leafHypothesis = [&](int64_t ix, int64_t iy, int64_t iz, int64_t yaw_bin) -> Hypothesis {
     const Eigen::Vector3d translation = bnbCellCentre(ix, iy, iz, pyramid.level(0).resolution);
     const double yaw = yaw_disc.binCentre(0, yaw_bin);
@@ -531,7 +324,6 @@ inline std::vector<Hypothesis> branchAndBound(
     h.score = breakdown.raw;
     h.hits = breakdown.hits;
     h.hit_fraction = static_cast<double>(breakdown.hits) / static_cast<double>(query.size());
-    // max_possible = hit_weight*n or 255*n, per breakdown's own mode -- see ScoreBreakdown.
     h.normalized = breakdown.max_possible > 0
                      ? static_cast<double>(breakdown.raw) / static_cast<double>(breakdown.max_possible)
                      : 0.0;
@@ -541,17 +333,13 @@ inline std::vector<Hypothesis> branchAndBound(
   std::priority_queue<BnbNode, std::vector<BnbNode>, BnbNodeGreaterByBound> frontier;
 
   int best_score = 0;
-  // Starts at -1 (rather than 0) so every non-negative bound is admissible
-  // before any solution has been found -- and so `prune_threshold + 1 == 0`,
-  // under which scorePoseAtLevel()'s early exit can never fire (see its
-  // default-argument doc), keeping this seeding pass exhaustive per node.
+  // -1, not 0: makes every non-negative bound admissible before any solution exists, and makes
+  // prune_threshold + 1 == 0, under which scorePoseAtLevel()'s early exit can never fire.
   int prune_threshold = -1;
 
   const int64_t n_coarse = yaw_disc.numBins(coarsest);
   for (const auto & root : roots) {
     for (int64_t k = 0; k < n_coarse; ++k) {
-      // A node is kept only when its bound exceeds prune_threshold, exactly as
-      // for child expansion below; see the soundness invariant on scorePoseAtLevel().
       const int bound = boundOf(coarsest, root.ix, root.iy, root.iz, k, prune_threshold + 1);
       if (bound > prune_threshold) {
         frontier.push(BnbNode{coarsest, root.ix, root.iy, root.iz, k, bound});
@@ -561,16 +349,10 @@ inline std::vector<Hypothesis> branchAndBound(
     }
   }
 
-  // Greedy dive: establish a real incumbent before the main loop runs, so the
-  // threshold-aware early exit in scorePoseAtLevel() (Change 1) has something
-  // to bite on from the very first pop instead of only after ~48k blind
-  // expansions. Starting from the single highest-bound root node (the
-  // frontier's current top, under BnbNodeGreaterByBound's max-heap ordering),
-  // repeatedly evaluate all 16 children and follow only the best-scoring one
-  // down to a level-0 leaf. Every evaluation here uses min_required = 0, so
-  // per the soundness invariant none of these scores are ever truncated --
-  // this dive is exact, not part of the pruned search tree, and does not
-  // affect nodes_expanded/nodes_pruned.
+  // Greedy dive: establish a real incumbent before the main loop, so the min_required early exit
+  // has something to bite on from the first pop instead of after tens of thousands of blind
+  // expansions. Follows only the best-scoring child down to a leaf; exact (min_required=0
+  // throughout), and doesn't count toward nodes_expanded/nodes_pruned.
   if (!frontier.empty()) {
     BnbNode cur = frontier.top();
     while (cur.level > 0) {
@@ -598,12 +380,10 @@ inline std::vector<Hypothesis> branchAndBound(
       cur = best_child;
     }
 
-    // cur is now a level-0 leaf, scored exactly (min_required = 0 above).
     const Hypothesis h = leafHypothesis(cur.ix, cur.iy, cur.iz, cur.yaw_bin);
     solutions.push_back(h);
 
     best_score = h.score;
-    // Same slack rule as the main loop's incumbent update below.
     prune_threshold = static_cast<int>(std::floor(static_cast<double>(best_score) * cfg.prune_slack));
   }
 
@@ -617,21 +397,16 @@ inline std::vector<Hypothesis> branchAndBound(
     frontier.pop();
     ++stats.nodes_expanded;
 
-    // The frontier is ordered by bound descending, so once the best remaining
-    // node cannot beat the threshold, nothing behind it can either.
+    // Frontier is ordered by bound descending: once the best remaining node can't beat the
+    // threshold, nothing behind it can either.
     if (node.bound <= prune_threshold) break;
 
     if (node.level == 0) {
-      // node.bound is the exact leaf score already (scorePoseAtLevel() used hit()/
-      // isFree() at level 0); leafHypothesis() recomputes it via scoreBreakdownAtLevel()
-      // to also get the hits/hit_fraction split -- the two must and do agree.
       const Hypothesis h = leafHypothesis(node.ix, node.iy, node.iz, node.yaw_bin);
       solutions.push_back(h);
 
       if (h.score > best_score) {
         best_score = h.score;
-        // Textbook BnB would prune at best_score; see SearchConfig::prune_slack
-        // for why we deliberately prune below it instead.
         prune_threshold = static_cast<int>(std::floor(static_cast<double>(best_score) * cfg.prune_slack));
       }
       continue;
@@ -646,13 +421,6 @@ inline std::vector<Hypothesis> branchAndBound(
             const int64_t ciy = node.iy * 2 + dy;
             const int64_t ciz = node.iz * 2 + dz;
             const int64_t ck = node.yaw_bin * 2 + dk;
-            // A node is kept only when its bound exceeds prune_threshold, so the
-            // score floor passed in is exactly one above that threshold. Per the
-            // soundness invariant on scorePoseAtLevel(): child_bound can only be
-            // truncated when it is < min_required, i.e. <= prune_threshold, i.e.
-            // exactly the branch that gets pruned below -- so a child_bound that
-            // passes the `> prune_threshold` test here was always scored to
-            // completion and is exact, never a truncated partial count.
             const int child_bound = boundOf(child_level, cix, ciy, ciz, ck, prune_threshold + 1);
             if (child_bound > prune_threshold) {
               frontier.push(BnbNode{child_level, cix, ciy, ciz, ck, child_bound});
@@ -683,25 +451,10 @@ inline std::vector<Hypothesis> branchAndBound(
   return accepted;
 }
 
-/**
- * @brief Exhaustively score every root cell x every coarsest-level yaw bin.
- *
- * No pruning: every candidate is scored via the same `scorePoseAtLevel()`
- * routine (against the coarsest level, using `hitBound()`) that seeds
- * `branchAndBound()`'s frontier, so this validates the scoring function
- * independently of the bound-and-prune logic.
- *
- * @param pyramid Pyramid to score against.
- * @param query Body-frame, gravity-de-tilted query points.
- * @param roots Starting cells at the pyramid's coarsest level.
- * @param max_results Maximum number of hypotheses to return.
- * @param score_mode Scoring model to evaluate; see scorePoseAtLevel(). Must match the
- *   mode the caller wants to validate against `branchAndBound()` -- passing the wrong
- *   mode here scores against a channel the pyramid may never have built (e.g.
- *   DistanceField against a pyramid built with `score_mode = Occupancy` reads an empty
- *   score grid and returns all zeros).
- * @return Up to `max_results` hypotheses, sorted by score descending.
- */
+// Exhaustively scores every root x every coarsest-level yaw bin (no pruning), via the same
+// scorePoseAtLevel() call that seeds branchAndBound()'s frontier -- validates the scoring
+// function independently of the bound-and-prune logic. `score_mode` must match what the pyramid
+// was actually built with, or this reads an empty/wrong score channel.
 inline std::vector<Hypothesis> bruteForceCoarse(
   const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query, const std::vector<RootCell> & roots,
   int max_results, ScoreMode score_mode = ScoreMode::DistanceField)
@@ -715,11 +468,7 @@ inline std::vector<Hypothesis> bruteForceCoarse(
   const int coarsest = pyramid.numLevels() - 1;
   const double resolution = pyramid.level(coarsest).resolution;
   const int64_t n_coarse = yaw_disc.numBins(coarsest);
-  // No SearchConfig here, so use scorePoseAtLevel()/scoreBreakdownAtLevel()'s own default
-  // hit_weight -- the same default as SearchConfig::hit_weight, so a caller comparing
-  // this oracle against branchAndBound() at default settings gets a matching scale.
-  // Only consulted under ScoreMode::Occupancy.
-  constexpr int kHitWeight = 3;
+  constexpr int kHitWeight = 3;  // matches SearchConfig::hit_weight's default
 
   for (const auto & root : roots) {
     const Eigen::Vector3d translation = bnbCellCentre(root.ix, root.iy, root.iz, resolution);
@@ -748,24 +497,9 @@ inline std::vector<Hypothesis> bruteForceCoarse(
   return results;
 }
 
-/**
- * @brief Exhaustively score every level-0 cell in a box x every level-0 yaw bin.
- *
- * Reference oracle for branch-and-bound equivalence testing: every level-0
- * cell whose centre falls in `[box_min, box_max]` is scored against every
- * level-0 yaw bin, using the same `scorePoseAtLevel()` / cell-centre / bin-centre
- * convention as the branch-and-bound leaf. Intentionally slow (cubic in box
- * size times query size times yaw bins); only suitable for small boxes in tests.
- *
- * @param pyramid Pyramid to score against.
- * @param query Body-frame, gravity-de-tilted query points.
- * @param box_min Map-frame lower corner of the search box.
- * @param box_max Map-frame upper corner of the search box.
- * @param max_results Maximum number of hypotheses to return.
- * @param score_mode Scoring model to evaluate; see bruteForceCoarse() for why this must
- *   match the mode the pyramid was actually built with.
- * @return Up to `max_results` hypotheses, sorted by score descending.
- */
+// Exhaustively scores every level-0 cell in a box x every level-0 yaw bin. Reference oracle for
+// branch-and-bound equivalence testing; intentionally slow (cubic in box size x query size x yaw
+// bins) -- only suitable for small boxes in tests.
 inline std::vector<Hypothesis> bruteForceLeaf(
   const VoxelPyramid & pyramid, const std::vector<Eigen::Vector3d> & query, const Eigen::Vector3d & box_min,
   const Eigen::Vector3d & box_max, int max_results, ScoreMode score_mode = ScoreMode::DistanceField)
@@ -786,7 +520,6 @@ inline std::vector<Hypothesis> bruteForceLeaf(
   const int64_t iy_max = voxelIndex(box_max.y(), inv_resolution);
   const int64_t iz_max = voxelIndex(box_max.z(), inv_resolution);
   const int64_t n0 = yaw_disc.numBins(0);
-  // See bruteForceCoarse() for why this matches SearchConfig::hit_weight's default.
   constexpr int kHitWeight = 3;
 
   for (int64_t ix = ix_min; ix <= ix_max; ++ix) {

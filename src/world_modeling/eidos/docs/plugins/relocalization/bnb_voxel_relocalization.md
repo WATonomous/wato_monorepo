@@ -47,10 +47,11 @@ GPS-free global relocalization. Given only a prior `.map` file, one LiDAR scan, 
 | `num_threads` | int | `16` | Thread count for GICP and preprocessing. The branch-and-bound loop itself uses `max(num_threads, omp_get_max_threads())` — see `search_task_multiplier`. |
 | `num_neighbors` | int | `10` | Number of neighbors for normal/covariance estimation. |
 | `search_task_multiplier` | int | `4` | Root chunks cut per roll/pitch offset, as a multiple of the search thread count. With the default `rp_search_steps: 1` there is exactly one offset, so this times the thread count is the entire search's task count. |
-| `use_odom_carry_forward` | bool | `true` | Advance the lock along odometry accumulated during the search, so the returned pose describes the vehicle *now* rather than when its scan was taken. See "Carrying a lock forward" below. |
-| `odom_topic` | string | `"liso/odometry_incremental"` | Odom-frame odometry to measure the carry-forward delta from. Must match `liso_factor`'s `odometry_incremental_topic`. |
-| `odom_buffer_seconds` | double | `300.0` | Odometry history retained (s). Must exceed the worst-case search duration, or the scan-time sample the delta is measured from is trimmed before the search returns and carry-forward declines rather than extrapolates. |
-| `carry_forward_warn_distance` | double | `15.0` | WARN when the carry-forward correction exceeds this (m). |
+| `use_trajectory_reanchor` | bool | `true` | Re-anchor the lock onto the newest scan so the returned pose describes the vehicle *now* rather than when its scan was taken. See "Re-anchoring a lock onto the current scan" below. |
+| `reanchor_search_radius` | double | `250.0` | How far along the prior trajectory, either side of the lock, to look for the vehicle's current position (m). Must cover the distance travelled during the search. |
+| `reanchor_max_nodes` | int | `40000` | Node budget for the restricted re-anchor search. Small because the corridor is a few hundred metres of route, not the whole map. |
+| `reanchor_min_gap` | double | `0.5` | Skip the re-anchor when the newest scan is within this many seconds of the searched one. |
+| `reanchor_warn_distance` | double | `25.0` | WARN when the re-anchor moves the lock more than this (m). |
 | `publish_debug_grid` | bool | `true` | Whether to publish a latched debug OccupancyGrid of the voxel pyramid. |
 | `debug_grid_topic` | string | `"slam/visualization/reloc_voxel_grid"` | Topic for the published debug voxel grid. |
 | `use_free_space` | bool | `false` | Master switch for the free-space scoring channel (see Status below). Only meaningful under `score_mode: occupancy`; under `score_mode: distance_field` the channel is never built or raycast at all, because a distance field already scores a point far from all structure at ~0, continuously, which is what this channel was approximating. `false` reproduces today's binary hit-count score exactly -- ranking is bit-identical. Off by default: the measurement that would validate it turned out to be inconclusive rather than negative -- see Status. |
@@ -76,33 +77,45 @@ GPS-free global relocalization. Given only a prior `.map` file, one LiDAR scan, 
 - This is initial-lock only. Once the node reaches TRACKING the plugin is never polled again; steady-state localization is LISO scan-to-submap matching.
 - Set `publish_debug_grid` and view `debug_grid_topic` in RViz overlaid on `slam/visualization/map` to confirm the pyramid aligns with the map.
 
-## Carrying a lock forward
+## Re-anchoring a lock onto the current scan
 
 A branch-and-bound result describes where the vehicle was **when the scan it searched was taken**.
 `InitSequencer` applies it as the vehicle's *current* pose — `LisoFactor::onTrackingBegin()` rebuilds
-its submap around it and seeds `last_matched_pose_` from it. On a search that takes seconds those
-are not the same place: at 5 m/s a 23 s search hands the tracker a pose ~115 m behind the vehicle,
-and scan-to-submap matching against a submap built there does not converge.
+its submap around it and seeds `last_matched_pose_` from it. On a search that takes tens of seconds
+those are not the same place: at 5 m/s a 90 s search hands the tracker a pose hundreds of metres
+behind the vehicle, and scan-to-submap matching against a submap built there does not converge.
 
-The plugin therefore timestamps the scan it searches (`latest_scan_stamp_`), samples the odom-frame
-pose at that instant, and on a successful lock composes the motion accumulated since:
+**Odometry cannot supply this delta.** Both odometry producers are gated on `TRACKING`:
+
+- `LisoFactor::lidarCallback()` returns early when it has no submap, and in localization mode
+  (`submap_source: prior_map`) it only gets one from `onTrackingBegin()` — which cannot fire until
+  relocalization has already returned.
+- `ImuFactor::imuCallback()` returns early unless the state is already `TRACKING`.
+
+So nothing publishes an odom-frame pose during `RELOCALIZING`, and an odometry-based carry-forward
+silently finds no samples. What *is* available is the prior map's own driven trajectory and a fresh
+scan.
+
+`reanchorToCurrent()` therefore re-runs the existing branch-and-bound against the **current** scan
+over a corridor of roots restricted to `reanchor_search_radius` around the lock. The vehicle drove
+along the mapped route while the search ran, so its current position is on that trajectory within
+roughly (search duration × speed) of where the lock put it — a few hundred metres of route rather
+than the whole map, which is why this search is cheap where the original was not. The winner is then
+refined under **the same GICP convergence and `min_inlier_ratio` gates the original lock had to
+pass**, so a re-anchor can never be accepted on weaker evidence than the pose it replaces.
+
+It runs before `releasePyramidMemory("lock")`, since it searches the same pyramid. On success it
+logs the correction:
 
 ```
-T_map_base(now) = T_map_base(scan) · T_odom_base(scan)⁻¹ · T_odom_base(now)
+re-anchored onto a scan 57.3 s fresher: vehicle moved 184.2 m along the trajectory since the
+searched scan; lock (-282.8,-790.1,-8.8) -> (-421.3,-668.9,-11.2), inliers=7734 (83%)
 ```
 
-The odometry comes from `LisoFactor`'s incremental odometry topic, which runs from its own
-subscription throughout `RELOCALIZING` independently of the SLAM state machine, so the stream is
-live for the whole search. The odom frame is fixed across the interval — LISO only re-anchors on
-`onTrackingBegin()`, which cannot fire until this result is returned — so the `between()` is exactly
-the body motion over it. Samples are interpolated on the manifold (`gtsam::interpolate`), and
-extrapolation outside the buffered interval is **refused** rather than guessed: a lock moved by a
-guessed delta is worse than one the caller knows was not moved.
-
-Every lock logs the correction (`carry-forward: search took X s, vehicle moved Y m / Z deg since its
-scan`), so the search's cost in metres of vehicle travel is visible directly in a field log. If the
-odometry sample is missing the lock is returned uncompensated with a WARN, which is the old
-behaviour.
+If no candidate passes GICP on the fresh scan, the lock is returned as computed with a WARN saying
+how stale it is. If the vehicle travels further than `reanchor_search_radius` during the search it
+outruns the corridor and the re-anchor starts failing — the `reanchor_warn_distance` WARN is the
+early signal for that.
 
 ## Search latency
 
@@ -148,20 +161,34 @@ Measured on `ring_road.map` (992 keyframes, 1.4 km × 1.3 km) against the
 | **Each subsequent attempt** | **~3.6–4.0 s** |
 
 against the 23+ s the plugin previously took. The `128 tasks` in the search log line confirms the
-chunking fix (it was 16). The prefilter is now the dominant per-attempt cost at roughly two thirds
-of each search; the `searchThreads()` change above targets it and is the one item in this list
-**not** yet re-measured.
+chunking fix (it was 16).
+
+**A second run on a loaded machine measured very different absolute numbers** — build 33.4 s,
+prefilter 19.2 s, branch-and-bound 36.5 s, 90.1 s total — while reporting *the same work*:
+`nodes_expanded=199936` and `point_tests=1.28e9`, within 0.3% of the run above. Identical work at
+roughly 8x (build, prefilter) to 30x (search) the wall-clock is a throughput difference, not an
+algorithmic one: contention for cores, or fewer of them. Treat the table above as the figure for a
+quiet 32-core box and the phase *ratios*, not the absolute seconds, as the portable result. If you
+see the 90 s profile, check what else is running before tuning anything here.
 
 The remaining structural cost is the pyramid build, a serial rasterization over every prior
 keyframe. Parallelizing it requires per-thread grids merged at the end, because `VoxelPyramid::insert`
 is not thread-safe — not attempted here.
 
-**None of this makes the plugin lock on this map.** Every one of those 20 attempts was rejected by
-the uniqueness gate with `best=0.774 [hit_fraction=0.998]` against `runner_up=0.771
-[hit_fraction=1.000]` — essentially every query point lands on structure at essentially every pose,
-which is the saturation documented under Status. Latency work and the scoring problem are
-independent: this section makes each attempt cheap, so more of them fit inside
-`relocalization_timeout`, but the score still has to discriminate before any of them can succeed.
+**The plugin does now lock on this map.** Measured:
+
+```
+RELOCALIZED (BnB): pos=(-282.8,-790.1,-8.8) rpy=(-0.4,2.7,165.7) inliers=7983 (85%)
+bnb_score=0.773 (hit_fraction=1.000)
+```
+
+This is the first recorded lock, and it clears the uniqueness gate that rejected all 20 attempts in
+the quieter run above. Note what did *not* change: `hit_fraction=1.000` means the score is still
+saturated exactly as the Status section describes — every query point still lands on structure at
+essentially every pose. The lock came from the longer search reaching a hypothesis whose *excess
+over the chance floor* separated it from the runner-up, not from the scorer becoming
+discriminative. So the Status analysis stands, and locks on this map should be expected to be
+fragile rather than reliable until the scoring problem itself is addressed.
 
 ## Known Limitations
 
