@@ -1,0 +1,2455 @@
+<?xml version="1.0" encoding="UTF-8"?><osm version="0.6" generator="Overpass API 0.7.62.11 87bfad18">
+<note>The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.</note>
+<meta osm_base="2026-08-09T17:39:41Z" areas="2026-08-08T11:35:21Z"/>
+
+  <node id="114158636" lat="43.4720445" lon="-80.5362661">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+    <tag k="traffic_signals:direction" v="both"/>
+  </node>
+  <node id="114158641" lat="43.4714851" lon="-80.5374290"/>
+  <node id="114158644" lat="43.4708992" lon="-80.5378710">
+    <tag k="crossing:barrier" v="no"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="114158648" lat="43.4702552" lon="-80.5382069"/>
+  <node id="250197364" lat="43.4737415" lon="-80.5316751">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="traffic_lights"/>
+    <tag k="traffic_signals:direction" v="both"/>
+  </node>
+  <node id="253262191" lat="43.4728714" lon="-80.5339647"/>
+  <node id="253262192" lat="43.4732890" lon="-80.5328139"/>
+  <node id="256993752" lat="43.4686539" lon="-80.5390435"/>
+  <node id="267232978" lat="43.4786421" lon="-80.5352441">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="267812666" lat="43.4689016" lon="-80.5399269"/>
+  <node id="267812712" lat="43.4664700" lon="-80.5413552"/>
+  <node id="267812713" lat="43.4664236" lon="-80.5415134"/>
+  <node id="267812714" lat="43.4667209" lon="-80.5427754"/>
+  <node id="267812715" lat="43.4669637" lon="-80.5431379"/>
+  <node id="267812716" lat="43.4674185" lon="-80.5435068"/>
+  <node id="267812718" lat="43.4707546" lon="-80.5445759"/>
+  <node id="267812719" lat="43.4711659" lon="-80.5455521"/>
+  <node id="267812720" lat="43.4715702" lon="-80.5471739"/>
+  <node id="267812721" lat="43.4717160" lon="-80.5475205"/>
+  <node id="267812722" lat="43.4719842" lon="-80.5478575"/>
+  <node id="267812723" lat="43.4724725" lon="-80.5480761"/>
+  <node id="267812724" lat="43.4728431" lon="-80.5480533"/>
+  <node id="267812725" lat="43.4732714" lon="-80.5477981"/>
+  <node id="267812726" lat="43.4735335" lon="-80.5474193"/>
+  <node id="267812728" lat="43.4740273" lon="-80.5460080"/>
+  <node id="268012607" lat="43.4726205" lon="-80.5480823"/>
+  <node id="279396675" lat="43.4746293" lon="-80.5464273">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="281859063" lat="43.4707304" lon="-80.5379614">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="290580059" lat="43.4769824" lon="-80.5399389">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="290580949" lat="43.4714188" lon="-80.5375095"/>
+  <node id="293015455" lat="43.4816023" lon="-80.5421026"/>
+  <node id="293015457" lat="43.4812243" lon="-80.5422482"/>
+  <node id="293015459" lat="43.4810068" lon="-80.5422704"/>
+  <node id="293015462" lat="43.4807857" lon="-80.5422506"/>
+  <node id="293015464" lat="43.4806258" lon="-80.5422158"/>
+  <node id="293015466" lat="43.4803661" lon="-80.5421087"/>
+  <node id="293015469" lat="43.4748080" lon="-80.5438290"/>
+  <node id="293015471" lat="43.4748830" lon="-80.5435233"/>
+  <node id="293015473" lat="43.4748875" lon="-80.5432813"/>
+  <node id="293015476" lat="43.4748437" lon="-80.5430608"/>
+  <node id="293015479" lat="43.4747598" lon="-80.5428524"/>
+  <node id="293015481" lat="43.4746521" lon="-80.5426880"/>
+  <node id="293015483" lat="43.4744481" lon="-80.5425373"/>
+  <node id="293015485" lat="43.4732890" lon="-80.5416797"/>
+  <node id="293015491" lat="43.4717398" lon="-80.5398407"/>
+  <node id="293015493" lat="43.4710192" lon="-80.5386470"/>
+  <node id="293015494" lat="43.4709196" lon="-80.5385424"/>
+  <node id="293015495" lat="43.4707947" lon="-80.5384709"/>
+  <node id="293015496" lat="43.4706624" lon="-80.5384385"/>
+  <node id="293015497" lat="43.4705015" lon="-80.5384561"/>
+  <node id="293015498" lat="43.4703716" lon="-80.5385098"/>
+  <node id="293015499" lat="43.4702667" lon="-80.5385797"/>
+  <node id="293015500" lat="43.4697151" lon="-80.5389598"/>
+  <node id="293015501" lat="43.4694089" lon="-80.5393197"/>
+  <node id="293015502" lat="43.4692530" lon="-80.5395219"/>
+  <node id="295175284" lat="43.4710979" lon="-80.5452613"/>
+  <node id="297626901" lat="43.4690365" lon="-80.5438946">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="297626931" lat="43.4667765" lon="-80.5428681"/>
+  <node id="297794499" lat="43.4778030" lon="-80.5376422"/>
+  <node id="298025663" lat="43.4749181" lon="-80.5384083"/>
+  <node id="298025667" lat="43.4735625" lon="-80.5419193">
+    <tag k="check_date" v="2026-03-14"/>
+    <tag k="direction" v="both"/>
+    <tag k="highway" v="stop"/>
+    <tag k="stop" v="all"/>
+  </node>
+  <node id="308436395" lat="43.4762439" lon="-80.5420335">
+    <tag k="was:highway" v="traffic_signals"/>
+  </node>
+  <node id="335616696" lat="43.4741062" lon="-80.5457993"/>
+  <node id="339375651" lat="43.4725631" lon="-80.5409451"/>
+  <node id="339375762" lat="43.4688013" lon="-80.5400165">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="kerb" v="lowered"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="340086040" lat="43.4704987" lon="-80.5580020">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="416186864" lat="43.4730723" lon="-80.5511870"/>
+  <node id="416195632" lat="43.4748169" lon="-80.5462941">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="416232926" lat="43.4747376" lon="-80.5465064">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="416248972" lat="43.4729678" lon="-80.5511107"/>
+  <node id="416251551" lat="43.4740653" lon="-80.5480427"/>
+  <node id="416261032" lat="43.4754859" lon="-80.5440450"/>
+  <node id="416265573" lat="43.4741558" lon="-80.5481045"/>
+  <node id="416302387" lat="43.4755713" lon="-80.5441601"/>
+  <node id="474770372" lat="43.4729596" lon="-80.5369505"/>
+  <node id="474770401" lat="43.4724957" lon="-80.5366067"/>
+  <node id="474770549" lat="43.4710660" lon="-80.5387168"/>
+  <node id="480168567" lat="43.4709638" lon="-80.5379827">
+    <tag k="crossing:barrier" v="no"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="481695394" lat="43.4711429" lon="-80.5377006"/>
+  <node id="481695395" lat="43.4710331" lon="-80.5377729"/>
+  <node id="481695396" lat="43.4712473" lon="-80.5376670"/>
+  <node id="481695397" lat="43.4712035" lon="-80.5377805"/>
+  <node id="481695398" lat="43.4710804" lon="-80.5378924"/>
+  <node id="481695399" lat="43.4707712" lon="-80.5380998">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="481695400" lat="43.4703075" lon="-80.5383615"/>
+  <node id="481695401" lat="43.4686944" lon="-80.5391879"/>
+  <node id="481695407" lat="43.4642973" lon="-80.5415036">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="481695408" lat="43.4718106" lon="-80.5369020"/>
+  <node id="481695409" lat="43.4716714" lon="-80.5371571"/>
+  <node id="533769764" lat="43.4705342" lon="-80.5582546">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="533769766" lat="43.4705820" lon="-80.5581250">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="533769769" lat="43.4714641" lon="-80.5556505"/>
+  <node id="533769772" lat="43.4722534" lon="-80.5534516"/>
+  <node id="533769787" lat="43.4733555" lon="-80.5503933"/>
+  <node id="533769792" lat="43.4747096" lon="-80.5462097">
+    <tag k="highway" v="traffic_signals"/>
+  </node>
+  <node id="533789218" lat="43.4690196" lon="-80.5397986"/>
+  <node id="533789219" lat="43.4687973" lon="-80.5391354"/>
+  <node id="533789220" lat="43.4687527" lon="-80.5389864"/>
+  <node id="542897914" lat="43.4664946" lon="-80.5422315"/>
+  <node id="542897919" lat="43.4664042" lon="-80.5418541"/>
+  <node id="542897987" lat="43.4722106" lon="-80.5480026"/>
+  <node id="542898017" lat="43.4677825" lon="-80.5436591"/>
+  <node id="542898053" lat="43.4695935" lon="-80.5440166"/>
+  <node id="542898120" lat="43.4709741" lon="-80.5448407"/>
+  <node id="542898121" lat="43.4710526" lon="-80.5450631"/>
+  <node id="542898268" lat="43.4686009" lon="-80.5401425"/>
+  <node id="542898269" lat="43.4666834" lon="-80.5410738"/>
+  <node id="544515528" lat="43.4755594" lon="-80.5388846"/>
+  <node id="648487884" lat="43.4731276" lon="-80.5479303"/>
+  <node id="648487893" lat="43.4739716" lon="-80.5461727">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="648487905" lat="43.4769005" lon="-80.5398774"/>
+  <node id="648487949" lat="43.4786803" lon="-80.5351447">
+    <tag k="button_operated" v="no"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+    <tag k="traffic_signals:sound" v="no"/>
+    <tag k="traffic_signals:vibration" v="no"/>
+  </node>
+  <node id="702788365" lat="43.4704562" lon="-80.5384669"/>
+  <node id="702836758" lat="43.4675138" lon="-80.5435560"/>
+  <node id="702836914" lat="43.4670649" lon="-80.5408835"/>
+  <node id="702836937" lat="43.4676210" lon="-80.5435987"/>
+  <node id="703741372" lat="43.4684044" lon="-80.5402398"/>
+  <node id="1186769209" lat="43.4724223" lon="-80.5352449"/>
+  <node id="1186769214" lat="43.4723123" lon="-80.5355454"/>
+  <node id="1435948649" lat="43.4679713" lon="-80.5404331"/>
+  <node id="1435969039" lat="43.4663987" lon="-80.5416801"/>
+  <node id="1435969043" lat="43.4668372" lon="-80.5409878"/>
+  <node id="1435969045" lat="43.4672059" lon="-80.5408225"/>
+  <node id="1435969051" lat="43.4681708" lon="-80.5403471"/>
+  <node id="1435969157" lat="43.4669730" lon="-80.5409291"/>
+  <node id="1435969166" lat="43.4666704" lon="-80.5426970">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="1450232687" lat="43.4742285" lon="-80.5454727"/>
+  <node id="1450232769" lat="43.4720378" lon="-80.5402803">
+    <tag k="bicycle" v="yes"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="1450232802" lat="43.4724112" lon="-80.5407639">
+    <tag k="direction" v="both"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="1450232866" lat="43.4706048" lon="-80.5384362"/>
+  <node id="1450232939" lat="43.4707089" lon="-80.5384398">
+    <tag k="bicycle" v="yes"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="1473880526" lat="43.4738864" lon="-80.5376442"/>
+  <node id="1473880534" lat="43.4744598" lon="-80.5380740"/>
+  <node id="1474002565" lat="43.4687158" lon="-80.5392643">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="source" v="survey"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="no"/>
+  </node>
+  <node id="1474002569" lat="43.4688199" lon="-80.5392077">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="source" v="survey"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="no"/>
+  </node>
+  <node id="1503534619" lat="43.4673430" lon="-80.5434495"/>
+  <node id="1503542034" lat="43.4741169" lon="-80.5423154"/>
+  <node id="1503542076" lat="43.4742671" lon="-80.5453683">
+    <tag k="crossing:signals" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="1503542111" lat="43.4748767" lon="-80.5432120">
+    <tag k="bicycle" v="yes"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="1503542117" lat="43.4745615" lon="-80.5426179"/>
+  <node id="1503542132" lat="43.4659302" lon="-80.5406326"/>
+  <node id="1503542133" lat="43.4741484" lon="-80.5423369"/>
+  <node id="1504649391" lat="43.4671670" lon="-80.5433323"/>
+  <node id="1504649400" lat="43.4665632" lon="-80.5411909"/>
+  <node id="1505820853" lat="43.4665693" lon="-80.5424704"/>
+  <node id="1505820872" lat="43.4734162" lon="-80.5476197"/>
+  <node id="1505820877" lat="43.4708768" lon="-80.5446867"/>
+  <node id="1505820879" lat="43.4713029" lon="-80.5461056"/>
+  <node id="1505820881" lat="43.4736853" lon="-80.5470277"/>
+  <node id="1505820898" lat="43.4715886" lon="-80.5472429"/>
+  <node id="1505820910" lat="43.4747131" lon="-80.5427651"/>
+  <node id="1505832327" lat="43.4736183" lon="-80.5419612">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="1536649398" lat="43.4779033" lon="-80.5405426"/>
+  <node id="1572274271" lat="43.4644205" lon="-80.5412523"/>
+  <node id="1572288602" lat="43.4743977" lon="-80.5450253"/>
+  <node id="1585304133" lat="43.4729699" lon="-80.5480170"/>
+  <node id="1585304156" lat="43.4718415" lon="-80.5477139"/>
+  <node id="1585304159" lat="43.4686938" lon="-80.5438342">
+    <tag k="direction" v="both"/>
+    <tag k="traffic_calming" v="hump"/>
+  </node>
+  <node id="1585306142" lat="43.4741721" lon="-80.5456293">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="1606967268" lat="43.4711267" lon="-80.5453858"/>
+  <node id="1606967284" lat="43.4706522" lon="-80.5579163">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="1606967396" lat="43.4704606" lon="-80.5584741">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="1606967408" lat="43.4706953" lon="-80.5445464">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="1606967559" lat="43.4705488" lon="-80.5384414"/>
+  <node id="1606967660" lat="43.4718303" lon="-80.5476966"/>
+  <node id="1606967779" lat="43.4730252" lon="-80.5414372"/>
+  <node id="1606967798" lat="43.4705632" lon="-80.5578006">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="1606967831" lat="43.4733960" lon="-80.5476446"/>
+  <node id="1613270564" lat="43.4711172" lon="-80.5387964">
+    <tag k="bicycle" v="yes"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="1613888827" lat="43.4643868" lon="-80.5414565">
+    <tag k="button_operated" v="no"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+    <tag k="traffic_signals:sound" v="no"/>
+    <tag k="traffic_signals:vibration" v="no"/>
+  </node>
+  <node id="1613894953" lat="43.4721553" lon="-80.5363480">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="1614937378" lat="43.4691029" lon="-80.5396940">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="kerb" v="lowered"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="1668187722" lat="43.4688268" lon="-80.5389435">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="source" v="survey"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="1668187723" lat="43.4688720" lon="-80.5390973">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="source" v="survey"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="1668187786" lat="43.4708409" lon="-80.5384945"/>
+  <node id="1668187787" lat="43.4709648" lon="-80.5385836"/>
+  <node id="1669416536" lat="43.4708109" lon="-80.5446208"/>
+  <node id="1669416546" lat="43.4709293" lon="-80.5447597"/>
+  <node id="1669416558" lat="43.4710167" lon="-80.5449469"/>
+  <node id="1669416607" lat="43.4716424" lon="-80.5473644"/>
+  <node id="1669416638" lat="43.4717699" lon="-80.5476097"/>
+  <node id="1675101177" lat="43.4663999" lon="-80.5417648"/>
+  <node id="1675101178" lat="43.4664071" lon="-80.5415876"/>
+  <node id="1675101179" lat="43.4664445" lon="-80.5414318"/>
+  <node id="1675101180" lat="43.4664476" lon="-80.5420491"/>
+  <node id="1675101181" lat="43.4665150" lon="-80.5412689"/>
+  <node id="1675101182" lat="43.4665306" lon="-80.5423535"/>
+  <node id="1675101183" lat="43.4666229" lon="-80.5411246"/>
+  <node id="1675101271" lat="43.4686907" lon="-80.5400967"/>
+  <node id="1675101284" lat="43.4688452" lon="-80.5399809"/>
+  <node id="1675101346" lat="43.4691849" lon="-80.5396046"/>
+  <node id="1675101422" lat="43.4695551" lon="-80.5391264"/>
+  <node id="1675101423" lat="43.4699061" lon="-80.5388120"/>
+  <node id="1675294015" lat="43.4714365" lon="-80.5393560">
+    <tag k="traffic_calming" v="hump"/>
+  </node>
+  <node id="1675294023" lat="43.4748567" lon="-80.5436856"/>
+  <node id="1675294024" lat="43.4748939" lon="-80.5434043"/>
+  <node id="1675296688" lat="43.4694845" lon="-80.5439852"/>
+  <node id="1675296689" lat="43.4697025" lon="-80.5440638"/>
+  <node id="1675296716" lat="43.4707832" lon="-80.5445965"/>
+  <node id="1675296718" lat="43.4708445" lon="-80.5446517"/>
+  <node id="1675296723" lat="43.4709986" lon="-80.5448946"/>
+  <node id="1675296724" lat="43.4710369" lon="-80.5450056">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="1710900156" lat="43.4716065" lon="-80.5372593"/>
+  <node id="1710900157" lat="43.4717432" lon="-80.5370382"/>
+  <node id="1715000184" lat="43.4757949" lon="-80.5431701">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="yes"/>
+    <tag k="crossing:markings" v="zebra"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="1715000186" lat="43.4760755" lon="-80.5425096"/>
+  <node id="1715000190" lat="43.4760452" lon="-80.5427439"/>
+  <node id="1715000193" lat="43.4758846" lon="-80.5432278">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="yes"/>
+    <tag k="crossing:markings" v="zebra"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+  </node>
+  <node id="1715000197" lat="43.4759509" lon="-80.5427044"/>
+  <node id="1715000199" lat="43.4759846" lon="-80.5429294">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="maxheight:signed" v="no"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="1715000213" lat="43.4758885" lon="-80.5428867">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="maxheight:signed" v="no"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="1863647982" lat="43.4685709" lon="-80.5390916">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="source" v="survey"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="no"/>
+  </node>
+  <node id="1863647984" lat="43.4686077" lon="-80.5392321">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="source" v="survey"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="no"/>
+  </node>
+  <node id="1863666760" lat="43.4737613" lon="-80.5375501"/>
+  <node id="1863674956" lat="43.4776584" lon="-80.5380501"/>
+  <node id="1863678104" lat="43.4811017" lon="-80.5422654"/>
+  <node id="1863680148" lat="43.4764481" lon="-80.5414643"/>
+  <node id="1863681236" lat="43.4781427" lon="-80.5406995"/>
+  <node id="1863682012" lat="43.4766405" lon="-80.5409149"/>
+  <node id="1863685305" lat="43.4787356" lon="-80.5410610"/>
+  <node id="1863686752" lat="43.4783665" lon="-80.5408300"/>
+  <node id="1863686767" lat="43.4795275" lon="-80.5415681"/>
+  <node id="1923744335" lat="43.4708800" lon="-80.5385165"/>
+  <node id="1923753493" lat="43.4715390" lon="-80.5373579"/>
+  <node id="1924311182" lat="43.4713684" lon="-80.5392342"/>
+  <node id="1927722100" lat="43.4736967" lon="-80.5420200"/>
+  <node id="1930637163" lat="43.4741937" lon="-80.5455737"/>
+  <node id="1931069845" lat="43.4693221" lon="-80.5394330"/>
+  <node id="1936239792" lat="43.4732755" lon="-80.5371873">
+    <tag k="crossing:island" v="yes"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="crossing:signals" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_calming" v="island"/>
+  </node>
+  <node id="1947819512" lat="43.4700658" lon="-80.5387080"/>
+  <node id="1947819513" lat="43.4708638" lon="-80.5385074"/>
+  <node id="1947819519" lat="43.4700157" lon="-80.5387391"/>
+  <node id="1976894047" lat="43.4724691" lon="-80.5408334">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="1976894150" lat="43.4727864" lon="-80.5411961"/>
+  <node id="1976894172" lat="43.4731285" lon="-80.5415400"/>
+  <node id="1986093155" lat="43.4742089" lon="-80.5455296"/>
+  <node id="2016012238" lat="43.4704877" lon="-80.5384594"/>
+  <node id="2017454899" lat="43.4703132" lon="-80.5443556">
+    <tag k="direction" v="both"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="2025426267" lat="43.4782463" lon="-80.5363726"/>
+  <node id="2033799172" lat="43.4718351" lon="-80.5399810"/>
+  <node id="2104460160" lat="43.4724074" lon="-80.5365374"/>
+  <node id="2173954222" lat="43.4745801" lon="-80.5465682">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2173954227" lat="43.4746900" lon="-80.5466414">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+    <tag k="traffic_signals:vibration" v="no"/>
+  </node>
+  <node id="2173954229" lat="43.4747632" lon="-80.5460543">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="2173954232" lat="43.4748730" lon="-80.5461313">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2290836066" lat="43.4753569" lon="-80.5387342"/>
+  <node id="2290836072" lat="43.4745703" lon="-80.5381530"/>
+  <node id="2290836139" lat="43.4774772" lon="-80.5385562"/>
+  <node id="2290836151" lat="43.4775094" lon="-80.5384618"/>
+  <node id="2290920047" lat="43.4779770" lon="-80.5371481"/>
+  <node id="2707945312" lat="43.4793085" lon="-80.5333897"/>
+  <node id="2716390815" lat="43.4720923" lon="-80.5361394">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2716390869" lat="43.4720005" lon="-80.5363853">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="crossing:signals" v="yes"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2727953506" lat="43.4723719" lon="-80.5353826"/>
+  <node id="2727953515" lat="43.4724648" lon="-80.5351250"/>
+  <node id="2727953535" lat="43.4727359" lon="-80.5367886"/>
+  <node id="2753104005" lat="43.4829863" lon="-80.5412672"/>
+  <node id="2753104069" lat="43.4828407" lon="-80.5413560"/>
+  <node id="2753105306" lat="43.4813519" lon="-80.5422168"/>
+  <node id="2878727426" lat="43.4770900" lon="-80.5400096">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2880932865" lat="43.4768812" lon="-80.5398629">
+    <tag k="button_operated" v="no"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="no"/>
+    <tag k="traffic_signals:vibration" v="no"/>
+  </node>
+  <node id="2880932868" lat="43.4769344" lon="-80.5400748">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2880932870" lat="43.4770433" lon="-80.5397720">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="2888044405" lat="43.4795484" lon="-80.5327251"/>
+  <node id="2888358001" lat="43.4707154" lon="-80.5445564"/>
+  <node id="3151527352" lat="43.4785984" lon="-80.5353860">
+    <tag k="button_operated" v="no"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+    <tag k="traffic_signals:sound" v="no"/>
+    <tag k="traffic_signals:vibration" v="no"/>
+  </node>
+  <node id="3151824117" lat="43.4804932" lon="-80.5421659"/>
+  <node id="3151824310" lat="43.4830323" lon="-80.5412388"/>
+  <node id="3165909830" lat="43.4795986" lon="-80.5325861"/>
+  <node id="3300616270" lat="43.4765952" lon="-80.5410444"/>
+  <node id="3891129425" lat="43.4758065" lon="-80.5390681">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:island" v="yes"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_calming" v="island"/>
+  </node>
+  <node id="4084141294" lat="43.4736795" lon="-80.5318164">
+    <tag k="button_operated" v="yes"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_signals:sound" v="yes"/>
+    <tag k="traffic_signals:vibration" v="yes"/>
+  </node>
+  <node id="4211142313" lat="43.4709199" lon="-80.5380121">
+    <tag k="crossing:barrier" v="no"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="4211142328" lat="43.4758689" lon="-80.5429531">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="maxheight:signed" v="no"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="4211142329" lat="43.4759609" lon="-80.5429978">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="maxheight:signed" v="no"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="4211146899" lat="43.4708545" lon="-80.5378992">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="railway" v="level_crossing"/>
+  </node>
+  <node id="4612127756" lat="43.4732450" lon="-80.5478223"/>
+  <node id="4612132723" lat="43.4742043" lon="-80.5476647"/>
+  <node id="4612132724" lat="43.4752492" lon="-80.5450680"/>
+  <node id="4626027246" lat="43.4644211" lon="-80.5414375"/>
+  <node id="4626496942" lat="43.4748291" lon="-80.5462579"/>
+  <node id="5509672397" lat="43.4683121" lon="-80.5437658">
+    <tag k="direction" v="both"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="5512386318" lat="43.4673749" lon="-80.5434737"/>
+  <node id="5587309604" lat="43.4702155" lon="-80.5443086">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="5587309605" lat="43.4703962" lon="-80.5443923">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="5587309609" lat="43.4682550" lon="-80.5437573">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="kerb" v="flush"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="5632914539" lat="43.4742049" lon="-80.5378812"/>
+  <node id="6077825191" lat="43.4735083" lon="-80.5418718">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="6077825197" lat="43.4723641" lon="-80.5407021">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="6077825199" lat="43.4720196" lon="-80.5402527">
+    <tag k="direction" v="backward"/>
+    <tag k="highway" v="give_way"/>
+  </node>
+  <node id="6077825200" lat="43.4720889" lon="-80.5403476">
+    <tag k="direction" v="forward"/>
+    <tag k="highway" v="give_way"/>
+  </node>
+  <node id="6088996180" lat="43.4706914" lon="-80.5574466"/>
+  <node id="6412477134" lat="43.4710020" lon="-80.5449045">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="6412477137" lat="43.4715180" lon="-80.5469652">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="no"/>
+  </node>
+  <node id="6677768103" lat="43.4784437" lon="-80.5358034"/>
+  <node id="6677768123" lat="43.4759773" lon="-80.5391950"/>
+  <node id="6738768994" lat="43.4814933" lon="-80.5421572"/>
+  <node id="6738769000" lat="43.4819462" lon="-80.5419010"/>
+  <node id="6900630516" lat="43.4812876" lon="-80.5422375"/>
+  <node id="6913629027" lat="43.4736233" lon="-80.5317358"/>
+  <node id="6913629028" lat="43.4732426" lon="-80.5327746"/>
+  <node id="6913629029" lat="43.4728276" lon="-80.5339045"/>
+  <node id="6913629030" lat="43.4723978" lon="-80.5350883"/>
+  <node id="6913629031" lat="43.4723513" lon="-80.5352106"/>
+  <node id="6913629032" lat="43.4722468" lon="-80.5355004"/>
+  <node id="6913629033" lat="43.4720291" lon="-80.5360970"/>
+  <node id="6913629034" lat="43.4719802" lon="-80.5362271"/>
+  <node id="6913629035" lat="43.4719426" lon="-80.5363296"/>
+  <node id="6913629036" lat="43.4718471" lon="-80.5365843"/>
+  <node id="6913629037" lat="43.4716152" lon="-80.5370574"/>
+  <node id="6913629038" lat="43.4714545" lon="-80.5372889"/>
+  <node id="6913629039" lat="43.4712445" lon="-80.5375322"/>
+  <node id="6913629040" lat="43.4708781" lon="-80.5378339">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:bell" v="yes"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="railway" v="crossing"/>
+  </node>
+  <node id="6913629041" lat="43.4708341" lon="-80.5378635">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:bell" v="yes"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="railway" v="crossing"/>
+  </node>
+  <node id="6913629042" lat="43.4707174" lon="-80.5379171"/>
+  <node id="6913629043" lat="43.4692560" lon="-80.5386807"/>
+  <node id="6913629044" lat="43.4692108" lon="-80.5387459"/>
+  <node id="6913629045" lat="43.4691341" lon="-80.5389656"/>
+  <node id="6913629046" lat="43.4691869" lon="-80.5389825"/>
+  <node id="6913629047" lat="43.4707849" lon="-80.5381465"/>
+  <node id="6913629048" lat="43.4709424" lon="-80.5380512">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:bell" v="yes"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="railway" v="crossing"/>
+  </node>
+  <node id="6913629049" lat="43.4709848" lon="-80.5380184">
+    <tag k="crossing:barrier" v="full"/>
+    <tag k="crossing:bell" v="yes"/>
+    <tag k="crossing:light" v="yes"/>
+    <tag k="railway" v="crossing"/>
+  </node>
+  <node id="6913629050" lat="43.4711782" lon="-80.5378613"/>
+  <node id="6913629051" lat="43.4712737" lon="-80.5377810"/>
+  <node id="6913629052" lat="43.4714651" lon="-80.5375854"/>
+  <node id="6913629053" lat="43.4715576" lon="-80.5374683"/>
+  <node id="6913629054" lat="43.4716654" lon="-80.5373276"/>
+  <node id="6913629055" lat="43.4718199" lon="-80.5370955"/>
+  <node id="6913629056" lat="43.4720807" lon="-80.5364624"/>
+  <node id="6913629057" lat="43.4721332" lon="-80.5363317"/>
+  <node id="6913629058" lat="43.4721786" lon="-80.5361973"/>
+  <node id="6913629059" lat="43.4724477" lon="-80.5354351"/>
+  <node id="6913629060" lat="43.4729299" lon="-80.5340283"/>
+  <node id="6913629061" lat="43.4733591" lon="-80.5328668"/>
+  <node id="6913629062" lat="43.4737385" lon="-80.5319011"/>
+  <node id="6938167333" lat="43.4747268" lon="-80.5461599"/>
+  <node id="6938167334" lat="43.4748394" lon="-80.5462272"/>
+  <node id="6993829246" lat="43.4727877" lon="-80.5340118"/>
+  <node id="6993829247" lat="43.4728300" lon="-80.5340706">
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:island" v="no"/>
+    <tag k="crossing:markings" v="lines"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="6993829248" lat="43.4728863" lon="-80.5341489"/>
+  <node id="6993881326" lat="43.4727119" lon="-80.5344286"/>
+  <node id="6993881327" lat="43.4726541" lon="-80.5343817"/>
+  <node id="7232387264" lat="43.4797157" lon="-80.5416905"/>
+  <node id="7232387271" lat="43.4793114" lon="-80.5414297"/>
+  <node id="7232387272" lat="43.4802003" lon="-80.5420055"/>
+  <node id="7469063392" lat="43.4719117" lon="-80.5368964"/>
+  <node id="7742395201" lat="43.4771105" lon="-80.5400229">
+    <tag k="cycleway" v="asl"/>
+  </node>
+  <node id="7742395202" lat="43.4768323" lon="-80.5398289">
+    <tag k="cycleway" v="asl"/>
+  </node>
+  <node id="7742395206" lat="43.4750871" lon="-80.5385339">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:island" v="yes"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+    <tag k="traffic_calming" v="island"/>
+  </node>
+  <node id="7742395208" lat="43.4721827" lon="-80.5363682">
+    <tag k="cycleway" v="asl"/>
+  </node>
+  <node id="7805091929" lat="43.4661870" lon="-80.5404954">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="7805091930" lat="43.4660621" lon="-80.5403837">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="7958910326" lat="43.4788354" lon="-80.5347040"/>
+  <node id="7958910330" lat="43.4789518" lon="-80.5343806"/>
+  <node id="7958910334" lat="43.4790176" lon="-80.5341979"/>
+  <node id="7958910338" lat="43.4790938" lon="-80.5339862"/>
+  <node id="7958910341" lat="43.4791638" lon="-80.5337917"/>
+  <node id="7958910345" lat="43.4792539" lon="-80.5335413"/>
+  <node id="7958910349" lat="43.4793837" lon="-80.5331815"/>
+  <node id="7958910353" lat="43.4794484" lon="-80.5330022"/>
+  <node id="7958910357" lat="43.4794724" lon="-80.5329357"/>
+  <node id="7958910365" lat="43.4795643" lon="-80.5326810"/>
+  <node id="7964505783" lat="43.4787328" lon="-80.5349891"/>
+  <node id="7964508887" lat="43.4788144" lon="-80.5347623"/>
+  <node id="7964508891" lat="43.4788539" lon="-80.5346527"/>
+  <node id="7964508895" lat="43.4789670" lon="-80.5343384"/>
+  <node id="7964508899" lat="43.4790098" lon="-80.5342197"/>
+  <node id="7964508903" lat="43.4790753" lon="-80.5340376"/>
+  <node id="7964508907" lat="43.4791463" lon="-80.5338404"/>
+  <node id="7964508911" lat="43.4792178" lon="-80.5336415"/>
+  <node id="7964508919" lat="43.4794788" lon="-80.5329181"/>
+  <node id="8198274528" lat="43.4729166" lon="-80.5338484">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="pedestrian_crossing"/>
+    <tag k="traffic_signals:direction" v="backward"/>
+  </node>
+  <node id="8198274529" lat="43.4727671" lon="-80.5342637">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="pedestrian_crossing"/>
+    <tag k="traffic_signals:direction" v="forward"/>
+  </node>
+  <node id="8307755204" lat="43.4739582" lon="-80.5462106">
+    <tag k="direction" v="forward"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="8307755205" lat="43.4741829" lon="-80.5456015">
+    <tag k="direction" v="backward"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="8515494218" lat="43.4710475" lon="-80.5379179">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+  </node>
+  <node id="8515494219" lat="43.4706936" lon="-80.5379804">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+  </node>
+  <node id="8569486528" lat="43.4754879" lon="-80.5443949"/>
+  <node id="8613989237" lat="43.4679511" lon="-80.5436939"/>
+  <node id="8933892274" lat="43.4710556" lon="-80.5567781"/>
+  <node id="8933892275" lat="43.4712564" lon="-80.5562103"/>
+  <node id="9991207487" lat="43.4715092" lon="-80.5555209">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="9991207490" lat="43.4714024" lon="-80.5554681">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="9991207494" lat="43.4730862" lon="-80.5507797">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="9991207497" lat="43.4731972" lon="-80.5508391">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="9997829723" lat="43.4770813" lon="-80.5396625"/>
+  <node id="9997829725" lat="43.4764963" lon="-80.5395804"/>
+  <node id="9997830222" lat="43.4775011" lon="-80.5402789"/>
+  <node id="10553832884" lat="43.4768441" lon="-80.5403336"/>
+  <node id="10553832885" lat="43.4754174" lon="-80.5445937"/>
+  <node id="10572039596" lat="43.4717379" lon="-80.5368302"/>
+  <node id="10572039597" lat="43.4710650" lon="-80.5376924"/>
+  <node id="11242534967" lat="43.4689748" lon="-80.5396900">
+    <tag k="direction" v="forward"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="11242534968" lat="43.4687650" lon="-80.5400428">
+    <tag k="direction" v="backward"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="11242534969" lat="43.4691124" lon="-80.5396837">
+    <tag k="direction" v="forward"/>
+    <tag k="highway" v="stop"/>
+  </node>
+  <node id="11242534970" lat="43.4714704" lon="-80.5467748">
+    <tag k="direction" v="both"/>
+    <tag k="traffic_calming" v="hump"/>
+  </node>
+  <node id="11304345814" lat="43.4683683" lon="-80.5437759">
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="ladder"/>
+    <tag k="highway" v="crossing"/>
+    <tag k="kerb" v="flush"/>
+    <tag k="tactile_paving" v="yes"/>
+  </node>
+  <node id="11419657983" lat="43.4728714" lon="-80.5368847"/>
+  <node id="11590991117" lat="43.4773432" lon="-80.5389307"/>
+  <node id="11590991122" lat="43.4773065" lon="-80.5390333"/>
+  <node id="11590991127" lat="43.4772326" lon="-80.5392397"/>
+  <node id="11823207355" lat="43.4687284" lon="-80.5393091">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+    <tag k="traffic_signals:direction" v="forward"/>
+  </node>
+  <node id="11823207356" lat="43.4688981" lon="-80.5390852">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+    <tag k="traffic_signals:direction" v="forward"/>
+  </node>
+  <node id="11823207358" lat="43.4685566" lon="-80.5390990">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+    <tag k="traffic_signals:direction" v="forward"/>
+  </node>
+  <node id="11970617687" lat="43.4651434" lon="-80.5410449"/>
+  <node id="12500247887" lat="43.4725784" lon="-80.5348085"/>
+  <node id="12500247891" lat="43.4725203" lon="-80.5347507"/>
+  <node id="12508695864" lat="43.4767113" lon="-80.5397373"/>
+  <node id="12508695876" lat="43.4771602" lon="-80.5394421"/>
+  <node id="12603606718" lat="43.4768107" lon="-80.5404290"/>
+  <node id="12603606726" lat="43.4690064" lon="-80.5388460"/>
+  <node id="12603606727" lat="43.4683641" lon="-80.5393609"/>
+  <node id="12603606734" lat="43.4705855" lon="-80.5444851"/>
+  <node id="12692286853" lat="43.4728789" lon="-80.5337667"/>
+  <node id="12692286854" lat="43.4729813" lon="-80.5338892"/>
+  <node id="12692286864" lat="43.4718691" lon="-80.5369921"/>
+  <node id="12692286865" lat="43.4713659" lon="-80.5376842"/>
+  <node id="12695695893" lat="43.4788799" lon="-80.5411534">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="12695736207" lat="43.4826980" lon="-80.5414429">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="12753775149" lat="43.4773096" lon="-80.5401534"/>
+  <node id="12782278410" lat="43.4722133" lon="-80.5358126"/>
+  <node id="12785109989" lat="43.4788255" lon="-80.5347319"/>
+  <node id="12802051734" lat="43.4716329" lon="-80.5372177"/>
+  <node id="13065747965" lat="43.4744845" lon="-80.5447723"/>
+  <node id="13065747966" lat="43.4744544" lon="-80.5448600"/>
+  <node id="13311103571" lat="43.4751957" lon="-80.5386145"/>
+  <node id="13311103572" lat="43.4756658" lon="-80.5389636"/>
+  <node id="13318525581" lat="43.4760176" lon="-80.5428285">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+    <tag k="traffic_signals:direction" v="forward"/>
+  </node>
+  <node id="13318525582" lat="43.4757788" lon="-80.5432158">
+    <tag k="highway" v="traffic_signals"/>
+    <tag k="traffic_signals" v="signal"/>
+    <tag k="traffic_signals:direction" v="forward"/>
+  </node>
+  <node id="13350672184" lat="43.4746621" lon="-80.5382195"/>
+  <node id="13358676890" lat="43.4723717" lon="-80.5480652"/>
+  <node id="13358725313" lat="43.4723403" lon="-80.5480530">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <node id="13647854006" lat="43.4672579" lon="-80.5407961">
+    <tag k="direction" v="both"/>
+    <tag k="traffic_calming" v="hump"/>
+  </node>
+  <node id="13781294572" lat="43.4701595" lon="-80.5592756"/>
+  <node id="13892681786" lat="43.4748205" lon="-80.5383342"/>
+  <node id="14050357145" lat="43.4668601" lon="-80.5399727">
+    <tag k="highway" v="crossing"/>
+    <tag k="infomal" v="yes"/>
+  </node>
+  <node id="14050357146" lat="43.4669020" lon="-80.5401228">
+    <tag k="highway" v="crossing"/>
+    <tag k="infomal" v="yes"/>
+  </node>
+  <node id="14050361906" lat="43.4674800" lon="-80.5435385">
+    <tag k="crossing" v="unmarked"/>
+    <tag k="crossing:markings" v="no"/>
+    <tag k="highway" v="crossing"/>
+  </node>
+  <way id="24636861">
+    <nd ref="267812666"/>
+    <nd ref="1675101284"/>
+    <nd ref="339375762"/>
+    <nd ref="11242534968"/>
+    <nd ref="1675101271"/>
+    <nd ref="542898268"/>
+    <nd ref="703741372"/>
+    <nd ref="1435969051"/>
+    <nd ref="1435948649"/>
+    <nd ref="13647854006"/>
+    <nd ref="1435969045"/>
+    <nd ref="702836914"/>
+    <nd ref="1435969157"/>
+    <nd ref="1435969043"/>
+    <nd ref="542898269"/>
+    <nd ref="1675101183"/>
+    <nd ref="1504649400"/>
+    <nd ref="1675101181"/>
+    <nd ref="267812712"/>
+    <nd ref="1675101179"/>
+    <nd ref="267812713"/>
+    <nd ref="1675101178"/>
+    <nd ref="1435969039"/>
+    <nd ref="1675101177"/>
+    <nd ref="542897919"/>
+    <nd ref="1675101180"/>
+    <nd ref="542897914"/>
+    <nd ref="1675101182"/>
+    <nd ref="1505820853"/>
+    <nd ref="1435969166"/>
+    <nd ref="267812714"/>
+    <nd ref="297626931"/>
+    <nd ref="267812715"/>
+    <nd ref="1504649391"/>
+    <nd ref="1503534619"/>
+    <nd ref="5512386318"/>
+    <nd ref="267812716"/>
+    <nd ref="14050361906"/>
+    <nd ref="702836758"/>
+    <nd ref="702836937"/>
+    <nd ref="542898017"/>
+    <nd ref="8613989237"/>
+    <nd ref="5587309609"/>
+    <nd ref="5509672397"/>
+    <nd ref="11304345814"/>
+    <nd ref="1585304159"/>
+    <nd ref="297626901"/>
+    <nd ref="1675296688"/>
+    <nd ref="542898053"/>
+    <nd ref="1675296689"/>
+    <nd ref="5587309604"/>
+    <nd ref="2017454899"/>
+    <nd ref="5587309605"/>
+    <nd ref="12603606734"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="26716771">
+    <nd ref="267812728"/>
+    <nd ref="335616696"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="35519718">
+    <nd ref="416232926"/>
+    <nd ref="2173954227"/>
+    <nd ref="416265573"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="4173646"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="35521948">
+    <nd ref="416265573"/>
+    <nd ref="533769787"/>
+    <nd ref="9991207497"/>
+    <nd ref="416186864"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="4173646"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="35529041">
+    <nd ref="1715000186"/>
+    <nd ref="1715000190"/>
+    <nd ref="13318525581"/>
+    <nd ref="1715000199"/>
+    <nd ref="4211142329"/>
+    <nd ref="1715000193"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="maxspeed:type" v="sign"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="3525005"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="40046731">
+    <nd ref="481695396"/>
+    <nd ref="481695397"/>
+    <nd ref="481695398"/>
+    <nd ref="8515494218"/>
+    <nd ref="480168567"/>
+    <nd ref="4211142313"/>
+    <nd ref="481695399"/>
+    <nd ref="481695400"/>
+    <nd ref="6913629045"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="40046736">
+    <nd ref="290580949"/>
+    <nd ref="114158641"/>
+    <nd ref="1923753493"/>
+    <nd ref="1710900156"/>
+    <nd ref="12802051734"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="3"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:both" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="||right"/>
+  </way>
+  <way id="41169447">
+    <nd ref="481695401"/>
+    <nd ref="1863647984"/>
+    <nd ref="12603606727"/>
+    <nd ref="14050357146"/>
+    <nd ref="7805091929"/>
+    <nd ref="1503542132"/>
+    <nd ref="11970617687"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="41169448">
+    <nd ref="6913629044"/>
+    <nd ref="114158648"/>
+    <nd ref="8515494219"/>
+    <nd ref="281859063"/>
+    <nd ref="4211146899"/>
+    <nd ref="114158644"/>
+    <nd ref="481695395"/>
+    <nd ref="481695394"/>
+    <nd ref="481695396"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="41169450">
+    <nd ref="335616696"/>
+    <nd ref="1585306142"/>
+    <nd ref="8307755205"/>
+    <nd ref="1930637163"/>
+    <nd ref="1986093155"/>
+    <nd ref="1450232687"/>
+    <nd ref="1503542076"/>
+    <nd ref="1572288602"/>
+    <nd ref="13065747966"/>
+    <nd ref="13065747965"/>
+    <nd ref="293015469"/>
+    <nd ref="1675294023"/>
+    <nd ref="293015471"/>
+    <nd ref="1675294024"/>
+    <nd ref="293015473"/>
+    <nd ref="1503542111"/>
+    <nd ref="293015476"/>
+    <nd ref="293015479"/>
+    <nd ref="1505820910"/>
+    <nd ref="293015481"/>
+    <nd ref="1503542117"/>
+    <nd ref="293015483"/>
+    <nd ref="1503542133"/>
+    <nd ref="1503542034"/>
+    <nd ref="1927722100"/>
+    <nd ref="1505832327"/>
+    <nd ref="298025667"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="42684286">
+    <nd ref="340086040"/>
+    <nd ref="1606967798"/>
+    <nd ref="6088996180"/>
+    <nd ref="9991207490"/>
+    <nd ref="416248972"/>
+    <nd ref="9991207494"/>
+    <nd ref="416251551"/>
+    <nd ref="4612132723"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="hgv:conditional" v="no @ (19:00-7:00)"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="42684290">
+    <nd ref="416186864"/>
+    <nd ref="533769772"/>
+    <nd ref="9991207487"/>
+    <nd ref="533769769"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="42684300">
+    <nd ref="416195632"/>
+    <nd ref="416232926"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="4173646"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="42685771">
+    <nd ref="267812666"/>
+    <nd ref="11823207355"/>
+    <nd ref="1474002565"/>
+    <nd ref="481695401"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes" v="left|through|right"/>
+  </way>
+  <way id="42685772">
+    <nd ref="533789219"/>
+    <nd ref="1474002569"/>
+    <nd ref="11242534967"/>
+    <nd ref="533789218"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes" v="left|right"/>
+  </way>
+  <way id="176087115">
+    <nd ref="290580059"/>
+    <nd ref="2880932868"/>
+    <nd ref="10553832884"/>
+    <nd ref="12603606718"/>
+    <nd ref="1863682012"/>
+    <nd ref="3300616270"/>
+    <nd ref="1863680148"/>
+    <nd ref="308436395"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="3"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="maxspeed:type" v="sign"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="ref" v="59"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="left|through|through"/>
+  </way>
+  <way id="176087116">
+    <nd ref="13350672184"/>
+    <nd ref="2290836072"/>
+    <nd ref="1473880534"/>
+    <nd ref="5632914539"/>
+    <nd ref="1473880526"/>
+    <nd ref="1863666760"/>
+    <nd ref="1936239792"/>
+    <nd ref="474770372"/>
+    <nd ref="11419657983"/>
+    <nd ref="2727953535"/>
+    <nd ref="474770401"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:both_ways" v="1"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:both_ways" v="left"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="176087117">
+    <nd ref="12782278410"/>
+    <nd ref="1186769214"/>
+    <nd ref="2727953506"/>
+    <nd ref="1186769209"/>
+    <nd ref="2727953515"/>
+    <nd ref="12500247887"/>
+    <nd ref="6993881326"/>
+    <nd ref="8198274529"/>
+    <nd ref="6993829247"/>
+    <nd ref="253262191"/>
+    <nd ref="8198274528"/>
+    <nd ref="253262192"/>
+    <nd ref="4084141294"/>
+    <nd ref="250197364"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="4"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="maxspeed:type" v="sign"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="no"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:both" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="182704476">
+    <nd ref="279396675"/>
+    <nd ref="533769792"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lcn" v="yes"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="182704479">
+    <nd ref="339375651"/>
+    <nd ref="1976894047"/>
+    <nd ref="1450232802"/>
+    <nd ref="6077825197"/>
+    <nd ref="6077825200"/>
+    <nd ref="1450232769"/>
+    <nd ref="6077825199"/>
+    <nd ref="2033799172"/>
+    <nd ref="293015491"/>
+    <nd ref="1675294015"/>
+    <nd ref="1924311182"/>
+    <nd ref="1613270564"/>
+    <nd ref="474770549"/>
+    <nd ref="293015493"/>
+    <nd ref="1668187787"/>
+    <nd ref="293015494"/>
+    <nd ref="1923744335"/>
+    <nd ref="1947819513"/>
+    <nd ref="1668187786"/>
+    <nd ref="293015495"/>
+    <nd ref="1450232939"/>
+    <nd ref="293015496"/>
+    <nd ref="1450232866"/>
+    <nd ref="1606967559"/>
+    <nd ref="293015497"/>
+    <nd ref="2016012238"/>
+    <nd ref="702788365"/>
+    <nd ref="293015498"/>
+    <nd ref="293015499"/>
+    <nd ref="1947819512"/>
+    <nd ref="1947819519"/>
+    <nd ref="1675101423"/>
+    <nd ref="293015500"/>
+    <nd ref="1675101422"/>
+    <nd ref="293015501"/>
+    <nd ref="1931069845"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxheight" v="default"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="182751281">
+    <nd ref="533789218"/>
+    <nd ref="267812666"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="182752070">
+    <nd ref="533789219"/>
+    <nd ref="481695401"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="182752073">
+    <nd ref="293015485"/>
+    <nd ref="1976894172"/>
+    <nd ref="1606967779"/>
+    <nd ref="1976894150"/>
+    <nd ref="339375651"/>
+    <tag k="cycleway:both" v="no"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="shoulder" v="no"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="184788096">
+    <nd ref="1931069845"/>
+    <nd ref="293015502"/>
+    <nd ref="1675101346"/>
+    <nd ref="11242534969"/>
+    <nd ref="1614937378"/>
+    <nd ref="533789218"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="184789522">
+    <nd ref="6938167333"/>
+    <nd ref="2173954229"/>
+    <nd ref="416261032"/>
+    <nd ref="13318525582"/>
+    <nd ref="1715000184"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="187977745">
+    <nd ref="1572274271"/>
+    <nd ref="7805091930"/>
+    <nd ref="14050357145"/>
+    <nd ref="11823207358"/>
+    <nd ref="1863647982"/>
+    <nd ref="256993752"/>
+    <tag k="cycleway:left" v="no"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="309843488">
+    <nd ref="1536649398"/>
+    <nd ref="9997830222"/>
+    <nd ref="12753775149"/>
+    <nd ref="7742395201"/>
+    <nd ref="2878727426"/>
+    <nd ref="290580059"/>
+    <tag k="access" v="yes"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="cycleway:buffer" v="yes"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="4"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:forward" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:forward" v="left|through|right"/>
+  </way>
+  <way id="311052074">
+    <nd ref="6677768103"/>
+    <nd ref="2025426267"/>
+    <nd ref="2290920047"/>
+    <nd ref="297794499"/>
+    <nd ref="1863674956"/>
+    <nd ref="2290836151"/>
+    <nd ref="2290836139"/>
+    <nd ref="11590991117"/>
+    <nd ref="11590991122"/>
+    <nd ref="11590991127"/>
+    <nd ref="12508695876"/>
+    <nd ref="9997829723"/>
+    <nd ref="2880932870"/>
+    <nd ref="290580059"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="4"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="parking:lane:both" v="no_parking"/>
+    <tag k="ref" v="59"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="466414379">
+    <nd ref="4612132723"/>
+    <nd ref="2173954222"/>
+    <nd ref="279396675"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes" v="left||"/>
+  </way>
+  <way id="466414380">
+    <nd ref="4612132724"/>
+    <nd ref="2173954232"/>
+    <nd ref="6938167334"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="3525005"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes" v="left||"/>
+  </way>
+  <way id="466414682">
+    <nd ref="481695396"/>
+    <nd ref="290580949"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="2"/>
+    <tag k="lanes:forward" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:both" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:forward" v="left||"/>
+  </way>
+  <way id="466414683">
+    <nd ref="481695408"/>
+    <nd ref="2716390869"/>
+    <nd ref="114158636"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="2"/>
+    <tag k="lanes:forward" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:both" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:forward" v="left|through|through"/>
+  </way>
+  <way id="467027539">
+    <nd ref="1606967408"/>
+    <nd ref="2888358001"/>
+    <nd ref="267812718"/>
+    <nd ref="1675296716"/>
+    <nd ref="1669416536"/>
+    <nd ref="1675296718"/>
+    <nd ref="1505820877"/>
+    <nd ref="1669416546"/>
+    <nd ref="542898120"/>
+    <nd ref="1675296723"/>
+    <nd ref="6412477134"/>
+    <nd ref="1669416558"/>
+    <nd ref="1675296724"/>
+    <nd ref="542898121"/>
+    <nd ref="295175284"/>
+    <nd ref="1606967268"/>
+    <nd ref="267812719"/>
+    <nd ref="1505820879"/>
+    <nd ref="11242534970"/>
+    <nd ref="6412477137"/>
+    <nd ref="267812720"/>
+    <nd ref="1505820898"/>
+    <nd ref="1669416607"/>
+    <nd ref="267812721"/>
+    <nd ref="1669416638"/>
+    <nd ref="1606967660"/>
+    <nd ref="1585304156"/>
+    <nd ref="267812722"/>
+    <nd ref="542897987"/>
+    <nd ref="13358725313"/>
+    <nd ref="13358676890"/>
+    <nd ref="267812723"/>
+    <nd ref="268012607"/>
+    <nd ref="267812724"/>
+    <nd ref="1585304133"/>
+    <nd ref="648487884"/>
+    <nd ref="4612127756"/>
+    <nd ref="267812725"/>
+    <nd ref="1606967831"/>
+    <nd ref="1505820872"/>
+    <nd ref="267812726"/>
+    <nd ref="1505820881"/>
+    <nd ref="8307755204"/>
+    <nd ref="648487893"/>
+    <nd ref="267812728"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="695978241">
+    <nd ref="1715000184"/>
+    <nd ref="4211142328"/>
+    <nd ref="1715000213"/>
+    <nd ref="1715000197"/>
+    <nd ref="1715000186"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="695978242">
+    <nd ref="1715000193"/>
+    <nd ref="416302387"/>
+    <nd ref="8569486528"/>
+    <nd ref="10553832885"/>
+    <nd ref="4612132724"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="maxspeed:type" v="sign"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="3525005"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="737674944">
+    <nd ref="12692286865"/>
+    <nd ref="6913629051"/>
+    <nd ref="6913629050"/>
+    <nd ref="6913629049"/>
+    <nd ref="6913629048"/>
+    <nd ref="6913629047"/>
+    <nd ref="6913629046"/>
+    <nd ref="6913629045"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="738334662">
+    <nd ref="6913629045"/>
+    <nd ref="11823207356"/>
+    <nd ref="1668187723"/>
+    <nd ref="533789219"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="738334663">
+    <nd ref="256993752"/>
+    <nd ref="533789220"/>
+    <nd ref="1668187722"/>
+    <nd ref="12603606726"/>
+    <nd ref="6913629044"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="738334664">
+    <nd ref="6913629044"/>
+    <nd ref="6913629043"/>
+    <nd ref="6913629042"/>
+    <nd ref="6913629041"/>
+    <nd ref="6913629040"/>
+    <nd ref="10572039597"/>
+    <nd ref="6913629039"/>
+    <nd ref="6913629038"/>
+    <nd ref="6913629037"/>
+    <nd ref="10572039596"/>
+    <nd ref="6913629036"/>
+    <nd ref="6913629035"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="804527386">
+    <nd ref="533769792"/>
+    <nd ref="6938167333"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="804527387">
+    <nd ref="6938167334"/>
+    <nd ref="4626496942"/>
+    <nd ref="416195632"/>
+    <tag k="attribution" v="GeoBase®"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="geobase:acquisitionTechnique" v="GPS"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="source" v="Geobase_Import_2009"/>
+    <tag k="statscan:rbuid" v="3525005"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes" v="left||"/>
+  </way>
+  <way id="878420647">
+    <nd ref="12603606734"/>
+    <nd ref="1606967408"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1021015928">
+    <nd ref="298025667"/>
+    <nd ref="6077825191"/>
+    <nd ref="293015485"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="40"/>
+    <tag k="name" v="Ring Road"/>
+    <tag k="name:fr" v="Chemin périphérique"/>
+    <tag k="name:zh" v="环路"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1027218341">
+    <nd ref="290580059"/>
+    <nd ref="648487905"/>
+    <nd ref="2880932865"/>
+    <nd ref="7742395202"/>
+    <nd ref="12508695864"/>
+    <nd ref="9997829725"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lanes:backward" v="2"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="left|"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="1046609785">
+    <nd ref="308436395"/>
+    <nd ref="1715000186"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="3"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="maxspeed:type" v="sign"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="ref" v="59"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="left|through|through"/>
+  </way>
+  <way id="1282344410">
+    <nd ref="2753104069"/>
+    <nd ref="12695736207"/>
+    <nd ref="6738769000"/>
+    <nd ref="293015455"/>
+    <nd ref="6738768994"/>
+    <nd ref="2753105306"/>
+    <nd ref="6900630516"/>
+    <nd ref="293015457"/>
+    <nd ref="1863678104"/>
+    <nd ref="293015459"/>
+    <nd ref="293015462"/>
+    <nd ref="293015464"/>
+    <nd ref="3151824117"/>
+    <nd ref="293015466"/>
+    <nd ref="7232387272"/>
+    <nd ref="7232387264"/>
+    <nd ref="1863686767"/>
+    <nd ref="7232387271"/>
+    <nd ref="12695695893"/>
+    <nd ref="1863685305"/>
+    <nd ref="1863686752"/>
+    <nd ref="1863681236"/>
+    <nd ref="1536649398"/>
+    <tag k="access" v="yes"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="cycleway:buffer" v="yes"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1282344411">
+    <nd ref="2753104005"/>
+    <nd ref="2753104069"/>
+    <tag k="access" v="yes"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="cycleway:buffer" v="yes"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1282344412">
+    <nd ref="3151824310"/>
+    <nd ref="2753104005"/>
+    <tag k="access" v="yes"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="cycleway:buffer" v="yes"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1291118652">
+    <nd ref="11970617687"/>
+    <nd ref="4626027246"/>
+    <nd ref="1613888827"/>
+    <nd ref="481695407"/>
+    <tag k="cycleway:left" v="no"/>
+    <tag k="cycleway:right" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes" v="left||"/>
+  </way>
+  <way id="1370439142">
+    <nd ref="12692286853"/>
+    <nd ref="6913629028"/>
+    <nd ref="6913629027"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="1370439143">
+    <nd ref="6993829246"/>
+    <nd ref="6913629029"/>
+    <nd ref="12692286853"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="cycleway" v="crossing"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="1370439144">
+    <nd ref="6913629062"/>
+    <nd ref="6913629061"/>
+    <nd ref="12692286854"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="1370439145">
+    <nd ref="12692286854"/>
+    <nd ref="6913629060"/>
+    <nd ref="6993829248"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="cycleway" v="crossing"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="1370439146">
+    <nd ref="6913629033"/>
+    <nd ref="6913629032"/>
+    <nd ref="6913629031"/>
+    <nd ref="6913629030"/>
+    <nd ref="12500247891"/>
+    <nd ref="6993881327"/>
+    <nd ref="6993829246"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="1370439147">
+    <nd ref="6993829248"/>
+    <nd ref="6913629059"/>
+    <nd ref="6913629058"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="1370439148">
+    <nd ref="6913629058"/>
+    <nd ref="6913629057"/>
+    <nd ref="6913629056"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="cycleway" v="crossing"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1370439149">
+    <nd ref="6913629035"/>
+    <nd ref="6913629034"/>
+    <nd ref="6913629033"/>
+    <tag k="crossing" v="traffic_signals"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="cycleway" v="crossing"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1370439156">
+    <nd ref="6913629056"/>
+    <nd ref="7469063392"/>
+    <nd ref="12692286864"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="separation:right" v="kerb;flex_post"/>
+  </way>
+  <way id="1370439157">
+    <nd ref="12692286864"/>
+    <nd ref="6913629055"/>
+    <nd ref="6913629054"/>
+    <nd ref="6913629053"/>
+    <nd ref="6913629052"/>
+    <nd ref="12692286865"/>
+    <tag k="crossing" v="uncontrolled"/>
+    <tag k="crossing:markings" v="yes"/>
+    <tag k="cycleway" v="crossing"/>
+    <tag k="highway" v="cycleway"/>
+    <tag k="is_sidepath:of:name" v="University Avenue West"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="1380614380">
+    <nd ref="114158636"/>
+    <nd ref="2716390815"/>
+    <nd ref="12782278410"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="3"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="maxspeed:type" v="sign"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="name:zh" v="大学西大道"/>
+    <tag k="oneway" v="no"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:both" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="left|none|none"/>
+  </way>
+  <way id="1381035169">
+    <nd ref="3165909830"/>
+    <nd ref="7958910365"/>
+    <nd ref="2888044405"/>
+    <nd ref="7964508919"/>
+    <nd ref="7958910357"/>
+    <nd ref="7958910353"/>
+    <nd ref="7958910349"/>
+    <nd ref="2707945312"/>
+    <nd ref="7958910345"/>
+    <nd ref="7964508911"/>
+    <nd ref="7958910341"/>
+    <nd ref="7964508907"/>
+    <nd ref="7958910338"/>
+    <nd ref="7964508903"/>
+    <nd ref="7958910334"/>
+    <nd ref="7964508899"/>
+    <nd ref="7964508895"/>
+    <nd ref="7958910330"/>
+    <nd ref="7964508891"/>
+    <nd ref="7958910326"/>
+    <nd ref="12785109989"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="4"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="parking:lane:both" v="no_parking"/>
+    <tag k="ref" v="59"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1381035170">
+    <nd ref="12785109989"/>
+    <nd ref="7964508887"/>
+    <nd ref="7964505783"/>
+    <nd ref="648487949"/>
+    <nd ref="267232978"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="2"/>
+    <tag k="lanes:forward" v="3"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="parking:lane:both" v="no_parking"/>
+    <tag k="ref" v="59"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:forward" v="left|none|none"/>
+  </way>
+  <way id="1381035171">
+    <nd ref="267232978"/>
+    <nd ref="3151527352"/>
+    <nd ref="6677768103"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="5"/>
+    <tag k="lanes:backward" v="3"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="name:fr" v="Rue Columbia Ouest"/>
+    <tag k="name:zh" v="哥伦比亚西街"/>
+    <tag k="parking:both" v="no"/>
+    <tag k="parking:both:restriction" v="no_parking"/>
+    <tag k="ref" v="59"/>
+    <tag k="sidewalk" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="left||"/>
+  </way>
+  <way id="1382744704">
+    <nd ref="12802051734"/>
+    <nd ref="481695409"/>
+    <nd ref="1710900157"/>
+    <nd ref="481695408"/>
+    <tag k="cycleway" v="separate"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="6"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="University Avenue West"/>
+    <tag k="name:fr" v="Avenue Université Ouest"/>
+    <tag k="ref" v="RR 57"/>
+    <tag k="sidewalk:both" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+  <way id="1441662515">
+    <nd ref="474770401"/>
+    <nd ref="2104460160"/>
+    <nd ref="7742395208"/>
+    <nd ref="1613894953"/>
+    <nd ref="6913629057"/>
+    <nd ref="114158636"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:forward" v="left|"/>
+    <tag k="width" v="13"/>
+  </way>
+  <way id="1451375463">
+    <nd ref="13311103571"/>
+    <nd ref="7742395206"/>
+    <nd ref="298025663"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="1451375464">
+    <nd ref="13311103572"/>
+    <nd ref="544515528"/>
+    <nd ref="2290836066"/>
+    <nd ref="13311103571"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:both_ways" v="1"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:both_ways" v="left"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="1451375465">
+    <nd ref="6677768123"/>
+    <nd ref="3891129425"/>
+    <nd ref="13311103572"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="1451375466">
+    <nd ref="9997829725"/>
+    <nd ref="6677768123"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lanes:backward" v="1"/>
+    <tag k="lanes:forward" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:forward" v="left|"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="1455699342">
+    <nd ref="298025663"/>
+    <nd ref="13892681786"/>
+    <nd ref="13350672184"/>
+    <tag k="bicycle" v="yes"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="highway" v="tertiary"/>
+    <tag k="lanes" v="3"/>
+    <tag k="lanes:backward" v="2"/>
+    <tag k="lanes:forward" v="1"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="50"/>
+    <tag k="name" v="Phillip Street"/>
+    <tag k="name:fr" v="Rue Phillip"/>
+    <tag k="name:zh" v="菲利普斯街"/>
+    <tag k="oneway" v="no"/>
+    <tag k="surface" v="asphalt"/>
+    <tag k="turn:lanes:backward" v="left|"/>
+    <tag k="width" v="12"/>
+  </way>
+  <way id="1506932194">
+    <nd ref="533769769"/>
+    <nd ref="8933892275"/>
+    <nd ref="8933892274"/>
+    <nd ref="1606967284"/>
+    <nd ref="533769766"/>
+    <nd ref="533769764"/>
+    <nd ref="1606967396"/>
+    <nd ref="13781294572"/>
+    <tag k="cycleway" v="lane"/>
+    <tag k="hgv:conditional" v="no @ (19:00-7:00)"/>
+    <tag k="highway" v="secondary"/>
+    <tag k="lanes" v="2"/>
+    <tag k="lit" v="yes"/>
+    <tag k="maxspeed" v="60"/>
+    <tag k="name" v="Columbia Street West"/>
+    <tag k="oneway" v="yes"/>
+    <tag k="sidewalk:left" v="no"/>
+    <tag k="sidewalk:right" v="separate"/>
+    <tag k="surface" v="asphalt"/>
+  </way>
+
+</osm>

@@ -79,20 +79,34 @@ TEST_CASE_METHOD(TestExecutorFixture, "VelDrivenFeedforwardPidNode Velocity Sour
     flush_future.get();
 
     // ODOM publishes first and would win under the old "first publisher locks forever" logic.
-    auto future1 = roscco_sub->expect_next_message();
     Odometry odom_msg;
     odom_msg.twist.twist.linear.x = 2.0;  // error = 1.0 - 2.0 = -1.0 -> braking (negative forward)
     odom_pub->publish(odom_msg);
-    auto msg1 = future1.get();
-    REQUIRE(msg1.forward < 0.0);
+
+    // Trim the neutral pre-source ticks until the ODOM-derived braking message
+    // is observed (same timing guard as the CAN reclaim below).
+    bool odom_braking_seen = false;
+    for (int i = 0; i < 20 && !odom_braking_seen; ++i) {
+      auto msg1 = roscco_sub->expect_next_message().get();
+      odom_braking_seen = (msg1.forward < 0.0);
+    }
+    REQUIRE(odom_braking_seen);
 
     // CAN publishes afterward and must reclaim the source, not be locked out by ODOM.
-    auto future2 = roscco_sub->expect_next_message();
     Float64 can_msg;
     can_msg.data = 0.0;  // error = 1.0 - 0.0 = 1.0 -> throttle (positive forward)
     can_pub->publish(can_msg);
-    auto msg2 = future2.get();
-    REQUIRE(msg2.forward > 0.0);
+
+    // The 10 Hz loop can emit one last ODOM-sourced (braking) tick between our
+    // publish and the CAN callback flipping the source. CAN is authoritative, so
+    // every message after the relock is positive; consume until that visible
+    // effect proves the reclaim instead of assuming the very next message wins.
+    bool can_reclaimed = false;
+    for (int i = 0; i < 20 && !can_reclaimed; ++i) {
+      auto msg2 = roscco_sub->expect_next_message().get();
+      can_reclaimed = msg2.forward > 0.0;
+    }
+    REQUIRE(can_reclaimed);
   }
 
   SECTION("ODOM is used as a bootstrap fallback when CAN never publishes")
@@ -110,11 +124,18 @@ TEST_CASE_METHOD(TestExecutorFixture, "VelDrivenFeedforwardPidNode Velocity Sour
     ackermann_pub->publish(ack_msg);
     flush_future.get();
 
-    auto future = roscco_sub->expect_next_message();
     Odometry odom_msg;
     odom_msg.twist.twist.linear.x = 0.0;  // error = 1.0 - 0.0 = 1.0 -> throttle (positive forward)
     odom_pub->publish(odom_msg);
-    auto msg = future.get();
-    REQUIRE(msg.forward > 0.0);
+
+    // Same trailing-tick guard as above: the loop publishes neutral ticks while
+    // it waits for a velocity source, so keep consuming until the ODOM-derived
+    // throttle message arrives.
+    bool odom_used = false;
+    for (int i = 0; i < 20 && !odom_used; ++i) {
+      auto msg = roscco_sub->expect_next_message().get();
+      odom_used = msg.forward > 0.0;
+    }
+    REQUIRE(odom_used);
   }
 }
