@@ -21,3 +21,7 @@ external/
 weights/
 models/
 maps/
+# but keep the checked-in map tooling + artifact
+!tools/maps/
+!tools/maps/ring_road/
+!tools/maps/ring_road/*
