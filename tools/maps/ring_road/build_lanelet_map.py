@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Build a Lanelet2 HD map (.osm) for the University of Waterloo Ring Road
 from an OpenStreetMap export (ringroad_osm.osm).
 
@@ -18,15 +31,17 @@ Approach:
     nodes (lat=x, lon=y), ways, lanelet relations (left/right/successor/
     predecessor/adjacent) and regulatory elements.
 """
+
 import math
 import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-LANE_WIDTH = 3.7             # meters per lane
+LANE_WIDTH = 3.7  # meters per lane
 RING_HIGHWAY = "unclassified"
-TARGET_SEG_LEN = 120.0       # m, max lanelet length before auto-splitting
+TARGET_SEG_LEN = 120.0  # m, max lanelet length before auto-splitting
 MIN_SEG_LEN = 25.0
+
 
 # ---------------------------------------------------------------------------
 # UTM (WGS84) -----------------------------------------------------------------
@@ -43,16 +58,26 @@ def to_utm(lat, lon):
     C = e2 / (1 - e2) * math.cos(latr) ** 2
     A = math.cos(latr) * (lonr - lon0)
     M = a * (
-        (1 - e2 / 4 - 3 * e2 ** 2 / 64 - 5 * e2 ** 3 / 256) * latr
-        - (3 * e2 / 8 + 3 * e2 ** 2 / 32 + 45 * e2 ** 3 / 1024) * math.sin(2 * latr)
-        + (15 * e2 ** 2 / 256 + 45 * e2 ** 3 / 1024) * math.sin(4 * latr)
-        - (35 * e2 ** 3 / 3072) * math.sin(6 * latr))
+        (1 - e2 / 4 - 3 * e2**2 / 64 - 5 * e2**3 / 256) * latr
+        - (3 * e2 / 8 + 3 * e2**2 / 32 + 45 * e2**3 / 1024) * math.sin(2 * latr)
+        + (15 * e2**2 / 256 + 45 * e2**3 / 1024) * math.sin(4 * latr)
+        - (35 * e2**3 / 3072) * math.sin(6 * latr)
+    )
     E = 500000 + k0 * n * (
-        A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T ** 2 + 72 * C - 58 * e2) * A ** 5 / 120)
-    N = k0 * (M + n * math.tan(latr) * (
-        A ** 2 / 2 + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24
-        + (61 - 58 * T + T ** 2 + 600 * C - 330 * e2) * A ** 6 / 720))
+        A + (1 - T + C) * A**3 / 6 + (5 - 18 * T + T**2 + 72 * C - 58 * e2) * A**5 / 120
+    )
+    N = k0 * (
+        M
+        + n
+        * math.tan(latr)
+        * (
+            A**2 / 2
+            + (5 - T + 9 * C + 4 * C**2) * A**4 / 24
+            + (61 - 58 * T + T**2 + 600 * C - 330 * e2) * A**6 / 720
+        )
+    )
     return E, N
+
 
 def offset_polyline(xs, ys, offset_m):
     """Offset a closed polyline left (positive) / right (negative) by a
@@ -65,10 +90,12 @@ def offset_polyline(xs, ys, offset_m):
         dy = ys[inx] - ys[ip]
         L = math.hypot(dx, dy)
         if L < 1e-9:
-            out.append((xs[i], ys[i])); continue
-        px, py = -dy / L, dx / L          # unit left normal
+            out.append((xs[i], ys[i]))
+            continue
+        px, py = -dy / L, dx / L  # unit left normal
         out.append((xs[i] + offset_m * px, ys[i] + offset_m * py))
     return out
+
 
 def offset_polyline_open(xs, ys, offset_m):
     """Offset an OPEN polyline by a perpendicular distance (+, left of travel)."""
@@ -83,10 +110,12 @@ def offset_polyline_open(xs, ys, offset_m):
             dx, dy = xs[i + 1] - xs[i - 1], ys[i + 1] - ys[i - 1]
         L = math.hypot(dx, dy)
         if L < 1e-9:
-            out.append((xs[i], ys[i])); continue
-        px, py = -dy / L, dx / L          # unit left normal
+            out.append((xs[i], ys[i]))
+            continue
+        px, py = -dy / L, dx / L  # unit left normal
         out.append((xs[i] + offset_m * px, ys[i] + offset_m * py))
     return out
+
 
 # ---------------------------------------------------------------------------
 # OSM input parsing ------------------------------------------------------------
@@ -105,6 +134,7 @@ def parse_osm(path):
             ways[e.attrib["id"]] = [nd.attrib["ref"] for nd in e.findall("nd")]
             tags[e.attrib["id"]] = td
     return nodes, ways, tags
+
 
 # ---------------------------------------------------------------------------
 def main():
@@ -126,7 +156,8 @@ def main():
         nxt = None
         for wid, other in adj.get(cur_end, []):
             if wid not in order:
-                nxt = wid; break
+                nxt = wid
+                break
         if nxt is None:
             break
         order.append(nxt)
@@ -235,7 +266,7 @@ def main():
 
     # ---- build segments from sorted arcs
     arcs = sorted(split_arcs)
-    candidates = []   # (start_arc, end_arc)
+    candidates = []  # (start_arc, end_arc)
     for a, b in zip(arcs, arcs[1:] + [arcs[0] + loop_len]):
         if b - a > 1e-6:
             candidates.append((a, b))
@@ -246,9 +277,14 @@ def main():
     for a, b in candidates:
         if merged and b - merged[-1][1] < 1e-9:
             continue
-        if (b - a) < MIN_SEG_LEN and merged \
-           and a not in hard_arcs and b not in hard_arcs \
-           and merged[-1][0] not in hard_arcs and merged[-1][1] not in hard_arcs:
+        if (
+            (b - a) < MIN_SEG_LEN
+            and merged
+            and a not in hard_arcs
+            and b not in hard_arcs
+            and merged[-1][0] not in hard_arcs
+            and merged[-1][1] not in hard_arcs
+        ):
             merged[-1] = (merged[-1][0], b)
         else:
             merged.append((a, b))
@@ -263,12 +299,14 @@ def main():
     # =====================================================================
     class Ids:
         def __init__(self):
-            self.n = 1_000_000; self.w = 2_000_000; self.r = 3_000_000
+            self.n = 1_000_000
+            self.w = 2_000_000
+            self.r = 3_000_000
             self.node_map = {}
             self.used = set()
 
         def node(self, x, y):
-            k = (round(x, 3), round(y, 3))         # 1 mm snap: shared nodes coalesce
+            k = (round(x, 3), round(y, 3))  # 1 mm snap: shared nodes coalesce
             if k not in self.node_map:
                 while self.n in self.used:
                     self.n += 1
@@ -281,20 +319,22 @@ def main():
             while self.w in self.used:
                 self.w += 1
             self.used.add(self.w)
-            wid = self.w; self.w += 1
+            wid = self.w
+            self.w += 1
             return wid
 
         def rel(self):
             while self.r in self.used:
                 self.r += 1
             self.used.add(self.r)
-            rid = self.r; self.r += 1
+            rid = self.r
+            self.r += 1
             return rid
 
     ids = Ids()
-    o_nodes = {}     # nid -> (x,y)
-    o_ways = []      # (wid, [nids], type, subtype)
-    o_rels = []      # (rid, rtype, [role,ty,ref], tags)
+    o_nodes = {}  # nid -> (x,y)
+    o_ways = []  # (wid, [nids], type, subtype)
+    o_rels = []  # (rid, rtype, [role,ty,ref], tags)
 
     def add_way(pts, wtype, subtype):
         nids = [ids.node(p[0], p[1]) for p in pts]
@@ -318,21 +358,33 @@ def main():
         r_pts = [edge_R[k % M] for k in rng]
 
         cw = add_way(c_pts, "line_thin", "solid")
-        lw_f = add_way(l_pts, "line_thin", "dashed")   # forward left edge
-        rw_r = add_way(r_pts, "line_thin", "dashed")   # reverse right edge
+        lw_f = add_way(l_pts, "line_thin", "dashed")  # forward left edge
+        rw_r = add_way(r_pts, "line_thin", "dashed")  # reverse right edge
 
         # forward lanelet: left=outer+edge, right=centerline
-        rid_f = add_rel("lanelet",
-                        [("left", "way", lw_f), ("right", "way", cw)],
-                        {"subtype": "road", "location": "2", "speed_limit": "40",
-                         "participant:vehicle": "yes",
-                         "name": f"ringroad_seg{si}_fwd"})
+        rid_f = add_rel(
+            "lanelet",
+            [("left", "way", lw_f), ("right", "way", cw)],
+            {
+                "subtype": "road",
+                "location": "2",
+                "speed_limit": "40",
+                "participant:vehicle": "yes",
+                "name": f"ringroad_seg{si}_fwd",
+            },
+        )
         # reverse lanelet: left=centerline, right=outer-edge
-        rid_r = add_rel("lanelet",
-                        [("left", "way", cw), ("right", "way", rw_r)],
-                        {"subtype": "road", "location": "2", "speed_limit": "40",
-                         "participant:vehicle": "yes",
-                         "name": f"ringroad_seg{si}_rev"})
+        rid_r = add_rel(
+            "lanelet",
+            [("left", "way", cw), ("right", "way", rw_r)],
+            {
+                "subtype": "road",
+                "location": "2",
+                "speed_limit": "40",
+                "participant:vehicle": "yes",
+                "name": f"ringroad_seg{si}_rev",
+            },
+        )
         seg_fwd.append(rid_f)
         seg_rev.append(rid_r)
 
@@ -344,20 +396,24 @@ def main():
     rev_pred = {seg_rev[i]: seg_rev[(i - 1) % n_seg] for i in range(n_seg)}
 
     # rewrite lanelet relations: append successor/predecessor + adjacency
-    adj_fwd = {seg_fwd[i]: seg_rev[i] for i in range(n_seg)}   # fwd.adjacentRight = rev
-    adj_rev = {seg_rev[i]: seg_fwd[i] for i in range(n_seg)}   # rev.adjacentLeft  = fwd
+    adj_fwd = {seg_fwd[i]: seg_rev[i] for i in range(n_seg)}  # fwd.adjacentRight = rev
+    adj_rev = {seg_rev[i]: seg_fwd[i] for i in range(n_seg)}  # rev.adjacentLeft  = fwd
 
     final_rels = []
     for rid, rtype, members, tags in o_rels:
         if rtype == "lanelet":
             if rid in fwd_succ:
-                members = members + [("successor", "relation", fwd_succ[rid]),
-                                     ("predecessor", "relation", fwd_pred[rid]),
-                                     ("adjacentRight", "relation", adj_fwd[rid])]
+                members = members + [
+                    ("successor", "relation", fwd_succ[rid]),
+                    ("predecessor", "relation", fwd_pred[rid]),
+                    ("adjacentRight", "relation", adj_fwd[rid]),
+                ]
             elif rid in rev_succ:
-                members = members + [("successor", "relation", rev_succ[rid]),
-                                     ("predecessor", "relation", rev_pred[rid]),
-                                     ("adjacentLeft", "relation", adj_rev[rid])]
+                members = members + [
+                    ("successor", "relation", rev_succ[rid]),
+                    ("predecessor", "relation", rev_pred[rid]),
+                    ("adjacentLeft", "relation", adj_rev[rid]),
+                ]
         final_rels.append((rid, rtype, members, tags))
     o_rels = final_rels
 
@@ -376,15 +432,22 @@ def main():
         si = next((k for k, seg in enumerate(segments) if seg_contains(seg, i)), None)
         if si is None or si >= n_seg:
             continue
-        stop_pts = [edge_L[i], edge_R[i]]          # line across the road
+        stop_pts = [edge_L[i], edge_R[i]]  # line across the road
         sw = add_way(stop_pts, "line_thin", "solid")
-        subtype = {"signal": "traffic_light", "stop": "all_way_stop",
-                   "give_way": "right_of_way"}[kind]
-        rid = add_rel("regulatory_element",
-                      [("refers", "relation", seg_fwd[si]),
-                       ("refers", "relation", seg_rev[si]),
-                       ("stop_line", "way", sw)],
-                      {"subtype": subtype})
+        subtype = {
+            "signal": "traffic_light",
+            "stop": "all_way_stop",
+            "give_way": "right_of_way",
+        }[kind]
+        rid = add_rel(
+            "regulatory_element",
+            [
+                ("refers", "relation", seg_fwd[si]),
+                ("refers", "relation", seg_rev[si]),
+                ("stop_line", "way", sw),
+            ],
+            {"subtype": subtype},
+        )
         n_reg += 1
 
     # =====================================================================
@@ -406,7 +469,7 @@ def main():
                 seq = ded[::-1]
                 kept = [seq[0]]
                 tot = 0.0
-                for (p, nid2) in seq[1:]:
+                for p, nid2 in seq[1:]:
                     tot += math.hypot(p[0] - kept[-1][0][0], p[1] - kept[-1][0][1])
                     if tot > cap:
                         break
@@ -415,7 +478,7 @@ def main():
             else:
                 kept = [ded[0]]
                 tot = 0.0
-                for (p, nid2) in ded[1:]:
+                for p, nid2 in ded[1:]:
                     tot += math.hypot(p[0] - kept[-1][0][0], p[1] - kept[-1][0][1])
                     if tot > cap:
                         break
@@ -426,27 +489,62 @@ def main():
     # traffic order for each link (junction node of the loop-side contact)
     links = {}
     # A: ring spur 267812666 -> 481695401 (exit from loop toward University)
-    links["A"] = ("42685771", ["267812666", "11823207355", "1474002565", "481695401"],
-                  True, None, "40", "ringroad_uv_exit")
+    links["A"] = (
+        "42685771",
+        ["267812666", "11823207355", "1474002565", "481695401"],
+        True,
+        None,
+        "40",
+        "ringroad_uv_exit",
+    )
     # D: ring spur 533789219 -> 533789218 (enter loop from University)
-    links["D"] = ("42685772", ["533789219", "1474002569", "11242534967", "533789218"],
-                  True, None, "40", "ringroad_uv_enter")
+    links["D"] = (
+        "42685772",
+        ["533789219", "1474002569", "11242534967", "533789218"],
+        True,
+        None,
+        "40",
+        "ringroad_uv_enter",
+    )
     # E: connector between the two University Ave points 533789219 -> 481695401
-    links["E"] = ("182752070", ["533789219", "481695401"], True, None, "50", "uvway_connect")
+    links["E"] = (
+        "182752070",
+        ["533789219", "481695401"],
+        True,
+        None,
+        "50",
+        "uvway_connect",
+    )
     # C: eastbound University Ave approach toward 533789219
-    links["C"] = ("738334662",
-                  ["6913629045", "11823207356", "1668187723", "533789219"],
-                  True, 260, "50", "uvway_east_in")
+    links["C"] = (
+        "738334662",
+        ["6913629045", "11823207356", "1668187723", "533789219"],
+        True,
+        260,
+        "50",
+        "uvway_east_in",
+    )
     # B: westbound University Ave egress from 481695401
-    links["B"] = ("41169447",
-                  ["481695401", "1863647984", "12603606727", "14050357146",
-                   "7805091929", "1503542132", "11970617687"],
-                  False, 260, "50", "uvway_west_out")
+    links["B"] = (
+        "41169447",
+        [
+            "481695401",
+            "1863647984",
+            "12603606727",
+            "14050357146",
+            "7805091929",
+            "1503542132",
+            "11970617687",
+        ],
+        False,
+        260,
+        "50",
+        "uvway_west_out",
+    )
 
     link_ids = {}
-    link_pts_index = {}       # key -> dict osm_node_id -> kept polyline index
-    extra_members = defaultdict(list)   # rid -> [(role,ty,ref)]
-    link_stops = {}           # key -> (polyline_index, subtype) for reg elems
+    link_pts_index = {}  # key -> dict osm_node_id -> kept polyline index
+    extra_members = defaultdict(list)  # rid -> [(role,ty,ref)]
 
     def loop_index(nid):
         return loop_refs.index(nid)
@@ -465,7 +563,6 @@ def main():
 
     cornerA = loop_index("267812666")
     cornerD = loop_index("533789218")
-    ring_k = {}
     k_aend = seg_idx_ending_at(cornerA)
     k_astart = seg_idx_starting_at(cornerA)
     k_dstart = seg_idx_starting_at(cornerD)
@@ -481,10 +578,17 @@ def main():
         cy = [p[1] for p, _ in poly]
         cw = add_way(list(zip(cx, cy)), "line_thin", "solid")
         lw = add_way(offset_polyline_open(cx, cy, +LANE_WIDTH), "line_thin", "solid")
-        rid = add_rel("lanelet",
-                      [("left", "way", lw), ("right", "way", cw)],
-                      {"subtype": "road", "location": "2", "speed_limit": speed,
-                       "participant:vehicle": "yes", "name": name})
+        rid = add_rel(
+            "lanelet",
+            [("left", "way", lw), ("right", "way", cw)],
+            {
+                "subtype": "road",
+                "location": "2",
+                "speed_limit": speed,
+                "participant:vehicle": "yes",
+                "name": name,
+            },
+        )
         link_ids[key] = rid
         link_pts_index[key] = {nid: i for i, (p, nid) in enumerate(poly)}
 
@@ -529,16 +633,19 @@ def main():
         elif idx == len(poly) - 1:
             nx, ny = px - poly[-2][0][0], py - poly[-2][0][1]
         else:
-            nx, ny = poly[idx + 1][0][0] - poly[idx - 1][0][0], poly[idx + 1][0][1] - poly[idx - 1][0][1]
+            nx, ny = (
+                poly[idx + 1][0][0] - poly[idx - 1][0][0],
+                poly[idx + 1][0][1] - poly[idx - 1][0][1],
+            )
         L = math.hypot(nx, ny)
         ux, uy = -ny / L, nx / L
-        sp = [(px, py),
-              (px + ux * LANE_WIDTH, py + uy * LANE_WIDTH)]
+        sp = [(px, py), (px + ux * LANE_WIDTH, py + uy * LANE_WIDTH)]
         sw = add_way(sp, "line_thin", "solid")
-        add_rel("regulatory_element",
-                [("refers", "relation", link_ids[key]),
-                 ("stop_line", "way", sw)],
-                {"subtype": subtype})
+        add_rel(
+            "regulatory_element",
+            [("refers", "relation", link_ids[key]), ("stop_line", "way", sw)],
+            {"subtype": subtype},
+        )
         n_reg += 1
 
     # apply all extra topology members (branching) to the stored relations
@@ -553,42 +660,57 @@ def main():
     # =====================================================================
     # serialize
     # =====================================================================
-    lines = ['<?xml version="1.0" encoding="UTF-8"?>',
-             '<osm version="0.6" generator="uwaterloo-ring-road-lanelet2">',
-             '  <annotation>',
-             '    <meta>',
-             '      <lanelet_version>1.0</lanelet_version>',
-             '      <left_hand_traffic>no</left_hand_traffic>',
-             '    </meta>',
-             '  </annotation>']
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<osm version="0.6" generator="uwaterloo-ring-road-lanelet2">',
+        "  <annotation>",
+        "    <meta>",
+        "      <lanelet_version>1.0</lanelet_version>",
+        "      <left_hand_traffic>no</left_hand_traffic>",
+        "    </meta>",
+        "  </annotation>",
+    ]
     for nid, (x, y) in sorted(o_nodes.items()):
-        lines.append(f'  <node id="{nid}" visible="true" version="1" '
-                     f'lat="{x:.3f}" lon="{y:.3f}" />')
+        lines.append(
+            f'  <node id="{nid}" visible="true" version="1" '
+            f'lat="{x:.3f}" lon="{y:.3f}" />'
+        )
     for wid, nids, wtype, subtype in o_ways:
         nds = "".join(f'<nd ref="{i}" />' for i in nids)
         ts = f'<tag k="type" v="{wtype}" /><tag k="subtype" v="{subtype}" />'
         lines.append(f'  <way id="{wid}" version="1">{nds}{ts}</way>')
     for rid, rtype, members, tags in o_rels:
-        ms = "".join(f'<member type="{ty}" ref="{rf}" role="{role}" />'
-                     for role, ty, rf in members)
+        ms = "".join(
+            f'<member type="{ty}" ref="{rf}" role="{role}" />'
+            for role, ty, rf in members
+        )
         ts = "".join(f'<tag k="{k}" v="{v}" />' for k, v in tags.items())
-        lines.append(f'  <relation id="{rid}" version="1">'
-                     f'<tag k="type" v="{rtype}" />{ts}{ms}</relation>')
+        lines.append(
+            f'  <relation id="{rid}" version="1">'
+            f'<tag k="type" v="{rtype}" />{ts}{ms}</relation>'
+        )
     lines.append("</osm>")
 
     with open(out_path, "w") as f:
-        f.write("\n".join(lines))
+        f.write("\n".join(lines) + "\n")
 
     seg_lens = [arc_between(a, b) for a, b in segments]
     print(f"Wrote {out_path}")
-    print(f"  loop: {M} pts, {sum(seg_lens):.0f} m, {len(segments)} segments "
-          f"(len range {min(seg_lens):.0f}-{max(seg_lens):.0f} m)")
-    print(f"  nodes={len(o_nodes)}  ways={len(o_ways)}  relations={len(o_rels)}  "
-          f"reg_elements={n_reg}")
+    print(
+        f"  loop: {M} pts, {sum(seg_lens):.0f} m, {len(segments)} segments "
+        f"(len range {min(seg_lens):.0f}-{max(seg_lens):.0f} m)"
+    )
+    print(
+        f"  nodes={len(o_nodes)}  ways={len(o_ways)}  relations={len(o_rels)}  "
+        f"reg_elements={n_reg}"
+    )
     print(f"  junction links: { {k: link_ids[k] for k in 'ABCDE'} }")
-    print("  topology: A(B) links ring-exit, D(ring-entry): "
-          f"A<-[{seg_fwd[k_aend]},{seg_rev[k_astart]}], "
-          f"D->[{seg_fwd[k_dstart]},{seg_rev[k_dend]}]")
+    print(
+        "  topology: A(B) links ring-exit, D(ring-entry): "
+        f"A<-[{seg_fwd[k_aend]},{seg_rev[k_astart]}], "
+        f"D->[{seg_fwd[k_dstart]},{seg_rev[k_dend]}]"
+    )
+
 
 if __name__ == "__main__":
     main()
