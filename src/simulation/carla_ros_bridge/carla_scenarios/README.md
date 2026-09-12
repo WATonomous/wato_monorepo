@@ -44,3 +44,7 @@ See [CARLA synchrony and time-step docs](https://carla.readthedocs.io/en/latest/
 - `carla_scenarios.scenarios.default_scenario` - Ego + 20 vehicles + 40 pedestrians
 - `carla_scenarios.scenarios.light_traffic_scenario` - Ego + 5 vehicles + 10 pedestrians
 - `carla_scenarios.scenarios.heavy_traffic_scenario` - Ego + 50 vehicles + 100 pedestrians
+
+## Custom Scenarios
+
+You can create custom scenarios in your own ROS package. The scenario server discovers external scenarios via Python entry points at startup. See [DEVELOPING.md](DEVELOPING.md) for a step-by-step guide.
