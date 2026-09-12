@@ -1,0 +1,18 @@
+# Relative prefix in case of relocation
+HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PREFIX=$(dirname $(dirname $(dirname $HERE)))
+
+# Relative path at runtime
+ament_prepend_unique_value LD_LIBRARY_PATH "$PREFIX/opt/cuda_bevfusion_vendor/lib"
+
+# Fixed path at build time
+ament_prepend_unique_value CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/cuda_bevfusion_vendor"
+
+# CUDA driver stub for GPU-less CI runners.
+# libspconv.so has a hard ELF NEEDED on libcuda.so.1. On machines without a
+# real NVIDIA driver the stub satisfies that requirement at runtime.
+# The check prevents the stub from shadowing a real driver via LD_LIBRARY_PATH
+# precedence (LD_LIBRARY_PATH is searched before the ldconfig cache).
+if ! ldconfig -p 2>/dev/null | grep -q 'libcuda\.so\.1'; then
+    ament_prepend_unique_value LD_LIBRARY_PATH "$PREFIX/opt/cuda_bevfusion_vendor/cuda_stubs"
+fi

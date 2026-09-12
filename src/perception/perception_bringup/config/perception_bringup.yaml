@@ -66,9 +66,9 @@ multi_camera_sync:
     camera_topics:
       - "/camera_pano_ne/image_rect_compressed"
       # - "/camera_pano_ee/image_rect_compressed"
-      # - "/camera_pano_se/image_rect_compressed"
-      # - "/camera_pano_ss/image_rect_compressed"
-      # - "/camera_pano_sw/image_rect_compressed"
+      - "/camera_pano_se/image_rect_compressed"
+      - "/camera_pano_ss/image_rect_compressed"
+      - "/camera_pano_sw/image_rect_compressed"
       # - "/camera_pano_ww/image_rect_compressed"
       - "/camera_pano_nw/image_rect_compressed"
       - "/camera_pano_nn/image_rect_compressed"
@@ -77,9 +77,9 @@ multi_camera_sync:
     camera_info_topics:
       - "/camera_pano_ne/camera_info"
       # - "/camera_pano_ee/camera_info"
-      # - "/camera_pano_se/camera_info"
-      # - "/camera_pano_ss/camera_info"
-      # - "/camera_pano_sw/camera_info"
+      - "/camera_pano_se/camera_info"
+      - "/camera_pano_ss/camera_info"
+      - "/camera_pano_sw/camera_info"
       # - "/camera_pano_ww/camera_info"
       - "/camera_pano_nw/camera_info"
       - "/camera_pano_nn/camera_info"
@@ -88,9 +88,9 @@ multi_camera_sync:
     camera_names:
       - "camera_pano_ne"
       # - "camera_pano_ee"
-      # - "camera_pano_se"
-      # - "camera_pano_ss"
-      # - "camera_pano_sw"
+      - "camera_pano_se"
+      - "camera_pano_ss"
+      - "camera_pano_sw"
       # - "camera_pano_ww"
       - "camera_pano_nw"
       - "camera_pano_nn"
@@ -177,7 +177,7 @@ multi_camera_sync:
     dist_metric: "IOU"
     # Use lidar_cc when running perception without localization (no map→lidar_cc TF).
     # Set to "map" when running with localization so tracks are in the global frame.
-    output_frame: "map"
+    output_frame: "lidar_cc"
     publish_visualization: true
 
     # --- Per-class tracking overrides (parallel arrays). Empty = single global tracker. ---
@@ -450,21 +450,121 @@ multi_camera_sync:
     bus_real_length: 12.0
 
 # =============================================================================
+# BEVFusion Node
+# =============================================================================
+/**/bevfusion_node:
+  ros__parameters:
+    # Frame IDs
+    lidar_frame_id: "lidar_cc"
+    target_frame: "base_link"  # Target coordinate frame for 3D detections
+
+    # Input topics for message filters (remapping does not work for message_filters)
+    use_raw_images: false  # true: subscribe to /multi_camera_sync/multi_image_raw; false: subscribe to /multi_camera_sync/multi_image_compressed
+    input_multi_image_raw_topic: "/multi_camera_sync/multi_image_raw"  # Batched raw images (deep_msgs/msg/MultiImage)
+    input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
+    input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
+
+    # Specify whether inputted lidar topic has the 5th parameter (ring id)
+    # Merged lidar points do not while single lidars do.
+    has_ring: true
+
+    # Directory containing all TensorRT .plan and .onnx engine files
+    model_dir: "/opt/watonomous/models/bevfusion/resnet50_trt11_int8"
+
+    # Camera frame IDs — must match the 6 nuScenes-layout cameras on Eve
+    camera_names:
+      - "camera_pano_nn"
+      - "camera_pano_ne"
+      - "camera_pano_nw"
+      - "camera_pano_ss"
+      - "camera_pano_sw"
+      - "camera_pano_se"
+
+    # Detection confidence threshold — boxes below this score are discarded
+    confidence_threshold: 0.1
+
+    # --- Camera Normalization & Preprocessing ---
+    image_width: 1280  # Input image resolution (must match the camera hardware)
+    image_height: 1024
+    interpolation: "bilinear"  # Interpolation method for resizing ("bilinear" or "nearest")
+
+    # --- LiDAR Voxelization & SCN ---
+    max_points_per_voxel: 10  # Max # of points to sample in 1 voxel
+    max_points: 300000  # Upper limit on total # of lidar points processed
+    max_voxels: 160000  # Upper limit on total # of voxels generated on the grid
+
+    # --- Bounding Box Post-processing & Head ---
+    post_center_range_start: [-61.2, -61.2, -10.0]  # BBox center filter lower boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
+    post_center_range_end: [61.2, 61.2, 10.0]  # BBox center filter upper boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
+    sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
+
+    # ApproximateTime synchronization
+    sync_queue_size: 5
+    sync_max_time_diff_ms: 200.0
+
+    # QoS
+    qos_subscriber_reliability: "best_effort"
+    qos_subscriber_depth: 2
+    qos_publisher_reliability: "reliable"
+    qos_publisher_durability: "transient_local"
+    qos_publisher_depth: 5
+
+    # -------------------------------------------------------------------------
+    # Retrain-Dependent Parameters
+    # - Parameters below this point can only be modified if the BEVFusion
+    #   Pytorch model is retrained and TensorRT engine files are regenerated
+    # -------------------------------------------------------------------------
+
+    # --- Camera Normalization & Preprocessing ---
+    norm_output_width: 704  # Output resolution after resize (Network input)
+    norm_output_height: 256
+    norm_mean: [0.485, 0.456, 0.406]  # Mean subtraction value per RGB channel
+    norm_std: [0.229, 0.224, 0.225]  # Std deviation value per RGB channel
+    norm_scale: 0.00392156862745098  # Input image pixel scaling factor ([0,255] -> [0,1])
+    norm_bias: 0.0  # Bias offset applied to normalized pixels
+
+    # --- Camera Geometry Mapping (Depth & Grid) ---
+    xbound: [-54.0, 54.0, 0.3]  # BEV grid X limits [min, max, step] in meters
+    ybound: [-54.0, 54.0, 0.3]  # BEV grid Y limits
+    zbound: [-10.0, 10.0, 20.0]  # BEV grid Z limits
+    dbound: [1.0, 60.0, 0.5]  # Depth bin limits for feature projection
+    geometry_dim: [360, 360, 80]  # Voxel dimensions (width, height, depth_bin) in BEV space
+    feat_width: 88  # Feature map width after projection (by camera backbone)
+    feat_height: 32  # Feature map height after projection (by camera backbone)
+
+    # --- LiDAR Voxelization & SCN ---
+    min_range: [-54.0, -54.0, -5.0]  # Min 3D range (x,y,z) in meters for voxelization (from lidar frame)
+    max_range: [54.0, 54.0, 3.0]  # Max 3D range (from lidar frame)
+    voxel_size: [0.075, 0.075, 0.2]  # Size of each voxel (x,y,z) in meters
+    num_features: 5  # Dimensions per lidar point (x, y, z, intensity, ring)
+    scn_order: "XYZ"  # SCN coordinate order constraint ("XYZ" or "ZYX")
+
+    # --- Bounding Box Post-processing & Head ---
+    out_size_factor: 8  # Resolution downsampling factor of the detection head output relative to voxels
+    transbbox_pc_range: [-54.0, -54.0]  # 2D point cloud start boundary [min_x, min_y] for the head
+    transbbox_voxel_size: [0.075, 0.075]  # 2D voxel size [dX, dY] in the horizontal plane
+
+    # -------------------------------------------------------------------------
+    # End of Retrain-Dependent Parameters
+    # -------------------------------------------------------------------------
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
   ros__parameters:
     # Manages model inference and attribute enrichment nodes.
-    node_names: ["deep_object_detection_node", "attribute_assigner_node"]
+    node_names: ["bevfusion_node"] # "deep_object_detection_node", "attribute_assigner_node"
     autostart: true
-    transition_timeout_s: 30.0
+    autostart_delay_s: 20.0
+    transition_timeout_s: 130.0
     bond_timeout_s: 4.0
     bond_enabled: false
 
 perception_lifecycle_manager:
   ros__parameters:
     # Manages segmentation, association, and tracking pipeline nodes.
-    node_names: ["/perception/patchworkpp_node", "/spatial_association_node", "/perception/tracking_node"]
+    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
     autostart: true
     autostart_delay_s: 3.0
     transition_timeout_s: 3.0
