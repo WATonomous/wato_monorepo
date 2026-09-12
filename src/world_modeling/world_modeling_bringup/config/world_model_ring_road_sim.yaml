@@ -1,0 +1,174 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# =============================================================================
+# World Model Node
+# =============================================================================
+# CARLA build of the UWaterloo Ring Road. Load the OpenDRIVE road network
+# (ringroad_carla.xodr) via client.generate_opendrive_world(); the CARLA world
+# origin then sits at the ring center, and ringroad_sim.osm is the same map
+# shifted so the ring center is (0,0) -- local frame == CARLA world frame.
+/**/world_model:
+  ros__parameters:
+    # Map
+    osm_map_path: "/opt/watonomous/maps/ring_road/lanelet/ringroad_sim.osm"
+    projector_type: "local_cartesian" # "utm" for real-world, "local_cartesian" for CARLA
+
+    # the origin of the osm map in lat/lon for utm projector only
+    # TODO (wato): have a dictionary of origins for different maps
+    origin_lat: 43.47065 # ring-road map center (world_model_ring_road.yaml)
+    origin_lon: -80.54326
+
+    # Frames
+    map_frame: "map"
+    base_frame: "base_footprint"
+    utm_frame: "utm"
+
+    # Entity tracking
+    entity_history_duration_sec: 5.0
+    entity_prune_timeout_sec: 2.0
+    traffic_light_timeout_sec: 1.0
+
+    # Background workers
+    cleanup_interval_ms: 1000.0
+    enrichment_interval_ms: 100.0
+
+    # --- Publishers ---
+
+    # Lane context
+    lane_context_publish_rate_hz: 20.0
+    lane_context_route_lookahead_m: 100.0
+
+    # Map visualization
+    map_viz_publish_rate_hz: 1.0
+    map_viz_radius_m: 50.0
+    map_viz_mode: "nearby" # "all" to viz all markers or "nearby" to viz markers within a radius of the ego
+
+    # World objects enriched
+    world_objects_enriched_publish_rate_hz: 20.0
+    world_objects_enriched_lanelet_ahead_radius_m: 15.0
+
+    # Route ahead
+    route_ahead_publish_rate_hz: 20.0
+    route_ahead_lookahead_m: 100.0
+
+    # Lanelet ahead (all lanelets within radius, regardless of route)
+    lanelet_ahead_publish_rate_hz: 10.0
+    lanelet_ahead_radius_m: 30.0
+
+    # --- Area occupancy ---
+
+    area_occupancy_publish_rate_hz: 20.0
+    area_occupancy_frame: "base_footprint"
+    occupancy_areas:
+      - "front_near"
+      - "overtake_front"
+      - "front_far"
+      - "left_blind_spot"
+      - "right_blind_spot"
+      - "left_lane_change_corridor"
+      - "right_lane_change_corridor"
+
+    occupancy_area:
+      front_near:
+        type: "circle"
+        center_x: 0.0
+        center_y: 0.0
+        radius: 10.0
+      overtake_front:
+        type: "rectangle"
+        center_x: 5.0
+        center_y: 0.0
+        length: 12.0
+        width: 3.5
+      front_far:
+        type: "circle"
+        center_x: 15.0
+        center_y: 0.0
+        radius: 20.0
+      left_blind_spot:
+        type: "partial_circle"
+        center_x: -2.0
+        center_y: 2.0
+        radius: 10.0
+        start_angle_deg: 110.0
+        end_angle_deg: 180.0
+      right_blind_spot:
+        type: "partial_circle"
+        center_x: -2.0
+        center_y: -2.0
+        radius: 10.0
+        start_angle_deg: 180.0
+        end_angle_deg: 250.0
+      left_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: 3.0
+        length: 12.5
+        width: 4.0
+      right_lane_change_corridor:
+        type: "rectangle"
+        center_x: 3.0
+        center_y: -3.0
+        length: 12.5
+        width: 4.0
+
+# =============================================================================
+# Lanelet Marker Nodes
+# =============================================================================
+
+/**/map_viz_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    show_centerlines: true
+    show_stop_lines: true
+    show_traffic_lights: true
+    show_direction_arrows: true
+    show_speed_limits: false
+    show_yield_markers: true
+    use_boundary_colors: true
+    boundary_line_width: 0.15
+    centerline_line_width: 0.05
+    stop_line_width: 0.3
+    traffic_light_radius: 0.5
+    direction_arrow_spacing: 15.0
+    direction_arrow_size: 0.8
+    speed_limit_text_height: 1.0
+    yield_marker_size: 1.5
+    show_reg_elem_labels: true
+    show_lanelet_ids: true
+    lanelet_id_text_height: 0.5
+
+/**/lane_context_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    boundary_line_width: 0.25
+    centerline_line_width: 0.1
+
+/**/route_ahead_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    boundary_line_width: 0.2
+    centerline_line_width: 0.2
+    show_lanelet_ids: false
+    show_route_info: true
+
+/**/lanelet_ahead_markers_node:
+  ros__parameters:
+    frame_id: "map"
+    boundary_line_width: 0.2
+    centerline_line_width: 0.2
+    show_lanelet_ids: false
+    show_info: true
+    show_boundaries: true
