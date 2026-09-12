@@ -82,6 +82,8 @@ def write_centered_osm(src, dst, ox, oy):
             e.set("lon", f"{float(e.attrib['lon']) - ox:.6f}")
             e.set("lat", f"{float(e.attrib['lat']) - oy:.6f}")
     ET.ElementTree(root).write(dst, encoding="unicode", xml_declaration=True)
+    with open(dst, "a") as f:
+        f.write("\n")
     print(f"Wrote {dst}")
 
 
