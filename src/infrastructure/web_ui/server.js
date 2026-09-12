@@ -33,7 +33,7 @@ rclnodejs.init().then(() => {
   const setRouteClient = node.createClient('lanelet_msgs/srv/SetRoute', '/world_modeling/set_route');
   const getRouteClient = node.createClient('lanelet_msgs/srv/GetShortestRoute', '/world_modeling/get_shortest_route');
 
-/*
+
   // route ahead → browser
   node.createSubscription(
     'lanelet_msgs/msg/RouteAhead',
@@ -48,7 +48,7 @@ rclnodejs.init().then(() => {
       broadcast({ type: 'route', lanelets });
     }
   );
-*/ 
+
 
   // ego pose → browser 
   node.createSubscription(

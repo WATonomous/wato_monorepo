@@ -17,7 +17,7 @@
 export const DriveView = (() => {
   let THREE, canvas, renderer, scene, camera;
   let car, ground, grid;
-  let objectsGroup, laneletGroup, routeGroup;
+  let objectsGroup, laneletGroup, routeGroup, routeAheadGroup;
   const objectPool = new Map();
 
   // chase-cam working values
@@ -261,6 +261,7 @@ export const DriveView = (() => {
     objectsGroup = new THREE.Group(); scene.add(objectsGroup);
     laneletGroup = new THREE.Group(); scene.add(laneletGroup);
     routeGroup   = new THREE.Group(); scene.add(routeGroup);
+    routeAheadGroup = new THREE.Group(); scene.add(routeAheadGroup);
 
     canvas.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
@@ -326,7 +327,8 @@ export const DriveView = (() => {
       for (const L of msg.lanelets) {
         if (L.centerline.length > 1) laneletGroup.add(makeLaneLine(L.centerline, 0xaaaaaa, true));
       }
-    } else if (msg.type === 'route') {
+    } 
+    else if (msg.type === 'route') {
       for (const c of routeGroup.children) { c.geometry.dispose(); c.material.dispose(); }
       routeGroup.clear();
       // NOTE: drive's route handler expects lanelets[]; the current server sends
@@ -342,8 +344,30 @@ export const DriveView = (() => {
         }
       }
     }
-  }
+    else if (msg.type === 'routeAhead') {
+      for (const c of routeAheadGroup.children) { c.geometry.dispose(); c.material.dispose(); }
+      routeAheadGroup.clear();
+      for (const L of msg.lanelets) {
+        if (L.centerline.length > 1) {
+          const ribbon = makeRoadRibbon(L.centerline, 1.5);   // fixed half-width, no laneHalfWidth
+          ribbon.material.color.set(0x2196f3);
+          ribbon.material.transparent = true;
+          ribbon.material.opacity = 0.55;
+          ribbon.position.y = 0.06;
+          routeAheadGroup.add(ribbon);
+        }
+      }
+    }
 
+    else if (msg.type === 'routeAhead') {
+      if (msg.lanelets[0]?.centerline?.length) {
+        const p = msg.lanelets[0].centerline[0];
+        console.log('routeAhead first pt:', p.x.toFixed(1), p.y.toFixed(1),
+                    '| car:', car.position.x.toFixed(1), (-car.position.z).toFixed(1));
+      }
+    } 
+  }
+  
   function resize() {
     if (!canvas || !renderer) return;
     const rect = canvas.getBoundingClientRect();
