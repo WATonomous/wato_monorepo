@@ -360,3 +360,7 @@ class ScenarioBase(ABC):
     def execute(self) -> None:
         """Execute scenario logic (called periodically). Override if needed."""
         pass
+
+    def cleanup(self) -> None:
+        """Release scenario-owned actors before the server resets the world."""
+        pass
