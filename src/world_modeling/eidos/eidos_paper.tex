@@ -1,0 +1,326 @@
+\documentclass[conference]{IEEEtran}
+
+% ---- Encoding and fonts ----
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% ---- Mathematics ----
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ---- Figures and tables ----
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{textcomp}
+
+% ---- Links (hyperref must be loaded before biblatex) ----
+\usepackage{url}
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+
+% ---- Bibliography ----
+\usepackage[backend=biber,style=numeric,sorting=none,maxbibnames=6]{biblatex}
+\addbibresource{refs.bib}
+
+% ---- IEEE table conventions ----
+\renewcommand{\arraystretch}{1.2}
+
+\title{Eidos: A Plugin-Based Factor Graph for\\LiDAR-Inertial SLAM and Localization}
+
+\author{\IEEEauthorblockN{Brian Zheng, Lucas Reljic-Dumont, Eddy Zhou, Mohammad Al-Sharman}
+\IEEEauthorblockA{
+\textit{University of Waterloo} \\
+Waterloo, Ontario, Canada \\
+}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present Eidos, a plugin-based LiDAR-inertial SLAM and localization system for ROS 2 in which the estimation backend is fixed and the measurement model is configurable. Like LIO-SAM \parencite{shan2020liosam}, Eidos maintains a factor graph over SE(3) vehicle states and solves it incrementally with iSAM2 \parencite{kaess2012isam2}. While sharing the same default constraint set -- LiDAR Odometry, GNSS pose, and loop closure, Eidos leaves it configurable and is not fixed in source. Following RTAB-Map's \parencite{labbe2019rtabmap} precedent of treating odometry as an interchangeable external input, Eidos generalizes this principle from one component to the entire graph. Every measurement that reaches the graph does so through a runtime-loaded factor plugin, and all plugins follow the same two-phase process each cycle: one plugin creates a graph state at a sensor timestamp, and every other plugin is then offered the chance to latch a constraint onto it. Generalized ICP scan-to-submap matching, unary GNSS constraints, inertial preintegration, and Euclidean loop closure are all instances of one interface, as are prior-map relocalization and pose-graph visualization. We describe the architecture, the concurrency design that keeps registration off the optimizer's critical path, and deployment on a full-scale autonomous vehicle. Eidos is not more accurate than LIO-SAM and does not claim to be; the contribution is extensibility, map persistence, and relocalization.
+\end{abstract}
+
+\begin{IEEEkeywords}
+SLAM, LiDAR-inertial odometry, factor graphs, iSAM2, plugin architecture, ROS~2, autonomous vehicles
+\end{IEEEkeywords}
+
+\section{Introduction}
+State estimation is the layer every other autonomy component depends on, which is what makes it expensive to modify. A system whose factor set is fixed at compile time admits no unit of change smaller than the estimator, so adding a sensor reopens code the entire stack was validated against --- a cost paid often, since rigs differ across vehicles, GNSS availability is environmental, and new constraints originate outside the estimator entirely. LIO-SAM is a clean instance of the pattern: it ``introduce[s] four types of factors along with one variable type'' for its factor graph, and every one of those types is decided in source \parencite{shan2020liosam}. Adding a fifth factor --- a wheel-odometry or visual-odometry constraint, or a magnetometer heading --- would mean altering the estimator itself. Eidos makes that generality operational. A new constraint is a plugin and a configuration entry, not a modification to the estimation core, and the motion-model factor of Section~\ref{sec:motion-model} is the concrete instance: it originates in a separate ROS node, arrives over a service call, and reaches the graph through the same interface the LiDAR odometry constraint uses, without a line changing in the code that owns the optimizer. The same property makes each ablation in Section~\ref{sec:eval} a configuration file rather than a code branch. Figure~\ref{fig:map} shows a representative map produced by the mapping configuration described throughout this paper.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{eidos_map.png}
+\caption{Keyframe point cloud map built by Eidos in the mapping configuration, rendered top-down and colored by elevation. The vehicle route returns to its starting area, the revisit geometry that the Euclidean loop-closure plugin of Section~\ref{sec:factors} searches for. The cloud is assembled from the per-keyframe payloads persisted in the map file described in Section~\ref{sec:map}.}
+\label{fig:map}
+\end{figure}
+
+Configurability of this kind is not a new idea. RTAB-Map treats the odometry as a swappable component at configuration time --- ``SLAM can also be done using any kind of odometry'' \parencite{labbe2019rtabmap} --- and that a mature, widely deployed system took the trouble is evidence the property pays for itself in practice rather than merely being available in principle. But RTAB-Map stops at one component: its link taxonomy remains closed at three types, and every constraint the graph receives is still one the system defines itself.
+
+Eidos retains LIO-SAM's factor vocabulary, keyframe policy, and iSAM2 backend nearly unchanged. What it does not retain is the idea that a measurement's existence in the graph is a compile-time fact: every measurement contribution --- not odometry alone, but GNSS, loop closure, and inertial preintegration --- is a runtime-loaded plugin participating in one two-phase contract, and mapping and map-based localization become two configurations of that plugin set rather than two code paths. The objective of this work is to show that separating the estimation backend from sensor semantics costs nothing in accuracy.
+
+\subsection{Contributions}
+\begin{enumerate}
+    \item A two-phase constraint contract --- \emph{produce}, then \emph{latch} --- that decouples state creation from constraint attachment, so a module contributing a constraint needs no knowledge of what created the state it constrains. Three interfaces (factor, relocalization, visualization) cover every sensor-specific behavior in the system, map serialization and initialization readiness included.
+    \item Evidence that the resulting interface is open rather than a refactoring of a known, closed list: the motion-model factor of Section~\ref{sec:motion-model} originates in a separate ROS node, arrives over a service call, and enters the graph through the interface a LiDAR constraint uses, without modification to the estimation core. It is registered but not enabled in either shipped configuration.
+    \item Mapping and localization as two configurations of one plugin set rather than two code paths, characterized precisely in Section~\ref{sec:modes}, where the localization configuration is shown to be the degenerate case in which the estimator reduces to registration plus filtering.
+    \item A self-describing map format --- one SQLite file in which every payload records its own codec --- that external tooling can read without linking plugin code, with per-keyframe and per-edge provenance that makes the origin of any constraint recoverable after the fact.
+    \item A concurrency design that keeps scan registration and loop-closure verification off the optimizer's critical path.
+    \item A negative result on geometric global localization (Section~\ref{sec:negative}): on a vegetation-dense route, two independently constructed scoring functions both fail to rank the true pose first, a failure attributable to map discriminability within the scored height band rather than to the search strategy.
+\end{enumerate}
+
+We evaluate the claim that this generality is free by comparing Eidos against LIO-SAM on shared sequences (Section~\ref{sec:eval}). Accuracy parity, not superiority, is the bar the architecture needs to clear.
+
+\section{Related Work}
+
+\textbf{LiDAR-inertial odometry and SLAM.} LOAM \parencite{zhang2017loam} established feature-based scan matching as a real-time alternative to dense ICP but stores its map as a single growing voxel structure, which complicates loop closure and degrades as the map densifies; LeGO-LOAM \parencite{shan2018lego} adapts the pipeline to ground vehicles. LIO-SAM \parencite{shan2020liosam} keeps LOAM's feature extraction and replaces its estimation core with a factor graph solved incrementally by iSAM2 \parencite{kaess2012isam2}, matching against a fixed-size sliding window of sub-keyframes rather than a global map. FAST-LIO2 \parencite{xu2022fastlio2} takes a different point on the same design space, coupling LiDAR and inertial measurements through direct point-to-map registration without feature extraction. Eidos is closest to LIO-SAM in its factor graph and backend, and diverges in front end and extensibility (Section~\ref{sec:factors}).
+
+\textbf{Modular and extensible robotics software.} This is the strand most LiDAR-inertial SLAM papers neglect, and it is where Eidos differentiates. RTAB-Map is the clearest precedent: by accepting odometry as an external input rather than computing it internally, it makes SLAM comparable across sensor modalities on one robot, and it treats the pose-graph optimizer itself as interchangeable \parencite{labbe2019rtabmap}. Its own constraint taxonomy, however, is closed. Eidos generalizes the move RTAB-Map makes for odometry to the entire factor graph.
+
+\textbf{Global localization against a prior map.} Recovering pose in a known map without a positional prior is a different problem from incremental tracking. Cartographer formulates 2{D} loop closure as a branch-and-bound search over a multi-resolution occupancy pyramid, in which a coarse-level score upper-bounds every pose beneath it so whole subtrees can be discarded unvisited \parencite{hess2016cartographer}; 3{D}-BBS extends this to six degrees of freedom with a hash-table voxel map and GPU-batched search \parencite{aoki2024bbs}. The alternative family retrieves candidates by descriptor rather than by search \parencite{kim2018scan,labbe2013appearance}. Eidos implements the geometric family and not the descriptor family, a choice whose consequences appear in Section~\ref{sec:limitations}.
+
+\section{System Architecture}
+
+\subsection{The two-phase constraint contract}
+Trajectory estimation here is MAP inference on a factor graph \parencite{dellaert2017factor}, and the property that matters for Eidos is that the posterior factorizes as a \emph{product} over measurements: a module contributing one factor needs no knowledge of any other factor in the product. That is what makes a plugin architecture possible at all; Eidos makes it architecturally available rather than merely mathematically true.
+
+Each cycle proceeds in two phases. In the \textbf{produce} phase, any loaded plugin may declare that a new graph state should exist at a specific sensor timestamp; if multiple plugins produce states in the same cycle, they are ordered by sensor time before insertion. In the \textbf{latch} phase, every plugin is offered each newly created state and may attach a constraint to it. State creation and constraint attachment are fully decoupled: a GNSS plugin latching a unary position constraint onto a state has no idea, and needs no idea, that the state was produced by the LiDAR odometry plugin.
+
+Contrast this directly with LIO-SAM, where the correspondence between a LiDAR keyframe and a state node is hard-coded --- the lidar odometry module \emph{is} the thing that creates a node, in source \parencite{shan2020liosam}. In Eidos that correspondence is one configuration among many. In the deployed mapping configuration LiDAR odometry is in fact the only state-creating plugin, but the contract does not require this.
+
+\subsection{Plugin taxonomy}
+Three interfaces cover every sensor-specific behavior in the system:
+\begin{itemize}
+    \item \textbf{Factor plugins} implement the produce/latch contract described above.
+    \item \textbf{Relocalization plugins} compute an initial pose estimate against a prior map (Section~\ref{sec:map}).
+    \item \textbf{Visualization plugins} render graph state, including the factor graph colored by producing plugin.
+\end{itemize}
+Map-file serialization is a further registration point rather than a separate mechanism: plugins register by data key and format name (Section~\ref{sec:map}).
+
+\subsection{Concurrency}
+Registration is expensive and must not block the optimizer. Sensor callbacks publish poses through a seqlock; the full optimized value set reaches visualization consumers by pointer swap rather than copy; loop-closure verification and prior-map submap assembly are dispatched to worker threads with results delivered on a later cycle rather than blocking the cycle that requested them. Corrections that must be applied to sensor-thread state (Section~\ref{sec:transform}) are queued and consumed \emph{by that thread} rather than written directly from the optimizer thread, which avoids a data race a naive implementation would introduce.
+
+\subsection{Gated initialization}
+The system does not begin tracking until every loaded factor plugin reports readiness. This generalizes the ``wait for IMU'' logic common to comparable systems into a property of the plugin contract rather than a special case. The motivating failure mode is LIO-SAM's own report that LIOM fails to initialize on its \emph{Rotation} dataset because it inherits visual-inertial initialization sensitivity \parencite{shan2020liosam} --- a readiness predicate that is checked, rather than assumed, is the direct answer to that failure class.
+
+\subsection{Incremental inference}
+Eidos solves the graph with GTSAM's ISAM2 \parencite{kaess2012isam2}, exposing \texttt{relinearize\_threshold} (0.01) and \texttt{relinearize\_skip} (1), and varies the number of update iterations per cycle by event class: a nominal two, rising to five on the cycle that receives a GNSS correction or an accepted loop closure. A loop closure displaces the linearization point far enough that a single Gauss-Newton step on the old linearization is a poor approximation. The three counts are independently configurable. Neither source paper describes an event-conditioned convergence schedule.
+
+\section{Factor Plugins}
+\label{sec:factors}
+Poses are GTSAM \texttt{Pose3} elements of $SE(3)$, with residuals expressed in the tangent space through $\mathrm{Log}$ and increments retracted through $\mathrm{Exp}$.
+
+\subsection{Prior factor}
+Anchors gauge freedom on the first state, either at a relocalized pose or a gravity-aligned origin established during warm-up:
+\begin{equation}
+r_{\text{prior}} = \mathrm{Log}\!\left(x_0^{-1}\bar{x}_0\right).
+\end{equation}
+Without it the graph is rank-deficient by six degrees of freedom. This is the one constraint that is \emph{not} a plugin: because it fixes gauge rather than carrying a measurement, it is added by the core node when the first state is created, and no configuration can remove it.
+
+\subsection{Between factor from scan-to-submap registration}
+\begin{equation}
+r_{ij} = \mathrm{Log}\!\left((\bar{z}_{ij})^{-1}x_i^{-1}x_j\right), \qquad \bar{z}_{ij} = \hat{x}_i^{-1}\hat{x}_j.
+\end{equation}
+This is LIO-SAM's odometry factor ($\Delta T_{i,i+1} = T_i^\top T_{i+1}$) restated as a tangent-space residual. In the deployed configuration it is the only state-creating plugin and the workhorse constraint.
+
+\textbf{Front end.} LIO-SAM extracts LOAM-style edge and planar features and solves point-to-line and point-to-plane Gauss-Newton against a voxel map of 25 recent sub-keyframes, choosing this over ICP or GICP for computational efficiency \parencite{shan2020liosam}. RTAB-Map's lidar odometry uses ICP via \texttt{libpointmatcher} against either the last keyframe (S2S) or an assembled map (S2M) \parencite{labbe2019rtabmap}. Eidos takes a third position: Generalized ICP over full downsampled clouds, using \texttt{small\_gicp} \parencite{koide2024smallgicp}, against a submap of recent keyframes (mapping) or prior-map keyframes retrieved by radius query (localization). The GICP objective \parencite{segal2009generalized} is
+\begin{equation}
+T^\star = \arg\min_T \sum_i d_i^\top\!\left(C_i^B + T C_i^A T^\top\right)^{-1} d_i, \qquad d_i = b_i - T a_i,
+\end{equation}
+with $C_i^A, C_i^B$ the local surface covariances from each point's k-nearest neighbors --- the plane-to-plane formulation that gives GICP its robustness to the sparse, anisotropic sampling of a spinning LiDAR. This is a deliberate trade of feature sparsity for dense-cloud robustness, made affordable by a multi-core thread budget LIO-SAM's authors did not have when they chose feature extraction for efficiency. Section~\ref{sec:eval} measures whether the trade pays.
+
+Like both source systems, Eidos matches against a local window rather than a global map; for LIO-SAM this is what makes real-time operation possible where LOAM's dense voxel map is not. The initial guess is gyroscope-seeded rotation with translation held at the last matched position, the cheapest useful version of the motion prediction LIO-SAM's IMU-predicted $\tilde{T}_{i+1}$ and RTAB-Map's Motion Prediction block both supply.
+
+\textbf{Gravity-aligned initialization.} Tracking does not start until the IMU has been observed stationary for a configured sample count; averaged, hemisphere-corrected quaternions give a roll and pitch initial attitude, with yaw left at zero because a consumer-grade IMU does not observe heading reliably at rest.
+
+\subsection{Unary GNSS factor}
+\begin{equation}
+r_{\text{gps}} = t(x_i) - z_i^{\text{map}}, \qquad z_i^{\text{map}} = R_{\text{map}}^{\text{ENU}}\,p^{\text{UTM}} - b,
+\end{equation}
+three-dimensional and translation-only, with $b$ a UTM-to-map offset and $R_{\text{map}}^{\text{ENU}}$ a yaw-only rotation fixed at initialization from IMU heading (the map frame is otherwise gravity-aligned, so only heading needs reconciling with the geodetic frame).
+
+\textbf{Gating.} LIO-SAM adds a GPS factor ``only when the estimated position covariance is larger than the received GPS position covariance,'' reasoning that LiDAR-inertial drift grows slowly enough that constant injection is unnecessary \parencite{shan2020liosam}. Eidos gates instead by measured GNSS covariance against a fixed maximum, plus a minimum travel distance between accepted fixes. A \texttt{pose\_cov\_threshold} parameter matching LIO-SAM's policy is declared in both shipped configurations but is read and never applied --- a stale parameter that advertises one behavior while the code implements another, and a reminder that a configuration surface is only as legible as its audit.
+
+\textbf{Elevation.} LIO-SAM reports GPS altitude errors ``approaching 100~m'' in its own tests \parencite{shan2020liosam}. Eidos disables elevation by inflating $\sigma_z$ rather than defining a second, two-dimensional factor type.
+
+\subsection{Preintegrated inertial factor}
+LIO-SAM's state vector carries rotation, position, velocity, and IMU bias,
+\begin{equation}
+\mathbf{x} = [\mathbf{R}^\top, \mathbf{p}^\top, \mathbf{v}^\top, \mathbf{b}^\top]^\top,
+\end{equation}
+and its IMU bias is jointly optimized alongside the LiDAR odometry factors --- the entire content of \emph{tightly-coupled} in the paper's title \parencite{shan2020liosam}. Eidos's graph carries pose only. The IMU plugin preintegrates with GTSAM's \texttt{PreintegratedImuMeasurements} \parencite{forster2017onmanifold} and then projects the result onto a pose-only \texttt{BetweenFactor} using the top-left $6\times6$ block of the preintegration covariance, because there are no velocity or bias variables to attach the rest to.
+
+Accelerometer and gyroscope biases are therefore not estimated online, velocity is not observable from the graph, and the coupling is loose in LIO-SAM's own sense of the term. Two deployment facts belong beside this. The IMU factor plugin is \textbf{not enabled} in the shipped mapping configuration at all --- the mapping plugin list is GNSS, LiDAR odometry, and loop closure. In the shipped localization configuration it is loaded with constraint injection disabled, functioning purely as an odometry publisher: gyroscope integration seeds the GICP initial guess and stationary orientation establishes the gravity-aligned origin, but no inertial data reaches the graph in either configuration as currently shipped. The extension path is to introduce $v_i \in \mathbb{R}^3$ and $b_i \in \mathbb{R}^6$ variables with a \texttt{CombinedImuFactor} and bias random-walk factors, at which point Eidos's inertial coupling becomes LIO-SAM's.
+
+\subsection{Loop-closure between factor}
+Structurally identical to the odometry between factor but linking temporally distant states with its own covariance; being non-sequential is what lets it redistribute accumulated drift rather than merely bound local error.
+
+\textbf{Detection and deployed parameters.} Eidos detects candidates by Euclidean radius over the keyframe KD-tree subject to a minimum temporal separation, verifies geometrically with GICP, and accepts above an inlier-ratio threshold. This is LIO-SAM's method, which that paper calls ``naive but effective'' and notes is compatible with descriptor-based place recognition \parencite{shan2020liosam}. Eidos inherits both the method and the caveat.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Loop-closure parameters: LIO-SAM vs.\ Eidos mapping configuration.}
+\label{tab:loop-closure}
+\begin{tabular}{@{}p{2.0cm}p{2.2cm}p{3.4cm}@{}}
+\toprule
+Quantity & LIO-SAM & Eidos (mapping) \\
+\midrule
+Candidate search radius & 15~m & 20~m \\
+Temporal separation gate & n/a & 80~s \\
+Candidate submap neighbors & $m=12$ either side & up to 15, BFS within 25~m \\
+Verification & scan matching, world frame & GICP, body frame, inlier $\geq 0.3$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two choices diverge from LIO-SAM.
+
+\textbf{Source-cloud frame.} The candidate side is an assembled submap; the source side is the raw body-frame scan, not a submap. If both sides were assembled from graph-derived poses, registration would tend to confirm the current estimate rather than discover the drift it exists to correct. LIO-SAM names this alternative and declines it for computational reuse \parencite{shan2020liosam}; Eidos takes it.
+
+\textbf{Verification off the optimizer thread.} Candidate search is synchronous in the latch phase; GICP verification is dispatched to a worker and delivered on a later cycle, keeping a multi-hundred-millisecond registration off a 10~Hz loop --- the same architectural move RTAB-Map makes running ORB-SLAM2's graph optimization on a separate thread to protect tracking frame rate \parencite{labbe2019rtabmap}.
+
+\textbf{Robustness.} Eidos adds loop-closure constraints with a plain diagonal Gaussian noise model and no robust kernel, so a single false positive is unbounded in effect. Section~\ref{sec:limitations} gives the remedy.
+
+\subsection{Motion-model between factor}
+\label{sec:motion-model}
+A constant-velocity dead-reckoning constraint obtained by integrating a local EKF's velocity over the inter-keyframe interval via the exponential map,
+\begin{equation}
+\Delta x = \mathrm{Exp}(\xi \Delta t),
+\end{equation}
+with covariance scaled linearly in $\Delta t$. Neither source paper has a counterpart to this factor. The constraint originates in a \emph{different ROS node}, arrives over a service call, and enters the graph through exactly the interface a LiDAR constraint uses. It is implemented and registered against that interface but is not enabled in either shipped configuration; it is evidence that the interface admits a constraint of a kind the estimator's authors did not anticipate, not evidence about the deployed system's accuracy.
+
+\section{Map Representation and Persistence}
+\label{sec:map}
+Keyframe poses, per-keyframe sensor payloads, graph adjacency with per-edge provenance, and global metadata persist into one SQLite file whose format table names the codec for every payload. External tooling deserializes everything without linking a single plugin. Per-keyframe and per-edge \emph{owner} fields record which plugin produced any given constraint, which is also what makes the provenance-colored factor-graph visualization a live view of a running system rather than a diagram drawn by hand.
+
+Neither source system offers this. RTAB-Map stores sensor data in a database but does not make the serialization self-describing; the format is tied to the code that wrote it \parencite{labbe2019rtabmap}. Geodetic anchoring --- UTM conversion, yaw-only rotation into the map frame, translation offset fixed on the first accepted fix --- persists with the map and is refined at relocalization once GICP produces a precise map-frame pose, so successive sessions improve the anchor rather than inheriting the first session's error. The map file behaves as a write-ahead log: companion files exist while the database is open and merge on clean close.
+
+\section{The Transform Layer}
+\label{sec:transform}
+Eidos does not broadcast transforms or fuse odometry inside the estimation node. A separate node runs two EKF instances of the same pluginlib-loaded model --- a local filter in the odom frame fusing only smooth sources, and a global filter additionally fusing map-frame corrections --- and computes the correction directly as
+\begin{equation}
+T_{\text{map}}^{\text{odom}} = T_{\text{map}}^{\text{base}}\left(T_{\text{odom}}^{\text{base}}\right)^{-1}
+\end{equation}
+from both filter states in the same tick, sidestepping timestamp matching between a transform lookup and a filter output. The dual-filter pattern is the established ROS convention \parencite{moore2014generalized,labbe2019rtabmap}, not an Eidos invention. What Eidos adds is \textbf{rewind-and-replay} for delayed map-frame measurements: snapshots of the global filter are retained, and when a delayed pose arrives the filter is restored to the snapshot preceding that timestamp and all subsequent measurements are re-sorted and replayed --- a bounded-history out-of-sequence measurement handler.
+
+\section{Mapping and Localization as One Configuration}
+\label{sec:modes}
+No global mode flag exists in the estimation core, and no code path is selected by one; the two deployments differ only in which plugins are loaded and how they are parameterized. In the shipped \textbf{mapping} configuration, LiDAR odometry, GNSS, and loop closure all inject constraints and the graph is optimized every cycle. In the shipped \textbf{localization} configuration, \emph{every} plugin has constraint injection disabled --- no states are created, and the graph is bypassed entirely. The published pose comes directly from GICP registration against the prior map, with the dual EKF of Section~\ref{sec:transform} supplying fusion and smoothing. Localization is therefore the degenerate configuration of the same plugin set, in which the estimator reduces to registration plus filtering. The distinction survives inside one plugin rather than in the core: the registration plugin selects its match target --- recent keyframes or prior-map keyframes --- from a parameter, and branches on it internally. RTAB-Map reaches the same place from the other direction, noting that a localization mode in a static environment saves both memory and map-management overhead \parencite{labbe2019rtabmap}.
+
+\textbf{Submap rebuild in localization.} The prior-map submap is rebuilt asynchronously, on a worker, when the vehicle leaves a configured fraction of the submap radius, guarded against concurrent rebuilds. When a graph correction invalidates the mapping-mode submap, incoming scans are dropped rather than matched against a stale target, and a rebuild is triggered.
+
+\section{Evaluation Protocol}
+\label{sec:eval}
+This section specifies the experiments; it does not yet report results.
+
+\textbf{Metrics.} Absolute trajectory error (ATE) RMSE and ATE maximum --- RTAB-Map argues for the maximum on the grounds that what matters for navigation is how far the estimate can wander before recovery \parencite{labbe2019rtabmap} --- plus relative pose error over several distance intervals, computed with \texttt{evo}. KITTI-style \parencite{geiger2012kitti} translational and rotational drift per unit distance is added for comparability with the wider literature.
+
+\textbf{Ground truth.} RTK GNSS, with antenna lever-arm handling and the fix-quality distribution per sequence reported explicitly, since ATE against a degraded RTK solution is not ground truth. The TUM RGB-D benchmark protocol \parencite{sturm2012benchmark} for computing ATE is adopted directly.
+
+\textbf{Baseline.} LIO-SAM itself, run on the same sequences: it is open source and its factor set is nearly Eidos's own. We adopt LIO-SAM's comparison protocol, which forces real-time methods to run in real time while granting slower baselines unlimited time \parencite{shan2020liosam}, and report timing conditions alongside accuracy.
+
+\textbf{Ablations.} Each is a configuration file rather than a code branch.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Planned ablations and what each isolates.}
+\label{tab:ablations}
+\begin{tabular}{@{}p{3.6cm}p{4.2cm}@{}}
+\toprule
+Ablation & What it isolates \\
+\midrule
+Gyro-seeded initial guess on/off & Registration convergence under fast rotation \\
+GNSS factors on/off & Global drift correction vs.\ local consistency \\
+Loop closure on/off & Drift redistribution on revisit \\
+Motion-model factor on/off & Value of cross-node dead-reckoning constraints \\
+IMU factor enabled vs.\ disabled & Whether the pose-only projection earns its cost \\
+Keyframe gate: distance-only vs.\ distance+rotation & Whether LIO-SAM's rotation criterion matters at vehicle scale \\
+Submap size / downsample sweep & Accuracy vs.\ latency, against LIO-SAM's 25 keyframes at 0.2/0.4~m \\
+Fixed vs.\ event-conditioned ISAM2 iterations & Whether the extra loop-closure iterations pay \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Localization-mode evaluation.} Time to relocalize from cold start, success rate over repeated starts at varied positions, steady-state ATE against the prior map, and relocalization timeout failures.
+
+\textbf{Computational characterization.} Per-stage latency \emph{distributions}, not means, for scan preprocessing, GICP, ISAM2 update, and submap rebuild; graph size and ISAM2 update time as functions of session length, plotted against a real-time constraint line in the style of RTAB-Map's own stacked-timing figure \parencite{labbe2019rtabmap}. Because Eidos has no memory-management analogue to RTAB-Map's Working/Long-Term Memory split (Section~\ref{sec:limitations}, item 2), update cost is expected to grow unboundedly with session length.
+
+\textbf{Reproducibility.} Sensor suite and extrinsics, all configuration files, sequence descriptions, and the map files themselves --- the self-describing map format (Section~\ref{sec:map}) means the artifacts are readable without the system that produced them.
+
+\section{Limitations and Future Work}
+\label{sec:limitations}
+Each limitation is paired with a remedy where one of the source papers supplies it.
+
+\begin{enumerate}
+    \item \textbf{Inertial coupling is loose.} Preintegration is projected to a pose-only constraint; no velocity or bias variables exist; the IMU factor is not enabled in the mapping configuration at all. \emph{Remedy:} LIO-SAM's full state vector and joint bias estimation \parencite{shan2020liosam}.
+    \item \textbf{The graph grows without bound.} No marginalization, node transfer, or sparsification exists, so ISAM2 update cost grows with session length. \emph{Remedy:} RTAB-Map's Working Memory / Long-Term Memory split with a time or memory threshold \parencite{labbe2019rtabmap}.
+    \item \textbf{Loop closures are not robustified.} A plain Gaussian noise model with no M-estimator or switchable constraint means one false positive is unbounded in effect. \emph{Remedy:} RTAB-Map's post-optimization link rejection as the concrete near-term fix, with switchable constraints \parencite{sunderhauf2012switchable}, dynamic covariance scaling, and graduated non-convexity as principled alternatives.
+    \item \textbf{No degeneracy detection.} A GICP result is accepted on convergence and inlier count alone, with no test for geometric observability --- the featureless-corridor and open-highway failure mode. \emph{Remedy:} RTAB-Map's PCA structural-complexity threshold, falling back to orientation-only updates when the cloud is structurally degenerate \parencite{labbe2019rtabmap}.
+    \item \textbf{Registration covariance is fixed, not measured.} Noise models come from configuration; the GICP Hessian is computed but unused, and a declared minimum-noise floor is read and never applied. \emph{Remedy:} derive the noise model from registration quality, as both source systems do.
+    \item \textbf{Place recognition is geometric only.} Euclidean loop-closure search cannot close a loop that drift has pushed outside the search radius, and the branch-and-bound relocalization plugin --- which needs no positional prior, and is listed behind GNSS in the localization configuration --- does not yet achieve a lock on our validation map, for reasons characterized in Section~\ref{sec:negative}. A cold start in a GNSS-denied environment is therefore unsupported in practice. \emph{Remedy:} descriptor-based recognition, absent from both paths, as RTAB-Map uses for appearance \parencite{labbe2019rtabmap} and LIO-SAM itself suggests for LiDAR \parencite{shan2020liosam}.
+\end{enumerate}
+
+Smaller constraints, stated without remedies: keyframe creation gates on distance with no rotation criterion, unlike LIO-SAM's combined 1~m / 10\textdegree\ rule; only one loop-closure verification runs at a time; there is no multi-session or multi-robot graph merging; and geodetic anchoring assumes a locally flat, gravity-aligned map, valid at campus or city scale.
+
+\subsection{A negative result on geometric global localization}
+\label{sec:negative}
+The branch-and-bound relocalization plugin is integrated and runs end to end, but does not
+recover the correct pose on our validation route. The failure is informative about the method
+rather than about the implementation.
+
+We scored the true pose against 35 incorrect yaw hypotheses drawn uniformly over the circle,
+under two independent scoring functions. The first is a ternary occupancy score, weighting a
+query point that falls in an occupied voxel above one falling in unknown space and above one
+falling in known-free space. The second is a truncated distance field, assigning each level-0
+cell a value decaying with distance to the nearest occupied voxel, which was implemented
+specifically to give the score surface a gradient that binary occupancy lacks. It is the shipped
+default.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Discriminability of two scoring functions at the true pose, against 35 incorrect yaw
+hypotheses on the validation route.}
+\label{tab:scoring}
+\begin{tabular}{@{}p{3.3cm}p{1.6cm}p{2.2cm}@{}}
+\toprule
+Statistic & Occupancy & Distance field \\
+\midrule
+Rank of true yaw among 36 & 5 / 36 & 7--14 / 36 \\
+True score over mean, normalized & 1.166 & 1.052--1.117 \\
+Mean normalized score across 36 yaws & 0.328 & 0.583 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:scoring} shows that neither function ranks the true yaw first, and that the
+distance field --- the intended remedy --- separates the true pose from the field slightly
+\emph{less} well than the binary score it was meant to replace. That two independently
+constructed scoring functions fail in the same direction implicates the scene rather than the
+scorer.
+
+The explanation is geometric. The route is tree-lined, and the height band the scorer operates
+over, 0.6~m to 6.0~m above the ground plane, is close to space-filling at the 1~m voxel
+resolution of the finest pyramid level. A randomly rotated query scan already places 76\% of its
+points within one voxel of occupied space. Where a map is near-uniformly occupied over the band
+being scored, occupancy overlap carries almost no orientation information; the score surface is
+nearly flat, every branch-and-bound bound is close to every other, and the search has no gradient
+to exploit. The pruning that makes branch-and-bound tractable is precisely what a flat score
+surface denies it.
+
+The implication generalizes past this implementation. Branch-and-bound global localization is
+usually characterized by its search strategy, but its practical limit here is set by whether the
+map is discriminative in the band being scored at the resolution being searched. Vegetation-dense
+routes are an adversarial case for a fixed height band, and the natural directions are to select
+the band for discriminability rather than fix it, or to score against structure that is sparse
+within it, such as pole-like or planar returns, rather than raw occupancy.
+
+\section{Conclusion}
+Eidos does not claim to out-perform LIO-SAM. Its claim is narrower: that the measurement model of a LiDAR-inertial SLAM system can be made a runtime configuration rather than a compile-time commitment, without sacrificing the incremental-optimization guarantees that make such systems real-time in the first place. LIO-SAM supplies the graph and the constraint vocabulary; RTAB-Map supplies the evidence that interchangeability is operationally valuable. Eidos applies that interchangeability to every constraint the graph receives, and shows on a real vehicle that mapping and localization are two settings of one plugin set rather than two systems.
+
+\printbibliography
+
+\end{document}
