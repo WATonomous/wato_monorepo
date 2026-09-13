@@ -170,6 +170,22 @@ private:
 
   std::optional<RelocalizationResult> gicpPolish(const std::vector<ScoredHypothesis> & hypotheses);
 
+  // Uniqueness gate shared by gicpPolish() and reanchorToCurrent()
+  struct UniquenessGateResult
+  {
+    bool ok = true;
+    double floor = 0.0;
+    double best_excess = 0.0;
+    double runner_up_excess = 0.0;
+  };
+  // Heading to centre the yaw window on, and its half-width (rad). Returns false when no
+  // override applies and the caller should fall back to per-root map headings.
+  bool imuHeadingOverride(double & yaw, double & tol_rad) const;
+  void resolveImuYawToMap();
+
+  UniquenessGateResult uniquenessGate(
+    double best_normalized, double runner_up_normalized, bool has_runner_up) const;
+
   // Releases pyramid_'s memory and logs RSS before/after -- freeing the buffers doesn't by
   // itself guarantee the OS reclaims them, so the log is what makes "memory actually came back"
   // checkable instead of assumed. No-op when the pyramid is already empty.
@@ -194,7 +210,10 @@ private:
 
   double latest_imu_roll_ = 0.0;
   double latest_imu_pitch_ = 0.0;
-  std::mutex imu_lock_;
+  // Absolute body-frame heading from the IMU. Only meaningful when the unit fuses a
+  // heading source (GNSS/INS, magnetometer); a bare gyro+accel IMU cannot observe it.
+  double latest_imu_yaw_ = 0.0;
+  mutable std::mutex imu_lock_;  // mutable: imuHeadingOverride() reads under lock from const context
   bool has_imu_ = false;
 
   std::atomic<bool> active_{false};
@@ -273,6 +292,10 @@ private:
   int root_prefilter_keep_ = 256;
 
   bool prefilter_fine_ = true;  // false = old coarse prefilter (kept for A/B testing).
+  bool use_imu_heading_ = true;
+  double imu_heading_tolerance_deg_ = 10.0;  // Window half-width when use_imu_heading_.
+  double imu_yaw_to_map_ = 0.0;
+  bool has_imu_yaw_to_map_ = false;
   bool use_heading_prior_ = true;
   double heading_tolerance_deg_ = 30.0;
   bool allow_reverse_heading_ = true;  // Also scan the tolerance window around heading+180deg.
@@ -299,6 +322,8 @@ private:
   int reanchor_max_nodes_ = 40000;
   double reanchor_min_gap_ = 0.5;
   double reanchor_warn_distance_ = 25.0;
+  double reanchor_max_speed_mps_ = 30.0;  // Reject a re-anchor whose displacement implies a
+    // speed above this (m/s) over the gap between the searched and fresh scans.
 
   // Root chunks per roll/pitch offset, as a multiple of the search thread count -- the search's
   // only parallelism is over (offset x chunk) tasks, so with one offset (the default) this sets

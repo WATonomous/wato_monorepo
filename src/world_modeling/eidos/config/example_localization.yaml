@@ -167,12 +167,25 @@
       # Re-anchor the lock onto the newest scan before handing it over. The branch-and-bound result
       # describes the vehicle at the scan it searched; on a search of tens of seconds the vehicle
       # has driven on
+      # --- Heading prior ---------------------------------------------------
+      # Leave false on any platform whose IMU cannot observe yaw.
+      use_imu_heading: true
+      imu_heading_tolerance_deg: 10.0          # Yaw window half-width when use_imu_heading (deg)
+      use_heading_prior: true                  # Map-heading fallback when use_imu_heading is false
+      heading_tolerance_deg: 30.0              # Half-width of that yaw window (deg)
+      allow_reverse_heading: false             # true also admits heading+180 deg
+      prefilter_yaw_step_deg: 10.0             # Yaw sampling step inside the root prefilter (deg)
+      prefilter_xy_step: 2.0                   # Prefilter horizontal sampling step within a root cell (m)
+      prefilter_z_step: 4.0                    # Prefilter vertical sampling step within a root cell (m)
+      prefilter_fine: true                     # Fine per-root argmax prefilter (false = coarse bin scan)
       use_trajectory_reanchor: true
       reanchor_search_radius: 250.0            # How far along the trajectory either side of the lock to look (m).
                                                 # Must cover distance travelled during the search: 90 s at 5 m/s is 450 m.
       reanchor_max_nodes: 40000                # Node budget for the restricted search (small: a corridor, not the map)
       reanchor_min_gap: 0.5                    # Skip if the newest scan is within this many seconds of the searched one
       reanchor_warn_distance: 25.0             # WARN if the re-anchor moves the lock more than this (m)
+      reanchor_max_speed_mps: 30.0             # Reject (not just warn) a re-anchor whose displacement over the
+                                                # searched-to-fresh-scan time gap implies a speed above this (m/s)
       publish_debug_grid: true                 # Latched OccupancyGrid of the map voxel pyramid
       debug_grid_topic: "slam/visualization/reloc_voxel_grid"
       use_free_space: false                    # Master switch for the free-space scoring channel (occupancy mode only)
