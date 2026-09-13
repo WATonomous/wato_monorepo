@@ -2,4 +2,7 @@
   <class name="eidos::GpsIcpRelocalization" type="eidos::GpsIcpRelocalization" base_class_type="eidos::RelocalizationPlugin">
     <description>GPS + ICP relocalization against prior map</description>
   </class>
+  <class name="eidos::BnbVoxelRelocalization" type="eidos::BnbVoxelRelocalization" base_class_type="eidos::RelocalizationPlugin">
+    <description>GPS-free global relocalization by branch-and-bound voxel search against the prior map</description>
+  </class>
 </library>
