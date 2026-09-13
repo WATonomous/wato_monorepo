@@ -38,3 +38,4 @@ struct RelocalizationResult {
 ## Built-in Relocalization Plugins
 
 - [GpsIcpRelocalization](gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
+- [BnbVoxelRelocalization](bnb_voxel_relocalization.md) -- GPS-free global relocalization via branch-and-bound voxel search + GICP refinement

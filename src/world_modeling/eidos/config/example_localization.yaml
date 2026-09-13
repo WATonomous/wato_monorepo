@@ -9,7 +9,7 @@
     # Main SLAM loop frequency (Hz)
     slam_rate: 10.0
     # Seconds to wait for relocalization before falling back to identity pose
-    relocalization_timeout: 30.0
+    relocalization_timeout: 180.0
 
     isam2:
       relinearize_threshold: 0.01
@@ -41,7 +41,8 @@
       - "imu_factor"
 
     relocalization_plugins:
-      - "gps_icp_relocalization"
+      # - "gps_icp_relocalization"
+      - "bnb_voxel_relocalization"
 
     visualization_plugins:
       - "keyframe_map_visualization"
@@ -117,6 +118,71 @@
       num_threads: 16
       num_neighbors: 10
       fitness_threshold: 0.3
+
+    # Branch-and-Bound Voxel Relocalization (GPS-free global search)
+    bnb_voxel_relocalization:
+      plugin: "eidos::BnbVoxelRelocalization"
+      lidar_topic: "/lidar_cc/velodyne_points"
+      imu_topic: "/novatel/oem7/imu/data"
+      lidar_frame: "lidar_cc"
+      imu_frame: "imu_link"
+      pointcloud_from: "liso_factor/cloud"     # Prior-map cloud source
+      min_voxel_size: 1.0                      # Finest pyramid level (m)
+      num_levels: 4                            # Coarsest level = 1.0 * 2^3 = 8 m (coarser saturates the BnB bound
+      score_mode: "distance_field"             # "distance_field" (new default) or "occupancy" (today's ternary score, kept to A/B the two scorers). An unrecognised value WARNs and falls back to "distance_field"
+      df_sigma: 1.0                            # Distance-field falloff sigma (m); ~= the measured ~1 m query-to-map registration offset to absorb
+      df_truncation_voxels: 2                  # Distance-field kernel radius, in level-0 voxels
+      max_score_voxels: 40000000               # Guard on the distance-field grid size; on overflow, falls back to occupancy scoring for the session and WARNs
+      min_height: 0.6                          # Body-frame z band lower bound (m) -- removes ground returns; 0 disables. Also bounds the free-space channel (kept in sync by construction, see use_free_space below)
+      max_height: 6.0                          # Body-frame z band upper bound (m); 0 disables. Also bounds the free-space channel
+      max_voxels_per_level: 8000000            # Above this, probe neighbourhood on the fly instead of dilating
+      max_query_range: 40.0                    # Drop query points beyond this range (m); caps coarse yaw bins
+      target_query_points: 400                 # Live scan downsample target (search cost is linear in this)
+      rp_search_range: 0.02                    # Roll/pitch half-range (rad)
+      rp_search_steps: 1                       # 1 = trust IMU gravity; N steps costs N^2 searches
+      prefer_downsampled_source: false          # true = rasterize from the pre-downsampled gicp_cloud (~2x faster build, lower match scores)
+      root_prefilter_points: 128                # Query subsample size for the cheap coarse root prefilter
+      root_prefilter_keep: 256                  # Roots surviving the prefilter into full BnB (<=0 disables)
+      search_corridor: 30.0                    # Search within this distance of the driven trajectory (m). Must cover both
+                                                # how far the vehicle may start off the mapped driving line (measured 19.9 m
+                                                # on the validation bag) AND the coarsest-level root cell's own extent
+                                                # (buildRoots() keeps a cell if its NEAREST point is in-corridor, so the
+                                                # margin needs headroom beyond the raw off-trajectory distance alone).
+      z_margin: 5.0                            # Vertical search margin about trajectory height (m)
+      max_search_nodes: 200000                 # Total BnB node budget per search (anytime bound)
+      prune_slack: 0.8                         # Relax BnB pruning so runners-up survive the uniqueness gate
+      nms_radius: 5.0                          # Distinct-solution separation (m)
+      min_match_score: 0.45                    # Minimum normalized BnB score required to accept a hypothesis
+      min_score_ratio: 1.20                    # Winner's normalized score must beat the best distinct runner-up's by this factor
+      num_gicp_candidates: 5                   # Hypotheses handed to GICP
+      min_inlier_ratio: 0.30                    # GICP acceptance threshold
+      scan_ds_resolution: 0.5                  # Voxel downsample for GICP scan (m)
+      submap_radius: 40.0                      # Radius for GICP submap assembly (m)
+      submap_leaf_size: 0.4                    # Voxel downsample for GICP submap (m)
+      max_correspondence_distance: 2.0         # GICP max correspondence distance (m)
+      max_icp_iterations: 100                  # GICP max iterations
+      num_threads: 16
+      num_neighbors: 10
+      search_task_multiplier: 4
+      # Re-anchor the lock onto the newest scan before handing it over. The branch-and-bound result
+      # describes the vehicle at the scan it searched; on a search of tens of seconds the vehicle
+      # has driven on
+      use_trajectory_reanchor: true
+      reanchor_search_radius: 250.0            # How far along the trajectory either side of the lock to look (m).
+                                                # Must cover distance travelled during the search: 90 s at 5 m/s is 450 m.
+      reanchor_max_nodes: 40000                # Node budget for the restricted search (small: a corridor, not the map)
+      reanchor_min_gap: 0.5                    # Skip if the newest scan is within this many seconds of the searched one
+      reanchor_warn_distance: 25.0             # WARN if the re-anchor moves the lock more than this (m)
+      publish_debug_grid: true                 # Latched OccupancyGrid of the map voxel pyramid
+      debug_grid_topic: "slam/visualization/reloc_voxel_grid"
+      use_free_space: false                    # Master switch for the free-space scoring channel (occupancy mode only)
+      free_rays_per_keyframe: 2000             # Stride each keyframe's cloud to ~this many free-space rays; <=0 uses every point
+      free_max_range: 40.0                     # Clamp free-space ray length (m)
+      free_end_margin: 1.0                     # Stop each ray this many metres short of its endpoint (m); the surface itself is never marked free
+      free_clear_near_occupied: true           # Delete free voxels that are occupied or 26-adjacent to occupied, so registration jitter isn't penalised
+      max_free_voxels: 20000000                # Budget guard; over this, free space is abandoned entirely for the session (sound: loosens the bound)
+      free_ray_origin_height: 2.0              # Fallback ray-origin height (m) above base_link if the base_link<-lidar TF hasn't resolved yet at build time
+      hit_weight: 3                            # Per-point weight for an occupied hit in the ternary score (raw score in [0, hit_weight * n])
 
     # Keyframe Map Visualization
     keyframe_map_visualization:
