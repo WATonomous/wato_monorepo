@@ -58,15 +58,25 @@ Eigen::Matrix3d rotYX(double pitch, double roll)
 
 // Splits `roots` into up to `num_chunks` contiguous, near-equal-size, non-empty chunks -- spreads
 // branch-and-bound's parallel work across roots rather than only across roll/pitch offsets.
+// `headings`, when the same size as `roots`, is split in lockstep into `heading_chunks` so each
+// chunk's headings stay index-aligned with its roots for branchAndBound()'s heading gate;
+// otherwise `heading_chunks` comes back empty (caller passes nullptr onward, gate stays off).
 std::vector<std::vector<eidos::reloc::RootCell>> chunkRoots(
-  const std::vector<eidos::reloc::RootCell> & roots, int num_chunks)
+  const std::vector<eidos::reloc::RootCell> & roots,
+  int num_chunks,
+  const std::vector<float> & headings,
+  std::vector<std::vector<float>> & heading_chunks)
 {
   std::vector<std::vector<eidos::reloc::RootCell>> chunks;
+  heading_chunks.clear();
   if (roots.empty() || num_chunks <= 0) return chunks;
+
+  const bool have_headings = headings.size() == roots.size();
 
   const std::size_t n = roots.size();
   const std::size_t chunk_count = std::min(static_cast<std::size_t>(num_chunks), n);
   chunks.resize(chunk_count);
+  if (have_headings) heading_chunks.resize(chunk_count);
   const std::size_t base = n / chunk_count;
   const std::size_t rem = n % chunk_count;
 
@@ -75,6 +85,11 @@ std::vector<std::vector<eidos::reloc::RootCell>> chunkRoots(
     const std::size_t sz = base + (c < rem ? 1 : 0);
     chunks[c].assign(
       roots.begin() + static_cast<std::ptrdiff_t>(idx), roots.begin() + static_cast<std::ptrdiff_t>(idx + sz));
+    if (have_headings) {
+      heading_chunks[c].assign(
+        headings.begin() + static_cast<std::ptrdiff_t>(idx),
+        headings.begin() + static_cast<std::ptrdiff_t>(idx + sz));
+    }
     idx += sz;
   }
   return chunks;
@@ -163,6 +178,7 @@ void BnbVoxelRelocalization::onInitialize()
   node_->declare_parameter(prefix + ".reanchor_max_nodes", reanchor_max_nodes_);
   node_->declare_parameter(prefix + ".reanchor_min_gap", reanchor_min_gap_);
   node_->declare_parameter(prefix + ".reanchor_warn_distance", reanchor_warn_distance_);
+  node_->declare_parameter(prefix + ".reanchor_max_speed_mps", reanchor_max_speed_mps_);
   node_->declare_parameter(prefix + ".search_task_multiplier", search_task_multiplier_);
   node_->declare_parameter(prefix + ".rp_search_range", rp_search_range_);
   node_->declare_parameter(prefix + ".rp_search_steps", rp_search_steps_);
@@ -174,6 +190,8 @@ void BnbVoxelRelocalization::onInitialize()
   node_->declare_parameter(prefix + ".root_prefilter_points", root_prefilter_points_);
   node_->declare_parameter(prefix + ".root_prefilter_keep", root_prefilter_keep_);
   node_->declare_parameter(prefix + ".prefilter_fine", prefilter_fine_);
+  node_->declare_parameter(prefix + ".use_imu_heading", use_imu_heading_);
+  node_->declare_parameter(prefix + ".imu_heading_tolerance_deg", imu_heading_tolerance_deg_);
   node_->declare_parameter(prefix + ".use_heading_prior", use_heading_prior_);
   node_->declare_parameter(prefix + ".heading_tolerance_deg", heading_tolerance_deg_);
   node_->declare_parameter(prefix + ".allow_reverse_heading", allow_reverse_heading_);
@@ -237,6 +255,7 @@ void BnbVoxelRelocalization::onInitialize()
   node_->get_parameter(prefix + ".reanchor_max_nodes", reanchor_max_nodes_);
   node_->get_parameter(prefix + ".reanchor_min_gap", reanchor_min_gap_);
   node_->get_parameter(prefix + ".reanchor_warn_distance", reanchor_warn_distance_);
+  node_->get_parameter(prefix + ".reanchor_max_speed_mps", reanchor_max_speed_mps_);
   node_->get_parameter(prefix + ".search_task_multiplier", search_task_multiplier_);
   if (search_task_multiplier_ < 1) search_task_multiplier_ = 1;
   node_->get_parameter(prefix + ".rp_search_range", rp_search_range_);
@@ -249,6 +268,8 @@ void BnbVoxelRelocalization::onInitialize()
   node_->get_parameter(prefix + ".root_prefilter_points", root_prefilter_points_);
   node_->get_parameter(prefix + ".root_prefilter_keep", root_prefilter_keep_);
   node_->get_parameter(prefix + ".prefilter_fine", prefilter_fine_);
+  node_->get_parameter(prefix + ".use_imu_heading", use_imu_heading_);
+  node_->get_parameter(prefix + ".imu_heading_tolerance_deg", imu_heading_tolerance_deg_);
   node_->get_parameter(prefix + ".use_heading_prior", use_heading_prior_);
   node_->get_parameter(prefix + ".heading_tolerance_deg", heading_tolerance_deg_);
   node_->get_parameter(prefix + ".allow_reverse_heading", allow_reverse_heading_);
@@ -497,12 +518,15 @@ void BnbVoxelRelocalization::imuCallback(const sensor_msgs::msg::Imu::SharedPtr 
 
   Eigen::Matrix3d R_world_base = q_imu.toRotationMatrix() * R_base_imu_.transpose();
 
-  // Extract roll/pitch from body-frame rotation (yaw is unobserved by gravity alone).
+  // Roll/pitch come from gravity and are always trustworthy. Yaw is only meaningful when the
+  // unit fuses a heading source (GNSS/INS, magnetometer) -- it is stored unconditionally but
+  // consumed only when use_imu_heading_ says this hardware observes it.
   gtsam::Rot3 body_rot(R_world_base);
 
   std::lock_guard<std::mutex> lock(imu_lock_);
   latest_imu_roll_ = body_rot.roll();
   latest_imu_pitch_ = body_rot.pitch();
+  latest_imu_yaw_ = body_rot.yaw();
   has_imu_ = true;
 }
 
@@ -664,6 +688,7 @@ void BnbVoxelRelocalization::workerMain()
 
 bool BnbVoxelRelocalization::buildPyramid()
 {
+  resolveImuYawToMap();
   auto key_list = map_manager_->getKeyList();
   poses6d_ = map_manager_->getKeyPoses6D();  // deep copy, cached once
 
@@ -1158,6 +1183,45 @@ void BnbVoxelRelocalization::publishDebugGrid()
 // ---------------------------------------------------------------------------
 // Phase C — branch-and-bound search over a roll/pitch offset grid
 // ---------------------------------------------------------------------------
+bool BnbVoxelRelocalization::imuHeadingOverride(double & yaw, double & tol_rad) const
+{
+  if (!use_imu_heading_) return false;
+  if (!has_imu_yaw_to_map_) return false;
+  std::lock_guard<std::mutex> lock(imu_lock_);
+  if (!has_imu_) return false;
+  yaw = latest_imu_yaw_ - imu_yaw_to_map_;
+  tol_rad = imu_heading_tolerance_deg_ * M_PI / 180.0;
+  return true;
+}
+
+// Resolve the INS-world -> map-frame yaw offset from the map's persisted geodetic anchor. The
+// anchor's fifth element is the IMU heading latched when the anchor was first established, which
+// is exactly the rotation between the two frames. Measured on ring_road.map: 98.14 deg, constant
+// to 0.05 deg across a 226 s run.
+void BnbVoxelRelocalization::resolveImuYawToMap()
+{
+  if (has_imu_yaw_to_map_ || !use_imu_heading_) return;
+  auto anchor = map_manager_->retrieveGlobal<std::array<double, 5>>("gps_factor/utm_to_map");
+  if (!anchor) {
+    RCLCPP_WARN_THROTTLE(
+      node_->get_logger(),
+      *node_->get_clock(),
+      10000,
+      "[%s] use_imu_heading is set but the map has no geodetic anchor to resolve the INS->map yaw "
+      "offset; falling back to per-root map headings",
+      name_.c_str());
+    return;
+  }
+  imu_yaw_to_map_ = (*anchor)[4];
+  has_imu_yaw_to_map_ = true;
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "[%s] INS heading enabled: INS->map yaw offset %.2f deg (window +/-%.1f deg)",
+    name_.c_str(),
+    imu_yaw_to_map_ * 180.0 / M_PI,
+    imu_heading_tolerance_deg_);
+}
+
 std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::scoreRootsFine(
   const std::vector<Eigen::Vector3d> & sub_query) const
 {
@@ -1178,11 +1242,15 @@ std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::score
 
   // Yaw offsets (relative to a root's own recorded heading) are identical for every root, so
   // compute them once outside the parallel loop rather than per root.
+  double imu_yaw = 0.0;
+  double imu_tol = 0.0;
+  const bool imu_heading = imuHeadingOverride(imu_yaw, imu_tol);
+
   std::vector<double> yaw_offsets_rad;
   {
     const double step_rad = std::max(prefilter_yaw_step_deg_, 1e-3) * M_PI / 180.0;
-    if (use_heading_prior_) {
-      const double tol_rad = heading_tolerance_deg_ * M_PI / 180.0;
+    if (imu_heading || use_heading_prior_) {
+      const double tol_rad = imu_heading ? imu_tol : (heading_tolerance_deg_ * M_PI / 180.0);
       for (double off = -tol_rad; off <= tol_rad + 1e-9; off += step_rad) yaw_offsets_rad.push_back(off);
     } else {
       for (double a = 0.0; a < 2.0 * M_PI - 1e-9; a += step_rad) yaw_offsets_rad.push_back(a);
@@ -1211,7 +1279,8 @@ std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::score
     const auto xs = sampleAxis(lo_x, coarse_res, prefilter_xy_step_);
     const auto ys = sampleAxis(lo_y, coarse_res, prefilter_xy_step_);
     const auto zs = sampleAxis(lo_z, coarse_res, prefilter_z_step_);
-    const double heading = idx < root_headings_.size() ? static_cast<double>(root_headings_[idx]) : 0.0;
+    const double heading =
+      imu_heading ? imu_yaw : (idx < root_headings_.size() ? static_cast<double>(root_headings_[idx]) : 0.0);
 
     int best_score = -1;
     Eigen::Vector3d best_pos = Eigen::Vector3d::Zero();
@@ -1230,7 +1299,7 @@ std::vector<BnbVoxelRelocalization::FineRootScore> BnbVoxelRelocalization::score
               best_pos = pos;
               best_yaw = off + heading;
             }
-            if (use_heading_prior_ && allow_reverse_heading_) {
+            if (!imu_heading && use_heading_prior_ && allow_reverse_heading_) {
               const int score_rev = eidos::reloc::scorePoseAtLevel(
                 pyramid_, sub_query, pos, off + heading + M_PI, 0, hit_weight_, 0, nullptr, active_score_mode_);
               if (score_rev > best_score) {
@@ -1550,9 +1619,24 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     double dp = 0.0;
     std::vector<Eigen::Vector3d> rotated_query;
     std::vector<std::vector<eidos::reloc::RootCell>> root_chunks;
+    std::vector<std::vector<float>> heading_chunks;  // Index-aligned with root_chunks.
   };
 
   std::vector<OffsetPrep> preps(offsets.size());
+
+  // prefilterRoots() returns RootCell values, not indices into roots_, so recovering each kept
+  // root's heading needs a lookup keyed by voxel rather than position -- built once since roots_
+  // and root_headings_ don't change across the offset loop below.
+  double sp_imu_yaw = 0.0;
+  double sp_imu_tol = 0.0;
+  const bool sp_imu_heading = imuHeadingOverride(sp_imu_yaw, sp_imu_tol);
+
+  std::unordered_map<int64_t, float> heading_by_voxel;
+  heading_by_voxel.reserve(roots_.size());
+  for (std::size_t i = 0; i < roots_.size() && i < root_headings_.size(); ++i) {
+    const auto & r = roots_[i];
+    heading_by_voxel.emplace(eidos::reloc::packVoxel(r.ix, r.iy, r.iz), root_headings_[i]);
+  }
 
   const std::size_t roots_before = roots_.size();
   std::size_t roots_after = roots_before;
@@ -1578,9 +1662,20 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     for (const auto & q : query) prep.rotated_query.push_back(r_offset * q);
 
     auto kept_roots = prefilterRoots(prep.rotated_query, prep.dr, prep.dp);
+    std::vector<float> kept_headings;
+    kept_headings.reserve(kept_roots.size());
+    for (const auto & r : kept_roots) {
+      if (sp_imu_heading) {
+        kept_headings.push_back(static_cast<float>(sp_imu_yaw));
+        continue;
+      }
+      const auto it = heading_by_voxel.find(eidos::reloc::packVoxel(r.ix, r.iy, r.iz));
+      kept_headings.push_back(it != heading_by_voxel.end() ? it->second : 0.0f);
+    }
     // Oversubscribe chunks (search_task_multiplier_x threads) so schedule(dynamic) has room to
     // balance -- chunk cost varies widely with how much structure each root's subtree holds.
-    prep.root_chunks = chunkRoots(kept_roots, search_threads * search_task_multiplier_);
+    prep.root_chunks =
+      chunkRoots(kept_roots, search_threads * search_task_multiplier_, kept_headings, prep.heading_chunks);
 
     // TRACE 9 -- prefilter kept-set: checks the ACTUAL kept_roots vector directly (unlike TRACE 4's
     // independent rank recomputation), plus how saturated the coarse-level tie is, so "reference
@@ -1772,6 +1867,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     const Task & task = tasks[static_cast<std::size_t>(t)];
     const OffsetPrep & prep = preps[task.offset_idx];
     const std::vector<eidos::reloc::RootCell> & chunk = prep.root_chunks[task.chunk_idx];
+    const std::vector<float> & chunk_headings = prep.heading_chunks[task.chunk_idx];
 
     eidos::reloc::SearchConfig scfg;
     scfg.prune_slack = prune_slack_;
@@ -1779,13 +1875,19 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     scfg.hit_weight = hit_weight_;
     scfg.score_mode = active_score_mode_;  // not score_mode_: may have fallen back to occupancy
     scfg.max_solutions = std::max(num_gicp_candidates_ + 3, 8);
+    // Negative disables the gate, so this is a no-op unless use_heading_prior_ is on -- see
+    // SearchConfig::heading_tolerance_rad's doc comment in bnb_search.hpp.
+    scfg.heading_tolerance_rad = sp_imu_heading      ? sp_imu_tol
+                                 : use_heading_prior_ ? (heading_tolerance_deg_ * M_PI / 180.0)
+                                                      : -1.0;
+    scfg.allow_reverse_heading = sp_imu_heading ? false : allow_reverse_heading_;
     // Node budget split across tasks so the search stays anytime against relocalization_timeout;
     // the frontier explores best-scoring regions first, so truncation costs optimality, not
     // soundness -- and any survivor still has to clear the GICP/uniqueness gates.
     scfg.max_nodes =
       std::max<std::size_t>(1000, static_cast<std::size_t>(max_search_nodes_) / std::max<std::size_t>(1, tasks.size()));
     eidos::reloc::SearchStats stats;
-    auto hyps = eidos::reloc::branchAndBound(pyramid_, prep.rotated_query, chunk, scfg, stats);
+    auto hyps = eidos::reloc::branchAndBound(pyramid_, prep.rotated_query, chunk, scfg, stats, &chunk_headings);
     per_task_stats[static_cast<std::size_t>(t)] = stats;
 
     std::vector<ScoredHypothesis> local;
@@ -4067,6 +4169,25 @@ std::shared_ptr<small_gicp::PointCloud> BnbVoxelRelocalization::assembleSubmap(
   return merged;
 }
 
+// Uniqueness gate shared by gicpPolish() and reanchorToCurrent(). Ratio measured in EXCESS
+// OVER THE CHANCE FLOOR, not a raw quotient: neither scoring mode's "no match" value is 0
+// (distance_field floors ~0.563 on ring_road.map, occupancy at 1/hit_weight), so a raw quotient
+// compresses every comparison toward 1.0 -- measured best=0.914 runner_up=0.795 fails the 1.20
+// default as a raw ratio (1.15) but passes easily (1.51) once the floor is subtracted.
+// last_chance_floor_ is estimated per search; 0.0 degrades to raw quotient. A runner-up at or
+// below chance carries no evidence against the winner, so the ratio is unbounded and the gate
+// passes rather than dividing by ~0.
+BnbVoxelRelocalization::UniquenessGateResult BnbVoxelRelocalization::uniquenessGate(
+  double best_normalized, double runner_up_normalized, bool has_runner_up) const
+{
+  UniquenessGateResult r;
+  r.floor = std::clamp(last_chance_floor_, 0.0, 0.99 * best_normalized);
+  r.best_excess = best_normalized - r.floor;
+  r.runner_up_excess = has_runner_up ? std::max(0.0, runner_up_normalized - r.floor) : 0.0;
+  r.ok = !has_runner_up || r.runner_up_excess <= 0.0 || (r.best_excess >= min_score_ratio_ * r.runner_up_excess);
+  return r;
+}
+
 // ---------------------------------------------------------------------------
 // Phase E — re-anchor the lock onto the newest scan along the prior trajectory
 // ---------------------------------------------------------------------------
@@ -4108,12 +4229,24 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   // the search, so its current position is on that trajectory within roughly (search duration x
   // speed) of where the lock put it -- a few hundred metres of route, not the whole map.
   const Eigen::Vector3d lock_t = locked.translation();
+  double ra_imu_yaw = 0.0;
+  double ra_imu_tol = 0.0;
+  const bool ra_imu_heading = imuHeadingOverride(ra_imu_yaw, ra_imu_tol);
+
   std::vector<eidos::reloc::RootCell> near_roots;
+  std::vector<float> near_headings;  // Index-aligned with near_roots -- see root_headings_'s doc.
   near_roots.reserve(roots_.size());
+  near_headings.reserve(roots_.size());
   const double coarse_res = pyramid_.level(pyramid_.numLevels() - 1).resolution;
-  for (const auto & root : roots_) {
+  for (std::size_t i = 0; i < roots_.size(); ++i) {
+    const auto & root = roots_[i];
     const Eigen::Vector3d centre = eidos::reloc::bnbCellCentre(root.ix, root.iy, root.iz, coarse_res);
-    if ((centre - lock_t).norm() <= reanchor_search_radius_) near_roots.push_back(root);
+    if ((centre - lock_t).norm() <= reanchor_search_radius_) {
+      near_roots.push_back(root);
+      near_headings.push_back(
+        ra_imu_heading ? static_cast<float>(ra_imu_yaw)
+                       : (i < root_headings_.size() ? root_headings_[i] : 0.0f));
+    }
   }
   if (near_roots.empty()) {
     RCLCPP_WARN(node_->get_logger(), "[%s] re-anchor skipped: no roots within the corridor", name_.c_str());
@@ -4129,8 +4262,14 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   scfg.score_mode = active_score_mode_;
   scfg.max_solutions = std::max(num_gicp_candidates_ + 3, 8);
   scfg.max_nodes = static_cast<std::size_t>(std::max(1000, reanchor_max_nodes_));
+  // Negative disables the gate -- see SearchConfig::heading_tolerance_rad's doc comment in
+  // bnb_search.hpp.
+  scfg.heading_tolerance_rad = ra_imu_heading      ? ra_imu_tol
+                               : use_heading_prior_ ? (heading_tolerance_deg_ * M_PI / 180.0)
+                                                    : -1.0;
+  scfg.allow_reverse_heading = ra_imu_heading ? false : allow_reverse_heading_;
   eidos::reloc::SearchStats stats;
-  auto hyps = eidos::reloc::branchAndBound(pyramid_, query, near_roots, scfg, stats);
+  auto hyps = eidos::reloc::branchAndBound(pyramid_, query, near_roots, scfg, stats, &near_headings);
 
   const double search_ms =
     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_start).count();
@@ -4146,6 +4285,29 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
 
   if (hyps.empty()) return false;
 
+  // Uniqueness gate: the same excess-over-chance-floor check gicpPolish() applies to the BnB
+  // score landscape (is the match ambiguous?), evaluated once against the best spatially distinct
+  // runner-up. `hyps` comes from branchAndBound() with the same nms_radius_, so hyps[1] (if
+  // present) is always that runner-up to hyps[0].
+  const bool has_runner_up = hyps.size() > 1;
+  const UniquenessGateResult gate =
+    uniquenessGate(hyps[0].normalized, has_runner_up ? hyps[1].normalized : 0.0, has_runner_up);
+  if (!gate.ok) {
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "[%s] re-anchor rejected: ambiguous match (best=%.3f, runner_up=%.3f, chance_floor=%.3f, "
+      "excess %.3f vs %.3f -> ratio %.2f, need >= %.2f)",
+      name_.c_str(),
+      hyps[0].normalized,
+      has_runner_up ? hyps[1].normalized : 0.0,
+      gate.floor,
+      gate.best_excess,
+      gate.runner_up_excess,
+      gate.runner_up_excess > 0.0 ? gate.best_excess / gate.runner_up_excess : 0.0,
+      min_score_ratio_);
+    return false;
+  }
+
   double imu_roll = 0.0, imu_pitch = 0.0;
   {
     std::lock_guard<std::mutex> lock(imu_lock_);
@@ -4160,12 +4322,15 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   (void)src_tree;  // align() takes the target's tree only.
   if (!src || src->empty()) return false;
 
-  // Refine the top hypotheses under the SAME acceptance gate the original lock passed, so a
-  // re-anchor can never be accepted on weaker evidence than the pose it replaces.
+  // Refine the top hypotheses under the SAME acceptance gates gicpPolish() applies (uniqueness
+  // above, plus per-candidate min_match_score_ and min_inlier_ratio_ below) and a displacement
+  // plausibility check besides, so a re-anchor can never be accepted on weaker evidence than the
+  // pose it replaces, nor on a jump no real vehicle could have made in the elapsed time.
   const int num_candidates = std::min(num_gicp_candidates_, static_cast<int>(hyps.size()));
   for (int c = 0; c < num_candidates; ++c) {
     if (stop_requested_.load()) return false;
     const auto & hyp = hyps[static_cast<std::size_t>(c)];
+    if (hyp.normalized < min_match_score_) continue;
 
     auto submap_merged = assembleSubmap(hyp.translation, submap_radius_);
     if (submap_merged->empty()) continue;
@@ -4194,6 +4359,20 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
       gtsam::Pose3(gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
 
     const double moved = (out.translation() - locked.translation()).norm();
+    const double max_plausible = reanchor_max_speed_mps_ * gap;
+    if (moved > max_plausible) {
+      RCLCPP_WARN(
+        node_->get_logger(),
+        "[%s] re-anchor rejected: displacement %.1f m over %.2f s implies %.1f m/s (> %.1f m/s "
+        "limit); keeping the stale-but-gated lock from the searched scan",
+        name_.c_str(),
+        moved,
+        gap,
+        moved / gap,
+        reanchor_max_speed_mps_);
+      return false;
+    }
+
     RCLCPP_INFO(
       node_->get_logger(),
       "\033[32m[%s] re-anchored onto a scan %.1f s fresher: vehicle moved %.1f m along the "
@@ -4247,24 +4426,15 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(const std
   // Uniqueness gate: a property of the BnB score landscape (is the match ambiguous?), evaluated
   // once against the best spatially distinct runner-up. `hypotheses` is already mutually
   // separated by nms_radius_, so hypotheses[1] (if present) is always that runner-up to
-  // hypotheses[0].
+  // hypotheses[0]. See uniquenessGate() for the excess-over-chance-floor rationale; shared
+  // verbatim with reanchorToCurrent() so the two gates can't drift apart.
   const double best_normalized = hypotheses[0].hyp.normalized;
   const double best_hit_fraction = hypotheses[0].hyp.hit_fraction;
-  const double runner_up_normalized = hypotheses.size() > 1 ? hypotheses[1].hyp.normalized : 0.0;
-  const double runner_up_hit_fraction = hypotheses.size() > 1 ? hypotheses[1].hyp.hit_fraction : 0.0;
-  // Ratio measured in EXCESS OVER THE CHANCE FLOOR, not a raw quotient: neither scoring mode's
-  // "no match" value is 0 (distance_field floors ~0.563 on ring_road.map, occupancy at
-  // 1/hit_weight), so a raw quotient compresses every comparison toward 1.0 -- measured best=0.914
-  // runner_up=0.795 fails the 1.20 default as a raw ratio (1.15) but passes easily (1.51) once the
-  // floor is subtracted. last_chance_floor_ is estimated per search; 0.0 degrades to raw quotient.
-  const double floor = std::clamp(last_chance_floor_, 0.0, 0.99 * best_normalized);
-  const double best_excess = best_normalized - floor;
-  const double runner_up_excess = std::max(0.0, runner_up_normalized - floor);
-  // A runner-up at or below chance carries no evidence against the winner, so the ratio is
-  // unbounded and the gate passes rather than dividing by ~0.
-  const bool uniqueness_ok =
-    hypotheses.size() <= 1 || runner_up_excess <= 0.0 || (best_excess >= min_score_ratio_ * runner_up_excess);
-  if (!uniqueness_ok) {
+  const bool has_runner_up = hypotheses.size() > 1;
+  const double runner_up_normalized = has_runner_up ? hypotheses[1].hyp.normalized : 0.0;
+  const double runner_up_hit_fraction = has_runner_up ? hypotheses[1].hyp.hit_fraction : 0.0;
+  const UniquenessGateResult gate = uniquenessGate(best_normalized, runner_up_normalized, has_runner_up);
+  if (!gate.ok) {
     RCLCPP_INFO(
       node_->get_logger(),
       "[%s] rejected: ambiguous match (best=%.3f [hit_fraction=%.3f], runner_up=%.3f [hit_fraction=%.3f], "
@@ -4274,10 +4444,10 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(const std
       best_hit_fraction,
       runner_up_normalized,
       runner_up_hit_fraction,
-      floor,
-      best_excess,
-      runner_up_excess,
-      runner_up_excess > 0.0 ? best_excess / runner_up_excess : 0.0,
+      gate.floor,
+      gate.best_excess,
+      gate.runner_up_excess,
+      gate.runner_up_excess > 0.0 ? gate.best_excess / gate.runner_up_excess : 0.0,
       min_score_ratio_);
     return std::nullopt;
   }

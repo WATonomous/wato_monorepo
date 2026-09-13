@@ -52,6 +52,12 @@ struct SearchConfig
   double nms_radius = 5.0;  // Minimum separation (m) between distinct reported solutions.
   int max_solutions = 8;
   std::size_t max_nodes = 50000000;  // Safety cap on nodes expanded.
+  // Restricts frontier seeding to coarsest-level yaw bins within this window of a root's own
+  // heading (see branchAndBound()'s `root_headings` parameter). Negative disables the gate and
+  // recovers today's full-circle seeding -- the default, so this struct is inert unless a caller
+  // opts in.
+  double heading_tolerance_rad = -1.0;
+  bool allow_reverse_heading = true;  // Also accept bins within tolerance of heading+pi.
 };
 
 // Counters describing one branchAndBound() run.
@@ -308,7 +314,8 @@ inline std::vector<Hypothesis> branchAndBound(
   const std::vector<Eigen::Vector3d> & query,
   const std::vector<RootCell> & roots,
   const SearchConfig & cfg,
-  SearchStats & stats)
+  SearchStats & stats,
+  const std::vector<float> * root_headings = nullptr)
 {
   stats = SearchStats{};
   std::vector<Hypothesis> solutions;
@@ -352,8 +359,23 @@ inline std::vector<Hypothesis> branchAndBound(
   int prune_threshold = -1;
 
   const int64_t n_coarse = yaw_disc.numBins(coarsest);
-  for (const auto & root : roots) {
+  const bool have_heading_gate =
+    root_headings != nullptr && root_headings->size() == roots.size() && cfg.heading_tolerance_rad >= 0.0;
+  for (std::size_t ri = 0; ri < roots.size(); ++ri) {
+    const RootCell & root = roots[ri];
+    const double heading = have_heading_gate ? static_cast<double>((*root_headings)[ri]) : 0.0;
     for (int64_t k = 0; k < n_coarse; ++k) {
+      if (have_heading_gate) {
+        const double bin_yaw = yaw_disc.binCentre(coarsest, k);
+        // Shortest signed difference with wraparound, not naive subtraction -- a bin near 0 and a
+        // heading near 2pi are adjacent, not ~2pi apart.
+        bool within = std::abs(std::remainder(bin_yaw - heading, 2.0 * kBnbPi)) <= cfg.heading_tolerance_rad;
+        if (!within && cfg.allow_reverse_heading) {
+          within =
+            std::abs(std::remainder(bin_yaw - (heading + kBnbPi), 2.0 * kBnbPi)) <= cfg.heading_tolerance_rad;
+        }
+        if (!within) continue;
+      }
       const int bound = boundOf(coarsest, root.ix, root.iy, root.iz, k, prune_threshold + 1);
       if (bound > prune_threshold) {
         frontier.push(BnbNode{coarsest, root.ix, root.iy, root.iz, k, bound});
