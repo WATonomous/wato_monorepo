@@ -1,0 +1,60 @@
+action:
+  mpc_controller_node:
+    ros__parameters:
+
+      # Topic names
+      trajectory_topic: "trajectory"
+      bt_topic: "execute_behaviour"
+      ackermann_topic: "ackermann"
+      idle_topic: "is_idle"
+      predicted_path_topic: "predicted_path"
+      odom_topic: "odom"
+
+      # Frames and control loop
+      base_frame: "base_footprint"
+      control_rate_hz: 20.0  # MPC solve rate (Hz)
+      idle_timeout_sec: 2.0  # Go idle if no trajectory received for this long (s)
+      standby_speed: 0.0  # Creep speed in standby (m/s); negative reverses
+      standby_steering: 0.0  # Steering angle in standby (rad)
+      standby_msg: "standby"  # Behaviour-tree command that triggers standby
+      invert_steering: false  # Negate steering output if the platform's sign is inverted
+      disable_standby: false  # Skip behaviour-tree gating and always drive
+
+      # Vehicle model
+      wheelbase: 2.5667  # Front-to-rear axle distance (m)
+      lr: 1.2833  # Rear-axle to centre-of-gravity distance (m); <=0 defaults to wheelbase/2
+
+      # Horizon
+      horizon_distance: 25.0  # Lookahead distance (m)
+      point_spacing: 1.0  # Arc-length between reference points (m)
+      max_horizon_steps: 30  # Safety cap on QP horizon size
+
+      # Cost weights (relative ratios matter, not absolute values)
+      w_lateral: 50.0  # Cross-track (perpendicular) tracking weight
+      w_long: 5.0  # Along-track (longitudinal) tracking weight
+      w_heading: 20.0  # Heading alignment weight
+      w_progress: 5.0  # Linear speed reward (0 disables)
+      w_speed: 0.0  # Quadratic speed tracking toward reference speed (0 disables)
+      w_steering: 1.0  # Steering effort penalty
+      w_accel: 1.0  # Acceleration effort penalty
+      w_dsteering: 100.0  # Steering-rate penalty (primary steering comfort knob)
+      w_daccel: 50.0  # Jerk penalty (primary longitudinal comfort knob)
+      w_terminal: 5.0  # Terminal-step tracking weight multiplier
+
+      # Actuator limits (must match vehicle hardware)
+      max_steering_angle: 0.5  # Max steering angle (rad)
+      max_accel: 2.5  # Max acceleration (m/s^2)
+      max_decel: -4.0  # Max deceleration (m/s^2, negative)
+      max_speed: 15.0  # Global speed cap on top of trajectory limits (m/s)
+
+      # Comfort limits (rate constraints)
+      max_steering_rate: 0.3  # Max steering rate (rad/s)
+      max_jerk: 5.0  # Max jerk (m/s^3)
+
+      # Solver
+      dt_max: 0.5  # Cap on dt per step, hit near zero speed (s)
+      latency_sec: 0.0  # Actuation+compute delay to compensate (s); 0 disables
+      max_solver_iterations: 200  # OSQP iteration cap
+      solver_eps_abs: 0.001  # OSQP absolute tolerance
+      solver_eps_rel: 0.001  # OSQP relative tolerance
+      warm_start: true  # Reuse previous solution as initial guess

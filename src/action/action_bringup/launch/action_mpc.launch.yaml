@@ -72,6 +72,8 @@ launch:
       namespace: "action"
       output: screen
       param:
+        # Package defaults first, then real-vehicle overrides (later wins).
+        - from: "$(find-pkg-share mpc_controller)/config/mpc_controller.yaml"
         - from: "$(find-pkg-share action_bringup)/config/action.yaml"
       remap:
         # Subscribers

@@ -1,5 +1,0 @@
-casadi
-numpy
-torch
-pygame
-carla

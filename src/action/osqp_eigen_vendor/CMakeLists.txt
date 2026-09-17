@@ -68,15 +68,10 @@ macro(build_osqp_eigen_vendor)
         USE_SOURCE_PERMISSIONS
     )
 
-    # Configure cmake config and env hook
+    # Configure cmake config
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/osqp_eigen_vendor-config.cmake.in
         ${CMAKE_CURRENT_BINARY_DIR}/osqp_eigen_vendor-config.cmake
-        @ONLY
-    )
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/env_hook/osqp_eigen_vendor_paths.sh.in
-        ${CMAKE_CURRENT_BINARY_DIR}/osqp_eigen_vendor_paths.sh
         @ONLY
     )
 
@@ -93,9 +88,18 @@ endmacro()
 find_package(osqp_eigen_vendor QUIET NO_CMAKE_PACKAGE_REGISTRY)
 if(FORCE_BUILD_VENDOR_PKG OR NOT osqp_eigen_vendor_FOUND)
     build_osqp_eigen_vendor()
-    ament_environment_hooks(${CMAKE_CURRENT_BINARY_DIR}/osqp_eigen_vendor_paths.sh)
 else()
     message(STATUS "Found existing osqp_eigen_vendor installation, skipping build.")
 endif()
+
+# Register the environment hook unconditionally: dependents need
+# opt/osqp_eigen_vendor/lib on LD_LIBRARY_PATH at runtime regardless of whether the
+# vendored library was (re)built this time or reused from a previous build.
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/env_hook/osqp_eigen_vendor_paths.sh.in
+    ${CMAKE_CURRENT_BINARY_DIR}/osqp_eigen_vendor_paths.sh
+    @ONLY
+)
+ament_environment_hooks(${CMAKE_CURRENT_BINARY_DIR}/osqp_eigen_vendor_paths.sh)
 
 ament_package()
