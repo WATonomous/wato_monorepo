@@ -285,6 +285,36 @@
           "colorMap": "turbo",
           "pointSize": 1.88,
           "flatColor": "#9480ed82"
+        },
+        "/slam/visualization/loop_closure_source": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#ff3b30cc",
+          "pointSize": 3
+        },
+        "/slam/visualization/loop_closure_target": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#34c759cc",
+          "pointSize": 3
+        },
+        "/world_modeling/slam/visualization/loop_closure_source": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#ff3b30cc",
+          "pointSize": 3
+        },
+        "/world_modeling/slam/visualization/loop_closure_target": {
+          "visible": true,
+          "colorMode": "flat",
+          "flatColor": "#34c759cc",
+          "pointSize": 3
+        },
+        "/slam/visualization/loop_closure_markers": {
+          "visible": true
+        },
+        "/world_modeling/slam/visualization/loop_closure_markers": {
+          "visible": true
         }
       },
       "layers": {

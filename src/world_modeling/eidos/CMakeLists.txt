@@ -89,6 +89,7 @@ add_library(eidos_plugins SHARED
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
+  src/plugins/visualization/loop_closure_cloud_visualization.cpp
 )
 target_include_directories(eidos_plugins PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

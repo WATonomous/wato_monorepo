@@ -145,6 +145,11 @@ StampedFactorResult EuclideanDistanceLoopClosureFactor::latchFactor(gtsam::Key /
         rel_rpy(2) * 180.0 / M_PI);
 
       map_manager_->store(lc.from_key, name_ + "/loop_target", lc.to_key);
+      // Both stored in the same direction (source_body → candidate_body) so they can be
+      // applied to the source cloud interchangeably. relative_pose is the BetweenFactor
+      // measurement (candidate in source frame), hence the inverse.
+      map_manager_->store(lc.from_key, name_ + "/loop_initial", lc.initial_estimate);
+      map_manager_->store(lc.from_key, name_ + "/loop_corrected", lc.relative_pose.inverse());
 
       pending_result_.reset();
     }
@@ -413,7 +418,7 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
 
   {
     std::lock_guard<std::mutex> lock(result_mtx_);
-    pending_result_ = LoopConstraint{source_key, candidate_key, measured, noise};
+    pending_result_ = LoopConstraint{source_key, candidate_key, measured, relative_estimate, noise};
   }
 
   gicp_in_progress_ = false;

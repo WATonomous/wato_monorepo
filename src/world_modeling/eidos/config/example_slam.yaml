@@ -50,6 +50,7 @@
     visualization_plugins:
       - "keyframe_map_visualization"
       - "factor_graph_visualization"
+      - "loop_closure_cloud_visualization"
 
     # GPS Factor
     # Converts GPS fixes to UTM, produces unary position factors
@@ -155,6 +156,19 @@
       publish_rate: 1.0                        # Publish rate (Hz)
       mode: "full"                             # "full" or windowed
       window_radius: 50.0                      # Radius for windowed mode (m)
+
+    # Loop Closure Cloud Visualization
+    # Publishes the matched keyframe cloud pair for each accepted loop closure
+    loop_closure_cloud_visualization:
+      plugin: "eidos::LoopClosureCloudVisualization"
+      topic_source: "slam/visualization/loop_closure_source"   # Query keyframe cloud
+      topic_target: "slam/visualization/loop_closure_target"   # Matched historical keyframe cloud
+      topic_markers: "slam/visualization/loop_closure_markers" # Constraint edge marker
+      loop_closure_factor_name: "euclidean_distance_loop_closure_factor"
+      pointcloud_from: "liso_factor/cloud"     # Source for keyframe clouds
+      publish_rate: 1.0                        # Publish rate (Hz)
+      line_width: 0.5                          # Constraint edge width (m)
+      dump_dir: "/ws/bags/closures"            # Dump each closure here for offline figures
 
 # eidos_transform config for mapping mode (dual-EKF)
 /**/eidos_transform_node:

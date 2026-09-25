@@ -5,4 +5,7 @@
   <class name="eidos::FactorGraphVisualization" type="eidos::FactorGraphVisualization" base_class_type="eidos::VisualizationPlugin">
     <description>Factor graph state/edge visualization</description>
   </class>
+  <class name="eidos::LoopClosureCloudVisualization" type="eidos::LoopClosureCloudVisualization" base_class_type="eidos::VisualizationPlugin">
+    <description>Loop closure matched keyframe cloud pair visualization</description>
+  </class>
 </library>

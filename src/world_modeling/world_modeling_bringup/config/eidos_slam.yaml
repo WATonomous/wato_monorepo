@@ -48,6 +48,7 @@
     visualization_plugins:
       - "keyframe_map_visualization"
       - "factor_graph_visualization"
+      - "loop_closure_cloud_visualization"
 
     # GPS Factor
     gps_factor:
@@ -56,7 +57,10 @@
       gps_topic: "/novatel/oem7/fix"
       imu_topic: "/novatel/oem7/imu/data"
 
-      add_factors: true
+      # false: GPS still relocalizes and stores position, but adds no graph factors,
+      # so odometry drift accumulates and loop closures have real error to correct.
+      # Set back to true for normal operation.
+      add_factors: false
       max_cov: 5.0
       use_elevation: true
       min_radius: 150.0
@@ -166,6 +170,18 @@
       publish_rate: 1.0
       mode: "full"
       window_radius: 50.0
+
+    # Loop Closure Cloud Visualization
+    loop_closure_cloud_visualization:
+      plugin: "eidos::LoopClosureCloudVisualization"
+      topic_source: "slam/visualization/loop_closure_source"
+      topic_target: "slam/visualization/loop_closure_target"
+      topic_markers: "slam/visualization/loop_closure_markers"
+      loop_closure_factor_name: "euclidean_distance_loop_closure_factor"
+      pointcloud_from: "liso_factor/cloud"
+      publish_rate: 1.0
+      line_width: 0.5
+      dump_dir: "/ws/bags/closures"    # Dumps each closure (clouds + pre/post-GICP transforms) for offline figures
 
 /**/eidos_transform_node:
   ros__parameters:

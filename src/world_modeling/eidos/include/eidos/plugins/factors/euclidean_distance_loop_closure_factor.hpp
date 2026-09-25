@@ -116,6 +116,7 @@ private:
     gtsam::Key from_key;
     gtsam::Key to_key;
     gtsam::Pose3 relative_pose;
+    gtsam::Pose3 initial_estimate;  ///< Pre-GICP relative pose (drifted graph estimate)
     gtsam::noiseModel::Base::shared_ptr noise;
   };
 
