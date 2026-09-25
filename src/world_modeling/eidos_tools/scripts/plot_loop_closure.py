@@ -66,11 +66,25 @@ def panel(ax, source, target, title, view, point_size, alpha, limits, show_ylabe
     ix, iy, xlabel, ylabel = axes_for(view)
 
     ax.scatter(
-        target[:, ix], target[:, iy], s=point_size * 1.6, c=TARGET_COLOR,
-        linewidths=0, alpha=alpha, label="matched keyframe", rasterized=True)
+        target[:, ix],
+        target[:, iy],
+        s=point_size * 1.6,
+        c=TARGET_COLOR,
+        linewidths=0,
+        alpha=alpha,
+        label="matched keyframe",
+        rasterized=True,
+    )
     ax.scatter(
-        source[:, ix], source[:, iy], s=point_size, c=SOURCE_COLOR,
-        linewidths=0, alpha=alpha, label="query keyframe", rasterized=True)
+        source[:, ix],
+        source[:, iy],
+        s=point_size,
+        c=SOURCE_COLOR,
+        linewidths=0,
+        alpha=alpha,
+        label="query keyframe",
+        rasterized=True,
+    )
 
     ax.set_title(title, fontsize=8, pad=4)
     ax.set_xlabel(xlabel, fontsize=8, labelpad=2)
@@ -102,7 +116,9 @@ def correction_of(poses):
     """Translation/rotation magnitude GICP applied on top of the graph estimate."""
     delta = poses["corrected"] @ np.linalg.inv(poses["initial"])
     shift = float(np.linalg.norm(delta[:3, 3]))
-    angle = float(np.degrees(np.arccos(np.clip((np.trace(delta[:3, :3]) - 1) / 2, -1, 1))))
+    angle = float(
+        np.degrees(np.arccos(np.clip((np.trace(delta[:3, :3]) - 1) / 2, -1, 1)))
+    )
     return shift, angle
 
 
@@ -120,24 +136,58 @@ def rank_closures(target_dir):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("stem", help="Closure stem (dumps/closure_412_to_87), or a directory")
-    ap.add_argument("-o", "--output", default=None, help="Output file (default: <stem>_alignment.pdf)")
-    ap.add_argument("--view", choices=["xy", "xz"], default="xy", help="Projection plane (default: xy)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "stem", help="Closure stem (dumps/closure_412_to_87), or a directory"
+    )
+    ap.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="Output file (default: <stem>_alignment.pdf)",
+    )
+    ap.add_argument(
+        "--view",
+        choices=["xy", "xz"],
+        default="xy",
+        help="Projection plane (default: xy)",
+    )
     ap.add_argument("--point-size", type=float, default=0.6, help="Scatter point size")
-    ap.add_argument("--alpha", type=float, default=0.65, help="Point opacity; <1 keeps overlap visible")
-    ap.add_argument("--max-range", type=float, default=None, help="Axis limit in metres, symmetric about origin")
     ap.add_argument(
-        "--min-z", type=float, default=None,
+        "--alpha",
+        type=float,
+        default=0.65,
+        help="Point opacity; <1 keeps overlap visible",
+    )
+    ap.add_argument(
+        "--max-range",
+        type=float,
+        default=None,
+        help="Axis limit in metres, symmetric about origin",
+    )
+    ap.add_argument(
+        "--min-z",
+        type=float,
+        default=None,
         help="Drop points below this height (sensor frame, e.g. -1.0) to remove ground rings, "
-             "which otherwise dominate and hide the structural alignment")
+        "which otherwise dominate and hide the structural alignment",
+    )
     ap.add_argument(
-        "--all", action="store_true",
-        help="Directory mode: render every closure instead of only the largest correction")
+        "--all",
+        action="store_true",
+        help="Directory mode: render every closure instead of only the largest correction",
+    )
     ap.add_argument(
-        "--figsize", type=float, nargs=2, default=(5.5, 3.0), metavar=("W", "H"),
+        "--figsize",
+        type=float,
+        nargs=2,
+        default=(5.5, 3.0),
+        metavar=("W", "H"),
         help="Figure size in inches (default 5.5 3.0, sized so the equal-aspect panels "
-             "sit flush; widen for a two-column spread)")
+        "sit flush; widen for a two-column spread)",
+    )
     ap.add_argument("--dpi", type=int, default=300)
     args = ap.parse_args()
 
@@ -152,7 +202,9 @@ def main():
             print(f"  {shift:6.2f} m  {angle:5.1f}°   {stem.name}")
         if len(ranked) > 5:
             smallest = ranked[-1]
-            print(f"  ... {len(ranked) - 5} more, smallest {smallest[0]:.2f} m  {smallest[1]:.1f}°")
+            print(
+                f"  ... {len(ranked) - 5} more, smallest {smallest[0]:.2f} m  {smallest[1]:.1f}°"
+            )
         print()
 
         if args.all:
@@ -160,7 +212,9 @@ def main():
                 render_one(stem, None, args)
         else:
             shift, angle, stem = ranked[0]
-            print(f"rendering largest correction: {stem.name} ({shift:.2f} m, {angle:.1f}°)")
+            print(
+                f"rendering largest correction: {stem.name} ({shift:.2f} m, {angle:.1f}°)"
+            )
             render_one(stem, args.output, args)
         return
 
@@ -171,7 +225,8 @@ def main():
             f"'{stem}' is neither a directory of closures nor a closure stem{hint}.\n"
             "Pass the dump directory (e.g. bags/closures) or a stem like "
             "bags/closures/closure_412_to_87.\n"
-            "If the directory is empty, run the bag first — closures are dumped at runtime.")
+            "If the directory is empty, run the bag first — closures are dumped at runtime."
+        )
 
     render_one(stem, args.output, args)
 
@@ -203,15 +258,43 @@ def render_one(stem, output, args):
     shift, angle = correction_of(poses)
 
     fig, axes = plt.subplots(1, 2, figsize=args.figsize, sharey=True)
-    panel(axes[0], before, target, "(a) Graph estimate", args.view, args.point_size, args.alpha, limits, True)
-    panel(axes[1], after, target, "(b) After GICP", args.view, args.point_size, args.alpha, limits, False)
+    panel(
+        axes[0],
+        before,
+        target,
+        "(a) Graph estimate",
+        args.view,
+        args.point_size,
+        args.alpha,
+        limits,
+        True,
+    )
+    panel(
+        axes[1],
+        after,
+        target,
+        "(b) After GICP",
+        args.view,
+        args.point_size,
+        args.alpha,
+        limits,
+        False,
+    )
 
     # Correction stated on the figure so it survives being read apart from the caption.
     axes[1].text(
-        0.97, 0.04, f"correction\n{shift:.2f} m, {angle:.1f}°",
-        transform=axes[1].transAxes, ha="right", va="bottom", fontsize=7,
+        0.97,
+        0.04,
+        f"correction\n{shift:.2f} m, {angle:.1f}°",
+        transform=axes[1].transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=7,
         linespacing=1.3,
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.7", linewidth=0.5))
+        bbox=dict(
+            boxstyle="round,pad=0.3", facecolor="white", edgecolor="0.7", linewidth=0.5
+        ),
+    )
 
     # Reserve margins explicitly: constrained_layout does not account for figure
     # legends in older matplotlib, which lets the legend collide with the x labels.
@@ -219,8 +302,16 @@ def render_one(stem, output, args):
 
     handles, labels = axes[0].get_legend_handles_labels()
     leg = fig.legend(
-        handles, labels, loc="lower center", bbox_to_anchor=(0.5, -0.01),
-        ncol=2, frameon=False, fontsize=7.5, handletextpad=0.4, columnspacing=1.6)
+        handles,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.01),
+        ncol=2,
+        frameon=False,
+        fontsize=7.5,
+        handletextpad=0.4,
+        columnspacing=1.6,
+    )
     for h in getattr(leg, "legend_handles", None) or leg.legendHandles:
         h.set_sizes([10])
 

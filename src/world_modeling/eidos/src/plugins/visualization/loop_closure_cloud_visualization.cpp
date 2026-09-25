@@ -14,13 +14,13 @@
 
 #include "eidos/plugins/visualization/loop_closure_cloud_visualization.hpp"
 
+#include <gtsam/inference/Symbol.h>
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <filesystem>
 #include <fstream>
 #include <string>
 
-#include <gtsam/inference/Symbol.h>
 #include <pluginlib/class_list_macros.hpp>
 
 #include "eidos/map/map_manager.hpp"
@@ -36,8 +36,7 @@ void LoopClosureCloudVisualization::onInitialize()
   node_->declare_parameter(prefix + ".topic_source", std::string("slam/visualization/loop_closure_source"));
   node_->declare_parameter(prefix + ".topic_target", std::string("slam/visualization/loop_closure_target"));
   node_->declare_parameter(prefix + ".topic_markers", std::string("slam/visualization/loop_closure_markers"));
-  node_->declare_parameter(
-    prefix + ".loop_closure_factor_name", std::string("euclidean_distance_loop_closure_factor"));
+  node_->declare_parameter(prefix + ".loop_closure_factor_name", std::string("euclidean_distance_loop_closure_factor"));
   node_->declare_parameter(prefix + ".pointcloud_from", std::string("liso_factor/cloud"));
   node_->declare_parameter(prefix + ".publish_rate", 1.0);
   node_->declare_parameter(prefix + ".line_width", 0.5);
@@ -67,8 +66,11 @@ void LoopClosureCloudVisualization::onInitialize()
     std::filesystem::create_directories(dump_dir_, ec);
     if (ec) {
       RCLCPP_ERROR(
-        node_->get_logger(), "[%s] cannot create dump_dir '%s' (%s) — dumping disabled",
-        name_.c_str(), dump_dir_.c_str(), ec.message().c_str());
+        node_->get_logger(),
+        "[%s] cannot create dump_dir '%s' (%s) — dumping disabled",
+        name_.c_str(),
+        dump_dir_.c_str(),
+        ec.message().c_str());
       dump_dir_.clear();
     } else {
       RCLCPP_INFO(node_->get_logger(), "[%s] dumping closures to %s", name_.c_str(), dump_dir_.c_str());
@@ -197,8 +199,7 @@ void LoopClosureCloudVisualization::dumpClosure(
   const gtsam::Pose3 & corrected) const
 {
   gtsam::Symbol s(source_key), t(target_key);
-  std::string stem =
-    dump_dir_ + "/closure_" + std::to_string(s.index()) + "_to_" + std::to_string(t.index());
+  std::string stem = dump_dir_ + "/closure_" + std::to_string(s.index()) + "_to_" + std::to_string(t.index());
 
   auto write_cloud = [](const std::string & path, const pcl::PointCloud<PointType> & cloud) {
     std::ofstream f(path);
