@@ -178,13 +178,13 @@ private:
     double best_excess = 0.0;
     double runner_up_excess = 0.0;
   };
+
   // Heading to centre the yaw window on, and its half-width (rad). Returns false when no
   // override applies and the caller should fall back to per-root map headings.
   bool imuHeadingOverride(double & yaw, double & tol_rad) const;
   void resolveImuYawToMap();
 
-  UniquenessGateResult uniquenessGate(
-    double best_normalized, double runner_up_normalized, bool has_runner_up) const;
+  UniquenessGateResult uniquenessGate(double best_normalized, double runner_up_normalized, bool has_runner_up) const;
 
   // Releases pyramid_'s memory and logs RSS before/after -- freeing the buffers doesn't by
   // itself guarantee the OS reclaims them, so the log is what makes "memory actually came back"

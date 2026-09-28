@@ -371,8 +371,7 @@ inline std::vector<Hypothesis> branchAndBound(
         // heading near 2pi are adjacent, not ~2pi apart.
         bool within = std::abs(std::remainder(bin_yaw - heading, 2.0 * kBnbPi)) <= cfg.heading_tolerance_rad;
         if (!within && cfg.allow_reverse_heading) {
-          within =
-            std::abs(std::remainder(bin_yaw - (heading + kBnbPi), 2.0 * kBnbPi)) <= cfg.heading_tolerance_rad;
+          within = std::abs(std::remainder(bin_yaw - (heading + kBnbPi), 2.0 * kBnbPi)) <= cfg.heading_tolerance_rad;
         }
         if (!within) continue;
       }
