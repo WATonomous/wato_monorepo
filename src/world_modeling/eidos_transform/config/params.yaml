@@ -1,13 +1,14 @@
 # Example configuration for eidos_transform (dual-EKF architecture).
 #
 # Local EKF (odom frame): fuses odom_sources, broadcasts odom->base_link
-# Global EKF (map frame): fuses map_sources, derives map->odom via TF lookup
+# Global EKF (map frame): fuses odom_sources (motion only) + map_sources, derives map->odom
 #
 # Each source has a `type` field: "odom" (nav_msgs/Odometry) or "imu" (sensor_msgs/Imu).
 # A source can appear in odom_sources, map_sources, or both.
 /**/eidos_transform_node:
   ros__parameters:
     tick_rate: 200.0
+    history_window: 5.0  # seconds of global EKF history for replaying delayed measurements
 
     frames:
       odom: "odom"
@@ -37,7 +38,7 @@
          1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2, 1.0e-2,
          1.0e-6, 1.0e-6, 1.0e-6]
 
-    # Odom sources (local EKF only, odom frame)
+    # Odom sources (both EKFs; global EKF skips odom-frame pose and yaw)
     odom_sources:
       - "liso_odom"
       - "imu_raw"

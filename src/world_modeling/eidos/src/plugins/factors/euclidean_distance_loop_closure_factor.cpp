@@ -177,7 +177,7 @@ StampedFactorResult EuclideanDistanceLoopClosureFactor::latchFactor(gtsam::Key /
   kdtree->radiusSearch(
     key_poses_3d->points[source_idx], static_cast<float>(search_radius_), search_indices, search_distances, 0);
 
-  float source_time = key_poses_6d->points[source_idx].time;
+  double source_time = key_poses_6d->points[source_idx].time;
   gtsam::Key best_key = 0;
   int best_idx = -1;
   float best_dist = std::numeric_limits<float>::max();
@@ -186,8 +186,8 @@ StampedFactorResult EuclideanDistanceLoopClosureFactor::latchFactor(gtsam::Key /
     int candidate_idx = search_indices[i];
     if (candidate_idx == source_idx) continue;
 
-    float time_diff = std::abs(source_time - key_poses_6d->points[candidate_idx].time);
-    if (time_diff < static_cast<float>(search_time_diff_)) continue;
+    double time_diff = std::abs(source_time - key_poses_6d->points[candidate_idx].time);
+    if (time_diff < search_time_diff_) continue;
 
     gtsam::Key candidate_key = map_manager.getKeyFromCloudIndex(candidate_idx);
     if (candidate_key == 0) continue;

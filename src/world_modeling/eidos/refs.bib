@@ -1,0 +1,423 @@
+% ============================================================
+% refs.bib  --  bibliography for eidos_paper.tex
+% Verify page/volume numbers against publisher records before
+% camera-ready submission. Entries are correct in author,
+% title, venue, and year.
+% ============================================================
+
+% ---------- Primary sources ----------
+
+@inproceedings{shan2020liosam,
+  title     = {{LIO-SAM}: Tightly-coupled Lidar Inertial Odometry via Smoothing and Mapping},
+  author    = {Shan, Tixiao and Englot, Brendan and Meyers, Drew and Wang, Wei and
+               Ratti, Carlo and Rus, Daniela},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {5135--5142},
+  year      = {2020},
+  doi       = {10.1109/IROS45743.2020.9341176}
+}
+
+@article{labbe2019rtabmap,
+  title   = {{RTAB-Map} as an Open-Source Lidar and Visual Simultaneous Localization and
+             Mapping Library for Large-Scale and Long-Term Online Operation},
+  author  = {Labb{\'e}, Mathieu and Michaud, Fran{\c{c}}ois},
+  journal = {Journal of Field Robotics},
+  volume  = {36},
+  number  = {2},
+  pages   = {416--446},
+  year    = {2019},
+  doi     = {10.1002/rob.21831}
+}
+
+% ---------- Backend and factor-graph theory ----------
+
+@article{kaess2012isam2,
+  title   = {{iSAM2}: Incremental Smoothing and Mapping Using the {B}ayes Tree},
+  author  = {Kaess, Michael and Johannsson, Hordur and Roberts, Richard and
+             Ila, Viorela and Leonard, John J. and Dellaert, Frank},
+  journal = {The International Journal of Robotics Research},
+  volume  = {31},
+  number  = {2},
+  pages   = {216--235},
+  year    = {2012},
+  doi     = {10.1177/0278364911430419}
+}
+
+@article{kaess2008isam,
+  title   = {{iSAM}: Incremental Smoothing and Mapping},
+  author  = {Kaess, Michael and Ranganathan, Ananth and Dellaert, Frank},
+  journal = {IEEE Transactions on Robotics},
+  volume  = {24},
+  number  = {6},
+  pages   = {1365--1378},
+  year    = {2008}
+}
+
+@article{dellaert2017factor,
+  title   = {Factor Graphs for Robot Perception},
+  author  = {Dellaert, Frank and Kaess, Michael},
+  journal = {Foundations and Trends in Robotics},
+  volume  = {6},
+  number  = {1-2},
+  pages   = {1--139},
+  year    = {2017}
+}
+
+@techreport{dellaert2012factor,
+  title       = {Factor Graphs and {GTSAM}: A Hands-on Introduction},
+  author      = {Dellaert, Frank},
+  institution = {Georgia Institute of Technology},
+  number      = {GT-RIM-CP\&R-2012-002},
+  year        = {2012}
+}
+
+@article{lu1997globally,
+  title   = {Globally Consistent Range Scan Alignment for Environment Mapping},
+  author  = {Lu, Feng and Milios, Evangelos},
+  journal = {Autonomous Robots},
+  volume  = {4},
+  number  = {4},
+  pages   = {333--349},
+  year    = {1997}
+}
+
+@article{grisetti2010tutorial,
+  title   = {A Tutorial on Graph-Based {SLAM}},
+  author  = {Grisetti, Giorgio and K{\"u}mmerle, Rainer and Stachniss, Cyrill and Burgard, Wolfram},
+  journal = {IEEE Intelligent Transportation Systems Magazine},
+  volume  = {2},
+  number  = {4},
+  pages   = {31--43},
+  year    = {2010}
+}
+
+@inproceedings{kummerle2011g2o,
+  title     = {{g2o}: A General Framework for Graph Optimization},
+  author    = {K{\"u}mmerle, Rainer and Grisetti, Giorgio and Strasdat, Hauke and
+               Konolige, Kurt and Burgard, Wolfram},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {3607--3613},
+  year      = {2011}
+}
+
+@article{cadena2016past,
+  title   = {Past, Present, and Future of Simultaneous Localization and Mapping:
+             Toward the Robust-Perception Age},
+  author  = {Cadena, Cesar and Carlone, Luca and Carrillo, Henry and Latif, Yasir and
+             Scaramuzza, Davide and Neira, Jos{\'e} and Reid, Ian and Leonard, John J.},
+  journal = {IEEE Transactions on Robotics},
+  volume  = {32},
+  number  = {6},
+  pages   = {1309--1332},
+  year    = {2016}
+}
+
+% ---------- Inertial ----------
+
+@article{forster2017onmanifold,
+  title   = {On-Manifold Preintegration for Real-Time Visual-Inertial Odometry},
+  author  = {Forster, Christian and Carlone, Luca and Dellaert, Frank and Scaramuzza, Davide},
+  journal = {IEEE Transactions on Robotics},
+  volume  = {33},
+  number  = {1},
+  pages   = {1--21},
+  year    = {2017}
+}
+
+% ---------- Point cloud registration ----------
+
+@article{besl1992method,
+  title   = {A Method for Registration of 3-{D} Shapes},
+  author  = {Besl, Paul J. and McKay, Neil D.},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  volume  = {14},
+  number  = {2},
+  pages   = {239--256},
+  year    = {1992}
+}
+
+@inproceedings{segal2009generalized,
+  title     = {Generalized-{ICP}},
+  author    = {Segal, Aleksandr and Haehnel, Dirk and Thrun, Sebastian},
+  booktitle = {Robotics: Science and Systems (RSS)},
+  year      = {2009}
+}
+
+@article{koide2024smallgicp,
+  title   = {{small\_gicp}: Efficient and Parallel Algorithms for Point Cloud Registration},
+  author  = {Koide, Kenji},
+  journal = {Journal of Open Source Software},
+  volume  = {9},
+  number  = {100},
+  pages   = {6948},
+  year    = {2024}
+}
+
+@inproceedings{koide2021voxelized,
+  title     = {Voxelized {GICP} for Fast and Accurate 3{D} Point Cloud Registration},
+  author    = {Koide, Kenji and Yokozuka, Masashi and Oishi, Shuji and Banno, Atsuhiko},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {11054--11059},
+  year      = {2021}
+}
+
+@article{pomerleau2013comparing,
+  title   = {Comparing {ICP} Variants on Real-World Data Sets},
+  author  = {Pomerleau, Fran{\c{c}}ois and Colas, Francis and Siegwart, Roland and
+             Magnenat, St{\'e}phane},
+  journal = {Autonomous Robots},
+  volume  = {34},
+  number  = {3},
+  pages   = {133--148},
+  year    = {2013}
+}
+
+% ---------- LiDAR odometry and SLAM systems ----------
+
+@article{zhang2017loam,
+  title   = {Low-Drift and Real-Time Lidar Odometry and Mapping},
+  author  = {Zhang, Ji and Singh, Sanjiv},
+  journal = {Autonomous Robots},
+  volume  = {41},
+  number  = {2},
+  pages   = {401--416},
+  year    = {2017}
+}
+
+@inproceedings{zhang2014loam,
+  title     = {{LOAM}: Lidar Odometry and Mapping in Real-Time},
+  author    = {Zhang, Ji and Singh, Sanjiv},
+  booktitle = {Robotics: Science and Systems (RSS)},
+  year      = {2014}
+}
+
+@inproceedings{shan2018lego,
+  title     = {{LeGO-LOAM}: Lightweight and Ground-Optimized Lidar Odometry and Mapping
+               on Variable Terrain},
+  author    = {Shan, Tixiao and Englot, Brendan},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {4758--4765},
+  year      = {2018}
+}
+
+@article{xu2022fastlio2,
+  title   = {{FAST-LIO2}: Fast Direct {LiDAR}-Inertial Odometry},
+  author  = {Xu, Wei and Cai, Yixi and He, Dongjiao and Lin, Jiarong and Zhang, Fu},
+  journal = {IEEE Transactions on Robotics},
+  volume  = {38},
+  number  = {4},
+  pages   = {2053--2073},
+  year    = {2022}
+}
+
+@article{xu2021fastlio,
+  title   = {{FAST-LIO}: A Fast, Robust {LiDAR}-Inertial Odometry Package by
+             Tightly-Coupled Iterated {K}alman Filter},
+  author  = {Xu, Wei and Zhang, Fu},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {6},
+  number  = {2},
+  pages   = {3317--3324},
+  year    = {2021}
+}
+
+@inproceedings{hess2016cartographer,
+  title     = {Real-Time Loop Closure in 2{D} {LIDAR} {SLAM}},
+  author    = {Hess, Wolfgang and Kohler, Damon and Rapp, Holger and Andor, Daniel},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {1271--1278},
+  year      = {2016}
+}
+
+@inproceedings{aoki2024bbs,
+  title     = {{3D-BBS}: Global Localization for 3{D} Point Cloud Scan Matching
+               Using Branch-and-Bound Algorithm},
+  author    = {Aoki, Koki and Koide, Kenji and Oishi, Shuji and Yokozuka, Masashi and
+               Banno, Atsuhiko and Meguro, Junichi},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  year      = {2024},
+  note      = {arXiv:2310.10023}
+}
+
+@inproceedings{rosinol2020kimera,
+  title     = {{Kimera}: An Open-Source Library for Real-Time Metric-Semantic
+               Localization and Mapping},
+  author    = {Rosinol, Antoni and Abate, Marcus and Chang, Yun and Carlone, Luca},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {1689--1696},
+  year      = {2020}
+}
+
+@article{koide2019portable,
+  title   = {A Portable Three-Dimensional {LIDAR}-Based System for Long-Term and
+             Wide-Area People Behavior Measurement},
+  author  = {Koide, Kenji and Miura, Jun and Menegatti, Emanuele},
+  journal = {International Journal of Advanced Robotic Systems},
+  volume  = {16},
+  number  = {2},
+  year    = {2019}
+}
+
+@article{schneider2018maplab,
+  title   = {{maplab}: An Open Framework for Research in Visual-Inertial Mapping
+             and Localization},
+  author  = {Schneider, Thomas and Dymczyk, Marcin and Fehr, Marius and Egger, Kevin and
+             Lynen, Simon and Gilitschenski, Igor and Siegwart, Roland},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {3},
+  number  = {3},
+  pages   = {1418--1425},
+  year    = {2018}
+}
+
+% ---------- Place recognition and robust optimization ----------
+
+@inproceedings{kim2018scan,
+  title     = {Scan Context: Egocentric Spatial Descriptor for Place Recognition
+               Within 3{D} Point Cloud Map},
+  author    = {Kim, Giseop and Kim, Ayoung},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {4802--4809},
+  year      = {2018}
+}
+
+@article{labbe2013appearance,
+  title   = {Appearance-Based Loop Closure Detection for Online Large-Scale and
+             Long-Term Operation},
+  author  = {Labb{\'e}, Mathieu and Michaud, Fran{\c{c}}ois},
+  journal = {IEEE Transactions on Robotics},
+  volume  = {29},
+  number  = {3},
+  pages   = {734--745},
+  year    = {2013}
+}
+
+@article{labbe2018longterm,
+  title   = {Long-Term Online Multi-Session Graph-Based {SPLAM} with Memory Management},
+  author  = {Labb{\'e}, Mathieu and Michaud, Fran{\c{c}}ois},
+  journal = {Autonomous Robots},
+  volume  = {42},
+  number  = {6},
+  pages   = {1133--1150},
+  year    = {2018}
+}
+
+@inproceedings{sunderhauf2012switchable,
+  title     = {Switchable Constraints for Robust Pose Graph {SLAM}},
+  author    = {S{\"u}nderhauf, Niko and Protzel, Peter},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {1879--1884},
+  year      = {2012}
+}
+
+@inproceedings{agarwal2013robust,
+  title     = {Robust Map Optimization Using Dynamic Covariance Scaling},
+  author    = {Agarwal, Pratik and Tipaldi, Gian Diego and Spinello, Luciano and
+               Stachniss, Cyrill and Burgard, Wolfram},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {62--69},
+  year      = {2013}
+}
+
+@article{yang2020gnc,
+  title   = {Graduated Non-Convexity for Robust Spatial Perception:
+             From Non-Minimal Solvers to Global Outlier Rejection},
+  author  = {Yang, Heng and Antonante, Pasquale and Tzoumas, Vasileios and Carlone, Luca},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {5},
+  number  = {2},
+  pages   = {1127--1134},
+  year    = {2020}
+}
+
+@inproceedings{carlevaris2013generic,
+  title     = {Generic Factor-Based Node Marginalization and Edge Sparsification for
+               Pose-Graph {SLAM}},
+  author    = {Carlevaris-Bianco, Nicholas and Eustice, Ryan M.},
+  booktitle = {IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {5748--5755},
+  year      = {2013}
+}
+
+% ---------- Fusion, frames, software architecture ----------
+
+@inproceedings{moore2014generalized,
+  title     = {A Generalized Extended {K}alman Filter Implementation for the
+               {R}obot {O}perating {S}ystem},
+  author    = {Moore, Thomas and Stouch, Daniel},
+  booktitle = {Intelligent Autonomous Systems 13 (IAS-13)},
+  pages     = {335--348},
+  year      = {2014}
+}
+
+@inproceedings{lu2014layered,
+  title     = {Layered Costmaps for Context-Sensitive Navigation},
+  author    = {Lu, David V. and Hershberger, Dave and Smart, William D.},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {709--715},
+  year      = {2014}
+}
+
+@article{macenski2022ros2,
+  title   = {{Robot Operating System 2}: Design, Architecture, and Uses in the Wild},
+  author  = {Macenski, Steven and Foote, Tully and Gerkey, Brian and Lalancette, Chris and
+             Woodall, William},
+  journal = {Science Robotics},
+  volume  = {7},
+  number  = {66},
+  year    = {2022}
+}
+
+% ---------- Evaluation ----------
+
+@article{umeyama1991least,
+  title   = {Least-Squares Estimation of Transformation Parameters Between Two Point Patterns},
+  author  = {Umeyama, Shinji},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  volume  = {13},
+  number  = {4},
+  pages   = {376--380},
+  year    = {1991}
+}
+
+@inproceedings{sturm2012benchmark,
+  title     = {A Benchmark for the Evaluation of {RGB-D} {SLAM} Systems},
+  author    = {Sturm, J{\"u}rgen and Engelhard, Nikolas and Endres, Felix and
+               Burgard, Wolfram and Cremers, Daniel},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {573--580},
+  year      = {2012}
+}
+
+@inproceedings{geiger2012kitti,
+  title     = {Are We Ready for Autonomous Driving? {T}he {KITTI} Vision Benchmark Suite},
+  author    = {Geiger, Andreas and Lenz, Philip and Urtasun, Raquel},
+  booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {3354--3361},
+  year      = {2012}
+}
+
+@inproceedings{zhang2018tutorial,
+  title     = {A Tutorial on Quantitative Trajectory Evaluation for
+               Visual(-Inertial) Odometry},
+  author    = {Zhang, Zichao and Scaramuzza, Davide},
+  booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages     = {7244--7251},
+  year      = {2018}
+}
+
+% ---------- Manifold background ----------
+
+@article{sola2018micro,
+  title   = {A Micro {L}ie Theory for State Estimation in Robotics},
+  author  = {Sol{\`a}, Joan and Deray, J{\'e}r{\'e}mie and Atchuthan, Dinesh},
+  journal = {arXiv preprint arXiv:1812.01537},
+  year    = {2018}
+}
+
+@book{barfoot2017state,
+  title     = {State Estimation for Robotics},
+  author    = {Barfoot, Timothy D.},
+  publisher = {Cambridge University Press},
+  year      = {2017}
+}

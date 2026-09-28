@@ -325,8 +325,8 @@ void EidosNode::handleTracking(double timestamp)
       if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
     }
 
-    // First state ever: add PriorFactor
-    if (graph_optimizer_.getNextStateIndex() == 1) {
+    // First state ever (x0): add PriorFactor
+    if (gtsam::Symbol(ns.key).index() == 0) {
       gtsam::Pose3 anchor = ns.result.values.exists(ns.key) ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose;
       auto & cov = graph_optimizer_.getPriorPoseCov();
       if (cov.size() >= 6) {
@@ -379,11 +379,13 @@ void EidosNode::handleTracking(double timestamp)
   }
 
   // Track latest state for cross-plugin bridging
-  auto & last = new_states.back();
-  last_state_key_ = last.key;
-  last_state_ts_ = last.ts;
-  last_state_owner_ = last.owner;
-  has_last_state_ = true;
+  if (!new_states.empty()) {
+    auto & last = new_states.back();
+    last_state_key_ = last.key;
+    last_state_ts_ = last.ts;
+    last_state_owner_ = last.owner;
+    has_last_state_ = true;
+  }
 
   RCLCPP_INFO(
     get_logger(),
