@@ -239,6 +239,7 @@ bool MapManager::saveMap(const std::string & path)
     std::array<double, 7> pose;  // x, y, z, roll, pitch, yaw, time
     std::string owner;
   };
+
   std::vector<KeyframeRow> keyframes;
   std::vector<std::tuple<gtsam::Key, std::string, std::vector<uint8_t>>> keyframe_blobs;
   std::vector<std::pair<std::string, std::vector<uint8_t>>> global_blobs;

@@ -87,8 +87,7 @@ std::vector<std::vector<eidos::reloc::RootCell>> chunkRoots(
       roots.begin() + static_cast<std::ptrdiff_t>(idx), roots.begin() + static_cast<std::ptrdiff_t>(idx + sz));
     if (have_headings) {
       heading_chunks[c].assign(
-        headings.begin() + static_cast<std::ptrdiff_t>(idx),
-        headings.begin() + static_cast<std::ptrdiff_t>(idx + sz));
+        headings.begin() + static_cast<std::ptrdiff_t>(idx), headings.begin() + static_cast<std::ptrdiff_t>(idx + sz));
     }
     idx += sz;
   }
@@ -1881,7 +1880,7 @@ std::vector<BnbVoxelRelocalization::ScoredHypothesis> BnbVoxelRelocalization::se
     scfg.max_solutions = std::max(num_gicp_candidates_ + 3, 8);
     // Negative disables the gate, so this is a no-op unless use_heading_prior_ is on -- see
     // SearchConfig::heading_tolerance_rad's doc comment in bnb_search.hpp.
-    scfg.heading_tolerance_rad = sp_imu_heading      ? sp_imu_tol
+    scfg.heading_tolerance_rad = sp_imu_heading       ? sp_imu_tol
                                  : use_heading_prior_ ? (heading_tolerance_deg_ * M_PI / 180.0)
                                                       : -1.0;
     scfg.allow_reverse_heading = sp_imu_heading ? false : allow_reverse_heading_;
@@ -4252,8 +4251,7 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
     if ((centre - lock_t).norm() <= reanchor_search_radius_) {
       near_roots.push_back(root);
       near_headings.push_back(
-        ra_imu_heading ? static_cast<float>(ra_imu_yaw)
-                       : (i < root_headings_.size() ? root_headings_[i] : 0.0f));
+        ra_imu_heading ? static_cast<float>(ra_imu_yaw) : (i < root_headings_.size() ? root_headings_[i] : 0.0f));
     }
   }
   if (near_roots.empty()) {
@@ -4272,7 +4270,7 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   scfg.max_nodes = static_cast<std::size_t>(std::max(1000, reanchor_max_nodes_));
   // Negative disables the gate -- see SearchConfig::heading_tolerance_rad's doc comment in
   // bnb_search.hpp.
-  scfg.heading_tolerance_rad = ra_imu_heading      ? ra_imu_tol
+  scfg.heading_tolerance_rad = ra_imu_heading       ? ra_imu_tol
                                : use_heading_prior_ ? (heading_tolerance_deg_ * M_PI / 180.0)
                                                     : -1.0;
   scfg.allow_reverse_heading = ra_imu_heading ? false : allow_reverse_heading_;
