@@ -4,3 +4,8 @@ PREFIX=$(dirname $(dirname $(dirname $HERE)))
 
 # Fixed path at build time
 ament_prepend_unique_value CMAKE_PREFIX_PATH "@CMAKE_INSTALL_PREFIX@/opt/osqp_eigen_vendor"
+
+# Vendor libs live under opt/osqp_eigen_vendor/lib (non-standard location), so the
+# default ament library-path hook does not pick them up. Add it to the runtime
+# linker path explicitly, otherwise dependents fail to dlopen libOsqpEigen.so at runtime.
+ament_prepend_unique_value LD_LIBRARY_PATH "@CMAKE_INSTALL_PREFIX@/opt/osqp_eigen_vendor/lib"
