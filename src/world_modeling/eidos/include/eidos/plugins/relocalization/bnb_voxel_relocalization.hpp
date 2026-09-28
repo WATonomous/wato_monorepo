@@ -111,6 +111,8 @@ private:
   // Needed because a search can take tens of seconds, during which the vehicle drives on and no
   // odometry is published while RELOCALIZING (both odometry producers gate on TRACKING) -- so the
   // prior map's own trajectory plus a fresh scan is what's available to correct the stale pose.
+  // Returns true with out = locked when disabled or the newest scan is within reanchor_min_gap_;
+  // false means the lock could not be carried to the newest scan and must be discarded.
   bool reanchorToCurrent(const gtsam::Pose3 & locked, gtsam::Pose3 & out);
 
   void workerMain();

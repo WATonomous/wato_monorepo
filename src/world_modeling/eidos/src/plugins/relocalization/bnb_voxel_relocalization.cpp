@@ -661,10 +661,14 @@ void BnbVoxelRelocalization::workerMain()
   if (result.has_value()) {
     // Re-anchor onto the newest scan before handing off, since InitSequencer applies this pose as
     // the CURRENT one. Must run before releasePyramidMemory() below: it searches the same pyramid.
+    // A failed re-anchor means the lock is stale, so drop it and let a later tick search afresh.
     gtsam::Pose3 reanchored;
-    if (reanchorToCurrent(result->pose, reanchored)) {
-      result->pose = reanchored;
+    if (!reanchorToCurrent(result->pose, reanchored)) {
+      search_scan_.reset();
+      search_running_ = false;
+      return;
     }
+    result->pose = reanchored;
     {
       std::lock_guard<std::mutex> lock(result_mtx_);
       result_ = result;
@@ -4193,7 +4197,10 @@ BnbVoxelRelocalization::UniquenessGateResult BnbVoxelRelocalization::uniquenessG
 // ---------------------------------------------------------------------------
 bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsam::Pose3 & out)
 {
-  if (!use_trajectory_reanchor_) return false;
+  if (!use_trajectory_reanchor_) {
+    out = locked;
+    return true;
+  }
 
   // Newest scan and its query set, latched together so the pose recovered below and the cloud it
   // is refined against describe the same instant.
@@ -4214,7 +4221,8 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
       "[%s] re-anchor skipped: newest scan is only %.2f s after the searched one",
       name_.c_str(),
       gap);
-    return false;
+    out = locked;
+    return true;
   }
   if (query.empty() || !scan || scan->empty()) {
     RCLCPP_WARN(node_->get_logger(), "[%s] re-anchor skipped: no fresh scan available", name_.c_str());
@@ -4323,14 +4331,22 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
   if (!src || src->empty()) return false;
 
   // Refine the top hypotheses under the SAME acceptance gates gicpPolish() applies (uniqueness
-  // above, plus per-candidate min_match_score_ and min_inlier_ratio_ below) and a displacement
+  // above and per candidate, plus min_match_score_ and min_inlier_ratio_ below) and a displacement
   // plausibility check besides, so a re-anchor can never be accepted on weaker evidence than the
   // pose it replaces, nor on a jump no real vehicle could have made in the elapsed time.
+  auto best_other_normalized = [&hyps](int self) {
+    double best = 0.0;
+    for (std::size_t j = 0; j < hyps.size(); ++j) {
+      if (static_cast<int>(j) != self) best = std::max(best, hyps[j].normalized);
+    }
+    return best;
+  };
   const int num_candidates = std::min(num_gicp_candidates_, static_cast<int>(hyps.size()));
   for (int c = 0; c < num_candidates; ++c) {
     if (stop_requested_.load()) return false;
     const auto & hyp = hyps[static_cast<std::size_t>(c)];
     if (hyp.normalized < min_match_score_) continue;
+    if (!uniquenessGate(hyp.normalized, best_other_normalized(c), has_runner_up).ok) continue;
 
     auto submap_merged = assembleSubmap(hyp.translation, submap_radius_);
     if (submap_merged->empty()) continue;
@@ -4363,14 +4379,15 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
     if (moved > max_plausible) {
       RCLCPP_WARN(
         node_->get_logger(),
-        "[%s] re-anchor rejected: displacement %.1f m over %.2f s implies %.1f m/s (> %.1f m/s "
-        "limit); keeping the stale-but-gated lock from the searched scan",
+        "[%s] re-anchor candidate %d rejected: displacement %.1f m over %.2f s implies %.1f m/s "
+        "(> %.1f m/s limit)",
         name_.c_str(),
+        c,
         moved,
         gap,
         moved / gap,
         reanchor_max_speed_mps_);
-      return false;
+      continue;
     }
 
     RCLCPP_INFO(
@@ -4406,8 +4423,8 @@ bool BnbVoxelRelocalization::reanchorToCurrent(const gtsam::Pose3 & locked, gtsa
 
   RCLCPP_WARN(
     node_->get_logger(),
-    "[%s] re-anchor failed: no candidate passed GICP on the fresh scan; returning the lock as "
-    "computed against the searched scan (it is %.1f s stale)",
+    "[%s] re-anchor failed: no candidate passed GICP and plausibility on the fresh scan; "
+    "discarding the %.1f s stale lock",
     name_.c_str(),
     gap);
   return false;
@@ -4477,6 +4494,15 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(const std
     }
   }
 
+  // The gate above only compares hypotheses[0] with hypotheses[1]; whichever candidate is actually
+  // accepted must also be unique against every other (NMS-separated) hypothesis.
+  auto best_other_normalized = [&hypotheses](int self) {
+    double best = 0.0;
+    for (std::size_t j = 0; j < hypotheses.size(); ++j) {
+      if (static_cast<int>(j) != self) best = std::max(best, hypotheses[j].hyp.normalized);
+    }
+    return best;
+  };
   const int num_candidates = std::min(num_gicp_candidates_, static_cast<int>(hypotheses.size()));
   for (int c = 0; c < num_candidates; ++c) {
     if (stop_requested_.load()) return std::nullopt;
@@ -4493,6 +4519,18 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(const std
         hyp.normalized,
         hyp.hit_fraction,
         min_match_score_);
+      continue;
+    }
+
+    const double other_normalized = best_other_normalized(c);
+    if (!uniquenessGate(hyp.normalized, other_normalized, has_runner_up).ok) {
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "[%s] candidate %d rejected: not unique (score %.3f vs best other hypothesis %.3f)",
+        name_.c_str(),
+        c,
+        hyp.normalized,
+        other_normalized);
       continue;
     }
 
@@ -4555,7 +4593,7 @@ std::optional<RelocalizationResult> BnbVoxelRelocalization::gicpPolish(const std
       const double d = (trajectory_[i].position - Eigen::Vector3d(t.x(), t.y(), t.z())).norm();
       if (d < best_dist) {
         best_dist = d;
-        matched_index = static_cast<int>(i);
+        matched_index = trajectory_[i].cloud_index;
       }
     }
 

@@ -16,8 +16,8 @@
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/navigation/GPSFactor.h>
-#include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/buffer.h>
 
 #include <algorithm>
 #include <array>
@@ -55,12 +55,14 @@ void GpsFactor::onInitialize()
   node_->declare_parameter(prefix + ".min_radius", 5.0);
   node_->declare_parameter(prefix + ".gps_cov", std::vector<double>{1.0, 1.0, 1.0});
   node_->declare_parameter(prefix + ".imu_topic", "imu/data");
+  node_->declare_parameter(prefix + ".imu_frame", std::string("imu_link"));
   node_->declare_parameter(prefix + ".pose_cov_threshold", 25.0);
   node_->declare_parameter(prefix + ".add_factors", true);
 
   std::string gps_topic, imu_topic;
   node_->get_parameter(prefix + ".gps_topic", gps_topic);
   node_->get_parameter(prefix + ".imu_topic", imu_topic);
+  node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".max_cov", max_cov_);
   node_->get_parameter(prefix + ".use_elevation", use_elevation_);
   node_->get_parameter(prefix + ".min_radius", min_radius_);
@@ -68,6 +70,7 @@ void GpsFactor::onInitialize()
   node_->get_parameter(prefix + ".pose_cov_threshold", pose_cov_threshold_);
   node_->get_parameter(prefix + ".add_factors", add_factors_);
   node_->get_parameter("frames.map", map_frame_);
+  node_->get_parameter("frames.base_link", base_link_frame_);
 
   rclcpp::SubscriptionOptions sub_opts;
   sub_opts.callback_group = callback_group_;
@@ -299,11 +302,25 @@ void GpsFactor::publishUtmToMap()
 
 void GpsFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
-  tf2::Quaternion q(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w);
-  if (q.length2() < kQuatLength2Min) return;
+  // Resolve base_link to imu TF (once, rotation only)
+  if (!has_imu_tf_) {
+    try {
+      auto tf_msg = tf_->lookupTransform(base_link_frame_, imu_frame_, tf2::TimePointZero);
+      const auto & r = tf_msg.transform.rotation;
+      R_base_imu_ = Eigen::Quaterniond(r.w, r.x, r.y, r.z).toRotationMatrix();
+      has_imu_tf_ = true;
+    } catch (const tf2::TransformException &) {
+      return;
+    }
+  }
 
-  double roll, pitch, yaw;
-  tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+  Eigen::Quaterniond q_imu(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
+  if (q_imu.squaredNorm() < kQuatLength2Min) return;
+  q_imu.normalize();
+
+  // R_world_base = R_world_imu * inv(R_base_imu)
+  Eigen::Matrix3d R_world_base = q_imu.toRotationMatrix() * R_base_imu_.transpose();
+  double yaw = std::atan2(R_world_base(1, 0), R_world_base(0, 0));
 
   std::lock_guard<std::mutex> lock(imu_orientation_lock_);
   latest_imu_yaw_ = yaw;
