@@ -225,6 +225,10 @@ private:
   cudaStream_t stream_ = nullptr;
   std::shared_ptr<::bevfusion::Core>
     pipeline_;  // Reference to CUDA-BEVFusion pipeline, not wato's BEVFusionCore class.
+
+  // Pre-allocated FP16 buffer for lidar point conversion (CPU side).
+  // Reused across inference calls to avoid per-frame heap allocation.
+  std::vector<__half> lidar_half_buf_;
 };
 
 }  // namespace wato::perception::bevfusion

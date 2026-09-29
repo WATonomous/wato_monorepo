@@ -348,34 +348,46 @@ void BEVFusionNode::syncedRawCallback(
 
   const auto t_start = std::chrono::steady_clock::now();
 
-  // Filter images to only those in the camera_names_ list and in the same order as camera_names_
-  deep_msgs::msg::MultiImage::SharedPtr filtered_multi_image_msg = std::make_shared<deep_msgs::msg::MultiImage>();
-  filtered_multi_image_msg->images.reserve(camera_names_.size());
-  filtered_multi_image_msg->header = multi_image_msg->header;
+  // Build a hashmap from frame_id -> pointer to avoid O(N*M) nested search and any data copy.
+  // The incoming ConstSharedPtr keeps the message alive for the duration of this callback.
+  std::unordered_map<std::string, const sensor_msgs::msg::Image *> image_map;
+  image_map.reserve(multi_image_msg->images.size());
+  for (const auto & img : multi_image_msg->images) {
+    image_map.emplace(img.header.frame_id, &img);
+  }
+
+  // Collect pointers in camera_names_ order (zero data copies)
+  std::vector<const sensor_msgs::msg::Image *> ordered_images;
+  ordered_images.reserve(camera_names_.size());
   for (const auto & camera_name : camera_names_) {
-    for (const auto & image : multi_image_msg->images) {
-      if (image.header.frame_id == camera_name) {
-        filtered_multi_image_msg->images.push_back(image);
-        break;
-      }
+    auto it = image_map.find(camera_name);
+    if (it != image_map.end()) {
+      ordered_images.push_back(it->second);
     }
   }
 
-  // Ensure images are RGB format
-  const size_t num_imgs = filtered_multi_image_msg->images.size();
+  // Wrap raw image pointers into cv::Mat views and convert encoding only when necessary.
+  // No clone() is performed for images already in rgb8 — the cv::Mat header just points
+  // into the ROS message buffer, which remains valid for the lifetime of this callback.
+  const size_t num_imgs = ordered_images.size();
   std::vector<cv::Mat> rgb_images(num_imgs);
   for (size_t i = 0; i < num_imgs; ++i) {
-    const auto & raw_img = filtered_multi_image_msg->images[i];
-    cv::Mat mat(raw_img.height, raw_img.width, CV_8UC3, const_cast<unsigned char *>(raw_img.data.data()), raw_img.step);
+    const auto & raw_img = *ordered_images[i];
+    cv::Mat mat(
+      raw_img.height, raw_img.width, CV_8UC3,
+      const_cast<unsigned char *>(raw_img.data.data()), raw_img.step);
     if (raw_img.encoding != "rgb8") {
+      // Encoding conversion writes into a new buffer; no extra clone needed.
       cv::cvtColor(mat, rgb_images[i], cv::COLOR_BGR2RGB);
     } else {
-      rgb_images[i] = mat.clone();
+      // Zero-copy view: cv::Mat header only, no pixel data copied.
+      // validateAndNormalizeImage() will clone if the image is non-contiguous.
+      rgb_images[i] = mat;
     }
   }
 
   // Continue with frame processing
-  processFrame(rgb_images, lidar_msg, filtered_multi_image_msg->header, t_start);
+  processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start);
 }
 
 void BEVFusionNode::syncedCompressedCallback(
@@ -412,33 +424,38 @@ void BEVFusionNode::syncedCompressedCallback(
 
   const auto t_start = std::chrono::steady_clock::now();
 
-  // Filter images to only those in the camera_names_ list and in the same order as camera_names_
-  deep_msgs::msg::MultiImageCompressed::SharedPtr filtered_multi_image_msg =
-    std::make_shared<deep_msgs::msg::MultiImageCompressed>();
-  filtered_multi_image_msg->images.reserve(camera_names_.size());
-  filtered_multi_image_msg->header = multi_image_msg->header;
+  // Build a hashmap from frame_id -> pointer to avoid O(N*M) nested search and any data copy.
+  // The incoming ConstSharedPtr keeps the message alive for the duration of this callback.
+  std::unordered_map<std::string, const sensor_msgs::msg::CompressedImage *> compressed_image_map;
+  compressed_image_map.reserve(multi_image_msg->images.size());
+  for (const auto & img : multi_image_msg->images) {
+    compressed_image_map.emplace(img.header.frame_id, &img);
+  }
+
+  // Collect pointers in camera_names_ order (zero data copies)
+  std::vector<const sensor_msgs::msg::CompressedImage *> ordered_images;
+  ordered_images.reserve(camera_names_.size());
   for (const auto & camera_name : camera_names_) {
-    for (const auto & image : multi_image_msg->images) {
-      if (image.header.frame_id == camera_name) {
-        filtered_multi_image_msg->images.push_back(image);
-        break;
-      }
+    auto it = compressed_image_map.find(camera_name);
+    if (it != compressed_image_map.end()) {
+      ordered_images.push_back(it->second);
     }
   }
 
   // Setup variables for parallel decompression
-  const size_t num_imgs = filtered_multi_image_msg->images.size();
+  const size_t num_imgs = ordered_images.size();
   std::vector<cv::Mat> rgb_images(num_imgs);
   std::vector<bool> decode_success(num_imgs, true);
   std::vector<std::future<void>> decode_futures;
   decode_futures.reserve(num_imgs);
 
-  // Parallel multi-threaded JPEG decompression across CPU worker threads
-  // Each thread decompresses one image, converts it to RGB format, and stores it in rgb_images
+  // Parallel multi-threaded JPEG decompression across CPU worker threads.
+  // Each thread decompresses one image, converts it to RGB, and stores it in rgb_images.
+  // We capture a raw pointer (valid for the callback lifetime via the ConstSharedPtr above).
   for (size_t i = 0; i < num_imgs; ++i) {
     decode_futures.push_back(
-      std::async(std::launch::async, [this, i, &filtered_multi_image_msg, &rgb_images, &decode_success]() {
-        cv::Mat bgr = decompressImage(filtered_multi_image_msg->images[i]);
+      std::async(std::launch::async, [this, i, &ordered_images, &rgb_images, &decode_success]() {
+        cv::Mat bgr = decompressImage(*ordered_images[i]);
         if (bgr.empty()) {
           decode_success[i] = false;
           return;
@@ -455,7 +472,7 @@ void BEVFusionNode::syncedCompressedCallback(
   // Check if all images were decompressed successfully
   for (size_t i = 0; i < num_imgs; ++i) {
     if (!decode_success[i]) {
-      const auto & frame_id = filtered_multi_image_msg->images[i].header.frame_id;
+      const std::string & frame_id = ordered_images[i]->header.frame_id;
       RCLCPP_WARN_THROTTLE(
         this->get_logger(),
         *this->get_clock(),
@@ -467,7 +484,7 @@ void BEVFusionNode::syncedCompressedCallback(
   }
 
   // Continue with frame processing
-  processFrame(rgb_images, lidar_msg, filtered_multi_image_msg->header, t_start);
+  processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start);
 }
 
 void BEVFusionNode::multiCameraInfoCallback(
@@ -480,16 +497,22 @@ void BEVFusionNode::multiCameraInfoCallback(
   RCLCPP_INFO(
     this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
 
-  // Set camera info only for the cameras that are present in the list camera_names_
-  // And ensure they are in the same order as camera_names_
+  // Build a hashmap from frame_id -> index for O(N) filtering without copying CameraInfo data.
+  std::unordered_map<std::string, const sensor_msgs::msg::CameraInfo *> info_map;
+  info_map.reserve(multi_camera_info_msg->camera_infos.size());
+  for (const auto & camera_info : multi_camera_info_msg->camera_infos) {
+    info_map.emplace(camera_info.header.frame_id, &camera_info);
+  }
+
+  // Set camera info only for the cameras present in camera_names_, in that order.
+  // Camera info is small and only processed once, so a single value-copy here is acceptable
+  // (the data is cached for the lifetime of the node and not processed per-frame).
   MultiCameraInfoMsg::SharedPtr filtered_multi_camera_info_msg = std::make_shared<MultiCameraInfoMsg>();
   filtered_multi_camera_info_msg->camera_infos.reserve(camera_names_.size());
   for (const auto & camera_name : camera_names_) {
-    for (const auto & camera_info : multi_camera_info_msg->camera_infos) {
-      if (camera_info.header.frame_id == camera_name) {
-        filtered_multi_camera_info_msg->camera_infos.push_back(camera_info);
-        break;
-      }
+    auto it = info_map.find(camera_name);
+    if (it != info_map.end()) {
+      filtered_multi_camera_info_msg->camera_infos.push_back(*it->second);
     }
   }
 
