@@ -402,6 +402,7 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
             "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
+            "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
         }
         self.available_scenarios.update(builtin_scenarios)
 
@@ -409,6 +410,9 @@ class ScenarioServerNode(LifecycleNode):
 
     def _unload_scenario(self):
         """Unload current scenario and clean up CARLA world."""
+        if self.current_scenario:
+            self.current_scenario.cleanup()
+
         # Clear scenario reference (but keep name until new scenario is set)
         self.current_scenario = None
 
@@ -503,7 +507,7 @@ def main(args=None):
     node = ScenarioServerNode()
 
     # Use MultiThreadedExecutor to allow service calls from within callbacks
-    executor = rclpy.executors.MultiThreadedExecutor(num_threads=4)
+    executor = rclpy.executors.MultiThreadedExecutor(num_threads=5)
     executor.add_node(node)
 
     try:

@@ -14,6 +14,7 @@
 """Bounding box publisher lifecycle node for CARLA."""
 
 from typing import Optional
+import numpy as np
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rcl_interfaces.msg import ParameterDescriptor
@@ -111,6 +112,13 @@ class BBoxPublisherNode(LifecycleNode):
             -1.0,
             ParameterDescriptor(
                 description="Max distance from ego vehicle in meters (-1 = no limit)"
+            ),
+        )
+        self.declare_parameter(
+            "noise_stddev",
+            0.0,
+            ParameterDescriptor(
+                description="Gaussian noise std dev on bounding box positions (meters)"
             ),
         )
 
@@ -480,6 +488,9 @@ class BBoxPublisherNode(LifecycleNode):
                 detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
                 detection.bbox.center.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
+            # Add Gaussian noise to bounding box position
+            self._add_noise_to_pose(detection.bbox.center)
+
             # Set bbox size (CARLA bbox extent is half-size)
             detection.bbox.size = Vector3(
                 x=bbox.extent.x * 2.0, y=bbox.extent.y * 2.0, z=bbox.extent.z * 2.0
@@ -573,6 +584,8 @@ class BBoxPublisherNode(LifecycleNode):
                 detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
                 detection.bbox.center.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
+            self._add_noise_to_pose(detection.bbox.center)
+
             detection.bbox.size = Vector3(
                 x=bbox.extent.x * 2.0, y=bbox.extent.y * 2.0, z=bbox.extent.z * 2.0
             )
@@ -638,6 +651,8 @@ class BBoxPublisherNode(LifecycleNode):
                 detection.bbox.center.position = Point(x=ros_x, y=ros_y, z=ros_z)
                 detection.bbox.center.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)
 
+            self._add_noise_to_pose(detection.bbox.center)
+
             detection.bbox.size = Vector3(
                 x=light_box.extent.x * 2.0,
                 y=light_box.extent.y * 2.0,
@@ -670,6 +685,15 @@ class BBoxPublisherNode(LifecycleNode):
         except Exception as e:
             self.get_logger().error(f"Error creating detection for light box: {e}")
             return None
+
+    def _add_noise_to_pose(self, pose: Pose):
+        """Add Gaussian noise to pose position."""
+        noise_stddev = self.get_parameter("noise_stddev").value
+        if noise_stddev > 0.0:
+            noise = np.random.normal(0.0, noise_stddev, 3)
+            pose.position.x += noise[0]
+            pose.position.y += noise[1]
+            pose.position.z += noise[2]
 
     def _get_uuid(self, key: str) -> str:
         """Get a cached unique ID for the given key."""
