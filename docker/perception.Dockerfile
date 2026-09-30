@@ -57,3 +57,9 @@ RUN apt-get update && \
       ros-jazzy-isaac-ros-image-proc \
       ros-jazzy-isaac-ros-h264-encoder && \
     rm -rf /var/lib/apt/lists/*
+
+# cuVSLAM (PyCuVSLAM) for GPU visual odometry (src/perception/visual_odometry).
+# NVIDIA Community License: the wheel is fetched at build time, not vendored.
+ARG CUVSLAM_VERSION=17.0.0
+RUN pip3 install --no-cache-dir \
+    "https://github.com/nvidia-isaac/cuVSLAM/releases/download/v${CUVSLAM_VERSION}/cuvslam-${CUVSLAM_VERSION}%2Bcu12-cp312-abi3-manylinux_2_39_x86_64.whl"
