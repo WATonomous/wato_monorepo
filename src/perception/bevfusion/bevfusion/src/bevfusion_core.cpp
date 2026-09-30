@@ -229,26 +229,28 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     return {};
   }
 
-  // Convert LiDAR points to FP16 from any format (FP32, FP16, or INT8)
+  // Convert LiDAR points to FP16.
   // Notes:
   // - lidar_points.size() is the total # of floats in the flat array of 5 features per lidar point
-  // - We set lidar_half as a vector of __half and not nvtype::half because __float2half returns __half format.
-  std::vector<__half> lidar_half(lidar_points.size());
+  // - lidar_half_buf_ is a vector of __half and not nvtype::half because __float2half returns __half format
+  // - lidar_half_buf_ is a pre-allocated member: resize() is a no-op when size hasn't grown,
+  //   avoiding per-frame heap allocation/deallocation for this potentially-large buffer
+  lidar_half_buf_.resize(lidar_points.size());
   for (size_t i = 0; i < lidar_points.size(); ++i) {
-    lidar_half[i] = __float2half(lidar_points[i]);
+    lidar_half_buf_[i] = __float2half(lidar_points[i]);
   }
 
   // Bevfusion forward pass call
   // Notes:
   // - camera_images.data(): gives the array of image pointers. Each pointer points to the start of the data for one camera.
   //   The `const_cast` is used because the vendor library expects a non-const pointer, even though it doesn't modify the image data.
-  // - lidar_half.data(): gives a pointer to the first element of the vector containing points in __half format.
+  // - lidar_half_buf_.data(): gives a pointer to the first element of the pre-allocated FP16 vector.
   //   The `reinterpret_cast` is used to cast this pointer to `const nvtype::half*`, which is the expected type for the vendor library API.
   //   Could have also used memcpy to manually copy bits from __half to nvtype::half since they are bitwise identical.
   // - Use .data() for underlying array
   auto detections = pipeline_->forward(
     const_cast<const unsigned char **>(camera_images.data()),
-    reinterpret_cast<const nvtype::half *>(lidar_half.data()),
+    reinterpret_cast<const nvtype::half *>(lidar_half_buf_.data()),
     num_points,
     stream_);
 
