@@ -20,12 +20,15 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
+  "msg/MapStatus.msg"
   "msg/ScenarioStatus.msg"
 )
 
 set(srv_files
-  "srv/SwitchScenario.srv"
+  "srv/GetAvailableMaps.srv"
   "srv/GetAvailableScenarios.srv"
+  "srv/SwitchMaps.srv"
+  "srv/SwitchScenario.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
