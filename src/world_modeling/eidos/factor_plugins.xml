@@ -14,4 +14,7 @@
   <class name="eidos::MotionModelFactor" type="eidos::MotionModelFactor" base_class_type="eidos::FactorPlugin">
     <description>Motion model between-factor via eidos_transform predict service</description>
   </class>
+  <class name="eidos::OdometryFactor" type="eidos::OdometryFactor" base_class_type="eidos::FactorPlugin">
+    <description>External odometry between-factor (e.g. visual odometry) between consecutive states</description>
+  </class>
 </library>

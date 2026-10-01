@@ -1,0 +1,59 @@
+# VO-only pano camera extrinsics, self-calibrated by visual_odometry calibrate_pairs.
+# bag: sensors_2026_09_13-20_27_23_2.mcap, 2026-09-30; anchors (kept nominal): ['camera_pano_nn', 'camera_pano_ss']
+# Rotations about each pair's baseline/viewing axes are fitted to align rectified rows. The rotation
+# along the epipolar lines is NOT observable from these matches: it is set so the far points sit at
+# 0.5 px disparity (p2). Translations are nominal (URDF).
+rig_frame: base_link
+cameras:
+  camera_pano_nw:
+    rig_from_camera:
+      translation: [0.170184, 0.170184, 0.217]
+      rotation_xyzw: [-0.654409385, 0.260020491, -0.273304222, 0.655318627]
+    reference: camera_pano_nn
+    correction_deg_rect_xyz: [0.8132, -0.6874, -0.709]
+    rotation_change_deg: 1.2793
+    matches: 3664
+    inliers: 3458
+    vertical_disparity_px_before: [15.409, 1.032]
+    vertical_disparity_px_after: [0.136, 0.275]
+    far_disparity_px_before: 14.192
+    median_disparity_px_after: 3.29
+  camera_pano_ne:
+    rig_from_camera:
+      translation: [0.170184, -0.170184, 0.217]
+      rotation_xyzw: [-0.269356816, 0.650512028, -0.653334857, 0.278270679]
+    reference: camera_pano_nn
+    correction_deg_rect_xyz: [0.6725, -0.5657, 0.349]
+    rotation_change_deg: 0.9455
+    matches: 1941
+    inliers: 1730
+    vertical_disparity_px_before: [-12.472, 0.655]
+    vertical_disparity_px_after: [0.173, 0.255]
+    far_disparity_px_before: -8.695
+    median_disparity_px_after: 14.802
+  camera_pano_se:
+    rig_from_camera:
+      translation: [-0.170184, -0.170184, 0.217]
+      rotation_xyzw: [-0.277056178, -0.651314049, 0.650242295, 0.276070356]
+    reference: camera_pano_ss
+    correction_deg_rect_xyz: [-0.1179, 1.0484, -0.0049]
+    rotation_change_deg: 1.055
+    matches: 5709
+    inliers: 4877
+    vertical_disparity_px_before: [-2.159, 0.194]
+    vertical_disparity_px_after: [-0.179, 0.239]
+    far_disparity_px_before: -18.549
+    median_disparity_px_after: 4.245
+  camera_pano_sw:
+    rig_from_camera:
+      translation: [-0.170184, 0.170184, 0.217]
+      rotation_xyzw: [-0.653660755, -0.268837007, 0.269522585, 0.654073282]
+    reference: camera_pano_ss
+    correction_deg_rect_xyz: [0.0629, 0.2487, 0.0156]
+    rotation_change_deg: 0.257
+    matches: 8114
+    inliers: 7473
+    vertical_disparity_px_before: [-1.179, 0.271]
+    vertical_disparity_px_after: [-0.0, 0.242]
+    far_disparity_px_before: 5.111
+    median_disparity_px_after: 12.816

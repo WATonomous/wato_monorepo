@@ -57,6 +57,7 @@ services:
     volumes:
       - ${MONO_DIR}/src/perception:/ws/src/perception
       - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/bags:ro
       - ${MONO_DIR}/models:/opt/watonomous/models
     environment:
       - NVIDIA_VISIBLE_DEVICES=all

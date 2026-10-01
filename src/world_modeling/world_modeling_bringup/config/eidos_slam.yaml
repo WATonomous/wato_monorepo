@@ -118,6 +118,27 @@
 
       gicp_pointcloud_from: "liso_factor/gicp_cloud"
 
+    # Visual odometry between-factor (experimental; NOT in factor_plugins by default).
+    # Consumes perception's cuVSLAM odometry (src/perception/visual_odometry). The cameras are not
+    # hardware-synced and the pair extrinsics are self-calibrated; see that package's README.
+    # Enable by adding "visual_odometry_factor" to factor_plugins (after liso_factor).
+    visual_odometry_factor:
+      plugin: "eidos::OdometryFactor"
+      odom_topic: "/perception/visual_odometry/odometry"
+      add_factors: true            # false = shadow mode: only publish visual_odometry_factor/residual
+      time_offset: 0.0             # s added to VO stamps (camera stamps are host arrival time)
+      max_gap: 0.075               # VO is 20 Hz: any missing frame (tracking loss/reset) breaks a pair
+      max_pending_age: 3.0
+      buffer_duration: 30.0
+      rot_sigma: 0.005             # rad, + rot_sigma_per_m * keyframe distance
+      rot_sigma_per_m: 0.002
+      trans_sigma: 0.05            # m, + trans_sigma_per_m * keyframe distance
+      trans_sigma_per_m: 0.03
+      robust_kernel: "huber"       # none | huber | cauchy
+      robust_k: 1.345
+      gate_trans: 1.0              # m; reject if VO and graph relative poses disagree by more (0 = off)
+      gate_rot: 0.1                # rad
+
     # GPS + ICP Relocalization
     gps_icp_relocalization:
       plugin: "eidos::GpsIcpRelocalization"

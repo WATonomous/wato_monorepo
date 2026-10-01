@@ -28,6 +28,11 @@ launch:
       default: "true"
       description: "Launch physical camera drivers (set to false when using a rosbag or simulator)"
 
+  - arg:
+      name: launch_visual_odometry
+      default: "false"
+      description: "Experimental: cuVSLAM multicamera visual odometry on the pano cameras (for eidos)"
+
   # ===========================================================================
   # Single component container: cameras, camera_sync, deep object detection, tracking, patchwork++
   # ===========================================================================
@@ -216,3 +221,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+
+  # Experimental cuVSLAM visual odometry -> /perception/visual_odometry/odometry (own process, GPU)
+  - include:
+      if: "$(var launch_visual_odometry)"
+      file: "$(find-pkg-share visual_odometry)/launch/visual_odometry.launch.yaml"
