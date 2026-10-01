@@ -4,3 +4,5 @@ string scenario_name
 bool success
 string message
 string previous_scenario
+string previous_map
+string new_map
