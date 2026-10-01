@@ -1,0 +1,7 @@
+# Requested map name, eg. "Town10HD"
+string map_name 
+-----------
+
+bool success
+string message
+string previous_map
