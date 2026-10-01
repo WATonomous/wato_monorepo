@@ -1,9 +1,9 @@
-# BEVFusion - Developer Guide
+# BEVFusion developer guide
 ## Overview
 
-**BEVFusion** is a ROS 2 lifecycle composable node that fuses camera and LiDAR data into a unified Bird's-Eye View (BEV) representation for 3D object detection. *(Note: Map segmentation is supported by the architecture but not currently implemented in the CUDA-BEVFusion C++ wrapper).*
+BEVFusion is a ROS 2 lifecycle composable node that combines camera and LiDAR data for 3D object detection. The current C++ wrapper publishes boxes only; map segmentation is not implemented here.
 
-Rather than forcing cameras to see in 3D or LiDAR to see in 2D, both are converted into a top-down BEV grid where they are fused and processed together. This maintains both geometric structure and semantic density, and compensates for individual sensor weaknesses — cameras struggle in low light, LiDAR struggles in poor weather.
+The model projects both sensors into a shared bird's-eye-view grid before fusing them. This gives the model camera semantics and LiDAR geometry in the same representation.
 
 Given synchronized camera images and a merged LiDAR point cloud, the node:
 
@@ -71,7 +71,7 @@ BEVFusion subscribes to the pre-batched, pre-synced multi-camera topic used by o
 |---|---|---|
 | `input_multi_image_topic` (default `/multi_camera_sync/multi_image_compressed`) | `deep_msgs/MultiImageCompressed` | All 6 cameras batched into one message, JPEG-compressed |
 
-Each callback (`syncedCallback` in `bevfusion_node.cpp`) filters the incoming `MultiImageCompressed.images` down to only the frame IDs listed in the `camera_names` parameter, reorders them to match `camera_names`, then decompresses each with `cv::imdecode` and converts BGR → RGB (`cv::cvtColor`) before handing raw pointers to `BEVFusionCore::infer()`.
+Each callback filters the incoming image list to the frame IDs in `camera_names`, puts them in that order, then decompresses each image with `cv::imdecode` and converts BGR to RGB before calling `BEVFusionCore::infer()`.
 
 *Note: an earlier design considered subscribing to per-camera Nitros GPU-memory topics (`/camera_pano_*/image_rect/nitros`) for a zero-copy path. This was not implemented — the current node exclusively uses the compressed-image path above, with a CPU JPEG decode + color conversion per frame.*
 
@@ -90,7 +90,16 @@ Each callback (`syncedCallback` in `bevfusion_node.cpp`) filters the incoming `M
 
 **Camera extrinsics via TF:** The physical mounting position and orientation of each camera (extrinsics) are looked up at runtime from the ROS 2 TF tree using `tf2_ros::Buffer` and `tf2_ros::TransformListener`. `computeCalibrationMatrices()` requests the transform from each camera's frame ID (e.g. `camera_pano_nn`) to the configured `lidar_frame_id` (default `lidar_cc`) — **not** `base_link`. Since camera mounts are fixed, these transforms are *static* — they are published once on `/tf_static` by the sensor launch infrastructure. The node does not subscribe to `/tf_static` directly; `tf2_ros::TransformListener` creates that subscription internally and caches all available transforms in the `Buffer`. Calibration (camera intrinsics, camera→lidar extrinsics, lidar→image projection, and the image augmentation matrix) is computed once when the first `MultiCameraInfo` message arrives (or immediately in `on_activate()` if camera info was already cached), and again is *not* recomputed per-frame.
 
-**Output frame transform:** `createDetections3D()` performs a `tf_buffer_->lookupTransform(target_frame_, lidar_frame_id_, stamp)` per callback and applies `tf2::doTransform` to each bounding box pose, so published detections are correctly expressed in `target_frame` (default `base_link`).
+**Output frame transform:** `createDetections3D()` looks up the LiDAR-to-target transform once per callback and applies it to each box. Published detections use `target_frame` (normally `base_link`).
+
+### Detection filtering
+
+There are two filters, at different points in the pipeline:
+
+- The TensorRT detection head drops boxes below `confidence_threshold` and boxes whose centers fall outside `post_center_range_start` and `post_center_range_end`.
+- The ROS node applies `ego_suppression_radius` in `createDetections3D()`. A box is dropped when its XY distance from the LiDAR origin is strictly less than this radius. Z and the box size do not affect this check. Set the radius to `0.0` to disable it.
+
+The second filter protects against detections on the vehicle itself and against occasional zero-position outputs. It runs before the LiDAR-to-target-frame transform, so the radius is always measured in the LiDAR frame.
 
 ### Published
 
@@ -107,23 +116,25 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 |---|---|---|
 | `lidar_frame_id` | `"lidar_cc"` | Frame TF extrinsics are resolved against (camera→this frame) |
 | `target_frame` | `"base_link"` | Frame ID stamped on output `Detection3DArray` / `MarkerArray` messages |
-| `input_multi_image_topic` | `/multi_camera_sync/multi_image_compressed` | Camera input topic (remap does not work for message_filters — edit here instead) |
+| `input_multi_image_compressed_topic` | `/multi_camera_sync/multi_image_compressed` | Compressed camera input topic |
+| `input_multi_image_raw_topic` | `/multi_camera_sync/multi_image_raw` | Raw camera input topic |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic (same remap caveat as above) |
 | `model_dir` | `/opt/watonomous/models/bevfusion/resnet50int8_trt11` | Directory with `.onnx` files and the LiDAR backbone |
 | `build_dir` | `<model_dir>/build` | Directory where compiled `.plan` TensorRT engines are read from/written to |
 | `precision` | `"int8"` | Model precision — `"fp16"` or `"int8"` |
 | `camera_names` | 6 `camera_pano_*` frame IDs | Frame IDs of the cameras to use, in nuScenes order; also determines `num_cameras` |
-| `confidence_threshold` | `0.3` | Minimum detection score to keep a bounding box |
+| `confidence_threshold` | `0.08` | Minimum detection score passed to the detection head |
+| `ego_suppression_radius` | `2.5` | LiDAR-frame XY radius in which detections are discarded; `0.0` disables it |
 | `image_width` / `image_height` | `1280` / `1024` | Input camera resolution |
-| `resize_lim` | `0.55` | Resize ratio applied before crop, used to build `img_aug_matrix` |
+| `resize_lim` | calculated | Resize ratio used for calibration; derived from the configured image and network dimensions |
 | `norm_output_width` / `norm_output_height` | `704` / `256` | Network input resolution after resize+crop |
 | `min_range` / `max_range` | `[-54,-54,-5]` / `[54,54,3]` | LiDAR voxelization range (x,y,z) in meters |
 | `voxel_size` | `[0.075, 0.075, 0.2]` | Voxel size (x,y,z) in meters |
 | `max_points_per_voxel` / `max_points` / `max_voxels` | `10` / `300000` / `160000` | LiDAR point cloud caps (GPU memory vs. coverage tradeoff) |
 | `xbound` / `ybound` / `zbound` / `dbound` | see `params.yaml` | BEV grid bounds `[min, max, step]` used for camera-to-BEV projection |
 | `post_center_range_start` / `post_center_range_end` | `[-61.2,-61.2,-10]` / `[61.2,61.2,10]` | Discards detections whose center falls outside this volume |
-| `sync_queue_size` | `2` | Queue depth for `ApproximateTimeSynchronizer` |
-| `sync_max_time_diff_ms` | `100.0` | Max time difference for ApproximateTime sync (ms) |
+| `sync_queue_size` | `5` | Queue depth for `ApproximateTimeSynchronizer` |
+| `sync_max_time_diff_ms` | `200.0` | Maximum timestamp difference for ApproximateTime sync (ms) |
 | `qos_subscriber_reliability` / `qos_subscriber_depth` | `"best_effort"` / `10` | Subscriber QoS |
 | `qos_publisher_reliability` / `qos_publisher_durability` / `qos_publisher_depth` | `"reliable"` / `"transient_local"` / `10` | Publisher QoS |
 
@@ -162,7 +173,7 @@ colcon test --packages-select bevfusion
 colcon test-result --verbose
 ```
 
-Tests live under `bevfusion/test/` and use `wato_test`/Catch2. `test_bevfusion_core.cpp` mocks `::bevfusion::Core` to exercise `BEVFusionCore::infer()` / `updateCalibration()` without a real GPU pipeline. `test_bevfusion_node.cpp` exercises lifecycle transitions, parameter overrides, and calibration matrix math (including the `img_aug_matrix` computation) by using `#define private public` to reach into node internals.
+Tests live under `bevfusion/test/` and use `wato_test`/Catch2. The core tests mock `::bevfusion::Core`, so inference and calibration forwarding can be checked without a real GPU pipeline. The node tests cover lifecycle setup, parameter overrides, image and detection conversion, calibration math, and ego-zone filtering. They use `#define private public` to inspect node internals where that is useful.
 
 ### Launch
 

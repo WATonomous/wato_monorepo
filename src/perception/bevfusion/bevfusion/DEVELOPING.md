@@ -1,7 +1,7 @@
-# The Big Picture
-We want a system that takes in 6 raw camera image feeds + 1 LiDAR point cloud, runs them through our GPU-accelerated TensorRT BEVFusion model, and outputs 3D bounding boxes.
+# How BEVFusion fits together
+BEVFusion takes six camera feeds and a LiDAR point cloud, runs the GPU-accelerated TensorRT model, and publishes 3D bounding boxes.
 
-To keep this system clean, maintainable, and easy to debug, we split it into two layers:
+The package is split into two layers:
 1. **`BEVFusionCore`**: Pure C++ & CUDA wrapper around the underlying NVIDIA/WATO engine. Knows nothing about ROS.
 2. **`BEVFusionNode`**: ROS 2 Lifecycle Node wrapper. Manages topics, parameters, synchronization, coordinate frames (TF2), and translates ROS messages to/from raw C++ structures.
 
@@ -29,7 +29,7 @@ graph TD
         3. Build configuration parameters (`NormalizationParameter`, `VoxelizationParameter`, `SCNParameter`, `GeometryParameter`, `TransBBoxParameter`) from the `BEVFusionInputConfig` struct (populated by the node from ROS parameters).
         4. *Note:* `interpolation` defaults to bilinear (`config_.interpolation == "bilinear"`) and is not currently exposed as a ROS parameter — bilinear is the only mode used in practice, though the struct does support switching to nearest-neighbor.
         5. Call `bevfusion::create_core(param)` and store it in `pipeline_`.
-        6. Create a CUDA stream: `cudaStreamCreate(&stream_)` — **Why:** CUDA operations execute asynchronously. Creating a dedicated stream ensures memory transfers and network execution for BEVFusion happen in order inside their own queue, without blocking the rest of the application's GPU operations.
+        6. Create a dedicated CUDA stream so transfers and inference stay ordered without using the application's default stream.
 
 * **`updateCalibration(...)`**
   * **Purpose:** Updates the GPU geometry-mapping kernels with the `6 x 4 x 4` camera extrinsics, intrinsics, and image augmentation/downscaling matrices.
@@ -40,19 +40,19 @@ graph TD
 
 ---
 
-## 2. `BEVFusionNode` (The ROS 2 Lifecycle Wrapper)
+## 2. `BEVFusionNode` (the ROS 2 lifecycle wrapper)
 **Purpose:** Bridges the C++ inference engine with the ROS 2 ecosystem.
 
 ### Main Lifecyle Hooks
 * **`declareParameters()`**
   * **Purpose:** Declares all ROS 2 parameters (like model paths, camera topic names, and confidence thresholds) and instantiates the `BEVFusionCore` with default parameters.
-  * **Why:** Allows configuring the node dynamically via launch files or YAML configs without modifying source code.
+  * **Why:** Launch files and YAML can change the node configuration without a rebuild.
 * **`on_configure()`**
   * **Purpose:** Retrieves the declared parameters, builds the `BEVFusionInputParams` config struct, instantiates the `BEVFusionCore`, calls `core_->initialize()`, and prepares ROS publishers/subscribers.
-  * **Why:** This is the standard ROS 2 lifecycle phase for preparing dependencies and loading heavy resources (like the model engines) before starting execution.
+  * **Why:** This is where the node loads the model and prepares its subscriptions and publishers before execution starts.
 * **`on_activate()`**
   * **Purpose:** Listens to camera info/TFs to construct calibration matrices, calls `core_->updateCalibration()`, creates subscribers for sensor data, and activates publishers.
-  * **Why:** This state guarantees the node is ready to process data immediately. We wait to subscribe to sensor topics until here to avoid building up queue lag before the model is fully initialized.
+  * **Why:** Sensor subscriptions start only after the model and calibration setup are ready, so queues do not fill while the node is still configuring.
 
 #### Core Processing Functions
 * **`multiCameraInfoCallback(...)`**
@@ -77,6 +77,10 @@ graph TD
         4. Executes TensorRT GPU inference (`core_->infer(...)`).
         5. Converts output 3D bounding boxes into ROS `Detection3DArray` (`createDetections3D()`) and `MarkerArray` (`createMarkers()`) messages, transforming from `lidar_frame_id` to `target_frame`.
         6. Publishes detection topics, logs stage-by-stage profiler metrics (`[PROFILER]`), and updates diagnostic statistics.
+
+    ### Detection filtering
+
+      Filtering happens in two places. The TensorRT detection head removes boxes below `confidence_threshold` and boxes whose centers are outside `post_center_range_start` / `post_center_range_end`. After inference, `createDetections3D()` applies `ego_suppression_radius` in the LiDAR frame and drops boxes whose XY distance from the LiDAR origin is strictly less than that radius. Set the radius to `0.0` to disable this second filter.
 
 # Other Helpful Notes
 
