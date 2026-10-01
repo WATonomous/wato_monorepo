@@ -82,6 +82,9 @@ void BEVFusionNode::declareParameters()
   // Detection confidence, bounding boxes below threshold are discarded
   this->declare_parameter<double>("confidence_threshold", 0.3);
 
+  // Ego-vehicle suppression radius (metres, XY-plane in LiDAR frame).
+  this->declare_parameter<double>("ego_suppression_radius", 2.5);
+
   // camera_names used by on_activate for TF lookups; num_cameras is derived from its size
   this->declare_parameter<std::vector<std::string>>(
     "camera_names",
@@ -160,6 +163,7 @@ void BEVFusionNode::declareParameters()
 
   config_.precision = precision;
   config_.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
+  ego_suppression_radius_ = static_cast<float>(this->get_parameter("ego_suppression_radius").as_double());
 
   config_.num_cameras = static_cast<int>(camera_names_.size());
   config_.image_width = this->get_parameter("image_width").as_int();
@@ -791,6 +795,25 @@ vision_msgs::msg::Detection3DArray BEVFusionNode::createDetections3D(
   detections_3d.detections.reserve(bboxes.size());
 
   for (const auto & bbox : bboxes) {
+    // Ego-vehicle suppression: drop detections that are within ego_suppression_radius_ of the
+    // sensor origin in the LiDAR frame (XY-plane only).
+    if (ego_suppression_radius_ > 0.0f) {
+      const float dx = bbox.position.x;
+      const float dy = bbox.position.y;
+      if (dx * dx + dy * dy < ego_suppression_radius_ * ego_suppression_radius_) {
+        RCLCPP_INFO_THROTTLE(
+          this->get_logger(),
+          *this->get_clock(),
+          1000,
+          "Suppressing ego-zone detection at (%.2f, %.2f, %.2f) score=%.3f",
+          bbox.position.x,
+          bbox.position.y,
+          bbox.position.z,
+          bbox.score);
+        continue;
+      }
+    }
+
     geometry_msgs::msg::PoseStamped pose_lidar;
     pose_lidar.header.frame_id = lidar_frame_id_;
     pose_lidar.header.stamp = stamp;

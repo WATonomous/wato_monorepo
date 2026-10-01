@@ -295,6 +295,9 @@ private:
   // 3D detection: TF target frame
   std::string target_frame_;
 
+  // Ego-vehicle suppression radius
+  float ego_suppression_radius_{0.0f};
+
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;

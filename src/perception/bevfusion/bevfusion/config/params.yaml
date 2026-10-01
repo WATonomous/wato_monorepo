@@ -26,6 +26,12 @@ bevfusion_node:
     # Detection confidence threshold — boxes below this score are discarded
     confidence_threshold: 0.08
 
+    # Ego-vehicle suppression radius (metres, XY-plane in LiDAR frame).
+    # Detections whose centre falls within this radius of the sensor origin are dropped.
+    # Handles both genuine self-detections and phantom zero-position outputs from the GPU.
+    # Set to 0.0 to disable.
+    ego_suppression_radius: 2.5
+
     # --- Camera Normalization & Preprocessing ---
     image_width: 1280  # Input image resolution (must match the camera hardware)
     image_height: 1024
