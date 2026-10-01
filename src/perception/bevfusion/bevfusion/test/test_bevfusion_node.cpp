@@ -602,7 +602,7 @@ TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conv
   set_identity_lidar_to_target_tf(*node);
 
   float yaw = static_cast<float>(M_PI / 4.0);
-  BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, yaw, 0.9f, 0);
+  BoundingBox bbox = make_test_bbox(3.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, yaw, 0.9f, 0);
   builtin_interfaces::msg::Time stamp;
 
   auto detections_3d = node->createDetections3D({bbox}, stamp);
@@ -631,7 +631,7 @@ TEST_CASE("createDetections3D: hypothesis carries class_id and score", "[convers
   auto node = make_configured_node();
   set_identity_lidar_to_target_tf(*node);
 
-  BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.87f, 8);
+  BoundingBox bbox = make_test_bbox(3.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.87f, 8);
   builtin_interfaces::msg::Time stamp;
 
   auto detections_3d = node->createDetections3D({bbox}, stamp);
@@ -641,6 +641,24 @@ TEST_CASE("createDetections3D: hypothesis carries class_id and score", "[convers
   REQUIRE(det.results.size() == 1);
   REQUIRE(det.results[0].hypothesis.class_id == "8");  // pedestrian in nuScenes
   REQUIRE(det.results[0].hypothesis.score == Catch::Approx(0.87f));
+
+  rclcpp::shutdown();
+}
+
+TEST_CASE("createDetections3D: suppresses detections inside ego radius", "[conversion][fast]")
+{
+  auto node = make_configured_node();
+  set_identity_lidar_to_target_tf(*node);
+
+  BoundingBox suppressed_bbox = make_test_bbox(0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.9f, 0);
+  BoundingBox kept_bbox = make_test_bbox(3.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.8f, 1);
+  builtin_interfaces::msg::Time stamp;
+
+  auto detections_3d = node->createDetections3D({suppressed_bbox, kept_bbox}, stamp);
+
+  REQUIRE(detections_3d.detections.size() == 1);
+  REQUIRE(detections_3d.detections[0].results.size() == 1);
+  REQUIRE(detections_3d.detections[0].results[0].hypothesis.class_id == "1");
 
   rclcpp::shutdown();
 }
