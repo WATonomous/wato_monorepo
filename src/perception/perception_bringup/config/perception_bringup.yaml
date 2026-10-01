@@ -167,11 +167,11 @@ multi_camera_sync:
 /**/tracking_node:
   ros__parameters:
     # --- Temporal tracking behavior ---
-    frame_rate: 12
-    track_buffer: 60
-    track_thresh: 0.1
-    high_thresh: 0.15
-    match_thresh: 0.9
+    frame_rate: 30
+    track_buffer: 30
+    track_thresh: 0.05
+    high_thresh: 0.05
+    match_thresh: 0.98
     use_maj_cls: true
     use_R_scaling: false
     dist_metric: "IOU"
@@ -182,12 +182,17 @@ multi_camera_sync:
 
     # --- Per-class tracking overrides (parallel arrays). Empty = single global tracker. ---
     # Classes not listed here use the global defaults above.
+    # "car"/"person"/"truck"/"bus" are name labels from the camera-detector path. BEVFusion publishes numeric
+    # nuScenes ids ("0" car, "1" truck, "3" bus, "8" pedestrian, ...), which otherwise all use the global tracker.
+    # "8": BEVFusion pedestrians often have zero IoU frame-to-frame (small boxes + jitter), which drops the track
+    # under IOU. CIOU cost here is ~1 - IoU + d^2 (d = centre offset in m), so 1.75 re-associates within ~0.85 m.
+    # Vehicle ids deliberately stay on the shared global tracker so car/truck label flips don't split tracks.
     class_tracking:
-      classes: ["car",  "person", "truck", "bus"]
-      match_thresholds: [0.95,   1.5,       0.95,    0.95]
-      high_thresholds: [0.40,   0.35,      0.35,    0.20]
-      track_thresholds: [0.10,   0.25,      0.10,    0.10]
-      dist_metrics: ["IOU",  "CIOU",    "IOU",   "IOU"]
+      classes: ["car",  "person", "truck", "bus",  "8"]
+      match_thresholds: [0.95,   1.5,       0.95,    0.95, 1.75]
+      high_thresholds: [0.40,   0.35,      0.35,    0.20, 0.05]
+      track_thresholds: [0.10,   0.25,      0.10,    0.10, 0.05]
+      dist_metrics: ["IOU",  "CIOU",    "IOU",   "IOU", "CIOU"]
 
     # --- Prediction (Kalman filter future path) ---
     centroid_history_size: 10   # past centroids stored per track
@@ -464,10 +469,6 @@ multi_camera_sync:
     input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
     input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
-    # Specify whether inputted lidar topic has the 5th parameter (ring id)
-    # Merged lidar points do not while single lidars do.
-    has_ring: true
-
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50_trt11_int8"
 
@@ -481,7 +482,7 @@ multi_camera_sync:
       - "camera_pano_se"
 
     # Detection confidence threshold — boxes below this score are discarded
-    confidence_threshold: 0.1
+    confidence_threshold: 0.08
 
     # --- Camera Normalization & Preprocessing ---
     image_width: 1280  # Input image resolution (must match the camera hardware)
@@ -499,12 +500,12 @@ multi_camera_sync:
     sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
 
     # ApproximateTime synchronization
-    sync_queue_size: 5
+    sync_queue_size: 2
     sync_max_time_diff_ms: 200.0
 
     # QoS
     qos_subscriber_reliability: "best_effort"
-    qos_subscriber_depth: 2
+    qos_subscriber_depth: 1
     qos_publisher_reliability: "reliable"
     qos_publisher_durability: "transient_local"
     qos_publisher_depth: 5
@@ -536,7 +537,7 @@ multi_camera_sync:
     min_range: [-54.0, -54.0, -5.0]  # Min 3D range (x,y,z) in meters for voxelization (from lidar frame)
     max_range: [54.0, 54.0, 3.0]  # Max 3D range (from lidar frame)
     voxel_size: [0.075, 0.075, 0.2]  # Size of each voxel (x,y,z) in meters
-    num_features: 5  # Dimensions per lidar point (x, y, z, intensity, ring)
+    num_features: 5  # Dimensions per lidar point (x, y, z, intensity, sweep time lag = 0)
     scn_order: "XYZ"  # SCN coordinate order constraint ("XYZ" or "ZYX")
 
     # --- Bounding Box Post-processing & Head ---

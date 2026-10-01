@@ -126,9 +126,6 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
   this->declare_parameter<bool>("sorted_bboxes", true);
 
-  this->declare_parameter<bool>("has_ring", false);
-  has_ring_ = this->get_parameter("has_ring").as_bool();
-
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
   target_frame_ = this->get_parameter("target_frame").as_string();
   use_raw_images_ = this->get_parameter("use_raw_images").as_bool();
@@ -373,9 +370,7 @@ void BEVFusionNode::syncedRawCallback(
   std::vector<cv::Mat> rgb_images(num_imgs);
   for (size_t i = 0; i < num_imgs; ++i) {
     const auto & raw_img = *ordered_images[i];
-    cv::Mat mat(
-      raw_img.height, raw_img.width, CV_8UC3,
-      const_cast<unsigned char *>(raw_img.data.data()), raw_img.step);
+    cv::Mat mat(raw_img.height, raw_img.width, CV_8UC3, const_cast<unsigned char *>(raw_img.data.data()), raw_img.step);
     if (raw_img.encoding != "rgb8") {
       // Encoding conversion writes into a new buffer; no extra clone needed.
       cv::cvtColor(mat, rgb_images[i], cv::COLOR_BGR2RGB);
@@ -453,15 +448,14 @@ void BEVFusionNode::syncedCompressedCallback(
   // Each thread decompresses one image, converts it to RGB, and stores it in rgb_images.
   // We capture a raw pointer (valid for the callback lifetime via the ConstSharedPtr above).
   for (size_t i = 0; i < num_imgs; ++i) {
-    decode_futures.push_back(
-      std::async(std::launch::async, [this, i, &ordered_images, &rgb_images, &decode_success]() {
-        cv::Mat bgr = decompressImage(*ordered_images[i]);
-        if (bgr.empty()) {
-          decode_success[i] = false;
-          return;
-        }
-        cv::cvtColor(bgr, rgb_images[i], cv::COLOR_BGR2RGB);
-      }));
+    decode_futures.push_back(std::async(std::launch::async, [this, i, &ordered_images, &rgb_images, &decode_success]() {
+      cv::Mat bgr = decompressImage(*ordered_images[i]);
+      if (bgr.empty()) {
+        decode_success[i] = false;
+        return;
+      }
+      cv::cvtColor(bgr, rgb_images[i], cv::COLOR_BGR2RGB);
+    }));
   }
 
   // Wait for all threads to finish decompression
@@ -607,6 +601,7 @@ void BEVFusionNode::computeCalibrationMatrices()
     // - Scale: resize_lim
     // - X Translation: -crop_x
     // - Y Translation: -crop_y
+    // - Translation lives in column 3 (mmdet3d ImageAug3D: transform[:2, 3]); the vendor kernels read it from .w
     int resized_w = static_cast<int>(config_.image_width * config_.resize_lim);
     int resized_h = static_cast<int>(config_.image_height * config_.resize_lim);
     int crop_x = (resized_w - config_.norm_output_width) / 2;
@@ -615,12 +610,12 @@ void BEVFusionNode::computeCalibrationMatrices()
     float aug[16] = {
       config_.resize_lim,
       0.0f,
+      0.0f,
       static_cast<float>(-crop_x),
       0.0f,
-      0.0f,
       config_.resize_lim,
-      static_cast<float>(-crop_y),
       0.0f,
+      static_cast<float>(-crop_y),
       0.0f,
       0.0f,
       1.0f,
@@ -835,13 +830,8 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
 {
   visualization_msgs::msg::MarkerArray marker_array;
 
-  // Clear previous markers
-  visualization_msgs::msg::Marker delete_marker;
-  delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
-  delete_marker.header = detections_3d.header;
-  delete_marker.ns = "bevfusion_detections";
-  marker_array.markers.push_back(delete_marker);
-
+  // No DELETEALL here — stale markers expire via their lifetime instead, so boxes
+  // persist across frames rather than being wiped on every publish.
   for (size_t i = 0; i < detections_3d.detections.size(); ++i) {
     const auto & det = detections_3d.detections[i];
 
@@ -866,7 +856,7 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
     marker.color.b = color.b;
     marker.color.a = color.a;
 
-    marker.lifetime = rclcpp::Duration::from_seconds(0.5);
+    marker.lifetime = rclcpp::Duration::from_seconds(3.0);
 
     marker_array.markers.push_back(marker);
   }
@@ -898,10 +888,6 @@ bool BEVFusionNode::processLidar(
     sensor_msgs::PointCloud2ConstIterator<float> iter_z(*lidar_msg, "z");
     sensor_msgs::PointCloud2ConstIterator<float> iter_intensity(*lidar_msg, "intensity");
 
-    // Only create ring iterator if has ring field
-    std::optional<sensor_msgs::PointCloud2ConstIterator<uint16_t>> iter_ring;
-    if (has_ring_) iter_ring.emplace(*lidar_msg, "ring");
-
     for (; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z, ++iter_intensity) {
       float x = *iter_x;
       float y = *iter_y;
@@ -918,12 +904,9 @@ bool BEVFusionNode::processLidar(
       lidar_data.push_back(y);
       lidar_data.push_back(z);
       lidar_data.push_back(intensity);
-      if (has_ring_) {
-        lidar_data.push_back(static_cast<float>(**iter_ring));
-        ++(*iter_ring);
-      } else {  // Put a 0.0f for ring if it is not present
-        lidar_data.push_back(0.0f);
-      }
+      // 5th feature is the sweep time lag (s) the model was trained with (nuScenes multi-sweep); 0 for the current sweep.
+      // It is NOT the ring index — feeding ring (0..31) there corrupts the voxel features.
+      lidar_data.push_back(0.0f);
     }
   } catch (const std::runtime_error & e) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Pointcloud2 missing fields: %s", e.what());

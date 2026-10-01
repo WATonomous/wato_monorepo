@@ -72,7 +72,7 @@ graph TD
   * **Steps:**
 
         1. Checks core and calibration readiness.
-        2. Parses and trims the `PointCloud2` message into `x, y, z, intensity, ring` floats (`processLidar()`, `validateAndTrimLidar()`).
+        2. Parses and trims the `PointCloud2` message into `x, y, z, intensity, time_lag` floats (`time_lag` is always `0`) (`processLidar()`, `validateAndTrimLidar()`).
         3. Validates camera counts and resizes/normalizes images (`validateAndNormalizeImage()`).
         4. Executes TensorRT GPU inference (`core_->infer(...)`).
         5. Converts output 3D bounding boxes into ROS `Detection3DArray` (`createDetections3D()`) and `MarkerArray` (`createMarkers()`) messages, transforming from `lidar_frame_id` to `target_frame`.
@@ -245,7 +245,7 @@ The `createMarkers()` color mapping matches the nuScenes class table:
 
 2. **Image resolution — resolved**: The model was trained on nuScenes' `1600×900 → 704×256` (resize_lim `0.48`). Eve's cameras are `1280×1024`, so `image_width`/`image_height`/`resize_lim` in `params.yaml` are set to `1280`/`1024`/`0.55` to reproduce roughly the same crop geometry into the same `704×256` network input — see `NormalizationParameter` construction in `BEVFusionCore::initialize()` and the `img_aug_matrix` math above. If you retrain on Eve-resolution data, revisit both `NormalizationParameter` and the aug matrix together.
 
-3. **LiDAR point format and iterators**: `processLidar()` uses `PointCloud2ConstIterator<float>`/`PointCloud2ConstIterator<uint16_t>` to extract `x, y, z, intensity` (and optionally `ring`) without manual byte math. The `ring` field is **optional** — set the `has_ring` parameter to `true` if the configured LiDAR topic publishes a `ring` field (e.g. `lidar_cc`), or `false` to skip it (e.g. for merged clouds that may lack `ring`). When `has_ring` is `false`, only 4 features per point are emitted and you must ensure `num_features` in the model config matches.
+3. **LiDAR point format and iterators**: `processLidar()` uses `PointCloud2ConstIterator<float>` to extract `x, y, z, intensity` without manual byte math. The 5th feature is the nuScenes multi-sweep **time lag** (seconds since the current sweep), which is always `0` for a single sweep — it is **not** the Velodyne `ring` index. Feeding `ring` there puts values of 0–31 into a channel the model only saw in ~0–0.5, which corrupts the voxel features.
 
 4. **Thread safety**: The CUDA-BEVFusion `Core` is **not thread-safe**. Don't call `forward()` from multiple callbacks simultaneously. Use a mutex or ensure single-threaded execution.
 

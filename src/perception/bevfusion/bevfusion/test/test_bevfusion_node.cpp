@@ -425,16 +425,16 @@ TEST_CASE("img_aug_matrix: WATO cameras 1280x1024 resize_lim=0.55", "[calibratio
   REQUIRE(crop_x == 0);
   REQUIRE(crop_y == 307);
 
-  // Verify the aug matrix structure: scale + translate, 4x4 row-major
+  // Verify the aug matrix structure: scale + translate, 4x4 row-major, translation in column 3
   float aug[16] = {
     resize_lim,
     0.0f,
+    0.0f,
     static_cast<float>(-crop_x),
     0.0f,
-    0.0f,
     resize_lim,
-    static_cast<float>(-crop_y),
     0.0f,
+    static_cast<float>(-crop_y),
     0.0f,
     0.0f,
     1.0f,
@@ -447,14 +447,14 @@ TEST_CASE("img_aug_matrix: WATO cameras 1280x1024 resize_lim=0.55", "[calibratio
   // Row 0: [0.55, 0, 0, 0]  (no x-crop since resized width == output width)
   REQUIRE(aug[0] == Catch::Approx(0.55f));
   REQUIRE(aug[1] == 0.0f);
-  REQUIRE(aug[2] == 0.0f);  // -crop_x = 0
-  REQUIRE(aug[3] == 0.0f);
+  REQUIRE(aug[2] == 0.0f);
+  REQUIRE(aug[3] == 0.0f);  // -crop_x = 0
 
-  // Row 1: [0, 0.55, -307, 0]
+  // Row 1: [0, 0.55, 0, -307]
   REQUIRE(aug[4] == 0.0f);
   REQUIRE(aug[5] == Catch::Approx(0.55f));
-  REQUIRE(aug[6] == Catch::Approx(-307.0f));
-  REQUIRE(aug[7] == 0.0f);
+  REQUIRE(aug[6] == 0.0f);
+  REQUIRE(aug[7] == Catch::Approx(-307.0f));
 
   // Row 2: [0, 0, 1, 0]
   REQUIRE(aug[8] == 0.0f);
@@ -717,8 +717,8 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 0, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    REQUIRE(markers.markers.size() == 2);  // DELETEALL + 1 box
-    const auto & m = markers.markers[1];
+    REQUIRE(markers.markers.size() == 1);  // 1 box, no DELETEALL
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(0.0f));
     REQUIRE(m.color.g == Catch::Approx(1.0f));
     REQUIRE(m.color.b == Catch::Approx(0.0f));
@@ -728,7 +728,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 1, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(0.0f));
     REQUIRE(m.color.g == Catch::Approx(0.0f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
@@ -738,7 +738,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 2, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
     REQUIRE(m.color.g == Catch::Approx(0.5f));
     REQUIRE(m.color.b == Catch::Approx(0.0f));
@@ -748,7 +748,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 3, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(0.5f));
     REQUIRE(m.color.g == Catch::Approx(0.0f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
@@ -758,7 +758,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 4, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(0.0f));
     REQUIRE(m.color.g == Catch::Approx(1.0f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
@@ -768,7 +768,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 5, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
     REQUIRE(m.color.g == Catch::Approx(1.0f));
     REQUIRE(m.color.b == Catch::Approx(0.0f));
@@ -778,7 +778,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 6, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
     REQUIRE(m.color.g == Catch::Approx(0.0f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
@@ -788,7 +788,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 7, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(0.0f));
     REQUIRE(m.color.g == Catch::Approx(0.5f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
@@ -798,7 +798,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 8, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
     REQUIRE(m.color.g == Catch::Approx(0.0f));
     REQUIRE(m.color.b == Catch::Approx(0.0f));
@@ -808,7 +808,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 9, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
     REQUIRE(m.color.g == Catch::Approx(0.8f));
     REQUIRE(m.color.b == Catch::Approx(0.0f));
@@ -818,7 +818,7 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
   {
     detections_3d.detections = {make_test_detection3d(0, 0, 0, 1, 1, 1, 99, 0.9f)};
     auto markers = node->createMarkers(detections_3d);
-    const auto & m = markers.markers[1];
+    const auto & m = markers.markers[0];
     REQUIRE(m.color.r == Catch::Approx(1.0f));
     REQUIRE(m.color.g == Catch::Approx(1.0f));
     REQUIRE(m.color.b == Catch::Approx(1.0f));
@@ -828,12 +828,12 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
 }
 
 // =============================================================================
-// TEST: Marker type, namespace, opacity, id, and DELETEALL clearing
+// TEST: Marker type, namespace, opacity, id, and lifetime
 // WHY: Foxglove renders CUBE-type markers, keyed by ns/id. If those are wrong,
-//      the 3D panel shows nothing, overlaps other viz layers, or leaves stale
-//      boxes behind when a car leaves the scene.
+//      the 3D panel shows nothing or overlaps other viz layers. The lifetime is
+//      what retires stale boxes now that no DELETEALL is emitted.
 // =============================================================================
-TEST_CASE("createMarkers: type, namespace, opacity, id, and DELETEALL are set correctly", "[conversion][fast]")
+TEST_CASE("createMarkers: type, namespace, opacity, id, and lifetime are set correctly", "[conversion][fast]")
 {
   auto node = make_configured_node();
 
@@ -842,14 +842,9 @@ TEST_CASE("createMarkers: type, namespace, opacity, id, and DELETEALL are set co
   detections_3d.detections = {make_test_detection3d(5.0f, 3.0f, 1.0f, 4.5f, 2.0f, 1.7f, 0, 0.8f)};
 
   auto markers = node->createMarkers(detections_3d);
-  REQUIRE(markers.markers.size() == 2);
+  REQUIRE(markers.markers.size() == 1);
 
-  // First marker clears stale boxes from the previous frame
-  const auto & delete_marker = markers.markers[0];
-  REQUIRE(delete_marker.action == visualization_msgs::msg::Marker::DELETEALL);
-  REQUIRE(delete_marker.ns == "bevfusion_detections");
-
-  const auto & marker = markers.markers[1];
+  const auto & marker = markers.markers[0];
   REQUIRE(marker.type == visualization_msgs::msg::Marker::CUBE);
   REQUIRE(marker.action == visualization_msgs::msg::Marker::ADD);
   REQUIRE(marker.ns == "bevfusion_detections");
@@ -861,17 +856,19 @@ TEST_CASE("createMarkers: type, namespace, opacity, id, and DELETEALL are set co
   REQUIRE(marker.scale.y == Catch::Approx(2.0f));
   REQUIRE(marker.scale.z == Catch::Approx(1.7f));
 
+  // Boxes persist across frames and are retired by the lifetime, not a DELETEALL
+  REQUIRE(rclcpp::Duration(marker.lifetime).seconds() == Catch::Approx(3.0));
+
   rclcpp::shutdown();
 }
 
 // =============================================================================
-// TEST: DELETEALL is emitted even with zero detections
-// WHY: When a previously-tracked car leaves the frame, the array can go from
-//      N detections to 0 — the DELETEALL must still fire so its marker doesn't
-//      persist forever (this is exactly the gap the original per-box toMarker
-//      approach didn't handle at all).
+// TEST: zero detections emits an empty array, not a DELETEALL
+// WHY: Boxes are meant to persist across frames now. A dropped/empty frame must
+//      not wipe the previous frame's boxes — they age out via their lifetime
+//      instead. Emitting a DELETEALL here would defeat that.
 // =============================================================================
-TEST_CASE("createMarkers: DELETEALL is emitted even with zero detections", "[conversion][fast]")
+TEST_CASE("createMarkers: zero detections emits an empty array", "[conversion][fast]")
 {
   auto node = make_configured_node();
   vision_msgs::msg::Detection3DArray detections_3d;
@@ -879,8 +876,7 @@ TEST_CASE("createMarkers: DELETEALL is emitted even with zero detections", "[con
 
   auto markers = node->createMarkers(detections_3d);
 
-  REQUIRE(markers.markers.size() == 1);
-  REQUIRE(markers.markers[0].action == visualization_msgs::msg::Marker::DELETEALL);
+  REQUIRE(markers.markers.empty());
 
   rclcpp::shutdown();
 }

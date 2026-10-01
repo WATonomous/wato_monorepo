@@ -11,10 +11,6 @@ bevfusion_node:
     input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
     input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
-    # Specify whether inputted lidar topic has the 5th parameter (ring id)
-    # Merged lidar points do not while single lidars do.
-    has_ring: true
-
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50_trt11_int8"
 
@@ -83,7 +79,7 @@ bevfusion_node:
     min_range: [-54.0, -54.0, -5.0]  # Min 3D range (x,y,z) in meters for voxelization (from lidar frame)
     max_range: [54.0, 54.0, 3.0]  # Max 3D range (from lidar frame)
     voxel_size: [0.075, 0.075, 0.2]  # Size of each voxel (x,y,z) in meters
-    num_features: 5  # Dimensions per lidar point (x, y, z, intensity, ring)
+    num_features: 5  # Dimensions per lidar point (x, y, z, intensity, sweep time lag = 0)
     scn_order: "XYZ"  # SCN coordinate order constraint ("XYZ" or "ZYX")
 
     # --- Bounding Box Post-processing & Head ---

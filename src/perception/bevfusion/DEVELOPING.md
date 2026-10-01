@@ -59,7 +59,7 @@ Eve has 12 cameras total — 8 panoramic and 4 lower. BEVFusion uses **6 of the 
 
 ### LiDAR
 
-Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre-merged by a `lidar_aggregator` node into `/lidar/all/points_merged`. **BEVFusion currently defaults to the single `lidar_cc` sensor** (`/lidar_cc/velodyne_points`, set via `input_lidar_topic`), not the merged cloud. The `ring` field is made optional via the `has_ring` parameter (default `false`) — set it to `true` for `lidar_cc` (which includes a `ring` field) or keep it `false` for merged clouds that may lack one. `lidar_frame_id` (default `lidar_cc`) must match whichever LiDAR topic is actually configured, since it's used as the TF target for camera extrinsics.
+Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre-merged by a `lidar_aggregator` node into `/lidar/all/points_merged`. **BEVFusion currently defaults to the single `lidar_cc` sensor** (`/lidar_cc/velodyne_points`, set via `input_lidar_topic`), not the merged cloud. `lidar_frame_id` (default `lidar_cc`) must match whichever LiDAR topic is actually configured, since it's used as the TF target for camera extrinsics.
 
 ## Topics
 
@@ -83,10 +83,10 @@ Each callback (`syncedCallback` in `bevfusion_node.cpp`) filters the incoming `M
 
 | Topic (param) | Type | Description |
 |---|---|---|
-| `input_lidar_topic` (default `/lidar_cc/velodyne_points`) | `sensor_msgs/PointCloud2` | LiDAR point cloud, must contain `x`, `y`, `z`, `intensity`, and `ring` fields |
+| `input_lidar_topic` (default `/lidar_cc/velodyne_points`) | `sensor_msgs/PointCloud2` | LiDAR point cloud, must contain `x`, `y`, `z`, and `intensity` fields |
 | `camera_info` (remappable, wired to `/multi_camera_sync/multi_camera_info` in `perception.launch.yaml`) | `deep_msgs/MultiCameraInfo` | Camera intrinsics for all cameras (cached once, not time-synced) |
 
-`processLidar()` supports an **optional** `ring` field in the incoming `PointCloud2`. Set the `has_ring` parameter to `true` (default `false`) if the configured LiDAR source includes a `ring` field (e.g. `lidar_cc` Velodyne). When `false`, ring values are omitted and only `x, y, z, intensity` are extracted per point — ensure the model's `num_features` parameter matches.
+`processLidar()` extracts `x, y, z, intensity` and appends a 5th feature of `0`. The nuScenes-trained model expects the multi-sweep time lag there (0 for the current sweep), **not** the `ring` index.
 
 **Camera extrinsics via TF:** The physical mounting position and orientation of each camera (extrinsics) are looked up at runtime from the ROS 2 TF tree using `tf2_ros::Buffer` and `tf2_ros::TransformListener`. `computeCalibrationMatrices()` requests the transform from each camera's frame ID (e.g. `camera_pano_nn`) to the configured `lidar_frame_id` (default `lidar_cc`) — **not** `base_link`. Since camera mounts are fixed, these transforms are *static* — they are published once on `/tf_static` by the sensor launch infrastructure. The node does not subscribe to `/tf_static` directly; `tf2_ros::TransformListener` creates that subscription internally and caches all available transforms in the `Buffer`. Calibration (camera intrinsics, camera→lidar extrinsics, lidar→image projection, and the image augmentation matrix) is computed once when the first `MultiCameraInfo` message arrives (or immediately in `on_activate()` if camera info was already cached), and again is *not* recomputed per-frame.
 

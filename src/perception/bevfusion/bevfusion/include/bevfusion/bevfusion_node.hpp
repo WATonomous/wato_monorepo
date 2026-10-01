@@ -316,9 +316,6 @@ private:
   double sync_max_time_diff_sec_;
   std::mutex camera_info_mutex_;
 
-  // LiDAR ring parameter
-  bool has_ring_{false};
-
   // Statistics
   std::atomic<uint64_t> total_processed_{0};
   std::atomic<double> total_processing_time_ms_{0.0};

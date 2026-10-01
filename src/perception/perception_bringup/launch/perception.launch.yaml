@@ -159,7 +159,7 @@ launch:
             - from: $(var config_file)
           remap:
             - from: input_detections
-              to: /perception/detections_3D
+              to: /perception/detections_3d_bev
             - from: output_tracks
               to: /perception/detections_3D_tracked
             - from: output_markers

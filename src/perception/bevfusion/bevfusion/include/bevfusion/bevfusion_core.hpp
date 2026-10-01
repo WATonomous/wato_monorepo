@@ -62,7 +62,7 @@ struct BEVFusionInputConfig
   int max_points_per_voxel = 10;  // Max # of points to sample in 1 voxel
   int max_points = 300000;  // Upper limit on total # of lidar points processed
   int max_voxels = 160000;  // Upper limit on total # of voxels generated on the grid
-  int num_features = 5;  // Dimensions per lidar point (x, y, z, intensity, ring)
+  int num_features = 5;  // Dimensions per lidar point (x, y, z, intensity, sweep time lag)
   std::string scn_order = "XYZ";  // SCN coordinate order constraint
   std::string precision = "int8";  // "fp16" or "int8". Used by LiDAR ONNX parser.
 
@@ -158,8 +158,8 @@ public:
    *
    * @note lidar_points is a flattened 1D vector containing all the raw LiDAR data for a single frame
    *       - lidar_points.size() equals num_points * config_.num_features.
-   *       - The vector looks like [x1, y1, z1, i1, r1, x2, y2, z2, i2, r2, ...],
-   *         where (x,y,z) are coordinates, i is intensity and r is ring number.
+   *       - The vector looks like [x1, y1, z1, i1, t1, x2, y2, z2, i2, t2, ...],
+   *         where (x,y,z) are coordinates, i is intensity and t is the sweep time lag (0 for a single sweep).
    * @note Preconditions:
    *       - initialize() called and returned true; pipeline_ and stream_ are live.
    *       - updateCalibration() called at least once; pipeline needs camera extrinsics/intrinsics before its first forward pass

@@ -124,8 +124,10 @@ bool BEVFusionCore::initialize()
   geom.geometry_dim = {config_.geometry_dim[0], config_.geometry_dim[1], config_.geometry_dim[2]};
   geom.feat_width = config_.feat_width;
   geom.feat_height = config_.feat_height;
-  geom.image_width = config_.image_width;
-  geom.image_height = config_.image_height;
+  // The frustum is built in the augmented (resized + cropped) network-input image space and mapped back through
+  // img_aug_matrix^-1, so this must be the normalization output size, not the raw camera resolution.
+  geom.image_width = config_.norm_output_width;
+  geom.image_height = config_.norm_output_height;
   geom.num_camera = config_.num_cameras;
 
   // LiDAR voxelization: divides the point cloud into a 3D grid; grid_size is derived from range and voxel size
