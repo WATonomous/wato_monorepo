@@ -24,7 +24,7 @@ bevfusion_node:
       - "camera_pano_se"
 
     # Detection confidence threshold — boxes below this score are discarded
-    confidence_threshold: 0.1
+    confidence_threshold: 0.08
 
     # --- Camera Normalization & Preprocessing ---
     image_width: 1280  # Input image resolution (must match the camera hardware)

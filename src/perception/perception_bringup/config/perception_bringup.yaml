@@ -500,12 +500,12 @@ multi_camera_sync:
     sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
 
     # ApproximateTime synchronization
-    sync_queue_size: 2
+    sync_queue_size: 5
     sync_max_time_diff_ms: 200.0
 
     # QoS
     qos_subscriber_reliability: "best_effort"
-    qos_subscriber_depth: 1
+    qos_subscriber_depth: 2
     qos_publisher_reliability: "reliable"
     qos_publisher_durability: "transient_local"
     qos_publisher_depth: 5

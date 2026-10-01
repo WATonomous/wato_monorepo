@@ -830,8 +830,8 @@ TEST_CASE("createMarkers: class-specific colors", "[conversion][fast]")
 // =============================================================================
 // TEST: Marker type, namespace, opacity, id, and lifetime
 // WHY: Foxglove renders CUBE-type markers, keyed by ns/id. If those are wrong,
-//      the 3D panel shows nothing or overlaps other viz layers. The lifetime is
-//      what retires stale boxes now that no DELETEALL is emitted.
+//      the 3D panel shows nothing or overlaps other viz layers. The 1 s lifetime
+//      retires stale boxes when the node is slow or stops publishing.
 // =============================================================================
 TEST_CASE("createMarkers: type, namespace, opacity, id, and lifetime are set correctly", "[conversion][fast]")
 {
@@ -842,8 +842,7 @@ TEST_CASE("createMarkers: type, namespace, opacity, id, and lifetime are set cor
   detections_3d.detections = {make_test_detection3d(5.0f, 3.0f, 1.0f, 4.5f, 2.0f, 1.7f, 0, 0.8f)};
 
   auto markers = node->createMarkers(detections_3d);
-  REQUIRE(markers.markers.size() == 1);
-
+  REQUIRE(markers.markers.size() == 1);  // 1 box, no DELETEALL
   const auto & marker = markers.markers[0];
   REQUIRE(marker.type == visualization_msgs::msg::Marker::CUBE);
   REQUIRE(marker.action == visualization_msgs::msg::Marker::ADD);
@@ -856,17 +855,16 @@ TEST_CASE("createMarkers: type, namespace, opacity, id, and lifetime are set cor
   REQUIRE(marker.scale.y == Catch::Approx(2.0f));
   REQUIRE(marker.scale.z == Catch::Approx(1.7f));
 
-  // Boxes persist across frames and are retired by the lifetime, not a DELETEALL
-  REQUIRE(rclcpp::Duration(marker.lifetime).seconds() == Catch::Approx(3.0));
+  // Boxes persist across frames and are retired by the 1 s lifetime (no DELETEALL)
+  REQUIRE(rclcpp::Duration(marker.lifetime).seconds() == Catch::Approx(1.0));
 
   rclcpp::shutdown();
 }
 
 // =============================================================================
-// TEST: zero detections emits an empty array, not a DELETEALL
-// WHY: Boxes are meant to persist across frames now. A dropped/empty frame must
-//      not wipe the previous frame's boxes — they age out via their lifetime
-//      instead. Emitting a DELETEALL here would defeat that.
+// TEST: zero detections emits an empty array (no DELETEALL)
+// WHY: Boxes persist across frames via their 1 s lifetime. An empty frame must
+//      not wipe the previous frame's boxes immediately — they age out naturally.
 // =============================================================================
 TEST_CASE("createMarkers: zero detections emits an empty array", "[conversion][fast]")
 {

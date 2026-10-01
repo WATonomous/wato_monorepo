@@ -830,8 +830,11 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
 {
   visualization_msgs::msg::MarkerArray marker_array;
 
-  // No DELETEALL here — stale markers expire via their lifetime instead, so boxes
-  // persist across frames rather than being wiped on every publish.
+  // TODO(ashish): Remove this lifetime-based cleanup once the tracker publishes
+  // lost tracks at their predicted positions. Right now, omitting DELETEALL
+  // prevents flicker when BEVFusion runs slowly (boxes survive the gap between
+  // frames). The downside is that boxes from a detection that just disappeared
+  // linger for up to 1 s before expiring.
   for (size_t i = 0; i < detections_3d.detections.size(); ++i) {
     const auto & det = detections_3d.detections[i];
 
@@ -856,7 +859,7 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
     marker.color.b = color.b;
     marker.color.a = color.a;
 
-    marker.lifetime = rclcpp::Duration::from_seconds(3.0);
+    marker.lifetime = rclcpp::Duration::from_seconds(1.0);
 
     marker_array.markers.push_back(marker);
   }

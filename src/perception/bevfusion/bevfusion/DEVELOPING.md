@@ -140,10 +140,10 @@ struct BoundingBox {
 * `marker.pose` = same position/orientation as the `Detection3D` center (already in `target_frame`)
 * `marker.scale.x/y/z = size.w/l/h`
 * Color by class via a `switch (class_id)` — all 10 nuScenes classes are mapped to distinct colors (see the class ID table below)
-* `marker.color.a = 0.8`, `marker.lifetime = 0.5s` (so stale markers disappear)
+* `marker.color.a = 0.8`, `marker.lifetime = 1.0s` — boxes persist across frames and expire naturally; no DELETEALL is emitted to avoid flicker when BEVFusion runs slowly. TODO(ashish): replace with tracker-driven persistence once the tracker publishes predicted positions for lost tracks.
 * `marker.ns = "bevfusion_detections"`, `marker.id` = index into the current frame's marker array
 * `marker.header.frame_id = target_frame_`
-* A `DELETEALL` marker is prepended to clear stale markers from the previous frame
+* No DELETEALL is prepended; stale markers from the previous frame expire via their 1 s lifetime instead
 
 Not yet implemented: `marker.text` labels (class name + score) for Foxglove hover tooltips — this is a possible follow-up.
 
