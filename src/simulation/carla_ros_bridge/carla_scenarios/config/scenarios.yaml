@@ -1,0 +1,46 @@
+# Scenario code owns environment setup; action is launched independently.
+version: 1
+maps:
+  town10hd:
+    carla:
+      built_in_map: Town10HD
+    lanelet2:
+      path: osm/Town10HD.osm
+      projector: local_cartesian
+      origin: {lat: 0.0, lon: 0.0}
+  oval:
+    carla:
+      # Generate/cache OpenDRIVE from the canonical Lanelet2 file.
+      from_lanelet2: true
+    lanelet2:
+      path: oval/oval.osm
+      projector: local_cartesian
+      origin: {lat: 45.5017, lon: -73.5673}
+    # Spawn is separate from the geographic projection origin.
+    ego_spawn: {lanelet_id: 10000, distance_m: 5.0, z: 0.4}
+scenarios:
+  default:
+    module: carla_scenarios.scenarios.default_scenario
+    map: town10hd
+    description: Town10HD with default traffic
+  empty:
+    module: carla_scenarios.scenarios.empty_scenario
+    map: town10hd
+    description: Town10HD ego only
+  light_traffic:
+    module: carla_scenarios.scenarios.light_traffic_scenario
+    map: town10hd
+    description: Town10HD with light traffic
+  heavy_traffic:
+    module: carla_scenarios.scenarios.heavy_traffic_scenario
+    map: town10hd
+    description: Town10HD with heavy traffic
+  custom:
+    module: carla_scenarios.scenarios.custom_scenario
+    map: town10hd
+    description: Existing Town10HD custom actors
+  fake_planner:
+    module: carla_scenarios.scenarios.fake_planner_scenario
+    map: oval
+    description: Oval controller testing with injected trajectories
+    trajectories_enabled: true

@@ -1,0 +1,36 @@
+version: 1
+# Distances are metres. Author speeds in km/h; ROS messages always use m/s.
+# Additional variants of these generators need only another preset entry.
+presets:
+  follow_lane:
+    description: Follow the current lane indefinitely until stopped or replaced
+    generator: follow_lane
+    parameters:
+      speed_kph: 20.0
+      horizon_m: 50.0
+      sample_spacing_m: 0.25
+  snake:
+    description: Oscillate around the current lane centerline, then stop
+    generator: snake
+    parameters:
+      length_m: 80.0
+      amplitude_m: 0.8
+      wavelength_m: 20.0
+      horizon_m: 50.0
+      sample_spacing_m: 0.25
+      end_stop_distance_m: 5.0
+      speed_profile:
+        - {distance_m: 0.0, speed_kph: 20.0}
+        - {distance_m: 30.0, speed_kph: 15.0}
+        - {distance_m: 60.0, speed_kph: 20.0}
+  hard_brake:
+    description: Follow the lane with an authored speed drop to zero
+    generator: hard_brake
+    parameters:
+      speed_kph: 30.0  # Override with 50.0 for the higher-speed experiment.
+      brake_start_m: 40.0
+      brake_distance_m: 2.0  # 0.0 makes an abrupt zero-speed request.
+      length_m: 80.0
+      horizon_m: 50.0
+      sample_spacing_m: 0.25
+      end_stop_distance_m: 5.0

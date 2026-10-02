@@ -10,6 +10,7 @@
 
   <depend>rclpy</depend>
   <depend>carla_msgs</depend>
+  <depend>carla_msgs</depend>
   <depend>ackermann_msgs</depend>
   <depend>lifecycle_msgs</depend>
 

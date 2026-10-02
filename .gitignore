@@ -21,3 +21,6 @@ external/
 weights/
 models/
 maps/
+
+# Generated OpenDRIVE maps from osm_to_xodr
+*.xodr

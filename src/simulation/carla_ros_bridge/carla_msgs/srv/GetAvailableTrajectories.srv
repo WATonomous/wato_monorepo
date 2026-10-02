@@ -1,0 +1,4 @@
+---
+string[] trajectory_ids
+string[] descriptions
+string presets_yaml

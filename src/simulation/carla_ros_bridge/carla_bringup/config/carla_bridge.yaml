@@ -17,7 +17,7 @@ scenario_server:
     synchronous_mode: true           # Server waits for client tick
     no_rendering_mode: false         # Disable rendering for faster simulation
     substepping: true                # Enable physics substepping
-    max_substep_delta_time: 0.001     # Max physics substep time (seconds)
+    max_substep_delta_time: 0.002     # Max physics substep time (seconds)
     max_substeps: 10                  # Max physics substeps per frame
 
 # Ackermann Control Configuration
@@ -136,3 +136,9 @@ pygame_hud:
     show_connections: false
     show_spawn_points: false
     frame_rate: 30.0
+
+/**/carla_fake_planner:
+  ros__parameters:
+    carla_host: localhost
+    carla_timeout: 10.0
+    publish_rate: 20.0

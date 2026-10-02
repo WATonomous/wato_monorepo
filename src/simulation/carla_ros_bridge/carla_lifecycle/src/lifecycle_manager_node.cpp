@@ -15,6 +15,7 @@
 #include "carla_lifecycle/lifecycle_manager_node.hpp"
 
 #include <chrono>
+#include <algorithm>
 #include <future>
 #include <memory>
 #include <string>
@@ -43,6 +44,7 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
 
   desc.description = "List of lifecycle node names to manage";
   this->declare_parameter("node_names", std::vector<std::string>{}, desc);
+  this->declare_parameter("optional_node_names", std::vector<std::string>{}, desc);
 
   desc.description = "Timeout for lifecycle service calls in seconds";
   this->declare_parameter("service_timeout", 10.0, desc);
@@ -53,6 +55,7 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
   autostart_ = this->get_parameter("autostart").as_bool();
   scenario_server_name_ = this->get_parameter("scenario_server_name").as_string();
   node_names_ = this->get_parameter("node_names").as_string_array();
+  optional_node_names_ = this->get_parameter("optional_node_names").as_string_array();
   service_timeout_ = this->get_parameter("service_timeout").as_double();
   startup_retry_interval_ = this->get_parameter("startup_retry_interval").as_double();
 
@@ -68,9 +71,9 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
     std::string abs_name = toAbsoluteName(node_name);
     NodeClients nc;
     nc.change_state = this->create_client<lifecycle_msgs::srv::ChangeState>(
-      abs_name + "/change_state", rclcpp::ServicesQoS(), service_cb_group_);
+      abs_name + "/change_state", rmw_qos_profile_services_default, service_cb_group_);
     nc.get_state = this->create_client<lifecycle_msgs::srv::GetState>(
-      abs_name + "/get_state", rclcpp::ServicesQoS(), service_cb_group_);
+      abs_name + "/get_state", rmw_qos_profile_services_default, service_cb_group_);
     clients_[node_name] = nc;
   };
 
@@ -90,9 +93,17 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
 
   // Service for scenario_server to request node cleanup before switching
   // Uses namespace-relative path so scenario_server can find it without knowing node name
+  // Startup waits for scenario_server activation. Its callback must be able to
+  // request bridge bringup while that wait is in progress.
+  coordination_cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   prepare_switch_service_ = this->create_service<std_srvs::srv::Trigger>(
     "prepare_for_scenario_switch",
-    std::bind(&LifecycleManagerNode::prepareForSwitchCallback, this, std::placeholders::_1, std::placeholders::_2));
+    std::bind(&LifecycleManagerNode::prepareForSwitchCallback, this, std::placeholders::_1, std::placeholders::_2),
+    rmw_qos_profile_services_default, coordination_cb_group_);
+  finish_switch_service_ = this->create_service<std_srvs::srv::Trigger>(
+    "finish_scenario_switch",
+    std::bind(&LifecycleManagerNode::finishSwitchCallback, this, std::placeholders::_1, std::placeholders::_2),
+    rmw_qos_profile_services_default, coordination_cb_group_);
 
   // Autostart timer - retries until scenario_server connects to CARLA
   if (autostart_) {
@@ -134,24 +145,9 @@ void LifecycleManagerNode::startupTimerCallback()
 
 void LifecycleManagerNode::scenarioStatusCallback(const carla_msgs::msg::ScenarioStatus::SharedPtr msg)
 {
-  bool scenario_changed = msg->scenario_name != current_scenario_;
-  bool state_changed_to_running = (msg->state == "running" && last_scenario_state_ != "running");
-
-  if (scenario_changed || state_changed_to_running) {
-    if (!current_scenario_.empty()) {
-      RCLCPP_INFO(
-        this->get_logger(),
-        "Scenario changed: \"%s\" -> \"%s\", bringing up managed nodes...",
-        current_scenario_.c_str(),
-        msg->scenario_name.c_str());
-      // Nodes should already be cleaned up via prepare_for_scenario_switch service
-      bringUpAllNodes();
-    } else {
-      RCLCPP_INFO(this->get_logger(), "Initial scenario loaded: %s", msg->scenario_name.c_str());
-      bringUpAllNodes();
-    }
-    current_scenario_ = msg->scenario_name;
-  }
+  // The server explicitly awaits finish_scenario_switch, including same-name
+  // reloads. Status is observational and must not launch a competing transition.
+  current_scenario_ = msg->scenario_name;
   last_scenario_state_ = msg->state;
 }
 
@@ -160,36 +156,44 @@ void LifecycleManagerNode::prepareForSwitchCallback(
   std::shared_ptr<std_srvs::srv::Trigger::Response> response)
 {
   RCLCPP_INFO(this->get_logger(), "Preparing for scenario switch: cleaning up managed nodes...");
-  cleanupAllNodes();
-  response->success = true;
-  response->message = "Managed nodes cleaned up";
+  response->success = cleanupAllNodes();
+  response->message = response->success ? "Managed nodes cleaned up" : "Bridge cleanup failed; inspect lifecycle logs";
   RCLCPP_INFO(this->get_logger(), "Managed nodes cleaned up, ready for scenario switch");
 }
 
-void LifecycleManagerNode::bringUpAllNodes()
+void LifecycleManagerNode::finishSwitchCallback(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  response->success = bringUpAllNodes();
+  response->message = response->success ? "Bridge nodes ready" : "Bridge bringup failed; inspect lifecycle logs";
+}
+
+bool LifecycleManagerNode::bringUpAllNodes()
 {
   using Transition = lifecycle_msgs::msg::Transition;
   using State = lifecycle_msgs::msg::State;
 
-  executeTransitionSteps({
+  return executeTransitionSteps({
     {Transition::TRANSITION_CONFIGURE, State::PRIMARY_STATE_UNCONFIGURED, "configure"},
     {Transition::TRANSITION_ACTIVATE, State::PRIMARY_STATE_INACTIVE, "activate"},
   });
 }
 
-void LifecycleManagerNode::cleanupAllNodes()
+bool LifecycleManagerNode::cleanupAllNodes()
 {
   using Transition = lifecycle_msgs::msg::Transition;
   using State = lifecycle_msgs::msg::State;
 
-  executeTransitionSteps({
+  return executeTransitionSteps({
     {Transition::TRANSITION_DEACTIVATE, State::PRIMARY_STATE_ACTIVE, "deactivate"},
     {Transition::TRANSITION_CLEANUP, State::PRIMARY_STATE_INACTIVE, "cleanup"},
   });
 }
 
-void LifecycleManagerNode::executeTransitionSteps(const std::vector<TransitionStep> & steps)
+bool LifecycleManagerNode::executeTransitionSteps(const std::vector<TransitionStep> & steps)
 {
+  bool success = true;
   auto timeout = std::chrono::duration<double>(service_timeout_);
 
   for (const auto & step : steps) {
@@ -199,10 +203,15 @@ void LifecycleManagerNode::executeTransitionSteps(const std::vector<TransitionSt
     for (const auto & node_name : node_names_) {
       auto & client = clients_[node_name].change_state;
       if (!client->service_is_ready()) {
+        if (std::find(optional_node_names_.begin(), optional_node_names_.end(), node_name) == optional_node_names_.end()) {
+          RCLCPP_ERROR(this->get_logger(), "Required lifecycle service unavailable: %s", node_name.c_str());
+          success = false;
+        }
         continue;
       }
-
-      if (getNodeState(node_name) == step.required_state) {
+      int state = getNodeState(node_name);
+      if (state < 0) success = false;
+      if (state == step.required_state) {
         auto req = std::make_shared<lifecycle_msgs::srv::ChangeState::Request>();
         req->transition.id = step.transition_id;
         futures.emplace_back(node_name, client->async_send_request(req));
@@ -214,13 +223,23 @@ void LifecycleManagerNode::executeTransitionSteps(const std::vector<TransitionSt
         if (future.get()->success) {
           RCLCPP_INFO(this->get_logger(), "%s: %s succeeded", node_name.c_str(), step.name);
         } else {
+          success = false;
           RCLCPP_ERROR(this->get_logger(), "%s: %s failed", node_name.c_str(), step.name);
         }
       } else {
+        success = false;
         RCLCPP_ERROR(this->get_logger(), "%s: %s timed out", node_name.c_str(), step.name);
       }
     }
   }
+  const int expected = steps.back().transition_id == lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE ?
+    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE : lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED;
+  for (const auto & node_name : node_names_) {
+    if (!clients_[node_name].get_state->service_is_ready() &&
+      std::find(optional_node_names_.begin(), optional_node_names_.end(), node_name) != optional_node_names_.end()) continue;
+    if (getNodeState(node_name) != expected) success = false;
+  }
+  return success;
 }
 
 bool LifecycleManagerNode::bringUpNode(const std::string & node_name)
@@ -261,7 +280,7 @@ bool LifecycleManagerNode::bringUpNode(const std::string & node_name)
     }
   }
 
-  return true;
+  return getNodeState(node_name) == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE;
 }
 
 bool LifecycleManagerNode::changeState(const std::string & node_name, uint8_t transition_id)
@@ -272,7 +291,9 @@ bool LifecycleManagerNode::changeState(const std::string & node_name, uint8_t tr
   request->transition.id = transition_id;
 
   auto future = client->async_send_request(request);
-  auto timeout = std::chrono::duration<double>(service_timeout_);
+  // Scenario activation includes world generation and nested bridge bringup.
+  auto timeout = std::chrono::duration<double>(
+    node_name == scenario_server_name_ ? std::max(service_timeout_, 150.0) : service_timeout_);
 
   if (future.wait_for(timeout) != std::future_status::ready) {
     RCLCPP_ERROR(this->get_logger(), "%s transition %d timed out", node_name.c_str(), transition_id);

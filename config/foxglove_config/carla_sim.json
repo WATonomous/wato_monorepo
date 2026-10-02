@@ -1,15 +1,15 @@
 {
   "configById": {
     "CallService!25pwqml": {
-      "requestPayload": "{\n  \"data\": true\n}",
+      "requestPayload": "{}",
       "layout": "vertical",
       "timeoutSeconds": 10,
-      "serviceName": "/carla/carla_teleop/set_autonomy"
+      "serviceName": "/carla/scenario_server/reset_ego"
     },
     "CallService!3k192jd": {
       "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.light_traffic_scenario\"\n}",
       "layout": "vertical",
-      "timeoutSeconds": 20,
+      "timeoutSeconds": 180,
       "serviceName": "/carla/scenario_server/switch_scenario"
     },
     "CallService!trma13": {

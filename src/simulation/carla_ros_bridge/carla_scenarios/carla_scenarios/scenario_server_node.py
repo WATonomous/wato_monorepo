@@ -13,19 +13,29 @@
 # limitations under the License.
 
 import importlib
+import math
+from pathlib import Path
+import threading
+import time
+
+from ament_index_python.packages import get_package_share_directory
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 from typing import Optional, Dict
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rcl_interfaces.msg import ParameterDescriptor
 from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
 from carla_msgs.msg import ScenarioStatus
-from std_msgs.msg import Header
+from std_msgs.msg import Bool
 from std_srvs.srv import SetBool, Trigger
 from rosgraph_msgs.msg import Clock
+from nav_msgs.msg import Odometry
 
 import carla
 from carla_common import connect_carla
 from carla_scenarios.scenario_base import ScenarioBase
+from carla_scenarios.map_registry import Registry
+from carla_scenarios.world_model_reload import WorldModelReload, call
 
 
 class ScenarioServerNode(LifecycleNode):
@@ -53,6 +63,24 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.default_scenario",
             ParameterDescriptor(description="Scenario module path to load on startup"),
         )
+        self.declare_parameter("scenario_registry", str(
+            Path(get_package_share_directory("carla_scenarios")) / "config/scenarios.yaml"))
+        self.declare_parameter("maps_root", "/opt/watonomous/maps")
+        self.declare_parameter("world_model_node", "/world_modeling/world_model")
+        self.registry = Registry(self.get_parameter("scenario_registry").value,
+                                 self.get_parameter("maps_root").value)
+        self.operation_lock = threading.Lock()
+        self.world_lock = threading.RLock()
+        self.state = "idle"
+        self.info = ""
+        self.generation = 0
+        self.bundle = None
+        self.specification = None
+        self.ego_spawn = None
+        self.odom_counter = 0
+        self.latest_odom = None
+        self.idle_counter = 0
+        self.controller_idle = False
         # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
         self.declare_parameter(
             "carla_fps",
@@ -119,6 +147,13 @@ class ScenarioServerNode(LifecycleNode):
         max_substep_delta = self.get_parameter("max_substep_delta_time").value
         max_substeps = self.get_parameter("max_substeps").value
 
+        if not math.isfinite(carla_fps) or carla_fps <= 0:
+            raise ValueError("carla_fps must be finite and positive")
+        if not math.isfinite(max_substep_delta) or max_substep_delta <= 0 or max_substeps < 1:
+            raise ValueError("physics substep size/count must be positive")
+        if sync_mode and substepping and 1.0 / carla_fps > max_substep_delta * max_substeps:
+            raise ValueError("fixed timestep exceeds max_substep_delta_time * max_substeps")
+
         # Sync mode: fixed timestep, server waits for tick()
         # Async mode: variable timestep
         if sync_mode:
@@ -172,15 +207,20 @@ class ScenarioServerNode(LifecycleNode):
             return TransitionCallbackReturn.FAILURE
 
         # Create ROS interfaces
-        self.status_publisher = self.create_lifecycle_publisher(
-            ScenarioStatus, "~/scenario_status", 10
-        )
+        retained = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                              reliability=ReliabilityPolicy.RELIABLE)
+        self.status_publisher = self.create_publisher(ScenarioStatus, "~/scenario_status", retained)
 
         # Clock publisher for simulation time (not lifecycle - always active)
         self.clock_publisher = self.create_publisher(Clock, "/clock", 10)
 
         # Separate callback group for services to prevent blocking by tick timer
         self.service_cb_group = rclpy.callback_groups.ReentrantCallbackGroup()
+        self.tick_cb_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
+        self.odom_subscription = self.create_subscription(
+            Odometry, "/ego/odom", self.odom_callback, 10, callback_group=self.service_cb_group)
+        self.idle_subscription = self.create_subscription(
+            Bool, "/action/is_idle", self.idle_callback, 10, callback_group=self.service_cb_group)
 
         self.switch_scenario_service = self.create_service(
             SwitchScenario,
@@ -205,12 +245,25 @@ class ScenarioServerNode(LifecycleNode):
 
         # Create client for lifecycle manager's prepare_for_scenario_switch service
         # Uses namespace-relative path - both nodes share the same namespace
-        self.client_cb_group = rclpy.callback_groups.MutuallyExclusiveCallbackGroup()
+        self.client_cb_group = rclpy.callback_groups.ReentrantCallbackGroup()
         self.prepare_switch_client = self.create_client(
             Trigger,
             "prepare_for_scenario_switch",
             callback_group=self.client_cb_group,
         )
+
+        self.finish_switch_client = self.create_client(
+            Trigger, "finish_scenario_switch", callback_group=self.client_cb_group)
+        self.stop_injection_client = self.create_client(
+            Trigger, "/carla/carla_fake_planner/stop", callback_group=self.client_cb_group)
+        self.reset_service = self.create_service(
+            Trigger, "~/reset_ego", self.reset_callback, callback_group=self.service_cb_group)
+        self.world_model = WorldModelReload(self, self.get_parameter("world_model_node").value,
+                                           self.client_cb_group)
+        self.status_timer = self.create_timer(0.5, self.publish_status,
+                                              callback_group=self.service_cb_group)
+        self.reconcile_timer = self.create_timer(2.0, self.reconcile_world_model,
+                                                 callback_group=self.service_cb_group)
 
         # Discover available scenarios
         self._discover_scenarios()
@@ -226,168 +279,332 @@ class ScenarioServerNode(LifecycleNode):
         sync_mode = self.get_parameter("synchronous_mode").value
         carla_fps = self.get_parameter("carla_fps").value
         timer_period = (1.0 / carla_fps) if sync_mode else 0.001
-        self.tick_timer = self.create_timer(timer_period, self._tick_callback)
+        self.tick_timer = self.create_timer(timer_period, self._tick_callback,
+                                             callback_group=self.tick_cb_group)
 
         # Load initial scenario
         initial_scenario = self.get_parameter("initial_scenario").value
         if initial_scenario:
-            success = self._load_scenario(initial_scenario)
+            success = self.switch(initial_scenario, initial=True)
             if not success:
                 self.get_logger().error(
                     f"Failed to load initial scenario: {initial_scenario}"
                 )
+                self.destroy_timer(self.tick_timer)
+                self.tick_timer = None
                 return TransitionCallbackReturn.FAILURE
 
         self.get_logger().info("Activation complete")
         return super().on_activate(state)
 
     def on_deactivate(self, state: LifecycleState) -> TransitionCallbackReturn:
-        """Deactivate lifecycle callback."""
-        self.get_logger().info("Deactivating...")
-
-        # Stop tick timer
-        if self.tick_timer:
-            self.tick_timer.cancel()
-            self.tick_timer = None
-
-        # Unload current scenario
-        self._unload_scenario()
-
-        self.get_logger().info("Deactivation complete")
-        return super().on_deactivate(state)
+        if not self.operation_lock.acquire(blocking=False):
+            return TransitionCallbackReturn.FAILURE
+        try:
+            self._stop_injection()
+            self.state, self.paused = "idle", True
+            self.publish_status()
+            result = call(self.prepare_switch_client, Trigger.Request(), timeout=90.0)
+            if not result.success:
+                raise RuntimeError(result.message)
+            if self.tick_timer:
+                self.destroy_timer(self.tick_timer)
+                self.tick_timer = None
+            with self.world_lock:
+                self._stop_vehicle()
+                self._unload_scenario()
+            return super().on_deactivate(state)
+        except Exception as error:
+            self.get_logger().error(str(error))
+            return TransitionCallbackReturn.FAILURE
+        finally:
+            self.operation_lock.release()
 
     def on_cleanup(self, state: LifecycleState) -> TransitionCallbackReturn:
-        """Cleanup lifecycle callback."""
-        self.get_logger().info("Cleaning up...")
-
-        # Destroy ROS interfaces
-        if self.switch_scenario_service:
-            self.destroy_service(self.switch_scenario_service)
-            self.switch_scenario_service = None
-
-        if self.get_scenarios_service:
-            self.destroy_service(self.get_scenarios_service)
-            self.get_scenarios_service = None
-
-        if self.status_publisher:
-            self.destroy_publisher(self.status_publisher)
-            self.status_publisher = None
-
-        if self.clock_publisher:
-            self.destroy_publisher(self.clock_publisher)
-            self.clock_publisher = None
-
-        if self.prepare_switch_client:
-            self.destroy_client(self.prepare_switch_client)
-            self.prepare_switch_client = None
-
-        # Disconnect from CARLA
-        self.carla_client = None
-
-        self.get_logger().info("Cleanup complete")
+        # Lifecycle reconfiguration must not leave duplicate callbacks/services.
+        self.state, self.paused = "idle", True
+        for name in ("tick_timer", "status_timer", "reconcile_timer"):
+            value = getattr(self, name, None)
+            if value:
+                self.destroy_timer(value)
+                setattr(self, name, None)
+        for kind, names in (
+            ("service", ("switch_scenario_service", "get_scenarios_service", "pause_service", "reset_service")),
+            ("subscription", ("odom_subscription", "idle_subscription")),
+            ("publisher", ("status_publisher", "clock_publisher")),
+            ("client", ("prepare_switch_client", "finish_switch_client", "stop_injection_client")),
+        ):
+            for name in names:
+                value = getattr(self, name, None)
+                if value:
+                    getattr(self, "destroy_" + kind)(value)
+                    setattr(self, name, None)
+        if getattr(self, "world_model", None):
+            for client in self.world_model.clients:
+                self.destroy_client(client)
+            self.world_model = None
+        with self.world_lock:
+            self._unload_scenario()
+            self.carla_client, self.carla_world = None, None
+        self.bundle, self.specification, self.ego_spawn = None, None, None
+        self.latest_odom = None
         return TransitionCallbackReturn.SUCCESS
 
     def on_shutdown(self, state: LifecycleState) -> TransitionCallbackReturn:
-        """Shutdown lifecycle callback."""
-        self.get_logger().info("Shutting down...")
-        return TransitionCallbackReturn.SUCCESS
+        self.state, self.paused = "idle", True
+        with self.world_lock:
+            self._stop_vehicle()
+        return self.on_cleanup(state)
 
     def _tick_callback(self):
-        """Timer callback for world synchronization and status publishing."""
-        if self.paused:
+        # Loading mutates world/actor references under the same lock. During
+        # starting, ticks are permitted so bridge configure can wait_for_tick.
+        if self.paused or self.state not in ("starting", "running"):
             return
-
-        if self.carla_world:
+        with self.world_lock:
+            if self.carla_world is None:
+                return
             try:
                 if self.get_parameter("synchronous_mode").value:
                     self.carla_world.tick()
                 else:
                     self.carla_world.wait_for_tick()
+                snapshot = self.carla_world.get_snapshot()
+                sim_time = snapshot.timestamp.elapsed_seconds
+                clock_msg = Clock()
+                clock_msg.clock.sec = int(sim_time)
+                clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
+                self.clock_publisher.publish(clock_msg)
+                if self.current_scenario:
+                    self.current_scenario.execute()
+            except Exception as error:
+                self.get_logger().error(f"Simulation tick failed: {error}")
 
-                # Publish simulation clock from CARLA timestamp
-                if self.clock_publisher:
-                    snapshot = self.carla_world.get_snapshot()
-                    sim_time = snapshot.timestamp.elapsed_seconds
-                    clock_msg = Clock()
-                    clock_msg.clock.sec = int(sim_time)
-                    clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
-                    self.clock_publisher.publish(clock_msg)
-            except Exception as e:
-                self.get_logger().warn(f"Error waiting for tick: {e}")
+    def publish_status(self):
+        if self.status_publisher is None:
+            return
+        message = ScenarioStatus()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.scenario_name = self.current_scenario_name
+        message.description = self.current_scenario.get_description() if self.current_scenario else ""
+        message.state = "paused" if self.paused and self.state == "running" else self.state
+        message.info = self.info
+        message.generation = self.generation
+        if self.bundle:
+            message.map_id = self.bundle.id
+            message.osm_map_path = str(self.bundle.osm_path)
+            message.projector_type = self.bundle.lanelet.get("projector", "local_cartesian")
+            message.origin_lat = float(self.bundle.origin["lat"])
+            message.origin_lon = float(self.bundle.origin["lon"])
+            message.trajectories_enabled = bool(self.specification.get("trajectories_enabled", False))
+        self.status_publisher.publish(message)
 
-        # Execute scenario logic
-        if self.current_scenario:
-            try:
-                self.current_scenario.execute()
-            except Exception as e:
-                self.get_logger().error(f"Error executing scenario: {e}")
+    def _stop_vehicle(self):
+        if self.carla_world:
+            actors = self.carla_world.get_actors().filter("vehicle.*")
+            for ego in actors:
+                if ego.attributes.get("role_name") == "ego_vehicle":
+                    ego.set_autopilot(False)
+                    ego.apply_control(carla.VehicleControl(brake=1.0))
+                    return ego
+        return None
 
-        # Publish status
-        if self.status_publisher and self.status_publisher.is_activated:
-            status_msg = ScenarioStatus()
-            status_msg.header = Header()
-            status_msg.header.stamp = self.get_clock().now().to_msg()
-            status_msg.scenario_name = self.current_scenario_name
-            status_msg.description = (
-                self.current_scenario.get_description() if self.current_scenario else ""
-            )
-            status_msg.state = "running" if self.current_scenario else "idle"
-            status_msg.info = ""
-            self.status_publisher.publish(status_msg)
+    def idle_callback(self, message):
+        self.controller_idle = message.data
+        self.idle_counter += 1
+
+    def _stop_injection(self):
+        after = self.idle_counter
+        result = call(self.stop_injection_client, Trigger.Request())
+        if not result.success:
+            raise RuntimeError(result.message)
+        if self.count_publishers("/action/is_idle"):
+            deadline = time.monotonic() + 3.0
+            while time.monotonic() < deadline:
+                if self.idle_counter > after and self.controller_idle:
+                    return
+                time.sleep(0.02)
+            raise RuntimeError("action controller did not acknowledge cleared trajectory on /action/is_idle")
+
+    def odom_callback(self, message):
+        self.latest_odom = message
+        self.odom_counter += 1
+
+    def wait_localization(self, pose, after):
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            if self.odom_counter > after and self.latest_odom is not None:
+                position = self.latest_odom.pose.pose.position
+                if math.hypot(position.x - pose[0], position.y - pose[1]) < 0.2:
+                    return
+            time.sleep(0.02)
+        raise RuntimeError("fresh ego localization was not published after load/reset")
 
     def pause_callback(self, request, response):
-        """Handle pause service request. data=True pauses, data=False resumes."""
-        self.paused = request.data
-        state = "paused" if self.paused else "resumed"
-        self.get_logger().info(f"Simulation {state}")
-        response.success = True
-        response.message = state
+        if not self.operation_lock.acquire(blocking=False):
+            response.success, response.message = False, "Scenario operation in progress"
+            return response
+        try:
+            if self.state != "running":
+                raise ValueError("simulation is not ready")
+            self.paused = request.data
+            if self.paused:
+                with self.world_lock:
+                    self._stop_vehicle()
+            self.publish_status()
+            response.success, response.message = True, "paused" if self.paused else "resumed"
+        except Exception as error:
+            response.success, response.message = False, str(error)
+        finally:
+            self.operation_lock.release()
         return response
+
+    def switch(self, name, initial=False):
+        if not self.operation_lock.acquire(blocking=False):
+            self.info = "Scenario operation in progress"
+            return False
+        destructive = False
+        try:
+            # All file, converter and plugin errors are checked before teardown.
+            scenario_id, specification, bundle = self.registry.scenario(name)
+            bundle.prepare()
+            built_in = bundle.data["carla"].get("built_in_map")
+            if built_in and not any(path.rsplit("/", 1)[-1] == built_in
+                                    for path in self.carla_client.get_available_maps()):
+                raise ValueError(f"CARLA does not have built-in map {built_in}")
+            module = importlib.import_module(specification["module"])
+            class_name = "".join(word.capitalize() for word in specification["module"].rsplit(".", 1)[1].split("_"))
+            scenario = getattr(module, class_name)()
+            scenario.map_bundle = bundle
+            scenario.logger = self.get_logger()
+            self._stop_injection()
+            destructive = True
+            self.state, self.info = "loading", "Stopping bridge and map consumers"
+            self.publish_status()
+            self.paused = True
+            with self.world_lock:
+                self._stop_vehicle()
+            if not initial or self.generation > 0:
+                result = call(self.prepare_switch_client, Trigger.Request(), timeout=90.0)
+                if not result.success:
+                    raise RuntimeError(result.message)
+            self.world_model.prepare()
+            old_odom_counter = self.odom_counter
+            with self.world_lock:
+                self._unload_scenario()
+                if not scenario.initialize(self.carla_client) or not scenario.setup():
+                    raise RuntimeError(f"scenario setup failed: {scenario_id}")
+                self.carla_world = self.carla_client.get_world()
+                self._apply_simulation_settings()
+                ego = self._stop_vehicle()
+                if ego is None:
+                    raise RuntimeError("scenario did not spawn an ego_vehicle")
+                self.ego_spawn = ego.get_transform()
+                self.current_scenario = scenario
+                self.current_scenario_name = scenario_id
+                self.bundle, self.specification = bundle, specification
+                self.generation += 1
+                self.state, self.info = "starting", "Rebinding bridge and loading Lanelet2"
+                self.paused = False
+            self.publish_status()
+            result = call(self.finish_switch_client, Trigger.Request(), timeout=90.0)
+            if not result.success:
+                raise RuntimeError(result.message)
+            transform = self.ego_spawn
+            pose = (transform.location.x, -transform.location.y, -math.radians(transform.rotation.yaw))
+            self.wait_localization(pose, old_odom_counter)
+            self.world_model.apply(bundle, pose, self.generation)
+            self.state, self.info = "running", ""
+            self.publish_status()
+            return True
+        except Exception as error:
+            self.info = str(error)
+            self.get_logger().error(self.info)
+            if destructive:
+                self.paused = True
+                self.state = "error"
+                try:
+                    with self.world_lock:
+                        self.carla_world = self.carla_client.get_world()
+                        self._stop_vehicle()
+                except Exception:
+                    pass
+            self.publish_status()
+            return False
+        finally:
+            self.operation_lock.release()
 
     def switch_scenario_callback(self, request, response):
-        """Handle switch scenario service request."""
-        self.get_logger().info(
-            f"Received switch_scenario request: {request.scenario_name}"
-        )
-
         previous = self.current_scenario_name
-
-        # Request lifecycle manager to cleanup managed nodes first
-        if self.prepare_switch_client and self.current_scenario:
-            if self.prepare_switch_client.service_is_ready():
-                self.get_logger().info(
-                    "Requesting lifecycle manager to cleanup nodes..."
-                )
-                try:
-                    result = self.prepare_switch_client.call(Trigger.Request())
-                    if result.success:
-                        self.get_logger().info("Lifecycle manager cleanup complete")
-                    else:
-                        self.get_logger().warn(
-                            f"Lifecycle manager cleanup failed: {result.message}"
-                        )
-                except Exception as e:
-                    self.get_logger().warn(f"Error calling lifecycle manager: {e}")
-            else:
-                self.get_logger().warn(
-                    "Lifecycle manager service not ready, proceeding anyway"
-                )
-        else:
-            self.get_logger().info("No current scenario, skipping lifecycle cleanup")
-
-        self.get_logger().info("Proceeding with scenario load...")
-
-        success = self._load_scenario(request.scenario_name)
-
-        response.success = success
+        response.success = self.switch(request.scenario_name)
         response.previous_scenario = previous
-        response.message = (
-            f"Switched to {request.scenario_name}"
-            if success
-            else "Failed to switch scenario"
-        )
-
+        response.message = f"Switched to {self.current_scenario_name}" if response.success else self.info
         return response
+
+    def reset_callback(self, request, response):
+        if not self.operation_lock.acquire(blocking=False):
+            response.success, response.message = False, "Scenario operation in progress"
+            return response
+        try:
+            if self.state != "running" or self.ego_spawn is None:
+                raise ValueError("load a scenario first")
+            self._stop_injection()
+            was_paused = self.paused
+            old_odom_counter = self.odom_counter
+            self.state = "starting"
+            self.publish_status()
+            self.paused = True
+            with self.world_lock:
+                ego = self._stop_vehicle()
+                if ego is None:
+                    raise ValueError("ego vehicle unavailable")
+                ego.set_target_velocity(carla.Vector3D())
+                ego.set_target_angular_velocity(carla.Vector3D())
+                ego.set_transform(self.ego_spawn)
+            self.paused = False
+            transform = self.ego_spawn
+            pose = (transform.location.x, -transform.location.y, -math.radians(transform.rotation.yaw))
+            self.wait_localization(pose, old_odom_counter)
+            self.state = "running"
+            self.paused = was_paused
+            self.publish_status()
+            response.success, response.message = True, "Ego reset; select a trajectory from the new pose"
+        except Exception as error:
+            response.success, response.message = False, str(error)
+            self.state, self.paused, self.info = "error", True, str(error)
+            self.publish_status()
+        finally:
+            self.operation_lock.release()
+        return response
+
+    def reconcile_world_model(self):
+        # A world_model container may be started after the environment is ready.
+        if self.state != "running" or self.paused or self.bundle is None:
+            return
+        if not self.operation_lock.acquire(blocking=False):
+            return
+        try:
+            if not self.world_model.needs_reload(self.bundle, self.generation):
+                return
+            self.world_model.prepare()
+            if self.world_model.present:
+                from carla_common import find_ego_vehicle
+                ego = find_ego_vehicle(self.carla_world, "ego_vehicle")
+                transform = ego.get_transform()
+                pose = (transform.location.x, -transform.location.y, -math.radians(transform.rotation.yaw))
+                self.world_model.apply(self.bundle, pose, self.generation)
+        except Exception as error:
+            self.info = f"world_model reload failed: {error}"
+            self.state, self.paused = "error", True
+            with self.world_lock:
+                self._stop_vehicle()
+            self.publish_status()
+            try:
+                self._stop_injection()
+            except Exception as stop_error:
+                self.get_logger().error(f"Could not clear controller input: {stop_error}")
+        finally:
+            self.operation_lock.release()
 
     def get_scenarios_callback(self, request, response):
         """Handle get available scenarios service request."""
@@ -397,16 +614,8 @@ class ScenarioServerNode(LifecycleNode):
 
     def _discover_scenarios(self):
         """Discover available scenarios."""
-        builtin_scenarios = {
-            "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
-            "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
-            "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
-            "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
-            "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
-        }
-        self.available_scenarios.update(builtin_scenarios)
-
-        self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
+        self.available_scenarios = {key: value.get("description", key)
+                                    for key, value in self.registry.scenarios.items()}
 
     def _unload_scenario(self):
         """Unload current scenario and clean up CARLA world."""
@@ -441,65 +650,10 @@ class ScenarioServerNode(LifecycleNode):
 
             if count > 0:
                 self.get_logger().info(f"Cleaned up {count} actors from world")
-                world.tick()
+                if self.get_parameter("synchronous_mode").value:
+                    world.tick()
         except Exception as e:
             self.get_logger().warn(f"Error cleaning up world: {e}")
-
-    def _load_scenario(self, scenario_module_path: str) -> bool:
-        """Load and initialize a scenario."""
-        # Unload any existing scenario first
-        self._unload_scenario()
-
-        try:
-            # Import scenario module
-            # scenario_module_path: e.g. 'carla_scenarios.scenarios.default_scenario'
-            # class_name derived from last part: 'default_scenario' -> 'DefaultScenario'
-            parts = scenario_module_path.rsplit(".", 1)
-            if len(parts) != 2:
-                self.get_logger().error(
-                    f"Invalid scenario path: {scenario_module_path}"
-                )
-                return False
-
-            class_name = parts[1]
-            # Convert module name to class name (e.g., default_scenario -> DefaultScenario)
-            if not class_name[0].isupper():
-                class_name = "".join(
-                    word.capitalize() for word in class_name.split("_")
-                )
-
-            module = importlib.import_module(scenario_module_path)
-            scenario_class = getattr(module, class_name)
-
-            # Instantiate and initialize scenario
-            scenario = scenario_class()
-            scenario.logger = self.get_logger()
-            if not scenario.initialize(self.carla_client):
-                self.get_logger().error(
-                    f"Failed to initialize scenario: {scenario_module_path}"
-                )
-                return False
-
-            if not scenario.setup():
-                self.get_logger().error(
-                    f"Failed to setup scenario: {scenario_module_path}"
-                )
-                return False
-
-            # Refresh world reference and reapply settings (load_world resets to defaults)
-            self.carla_world = self.carla_client.get_world()
-            self._apply_simulation_settings()
-
-            self.current_scenario = scenario
-            self.current_scenario_name = scenario_module_path
-            self.get_logger().info(f"Loaded scenario: {scenario.get_name()}")
-            return True
-
-        except Exception as e:
-            self.get_logger().error(
-                f"Error loading scenario {scenario_module_path}: {e}"
-            )
-            return False
 
 
 def main(args=None):
@@ -507,7 +661,7 @@ def main(args=None):
     node = ScenarioServerNode()
 
     # Use MultiThreadedExecutor to allow service calls from within callbacks
-    executor = rclpy.executors.MultiThreadedExecutor(num_threads=5)
+    executor = rclpy.executors.MultiThreadedExecutor(num_threads=8)
     executor.add_node(node)
 
     try:

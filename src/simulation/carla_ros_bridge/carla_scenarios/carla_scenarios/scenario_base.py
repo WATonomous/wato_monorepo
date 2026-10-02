@@ -30,6 +30,7 @@ class ScenarioBase(ABC):
         self.client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None
         self.logger = None  # Set by scenario server
+        self.map_bundle = None  # Populated by the scenario registry, including legacy scenarios.
 
     def _log(self, msg: str, level: str = "info") -> None:
         """Log using ROS logger if available, otherwise print."""
@@ -76,6 +77,17 @@ class ScenarioBase(ABC):
             True if map is ready
         """
         import time
+
+        if self.map_bundle is not None:
+            bundle = self.map_bundle
+            if bundle.xodr_path is not None:
+                self.world = self.client.generate_opendrive_world(
+                    bundle.xodr_path.read_text(encoding="utf-8"),
+                    carla.OpendriveGenerationParameters(
+                        vertex_distance=1.0, wall_height=0.0,
+                        additional_width=0.0, smooth_junctions=False))
+                return True
+            map_name = bundle.data["carla"]["built_in_map"]
 
         current_map = self.world.get_map().name
         if map_name not in current_map:

@@ -1,0 +1,42 @@
+# Optional Lanelet2 consumer for controller experiments. CARLA publishes TF.
+# Launch after the simulation is running; the scenario server selects its map.
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+  - node:
+      pkg: world_model
+      exec: world_model_node
+      name: world_model
+      namespace: world_modeling
+      output: screen
+      param:
+        - from: $(var config_file)
+        - {name: use_sim_time, value: true}
+      remap:
+        - {from: lane_context, to: lanelet/lane_context}
+        - {from: map_visualization, to: lanelet/map_visualization}
+        - {from: route_ahead, to: lanelet/route_ahead}
+        - {from: lanelet_ahead, to: lanelet/lanelet_ahead}
+  - node:
+      pkg: lanelet_markers
+      exec: map_viz_markers_node
+      name: map_viz_markers_node
+      namespace: world_modeling
+      param:
+        - from: $(var config_file)
+        - {name: use_sim_time, value: true}
+      remap:
+        - {from: lane_context, to: lanelet/lane_context}
+        - {from: map_visualization, to: lanelet/map_visualization}
+        - {from: markers, to: lanelet/map_viz_markers}
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: world_modeling_lifecycle_manager
+      namespace: world_modeling
+      param:
+        - {name: node_names, value: [/world_modeling/world_model]}
+        - {name: autostart, value: true}
+        - {name: bond_enabled, value: false}
+        - {name: transition_timeout_s, value: 10.0}

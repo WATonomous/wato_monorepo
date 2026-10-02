@@ -136,4 +136,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/simulation:/ws/src/simulation
+      - ${MONO_DIR}/src/action/wato_trajectory_msgs:/ws/src/wato_trajectory_msgs
+      - ${MONO_DIR}/src/world_modeling/behaviour_msgs:/ws/src/behaviour_msgs
+      - ${MONO_DIR}/src/world_modeling/lanelet_msgs:/ws/src/lanelet_msgs
       - ${MONO_DIR}/bags:/ws/bags

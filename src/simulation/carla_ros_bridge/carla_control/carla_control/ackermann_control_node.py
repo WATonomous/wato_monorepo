@@ -19,6 +19,8 @@ from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackRet
 from rclpy.time import Time
 from rcl_interfaces.msg import ParameterDescriptor
 from ackermann_msgs.msg import AckermannDriveStamped
+from carla_msgs.msg import ScenarioStatus
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 
 from carla_common import connect_carla, find_ego_vehicle
 
@@ -74,6 +76,12 @@ class AckermannControlNode(LifecycleNode):
         # ROS interfaces
         self.command_subscription = None
         self.control_timer = None
+        self.control_enabled = False
+        self.ready_time_ns = 0
+        self.create_subscription(
+            ScenarioStatus, "/carla/scenario_server/scenario_status", self.scenario_callback,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                       reliability=ReliabilityPolicy.RELIABLE))
 
         self.get_logger().info(f"{node_name} initialized")
 
@@ -161,6 +169,8 @@ class AckermannControlNode(LifecycleNode):
 
         self.ego_vehicle = None
         self.carla_client = None
+        self.last_command = None
+        self.last_command_time = None
 
         self.get_logger().info("Cleanup complete")
         return TransitionCallbackReturn.SUCCESS
@@ -172,12 +182,31 @@ class AckermannControlNode(LifecycleNode):
 
     def command_callback(self, msg: AckermannDriveStamped):
         """Handle incoming Ackermann drive commands."""
+        if not self.control_enabled:
+            return
+        stamp = msg.header.stamp.sec * 1000000000 + msg.header.stamp.nanosec
+        now = self.get_clock().now().nanoseconds
+        if stamp < self.ready_time_ns or stamp > now + 100000000:
+            return  # Discard commands queued before readiness or from the old clock epoch.
         self.last_command_time = self.get_clock().now()
         self.last_command = msg.drive
+
+    def scenario_callback(self, message):
+        if message.state == "running" and not self.control_enabled:
+            self.ready_time_ns = self.get_clock().now().nanoseconds
+        self.control_enabled = message.state == "running"
+        if not self.control_enabled:
+            self.last_command = None
+            self.last_command_time = None
+            if self.ego_vehicle is not None:
+                self._apply_stop_control()
 
     def control_timer_callback(self):
         """Apply control to vehicle."""
         if not self.ego_vehicle:
+            return
+        if not self.control_enabled:
+            self._apply_stop_control()
             return
 
         timeout = self.get_parameter("command_timeout").value
@@ -188,17 +217,18 @@ class AckermannControlNode(LifecycleNode):
         time_since_command = (
             self.get_clock().now() - self.last_command_time
         ).nanoseconds / 1e9
-        if time_since_command > timeout:
+        if time_since_command < 0 or time_since_command > timeout:
             self._apply_stop_control()
             return
 
         try:
             cmd = self.last_command
 
-            # Use CARLA's Ackermann control - direct mapping
+            # ROS steering is left-positive; CARLA steering is right-positive.
             ackermann = carla.VehicleAckermannControl()
-            ackermann.steer = cmd.steering_angle
-            ackermann.steer_speed = cmd.steering_angle_velocity
+            ackermann.steer = -cmd.steering_angle
+            # AckermannDrive defines steering_angle_velocity as an absolute rate.
+            ackermann.steer_speed = abs(cmd.steering_angle_velocity)
             ackermann.speed = cmd.speed
             ackermann.acceleration = cmd.acceleration
             ackermann.jerk = cmd.jerk

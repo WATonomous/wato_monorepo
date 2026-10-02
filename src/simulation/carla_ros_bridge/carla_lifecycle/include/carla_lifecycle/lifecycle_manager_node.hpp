@@ -53,11 +53,14 @@ private:
   void prepareForSwitchCallback(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+  void finishSwitchCallback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
   bool bringUpNode(const std::string & node_name);
-  void bringUpAllNodes();
-  void cleanupAllNodes();
-  void executeTransitionSteps(const std::vector<TransitionStep> & steps);
+  bool bringUpAllNodes();
+  bool cleanupAllNodes();
+  bool executeTransitionSteps(const std::vector<TransitionStep> & steps);
 
   bool changeState(const std::string & node_name, uint8_t transition_id);
   int getNodeState(const std::string & node_name);
@@ -68,6 +71,7 @@ private:
   bool autostart_;
   std::string scenario_server_name_;
   std::vector<std::string> node_names_;
+  std::vector<std::string> optional_node_names_;
   double service_timeout_;
   double startup_retry_interval_;
 
@@ -84,6 +88,8 @@ private:
   rclcpp::TimerBase::SharedPtr startup_timer_;
   rclcpp::CallbackGroup::SharedPtr service_cb_group_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr prepare_switch_service_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr finish_switch_service_;
+  rclcpp::CallbackGroup::SharedPtr coordination_cb_group_;
 };
 
 }  // namespace carla_lifecycle

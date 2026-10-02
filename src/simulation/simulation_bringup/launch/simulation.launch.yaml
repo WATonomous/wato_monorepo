@@ -13,6 +13,13 @@ launch:
       default: "5000"
       description: "Port for the pygame HUD web server"
 
+  - arg:
+      name: scenario_registry
+      default: $(find-pkg-share carla_scenarios)/config/scenarios.yaml
+  - arg:
+      name: maps_root
+      default: /opt/watonomous/maps
+
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
@@ -29,3 +36,7 @@ launch:
           value: $(var pygame_hud_enabled)
         - name: pygame_web_port
           value: $(var pygame_web_port)
+        - name: scenario_registry
+          value: $(var scenario_registry)
+        - name: maps_root
+          value: $(var maps_root)

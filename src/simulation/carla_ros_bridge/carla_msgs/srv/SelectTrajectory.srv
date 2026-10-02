@@ -1,0 +1,7 @@
+# Select and immediately publish a preset from the current ego pose.
+string trajectory_id
+# Optional YAML mapping of preset parameters. Empty means use catalog defaults.
+string parameters_yaml
+---
+bool success
+string message

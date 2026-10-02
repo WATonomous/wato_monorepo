@@ -23,7 +23,9 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<carla_lifecycle::LifecycleManagerNode>();
-  rclcpp::executors::MultiThreadedExecutor executor;
+  // Startup -> scenario activation -> bridge bringup is nested; leave threads
+  // available for lifecycle client responses even on two-CPU machines.
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
   executor.add_node(node);
   executor.spin();
 

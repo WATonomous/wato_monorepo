@@ -191,3 +191,31 @@
     solver_eps_abs: 0.001     # [1e-4 - 1e-2] — absolute convergence tolerance. Lower = more precise, slower.
     solver_eps_rel: 0.001     # [1e-4 - 1e-2] — relative convergence tolerance.
     warm_start: true          # reuse previous solution as initial guess — always keep true.
+
+# Adaptive pure pursuit for CARLA. Ackermann bridge owns ROS -> CARLA steering
+# conversion, so this controller publishes standard left-positive ROS steering.
+/**/pure_pursuit_node:
+  ros__parameters:
+    trajectory_topic: trajectory
+    bt_topic: execute_behaviour
+    ackermann_topic: ackermann
+    idle_topic: is_idle
+    odom_topic: odom
+    base_frame: base_footprint
+    rear_axle_frame: rear_axle
+    front_axle_frame: front_axle
+    lookahead_distance: 15.0
+    min_lookahead_distance: 2.5
+    lookahead_gain: 1.0
+    steering_angle_gain: 1.0
+    max_speed: 14.0  # Allows 50 km/h profiles (13.889 m/s).
+    min_speed: 0.0
+    standby_speed: 0.0
+    standby_steering: 0.0
+    control_rate_hz: 20.0
+    wheelbase_fallback: 2.5667
+    max_steering_angle: 0.5
+    idle_timeout_sec: 2.0
+    invert_steering: false
+    disable_standby: false
+    speed_lookahead_distance: 0.1

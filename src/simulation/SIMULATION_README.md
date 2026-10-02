@@ -2,6 +2,9 @@
 
 The simulation module provides a CARLA-based simulation environment integrated with the WATonomous monorepo. It enables testing of autonomous driving algorithms in a realistic virtual environment with sensors, traffic, and various weather/lighting conditions.
 
+For the current trajectory-injection and map-switching milestone, see
+[Controller SIL setup and scope](CONTROLLER_SIL.md).
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)
@@ -95,28 +98,16 @@ Built-in scenarios:
 - `default_scenario` - Ego + 20 vehicles + 40 pedestrians
 - `heavy_traffic_scenario` - Ego + 50 vehicles + 100 pedestrians
 
-#### Enable Autonomy Mode
+#### Controller Trajectory Tests
 
-Toggle CARLA's built-in autopilot to let the ego vehicle drive itself:
+The default bridge uses the Ackermann actuator as its sole ego control writer.
+Launch action with `action_sim.launch.yaml enable_planning:=false` for fake
+planner experiments. Follow the [controller SIL guide](CONTROLLER_SIL.md) to
+prepare the oval, select trajectories, reset, and switch maps.
 
-```bash
-# Enable autopilot
-ros2 service call /carla/carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: true}"
-
-# Disable autopilot (return to manual/teleop control)
-ros2 service call /carla/carla_teleop/set_autonomy std_srvs/srv/SetBool "{data: false}"
-```
-
-#### Manual Control
-
-When autonomy is disabled, control the vehicle via the `/carla/cmd_vel` topic:
-
-```bash
-# Using teleop_twist_keyboard
-ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/carla/cmd_vel
-```
-
-Or use the Foxglove teleop panel connected to `/carla/cmd_vel`.
+CARLA autopilot does not test the WATO motion controller. Teleop/autopilot are
+not launched by the default bridge; using either requires an explicitly separate
+actuator setup.
 
 ### Integration with Other Modules
 
@@ -167,7 +158,7 @@ When `CARLA_RENDER_MODE=no_gpu` (the default), a web-based bird's-eye view is au
      │  - Rendering    │            │  - lifecycle_mgr    │
      │  - Traffic AI   │            │  - localization     │
      └─────────────────┘            │  - perception       │
-                                    │  - control/teleop   │
+                                    │  - Ackermann control   │
                                     └─────────────────────┘
                                               │
                                               ▼
@@ -177,7 +168,7 @@ When `CARLA_RENDER_MODE=no_gpu` (the default), a web-based bird's-eye view is au
                                     │  /tf                │
                                     │  /carla/*/points    │
                                     │  /carla/detections  │
-                                    │  /carla/cmd_vel     │
+                                    │  /carla/ackermann*  │
                                     └─────────────────────┘
 ```
 

@@ -43,7 +43,7 @@ bool LaneletHandler::loadMap(
   try {
     if (projector_type == "local_cartesian") {
       // Use LocalCartesianProjector for CARLA-style maps with local coordinates
-      lanelet::Origin origin({0.0, 0.0});
+      lanelet::Origin origin({origin_lat, origin_lon});
       projector_ = std::make_unique<lanelet::projection::LocalCartesianProjector>(origin);
       map_ = lanelet::load(osm_path, *projector_);
     } else {

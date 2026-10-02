@@ -26,6 +26,8 @@ set(msg_files
 set(srv_files
   "srv/SwitchScenario.srv"
   "srv/GetAvailableScenarios.srv"
+  "srv/GetAvailableTrajectories.srv"
+  "srv/SelectTrajectory.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

@@ -17,6 +17,13 @@ launch:
       default: "5000"
       description: "Port for the pygame HUD web server"
 
+  - arg:
+      name: scenario_registry
+      default: $(find-pkg-share carla_scenarios)/config/scenarios.yaml
+  - arg:
+      name: maps_root
+      default: /opt/watonomous/maps
+
   # Scenario Server Node
   # Note: scenario_server uses wall time since it's the /clock source
   - node:
@@ -31,6 +38,10 @@ launch:
         - from: $(var config_file)
         - name: carla_port
           value: $(var carla_port)
+        - name: scenario_registry
+          value: $(var scenario_registry)
+        - name: maps_root
+          value: $(var maps_root)
 
   # Lifecycle Manager - waits for scenario_server to connect to CARLA, then brings up all nodes
   # Note: lifecycle_manager uses wall time since it orchestrates before /clock is available
@@ -48,13 +59,14 @@ launch:
         - name: node_names
           value:
             - /carla/carla_localization
-            - /carla/carla_teleop
             - /carla/ackermann_control
             - /carla/lidar_publisher
             - /carla/bbox_publisher
             - /carla/pygame_hud
+        - name: optional_node_names
+          value: [/carla/pygame_hud]
         - name: service_timeout
-          value: 10.0
+          value: 30.0
         - name: startup_retry_interval
           value: 5.0
 
@@ -72,20 +84,8 @@ launch:
         - name: carla_port
           value: $(var carla_port)
 
-  # Teleop Node
-  - node:
-      pkg: carla_teleop
-      exec: teleop
-      name: carla_teleop
-      namespace: carla
-      output: screen
-      param:
-        - name: use_sim_time
-          value: true
-        - from: $(var config_file)
-        - name: carla_port
-          value: $(var carla_port)
-
+  # Ackermann owns the ego commands. Teleop/autopilot must be launched
+  # separately after disabling Ackermann; two actuator writers race each other.
   # Ackermann Control Node
   - node:
       pkg: carla_control
@@ -160,3 +160,17 @@ launch:
           to: /carla/detections_3d
         - from: markers_out
           to: /carla/bbox_markers
+
+  # Available before action is started; owns only injected trajectory messages.
+  - node:
+      pkg: carla_fake_planner
+      exec: carla_fake_planner
+      name: carla_fake_planner
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(var config_file)
+        - name: carla_port
+          value: $(var carla_port)

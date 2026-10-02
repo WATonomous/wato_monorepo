@@ -42,6 +42,10 @@ Some nodes require larger files like model weights and maps. Furthermore, we mig
 
 `Simulation` Launches packages CARLA simulator. [see docs](src/simulation/CARLA_README.md)
 
+## Tools
+
+For standalone map conversion, see [OSM to OpenDRIVE](watod_scripts/tools/osm_to_xodr/README.md).
+
 ## System Architecture
 
 ![](.img/system_arch.png)

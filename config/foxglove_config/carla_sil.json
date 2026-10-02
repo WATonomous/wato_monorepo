@@ -1,0 +1,177 @@
+{
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "configById": {
+    "CallService!sil_scenario": {
+      "serviceName": "/carla/scenario_server/switch_scenario",
+      "requestPayload": "{\n  \"scenario_name\": \"fake_planner\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 180
+    },
+    "CallService!sil_follow": {
+      "serviceName": "/carla/carla_fake_planner/select",
+      "requestPayload": "{\n  \"trajectory_id\": \"follow_lane\",\n  \"parameters_yaml\": \"speed_kph: 20.0\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10
+    },
+    "CallService!sil_snake": {
+      "serviceName": "/carla/carla_fake_planner/select",
+      "requestPayload": "{\n  \"trajectory_id\": \"snake\",\n  \"parameters_yaml\": \"amplitude_m: 0.8\\nspeed_profile:\\n  - {distance_m: 0, speed_kph: 20}\\n  - {distance_m: 30, speed_kph: 15}\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10
+    },
+    "CallService!sil_brake": {
+      "serviceName": "/carla/carla_fake_planner/select",
+      "requestPayload": "{\n  \"trajectory_id\": \"hard_brake\",\n  \"parameters_yaml\": \"speed_kph: 30.0\\nbrake_start_m: 40.0\\nbrake_distance_m: 2.0\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10
+    },
+    "CallService!sil_stop": {
+      "serviceName": "/carla/carla_fake_planner/stop",
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 10
+    },
+    "CallService!sil_reset": {
+      "serviceName": "/carla/scenario_server/reset_ego",
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 15
+    },
+    "3D!sil_view": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 98.08401423513503,
+        "phi": 29.173790769491045,
+        "thetaOffset": -56.41459753083616,
+        "targetOffset": [
+          -8.47765315526343,
+          4.918154813294437,
+          -1.753351368110654
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "labelSize": 0.04
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/carla/carla_fake_planner/path": {
+          "visible": true
+        },
+        "/world_modeling/lanelet/map_viz_markers": {
+          "visible": true
+        },
+        "/carla/top_lidar/points": {
+          "visible": false
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "06c1c74f-ecd4-4a93-bb3c-91295451c7c2",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "b278370c-35a1-4d82-ab6a-028ce85869b1": {
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": true,
+          "opacity": 0.77,
+          "visible": true,
+          "frameLocked": true,
+          "instanceId": "b278370c-35a1-4d82-ab6a-028ce85869b1",
+          "label": "URDF",
+          "layerId": "foxglove.Urdf",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "/home/eddy/code/watonomous/wato_monorepo/src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro",
+          "parameter": "",
+          "topic": "/robot_description_viz",
+          "framePrefix": "",
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "base_footprint"
+    }
+  },
+  "layout": {
+    "first": {
+      "first": "CallService!sil_scenario",
+      "second": {
+        "first": "CallService!sil_follow",
+        "second": {
+          "first": "CallService!sil_snake",
+          "second": {
+            "first": "CallService!sil_brake",
+            "second": {
+              "first": "CallService!sil_stop",
+              "second": "CallService!sil_reset",
+              "direction": "column",
+              "splitPercentage": 50.0
+            },
+            "direction": "column",
+            "splitPercentage": 33.333333333333336
+          },
+          "direction": "column",
+          "splitPercentage": 25.0
+        },
+        "direction": "column",
+        "splitPercentage": 20.0
+      },
+      "direction": "column",
+      "splitPercentage": 16.666666666666668
+    },
+    "second": "3D!sil_view",
+    "direction": "row",
+    "splitPercentage": 35
+  }
+}

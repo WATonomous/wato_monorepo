@@ -14,6 +14,7 @@
 """Localization lifecycle node for CARLA - publishes TF from map -> odom -> base_footprint."""
 
 from typing import Any, Optional
+import math
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rcl_interfaces.msg import ParameterDescriptor
@@ -244,6 +245,9 @@ class LocalizationNode(LifecycleNode):
 
             # Convert CARLA axes to ROS axes:
             vx, vy, vz = carla_to_ros_position(carla_vel.x, carla_vel.y, carla_vel.z)
+            # Odometry twist is expressed in child_frame_id, not the world frame.
+            forward = math.cos(yaw) * vx + math.sin(yaw) * vy
+            lateral = -math.sin(yaw) * vx + math.cos(yaw) * vy
 
             odom = Odometry()
             odom.header.stamp = now
@@ -256,8 +260,8 @@ class LocalizationNode(LifecycleNode):
             odom.pose.pose.orientation.y = qy
             odom.pose.pose.orientation.z = qz
             odom.pose.pose.orientation.w = qw
-            odom.twist.twist.linear.x = float(vx)
-            odom.twist.twist.linear.y = float(vy)
+            odom.twist.twist.linear.x = float(forward)
+            odom.twist.twist.linear.y = float(lateral)
             odom.twist.twist.linear.z = float(vz)
 
             self.odom_pub.publish(odom)

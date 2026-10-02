@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>carla_fake_planner</name>
+  <version>0.1.0</version>
+  <description>Simulation-only, data-driven trajectory injection for controller testing</description>
+  <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <depend>rclpy</depend>
+  <depend>ament_index_python</depend>
+  <depend>carla_common</depend>
+  <depend>carla_msgs</depend>
+  <depend>wato_trajectory_msgs</depend>
+  <depend>behaviour_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-carla</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>
