@@ -34,7 +34,6 @@ namespace can_state_estimator
  * Reads steering angle (CAN 0x2B0) and wheel speed (CAN 0x4B0) frames directly
  * from SocketCAN. Publishes steering angle and body velocity for control feedback,
  * and per-wheel joint velocities (sensor_msgs/JointState) for wheel odometry
- * consumers such as eidos::WheelOdomFactor.
  */
 class CanStateEstimatorNode : public rclcpp_lifecycle::LifecycleNode
 {

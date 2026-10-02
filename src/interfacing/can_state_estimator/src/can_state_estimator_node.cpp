@@ -26,6 +26,8 @@
 #include <memory>
 #include <string>
 
+#include <rclcpp/rclcpp.hpp>
+
 static constexpr canid_t STEERING_ANGLE_CAN_ID = 0x2B0;
 static constexpr canid_t WHEEL_SPEED_CAN_ID = 0x4B0;
 static constexpr double STEERING_ANGLE_SCALAR = 0.1;
