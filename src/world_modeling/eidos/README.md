@@ -131,6 +131,7 @@ Each plugin is configured under its own YAML namespace. Full parameter documenta
 - [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration with warmup gating
 - [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure (SLAM only)
 - [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform
+- [WheelOdomFactor](docs/plugins/factors/wheel_odom_factor.md) -- Rear wheel speed + IMU yaw rate odometry, planar BetweenFactor
 
 **Relocalization Plugins:**
 - [GpsIcpRelocalization](docs/plugins/relocalization/gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
