@@ -23,6 +23,8 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include "eidos_transform/msg_covariance.hpp"
+
 namespace eidos_transform
 {
 
@@ -125,6 +127,8 @@ static void parseSources(
       // Odom-type params
       node->declare_parameter<std::vector<bool>>(src_name + ".pose_mask", {false, false, false, false, false, false});
       node->declare_parameter<std::vector<bool>>(src_name + ".twist_mask", {false, false, false, false, false, false});
+      node->declare_parameter<bool>(src_name + ".use_msg_covariance", false);
+      node->get_parameter(src_name + ".use_msg_covariance", src.use_msg_covariance);
 
       std::vector<bool> pm, tm;
       node->get_parameter(src_name + ".pose_mask", pm);
@@ -145,7 +149,12 @@ static void parseSources(
         });
 
       RCLCPP_INFO(
-        node->get_logger(), "%s source '%s' [odom] on '%s'", label.c_str(), src_name.c_str(), src.topic.c_str());
+        node->get_logger(),
+        "%s source '%s' [odom] on '%s'%s",
+        label.c_str(),
+        src_name.c_str(),
+        src.topic.c_str(),
+        src.use_msg_covariance ? " (msg covariance)" : "");
     }
 
     out.push_back(std::move(src));
@@ -377,6 +386,10 @@ void EidosTransformNode::tick()
         rec.twist_mask = src.twist_mask;
         rec.pose_noise = src.pose_noise;
         rec.twist_noise = src.twist_noise;
+        if (src.use_msg_covariance) {
+          rec.pose_noise = noiseFromMsgCovariance(src.latest_odom->pose.covariance, src.pose_noise);
+          rec.twist_noise = noiseFromMsgCovariance(src.latest_odom->twist.covariance, src.twist_noise);
+        }
       } else if (src.type == "imu" && src.latest_imu) {
         rec.time = rclcpp::Time(src.latest_imu->header.stamp).seconds();
       } else {
@@ -599,6 +612,12 @@ void EidosTransformNode::fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, Measu
   if (!src.latest_odom) return;
   gtsam::Pose3 meas_pose = odomMsgToPose3(*src.latest_odom);
   gtsam::Vector6 meas_twist = odomMsgToTwist(*src.latest_odom);
+  gtsam::Vector6 pose_noise = src.pose_noise;
+  gtsam::Vector6 twist_noise = src.twist_noise;
+  if (src.use_msg_covariance) {
+    pose_noise = noiseFromMsgCovariance(src.latest_odom->pose.covariance, src.pose_noise);
+    twist_noise = noiseFromMsgCovariance(src.latest_odom->twist.covariance, src.twist_noise);
+  }
 
   bool any_pose = false;
   for (int i = 0; i < 6; ++i) {
@@ -608,7 +627,7 @@ void EidosTransformNode::fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, Measu
     }
   }
   if (any_pose) {
-    ekf->updatePose(meas_pose, src.pose_mask, src.pose_noise);
+    ekf->updatePose(meas_pose, src.pose_mask, pose_noise);
   }
 
   bool any_twist = false;
@@ -619,7 +638,7 @@ void EidosTransformNode::fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, Measu
     }
   }
   if (any_twist) {
-    ekf->updateTwist(meas_twist, src.twist_mask, src.twist_noise);
+    ekf->updateTwist(meas_twist, src.twist_mask, twist_noise);
   }
 }
 

@@ -39,6 +39,7 @@
       - "gps_factor"
       - "liso_factor"
       - "imu_factor"
+      - "wheel_odom_factor"
 
     relocalization_plugins:
       - "gps_icp_relocalization"
@@ -98,6 +99,31 @@
       min_scan_distance: 5.0
       odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+
+    # Wheel Odom Factor (rear wheel speed + IMU yaw rate)
+    # Publishes wheel odometry for eidos_transform; graph factors off until validated
+    wheel_odom_factor:
+      plugin: "eidos::WheelOdomFactor"
+      add_factors: false                        # No graph factors — odom output only
+      joint_states_topic: "/interfacing/can_state_estimator/wheel_joint_states"
+      left_joint: "rear_left_joint"
+      right_joint: "rear_right_joint"
+      wheel_radius: 0.31235                     # Effective rolling radius (m), tune for tire scale error
+      axle_frame: "rear_axle"                   # Lever arm source (rear axle -> base_footprint)
+      imu_topic: "/novatel/oem7/imu/data"       # Yaw rate source
+      imu_frame: "imu_link"
+      odom_topic: "wheel_odom/odometry"
+      max_dt: 0.5                               # Skip integration gaps longer than this (s)
+      speed_std_moving: 0.05                    # Forward speed std-dev when wheels report motion (m/s)
+      zero_speed_std: 0.4                       # Forward speed std-dev when wheels read 0 (ABS cutoff) (m/s)
+      lateral_std: 0.05                         # Nonholonomic lateral std-dev (m/s)
+      vertical_std: 0.05                        # Vertical std-dev (m/s)
+      yaw_rate_std: 0.01                        # Yaw rate std-dev (rad/s)
+      factor:
+        trans_std_per_meter: 0.02               # BetweenFactor translation std-dev growth (m/m)
+        yaw_std_per_rad: 0.05                   # BetweenFactor yaw std-dev growth (rad/rad)
+        min_std: 0.01                           # Floor on constrained std-devs
+        loose_std: 10.0                         # z / roll / pitch std-dev (unconstrained)
 
     # GPS + ICP Relocalization
     gps_icp_relocalization:
@@ -161,6 +187,7 @@
     odom_sources:
       - "liso_odom"
       - "imu_raw"
+      - "wheel_odom"
     liso_odom:
       type: "odom"
       topic: "liso/odometry_incremental"
@@ -181,6 +208,16 @@
       orientation_noise: [1.0e-2, 1.0e-2, 1.0e-2, 1.0, 1.0, 1.0]
       angular_velocity_noise: [1.0e-3, 1.0e-3, 1.0e-3, 1.0, 1.0, 1.0]
       linear_velocity_noise: [1.0, 1.0, 1.0, 1.0e-1, 1.0e-1, 1.0e-1]
+    # Wheel odometry: forward speed + nonholonomic lateral/vertical, per-reading covariance
+    wheel_odom:
+      type: "odom"
+      topic: "wheel_odom/odometry"
+      pose_mask: [false, false, false, false, false, false]
+      # [ang_x, ang_y, ang_z, lin_x, lin_y, lin_z]
+      twist_mask: [false, false, false, true, true, true]
+      use_msg_covariance: true
+      twist_noise: [1.0, 1.0, 1.0, 5.0e-2, 5.0e-2, 5.0e-2]  # Fallback only
+
     map_sources:
       - "liso_map"
     liso_map:

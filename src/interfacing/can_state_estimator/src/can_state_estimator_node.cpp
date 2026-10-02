@@ -26,6 +26,8 @@
 #include <memory>
 #include <string>
 
+#include <rclcpp/rclcpp.hpp>
+
 static constexpr canid_t STEERING_ANGLE_CAN_ID = 0x2B0;
 static constexpr canid_t WHEEL_SPEED_CAN_ID = 0x4B0;
 static constexpr double STEERING_ANGLE_SCALAR = 0.1;
@@ -39,10 +41,11 @@ CanStateEstimatorNode::CanStateEstimatorNode(const rclcpp::NodeOptions & options
 {
   this->declare_parameter<std::string>("can_interface", "can1");
   this->declare_parameter<double>("steering_conversion_factor", 15.7);
-  this->declare_parameter<std::string>("rear_axle_frame", "rear_axle");
-  this->declare_parameter<std::string>("front_axle_frame", "front_axle");
-  this->declare_parameter<std::string>("odom_frame", "odom");
-  this->declare_parameter<std::string>("base_frame", "base_footprint");
+  this->declare_parameter<double>("wheel_radius", 0.31235);
+  this->declare_parameter<std::string>("front_left_joint", "front_left_wheel_joint");
+  this->declare_parameter<std::string>("front_right_joint", "front_right_wheel_joint");
+  this->declare_parameter<std::string>("rear_left_joint", "rear_left_joint");
+  this->declare_parameter<std::string>("rear_right_joint", "rear_right_joint");
 
   RCLCPP_INFO(this->get_logger(), "CAN State Estimator Node initialized.");
 }
@@ -60,21 +63,24 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_configure(const 
   // Read parameters
   can_interface_ = this->get_parameter("can_interface").as_string();
   steering_conversion_factor_ = this->get_parameter("steering_conversion_factor").as_double();
-  rear_axle_frame_ = this->get_parameter("rear_axle_frame").as_string();
-  front_axle_frame_ = this->get_parameter("front_axle_frame").as_string();
-  odom_frame_ = this->get_parameter("odom_frame").as_string();
-  base_frame_ = this->get_parameter("base_frame").as_string();
+  wheel_radius_ = this->get_parameter("wheel_radius").as_double();
+  front_left_joint_ = this->get_parameter("front_left_joint").as_string();
+  front_right_joint_ = this->get_parameter("front_right_joint").as_string();
+  rear_left_joint_ = this->get_parameter("rear_left_joint").as_string();
+  rear_right_joint_ = this->get_parameter("rear_right_joint").as_string();
 
-  // TF
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+  if (wheel_radius_ <= 0.0) {
+    RCLCPP_ERROR(get_logger(), "wheel_radius must be positive, got %.4f", wheel_radius_);
+    return CallbackReturn::FAILURE;
+  }
 
   // Publishers
   steering_pub_ =
     this->create_publisher<roscco_msg::msg::SteeringAngle>("can_state_estimator/steering_angle", rclcpp::QoS(1));
   velocity_pub_ =
     this->create_publisher<std_msgs::msg::Float64>("can_state_estimator/body_velocity", rclcpp::SystemDefaultsQoS());
-  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("can_state_estimator/odom", rclcpp::QoS(10));
+  wheel_joint_pub_ =
+    this->create_publisher<sensor_msgs::msg::JointState>("can_state_estimator/wheel_joint_states", rclcpp::QoS(10));
 
   // Open SocketCAN
   sock_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -128,14 +134,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_activate(const r
 
   steering_pub_->on_activate();
   velocity_pub_->on_activate();
-  odom_pub_->on_activate();
-
-  // Reset odometry state
-  odom_x_ = 0.0;
-  odom_y_ = 0.0;
-  odom_theta_ = 0.0;
-  odom_initialized_ = false;
-  has_wheelbase_ = false;
+  wheel_joint_pub_->on_activate();
 
   running_.store(true);
   read_thread_ = std::thread(&CanStateEstimatorNode::read_loop, this);
@@ -151,7 +150,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_deactivate(const
 
   steering_pub_->on_deactivate();
   velocity_pub_->on_deactivate();
-  odom_pub_->on_deactivate();
+  wheel_joint_pub_->on_deactivate();
 
   return CallbackReturn::SUCCESS;
 }
@@ -163,9 +162,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_cleanup(const rc
   close_can_socket();
   steering_pub_.reset();
   velocity_pub_.reset();
-  odom_pub_.reset();
-  tf_listener_.reset();
-  tf_buffer_.reset();
+  wheel_joint_pub_.reset();
 
   return CallbackReturn::SUCCESS;
 }
@@ -178,9 +175,7 @@ CanStateEstimatorNode::CallbackReturn CanStateEstimatorNode::on_shutdown(const r
   close_can_socket();
   steering_pub_.reset();
   velocity_pub_.reset();
-  odom_pub_.reset();
-  tf_listener_.reset();
-  tf_buffer_.reset();
+  wheel_joint_pub_.reset();
 
   return CallbackReturn::SUCCESS;
 }
@@ -201,38 +196,6 @@ void CanStateEstimatorNode::close_can_socket()
   if (sock_ >= 0) {
     close(sock_);
     sock_ = -1;
-  }
-}
-
-bool CanStateEstimatorNode::lookup_wheelbase()
-{
-  if (has_wheelbase_) {
-    return true;
-  }
-
-  try {
-    auto tf = tf_buffer_->lookupTransform(rear_axle_frame_, front_axle_frame_, tf2::TimePointZero);
-    double dx = tf.transform.translation.x;
-    double dy = tf.transform.translation.y;
-    wheelbase_ = std::hypot(dx, dy);
-    has_wheelbase_ = true;
-    RCLCPP_INFO(
-      get_logger(),
-      "Wheelbase from TF (%s -> %s): %.4f m",
-      rear_axle_frame_.c_str(),
-      front_axle_frame_.c_str(),
-      wheelbase_);
-    return true;
-  } catch (const tf2::TransformException & ex) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(),
-      *get_clock(),
-      5000,
-      "Waiting for %s -> %s TF to determine wheelbase: %s",
-      rear_axle_frame_.c_str(),
-      front_axle_frame_.c_str(),
-      ex.what());
-    return false;
   }
 }
 
@@ -309,16 +272,29 @@ void CanStateEstimatorNode::process_wheel_speed_frame(const uint8_t * data)
     has_wheel_speeds_ = true;
   }
 
-  publish_velocity_and_odom();
+  publish_wheel_joint_states(nw, ne, sw, se);
+  publish_velocity();
 }
 
-void CanStateEstimatorNode::publish_velocity_and_odom()
+void CanStateEstimatorNode::publish_wheel_joint_states(double nw, double ne, double sw, double se)
 {
-  if (!velocity_pub_->is_activated()) {
+  if (!wheel_joint_pub_->is_activated()) {
     return;
   }
 
-  if (!lookup_wheelbase()) {
+  // Wheel surface speed (km/h) -> joint angular velocity (rad/s). Speeds are unsigned on CAN.
+  const double kph_to_rad_s = KPH_TO_MPS / wheel_radius_;
+
+  sensor_msgs::msg::JointState msg;
+  msg.header.stamp = this->now();
+  msg.name = {rear_left_joint_, rear_right_joint_, front_left_joint_, front_right_joint_};
+  msg.velocity = {sw * kph_to_rad_s, se * kph_to_rad_s, nw * kph_to_rad_s, ne * kph_to_rad_s};
+  wheel_joint_pub_->publish(msg);
+}
+
+void CanStateEstimatorNode::publish_velocity()
+{
+  if (!velocity_pub_->is_activated()) {
     return;
   }
 
@@ -328,10 +304,7 @@ void CanStateEstimatorNode::publish_velocity_and_odom()
     std::lock_guard<std::mutex> lock(state_mutex_);
     if (!has_steering_angle_) {
       RCLCPP_WARN_THROTTLE(
-        this->get_logger(),
-        *this->get_clock(),
-        5000,
-        "Waiting for steering angle from CAN to compute velocity/odom...");
+        this->get_logger(), *this->get_clock(), 5000, "Waiting for steering angle from CAN to compute velocity...");
       return;
     }
     steering_angle = current_steering_angle_rad_;
@@ -339,61 +312,13 @@ void CanStateEstimatorNode::publish_velocity_and_odom()
     ne = wheel_speed_ne_;
   }
 
-  rclcpp::Time now = this->now();
-
   // Average front wheel speeds, convert to m/s
   double v_front_avg_mps = ((nw + ne) / 2.0) * KPH_TO_MPS;
 
   // Body velocity via Ackermann bicycle model (rear axle reference)
-  double v_body = v_front_avg_mps * std::cos(steering_angle);
-
-  // Publish body velocity
   std_msgs::msg::Float64 vel_msg;
-  vel_msg.data = v_body;
+  vel_msg.data = v_front_avg_mps * std::cos(steering_angle);
   velocity_pub_->publish(vel_msg);
-
-  // Odometry integration
-  if (!odom_initialized_) {
-    last_odom_time_ = now;
-    odom_initialized_ = true;
-    return;
-  }
-
-  double dt = (now - last_odom_time_).seconds();
-  last_odom_time_ = now;
-
-  if (dt <= 0.0 || dt > 1.0) {
-    return;  // Skip bogus dt
-  }
-
-  // Ackermann bicycle model: yaw rate = v_body * tan(steering_angle) / wheelbase
-  double omega = v_body * std::tan(steering_angle) / wheelbase_;
-
-  // Integrate pose
-  odom_x_ += v_body * std::cos(odom_theta_) * dt;
-  odom_y_ += v_body * std::sin(odom_theta_) * dt;
-  odom_theta_ += omega * dt;
-
-  // Publish odometry
-  nav_msgs::msg::Odometry odom_msg;
-  odom_msg.header.stamp = now;
-  odom_msg.header.frame_id = odom_frame_;
-  odom_msg.child_frame_id = base_frame_;
-
-  odom_msg.pose.pose.position.x = odom_x_;
-  odom_msg.pose.pose.position.y = odom_y_;
-  odom_msg.pose.pose.position.z = 0.0;
-
-  // Yaw to quaternion (2D rotation about Z)
-  odom_msg.pose.pose.orientation.x = 0.0;
-  odom_msg.pose.pose.orientation.y = 0.0;
-  odom_msg.pose.pose.orientation.z = std::sin(odom_theta_ / 2.0);
-  odom_msg.pose.pose.orientation.w = std::cos(odom_theta_ / 2.0);
-
-  odom_msg.twist.twist.linear.x = v_body;
-  odom_msg.twist.twist.angular.z = omega;
-
-  odom_pub_->publish(odom_msg);
 }
 
 }  // namespace can_state_estimator
