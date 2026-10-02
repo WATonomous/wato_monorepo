@@ -101,6 +101,19 @@ if(BUILD_TESTING)
     LIBRARIES
       ${PROJECT_NAME}_component
   )
+
+  add_wato_test(test_trajectory_planner_node
+    test/test_trajectory_planner_node.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_component
+      ${behaviour_msgs_TARGETS}
+      ${geometry_msgs_TARGETS}
+      ${lanelet_msgs_TARGETS}
+      ${nav_msgs_TARGETS}
+      ${visualization_msgs_TARGETS}
+      ${wato_trajectory_msgs_TARGETS}
+      tf2_ros::tf2_ros
+  )
 endif()
 
 ament_package()
