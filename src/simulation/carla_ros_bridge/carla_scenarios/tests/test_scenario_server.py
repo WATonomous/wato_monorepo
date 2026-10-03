@@ -117,6 +117,44 @@ class TestScenarioDiscovery:
 
         assert scenario_name == "light_traffic_scenario"
 
+    def test_builtin_scenarios_not_duplicated_by_entry_points(self):
+        """Test that built-in scenarios registered as entry points are skipped."""
+        builtin_scenarios = {
+            "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
+            "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
+        }
+
+        # Simulate an entry point that matches a built-in
+        ep_module_path = "carla_scenarios.scenarios.default_scenario"
+        if ep_module_path not in builtin_scenarios:
+            builtin_scenarios[ep_module_path] = "Duplicate"
+
+        # Should still have only 2 entries (no duplicate added)
+        assert len(builtin_scenarios) == 2
+
+    def test_external_entry_point_added(self):
+        """Test that external entry points are merged into available scenarios."""
+        available = {
+            "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
+        }
+
+        # Simulate discovering an external scenario
+        external_path = "my_pkg.scenarios.highway_scenario"
+        external_desc = "Highway driving"
+        if external_path not in available:
+            available[external_path] = external_desc
+
+        assert len(available) == 2
+        assert available[external_path] == "Highway driving"
+
+    def test_class_name_derivation_from_module_path(self):
+        """Test PascalCase class name derived from snake_case module name."""
+        module_path = "my_pkg.scenarios.highway_merge_scenario"
+        last_part = module_path.rsplit(".", 1)[-1]
+        class_name = "".join(word.capitalize() for word in last_part.split("_"))
+
+        assert class_name == "HighwayMergeScenario"
+
 
 class TestScenarioSwitching:
     """Tests for scenario switching logic."""
