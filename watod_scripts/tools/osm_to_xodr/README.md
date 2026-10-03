@@ -1,79 +1,80 @@
-# OSM to OpenDRIVE
+# Lanelet2 to OpenDRIVE
 
-Convert an OpenStreetMap road-network `.osm` file to CARLA OpenDRIVE `.xodr`
-using `carla.Osm2Odr.convert`. This is a temporary feasibility tool for #553.
-It does not load the result into a CARLA server; #554 tracks direct conversion
-inside the bridge and removal of this script.
+The command builds the `convert` target from
+[Tier IV's upstream Dockerfile](https://github.com/tier4/autoware_lanelet2_to_opendrive/blob/master/Dockerfile)
+and invokes its `convert` CLI. It pins revision
+`4b707e067bfdb8db04223b87aa2da290c5cba607`; upstream owns the conversion code,
+Docker dependencies, and tests. There is no local Python converter or test suite.
+The host needs Docker only.
 
-## Why Docker?
-
-The repository's CARLA 0.10.0 Python wheel does not expose `Osm2Odr`. The
-converter is available in CARLA 0.9.16, whose wheel targets Linux x86-64.
-The Dockerfile isolates that converter and its PROJ data without replacing the
-repository's runtime client. Docker is useful here for a reproducible proof,
-but it does not solve compatibility with the CARLA 0.10.0 server. The bridge
-follow-up must resolve that boundary before using conversion at runtime.
-
-## Convert
-
-Run from the monorepo root after downloading an ordinary OSM road export:
-
-```bash
-watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh path/to/roads.osm
-```
-
-The wrapper builds the image, mounts the input read-only, and writes
-`watod_scripts/tools/osm_to_xodr/output/roads.xodr`. Docker caches the image
-for later runs. To choose an output path:
+## Run
 
 ```bash
 watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh \
-  path/to/roads.osm path/to/roads.xodr --center-map
+  path/to/lanelet.osm [path/to/output.xodr] \
+  map=CONFIG [upstream.key=value ...]
 ```
 
-Existing output files require `--force`. Generated `.xodr` files under the tool
-are ignored by Git. Use XML `.osm`, not `.osm.pbf`.
+The output defaults to `maps/xodr/<input-name>.xodr` in this repository. The
+wrapper selects `target=carla` and mounts the input read-only and the output
+directory writable. Upstream also writes mapping and QC analysis files beside
+the XODR. Existing XODR files require `--force`; upstream writes directly to the
+output, so a failed run can leave partial output. Rootless Docker uses container
+root, which maps to the daemon owner's host user; regular Docker uses the caller's
+UID/GID. Map files under `maps/` are ignored by Git.
 
-**Input contract:** CARLA's converter reads OSM `way` elements tagged with a
-supported `highway` type. A Lanelet2 file also uses the `.osm` extension but
-stores lane boundaries and `type=lanelet` relations. Such a file is rejected
-with a clear error because this PR does not include a Lanelet2 adapter.
+Arguments after the paths use upstream Hydra `key=value` syntax. The previous
+`--origin-lat`, `--origin-lon`, and Osm2Odr options are removed. Select a map
+configuration and supply its coordinate settings explicitly; the wrapper does
+not infer a location or silently select upstream's example map. Input, output,
+and CARLA target settings are managed by the wrapper.
 
-Use `osm_to_xodr.sh --help` for road types, lane width, projection, offsets,
-and traffic-light settings. The tested CARLA 0.9.16 wheel defaults to
-`center_map=True` and `generate_traffic_lights=True`. Pass `--no-center-map`
-with an explicit `--proj-string` when the CARLA map must share a known origin
-with world modeling. Pass `--no-generate-traffic-lights` to disable signals;
-`--all-junctions-with-traffic-lights` forces signal generation at junctions.
-The presence of `<signal>` elements in XODR does not prove that traffic-light
-actors render or control traffic correctly in a running CARLA world.
+## What the origin means
 
-## Check in a CARLA server
+Lanelet2 OSM nodes contain latitude/longitude: they locate the road geometry
+on Earth. They do not necessarily declare which geographic point should be the
+simulation's `(0, 0)`. Our `maps/osm/oval.osm` has node coordinates and geographic
+bounds, but no separate origin declaration.
 
-With a compatible server running, load the generated XODR using CARLA's
-`PythonAPI/util/config.py -x=/path/to/roads.xodr`, or call
-`client.generate_opendrive_world(xodr_xml, parameters)` from a matching client.
-For OSM-generated roads, use `wall_height=0.0` to avoid walls between opposing
-roads and keep `enable_mesh_visibility=True`. Inspect road surfaces, lanes,
-traffic-light actors and control states, and drive an ego vehicle through the
-map. Conversion tests and `carla.Map` parsing alone cannot establish these
-runtime results. CARLA's OpenDRIVE standalone mode builds roads and sidewalks;
-it does not recreate all OSM scenery.
+Upstream projects those coordinates into metres using MGRS. Its map config
+selects the geographic reference; its `map.offset` settings subtract a position
+from the exported coordinates. Subtracting the projected centre places that
+centre at `(0, 0)` without resizing the track. Merely supplying latitude/longitude
+through `map=example_latlon` does not subtract this offset.
 
-## Verify
-
-Run the converter tests against the real CARLA API in Docker:
+For example, the following uses the oval's bounds midpoint as a geographic
+reference, but does **not** centre the exported map:
 
 ```bash
-docker build --platform linux/amd64 -t watod/osm_to_xodr:carla-0.9.16 \
-  watod_scripts/tools/osm_to_xodr
-docker run --rm --platform linux/amd64 --network none \
-  --volume "$PWD/watod_scripts/tools/osm_to_xodr:/tool:ro" \
-  --entrypoint python watod/osm_to_xodr:carla-0.9.16 \
-  -m unittest discover -s /tool/tests -v
+watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh \
+  maps/osm/oval.osm \
+  map=example_latlon \
+  map.lat_lon.latitude=45.5017 map.lat_lon.longitude=-73.5673 \
+  map.lat_lon.altitude=0
 ```
 
-On Apple Silicon, this uses amd64 emulation. The unit tests verify conversion
-and input handling. They do not prove that a generated road renders correctly
-or supports ego traversal in the repository's CARLA server. Perform that
-server-side check before treating a map as usable.
+To put that midpoint at `(0, 0)`, use upstream's MGRS-plus-offset configuration.
+The following offsets are that midpoint projected through upstream's MGRS
+projector, in metres:
+
+```bash
+watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh \
+  maps/osm/oval.osm \
+  map=example_mgrs_offset map.mgrs_grid=18TXR \
+  map.offset.x=11928.71216549247 map.offset.y=39683.63022774272 \
+  map.offset.z=0
+```
+
+These are explicit example choices for this oval. Use the agreed map reference
+instead when aligning CARLA with world modeling. No custom geometry or projection
+code runs in the wrapper. See
+[upstream's origin and offset documentation](https://github.com/tier4/autoware_lanelet2_to_opendrive/blob/master/autoware_lanelet2_to_opendrive/docs/usage.md#origin-specification)
+for other configurations and preprocessing options.
+
+## Verification
+
+Use an end-to-end conversion smoke check and inspect the generated XODR in the
+actual CARLA server. Upstream runs its own converter tests and post-conversion
+QC/mapping analysis. Those checks do not establish rendered road surfaces,
+vehicle traversal, traffic-signal behavior, or ROS bridge recovery. Those are
+part of the issue #558 scenario test.

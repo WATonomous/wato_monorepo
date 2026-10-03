@@ -15,29 +15,26 @@
 set -euo pipefail
 
 TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE="watod/osm_to_xodr:carla-0.9.16"
+UPSTREAM_REV="4b707e067bfdb8db04223b87aa2da290c5cba607"
+UPSTREAM="https://github.com/tier4/autoware_lanelet2_to_opendrive.git#$UPSTREAM_REV"
+IMAGE="watod/lanelet_to_xodr:autoware-${UPSTREAM_REV:0:12}"
 
 usage() {
   cat <<'EOF'
-Usage: osm_to_xodr.sh INPUT.osm [OUTPUT.xodr] [conversion options]
+Usage: osm_to_xodr.sh INPUT.osm [OUTPUT.xodr] [--force] map=CONFIG [KEY=VALUE ...]
 
-Builds the Docker image and converts an OSM XML export to OpenDRIVE.
-Default output: watod_scripts/tools/osm_to_xodr/output/INPUT.xodr
+Builds upstream's pinned Dockerfile (convert target) and invokes its convert CLI.
+Default output: maps/xodr/INPUT.xodr, relative to the monorepo root.
+Pass upstream Hydra map settings explicitly; target=carla is selected for you.
+--force permits overwriting an existing output. Requires Docker only.
 
-Options:
-  --force                               Overwrite existing output
-  --osm-way-types TYPE [TYPE ...]        Select OSM highway types
-  --offset-x METERS --offset-y METERS    Enable coordinate offsets
-  --center-map / --no-center-map        Toggle centering at the map origin
-  --default-lane-width METERS            Set width for lanes without OSM widths
-  --elevation-layer-height METERS        Set height between OSM layers
-  --proj-string STRING                  Set the PROJ projection
-  --generate-traffic-lights / --no-generate-traffic-lights
-                                         Toggle OSM traffic-light generation
-  --all-junctions-with-traffic-lights    Generate lights at every junction
-  --traffic-light-excluded-way-types TYPE [TYPE ...]
+Example with an explicit geographic reference (does not center the map):
+  osm_to_xodr.sh map.osm map=example_latlon \
+    map.lat_lon.latitude=45.5017 map.lat_lon.longitude=-73.5673
 
-Requires Docker. Uses linux/amd64, including on Apple Silicon via emulation.
+To center the exported map, use map=example_mgrs_offset and set map.mgrs_grid,
+map.offset.x, map.offset.y, and map.offset.z for the desired reference point.
+See the README and upstream usage guide for the coordinate settings.
 EOF
 }
 
@@ -52,21 +49,35 @@ fi
 
 INPUT="$1"
 shift
-if [[ ! -f "$INPUT" ]]; then
-  echo "Error: input file does not exist: $INPUT" >&2
-  exit 1
-fi
+[[ -f "$INPUT" ]] || { echo "Error: input file does not exist: $INPUT" >&2; exit 1; }
 INPUT_DIR="$(cd "$(dirname "$INPUT")" && pwd)"
 INPUT_NAME="$(basename "$INPUT")"
-OUTPUT="$TOOL_DIR/output/${INPUT_NAME%.*}.xodr"
-if [[ $# -gt 0 && "$1" != -* ]]; then
+OUTPUT="$TOOL_DIR/../../../maps/xodr/${INPUT_NAME%.*}.xodr"
+if [[ $# -gt 0 && "$1" != -* && "$1" != *=* ]]; then
   OUTPUT="$1"
   shift
 fi
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Error: Docker is required to run osm_to_xodr" >&2
+
+FORCE=false
+MAP_SELECTED=false
+OVERRIDES=()
+for argument in "$@"; do
+  case "$argument" in
+    --force) FORCE=true ;;
+    map=*) MAP_SELECTED=true; OVERRIDES+=("$argument") ;;
+    *=*) OVERRIDES+=("$argument") ;;
+    *) echo "Error: expected upstream KEY=VALUE argument, got: $argument" >&2; exit 2 ;;
+  esac
+done
+if [[ "$MAP_SELECTED" == false ]]; then
+  echo "Error: specify map=CONFIG and its coordinate settings; see --help" >&2
+  exit 2
+fi
+if [[ -e "$OUTPUT" && "$FORCE" == false ]]; then
+  echo "Error: $OUTPUT already exists; use --force to overwrite" >&2
   exit 1
 fi
+command -v docker >/dev/null || { echo "Error: Docker is required" >&2; exit 1; }
 mkdir -p "$(dirname "$OUTPUT")"
 OUTPUT_DIR="$(cd "$(dirname "$OUTPUT")" && pwd)"
 OUTPUT_NAME="$(basename "$OUTPUT")"
@@ -75,10 +86,19 @@ if [[ "$INPUT_DIR/$INPUT_NAME" == "$OUTPUT_DIR/$OUTPUT_NAME" ]]; then
   exit 1
 fi
 
-docker build --platform linux/amd64 --tag "$IMAGE" "$TOOL_DIR"
-exec docker run --rm --platform linux/amd64 \
-  --user "$(id -u):$(id -g)" \
-  --network none \
+# Rootless container root maps to the daemon owner's host user.
+DOCKER_USER=(--user "$(id -u):$(id -g)")
+if [[ "$(docker info --format '{{json .SecurityOptions}}')" == *'name=rootless'* ]]; then
+  DOCKER_USER=(--user 0:0)
+fi
+
+# Quote the output path for Hydra's override grammar, including spaces/commas.
+OUTPUT_VALUE="${OUTPUT_NAME//\\/\\\\}"
+OUTPUT_VALUE="${OUTPUT_VALUE//\"/\\\"}"
+docker build --platform linux/amd64 --target convert --tag "$IMAGE" "$UPSTREAM"
+exec docker run --rm --platform linux/amd64 "${DOCKER_USER[@]}" \
+  --network none --workdir /tmp --env MPLCONFIGDIR=/tmp/matplotlib \
   --volume "$INPUT_DIR/$INPUT_NAME:/input/map.osm:ro" \
   --volume "$OUTPUT_DIR:/output" \
-  "$IMAGE" /input/map.osm "/output/$OUTPUT_NAME" "$@"
+  "$IMAGE" "${OVERRIDES[@]}" target=carla \
+  input_map_path=/input/map.osm "output_map_path=\"/output/$OUTPUT_VALUE\""
