@@ -117,9 +117,6 @@ private:
   /** @brief Main tick: predict both EKFs, fuse sources, broadcast TF, publish odom. */
   void tick();
 
-  /** @brief Fuse a measurement source into an EKF (handles both odom and imu types). */
-  void fuseSource(std::shared_ptr<EKFModelPlugin> & ekf, MeasurementSource & src);
-
   /** @brief Broadcast odom->base_link from the local EKF. */
   void broadcastOdomToBaseTF(const rclcpp::Time & stamp);
 
@@ -152,45 +149,22 @@ private:
 
   // ---- Rewind-replay for delayed measurements (global EKF only) ----
 
-  /** @brief Record of an applied measurement for replay during rewind. */
+  /** @brief One received message plus its source config, replayable into either EKF. */
   struct MeasurementRecord
   {
-    double time;
-    enum class Target
-    {
-      LOCAL,
-      GLOBAL,
-      BOTH
-    } target;
-
-    // Which source produced this
-    std::string source_name;
-    std::string source_type;  // "odom" or "imu"
-
-    // Odom data
-    gtsam::Pose3 pose;
-    gtsam::Vector6 twist = gtsam::Vector6::Zero();
-    std::array<bool, 6> pose_mask = {};
-    std::array<bool, 6> twist_mask = {};
-    gtsam::Vector6 pose_noise = gtsam::Vector6::Ones();
-    gtsam::Vector6 twist_noise = gtsam::Vector6::Ones();
-
-    // IMU data
-    Eigen::Vector3d gyro = Eigen::Vector3d::Zero();
-    Eigen::Vector3d accel = Eigen::Vector3d::Zero();
-    Eigen::Vector3d orientation_rpy = Eigen::Vector3d::Zero();
-    bool has_orientation = false;
-    bool use_orientation = false;
-    bool use_angular_velocity = false;
-    bool use_linear_acceleration = false;
-    gtsam::Vector6 imu_orientation_noise = gtsam::Vector6::Ones();
-    gtsam::Vector6 imu_angular_velocity_noise = gtsam::Vector6::Ones();
-    Eigen::Vector3d imu_accel_noise = Eigen::Vector3d::Ones();
-    double imu_dt = 0.0;
+    double time = 0.0;
+    const MeasurementSource * src = nullptr;
+    bool odom_frame = false;  ///< From odom_sources: global EKF skips its odom-frame absolute pose/yaw
+    nav_msgs::msg::Odometry::SharedPtr odom;
+    sensor_msgs::msg::Imu::SharedPtr imu;
+    double imu_dt = 0.0;  ///< Time since the source's previous IMU message (for acceleration integration)
   };
 
+  /** @brief Build a record from a source's latest message. Returns false if nothing usable. */
+  bool makeRecord(MeasurementSource & src, bool odom_frame, MeasurementRecord & rec);
+
   /** @brief Apply a measurement record to an EKF. */
-  void applyMeasurement(std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec);
+  void applyMeasurement(std::shared_ptr<EKFModelPlugin> & ekf, const MeasurementRecord & rec, bool global);
 
   /** @brief Rewind the global EKF and replay with delayed measurement inserted. */
   void rewindAndReplay(double delayed_time);
@@ -198,7 +172,8 @@ private:
   std::deque<StateSnapshot> global_state_history_;
   std::deque<MeasurementRecord> global_measurement_history_;
   double global_ekf_time_ = 0.0;
-  static constexpr size_t kMaxHistory = 500;
+  double history_window_ = 5.0;
+  size_t dropped_measurements_ = 0;
 
   // ---- TF ----
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
