@@ -18,10 +18,22 @@ The server is the only node that calls `world.tick()` in synchronous mode. All o
 
 1. Create a new module in `carla_scenarios/scenarios/` (e.g., `my_scenario.py`)
 2. Define a class matching the module name in PascalCase (e.g., `MyScenario`)
-3. Extend `ScenarioBase` and implement `setup()` at minimum
+3. Extend `ScenarioBase`, implement its abstract methods, and declare exactly one map source: `MAP_NAME = "Town10HD_Opt"` for a packaged map or `XODR_FILENAME = "oval.xodr"` for OpenDRIVE
 4. Reference by module path: `carla_scenarios.scenarios.my_scenario`
 
-The base class provides `_initialize_carla()` and `_load_map()` helpers to reduce boilerplate.
+For example:
+
+```python
+class MyScenario(ScenarioBase):
+    MAP_NAME = "Town10HD_Opt"
+
+    def initialize(self, client):
+        return self._initialize_carla(client)
+
+    # Implement get_name(), get_description(), and setup() as usual.
+```
+
+Use `switch_scenario` to select both scenario and map. 
 
 ## Lifecycle Coordination
 

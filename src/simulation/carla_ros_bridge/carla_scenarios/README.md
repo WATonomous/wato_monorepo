@@ -4,7 +4,7 @@ Scenario management for CARLA simulation.
 
 The `scenario_server` is the central coordinator for the CARLA simulation. It connects to the CARLA server, configures simulation timing settings, and loads scenarios that define the world state - which map to use, where to spawn the ego vehicle, and what traffic to generate.
 
-When a scenario is switched via the `switch_scenario` service, the server first notifies the `lifecycle_manager` to clean up all managed nodes, then unloads the current scenario (destroying all actors), and finally loads the new scenario. This triggers the lifecycle manager to bring nodes back up with the new world state.
+When a scenario is switched via the `switch_scenario` service, the server first notifies the `lifecycle_manager` to clean up all managed nodes, then unloads the current scenario (destroying all actors), loads the new scenario's declared map, reapplies simulation settings, and finally spawns its entities. This triggers the lifecycle manager to bring nodes back up with the new world state.
 
 The server also publishes `/clock` from CARLA's simulation time.
 
@@ -54,3 +54,14 @@ the oval scenario with:
 ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
   "{scenario_name: 'carla_scenarios.scenarios.oval_scenario'}"
 ```
+
+## Scenario-owned maps
+
+Each scenario declares exactly one of `MAP_NAME` (packaged CARLA map) or
+`XODR_FILENAME` (OpenDRIVE file). The town scenarios use `Town10HD_Opt`; oval and
+ring-road scenarios use their respective `.xodr` files. Change the declaration
+in the scenario class to select a different map. `setup()` only spawns entities.
+
+Call `switch_scenario` to change both scenario and map. Its response includes
+`previous_scenario`, `previous_map`, and `new_map`. `switch_maps` has been removed; use `switch_scenario` instead. Map discovery
+continues to list packaged maps, while scenario discovery includes OpenDRIVE scenarios.
