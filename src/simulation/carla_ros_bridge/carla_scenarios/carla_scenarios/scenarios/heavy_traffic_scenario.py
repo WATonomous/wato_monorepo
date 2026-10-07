@@ -43,8 +43,6 @@ class HeavyTrafficScenario(ScenarioBase):
             return False
 
         try:
-            self._load_map("Town10HD")
-
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")
