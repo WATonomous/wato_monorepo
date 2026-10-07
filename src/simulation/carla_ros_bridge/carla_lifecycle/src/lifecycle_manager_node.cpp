@@ -45,7 +45,7 @@ LifecycleManagerNode::LifecycleManagerNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("node_names", std::vector<std::string>{}, desc);
 
   desc.description = "Timeout for lifecycle service calls in seconds";
-  this->declare_parameter("service_timeout", 10.0, desc);
+  this->declare_parameter("service_timeout", 20.0, desc);
 
   desc.description = "Retry interval when waiting for nodes in seconds";
   this->declare_parameter("startup_retry_interval", 5.0, desc);
@@ -161,6 +161,8 @@ void LifecycleManagerNode::prepareForSwitchCallback(
 {
   RCLCPP_INFO(this->get_logger(), "Preparing for scenario switch: cleaning up managed nodes...");
   cleanupAllNodes();
+  // Restart managed nodes when the same scenario is selected again.
+  last_scenario_state_ = "idle";
   response->success = true;
   response->message = "Managed nodes cleaned up";
   RCLCPP_INFO(this->get_logger(), "Managed nodes cleaned up, ready for scenario switch");

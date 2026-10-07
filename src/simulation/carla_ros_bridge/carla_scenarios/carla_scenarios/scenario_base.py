@@ -28,6 +28,21 @@ except ImportError:
 class ScenarioBase(ABC):
     """Abstract base class for scenario plugins."""
 
+    MAP_NAME: Optional[str] = None
+    XODR_FILENAME: Optional[str] = None
+
+    def validate_map(self) -> None:
+        """Require exactly one map source before changing the current world."""
+        if bool(self.MAP_NAME) == bool(self.XODR_FILENAME):
+            raise ValueError("Declare exactly one of MAP_NAME or XODR_FILENAME")
+
+    def load_map(self) -> bool:
+        """Load the declared map before setup spawns any actors."""
+        self.validate_map()
+        if self.MAP_NAME:
+            return self._load_map(self.MAP_NAME)
+        return self._load_xodr_map(self.XODR_FILENAME)
+
     def __init__(self):
         self.client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None

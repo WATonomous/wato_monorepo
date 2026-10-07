@@ -40,8 +40,6 @@ class OvalScenario(ScenarioBase):
             return False
 
         try:
-            self._load_xodr_map(self.XODR_FILENAME)
-
             carla_map = self.world.get_map()
             spawn_points = carla_map.get_spawn_points()
             if spawn_points:

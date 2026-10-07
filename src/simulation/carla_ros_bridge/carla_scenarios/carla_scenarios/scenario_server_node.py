@@ -18,8 +18,12 @@ from typing import Optional, Dict
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rcl_interfaces.msg import ParameterDescriptor
-from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
-from carla_msgs.msg import ScenarioStatus
+from carla_msgs.srv import (
+    GetAvailableMaps,
+    GetAvailableScenarios,
+    SwitchScenario,
+)
+from carla_msgs.msg import MapStatus, ScenarioStatus
 from std_msgs.msg import Header
 from std_srvs.srv import SetBool, Trigger
 from rosgraph_msgs.msg import Clock
@@ -102,13 +106,17 @@ class ScenarioServerNode(LifecycleNode):
         self.carla_world: Optional["carla.World"] = None
         self.current_scenario: Optional[ScenarioBase] = None
         self.current_scenario_name: str = ""
+        self.current_map_name: str = ""
         self.available_scenarios: Dict[str, str] = {}
+        self.available_maps: list = []
 
         # ROS interfaces (created in on_configure)
-        self.status_publisher = None
+        self.scenario_publisher = None
+        self.map_publisher = None
         self.clock_publisher = None
         self.switch_scenario_service = None
         self.get_scenarios_service = None
+        self.get_maps_service = None
         self.tick_timer = None
         self.paused = False
         self.pause_service = None
@@ -175,13 +183,17 @@ class ScenarioServerNode(LifecycleNode):
             # Get world and configure simulation mode
             self.carla_world = self.carla_client.get_world()
             self._apply_simulation_settings()
+            self.current_map_name = self.carla_world.get_map().name
         except Exception as e:
             self.get_logger().error(f"Failed to connect to CARLA: {e}")
             return TransitionCallbackReturn.FAILURE
 
         # Create ROS interfaces
-        self.status_publisher = self.create_lifecycle_publisher(
+        self.scenario_publisher = self.create_lifecycle_publisher(
             ScenarioStatus, "~/scenario_status", 10
+        )
+        self.map_publisher = self.create_lifecycle_publisher(
+            MapStatus, "~/map_status", 10
         )
 
         # Clock publisher for simulation time (not lifecycle - always active)
@@ -204,6 +216,13 @@ class ScenarioServerNode(LifecycleNode):
             callback_group=self.service_cb_group,
         )
 
+        self.get_maps_service = self.create_service(
+            GetAvailableMaps,
+            "~/get_available_maps",
+            self.get_maps_callback,
+            callback_group=self.service_cb_group,
+        )
+
         self.pause_service = self.create_service(
             SetBool,
             "pause",
@@ -220,8 +239,9 @@ class ScenarioServerNode(LifecycleNode):
             callback_group=self.client_cb_group,
         )
 
-        # Discover available scenarios
+        # Discover available scenarios and maps
         self._discover_scenarios()
+        self._discover_maps()
 
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
@@ -277,9 +297,17 @@ class ScenarioServerNode(LifecycleNode):
             self.destroy_service(self.get_scenarios_service)
             self.get_scenarios_service = None
 
-        if self.status_publisher:
-            self.destroy_publisher(self.status_publisher)
-            self.status_publisher = None
+        if self.get_maps_service:
+            self.destroy_service(self.get_maps_service)
+            self.get_maps_service = None
+
+        if self.scenario_publisher:
+            self.destroy_publisher(self.scenario_publisher)
+            self.scenario_publisher = None
+
+        if self.map_publisher:
+            self.destroy_publisher(self.map_publisher)
+            self.map_publisher = None
 
         if self.clock_publisher:
             self.destroy_publisher(self.clock_publisher)
@@ -331,7 +359,7 @@ class ScenarioServerNode(LifecycleNode):
                 self.get_logger().error(f"Error executing scenario: {e}")
 
         # Publish status
-        if self.status_publisher and self.status_publisher.is_activated:
+        if self.scenario_publisher and self.scenario_publisher.is_activated:
             status_msg = ScenarioStatus()
             status_msg.header = Header()
             status_msg.header.stamp = self.get_clock().now().to_msg()
@@ -341,7 +369,15 @@ class ScenarioServerNode(LifecycleNode):
             )
             status_msg.state = "running" if self.current_scenario else "idle"
             status_msg.info = ""
-            self.status_publisher.publish(status_msg)
+            self.scenario_publisher.publish(status_msg)
+
+        if self.map_publisher and self.map_publisher.is_activated:
+            status_msg = MapStatus()
+            status_msg.header = Header()
+            status_msg.header.stamp = self.get_clock().now().to_msg()
+            status_msg.map_name = self.current_map_name
+            status_msg.info = ""
+            self.map_publisher.publish(status_msg)
 
     def pause_callback(self, request, response):
         """Handle pause service request. data=True pauses, data=False resumes."""
@@ -359,36 +395,14 @@ class ScenarioServerNode(LifecycleNode):
         )
 
         previous = self.current_scenario_name
-
-        # Request lifecycle manager to cleanup managed nodes first
-        if self.prepare_switch_client and self.current_scenario:
-            if self.prepare_switch_client.service_is_ready():
-                self.get_logger().info(
-                    "Requesting lifecycle manager to cleanup nodes..."
-                )
-                try:
-                    result = self.prepare_switch_client.call(Trigger.Request())
-                    if result.success:
-                        self.get_logger().info("Lifecycle manager cleanup complete")
-                    else:
-                        self.get_logger().warn(
-                            f"Lifecycle manager cleanup failed: {result.message}"
-                        )
-                except Exception as e:
-                    self.get_logger().warn(f"Error calling lifecycle manager: {e}")
-            else:
-                self.get_logger().warn(
-                    "Lifecycle manager service not ready, proceeding anyway"
-                )
-        else:
-            self.get_logger().info("No current scenario, skipping lifecycle cleanup")
-
-        self.get_logger().info("Proceeding with scenario load...")
+        previous_map = self.current_map_name
 
         success = self._load_scenario(request.scenario_name)
 
         response.success = success
         response.previous_scenario = previous
+        response.previous_map = previous_map
+        response.new_map = self.current_map_name
         response.message = (
             f"Switched to {request.scenario_name}"
             if success
@@ -397,10 +411,37 @@ class ScenarioServerNode(LifecycleNode):
 
         return response
 
+    def _prepare_managed_nodes(self) -> bool:
+        """Ask the lifecycle manager to clean up nodes before a scenario or map change."""
+        if not self.current_scenario or not self.prepare_switch_client:
+            return True
+
+        if not self.prepare_switch_client.service_is_ready():
+            self.get_logger().warn(
+                "Lifecycle manager service not ready; cannot safely switch scenarios"
+            )
+            return False
+
+        try:
+            result = self.prepare_switch_client.call(Trigger.Request())
+            if not result.success:
+                self.get_logger().warn(
+                    f"Lifecycle manager cleanup failed: {result.message}"
+                )
+            return result.success
+        except Exception as e:
+            self.get_logger().warn(f"Error calling lifecycle manager: {e}")
+            return False
+
     def get_scenarios_callback(self, request, response):
         """Handle get available scenarios service request."""
         response.scenario_names = list(self.available_scenarios.keys())
         response.descriptions = list(self.available_scenarios.values())
+        return response
+
+    def get_maps_callback(self, request, response):
+        """Handle get available maps service request."""
+        response.map_names = list(self.available_maps)
         return response
 
     def _discover_scenarios(self):
@@ -417,6 +458,27 @@ class ScenarioServerNode(LifecycleNode):
         self.available_scenarios.update(builtin_scenarios)
 
         self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
+
+    def _discover_maps(self):
+        """Discover maps available on the connected CARLA server."""
+        if self.carla_client is None:
+            self.available_maps = []
+            self.get_logger().warn("Cannot discover maps: not connected to CARLA")
+            return
+
+        try:
+            # CARLA commonly returns paths such as /Game/Carla/Maps/Town10HD.
+            self.available_maps = sorted(
+                {
+                    map_path.rstrip("/").rsplit("/", 1)[-1]
+                    for map_path in self.carla_client.get_available_maps()
+                    if map_path
+                }
+            )
+            self.get_logger().info(f"Discovered {len(self.available_maps)} maps")
+        except Exception as e:
+            self.available_maps = []
+            self.get_logger().error(f"Failed to discover CARLA maps: {e}")
 
     def _unload_scenario(self):
         """Unload current scenario and clean up CARLA world."""
@@ -457,9 +519,8 @@ class ScenarioServerNode(LifecycleNode):
 
     def _load_scenario(self, scenario_module_path: str) -> bool:
         """Load and initialize a scenario."""
-        # Unload any existing scenario first
-        self._unload_scenario()
-
+        scenario = None
+        transition_started = False
         try:
             # Import scenario module
             # scenario_module_path: e.g. 'carla_scenarios.scenarios.default_scenario'
@@ -487,21 +548,24 @@ class ScenarioServerNode(LifecycleNode):
             scenario.xodr_map_directory = Path(
                 self.get_parameter("xodr_map_directory").value
             )
+            scenario.validate_map()
+            if not self._prepare_managed_nodes():
+                raise RuntimeError("Managed nodes did not clean up")
+
+            transition_started = True
+            self._unload_scenario()
+            self.current_scenario_name = ""
             if not scenario.initialize(self.carla_client):
-                self.get_logger().error(
-                    f"Failed to initialize scenario: {scenario_module_path}"
-                )
-                return False
+                raise RuntimeError("Scenario initialization failed")
+            if not scenario.load_map():
+                raise RuntimeError("Scenario map loading failed")
+
+            self.carla_world = scenario.world
+            self._apply_simulation_settings()
+            self.current_map_name = self.carla_world.get_map().name
 
             if not scenario.setup():
-                self.get_logger().error(
-                    f"Failed to setup scenario: {scenario_module_path}"
-                )
-                return False
-
-            # Refresh world reference and reapply settings (load_world resets to defaults)
-            self.carla_world = self.carla_client.get_world()
-            self._apply_simulation_settings()
+                raise RuntimeError("Scenario setup failed")
 
             self.current_scenario = scenario
             self.current_scenario_name = scenario_module_path
@@ -509,6 +573,22 @@ class ScenarioServerNode(LifecycleNode):
             return True
 
         except Exception as e:
+            if transition_started:
+                # Include scenario-specific props in cleanup after partial setup.
+                self.current_scenario = scenario
+                try:
+                    self._unload_scenario()
+                except Exception as cleanup_error:
+                    self.get_logger().error(f"Scenario cleanup failed: {cleanup_error}")
+                self.current_scenario = None
+                self.current_scenario_name = ""
+                try:
+                    self.carla_world = self.carla_client.get_world()
+                    self.current_map_name = self.carla_world.get_map().name
+                    self._apply_simulation_settings()
+                except Exception as world_error:
+                    self.current_map_name = ""
+                    self.get_logger().error(f"Could not refresh world: {world_error}")
             self.get_logger().error(
                 f"Error loading scenario {scenario_module_path}: {e}"
             )

@@ -24,6 +24,7 @@ except ImportError:
 class HeavyTrafficScenario(ScenarioBase):
     """Heavy traffic scenario with many NPC vehicles and pedestrians."""
 
+    MAP_NAME = "Town10HD_Opt"
     NUM_VEHICLES = 50
     NUM_PEDESTRIANS = 100
     SPAWN_POINT_INDEX = 25
@@ -43,8 +44,6 @@ class HeavyTrafficScenario(ScenarioBase):
             return False
 
         try:
-            self._load_map("Town10HD_Opt")
-
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")

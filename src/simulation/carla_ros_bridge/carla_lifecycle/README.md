@@ -25,5 +25,5 @@ ros2 run carla_lifecycle lifecycle_manager
 | `autostart` | bool | `true` | Automatically start managed nodes on startup |
 | `scenario_server_name` | string | `scenario_server` | Name of the scenario server node to coordinate with |
 | `node_names` | string[] | `[]` | List of lifecycle node names to manage |
-| `service_timeout` | double | `10.0` | Timeout for lifecycle service calls in seconds |
+| `service_timeout` | double | `20.0` | Timeout for lifecycle service calls in seconds |
 | `startup_retry_interval` | double | `5.0` | Retry interval when waiting for nodes in seconds |

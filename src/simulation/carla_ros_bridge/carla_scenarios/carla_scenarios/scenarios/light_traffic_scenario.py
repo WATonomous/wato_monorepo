@@ -24,6 +24,7 @@ except ImportError:
 class LightTrafficScenario(ScenarioBase):
     """Light traffic scenario with minimal NPC vehicles and pedestrians."""
 
+    MAP_NAME = "Town10HD_Opt"
     NUM_VEHICLES = 5
     NUM_PEDESTRIANS = 10
     SPAWN_POINT_INDEX = 5
@@ -42,8 +43,6 @@ class LightTrafficScenario(ScenarioBase):
             return False
 
         try:
-            self._load_map("Town10HD_Opt")
-
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")
