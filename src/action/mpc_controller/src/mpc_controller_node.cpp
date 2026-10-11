@@ -49,6 +49,7 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
   // Control params
   declare_parameter("control_rate_hz", 20.0);
   declare_parameter("wheelbase", 2.5667);
+  declare_parameter("lr", 0.0);  // rear-axle->CoG distance; <=0 defaults to wheelbase/2
   declare_parameter("standby_msg", "standby");
   declare_parameter("standby_speed", 0.0);
   declare_parameter("standby_steering", 0.0);
@@ -63,8 +64,10 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
 
   // MPC cost weights
   declare_parameter("w_lateral", 50.0);
+  declare_parameter("w_long", 5.0);
   declare_parameter("w_heading", 20.0);
   declare_parameter("w_progress", 5.0);
+  declare_parameter("w_speed", 0.0);
   declare_parameter("w_steering", 1.0);
   declare_parameter("w_accel", 1.0);
   declare_parameter("w_dsteering", 100.0);
@@ -82,7 +85,8 @@ MpcControllerNode::MpcControllerNode(const rclcpp::NodeOptions & options)
   declare_parameter("max_jerk", 5.0);
 
   // Solver params
-  declare_parameter("dt_min", 0.5);
+  declare_parameter("dt_max", 0.5);
+  declare_parameter("latency_sec", 0.0);
   declare_parameter("max_solver_iterations", 200);
   declare_parameter("solver_eps_abs", 0.001);
   declare_parameter("solver_eps_rel", 0.001);
@@ -113,12 +117,15 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(const rclcpp_l
   disable_standby_ = get_parameter("disable_standby").as_bool();
 
   // Load MPC config
+  config_.lr = get_parameter("lr").as_double();
   config_.horizon_distance = get_parameter("horizon_distance").as_double();
   config_.point_spacing = get_parameter("point_spacing").as_double();
   config_.max_horizon_steps = get_parameter("max_horizon_steps").as_int();
   config_.w_lateral = get_parameter("w_lateral").as_double();
+  config_.w_long = get_parameter("w_long").as_double();
   config_.w_heading = get_parameter("w_heading").as_double();
   config_.w_progress = get_parameter("w_progress").as_double();
+  config_.w_speed = get_parameter("w_speed").as_double();
   config_.w_steering = get_parameter("w_steering").as_double();
   config_.w_accel = get_parameter("w_accel").as_double();
   config_.w_dsteering = get_parameter("w_dsteering").as_double();
@@ -130,7 +137,8 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_configure(const rclcpp_l
   config_.max_speed = get_parameter("max_speed").as_double();
   config_.max_steering_rate = get_parameter("max_steering_rate").as_double();
   config_.max_jerk = get_parameter("max_jerk").as_double();
-  config_.dt_min = get_parameter("dt_min").as_double();
+  config_.dt_max = get_parameter("dt_max").as_double();
+  config_.latency_sec = get_parameter("latency_sec").as_double();
   config_.max_solver_iterations = get_parameter("max_solver_iterations").as_int();
   config_.solver_eps_abs = get_parameter("solver_eps_abs").as_double();
   config_.solver_eps_rel = get_parameter("solver_eps_rel").as_double();
@@ -239,14 +247,26 @@ void MpcControllerNode::control_callback()
 {
   std_msgs::msg::Bool idle_msg;
 
-  // Idle checks (same logic as pure pursuit)
+  // Trajectory-availability gating always applies.
   bool is_idle = !latest_trajectory_ || latest_trajectory_->points.empty() ||
-                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_ || bt_requested_behaviour_.empty();
+                 (now() - last_trajectory_time_).seconds() > idle_timeout_sec_;
 
-  if (is_idle || (!disable_standby_ && bt_requested_behaviour_ == standby_msg_)) {
+  // Behaviour-tree gating (no behaviour received yet, or an explicit standby
+  // request) is skipped entirely when standby is disabled — e.g. in simulation,
+  // where no behaviour tree runs and the topic is never published.
+  if (!disable_standby_) {
+    is_idle = is_idle || bt_requested_behaviour_.empty() || bt_requested_behaviour_ == standby_msg_;
+  }
+
+  if (is_idle) {
     idle_msg.data = true;
     idle_pub_->publish(idle_msg);
     publish_ackermann(base_frame_, standby_speed_, standby_steering_);
+    // Keep the rate-limit reference in sync with what we are actually
+    // commanding, so the first solve after idle isn't rate-limited from a
+    // stale pre-idle command.
+    prev_steering_ = standby_steering_;
+    prev_accel_ = 0.0;
     return;
   }
 
@@ -260,7 +280,7 @@ void MpcControllerNode::control_callback()
     current_state(0) = tf.transform.translation.x;
     current_state(1) = tf.transform.translation.y;
     const auto & q = tf.transform.rotation;
-    current_state(2) = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+    current_state(2) = yaw_from_quaternion(q.x, q.y, q.z, q.w);
     current_state(3) = current_speed_;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
@@ -287,18 +307,17 @@ void MpcControllerNode::control_callback()
     prev_steering_ = solution.steering_angle;
     prev_accel_ = solution.acceleration;
 
-    double speed = solution.target_speed;
-    if (speed <= 0.0) speed = 0.0;
+    // target_speed is already clamped to [0, max_speed] by the solver.
+    publish_ackermann(base_frame_, solution.target_speed, solution.steering_angle);
 
-    publish_ackermann(base_frame_, speed, solution.steering_angle);
-
-    // Publish predicted path for visualization
     if (!solution.predicted_states.empty()) {
       publish_predicted_path(solution.predicted_states);
     }
   } else {
+    // Hold steering and coast one control period under the previous command.
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, "MPC solver failed, holding previous command");
-    publish_ackermann(base_frame_, std::max(0.0, current_speed_ + prev_accel_ * 0.05), prev_steering_);
+    double coast_speed = std::max(0.0, current_speed_ + prev_accel_ / control_rate_hz_);
+    publish_ackermann(base_frame_, coast_speed, prev_steering_);
   }
 }
 

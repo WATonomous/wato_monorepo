@@ -105,6 +105,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/action:/ws/src/action
+      - ${MONO_DIR}/src/common/vehicle_models:/ws/src/vehicle_models
       - ${MONO_DIR}/bags:/ws/bags
 
   #################### SIMULATION SERVICE ####################

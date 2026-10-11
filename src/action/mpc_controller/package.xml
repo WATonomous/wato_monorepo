@@ -14,6 +14,7 @@
   <depend>rclcpp_components</depend>
   <depend>osqp_eigen_vendor</depend>
   <depend>eigen3_cmake_module</depend>
+  <depend>vehicle_models</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>behaviour_msgs</depend>
