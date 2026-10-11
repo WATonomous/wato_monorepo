@@ -7,7 +7,7 @@ Ground truth localization from CARLA provides a known-good pose for:
 2. Comparing estimated pose against ground truth
 3. Development before real localization is available
 
-The TF tree follows REP 105 conventions with map -> odom -> base_link.
+The TF tree follows REP 105 conventions with map -> odom -> base_footprint.
 
 ## Architecture
 
