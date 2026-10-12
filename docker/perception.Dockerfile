@@ -23,6 +23,16 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git -C wato-cuda-bevfusion lfs install && \
     git -C wato-cuda-bevfusion lfs pull
 
+# Clone isaac_ros_nitros fork with lifecycle node support
+# TODO: switch to WATonomous/isaac_ros_nitros once lifecycle branch is merged into it
+RUN R=/tmp/isaac_ros_nitros && \
+    git clone https://github.com/WATonomous/isaac_ros_nitros_lifecycle.git $R && \
+    git -C $R checkout a60cda942d21172b28a09e4be7ca959d7515e8e1 && \
+    git -C $R lfs install && \
+    git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
+    mv $R/isaac_ros_nitros $R/isaac_ros_managed_nitros . && \
+    rm -rf $R
+
 COPY src/perception perception
 
 COPY src/world_modeling/world_model_msgs world_model_msgs
@@ -42,12 +52,17 @@ FROM ${BASE_IMAGE} AS dependencies
 # Use bash with pipefail so piped RUN commands (e.g. curl | gpg) fail loudly.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install TensorRT dependencies for deep_ros
+# Install TensorRT dependencies for deep_ros (TRT 10) and bevfusion (TRT 11)
+ARG TRT10_VERSION=10.16.1.11-1+cuda12.9
+ARG TRT11_VERSION=11.4.0.106-1+cuda13.4
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libnvinfer10 \
-    libnvinfer-plugin10 \
-    libnvonnxparsers10 \
+    libnvinfer10=${TRT10_VERSION} \
+    libnvinfer-plugin10=${TRT10_VERSION} \
+    libnvonnxparsers10=${TRT10_VERSION} \
+    libnvinfer-dev=${TRT11_VERSION} \
+    libnvinfer-plugin-dev=${TRT11_VERSION} \
+    libnvonnxparsers-dev=${TRT11_VERSION} \
     protobuf-compiler \
     libprotobuf-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -58,7 +73,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
     curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key \
       | gpg --dearmor -o /usr/share/keyrings/nvidia-isaac-ros.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/nvidia-isaac-ros.gpg] https://isaac.download.nvidia.com/isaac-ros/release-4.4 noble main" \
+    echo "deb [signed-by=/usr/share/keyrings/nvidia-isaac-ros.gpg] https://isaac.download.nvidia.com/isaac-ros/release-4.5 noble main" \
       > /etc/apt/sources.list.d/nvidia-isaac-ros.list && \
     curl -fsSL https://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
       | gpg --dearmor -o /usr/share/keyrings/nvidia-jetson.gpg && \
