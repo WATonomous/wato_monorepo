@@ -24,9 +24,8 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git -C wato-cuda-bevfusion lfs pull
 
 # Clone isaac_ros_nitros fork with lifecycle node support
-# TODO: switch to WATonomous/isaac_ros_nitros once lifecycle branch is merged into it
 RUN R=/tmp/isaac_ros_nitros && \
-    git clone https://github.com/WATonomous/isaac_ros_nitros_lifecycle.git $R && \
+    git clone https://github.com/WATonomous/isaac_ros_nitros.git $R && \
     git -C $R checkout a60cda942d21172b28a09e4be7ca959d7515e8e1 && \
     git -C $R lfs install && \
     git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
