@@ -46,7 +46,7 @@ services:
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       - NVIDIA_VISIBLE_DEVICES=
       - NVIDIA_DRIVER_CAPABILITIES=
-      - COLCON_TEST_PACKAGES_SKIP_ARGS=--packages-skip deep_ort_gpu_backend_plugin deep_sample
+      - COLCON_TEST_PACKAGES_SKIP_ARGS=--packages-skip deep_ort_gpu_backend_plugin deep_sample isaac_ros_nitros isaac_ros_managed_nitros
 
 #################### WORLD MODELING SERVICE ####################
   world_modeling_bringup_test:
