@@ -49,6 +49,7 @@ internally -- no mutex contention.
 - [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure detection
 - [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration factor
 - [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform predict service
+- [WheelOdomFactor](docs/plugins/factors/wheel_odom_factor.md) -- Rear wheel speed + IMU yaw rate odometry, planar BetweenFactor
 
 ### [Relocalization Plugins](docs/plugins/relocalization/README.md)
 

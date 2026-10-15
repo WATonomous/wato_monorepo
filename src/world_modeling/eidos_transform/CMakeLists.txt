@@ -106,6 +106,16 @@ install(FILES
   DESTINATION share/${PROJECT_NAME}
 )
 
+# ---- Tests ----
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_msg_covariance test/test_msg_covariance.cpp)
+  target_include_directories(test_msg_covariance PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${EIGEN3_INCLUDE_DIR}
+  )
+endif()
+
 # ---- Export ----
 ament_export_include_directories(include)
 ament_export_libraries(eidos_transform_core eidos_transform_plugins)

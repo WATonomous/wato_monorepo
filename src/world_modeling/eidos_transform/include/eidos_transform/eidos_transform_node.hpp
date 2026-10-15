@@ -61,6 +61,10 @@ struct MeasurementSource
   gtsam::Vector6 pose_noise = gtsam::Vector6::Ones();
   gtsam::Vector6 twist_noise = gtsam::Vector6::Ones();
 
+  /// Odom-type only: take per-message noise from the Odometry covariance instead of
+  /// pose_noise / twist_noise (which remain the fallback for unset entries).
+  bool use_msg_covariance = false;
+
   // ---- Odom-type state ----
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;
   nav_msgs::msg::Odometry::SharedPtr latest_odom;
