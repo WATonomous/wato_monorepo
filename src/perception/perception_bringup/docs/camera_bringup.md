@@ -7,6 +7,12 @@ container. They are launched as part of the perception stack:
 ros2 launch perception_bringup perception.launch.yaml
 ```
 
+When testing not directly on the car (e.g. with a rosbag), disable the live cameras as follows:
+
+```sh
+ros2 launch perception_bringup perception.launch.yaml live_cameras:=false
+```
+
 To load the cameras into an existing component container on their own (e.g. for
 debugging or bag recording), use the camera launch directly:
 

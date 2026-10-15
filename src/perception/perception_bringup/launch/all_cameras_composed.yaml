@@ -62,19 +62,19 @@ launch:
           value: "$(var enable_jpeg)"
 
   # camera 2 - pano EE
-  - include:
-      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_ee"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386084"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
-        - name: "enable_jpeg"
-          value: "$(var enable_jpeg)"
+  # - include:
+  #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_ee"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386084"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
+  #       - name: "enable_jpeg"
+  #         value: "$(var enable_jpeg)"
 
   # camera 3 - pano SE
   - include:
@@ -122,19 +122,19 @@ launch:
           value: "$(var enable_jpeg)"
 
   # camera 6 - pano WW
-  - include:
-      file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
-      arg:
-        - name: "container_name"
-          value: "$(var container_name)"
-        - name: "camera_name"
-          value: "camera_pano_ww"
-        - name: "guid"
-          value: "Hikrobot-MV-CU013-80GC-DA8386110"
-        - name: "cameras_config_file"
-          value: "$(var cameras_config_file)"
-        - name: "enable_jpeg"
-          value: "$(var enable_jpeg)"
+  # - include:
+  #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
+  #     arg:
+  #       - name: "container_name"
+  #         value: "$(var container_name)"
+  #       - name: "camera_name"
+  #         value: "camera_pano_ww"
+  #       - name: "guid"
+  #         value: "Hikrobot-MV-CU013-80GC-DA8386110"
+  #       - name: "cameras_config_file"
+  #         value: "$(var cameras_config_file)"
+  #       - name: "enable_jpeg"
+  #         value: "$(var enable_jpeg)"
 
   # camera 7 - pano NW
   - include:
@@ -151,8 +151,8 @@ launch:
         - name: "enable_jpeg"
           value: "$(var enable_jpeg)"
 
-  # # Lower Cameras (4 cameras)
-  # # camera 8 - lower NE
+  # Lower Cameras (4 cameras)
+  # camera 8 - lower NE
   # - include:
   #     file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
   #     arg:

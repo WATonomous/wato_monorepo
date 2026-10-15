@@ -46,3 +46,9 @@ vel_driven_feedforward_pid_node:
         throttle_scale: 1.0   # Scale factor for positive PID effort → throttle
         brake_scale: 1.0      # Scale factor for negative PID effort → brake
         deadband: 0.05        # PID effort below this → coast (no throttle, no brake)
+
+    # Hold both PIDs reset and publish neutral while oscc_interfacing reports
+    # disarmed. Output is discarded downstream while disarmed, so integrating
+    # against idle creep only builds a brake term that gets dumped on engage.
+    # Inert until the first is_armed message arrives (bench/sim without OSCC).
+    hold_when_disarmed: true

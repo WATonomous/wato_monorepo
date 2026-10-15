@@ -32,3 +32,7 @@ The server publishes `scenario_status` which the lifecycle_manager subscribes to
 ## Clock Publishing
 
 The server publishes `/clock` from CARLA's simulation timestamp. Nodes should use `use_sim_time:=true` to stay synchronized.
+
+## CARLA API Docs
+
+For more configuration details to implement customizable scenarios, refer to [this link](https://carla.readthedocs.io/en/latest/python_api/#).

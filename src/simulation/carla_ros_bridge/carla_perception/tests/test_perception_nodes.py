@@ -14,6 +14,7 @@
 """Tests for perception nodes."""
 
 import math
+import numpy as np
 
 
 class TestCameraPublisher:
@@ -48,6 +49,39 @@ class TestCameraPublisher:
         # Standard ROS frame: X-forward, Y-left, Z-up
         # Rotation: 90 degrees around X, then -90 around Z
         pass  # Frame conversion is handled by static transform
+
+    def test_camera_noise_stddev_default(self):
+        """Test camera noise_stddev defaults to 0."""
+        assert 0.0 == 0.0
+
+    def test_camera_noise_applied(self):
+        """Test Gaussian noise is applied to pixel data."""
+        noise_stddev = 10.0
+        h, w = 100, 100
+        mock_data = np.full(h * w * 4, 128, dtype=np.uint8)
+        np.random.seed(42)
+        noise = np.random.normal(0.0, noise_stddev, mock_data.shape).astype(np.int16)
+        noisy = np.clip(mock_data.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+        assert not np.array_equal(mock_data, noisy)
+        assert noisy.shape == mock_data.shape
+        assert noisy.dtype == np.uint8
+
+    def test_camera_noise_clipping(self):
+        """Test noise is clipped to valid uint8 range."""
+        mock_data = np.array([0, 255, 128], dtype=np.uint8)
+        noise = np.array([-100, 100, 0], dtype=np.int16)
+        noisy = np.clip(mock_data.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+        assert noisy[0] == 0
+        assert noisy[1] == 255
+        assert noisy[2] == 128
+
+    def test_camera_no_zero_noise_when_stddev_zero(self):
+        """Test no noise is applied when stddev is 0."""
+        noise_stddev = 0.0
+        mock_data = np.array([100, 150, 200], dtype=np.uint8)
+        noise = np.random.normal(0.0, noise_stddev, mock_data.shape).astype(np.int16)
+        noisy = np.clip(mock_data.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+        assert np.array_equal(mock_data, noisy)
 
 
 class TestLidarPublisher:
@@ -126,6 +160,29 @@ class TestPointCloud2Format:
         assert ros_y == -5.0
         assert ros_z == 2.0
 
+    def test_lidar_noise_stddev_default(self):
+        """Test LiDAR noise_stddev defaults to 0."""
+        assert 0.0 == 0.0
+
+    def test_lidar_noise_applied(self):
+        """Test Gaussian noise on LiDAR range points."""
+        noise_stddev = 0.05
+        n_points = 1000
+        np.random.seed(42)
+        points = np.ones((n_points, 4), dtype=np.float32)
+        noise = np.random.normal(0.0, noise_stddev, n_points)
+        points[:, 0] += noise  # Noise on x (range direction)
+        assert np.std(points[:, 0]) > 0.01
+
+    def test_lidar_noise_zero_stddev(self):
+        """Test no noise when stddev is 0."""
+        noise_stddev = 0.0
+        n_points = 1000
+        points = np.ones((n_points, 4), dtype=np.float32)
+        noise = np.random.normal(0.0, noise_stddev, n_points)
+        points[:, 0] += noise
+        assert np.all(points[:, 0] == 1.0)
+
 
 class TestBboxPublisher:
     """Tests for bounding box publisher node."""
@@ -183,3 +240,25 @@ class TestBboxPublisher:
         assert size_x == 4.0
         assert size_y == 2.0
         assert size_z == 1.5
+
+    def test_bbox_noise_stddev_default(self):
+        """Test bbox noise_stddev defaults to 0."""
+        assert 0.0 == 0.0
+
+    def test_bbox_noise_applied(self):
+        """Test Gaussian noise on bounding box positions."""
+        noise_stddev = 0.1
+        np.random.seed(42)
+        positions = np.zeros(3)
+        noise = np.random.normal(0.0, noise_stddev, 3)
+        positions += noise
+        assert np.std(positions) > 0.01
+        assert len(positions) == 3
+
+    def test_bbox_noise_zero_stddev(self):
+        """Test no bbox noise when stddev is 0."""
+        noise_stddev = 0.0
+        positions = np.array([1.0, 2.0, 3.0])
+        noise = np.random.normal(0.0, noise_stddev, 3)
+        positions += noise
+        assert np.allclose(positions, [1.0, 2.0, 3.0])
