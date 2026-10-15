@@ -4,9 +4,9 @@ ROS2 lifecycle node that tracks a trajectory using the pure pursuit algorithm, p
 
 ## Overview
 
-The pure pursuit node receives a planned trajectory, transforms each waypoint into the vehicle's base frame, selects a lookahead point, and computes the steering angle and speed via the pure pursuit geometric algorithm. It publishes an idle signal and zero-output Ackermann commands when no valid trajectory is available, the trajectory has gone stale, or the behaviour tree requests standby.
+The pure pursuit node receives a planned trajectory, transforms each waypoint into the vehicle's **rear-axle reference frame** (once per cycle), selects a lookahead point, and computes the steering angle and speed via the pure pursuit geometric algorithm. The lookahead distance is adapted to speed and path curvature, speed is limited by a lateral-acceleration budget, and the steering/speed commands are rate-limited for smoothness. Each cycle it measures cross-track and heading error and, if either exceeds a tunable threshold for a sustained window, **raises a disengage recommendation** in its `ControllerStatus` telemetry. This is advisory only: the controller keeps tracking normally and does not alter its command, yield the mux, or talk to the OSCC layer — acting on the recommendation is left to a higher-level supervisor. It publishes an idle signal and standby Ackermann commands when no valid trajectory is available, the trajectory has gone stale, or the behaviour tree requests standby.
 
-**Current Status**: Functional pure pursuit controller with TF-based wheelbase measurement, behaviour tree integration, and speed scaling proportional to steering magnitude.
+**Current Status**: Adaptive pure pursuit controller with rear-axle geometry, TF-based wheelbase measurement, model-aware variable lookahead, curvature/accel-limited speed control, command-rate limiting, an optional low-speed Stanley cross-track blend, a debounced disengage monitor, and live-reconfigurable parameters.
 
 ## ROS Interface
 
@@ -22,70 +22,121 @@ The pure pursuit node receives a planned trajectory, transforms each waypoint in
 | Topic | Type | Description |
 |-------|------|-------------|
 | `/action/ackermann` | `ackermann_msgs/AckermannDriveStamped` | Steering angle and speed command |
-| `/action/is_idle` | `std_msgs/Bool` | `true` when idle or in standby |
+| `/action/is_idle` | `std_msgs/Bool` | `true` when idle or in standby (the disengage monitor does **not** raise this) |
+| `controller_status` | `wato_trajectory_msgs/ControllerStatus` | Per-cycle tracking error, effective lookahead, path curvature, commands, and disengage state/reason |
+
+Also subscribes to `odom` (`nav_msgs/Odometry`) for the current longitudinal speed used by the adaptive lookahead and speed scheduling.
 
 ## Configuration
 
 Parameters are loaded from `config/params.yaml` under the namespace `action/pure_pursuit_node/ros__parameters`.
 
+Parameters are read once in `on_configure`. To change them at runtime, transition the lifecycle node back through `cleanup` → `configure` (which reloads `config/params.yaml`), as with the other action nodes.
+
+**Topics / frames**
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `base_frame` | string | `"base_footprint"` | Robot base frame for trajectory transforms |
-| `rear_axle_frame` | string | `"rear_axle"` | Rear axle TF frame for wheelbase measurement |
-| `front_axle_frame` | string | `"front_axle"` | Front axle TF frame for wheelbase measurement |
+| `controller_status_topic` | string | `"controller_status"` | Topic for the `ControllerStatus` telemetry |
+| `base_frame` | string | `"base_footprint"` | Frame stamped on published Ackermann commands |
+| `rear_axle_frame` | string | `"rear_axle"` | Frame the pure-pursuit geometry and tracking error are computed in; also one end of the TF wheelbase measurement |
+| `front_axle_frame` | string | `"front_axle"` | Other end of the TF wheelbase measurement |
 | `standby_msg` | string | `"standby"` | Behaviour string that triggers standby output |
-| `lookahead_distance` | double | `3.5` | Target lookahead distance for pure pursuit (m) |
-| `min_lookahead_distance` | double | `2.0` | Minimum accepted lookahead distance (m) |
-| `max_speed` | double | `5.0` | Maximum commanded speed (m/s) |
-| `min_speed` | double | `0.5` | Minimum commanded speed while tracking (m/s) |
-| `standby_speed` | double | `0.0` | Speed commanded during standby (m/s) |
-| `standby_steering` | double | `0.0` | Steering angle commanded during standby (rad) |
-| `control_rate_hz` | double | `20.0` | Frequency at which control commands are published (Hz) |
-| `wheelbase_fallback` | double | `2.5667` | Fallback wheelbase if TF lookup fails (m) |
-| `max_steering_angle` | double | `0.5` | Maximum steering angle magnitude (rad) |
+
+**Adaptive lookahead**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `lookahead_distance` | double | `5.0` | Maximum lookahead distance (m) |
+| `min_lookahead_distance` | double | `2.0` | Minimum lookahead distance (m) |
+| `lookahead_time` | double | `1.5` | Time-headway: `ld = lookahead_time · speed`, clamped to min/max (s) |
+| `curvature_lookahead_gain` | double | `2.0` | Shrinks lookahead in curves: `ld_eff = ld / (1 + gain·|κ|)` |
+| `speed_lookahead_distance` | double | `1.0` | Minimum distance ahead used to sample target speed (m) |
+| `speed_lookahead_time` | double | `2.0` | Time-headway for the (decoupled, longer) speed sample horizon (s) |
+
+**Steering & speed**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `steering_angle_gain` | double | `1.0` | Gain on the pure-pursuit steering output |
+| `max_steering_angle` | double | `0.5` | Maximum steering magnitude (rad) |
+| `max_steering_rate` | double | `1.0` | Steering slew-rate limit (rad/s) |
+| `max_speed` / `min_speed` | double | `5.0` / `0.0` | Commanded speed bounds while tracking (m/s) |
+| `max_lateral_accel` | double | `2.5` | Cornering-speed budget: `v ≤ sqrt(a_lat/|κ|)` (m/s²) |
+| `max_accel` / `max_decel` | double | `1.5` / `3.0` | Command accel/decel slew limits (m/s²) |
+
+**Low-speed cross-track blend (Stanley)**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enable_stanley_blend` | bool | `false` | Blend a cross-track feedback term into steering at low speed |
+| `stanley_gain` | double | `0.5` | Cross-track feedback gain `k_e` |
+| `stanley_softening` | double | `1.0` | Softening constant `k_soft` (avoids blow-up near zero speed) |
+| `stanley_speed_threshold` | double | `2.0` | Blend weight ramps from 1 (at 0) to 0 at this speed (m/s) |
+
+**Disengage monitor**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enable_disengage` | bool | `true` | Enable the tracking-threshold disengage monitor |
+| `max_cross_track_error` | double | `1.5` | Cross-track error that (sustained) trips a disengage (m) |
+| `max_heading_error` | double | `0.6` | Heading error that (sustained) trips a disengage (rad) |
+| `disengage_debounce_sec` | double | `0.5` | How long the error must be exceeded before tripping (s) |
+| `disengage_latch` | bool | `false` | `true` = stay disengaged until reconfigured; `false` = auto-recover |
+| `disengage_speed` | double | `0.0` | Safe speed commanded when no valid lookahead point exists (m/s) |
+
+**Standby / misc**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `standby_speed` | double | `-0.5` | Speed commanded during standby (m/s) |
+| `standby_steering` | double | `0.0` | Steering commanded during standby (rad) |
+| `control_rate_hz` | double | `20.0` | Control publish rate (Hz) |
+| `wheelbase_fallback` | double | `2.5667` | Fallback wheelbase if the TF lookup fails (m) |
 | `idle_timeout_sec` | double | `2.0` | Time since last trajectory before declaring idle (s) |
-| `invert_steering` | bool | `true` | Invert the steering angle sign — `true` means positive angle = clockwise |
-| `disable_standby` | bool | `false` | If `true`, bypass standby behaviour and run pure pursuit even when `standby_msg` is received |
+| `invert_steering` | bool | `true` | Invert steering sign — `true` means positive angle = clockwise |
+| `disable_standby` | bool | `false` | Bypass standby and track even when `standby_msg` is received |
 
 ## Algorithm Details
 
 ### Control Flow
 
-Each control cycle evaluates the following conditions in order:
+1. **Idle / standby** — if no/empty/stale trajectory, empty behaviour string, or (unless `disable_standby`) the behaviour equals `standby_msg`, publish `is_idle = true`, a standby Ackermann command, and a `ControllerStatus` with `reason = "idle"`; the command-shaping state is reset so re-engagement is smooth.
+2. **Track** — otherwise transform the trajectory into `rear_axle_frame` (one TF lookup) and run the pipeline below.
 
-1. **Idle** — triggers if any of the following are true:
-   - No trajectory has been received
-   - The trajectory is empty
-   - The trajectory is stale (older than `idle_timeout_sec`)
-   - The behaviour string is empty
+### Rear-axle geometry
 
-   When idle, publishes `is_idle = true` and an Ackermann command with `standby_speed` and `standby_steering`, then returns.
+Trajectory points are transformed into `rear_axle_frame` (default `rear_axle`), the textbook reference point for pure pursuit — the rear axle traces the arc to the lookahead point. Measuring from `base_footprint` would add the base-to-axle offset and bias curvature, worst in tight turns.
 
-2. **Standby** — triggers if `disable_standby` is `false` and the received behaviour matches `standby_msg`.
+### Tracking error
 
-   When in standby, publishes `is_idle = true` and an Ackermann command with `standby_speed` and `standby_steering`, then returns without running the pure pursuit math.
+Each cycle the vehicle (origin, heading +x) is projected onto the nearest **segment** of the path (not merely the nearest vertex) to compute a signed **cross-track error** (left of path positive) and **heading error** (path tangent angle in the vehicle frame). These drive the disengage monitor and the optional Stanley blend, and are published in `ControllerStatus`.
 
-   Setting `disable_standby: true` causes the node to skip this check and proceed directly to pure pursuit regardless of the behaviour string.
+### Adaptive lookahead
 
-3. **Pure Pursuit** — runs when the node is neither idle nor in standby.
+The lookahead distance combines three effects:
 
-### Pure Pursuit
+1. **Time-headway schedule** — `ld = lookahead_time · speed`, clamped to `[min_lookahead_distance, lookahead_distance]`. A short `ld` gives high-gain, oscillatory steering; a long `ld` cuts corners. Scheduling on speed keeps a consistent *reaction time*; the min clamp preserves low-speed stability, the max clamp caps corner-cutting.
+2. **Curvature shrink** — `ld_eff = ld / (1 + curvature_lookahead_gain·|κ_ahead|)`, where `κ_ahead` is estimated from the path near the lookahead. This tightens tracking through curves (where long lookahead cuts corners) while relaxing to a long, smooth lookahead on straights.
+3. **Interpolation** — the lookahead point is the exact intersection of the path with the circle of radius `ld_eff`, avoiding steering chatter from snapping between sparse waypoints.
 
-The node transforms trajectory waypoints into `base_frame` and selects the first point ahead of the vehicle (`x > 0`) that is at least `min_lookahead_distance` away and at least `lookahead_distance` from the vehicle, or the last point if none qualify.
+Steering is then the pure-pursuit law about the rear axle:
 
-Steering and speed are then computed as:
+$$\delta = k_\delta \cdot \arctan\left(L \cdot \frac{2y}{x^2 + y^2}\right)$$
 
-$$\delta = \arctan\left(\frac{L \cdot 2y}{x^2 + y^2}\right)$$
+where $L$ is the wheelbase, $(x, y)$ is the lookahead point in `rear_axle_frame`, and $k_\delta$ is `steering_angle_gain`. Steering is clamped to `±max_steering_angle` and slew-limited by `max_steering_rate`.
 
-where $L$ is the wheelbase and $(x, y)$ is the lookahead point in `base_frame`.
+### Speed control
 
-### Speed Scaling
+Target speed is the minimum of the path's requested speed (sampled at a decoupled, speed-scaled horizon `max(speed_lookahead_distance, speed_lookahead_time·speed)`) and the curvature-limited speed `sqrt(max_lateral_accel / |κ|)` — so the vehicle slows *before* a curve within a lateral-acceleration budget rather than reacting to steering after the fact. The result is clamped to `[min_speed, max_speed]` (or `0` if the path commands a stop) and then accel/decel slew-limited by `max_accel` / `max_decel`.
 
-Speed is reduced proportionally to steering demand:
+### Optional low-speed blend
 
-$$v = v_{\text{target}} \cdot \left(1 - 0.5 \cdot \frac{|\delta|}{\delta_{\max}}\right)$$
+When `enable_stanley_blend` is set, a Stanley-style cross-track correction `-atan(k_e·e / (k_soft + |v|))` is added to the steering, weighted from 1 at standstill down to 0 at `stanley_speed_threshold`. This directly regulates cross-track error where pure pursuit's effective gain is weakest.
 
-and clamped between `min_speed` and `max_speed`. If the target trajectory point has `max_speed <= 0`, the vehicle is commanded to stop.
+### Disengage monitor
+
+If cross-track or heading error exceeds its threshold continuously for `disengage_debounce_sec`, the monitor raises a disengage **recommendation**: it publishes `ControllerStatus.disengaged = true` with the tripping `reason`. This is **advisory only** — the controller keeps tracking normally and does *not* alter its command, raise `is_idle`, yield to the [ackermann_mux](../../interfacing/ackermann_mux), or talk to the OSCC layer. Acting on the recommendation (driver takeover, OSCC disable, mux handoff) is left to a higher-level supervisor that consumes the flag. The debounce rejects single-cycle spikes from TF/localization jitter. With `disengage_latch = false` the flag clears when error returns within bounds; with `true` it stays raised until reconfigured.
 
 ### Wheelbase Measurement
 
