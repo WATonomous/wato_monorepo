@@ -5,6 +5,8 @@
 #     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=oval
 #   Town10HD:
 #     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=town10hd
+#   Ring road:
+#     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=ring_road
 #   Custom map:
 #     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map_config_file:=/path/to/map.yaml
 
@@ -18,7 +20,7 @@ launch:
   - arg:
       name: map
       default: "oval"
-      description: Named map preset (oval, town10hd, test_track)
+      description: Named map preset (oval, ring_road, town10hd, test_track)
 
   - arg:
       name: map_config_file
