@@ -2,8 +2,19 @@
 /**/world_model:
   ros__parameters:
     osm_map_path: "/opt/watonomous/maps/osm/oval.osm"
+
+    # Projection:
+    # - 'local_cartesian' for CARLA-synthesized OSM maps
+    # - 'utm' for geographically referenced OSM maps
     projector_type: "utm"
+
+    # Alignment:
+    # - 'fixed' when projected coordinates already use the map frame
+    # - 'tf' to apply projected_frame -> map before loading the map
     alignment_mode: "fixed"
+
+    # Geographic origin used by the projector. In fixed mode, it becomes the
+    # map origin and must match the origin used to generate the XODR.
     origin_lat: 45.5017
     origin_lon: -73.5673
     origin_alt: 0.0

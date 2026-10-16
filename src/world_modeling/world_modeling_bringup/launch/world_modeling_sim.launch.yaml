@@ -1,8 +1,13 @@
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
 # Usage:
-#   ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false
-# use_eidos controls running nodes; build package selection is separate.
+#   Oval:
+#     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=oval
+#   Town10HD:
+#     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=town10hd
+#   Custom map:
+#     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml \
+#       use_eidos:=false map_config_file:=/path/to/map.yaml
 ---
 launch:
   - arg:

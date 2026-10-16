@@ -60,7 +60,7 @@ Unsupported modes, invalid origins, and invalid transforms fail explicitly.
 A missing TF is retried; a bad map file stops the load with an error.
 
 Named oval, Town10HD, and test-track configs and launch examples are documented
-in [world_modeling_bringup](../world_modeling_bringup/DEVELOPING.md).
+in [world_modeling_bringup](../world_modeling_bringup/README.md).
 The former `wait_for_utm_transform` and `utm_frame` parameters are replaced by
 `alignment_mode` and `projected_frame`. The unused `utm_origin_x/y` arguments
 have been removed from the loader API.

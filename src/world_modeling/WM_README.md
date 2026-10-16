@@ -2,9 +2,11 @@
 
 Directory of packages that have to do with world modeling. Information about each package can be found in their respective directory.
 
-For named oval, Town10HD, and test-track map presets, projection/alignment
-settings, and launch commands, see the
-[world modeling bringup guide](world_modeling_bringup/DEVELOPING.md).
+## World modeling in simulation
+
+With CARLA running, world modeling uses Lanelet2 OSM maps as its base HD map.
+See the [world modeling bringup guide](world_modeling_bringup/README.md) to load
+the map that matches the active CARLA world.
 
 ## Sub-System Diagram
 
