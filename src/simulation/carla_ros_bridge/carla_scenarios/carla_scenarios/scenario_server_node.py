@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import importlib
+from pathlib import Path
 from typing import Optional, Dict
 import rclpy
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
@@ -45,13 +46,20 @@ class ScenarioServerNode(LifecycleNode):
         )
         self.declare_parameter(
             "carla_timeout",
-            10.0,
+            60.0,
             ParameterDescriptor(description="Connection timeout in seconds"),
         )
         self.declare_parameter(
             "initial_scenario",
             "carla_scenarios.scenarios.default_scenario",
             ParameterDescriptor(description="Scenario module path to load on startup"),
+        )
+        self.declare_parameter(
+            "xodr_map_directory",
+            "/opt/watonomous/maps/xodr",
+            ParameterDescriptor(
+                description="Directory containing OpenDRIVE maps used by scenarios"
+            ),
         )
         # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
         self.declare_parameter(
@@ -403,6 +411,7 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
             "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
+            "carla_scenarios.scenarios.oval_scenario": "Oval OpenDRIVE Map",
         }
         self.available_scenarios.update(builtin_scenarios)
 
@@ -474,6 +483,9 @@ class ScenarioServerNode(LifecycleNode):
             # Instantiate and initialize scenario
             scenario = scenario_class()
             scenario.logger = self.get_logger()
+            scenario.xodr_map_directory = Path(
+                self.get_parameter("xodr_map_directory").value
+            )
             if not scenario.initialize(self.carla_client):
                 self.get_logger().error(
                     f"Failed to initialize scenario: {scenario_module_path}"
