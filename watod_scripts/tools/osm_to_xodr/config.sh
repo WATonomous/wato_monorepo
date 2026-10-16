@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# shellcheck shell=bash
 # Configuration loaded automatically by osm_to_xodr.sh.
 # shellcheck disable=SC2034  # Variables are consumed after this file is sourced.
 
