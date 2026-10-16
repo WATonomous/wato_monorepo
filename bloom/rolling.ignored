@@ -6,6 +6,7 @@ behaviortree_ros2_vendor
 behaviour
 behaviour_markers
 behaviour_msgs
+bevfusion
 bytetrack_cpp_vendor
 camera_calib
 can_state_estimator
@@ -24,6 +25,7 @@ carla_teleop
 costmap
 costmap_markers
 costmap_msgs
+cuda_bevfusion_vendor
 depth_estimation
 dummy_ackermann
 eve_description
@@ -60,8 +62,8 @@ simulation_bringup
 spatial_association
 tf_static_relay
 topic_healthchecker
-track_viz_2d
 tracking
+track_viz_2d
 traffic_light_detection
 trajectory_planner
 vision_msgs_markers
@@ -69,6 +71,6 @@ wato_lifecycle_manager
 wato_test
 wato_trajectory_msgs
 world_model
+world_modeling_bringup
 world_model_markers
 world_model_msgs
-world_modeling_bringup
