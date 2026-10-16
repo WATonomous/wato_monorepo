@@ -71,7 +71,6 @@ midpoint, first node, or XODR header is its true coordinate origin.
     origin_lat: 45.5017
     origin_lon: -73.5673
     origin_alt: 0.0
-    map_frame: "map"
 ```
 
 ```bash
