@@ -12,7 +12,7 @@ The host needs Docker only.
 ```bash
 watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh \
   path/to/lanelet.osm [path/to/output.xodr] \
-  map=CONFIG [upstream.key=value ...]
+  [map=CONFIG] [upstream.key=value ...]
 ```
 
 The output defaults to `maps/xodr/<input-name>.xodr` in this repository. The
@@ -23,11 +23,18 @@ output, so a failed run can leave partial output. Rootless Docker uses container
 root, which maps to the daemon owner's host user; regular Docker uses the caller's
 UID/GID. Map files under `maps/` are ignored by Git.
 
-Arguments after the paths use upstream Hydra `key=value` syntax. The previous
-`--origin-lat`, `--origin-lon`, and Osm2Odr options are removed. Select a map
-configuration and supply its coordinate settings explicitly; the wrapper does
-not infer a location or silently select upstream's example map. Input, output,
-and CARLA target settings are managed by the wrapper.
+The wrapper automatically loads `config.sh` from this directory. Edit
+`MAP_CONFIG` and the corresponding latitude/longitude or MGRS/offset values in
+that file, then the normal invocation only needs the input path:
+
+```bash
+watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh maps/osm/oval.osm
+```
+
+Set `EXTRA_OPTIONS` in `config.sh` for other upstream Hydra settings. Arguments
+after the paths still use upstream Hydra `key=value` syntax and take precedence
+over settings from `config.sh`, which is useful for one-off conversions. Input,
+output, and CARLA target settings are managed by the wrapper.
 
 ## What the origin means
 
@@ -42,20 +49,10 @@ from the exported coordinates. Subtracting the projected centre places that
 centre at `(0, 0)` without resizing the track. Merely supplying latitude/longitude
 through `map=example_latlon` does not subtract this offset.
 
-For example, the following uses the oval's bounds midpoint as a geographic
-reference, but does **not** centre the exported map:
-
-```bash
-watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh \
-  maps/osm/oval.osm \
-  map=example_latlon \
-  map.lat_lon.latitude=45.5017 map.lat_lon.longitude=-73.5673 \
-  map.lat_lon.altitude=0
-```
-
-To put that midpoint at `(0, 0)`, use upstream's MGRS-plus-offset configuration.
-The following offsets are that midpoint projected through upstream's MGRS
-projector, in metres:
+The default `config.sh` centres the oval at `(0, 0)` using upstream's
+MGRS-plus-offset configuration. The offsets are the oval midpoint projected
+through upstream's MGRS projector, in metres. Its equivalent command-line
+override is:
 
 ```bash
 watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh \

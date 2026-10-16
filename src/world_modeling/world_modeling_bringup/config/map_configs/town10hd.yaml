@@ -1,0 +1,10 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+/**/world_model:
+  ros__parameters:
+    osm_map_path: "/opt/watonomous/maps/osm/Town10HD.osm"
+    projector_type: "local_cartesian"
+    alignment_mode: "fixed"
+    origin_lat: 0.0
+    origin_lon: 0.0
+    origin_alt: 0.0
+    map_frame: "map"

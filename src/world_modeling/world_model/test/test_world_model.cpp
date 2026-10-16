@@ -37,6 +37,54 @@
 #include "world_model/world_state.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
 
+TEST_CASE("OSM map geometry and radius queries use the aligned map frame", "[lanelet_handler][map_alignment]")
+{
+  world_model::MapConfig config;
+  config.origin_lat = 45.5017;
+  config.origin_lon = -73.5673;
+  config.origin_alt = 298.0;
+  world_model::LaneletHandler handler;
+
+  SECTION("Fixed origin places the OSM origin at map zero")
+  {
+    REQUIRE(handler.loadMap(WORLD_MODEL_TEST_OSM, config));
+    const auto lanelets = handler.getAllLanelets();
+    REQUIRE(lanelets.size() == 1);
+    CHECK(lanelets.front().leftBound().front().basicPoint().norm() < 1e-6);
+    CHECK(handler.getLaneletsInRadius(geometry_msgs::msg::Point(), 20.0).size() == 1);
+  }
+
+  SECTION("Full UTM alignment is applied before geometry is indexed")
+  {
+    config.alignment_mode = "tf";
+    geometry_msgs::msg::Transform transform;
+    const double half_pi = std::acos(-1.0) / 2.0;
+    transform.rotation.z = std::sin(half_pi / 2.0);
+    transform.rotation.w = std::cos(half_pi / 2.0);
+    transform.translation.x = 5039683.63022774272 + 10.0;
+    transform.translation.y = -611928.71216549247 + 20.0;
+    transform.translation.z = -298.0 + 30.0;
+    REQUIRE(handler.loadMap(WORLD_MODEL_TEST_OSM, config, transform));
+    const auto lanelets = handler.getAllLanelets();
+    REQUIRE(lanelets.size() == 1);
+    const lanelet::BasicPoint3d expected_origin{10, 20, 30};
+    CHECK((lanelets.front().leftBound().front().basicPoint() - expected_origin).norm() < 1e-6);
+    geometry_msgs::msg::Point centre;
+    centre.x = 12.0;
+    centre.y = 24.0;
+    CHECK(handler.getLaneletsInRadius(centre, 20.0).size() == 1);
+    REQUIRE(handler.findNearestLaneletId(centre).has_value());
+    CHECK(*handler.findNearestLaneletId(centre) == 100);
+  }
+
+  SECTION("Invalid input does not publish a partial map")
+  {
+    config.projector_type = "invalid";
+    CHECK_FALSE(handler.loadMap(WORLD_MODEL_TEST_OSM, config));
+    CHECK_FALSE(handler.isMapLoaded());
+  }
+}
+
 // Entity Buffer Tests
 
 TEST_CASE("EntityBuffer basic operations", "[entity_buffer]")

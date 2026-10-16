@@ -18,15 +18,17 @@ TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPSTREAM_REV="4b707e067bfdb8db04223b87aa2da290c5cba607"
 UPSTREAM="https://github.com/tier4/autoware_lanelet2_to_opendrive.git#$UPSTREAM_REV"
 IMAGE="watod/lanelet_to_xodr:autoware-${UPSTREAM_REV:0:12}"
+CONFIG_FILE="$TOOL_DIR/config.sh"
 
 usage() {
   cat <<'EOF'
-Usage: osm_to_xodr.sh INPUT.osm [OUTPUT.xodr] [--force] map=CONFIG [KEY=VALUE ...]
+Usage: osm_to_xodr.sh INPUT.osm [OUTPUT.xodr] [--force] [map=CONFIG] [KEY=VALUE ...]
 
 Builds upstream's pinned Dockerfile (convert target) and invokes its convert CLI.
 Default output: maps/xodr/INPUT.xodr, relative to the monorepo root.
-Pass upstream Hydra map settings explicitly; target=carla is selected for you.
---force permits overwriting an existing output. Requires Docker only.
+Coordinate settings and other defaults are loaded from config.sh. Command-line
+Hydra settings override config.sh; target=carla is selected for you. --force
+permits overwriting an existing output. Requires Docker only.
 
 Example with an explicit geographic reference (does not center the map):
   osm_to_xodr.sh map.osm map=example_latlon \
@@ -37,6 +39,32 @@ map.offset.x, map.offset.y, and map.offset.z for the desired reference point.
 See the README and upstream usage guide for the coordinate settings.
 EOF
 }
+
+[[ -f "$CONFIG_FILE" ]] || {
+  echo "Error: config file does not exist: $CONFIG_FILE" >&2
+  exit 1
+}
+# shellcheck source=config.sh
+source "$CONFIG_FILE"
+
+MAP_CONFIG="${MAP_CONFIG:-}"
+LATITUDE="${LATITUDE:-}"
+LONGITUDE="${LONGITUDE:-}"
+ALTITUDE="${ALTITUDE:-0}"
+MGRS_GRID="${MGRS_GRID:-}"
+OFFSET_X="${OFFSET_X:-}"
+OFFSET_Y="${OFFSET_Y:-}"
+OFFSET_Z="${OFFSET_Z:-0}"
+FORCE="${FORCE:-false}"
+declare -p EXTRA_OPTIONS &>/dev/null || EXTRA_OPTIONS=()
+if [[ "$(declare -p EXTRA_OPTIONS 2>/dev/null)" != "declare -a"* ]]; then
+  echo "Error: EXTRA_OPTIONS in $CONFIG_FILE must be a Bash array" >&2
+  exit 2
+fi
+if [[ "$FORCE" != true && "$FORCE" != false ]]; then
+  echo "Error: FORCE in $CONFIG_FILE must be true or false" >&2
+  exit 2
+fi
 
 if [[ $# -eq 0 ]]; then
   usage >&2
@@ -58,21 +86,64 @@ if [[ $# -gt 0 && "$1" != -* && "$1" != *=* ]]; then
   shift
 fi
 
-FORCE=false
-MAP_SELECTED=false
-OVERRIDES=()
+CLI_FORCE=false
+CLI_MAP=""
+CLI_OVERRIDES=()
+declare -A CLI_KEYS=()
 for argument in "$@"; do
   case "$argument" in
-    --force) FORCE=true ;;
-    map=*) MAP_SELECTED=true; OVERRIDES+=("$argument") ;;
-    *=*) OVERRIDES+=("$argument") ;;
+    --force) CLI_FORCE=true ;;
+    map=*) CLI_MAP="${argument#map=}"; CLI_KEYS[map]=true; CLI_OVERRIDES+=("$argument") ;;
+    *=*) CLI_KEYS["${argument%%=*}"]=true; CLI_OVERRIDES+=("$argument") ;;
     *) echo "Error: expected upstream KEY=VALUE argument, got: $argument" >&2; exit 2 ;;
   esac
 done
-if [[ "$MAP_SELECTED" == false ]]; then
-  echo "Error: specify map=CONFIG and its coordinate settings; see --help" >&2
+if [[ "$CLI_FORCE" == true ]]; then
+  FORCE=true
+fi
+
+EFFECTIVE_MAP="${CLI_MAP:-$MAP_CONFIG}"
+if [[ -z "$EFFECTIVE_MAP" ]]; then
+  echo "Error: set MAP_CONFIG in $CONFIG_FILE or specify map=CONFIG; see --help" >&2
   exit 2
 fi
+
+CONFIG_OVERRIDES=("map=$EFFECTIVE_MAP")
+case "$EFFECTIVE_MAP" in
+  example_latlon)
+    [[ -n "$LATITUDE" && -n "$LONGITUDE" ]] || {
+      echo "Error: set LATITUDE and LONGITUDE in $CONFIG_FILE" >&2
+      exit 2
+    }
+    CONFIG_OVERRIDES+=(
+      "map.lat_lon.latitude=$LATITUDE"
+      "map.lat_lon.longitude=$LONGITUDE"
+      "map.lat_lon.altitude=$ALTITUDE"
+    )
+    ;;
+  example_mgrs_offset)
+    [[ -n "$MGRS_GRID" && -n "$OFFSET_X" && -n "$OFFSET_Y" ]] || {
+      echo "Error: set MGRS_GRID, OFFSET_X, and OFFSET_Y in $CONFIG_FILE" >&2
+      exit 2
+    }
+    CONFIG_OVERRIDES+=(
+      "map.mgrs_grid=$MGRS_GRID"
+      "map.offset.x=$OFFSET_X"
+      "map.offset.y=$OFFSET_Y"
+      "map.offset.z=$OFFSET_Z"
+    )
+    ;;
+esac
+CONFIG_OVERRIDES+=("${EXTRA_OPTIONS[@]}")
+
+# Command-line values win over values with the same Hydra key in config.sh.
+OVERRIDES=()
+for argument in "${CONFIG_OVERRIDES[@]}"; do
+  key="${argument%%=*}"
+  [[ -v "CLI_KEYS[$key]" ]] || OVERRIDES+=("$argument")
+done
+OVERRIDES+=("${CLI_OVERRIDES[@]}")
+
 if [[ -e "$OUTPUT" && "$FORCE" == false ]]; then
   echo "Error: $OUTPUT already exists; use --force to overwrite" >&2
   exit 1

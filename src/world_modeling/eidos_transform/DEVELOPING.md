@@ -339,7 +339,7 @@ Key synchronization:
 | `map_sources_[*].latest_odom/imu` | `sources_mutex_` | Subscriber callbacks | Tick loop |
 | `local_ekf_` state | Tick callback group serialization | Tick loop | PredictRelativeTransform (via mutex) |
 | `global_ekf_` state | Tick callback group serialization | Tick loop | -- |
-| `cached_utm_to_map_` | Single writer (callback) | UTM callback | Tick broadcasts it once |
+| `utm_tf_broadcaster_` | UTM callback | UTM callback | Publishes durable alignment on `/tf_static` for late listeners |
 
 ## Writing a new EKF model plugin
 

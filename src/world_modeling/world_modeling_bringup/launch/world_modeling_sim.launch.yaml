@@ -1,15 +1,24 @@
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
 # Usage:
-#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml
-#   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml eidos_map_path:=/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map use_sim_time:=true
-#   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
+#   ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false
+# use_eidos controls running nodes; build package selection is separate.
 ---
 launch:
   - arg:
       name: config_file
       default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
       description: Path to the world_model configuration file
+
+  - arg:
+      name: map
+      default: "oval"
+      description: Named map preset (oval, town10hd, test_track)
+
+  - arg:
+      name: map_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/map_configs/$(var map).yaml
+      description: Map projection and alignment overlay (overrides config_file)
 
   - arg:
       name: eidos_config_file
@@ -23,7 +32,7 @@ launch:
 
   - arg:
       name: use_sim_time
-      default: "false"
+      default: "true"
       description: Use simulation time from /clock topic
 
   - arg:
@@ -42,9 +51,25 @@ launch:
       description: Log level for behaviour_node
 
   - arg:
-      name: use_sim_time
+      name: use_eidos
       default: "true"
-      description: Use simulation time from /clock topic
+      description: Start Eidos SLAM; false uses CARLA ground-truth TF and odometry
+
+  # Select behaviour odometry to match the localization source.
+  - let:
+      name: ego_odom_topic
+      value: "/world_modeling/slam/odometry"
+  - let:
+      name: ego_odom_incremental_topic
+      value: "/world_modeling/liso/odometry_incremental"
+  - let:
+      unless: $(var use_eidos)
+      name: ego_odom_topic
+      value: "/ego/odom"
+  - let:
+      unless: $(var use_eidos)
+      name: ego_odom_incremental_topic
+      value: "/ego/odom"
 
   # Prediction - generates trajectory hypotheses for tracked objects
   - node:
@@ -54,6 +79,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(find-pkg-share prediction)/config/params.yaml
       remap:
         - from: tracks_3d
@@ -71,7 +98,10 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
+        - from: $(var map_config_file)
       remap:
         - from: "world_objects"
           to: "world_objects_enriched"
@@ -92,6 +122,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "lane_context"
@@ -108,6 +140,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "lane_context"
@@ -122,6 +156,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "route_ahead"
@@ -136,6 +172,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "area_occupancy"
@@ -150,6 +188,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "lanelet_ahead"
@@ -166,6 +206,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "world_objects"
@@ -181,6 +223,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: "world_objects"
@@ -196,6 +240,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: world_objects
@@ -219,6 +265,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var config_file)
       remap:
         - from: footprint
@@ -234,6 +282,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(find-pkg-share behaviour)/config/params.yaml
       ros_args: "--log-level world_modeling.behaviour_node:=$(var log_bt)"
       remap:
@@ -259,9 +309,9 @@ launch:
         - from: goal_point
           to: /goal_point
         - from: ego/odom
-          to: /world_modeling/slam/odometry
+          to: $(var ego_odom_topic)
         - from: ego/odom_incremental
-          to: /world_modeling/liso/odometry_incremental
+          to: $(var ego_odom_incremental_topic)
 
   # Behaviour Tree visualization markers
   - node:
@@ -271,6 +321,8 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(find-pkg-share behaviour_markers)/config/behaviour_markers.yaml
       remap:
         - from: execute_behaviour
@@ -288,28 +340,59 @@ launch:
 
   # Eidos SLAM Node
   - node:
+      if: $(var use_eidos)
       pkg: eidos
       exec: eidos_node
       name: eidos_node
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - from: $(var eidos_config_file)
 
   # Lifecycle Manager
   - node:
+      if: $(var use_eidos)
       pkg: wato_lifecycle_manager
       exec: wato_lifecycle_manager_node
       name: world_modeling_lifecycle_manager
       namespace: "world_modeling"
       output: screen
       param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
         - name: node_names
           value:
             - /world_modeling/prediction_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: $(var bond_enabled)
+
+  # Lifecycle Manager with CARLA localization
+  - node:
+      unless: $(var use_eidos)
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: world_modeling_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: node_names
+          value:
+            - /world_modeling/prediction_node
+            - /world_modeling/world_model
+            - /world_modeling/costmap_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

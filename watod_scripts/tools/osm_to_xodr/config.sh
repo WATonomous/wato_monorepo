@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Configuration loaded automatically by osm_to_xodr.sh.
+# shellcheck disable=SC2034  # Variables are consumed after this file is sourced.
+
+# Upstream map configuration. Common choices are:
+#   example_latlon      - use LATITUDE/LONGITUDE as the geographic reference
+#   example_mgrs_offset - use MGRS_GRID and subtract OFFSET_* from the map
+MAP_CONFIG="example_mgrs_offset"
+
+# Settings for MAP_CONFIG="example_latlon".
+LATITUDE="45.5017"
+LONGITUDE="-73.5673"
+ALTITUDE="0"
+
+# Settings for MAP_CONFIG="example_mgrs_offset".
+MGRS_GRID="18TXR"
+OFFSET_X="11928.71216549247"
+OFFSET_Y="39683.63022774272"
+OFFSET_Z="0"
+
+# Permit replacing an existing XODR output. Keep this false unless overwriting
+# the output on every run is intentional.
+FORCE=false
+
+# Any additional upstream Hydra overrides can be added here, for example:
+#   EXTRA_OPTIONS=("map.use_local_coordinates=true" "some.setting=value")
+EXTRA_OPTIONS=()

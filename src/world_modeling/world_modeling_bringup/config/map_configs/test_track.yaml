@@ -1,0 +1,11 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+/**/world_model:
+  ros__parameters:
+    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_050426_utm.osm"
+    projector_type: "utm"
+    alignment_mode: "tf"
+    origin_lat: 43.4352586520
+    origin_lon: -80.5801880023
+    origin_alt: 0.0
+    projected_frame: "utm"
+    map_frame: "map"

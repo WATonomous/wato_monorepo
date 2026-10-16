@@ -26,8 +26,9 @@ ros2 run carla_scenarios scenario_server
 |-----------|------|---------|-------------|
 | `carla_host` | string | `localhost` | CARLA server hostname |
 | `carla_port` | int | `2000` | CARLA server port |
-| `carla_timeout` | double | `10.0` | Connection timeout in seconds |
+| `carla_timeout` | double | `60.0` | Connection timeout in seconds; allows OpenDRIVE world generation to finish |
 | `initial_scenario` | string | `carla_scenarios.scenarios.default_scenario` | Scenario module path to load on startup |
+| `xodr_map_directory` | string | `/opt/watonomous/maps/xodr` | Directory containing OpenDRIVE maps used by scenarios |
 | `carla_fps` | double | `60.0` | Simulation FPS (sets `fixed_delta_seconds`) |
 | `synchronous_mode` | bool | `false` | Server waits for client tick (requires `world.tick()` calls) |
 | `no_rendering_mode` | bool | `false` | Disable rendering for faster simulation |
@@ -44,3 +45,12 @@ See [CARLA synchrony and time-step docs](https://carla.readthedocs.io/en/latest/
 - `carla_scenarios.scenarios.default_scenario` - Ego + 20 vehicles + 40 pedestrians
 - `carla_scenarios.scenarios.light_traffic_scenario` - Ego + 5 vehicles + 10 pedestrians
 - `carla_scenarios.scenarios.heavy_traffic_scenario` - Ego + 50 vehicles + 100 pedestrians
+- `carla_scenarios.scenarios.oval_scenario` - Loads `oval.xodr` from `xodr_map_directory` and spawns the ego vehicle
+
+After converting `maps/osm/oval.osm` to `maps/xodr/oval.xodr`, switch to
+the oval scenario with:
+
+```bash
+ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
+  "{scenario_name: 'carla_scenarios.scenarios.oval_scenario'}"
+```

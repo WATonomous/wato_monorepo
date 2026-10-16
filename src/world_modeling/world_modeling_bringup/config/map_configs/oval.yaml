@@ -1,0 +1,10 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+/**/world_model:
+  ros__parameters:
+    osm_map_path: "/opt/watonomous/maps/osm/oval.osm"
+    projector_type: "utm"
+    alignment_mode: "fixed"
+    origin_lat: 45.5017
+    origin_lon: -73.5673
+    origin_alt: 0.0
+    map_frame: "map"
