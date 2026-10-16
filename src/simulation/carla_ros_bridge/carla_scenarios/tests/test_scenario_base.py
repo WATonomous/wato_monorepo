@@ -120,6 +120,13 @@ class TestActorCleanup:
 class TestMapLoading:
     """Tests for map loading logic."""
 
+    def test_map_path_extracts_town_name(self):
+        """Test a CARLA map path resolves to its town name."""
+        map_path = "/Game/Carla/Maps/Town10HD"
+        map_name = map_path.rsplit("/", 1)[-1]
+
+        assert map_name == "Town10HD"
+
     def test_map_name_format(self):
         """Test map names follow CARLA format."""
         valid_maps = [
