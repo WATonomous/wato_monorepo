@@ -124,6 +124,13 @@ class TestActorCleanup:
 class TestMapLoading:
     """Tests for map loading logic."""
 
+    def test_map_path_extracts_town_name(self):
+        """Test a CARLA map path resolves to its town name."""
+        map_path = "/Game/Carla/Maps/Town10HD"
+        map_name = map_path.rsplit("/", 1)[-1]
+
+        assert map_name == "Town10HD"
+
     def test_map_name_format(self):
         """Test map names follow CARLA format."""
         valid_maps = [
@@ -184,3 +191,27 @@ class TestMapLoading:
         assert scenario._load_map(wait_time=0)
 
         scenario.client.load_world.assert_called_once_with("Town10HD_Opt")
+
+
+class TestDeclaredMaps:
+    @pytest.mark.parametrize("town,xodr", [(None, None), ("Town01", "oval.xodr")])
+    def test_requires_exactly_one_source(self, town, xodr):
+        scenario = EmptyScenario()
+        scenario.MAP_NAME = town
+        scenario.XODR_FILENAME = xodr
+        with pytest.raises(ValueError, match="exactly one"):
+            scenario.load_map()
+
+    def test_dispatches_town_map(self):
+        scenario = EmptyScenario()
+        scenario._load_map = MagicMock(return_value=True)
+        assert scenario.load_map()
+        scenario._load_map.assert_called_once_with(scenario.MAP_NAME)
+
+    def test_dispatches_opendrive_map(self):
+        from carla_scenarios.scenarios.oval_scenario import OvalScenario
+
+        scenario = OvalScenario()
+        scenario._load_xodr_map = MagicMock(return_value=True)
+        assert scenario.load_map()
+        scenario._load_xodr_map.assert_called_once_with("oval.xodr")
