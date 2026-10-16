@@ -6,8 +6,8 @@
 #   Town10HD:
 #     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=town10hd
 #   Custom map:
-#     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml \
-#       use_eidos:=false map_config_file:=/path/to/map.yaml
+#     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map_config_file:=/path/to/map.yaml
+
 ---
 launch:
   - arg:

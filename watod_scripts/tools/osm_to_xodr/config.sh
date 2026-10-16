@@ -12,24 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # shellcheck shell=bash
-# Configuration loaded automatically by osm_to_xodr.sh.
+# Configuration template for osm_to_xodr.sh.
+# Copy this file to config.local.sh and set the values there.
 # shellcheck disable=SC2034  # Variables are consumed after this file is sourced.
 
 # Upstream map configuration. Common choices are:
 #   example_latlon      - use LATITUDE/LONGITUDE as the geographic reference
 #   example_mgrs_offset - use MGRS_GRID and subtract OFFSET_* from the map
-MAP_CONFIG="example_mgrs_offset"
+MAP_CONFIG=""
 
 # Settings for MAP_CONFIG="example_latlon".
-LATITUDE="45.5017"
-LONGITUDE="-73.5673"
-ALTITUDE="0"
+LATITUDE=""
+LONGITUDE=""
+ALTITUDE=""
 
 # Settings for MAP_CONFIG="example_mgrs_offset".
-MGRS_GRID="18TXR"
-OFFSET_X="11928.71216549247"
-OFFSET_Y="39683.63022774272"
-OFFSET_Z="0"
+MGRS_GRID=""
+OFFSET_X=""
+OFFSET_Y=""
+OFFSET_Z=""
 
 # Permit replacing an existing XODR output. Keep this false unless overwriting
 # the output on every run is intentional.

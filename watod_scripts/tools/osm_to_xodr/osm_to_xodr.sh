@@ -18,7 +18,8 @@ TOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPSTREAM_REV="4b707e067bfdb8db04223b87aa2da290c5cba607"
 UPSTREAM="https://github.com/tier4/autoware_lanelet2_to_opendrive.git#$UPSTREAM_REV"
 IMAGE="watod/lanelet_to_xodr:autoware-${UPSTREAM_REV:0:12}"
-CONFIG_FILE="$TOOL_DIR/config.sh"
+CONFIG_TEMPLATE="$TOOL_DIR/config.sh"
+CONFIG_FILE="$TOOL_DIR/config.local.sh"
 
 usage() {
   cat <<'EOF'
@@ -26,9 +27,9 @@ Usage: osm_to_xodr.sh INPUT.osm [OUTPUT.xodr] [--force] [map=CONFIG] [KEY=VALUE 
 
 Builds upstream's pinned Dockerfile (convert target) and invokes its convert CLI.
 Default output: maps/xodr/INPUT.xodr, relative to the monorepo root.
-Coordinate settings and other defaults are loaded from config.sh. Command-line
-Hydra settings override config.sh; target=carla is selected for you. --force
-permits overwriting an existing output. Requires Docker only.
+Coordinate settings and other defaults are loaded from config.local.sh.
+Command-line Hydra settings override config.local.sh; target=carla is selected
+for you. --force permits overwriting an existing output. Requires Docker only.
 
 Example with an explicit geographic reference (does not center the map):
   osm_to_xodr.sh map.osm map=example_latlon \
@@ -40,11 +41,18 @@ See the README and upstream usage guide for the coordinate settings.
 EOF
 }
 
-[[ -f "$CONFIG_FILE" ]] || {
-  echo "Error: config file does not exist: $CONFIG_FILE" >&2
+[[ -f "$CONFIG_TEMPLATE" ]] || {
+  echo "Error: config template does not exist: $CONFIG_TEMPLATE" >&2
   exit 1
 }
 # shellcheck source=config.sh
+source "$CONFIG_TEMPLATE"
+[[ -f "$CONFIG_FILE" ]] || {
+  echo "Error: local config does not exist: $CONFIG_FILE" >&2
+  echo "Create it with: cp $CONFIG_TEMPLATE $CONFIG_FILE" >&2
+  exit 1
+}
+# shellcheck disable=SC1090  # config.local.sh is intentionally untracked.
 source "$CONFIG_FILE"
 
 MAP_CONFIG="${MAP_CONFIG:-}"
