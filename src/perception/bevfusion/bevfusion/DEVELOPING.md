@@ -105,6 +105,7 @@ std::vector<BoundingBox> forward(
 |---|---|---|
 | `/perception/detections_3d_bev` | `vision_msgs/Detection3DArray` | 3D bounding boxes; kept on a separate topic from `spatial_association`'s output so both 2D→3D and BEVFusion→3D pipelines can run in parallel, with launch config choosing which one feeds `tracking` |
 | `/perception/bev_detection_markers` | `visualization_msgs/MarkerArray` | Visualization → Foxglove |
+| `/perception/bev_seg/<class>` | `nav_msgs/OccupancyGrid` | BEV seg map, one per class (`seg_enabled: true` only) |
 
 **Why these specific topics:**
 * Using a separate topic (rather than the topic `spatial_association` publishes `Detection3DArray` to) means both the 2D→spatial_association→3D and BEVFusion→3D pipelines can run in parallel, and which one feeds `tracking` is a launch-time remap decision rather than a code change.

@@ -47,6 +47,18 @@ bevfusion_node:
     post_center_range_end: [61.2, 61.2, 10.0]  # BBox center filter upper boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
     sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
 
+    # --- BEV Map Segmentation ---
+    # Currently publishes a placeholder map (road ahead, divider on the left) until the CUDA seg head is ready
+    seg_enabled: false  # true: publish one nav_msgs/OccupancyGrid per class
+    seg_topic_prefix: "/perception/bev_seg"  # Topics are <prefix>/<class name>
+    seg_class_names:  # Must match the seg model's class order
+      - "drivable_area"
+      - "ped_crossing"
+      - "walkway"
+      - "stop_line"
+      - "carpark_area"
+      - "divider"
+
     # ApproximateTime synchronization
     sync_queue_size: 5
     sync_max_time_diff_ms: 200.0

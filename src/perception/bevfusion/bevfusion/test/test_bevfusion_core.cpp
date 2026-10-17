@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -23,6 +24,8 @@
 
 using wato::perception::bevfusion::BEVFusionCore;
 using wato::perception::bevfusion::BEVFusionInputConfig;
+using wato::perception::bevfusion::makePlaceholderSegMap;
+using wato::perception::bevfusion::SegMap;
 
 class MockCore : public ::bevfusion::Core  // Create a fake version of cuda-bevfusion
 {
@@ -239,4 +242,83 @@ TEST_CASE("BEVFusionCore: infer() forwards data and translates BoundingBox corre
   REQUIRE(box.z_rotation == 9.0f);
   REQUIRE(box.score == 0.95f);
   REQUIRE(box.id == 2);
+}
+
+// Returns the mask value of class `cls` at LiDAR-frame point (x, y) in meters.
+static uint8_t seg_at(const SegMap & seg, int cls, float x, float y)
+{
+  const int row = static_cast<int>(std::floor((x - seg.origin_x) / seg.resolution));
+  const int col = static_cast<int>(std::floor((y - seg.origin_y) / seg.resolution));
+  return seg.masks[static_cast<size_t>(cls) * seg.height * seg.width + static_cast<size_t>(row) * seg.width + col];
+}
+
+// =============================================================================
+// TEST: makePlaceholderSegMap geometry and asymmetric pattern
+// WHY: The placeholder map stands in for the CUDA seg head so the node and Foxglove
+//      view can be built first. Its pattern is deliberately one-sided (road only
+//      ahead, divider only on the left) so a flipped or rotated map is visible.
+//      If this pattern changes, the orientation check in Foxglove is meaningless.
+// =============================================================================
+TEST_CASE("makePlaceholderSegMap: grid geometry and one-sided pattern", "[core][seg][fast]")
+{
+  const SegMap seg = makePlaceholderSegMap(6);
+
+  REQUIRE(seg.num_classes == 6);
+  REQUIRE(seg.height == 200);
+  REQUIRE(seg.width == 200);
+  REQUIRE(seg.resolution == Catch::Approx(0.5f));
+  REQUIRE(seg.origin_x == Catch::Approx(-50.0f));
+  REQUIRE(seg.origin_y == Catch::Approx(-50.0f));
+  REQUIRE(seg.masks.size() == 6u * 200u * 200u);
+
+  // drivable_area (class 0): ahead of the vehicle, not behind
+  REQUIRE(seg_at(seg, 0, 10.0f, 0.0f) == 1);
+  REQUIRE(seg_at(seg, 0, -10.0f, 0.0f) == 0);
+
+  // divider (last class): on the left (+y), not the right
+  REQUIRE(seg_at(seg, 5, 10.0f, 2.2f) == 1);
+  REQUIRE(seg_at(seg, 5, 10.0f, -2.2f) == 0);
+
+  // Classes in between are empty
+  for (int cls = 1; cls < 5; ++cls) {
+    REQUIRE(seg_at(seg, cls, 10.0f, 0.0f) == 0);
+  }
+}
+
+// =============================================================================
+// TEST: infer() fills the seg map only when seg is enabled
+// WHY: Detection-only deployments must not pay for or publish segmentation.
+// =============================================================================
+TEST_CASE("BEVFusionCore: infer() produces a SegMap only when seg_enabled", "[core][seg][fast]")
+{
+  unsigned char dummy_image = 0;
+  std::vector<const unsigned char *> images(6, &dummy_image);
+  std::vector<float> lidar_points = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f};
+
+  SECTION("disabled")
+  {
+    BEVFusionCore core(make_test_config());
+    core.pipeline_ = std::make_shared<MockCore>();
+    core.initialized_ = true;
+    core.has_calibration_ = true;
+
+    core.infer(images, lidar_points, 1);
+    REQUIRE(core.getSegMap().num_classes == 0);
+    REQUIRE(core.getSegMap().masks.empty());
+  }
+
+  SECTION("enabled")
+  {
+    auto config = make_test_config();
+    config.seg_enabled = true;
+    config.seg_num_classes = 6;
+    BEVFusionCore core(config);
+    core.pipeline_ = std::make_shared<MockCore>();
+    core.initialized_ = true;
+    core.has_calibration_ = true;
+
+    core.infer(images, lidar_points, 1);
+    REQUIRE(core.getSegMap().num_classes == 6);
+    REQUIRE(core.getSegMap().masks.size() == 6u * 200u * 200u);
+  }
 }
