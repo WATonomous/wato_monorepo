@@ -279,55 +279,39 @@ Sources are configured from the `odom_sources` and `map_sources` parameter lists
 
 ## MeasurementRecord and measurement history
 
-For the global EKF's rewind-replay system, each measurement is recorded as a `MeasurementRecord`:
+Every fused message (from both `odom_sources` and `map_sources`) is recorded as a `MeasurementRecord`, which is replayable into either EKF:
 
 ```cpp
 struct MeasurementRecord {
-  double time;                    // measurement timestamp (from msg header)
-  Target target;                  // LOCAL, GLOBAL, or BOTH
-  std::string source_name;
-  std::string source_type;        // "odom" or "imu"
-
-  // Odom data (captured at time of arrival)
-  gtsam::Pose3 pose;
-  gtsam::Vector6 twist;
-  std::array<bool, 6> pose_mask;
-  std::array<bool, 6> twist_mask;
-  gtsam::Vector6 pose_noise;
-  gtsam::Vector6 twist_noise;
-
-  // IMU data (captured at time of arrival)
-  Eigen::Vector3d gyro, accel, orientation_rpy;
-  bool has_orientation, use_orientation;
-  bool use_angular_velocity, use_linear_acceleration;
-  gtsam::Vector6 imu_orientation_noise;
-  gtsam::Vector6 imu_angular_velocity_noise;
-  Eigen::Vector3d imu_accel_noise;
-  double imu_dt;
+  double time;                              // measurement timestamp (from msg header)
+  const MeasurementSource * src;            // source config (masks, noise, IMU params)
+  bool odom_frame;                          // from odom_sources: global EKF skips odom-frame pose/yaw
+  nav_msgs::msg::Odometry::SharedPtr odom;  // exactly one of odom/imu is set
+  sensor_msgs::msg::Imu::SharedPtr imu;
+  double imu_dt;                            // time since previous IMU message (acceleration integration)
 };
 ```
 
-Measurement records are appended to `global_measurement_history_` (bounded deque, max 500 entries). State snapshots are stored in `global_state_history_` (also bounded at 500).
+`makeRecord` builds a record from a source's latest message; `applyMeasurement(ekf, rec, global)` applies it. The local EKF applies odom-source records directly. The global EKF applies all records, but for odom-source records it skips absolute pose and replaces IMU yaw with its own, since those are odom-frame quantities.
+
+Records and state snapshots are kept in `global_measurement_history_` / `global_state_history_`, bounded to the last `history_window` seconds. A snapshot at time `t` includes every measurement stamped at or before `t`.
 
 ## Rewind-replay algorithm
 
-When a map source measurement arrives with a timestamp older than `global_ekf_time_ - dt - 0.01`:
+Each tick, new records stamped at or before the latest snapshot trigger a rewind; records older than the oldest snapshot are dropped with a throttled warning and counted. Otherwise records are applied immediately and a snapshot is taken.
 
-1. **Find restore point:** Walk `global_state_history_` backwards to find the latest snapshot with `time <= delayed_time`.
+1. **Find restore point:** Pop snapshots from the back of `global_state_history_` until the latest one is strictly before `delayed_time`.
 2. **Restore:** Call `global_ekf_->restore(restore_point)` to reset to that state.
 3. **Collect measurements:** Gather all records from `global_measurement_history_` with `time > restore_point.time`.
 4. **Sort:** Order collected measurements by timestamp.
-5. **Replay:** For each measurement, predict the EKF forward by `(rec.time - last_time)`, then call `applyMeasurement`.
-6. **Final predict:** Predict from the last replayed measurement to `global_ekf_time_`.
-7. **Reset history:** Clear `global_state_history_` and save a fresh snapshot.
-
-The `applyMeasurement` function checks the `source_type` and applies pose/twist updates for odom-type records (respecting masks).
+5. **Replay:** For each measurement, predict the EKF forward by `(rec.time - last_time)`, call `applyMeasurement`, and push a new snapshot after each distinct timestamp.
+6. **Final predict:** Predict from the last replayed measurement to `global_ekf_time_` and snapshot.
 
 ## Threading model
 
 - **Tick timer:** Runs in its own `MutuallyExclusive` callback group (`tick_callback_group_`). This guarantees the tick loop never runs concurrently with itself.
 - **Subscriber callbacks** (odom, IMU, UTM): Run in the default callback group. They acquire `sources_mutex_` to write `latest_odom`/`latest_imu` and set `has_new_data`.
-- **Tick loop:** Acquires `sources_mutex_` while iterating over sources. All EKF predict/update, TF broadcasting, and odometry publishing happen inside the tick callback, so they are serialized.
+- **Tick loop:** Acquires `sources_mutex_` while predicting/updating the local EKF and iterating over sources; global EKF work runs outside the lock. All EKF predict/update, TF broadcasting, and odometry publishing happen inside the tick callback, so they are serialized.
 - **PredictRelativeTransform service:** Acquires `sources_mutex_` to read the local EKF velocity. May run concurrently with subscriber callbacks but not with the tick (if using a multi-threaded executor, the tick's mutual exclusion prevents overlap only within its callback group -- the service runs in the default group and protects shared state via the mutex).
 
 Key synchronization:
@@ -337,7 +321,7 @@ Key synchronization:
 | `odom_sources_[*].latest_odom/imu` | `sources_mutex_` | Subscriber callbacks | Tick loop |
 | `odom_sources_[*].has_new_data` | `sources_mutex_` | Subscriber callbacks | Tick loop |
 | `map_sources_[*].latest_odom/imu` | `sources_mutex_` | Subscriber callbacks | Tick loop |
-| `local_ekf_` state | Tick callback group serialization | Tick loop | PredictRelativeTransform (via mutex) |
+| `local_ekf_` state | `sources_mutex_` (predict + updates) | Tick loop | PredictRelativeTransform |
 | `global_ekf_` state | Tick callback group serialization | Tick loop | -- |
 | `cached_utm_to_map_` | Single writer (callback) | UTM callback | Tick broadcasts it once |
 
