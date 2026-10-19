@@ -25,6 +25,7 @@
 #include <set>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
@@ -34,38 +35,28 @@ namespace world_model
 
 bool LaneletHandler::loadMap(
   const std::string & osm_path,
-  double utm_origin_x,
-  double utm_origin_y,
-  double origin_lat,
-  double origin_lon,
-  const std::string & projector_type)
+  const MapConfig & config,
+  const std::optional<geometry_msgs::msg::Transform> & projected_to_map)
 {
   try {
-    if (projector_type == "local_cartesian") {
-      // Use LocalCartesianProjector for CARLA-style maps with local coordinates
-      lanelet::Origin origin({0.0, 0.0});
-      projector_ = std::make_unique<lanelet::projection::LocalCartesianProjector>(origin);
-      map_ = lanelet::load(osm_path, *projector_);
-    } else {
-      // Use the configured lat/lon origin directly as the UTM projector origin.
-      // The projector maps GPS coordinates in the OSM file to local XY relative
-      // to this origin. The utm→map TF (from eidos GPS factor) aligns this
-      // local frame with the SLAM map frame.
-      lanelet::Origin origin({origin_lat, origin_lon});
-      projector_ = std::make_unique<lanelet::projection::UtmProjector>(origin);
-      map_ = lanelet::load(osm_path, *projector_);
-    }
-
-    if (!map_ || map_->laneletLayer.empty()) {
+    auto projector = std::make_unique<MapProjector>(config, projected_to_map);
+    auto map = lanelet::load(osm_path, *projector);
+    if (!map || map->laneletLayer.empty()) {
       return false;
     }
 
     // Create traffic rules for vehicles
-    traffic_rules_ =
+    auto traffic_rules =
       lanelet::traffic_rules::TrafficRulesFactory::create(lanelet::Locations::Germany, lanelet::Participants::Vehicle);
 
     // Build routing graph
-    routing_graph_ = lanelet::routing::RoutingGraph::build(*map_, *traffic_rules_);
+    auto routing_graph = lanelet::routing::RoutingGraph::build(*map, *traffic_rules);
+
+    // Publish a complete map only after projection, alignment, and routing succeed.
+    projector_ = std::move(projector);
+    traffic_rules_ = std::move(traffic_rules);
+    routing_graph_ = std::move(routing_graph);
+    map_ = std::move(map);
 
     return true;
   } catch (const std::exception & e) {

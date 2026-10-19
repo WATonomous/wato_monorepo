@@ -22,7 +22,7 @@ class TestScenarioServerParameters:
         defaults = {
             "carla_host": "localhost",
             "carla_port": 2000,
-            "carla_timeout": 10.0,
+            "carla_timeout": 60.0,
             "initial_scenario": "carla_scenarios.scenarios.default_scenario",
             "carla_fps": 60.0,
             "synchronous_mode": False,
@@ -116,6 +116,37 @@ class TestScenarioDiscovery:
         scenario_name = module_path.split(".")[-1]
 
         assert scenario_name == "light_traffic_scenario"
+
+
+class TestMapDiscovery:
+    """Tests for map discovery examples."""
+
+    def test_carla_map_paths_produce_expected_map_names(self):
+        map_paths = [
+            "/Game/Carla/Maps/Town01",
+            "/Game/Carla/Maps/Town10HD",
+        ]
+        map_names = [path.rsplit("/", 1)[-1] for path in map_paths]
+
+        assert map_names == ["Town01", "Town10HD"]
+
+
+class TestMapSwitching:
+    """Tests for map switching examples."""
+
+    def test_known_map_can_be_selected(self):
+        available_maps = ["Town01", "Town10HD"]
+        requested_map = "Town10HD"
+        should_load_map = requested_map in available_maps
+
+        assert should_load_map is True
+
+    def test_unknown_map_is_rejected(self):
+        available_maps = ["Town01", "Town10HD"]
+        requested_map = "Town99"
+        should_load_map = requested_map in available_maps
+
+        assert should_load_map is False
 
 
 class TestScenarioSwitching:

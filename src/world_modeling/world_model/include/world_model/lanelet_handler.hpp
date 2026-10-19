@@ -18,8 +18,6 @@
 #include <lanelet2_core/LaneletMap.h>
 #include <lanelet2_core/primitives/Lanelet.h>
 #include <lanelet2_io/Io.h>
-#include <lanelet2_projection/LocalCartesian.h>
-#include <lanelet2_projection/UTM.h>
 #include <lanelet2_routing/RoutingGraph.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 
@@ -38,6 +36,7 @@
 #include "lanelet_msgs/msg/route_ahead.hpp"
 #include "lanelet_msgs/srv/get_lanelets_by_reg_elem.hpp"
 #include "lanelet_msgs/srv/get_shortest_route.hpp"
+#include "world_model/map_projector.hpp"
 
 namespace world_model
 {
@@ -64,20 +63,14 @@ public:
    * @brief Load an OSM lanelet map with configurable projection.
    *
    * @param osm_path Path to the .osm file
-   * @param utm_origin_x X offset from UTM origin to map frame origin (meters)
-   * @param utm_origin_y Y offset from UTM origin to map frame origin (meters)
-   * @param origin_lat Reference latitude for UTM zone/origin selection
-   * @param origin_lon Reference longitude for UTM zone/origin selection
-   * @param projector_type Projector type: "utm" or "local_cartesian"
+   * @param config Geographic projection, origin, and alignment mode
+   * @param projected_to_map Full rigid transform, required in TF mode
    * @return true if map loaded successfully
    */
   bool loadMap(
     const std::string & osm_path,
-    double utm_origin_x,
-    double utm_origin_y,
-    double origin_lat = 0.0,
-    double origin_lon = 0.0,
-    const std::string & projector_type = "utm");
+    const MapConfig & config,
+    const std::optional<geometry_msgs::msg::Transform> & projected_to_map = std::nullopt);
 
   /**
    * @brief Check if the map is loaded.

@@ -15,6 +15,10 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
+from carla_scenarios.scenarios.empty_scenario import EmptyScenario
+
 
 class TestScenarioBaseHelpers:
     """Tests for ScenarioBase helper methods."""
@@ -120,6 +124,13 @@ class TestActorCleanup:
 class TestMapLoading:
     """Tests for map loading logic."""
 
+    def test_map_path_extracts_town_name(self):
+        """Test a CARLA map path resolves to its town name."""
+        map_path = "/Game/Carla/Maps/Town10HD"
+        map_name = map_path.rsplit("/", 1)[-1]
+
+        assert map_name == "Town10HD"
+
     def test_map_name_format(self):
         """Test map names follow CARLA format."""
         valid_maps = [
@@ -128,7 +139,7 @@ class TestMapLoading:
             "Town03",
             "Town04",
             "Town05",
-            "Town10HD",
+            "Town10HD_Opt",
         ]
 
         for map_name in valid_maps:
@@ -143,3 +154,40 @@ class TestMapLoading:
         needs_cleanup = map_changed
 
         assert needs_cleanup is True
+
+    @pytest.mark.parametrize(
+        "map_name", ["Town10HD_Opt", "/Game/Carla/Maps/Town10HD_Opt"]
+    )
+    def test_return_from_opendrive_loads_packaged_town(self, map_name):
+        scenario = EmptyScenario()
+        scenario.client = MagicMock()
+        scenario.world = MagicMock()
+        scenario.world.get_map.return_value.name = "Carla/Maps/OpenDriveMap"
+
+        assert scenario._load_map(map_name, wait_time=0)
+
+        scenario.client.load_world.assert_called_once_with(map_name)
+        assert scenario.world is scenario.client.get_world.return_value
+
+    @pytest.mark.parametrize(
+        "map_name", ["Town10HD_Opt", "/Game/Carla/Maps/Town10HD_Opt"]
+    )
+    def test_town_scenario_switch_reuses_current_world(self, map_name):
+        scenario = EmptyScenario()
+        scenario.client = MagicMock()
+        scenario.world = MagicMock()
+        scenario.world.get_map.return_value.name = "Carla/Maps/Town10HD_Opt"
+
+        assert scenario._load_map(map_name, wait_time=0)
+
+        scenario.client.load_world.assert_not_called()
+
+    def test_similar_map_name_does_not_skip_reload(self):
+        scenario = EmptyScenario()
+        scenario.client = MagicMock()
+        scenario.world = MagicMock()
+        scenario.world.get_map.return_value.name = "Carla/Maps/Town10HD_Opt_Other"
+
+        assert scenario._load_map(wait_time=0)
+
+        scenario.client.load_world.assert_called_once_with("Town10HD_Opt")

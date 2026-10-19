@@ -14,7 +14,9 @@
 """Base class for CARLA scenario plugins."""
 
 import random
+import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional, List
 
 try:
@@ -30,6 +32,7 @@ class ScenarioBase(ABC):
         self.client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None
         self.logger = None  # Set by scenario server
+        self.xodr_map_directory: Optional[Path] = None
 
     def _log(self, msg: str, level: str = "info") -> None:
         """Log using ROS logger if available, otherwise print."""
@@ -64,7 +67,7 @@ class ScenarioBase(ABC):
             self._log(f"Failed to initialize: {e}", "error")
             return False
 
-    def _load_map(self, map_name: str = "Town10HD", wait_time: float = 2.0) -> bool:
+    def _load_map(self, map_name: str = "Town10HD_Opt", wait_time: float = 2.0) -> bool:
         """
         Load a map if not already loaded.
 
@@ -78,11 +81,93 @@ class ScenarioBase(ABC):
         import time
 
         current_map = self.world.get_map().name
-        if map_name not in current_map:
+        current_map_id = current_map.removeprefix("/Game/")
+        requested_map_id = map_name.removeprefix("/Game/")
+        if "/" not in requested_map_id:
+            current_map_id = current_map_id.rsplit("/", 1)[-1]
+        if current_map_id != requested_map_id:
             self._log(f"Loading {map_name} map (current: {current_map})...")
             self.client.load_world(map_name)
             time.sleep(wait_time)
             self.world = self.client.get_world()
+        return True
+
+    def _load_xodr_map(self, xodr_file: str) -> bool:
+        """
+        Generate a CARLA world from an OpenDRIVE file.
+
+        Relative paths are resolved from the scenario server's
+        xodr_map_directory parameter.
+
+        Args:
+            xodr_file: OpenDRIVE filename or absolute path
+
+        Returns:
+            True when CARLA generated the world successfully
+
+        Raises:
+            RuntimeError: If CARLA is unavailable or rejects the map
+            ValueError: If the path or OpenDRIVE document is invalid
+        """
+        if self.client is None:
+            raise RuntimeError("CARLA client is not initialized")
+
+        xodr_path = Path(xodr_file)
+        if not xodr_path.is_absolute():
+            if self.xodr_map_directory is None:
+                raise ValueError("xodr_map_directory is not configured")
+            xodr_path = self.xodr_map_directory / xodr_path
+        xodr_path = xodr_path.resolve()
+
+        if xodr_path.suffix.lower() != ".xodr":
+            raise ValueError(f"OpenDRIVE map must have a .xodr extension: {xodr_path}")
+        if not xodr_path.is_file():
+            raise ValueError(f"OpenDRIVE map does not exist: {xodr_path}")
+
+        try:
+            xodr_data = xodr_path.read_text(encoding="utf-8")
+        except OSError as error:
+            raise ValueError(
+                f"OpenDRIVE map could not be read: {xodr_path}: {error}"
+            ) from error
+
+        try:
+            root = ET.fromstring(xodr_data)
+        except ET.ParseError as error:
+            raise ValueError(
+                f"OpenDRIVE map is not valid XML: {xodr_path}: {error}"
+            ) from error
+
+        root_name = root.tag.rsplit("}", 1)[-1]
+        if root_name != "OpenDRIVE" or not root.findall(".//{*}road"):
+            raise ValueError(
+                f"OpenDRIVE map must contain an OpenDRIVE root and at least one road: "
+                f"{xodr_path}"
+            )
+
+        self._log(f"Generating CARLA world from {xodr_path}...")
+        try:
+            self.world = self.client.generate_opendrive_world(
+                xodr_data,
+                carla.OpendriveGenerationParameters(
+                    wall_height=0.0,
+                    enable_mesh_visibility=True,
+                    # The oval scenario has no pedestrians. CARLA 0.10 can
+                    # remain busy indefinitely building OpenDriveMap.obj when
+                    # pedestrian navigation generation is left enabled.
+                    enable_pedestrian_navigation=False,
+                ),
+            )
+        except Exception as error:
+            raise RuntimeError(
+                f"CARLA failed to generate a world from {xodr_path}: {error}"
+            ) from error
+
+        if self.world is None:
+            raise RuntimeError(
+                f"CARLA did not return a world for OpenDRIVE map: {xodr_path}"
+            )
+
         return True
 
     # -------------------------------------------------------------------------
