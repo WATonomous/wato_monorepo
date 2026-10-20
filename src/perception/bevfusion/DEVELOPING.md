@@ -165,6 +165,24 @@ colcon build --packages-select cuda_bevfusion_vendor bevfusion
 
 Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filters`, `vision_msgs`, `visualization_msgs`, `deep_msgs`, `sensor_msgs`, `geometry_msgs`, `tf2_ros`, `tf2_geometry_msgs`, `tf2_eigen`, `eigen3_cmake_module`, `diagnostic_updater`, `OpenCV`, CUDA Toolkit (`nvinfer`, `nvinfer_plugin`, `nvonnxparser`), `cuda_bevfusion_vendor`.
 
+### CUDA architecture (`CUDASM`)
+
+`cuda_bevfusion_vendor` compiles CUDA kernels for a single GPU compute capability. It defaults to `CUDASM=89`, which targets Ada GPUs such as the RTX 40-series. Building for one architecture does not produce binaries that run on an older one: `89` code cannot run on an 8.6 GPU, and attempting it fails with `cudaErrorNoKernelImageForDevice` in `create_frustum_kernel`.
+
+Check your GPU's compute capability with:
+
+```bash
+nvidia-smi --query-gpu=compute_cap --format=csv,noheader
+```
+
+Remove the decimal point and set the result in `watod-config.local.sh` before building. For example, compute capability `8.6` (Ampere / RTX 30-series) becomes:
+
+```bash
+export CUDASM=86
+```
+
+Then rebuild with `./watod build`. `watod up --build` does not rebuild the source and dependency pre-build stages, so it will keep the previous architecture. PTX is forward-compatible but not backward-compatible: an image built with `CUDASM=86` can run on 8.6 and newer GPUs, while an image built with `CUDASM=89` cannot run on 8.6.
+
 ### Testing
 
 ```bash
