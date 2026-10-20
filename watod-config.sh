@@ -36,7 +36,7 @@
 ##   - "interfacing:dev"                  : Interfacing in dev mode (editable)
 ##   - "interfacing:dev perception:dev"   : Both in dev mode
 
-# export ACTIVE_MODULES=""
+export ACTIVE_MODULES="perception"
 
 ############################## ADVANCED CONFIGURATIONS ##############################
 ## Install Claude Code in dev containers. Set to "false" to skip installation.
@@ -76,7 +76,6 @@
 
 ## Path to Zenoh session configuration. DEFAULT ="file:///opt/watonomous/rmw_zenoh_session_config.json5"
 # export ZENOH_SESSION_CONFIG_URI=""
-
 
 ## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
 ## Each user gets a unique domain to prevent cross-talk on shared networks

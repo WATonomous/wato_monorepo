@@ -149,6 +149,7 @@ services:
       args:
         MODULE_SOURCE: "${PERCEPTION_IMAGE:?}:source_${TAG}"
         MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+        CUDASM: "${CUDASM:-89}"
       cache_from:
         - "${PERCEPTION_IMAGE:?}:${TAG}"
         - "${PERCEPTION_IMAGE:?}:main"
