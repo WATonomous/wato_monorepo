@@ -119,7 +119,7 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `input_multi_image_compressed_topic` | `/multi_camera_sync/multi_image_compressed` | Compressed camera input topic |
 | `input_multi_image_raw_topic` | `/multi_camera_sync/multi_image_raw` | Raw camera input topic |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic (same remap caveat as above) |
-| `model_dir` | `/opt/watonomous/models/bevfusion/resnet50int8_trt11` | Directory with `.onnx` files and the LiDAR backbone |
+| `model_dir` | `/opt/watonomous/models/bevfusion/resnet50_trt11_int8` | Directory with `.onnx` files and the LiDAR backbone |
 | `build_dir` | `<model_dir>/build` | Directory where compiled `.plan` TensorRT engines are read from/written to |
 | `precision` | `"int8"` | Model precision — `"fp16"` or `"int8"` |
 | `camera_names` | 6 `camera_pano_*` frame IDs | Frame IDs of the cameras to use, in nuScenes order; also determines `num_cameras` |
