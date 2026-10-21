@@ -273,6 +273,44 @@ inline double pursuitCurvature(const Vec2 & lookahead)
   return 2.0 * lookahead.y / ld_sq;
 }
 
+// Maximum |kappa| sampled along the forward path over `probe_count` distances
+// spanning [min_ld, max_ld]. Densifying what we look at inside the existing
+// horizon lets the curvature-limited speed budget catch a sharp section that a
+// single-lookahead probe can straddle (e.g. lookahead falling just before a
+// curve entry). Steering geometry is untouched; this is a speed-budget input.
+// Returns 0 when no forward point is reachable or fewer than one probe is
+// requested.
+inline double maxAbsCurvatureOverHorizon(
+  const std::vector<Vec2> & path,
+  double min_ld,
+  double max_ld,
+  std::size_t probe_count,
+  double curvature_est_arc,
+  std::size_t start_idx = 0)
+{
+  if (probe_count == 0 || path.size() < 3) {
+    return 0.0;
+  }
+  double lo = std::min(min_ld, max_ld);
+  double hi = std::max(min_ld, max_ld);
+  double kappa_max = 0.0;
+  for (std::size_t i = 0; i < probe_count; ++i) {
+    double ld = hi;
+    if (probe_count > 1) {
+      ld = lo + (hi - lo) * static_cast<double>(i) / static_cast<double>(probe_count - 1);
+    }
+    LookaheadResult r = findLookaheadPoint(path, ld, min_ld, start_idx);
+    if (!r.found) {
+      continue;
+    }
+    double k = std::abs(curvatureByArc(path, r.segment_idx, curvature_est_arc));
+    if (k > kappa_max) {
+      kappa_max = k;
+    }
+  }
+  return kappa_max;
+}
+
 // --------------------------------------------------------------------------
 // Speed / command shaping
 // --------------------------------------------------------------------------

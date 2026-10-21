@@ -23,7 +23,7 @@ The pure pursuit node receives a planned trajectory, transforms each waypoint in
 |-------|------|-------------|
 | `/action/ackermann` | `ackermann_msgs/AckermannDriveStamped` | Steering angle and speed command |
 | `/action/is_idle` | `std_msgs/Bool` | `true` when idle or in standby (the disengage monitor does **not** raise this) |
-| `controller_status` | `wato_trajectory_msgs/ControllerStatus` | Per-cycle tracking error, effective lookahead, path curvature, commands, and disengage state/reason |
+| `controller_status` | `wato_trajectory_msgs/ControllerStatus` | Per-cycle tracking error, effective lookahead, path curvature at the steering lookahead, the max \|κ\| sampled across the speed-limit horizon, commands, and disengage state/reason |
 
 Also subscribes to `odom` (`nav_msgs/Odometry`) for the current longitudinal speed used by the adaptive lookahead and speed scheduling.
 
@@ -53,6 +53,7 @@ Parameters are read once in `on_configure`. To change them at runtime, transitio
 | `curvature_lookahead_gain` | double | `2.0` | Shrinks lookahead in curves: `ld_eff = ld / (1 + gain·|κ|)` |
 | `speed_lookahead_distance` | double | `1.0` | Minimum distance ahead used to sample target speed (m) |
 | `speed_lookahead_time` | double | `2.0` | Time-headway for the (decoupled, longer) speed sample horizon (s) |
+| `speed_limit_probe_count` | int | `3` | Number of \|κ\| samples across `[min_lookahead_distance, lookahead_distance]` fed to the curvature-limited speed budget. `1` reproduces the previous single-point behaviour |
 
 **Steering & speed**
 
@@ -129,6 +130,8 @@ where $L$ is the wheelbase, $(x, y)$ is the lookahead point in `rear_axle_frame`
 ### Speed control
 
 Target speed is the minimum of the path's requested speed (sampled at a decoupled, speed-scaled horizon `max(speed_lookahead_distance, speed_lookahead_time·speed)`) and the curvature-limited speed `sqrt(max_lateral_accel / |κ|)` — so the vehicle slows *before* a curve within a lateral-acceleration budget rather than reacting to steering after the fact. The result is clamped to `[min_speed, max_speed]` (or `0` if the path commands a stop) and then accel/decel slew-limited by `max_accel` / `max_decel`.
+
+The `|κ|` used in the cornering-speed budget is the maximum of two estimates: the curvature at the steering lookahead point, and the maximum `|κ|` sampled at `speed_limit_probe_count` distances spanning `[min_lookahead_distance, lookahead_distance]`. Densifying the samples inside the existing horizon catches a sharp section that the single steering lookahead can straddle (e.g. lookahead falling just before a curve entry), so `v_curve` is bounded by whatever the sharpest part of the visible path demands rather than by the incidental point the steering law happened to pick. Setting `speed_limit_probe_count: 1` reproduces the previous single-point behaviour exactly. Steering geometry is untouched by this change.
 
 ### Optional low-speed blend
 

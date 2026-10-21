@@ -87,6 +87,8 @@ private:
   double curvature_est_arc_;  // half-window arc length for curvature estimation (m)
   double speed_lookahead_distance_;  // minimum distance ahead used to sample target speed (m)
   double speed_lookahead_time_;  // time-headway for the speed sample horizon (s)
+  int
+    speed_limit_probe_count_;  // samples over [min_lookahead_distance, lookahead_distance] feeding v_curve; 1 = current behaviour
 
   // Parameters — steering
   double steering_angle_gain_;

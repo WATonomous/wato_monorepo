@@ -212,3 +212,69 @@ TEST_CASE("pursuit curvature matches the geometric formula", "[lookahead]")
   CHECK(ppm::pursuitCurvature({3.0, 0.0}) == Approx(0.0));
   CHECK(ppm::pursuitCurvature({2.0, 2.0}) == Approx(0.5));  // 2*y/(x^2+y^2) = 4/8
 }
+
+TEST_CASE("horizon curvature scan catches a sharp section a single probe skips", "[speed_budget]")
+{
+  // Path: straight to x=3, then a sharp U-shaped arc of R = 0.5 (|kappa| = 2),
+  // then continues straight at y=1. Probe range [2, 5]:
+  //   - N=1 probes only at ld=5, which lands on the straight AFTER the arc -> kappa=0.
+  //   - N=3 probes at {2, 3.5, 5}: the 3.5 probe lands on the arc -> kappa >> 0.
+  // This is the exact "single lookahead straddles the curve" case the change is
+  // supposed to fix.
+  std::vector<Vec2> path;
+  for (double x = 0.0; x <= 3.0; x += 0.5) {
+    path.push_back({x, 0.0});
+  }
+  const double cx = 3.0, cy = 0.5, R = 0.5;
+  for (double theta = -M_PI / 2.0; theta <= M_PI / 2.0; theta += 0.1) {
+    path.push_back({cx + R * std::cos(theta), cy + R * std::sin(theta)});
+  }
+  for (double x = 3.0; x <= 8.0; x += 0.5) {
+    path.push_back({x, 1.0});
+  }
+
+  const double min_ld = 2.0;
+  const double max_ld = 5.0;
+  const double arc = 1.0;
+
+  double kappa_single = ppm::maxAbsCurvatureOverHorizon(path, min_ld, max_ld, 1, arc);
+  double kappa_multi = ppm::maxAbsCurvatureOverHorizon(path, min_ld, max_ld, 3, arc);
+
+  CHECK(kappa_single == Approx(0.0));  // single probe misses the arc
+  CHECK(kappa_multi > 1.0);  // multi-probe catches it (true |kappa| ~ 2/R = 2)
+}
+
+TEST_CASE("horizon curvature scan is a no-op on straight paths", "[speed_budget]")
+{
+  std::vector<Vec2> straight;
+  for (double x = 0.0; x <= 10.0; x += 0.5) {
+    straight.push_back({x, 0.0});
+  }
+  double k = ppm::maxAbsCurvatureOverHorizon(straight, 2.0, 5.0, 5, 1.0);
+  CHECK(k == Approx(0.0));
+}
+
+TEST_CASE("horizon curvature scan with probe_count=1 uses the max distance only", "[speed_budget]")
+{
+  // Straight then bend at ~5 m: a single probe at max_ld should sample the bend,
+  // while a probe placed only at min_ld would miss it. Confirms our N=1 semantics.
+  std::vector<Vec2> path;
+  for (double x = 0.0; x <= 4.5; x += 0.5) {
+    path.push_back({x, 0.0});
+  }
+  const double cx = 4.5, cy = 2.0, R = 2.0;
+  for (double theta = -M_PI / 2.0; theta <= 0.0; theta += 0.1) {
+    path.push_back({cx + R * std::cos(theta), cy + R * std::sin(theta)});
+  }
+  double k = ppm::maxAbsCurvatureOverHorizon(path, 2.0, 5.0, 1, 1.0);
+  CHECK(k > 0.0);  // saw the bend
+}
+
+TEST_CASE("horizon curvature scan tolerates degenerate inputs", "[speed_budget]")
+{
+  // Empty path -> 0
+  CHECK(ppm::maxAbsCurvatureOverHorizon({}, 2.0, 5.0, 3, 1.0) == Approx(0.0));
+  // Zero probes -> 0
+  std::vector<Vec2> path{{0, 0}, {1, 0}, {2, 0}};
+  CHECK(ppm::maxAbsCurvatureOverHorizon(path, 2.0, 5.0, 0, 1.0) == Approx(0.0));
+}
