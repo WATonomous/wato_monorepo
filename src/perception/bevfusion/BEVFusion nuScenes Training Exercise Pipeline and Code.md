@@ -1,6 +1,6 @@
 # BEVFusion nuScenes Training Exercise: Pipeline and Code
 
-Oct 23, 2026 · @WISE
+Oct 23, 2026 · @Shourrya
 
 ## Goal
 

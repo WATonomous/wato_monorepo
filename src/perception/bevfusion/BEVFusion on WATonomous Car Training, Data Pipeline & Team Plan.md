@@ -1,6 +1,6 @@
 # BEVFusion on WATonomous Car: Training, Data Pipeline & Team Plan
 
-Oct 23, 2026 · @WISE
+Oct 23, 2026 · @Shourrya
 
 ## Overview and goals
 
