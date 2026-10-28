@@ -86,6 +86,7 @@ private:
     HistorySample sample;
     double distance_sq{0.0};
     bool in_forward_region{false};
+    bool moving{false};  // history shows >= kMovingSpeedMps; ranked ahead of stationary agents
   };
 
   // One scene-frame map point: position + (backward-diff, normalized) direction.

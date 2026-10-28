@@ -412,6 +412,28 @@ TEST(SceneBuilder, ClosestForwardTargetSelectedFirst)
   EXPECT_EQ(tensors.sidecar.targets[2].detection_id, "behind");
 }
 
+TEST(SceneBuilder, MovingTargetRankedAheadOfNearerParkedCars)
+{
+  SceneBuilder builder{MtrConfig{}};
+  vision_msgs::msg::Detection3DArray arr;
+  // 1 s of history: eight parked cars 5..12 m ahead, one car 40 m ahead driving at 10 m/s.
+  for (int k = 0; k <= 10; ++k) {
+    const double t = 100.0 + 0.1 * k;
+    std::vector<vision_msgs::msg::Detection3D> dets;
+    for (int i = 0; i < 8; ++i) {
+      dets.push_back(makeDetection("parked_" + std::to_string(i), "vehicle", 5.0 + i, 3.0, 0.0, 0.0));
+    }
+    dets.push_back(makeDetection("mover", "vehicle", 40.0 + 1.0 * k, -3.0, 0.0, 0.0));
+    arr = makeArray(t, dets);
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_EQ(tensors.sidecar.targets.size(), kTargetCap);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "mover");
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "parked_0");  // then nearest-first as before
+}
+
 TEST(SceneBuilderPinnedTargets, EmptyPinnedListUsesHeuristic)
 {
   MtrConfig config;

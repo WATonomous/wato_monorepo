@@ -57,6 +57,10 @@ constexpr float kMapLaneCenterlineType = 0.0F;
 // distribution; do not "improve" it for curves without accepting that mismatch. Currently inert:
 // forward-BFS LaneletAhead almost always yields < 768 chunks, so ranking never actually trims.
 constexpr double kMapCenterOffsetX = 30.0;
+// Agents whose history moved at least this fast take MTR target slots before stationary ones. A busy
+// street has dozens of parked cars; ranked by distance alone they fill all 8 slots and passing traffic
+// only gets the constant-velocity fallback. 2 m/s sits above BEVFusion box jitter (~0.6 m p90).
+constexpr double kMovingSpeedMps = 2.0;
 constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
@@ -615,10 +619,17 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     candidate.sample = *sample;
     candidate.distance_sq = dx * dx + dy * dy;
     candidate.in_forward_region = bearing_abs <= half_angle_rad;
+    const auto & hist = history_.at(sample->detection_id);
+    const double span = hist.back().timestamp - hist.front().timestamp;
+    candidate.moving = span >= 0.5 && std::hypot(hist.back().x - hist.front().x, hist.back().y - hist.front().y) >=
+                                        kMovingSpeedMps * span;
     candidates.push_back(std::move(candidate));
   }
 
   std::sort(candidates.begin(), candidates.end(), [](const TargetCandidate & lhs, const TargetCandidate & rhs) {
+    if (lhs.moving != rhs.moving) {
+      return lhs.moving;
+    }
     if (lhs.in_forward_region != rhs.in_forward_region) {
       return lhs.in_forward_region;
     }
