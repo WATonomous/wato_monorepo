@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <tf2/utils.hpp>
 #include <tf2_ros/buffer.h>
 
 #include <cmath>
@@ -579,9 +580,9 @@ TEST_CASE("createDetections3D: position and size are mapped correctly", "[conver
   REQUIRE(det.bbox.center.position.y == Catch::Approx(-2.3));
   REQUIRE(det.bbox.center.position.z == Catch::Approx(0.7));
 
-  // Documents current mapping: size.x <- bbox.size.w, size.y <- bbox.size.l
-  REQUIRE(det.bbox.size.x == Catch::Approx(1.8));  // w
-  REQUIRE(det.bbox.size.y == Catch::Approx(4.0));  // l
+  // size.x is the length along the heading, as tracking and prediction read it
+  REQUIRE(det.bbox.size.x == Catch::Approx(4.0));  // l
+  REQUIRE(det.bbox.size.y == Catch::Approx(1.8));  // w
   REQUIRE(det.bbox.size.z == Catch::Approx(1.5));  // h
 
   rclcpp::shutdown();
@@ -589,12 +590,10 @@ TEST_CASE("createDetections3D: position and size are mapped correctly", "[conver
 
 // =============================================================================
 // TEST: BoundingBox → Detection3D yaw rotation
-// WHY: z_rotation encodes heading, but uses BEV-map sign convention (Y points
-//      away from ego / "downward" in image space), which is opposite to the
-//      ROS2/LiDAR right-handed frame (counter-clockwise = positive yaw).
-//      The node negates z_rotation before calling setRPY so that a car
-//      pointing "forward" (+x) with z_rotation=0 gets an identity quaternion,
-//      and angles rotate in the physically correct direction.
+// WHY: z_rotation uses the mmdet3d v0.x convention (clockwise, heading along
+//      the box -y axis), so the published yaw is -z_rotation - pi/2. A car
+//      facing +x (z_rotation = -pi/2) gets an identity quaternion. Before this
+//      was fixed every heading was 90 degrees off and MTR predicted sideways.
 // =============================================================================
 TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conversion][fast]")
 {
@@ -609,14 +608,45 @@ TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conv
   REQUIRE(detections_3d.detections.size() == 1);
   const auto & det = detections_3d.detections[0];
 
-  // z_rotation is negated before setRPY, so the resulting quaternion encodes -yaw.
-  double expected_qw = std::cos(-M_PI / 8.0);  // cos(-yaw/2) == cos(yaw/2)
-  double expected_qz = std::sin(-M_PI / 8.0);  // sin(-yaw/2) == -sin(yaw/2)
+  // published yaw = -z_rotation - pi/2 = -3pi/4
+  double expected_qw = std::cos(-3.0 * M_PI / 8.0);
+  double expected_qz = std::sin(-3.0 * M_PI / 8.0);
 
   REQUIRE(det.bbox.center.orientation.x == Catch::Approx(0.0).margin(1e-6));
   REQUIRE(det.bbox.center.orientation.y == Catch::Approx(0.0).margin(1e-6));
   REQUIRE(det.bbox.center.orientation.z == Catch::Approx(expected_qz).margin(1e-5));
   REQUIRE(det.bbox.center.orientation.w == Catch::Approx(expected_qw).margin(1e-5));
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: heading follows the long side and the footprint is unchanged
+// WHY: CUDA-BEVFusion puts w on the box x-axis; downstream treats the pose
+//      x-axis as heading. A car facing +x must come out with yaw 0 and
+//      size.x = length, and the drawn rectangle must match the old one.
+// =============================================================================
+TEST_CASE("createDetections3D: yaw points along the box length", "[conversion][fast]")
+{
+  auto node = make_configured_node();
+  set_identity_lidar_to_target_tf(*node);
+  builtin_interfaces::msg::Time stamp;
+
+  for (float z_rot : {-static_cast<float>(M_PI / 2.0), 0.3f, 2.0f}) {
+    BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 4.0f, 1.8f, 1.5f, z_rot, 0.9f, 0);
+    auto dets = node->createDetections3D({bbox}, stamp);
+    REQUIRE(dets.detections.size() == 1);
+    const auto & d = dets.detections[0];
+    const double yaw = tf2::getYaw(d.bbox.center.orientation);
+    REQUIRE(d.bbox.size.x == Catch::Approx(4.0));
+    if (z_rot < -1.0f) {
+      REQUIRE(yaw == Catch::Approx(0.0).margin(1e-5));  // car facing +x
+    }
+    // half-length along heading, in world coords, equals the old box's -y axis * l/2
+    const double old_yaw = -z_rot;
+    REQUIRE(std::cos(yaw) == Catch::Approx(std::sin(old_yaw)).margin(1e-5));
+    REQUIRE(std::sin(yaw) == Catch::Approx(-std::cos(old_yaw)).margin(1e-5));
+  }
 
   rclcpp::shutdown();
 }
