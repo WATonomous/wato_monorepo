@@ -111,6 +111,20 @@ MessageT deserialize(
   return message;
 }
 
+// rosbag2 renamed SerializedBagMessage::time_stamp to recv_timestamp after Humble (Jazzy has only
+// the new name). The int/long tag prefers recv_timestamp if a distro ever has both.
+template <typename BagMessageT>
+auto receiveTimestampNs(const BagMessageT & message, int) -> decltype(message.recv_timestamp)
+{
+  return message.recv_timestamp;
+}
+
+template <typename BagMessageT>
+auto receiveTimestampNs(const BagMessageT & message, long) -> decltype(message.time_stamp)  // NOLINT
+{
+  return message.time_stamp;
+}
+
 inline MtrInputTensors buildFromBag(
   const std::filesystem::path & bag_dir,
   const std::vector<std::string> & pinned_ids,
@@ -147,7 +161,7 @@ inline MtrInputTensors buildFromBag(
       frame.has_map = true;
     } else if (bag_message->topic_name == kTracksTopic) {
       frame.detections = deserialize<vision_msgs::msg::Detection3DArray>(bag_message);
-      frame.timestamp = static_cast<double>(bag_message->time_stamp) / 1.0e9;
+      frame.timestamp = static_cast<double>(receiveTimestampNs(*bag_message, 0)) / 1.0e9;
       if (!frame.has_ego || !frame.has_ego_velocity || !frame.has_map) {
         throw std::runtime_error(
                 "fixture frame " + std::to_string(detection_step) +
