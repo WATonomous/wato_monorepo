@@ -336,10 +336,23 @@ void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray 
   }
 
   for (const auto & detection : detections.detections) {
-    const auto sample = sampleFromDetection(detection, timestamp, detections.header.frame_id);
-    if (sample.has_value()) {
-      addSample(*sample);
+    auto sample = sampleFromDetection(detection, timestamp, detections.header.frame_id);
+    if (!sample.has_value()) {
+      continue;
     }
+    const auto it = history_.find(sample->detection_id);
+    if (config_.velocity_from_history && it != history_.end() && !it->second.empty()) {
+      // Mean velocity since the oldest retained sample (<= one history window); short spans
+      // amplify box jitter, so younger tracks keep the tracker's value.
+      const auto & oldest = it->second.front();
+      const double span = sample->timestamp - oldest.timestamp;
+      if (span >= 0.3) {
+        sample->vx = (sample->x - oldest.x) / span;
+        sample->vy = (sample->y - oldest.y) / span;
+        sample->vz = (sample->z - oldest.z) / span;
+      }
+    }
+    addSample(*sample);
   }
 
   pruneHistory(timestamp);

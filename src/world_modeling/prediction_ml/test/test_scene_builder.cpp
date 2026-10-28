@@ -753,6 +753,28 @@ TEST(SceneBuilder, VelocityIsRotatedIntoTargetFrame)
   EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(b_row), T - 1, vy_off)], -2.0F, 1e-4);
 }
 
+TEST(SceneBuilder, VelocityFromHistoryReplacesTrackerVelocity)
+{
+  // Car moves +x at 10 m/s for 0.5 s while the tracker reports 0.3 m/s.
+  for (const bool from_history : {false, true}) {
+    MtrConfig cfg;
+    cfg.velocity_from_history = from_history;
+    SceneBuilder builder{cfg};
+    vision_msgs::msg::Detection3DArray arr;
+    for (int k = 0; k <= 5; ++k) {
+      arr = makeArray(100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + 1.0 * k, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)});
+      builder.addFrame(arr);
+    }
+    auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+    ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+    const int row = tensors.sidecar.targets[0].track_index;
+    const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+    const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+    EXPECT_NEAR(
+      tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(row), T - 1, F - 4)], from_history ? 10.0F : 0.3F, 1e-3);
+  }
+}
+
 TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.

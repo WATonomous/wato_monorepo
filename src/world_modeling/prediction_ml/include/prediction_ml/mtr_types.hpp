@@ -54,6 +54,10 @@ struct MtrConfig
   double model_time_step_s{0.1};
   int history_steps{11};
   double history_rate_hz{10.0};
+  // Estimate each track's velocity from its own positions over the history window instead of the
+  // tracker's linear_velocity. ByteTrack's Kalman velocity from tracking is ~4% of true speed on
+  // moving cars (BEVFusion replay), which makes MTR predict passing traffic as nearly stopped.
+  bool velocity_from_history{false};
   // Static ego (SDC) bounding-box dimensions (metres). Used to give the ego row a real
   // footprint in obj_trajs instead of a zero-size box, matching MTR training. Defaults are
   // the Kia Soul EV chassis from eve_description (eve_chassis.xacro).
