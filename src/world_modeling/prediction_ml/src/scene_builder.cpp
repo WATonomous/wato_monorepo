@@ -61,6 +61,9 @@ constexpr double kMapCenterOffsetX = 30.0;
 // street has dozens of parked cars; ranked by distance alone they fill all 8 slots and passing traffic
 // only gets the constant-velocity fallback. 2 m/s sits above BEVFusion box jitter (~0.6 m p90).
 constexpr double kMovingSpeedMps = 2.0;
+// mtr.velocity_from_history: speeds below this are box jitter and are zeroed. On the BEVFusion
+// replay parked cars read 0.31 m/s p50 / 0.88 p90; moving cars 1.6 m/s p10, walking peds 0.8 p10.
+constexpr double kHistoryVelocityDeadbandMps = 1.0;
 constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
@@ -347,9 +350,12 @@ void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray 
       const auto & oldest = it->second.front();
       const double span = sample->timestamp - oldest.timestamp;
       if (span >= 0.3) {
-        sample->vx = (sample->x - oldest.x) / span;
-        sample->vy = (sample->y - oldest.y) / span;
-        sample->vz = (sample->z - oldest.z) / span;
+        const double vx = (sample->x - oldest.x) / span;
+        const double vy = (sample->y - oldest.y) / span;
+        const bool still = std::hypot(vx, vy) < kHistoryVelocityDeadbandMps;
+        sample->vx = still ? 0.0 : vx;
+        sample->vy = still ? 0.0 : vy;
+        sample->vz = still ? 0.0 : (sample->z - oldest.z) / span;
       }
     }
     addSample(*sample);

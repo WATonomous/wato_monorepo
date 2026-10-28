@@ -775,6 +775,24 @@ TEST(SceneBuilder, VelocityFromHistoryReplacesTrackerVelocity)
   }
 }
 
+TEST(SceneBuilder, VelocityFromHistoryZeroesBoxJitter)
+{
+  // Parked car whose box drifts 0.3 m in 0.5 s (0.6 m/s): below the deadband, so velocity is 0.
+  MtrConfig cfg;
+  cfg.velocity_from_history = true;
+  SceneBuilder builder{cfg};
+  vision_msgs::msg::Detection3DArray arr;
+  for (int k = 0; k <= 5; ++k) {
+    arr = makeArray(100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + 0.06 * k, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)});
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+  const int row = tensors.sidecar.targets[0].track_index;
+  const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+  const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(row), T - 1, F - 4)], 0.0F);
+}
+
 TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.
