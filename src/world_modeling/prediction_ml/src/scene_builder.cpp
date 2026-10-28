@@ -244,6 +244,20 @@ std::optional<SceneBuilder::MtrObjectClass> SceneBuilder::parseObjectClass(
     if (label == "cyclist" || label == "bicycle" || label == "bike") {
       return MtrObjectClass::Cyclist;
     }
+
+    // BEVFusion publishes nuScenes class indices as strings (bevfusion_constants.hpp):
+    // 0 car, 1 truck, 2 construction_vehicle, 3 bus, 4 trailer, 5 barrier, 6 motorcycle,
+    // 7 bicycle, 8 pedestrian, 9 traffic_cone. Motorcycles are vehicles in the Waymo taxonomy MTR
+    // was trained on; barriers and cones are static and dropped.
+    if (label == "0" || label == "1" || label == "2" || label == "3" || label == "4" || label == "6") {
+      return MtrObjectClass::Vehicle;
+    }
+    if (label == "7") {
+      return MtrObjectClass::Cyclist;
+    }
+    if (label == "8") {
+      return MtrObjectClass::Pedestrian;
+    }
   }
 
   return std::nullopt;

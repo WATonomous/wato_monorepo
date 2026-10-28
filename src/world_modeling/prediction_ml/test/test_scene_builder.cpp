@@ -805,6 +805,28 @@ TEST(SceneBuilder, CenterTypeIdsMapCorrectly)
   EXPECT_EQ(tensors.center_type_ids[2], 2);  // cyclist
 }
 
+TEST(SceneBuilder, NuScenesNumericClassIdsMapToMtrTypes)
+{
+  // BEVFusion -> tracking passes nuScenes indices through as class_id strings.
+  SceneBuilder builder{MtrConfig{}};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("car", "0", 8.0, 0.0, 0.0, 0.0),
+     makeDetection("ped", "8", 9.0, 0.0, 0.0, 0.0),
+     makeDetection("bike", "7", 10.0, 0.0, 0.0, 0.0),
+     makeDetection("moto", "6", 11.0, 0.0, 0.0, 0.0),
+     makeDetection("cone", "9", 12.0, 0.0, 0.0, 0.0),
+     makeDetection("barrier", "5", 13.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_EQ(tensors.sidecar.targets.size(), 4U);  // cone and barrier dropped
+  EXPECT_EQ(tensors.center_type_ids[0], 0);  // car -> vehicle
+  EXPECT_EQ(tensors.center_type_ids[1], 1);  // pedestrian
+  EXPECT_EQ(tensors.center_type_ids[2], 2);  // bicycle -> cyclist
+  EXPECT_EQ(tensors.center_type_ids[3], 0);  // motorcycle -> vehicle
+}
+
 TEST(SceneBuilder, EgoContextRowIsSdc)
 {
   SceneBuilder builder{MtrConfig{}};
