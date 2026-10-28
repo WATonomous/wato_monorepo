@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <tf2/utils.hpp>
 #include <tf2_ros/buffer.h>
 
 #include <cmath>
@@ -608,14 +607,12 @@ TEST_CASE("createDetections3D: yaw rotation produces correct quaternion", "[conv
   REQUIRE(detections_3d.detections.size() == 1);
   const auto & det = detections_3d.detections[0];
 
-  // published yaw = -z_rotation - pi/2 = -3pi/4
-  double expected_qw = std::cos(-3.0 * M_PI / 8.0);
-  double expected_qz = std::sin(-3.0 * M_PI / 8.0);
-
-  REQUIRE(det.bbox.center.orientation.x == Catch::Approx(0.0).margin(1e-6));
-  REQUIRE(det.bbox.center.orientation.y == Catch::Approx(0.0).margin(1e-6));
-  REQUIRE(det.bbox.center.orientation.z == Catch::Approx(expected_qz).margin(1e-5));
-  REQUIRE(det.bbox.center.orientation.w == Catch::Approx(expected_qw).margin(1e-5));
+  // published yaw = -z_rotation - pi/2 = -3pi/4 (compare yaw: q and -q are the same rotation)
+  const auto & q = det.bbox.center.orientation;
+  REQUIRE(q.x == Catch::Approx(0.0).margin(1e-6));
+  REQUIRE(q.y == Catch::Approx(0.0).margin(1e-6));
+  const double yaw_out = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  REQUIRE(yaw_out == Catch::Approx(-3.0 * M_PI / 4.0).margin(1e-5));
 
   rclcpp::shutdown();
 }
@@ -633,11 +630,12 @@ TEST_CASE("createDetections3D: yaw points along the box length", "[conversion][f
   builtin_interfaces::msg::Time stamp;
 
   for (float z_rot : {-static_cast<float>(M_PI / 2.0), 0.3f, 2.0f}) {
-    BoundingBox bbox = make_test_bbox(0.0f, 0.0f, 0.0f, 4.0f, 1.8f, 1.5f, z_rot, 0.9f, 0);
+    BoundingBox bbox = make_test_bbox(10.0f, 0.0f, 0.0f, 4.0f, 1.8f, 1.5f, z_rot, 0.9f, 0);
     auto dets = node->createDetections3D({bbox}, stamp);
     REQUIRE(dets.detections.size() == 1);
     const auto & d = dets.detections[0];
-    const double yaw = tf2::getYaw(d.bbox.center.orientation);
+    const auto & q = d.bbox.center.orientation;
+    const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
     REQUIRE(d.bbox.size.x == Catch::Approx(4.0));
     if (z_rot < -1.0f) {
       REQUIRE(yaw == Catch::Approx(0.0).margin(1e-5));  // car facing +x
