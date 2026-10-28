@@ -31,6 +31,8 @@
 #include "prediction_ml/scene_builder.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "tf2_ros/buffer.hpp"
+#include "tf2_ros/transform_listener.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
@@ -95,6 +97,10 @@ private:
   std::unordered_set<Stamp> processed_;
 };
 
+// Re-expresses tracks (pose, orientation, linear_velocity direction) in transform's target frame.
+vision_msgs::msg::Detection3DArray transformTracks(
+  const vision_msgs::msg::Detection3DArray & tracks, const geometry_msgs::msg::TransformStamped & transform);
+
 class PredictionMlNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -116,6 +122,8 @@ private:
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
   void publishMtrDiagnostics();
   void submitSynchronizedMtr(ExactStampInputs inputs);
+  // Tracks re-expressed in map_frame_, or nullptr (logged) when TF is unavailable.
+  vision_msgs::msg::Detection3DArray::SharedPtr tracksInMapFrame(const vision_msgs::msg::Detection3DArray & tracks);
 
   // Constant-velocity straight-line fallback (ported from simple_prediction).
   std::vector<world_model_msgs::msg::WorldObject> buildFallback(
@@ -139,6 +147,9 @@ private:
   nav_msgs::msg::Odometry::SharedPtr ego_odometry_;
   lanelet_msgs::msg::LaneletAhead::SharedPtr lanelet_ahead_;
 
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  std::string map_frame_{"map"};
   std::string ego_velocity_child_frame_{"base_footprint"};
   bool mtr_diagnostics_enabled_{false};
 

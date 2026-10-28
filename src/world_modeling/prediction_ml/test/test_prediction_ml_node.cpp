@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <memory>
 #include <string>
 #include <vector>
@@ -94,6 +95,48 @@ TEST(ExactStampJoiner, ClearDropsEveryPartialTuple)
   joiner.clear();
 
   EXPECT_FALSE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(30)));
+}
+
+TEST(TransformTracks, ReexpressesPoseOrientationAndVelocityInTargetFrame)
+{
+  // lidar_cc sits at map (10, 0), yawed +90 deg.
+  const double half = std::sqrt(0.5);
+  geometry_msgs::msg::TransformStamped transform;
+  transform.header.frame_id = "map";
+  transform.child_frame_id = "lidar_cc";
+  transform.transform.translation.x = 10.0;
+  transform.transform.rotation.z = half;
+  transform.transform.rotation.w = half;
+
+  vision_msgs::msg::Detection3D detection;
+  detection.id = "7";
+  detection.bbox.center.position.x = 1.0;  // 1 m ahead of the sensor -> map (10, 1)
+  detection.bbox.center.orientation.w = 1.0;
+  vision_msgs::msg::ObjectHypothesisWithPose velocity;
+  velocity.hypothesis.class_id = "linear_velocity";
+  velocity.hypothesis.score = 1.0;
+  velocity.pose.pose.position.x = 2.0;  // forward in lidar_cc -> +y in map
+  detection.results.push_back(velocity);
+  vision_msgs::msg::Detection3DArray tracks;
+  tracks.header.frame_id = "lidar_cc";
+  tracks.header.stamp.sec = 5;
+  tracks.detections.push_back(detection);
+
+  const auto out = prediction_ml::transformTracks(tracks, transform);
+
+  EXPECT_EQ(out.header.frame_id, "map");
+  EXPECT_EQ(out.header.stamp.sec, 5);
+  ASSERT_EQ(out.detections.size(), 1U);
+  EXPECT_EQ(out.detections[0].header.frame_id, "map");
+  const auto & center = out.detections[0].bbox.center;
+  EXPECT_NEAR(center.position.x, 10.0, 1e-9);
+  EXPECT_NEAR(center.position.y, 1.0, 1e-9);
+  EXPECT_NEAR(center.orientation.z, half, 1e-9);
+  EXPECT_NEAR(center.orientation.w, half, 1e-9);
+  const auto & v = out.detections[0].results[0].pose.pose.position;
+  EXPECT_NEAR(v.x, 0.0, 1e-9);
+  EXPECT_NEAR(v.y, 2.0, 1e-9);
+  EXPECT_NEAR(v.z, 0.0, 1e-9);
 }
 
 TEST(PredictionMlNode, ConfiguresSeparateProductionAndMtrDiagnosticPublishers)

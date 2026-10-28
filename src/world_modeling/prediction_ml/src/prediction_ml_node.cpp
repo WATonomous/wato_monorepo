@@ -23,9 +23,41 @@
 #include <vector>
 
 #include "prediction_ml/fallback_prediction.hpp"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace prediction_ml
 {
+
+vision_msgs::msg::Detection3DArray transformTracks(
+  const vision_msgs::msg::Detection3DArray & tracks, const geometry_msgs::msg::TransformStamped & transform)
+{
+  tf2::Quaternion rotation;
+  tf2::fromMsg(transform.transform.rotation, rotation);
+
+  vision_msgs::msg::Detection3DArray out = tracks;
+  out.header.frame_id = transform.header.frame_id;
+  for (auto & detection : out.detections) {
+    detection.header.frame_id = out.header.frame_id;
+    const auto source = detection.bbox.center;
+    tf2::doTransform(source, detection.bbox.center, transform);
+
+    // ponytail: velocity is rotated only, never ego-motion compensated. tracking's Kalman velocity
+    // barely follows frame motion (WATcloud BEVFusion bag: median 0.6 m/s in lidar_cc while parked
+    // cars moved ~6 m/s relative), so adding the frame's motion would make parked cars drive at ego
+    // speed. Run tracking with output_frame map when absolute velocities matter. Covariance untouched.
+    for (auto & result : detection.results) {
+      if (result.hypothesis.class_id != "linear_velocity") {
+        continue;
+      }
+      auto & velocity = result.pose.pose.position;
+      const tf2::Vector3 v = tf2::quatRotate(rotation, tf2::Vector3(velocity.x, velocity.y, velocity.z));
+      velocity.x = v.x();
+      velocity.y = v.y();
+      velocity.z = v.z();
+    }
+  }
+  return out;
+}
 
 std::optional<ExactStampJoiner::Stamp> ExactStampJoiner::stampKey(
   const std::int32_t seconds, const std::uint32_t nanoseconds)
@@ -99,6 +131,7 @@ void ExactStampJoiner::clear()
 PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("prediction_ml_node", options)
 {
+  this->declare_parameter("map_frame", "map");
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
   this->declare_parameter("fallback.vehicle_size_threshold_m", 3.5);
@@ -143,6 +176,7 @@ MtrConfig PredictionMlNode::loadMtrConfig()
 
 PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lifecycle::State &)
 {
+  map_frame_ = this->get_parameter("map_frame").as_string();
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
   fallback_vehicle_size_threshold_m_ = this->get_parameter("fallback.vehicle_size_threshold_m").as_double();
@@ -164,13 +198,15 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
     cfg.cache_ttl_s >= 0.0 && cfg.selected_target_agent_limit >= 0 &&
     std::isfinite(cfg.target_forward_half_angle_deg) && valid_model_time_step && std::isfinite(cfg.ego_length) &&
     cfg.ego_length > 0.0 && std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) &&
-    cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && cfg.history_steps > 0 &&
+    cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && !map_frame_.empty() && cfg.history_steps > 0 &&
     std::isfinite(cfg.history_rate_hz) && cfg.history_rate_hz > 0.0;
   if (!valid_config) {
     RCLCPP_ERROR(this->get_logger(), "Invalid prediction_ml timing, fallback, or MTR parameters");
     return CallbackReturn::FAILURE;
   }
 
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
   scene_builder_ = std::make_unique<SceneBuilder>(cfg);
   runtime_ = std::make_unique<MtrRuntime>(cfg);
   mtr_diagnostics_enabled_ = !cfg.pinned_target_ids.empty();
@@ -236,6 +272,8 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
   ego_pose_.reset();
   ego_odometry_.reset();
   lanelet_ahead_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
   return CallbackReturn::SUCCESS;
 }
 
@@ -261,6 +299,8 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_life
   ego_pose_.reset();
   ego_odometry_.reset();
   lanelet_ahead_.reset();
+  tf_listener_.reset();
+  tf_buffer_.reset();
   return CallbackReturn::SUCCESS;
 }
 
@@ -387,8 +427,39 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
   return objects;
 }
 
-void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+vision_msgs::msg::Detection3DArray::SharedPtr PredictionMlNode::tracksInMapFrame(
+  const vision_msgs::msg::Detection3DArray & tracks)
 {
+  try {
+    // Transform at the track stamp (an unstamped message gets the latest one).
+    const auto transform = tf_buffer_->lookupTransform(
+      map_frame_, tracks.header.frame_id, rclcpp::Time(tracks.header.stamp), rclcpp::Duration::from_seconds(0.05));
+    return std::make_shared<vision_msgs::msg::Detection3DArray>(transformTracks(tracks, transform));
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "Skipping tracks: no %s <- %s transform: %s",
+      map_frame_.c_str(),
+      tracks.header.frame_id.c_str(),
+      ex.what());
+    return nullptr;
+  }
+}
+
+void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr raw_msg)
+{
+  // Ego pose, the lanelet map and MTR outputs are all in map_frame_; tracking may publish in a
+  // sensor frame (main's perception_bringup uses lidar_cc).
+  auto msg = raw_msg;
+  if (!msg->header.frame_id.empty() && msg->header.frame_id != map_frame_) {
+    msg = tracksInMapFrame(*msg);
+    if (!msg) {
+      return;
+    }
+  }
+
   const rclcpp::Time now = this->get_clock()->now();
   const double now_s = now.seconds();
   const bool has_source_stamp = msg->header.stamp.sec != 0 || msg->header.stamp.nanosec != 0U;

@@ -2,6 +2,8 @@
 # prediction_ml node parameters.
 prediction_ml_node:
   ros__parameters:
+    # Frame of ego pose, lanelets and outputs. Tracks in another frame (e.g. lidar_cc) are moved here via TF.
+    map_frame: "map"
     prediction_horizon: 3.0      # seconds — fallback + MTR horizon
     prediction_time_step: 0.2    # seconds — waypoint spacing
     fallback.vehicle_size_threshold_m: 3.5

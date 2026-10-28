@@ -34,6 +34,9 @@ find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
 
@@ -140,6 +143,9 @@ target_link_libraries(prediction_ml_lib
   ${world_model_msgs_TARGETS}
   ${lanelet_msgs_TARGETS}
   ${nav_msgs_TARGETS}
+  ${tf2_TARGETS}
+  ${tf2_ros_TARGETS}
+  ${tf2_geometry_msgs_TARGETS}
   Threads::Threads
   ZLIB::ZLIB
 )
