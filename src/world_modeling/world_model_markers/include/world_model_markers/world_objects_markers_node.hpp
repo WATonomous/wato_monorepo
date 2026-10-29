@@ -67,6 +67,7 @@ private:
   double label_z_offset_;
   double history_line_width_;
   double prediction_line_width_;
+  double prediction_min_relative_conf_;
   double lanelet_boundary_line_width_;
   double lanelet_centerline_line_width_;
   double lanelet_boundary_color_r_;

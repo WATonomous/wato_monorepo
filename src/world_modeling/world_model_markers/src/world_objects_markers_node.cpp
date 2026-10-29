@@ -37,6 +37,7 @@ WorldObjectsMarkersNode::WorldObjectsMarkersNode()
   this->declare_parameter("label_z_offset", 0.6);
   this->declare_parameter("history_line_width", 0.1);
   this->declare_parameter("prediction_line_width", 0.08);
+  this->declare_parameter("prediction_min_relative_conf", 0.0);
   this->declare_parameter("lanelet_boundary_line_width", 0.05);
   this->declare_parameter("lanelet_centerline_line_width", 0.03);
   this->declare_parameter("lanelet_boundary_color_r", 0.3);
@@ -55,6 +56,7 @@ WorldObjectsMarkersNode::WorldObjectsMarkersNode()
   label_z_offset_ = this->get_parameter("label_z_offset").as_double();
   history_line_width_ = this->get_parameter("history_line_width").as_double();
   prediction_line_width_ = this->get_parameter("prediction_line_width").as_double();
+  prediction_min_relative_conf_ = this->get_parameter("prediction_min_relative_conf").as_double();
   lanelet_boundary_line_width_ = this->get_parameter("lanelet_boundary_line_width").as_double();
   lanelet_centerline_line_width_ = this->get_parameter("lanelet_centerline_line_width").as_double();
   lanelet_boundary_color_r_ = this->get_parameter("lanelet_boundary_color_r").as_double();
@@ -184,10 +186,21 @@ void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::
       marker_array.markers.push_back(history_marker);
     }
 
-    // Predictions (LINE_STRIP per path), color-coded by confidence:
-    // red (low) -> green (high).
+    // Predictions (LINE_STRIP per path), color-coded by confidence relative to this object's most
+    // likely path: green (top) -> red (unlikely). MTR splits probability over 6 modes, so even the
+    // top mode of a moving car is often ~0.15 absolute; colouring by absolute conf drew it red.
+    // Paths below prediction_min_relative_conf x top are hidden (parked cars' 5%-pull-out modes).
+    double top_conf = 0.0;
+    for (const auto & prediction : world_obj.predictions) {
+      top_conf = std::max(top_conf, std::clamp(prediction.conf, 0.0, 1.0));
+    }
     for (const auto & prediction : world_obj.predictions) {
       if (prediction.poses.empty()) {
+        continue;
+      }
+      const double conf = std::clamp(prediction.conf, 0.0, 1.0);
+      const double rel_conf = top_conf > 0.0 ? conf / top_conf : 1.0;
+      if (rel_conf < prediction_min_relative_conf_) {
         continue;
       }
 
@@ -198,10 +211,9 @@ void WorldObjectsMarkersNode::worldObjectsCallback(const world_model_msgs::msg::
         pred_points.push_back(pose_stamped.pose.position);
       }
 
-      double conf = std::clamp(prediction.conf, 0.0, 1.0);
-      auto pred_color = getColorForConfidence(conf, 0.9f);
+      auto pred_color = getColorForConfidence(rel_conf, 0.9f);
       auto pred_marker = lanelet_markers::createLineStripMarker(
-        "wo_predictions", marker_id++, frame_id, pred_points, pred_color, prediction_line_width_ + conf * 0.05);
+        "wo_predictions", marker_id++, frame_id, pred_points, pred_color, prediction_line_width_ + rel_conf * 0.05);
       pred_marker.header.stamp = stamp;
       marker_array.markers.push_back(pred_marker);
 
