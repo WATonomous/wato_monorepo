@@ -820,6 +820,25 @@ TEST(SceneBuilder, MeasuredVelocityForFallback)
   EXPECT_FALSE(off.measuredVelocity("mover").has_value());
 }
 
+TEST(SceneBuilder, VelocityFromHistoryTurnsFlippedHeadingToMotion)
+{
+  // Car drives +x at 10 m/s; the latest box yaw is flipped to pi (BEVFusion 180-degree ambiguity).
+  for (const bool from_history : {false, true}) {
+    MtrConfig cfg;
+    cfg.velocity_from_history = from_history;
+    SceneBuilder builder{cfg};
+    vision_msgs::msg::Detection3DArray arr;
+    for (int k = 0; k <= 5; ++k) {
+      const double yaw = k == 5 ? kPi : 0.0;
+      arr = makeArray(100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + 1.0 * k, 0.0, 0.0, yaw)});
+      builder.addFrame(arr);
+    }
+    auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+    ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+    EXPECT_NEAR(std::cos(tensors.sidecar.targets[0].center_heading), from_history ? 1.0 : -1.0, 1e-9);
+  }
+}
+
 TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.

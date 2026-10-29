@@ -372,6 +372,13 @@ void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray 
         sample->vx = still ? 0.0 : vx;
         sample->vy = still ? 0.0 : vy;
         sample->vz = still ? 0.0 : (sample->z - oldest.z) / span;
+        // BEVFusion box yaw is ambiguous by 180 deg and flips on single frames (6-23% of moving-vehicle
+        // frames on the May 30 replay). MTR is heading-centric and predicts along a flipped heading,
+        // so a car driving away got a path back toward the ego. A moving track faces its motion.
+        // ponytail: a car genuinely reversing above 1 m/s is turned around too.
+        if (!still && std::abs(wrapToPi(sample->heading - std::atan2(vy, vx))) > kPi / 2.0) {
+          sample->heading = wrapToPi(sample->heading + kPi);
+        }
       }
     }
     addSample(*sample);
@@ -655,6 +662,9 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     candidate.distance_sq = dx * dx + dy * dy;
     candidate.in_forward_region = bearing_abs <= half_angle_rad;
     const auto & hist = history_.at(sample->detection_id);
+    if (hist.back().timestamp == sample->timestamp) {
+      candidate.sample = hist.back();  // carries the measured velocity and motion-disambiguated heading
+    }
     const double span = hist.back().timestamp - hist.front().timestamp;
     candidate.moving = span >= 0.5 && std::hypot(hist.back().x - hist.front().x, hist.back().y - hist.front().y) >=
                                         kMovingSpeedMps * span;
