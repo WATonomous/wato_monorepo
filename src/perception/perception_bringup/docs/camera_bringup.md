@@ -52,3 +52,24 @@ To configure permanent settings for cameras, use the MVS tool located at:
 We use [camera_aravis2](https://github.com/FraunhoferIOSB/camera_aravis2) to communicate with Hikrobot cameras throught the GenICam standard interface.
 
 The config file located at perception_bringup/config/MV-CU013-80GC_master_config.mfs can be loaded in the MVS software to ensure camera settings are consistent.
+
+## Image settings
+
+`config/hikrobot_camera_config.yaml` is applied to every camera on each launch, so it overrides
+whatever is saved on the camera for the features it sets. camera_aravis2 only reads a fixed set of
+keys in `AcquisitionControl` and `AnalogControl`. Every other GenICam feature (exposure/gain limits,
+gamma, the metering AOI, the brightness target) must go under `BEGIN:` or `END:`, where it is applied
+in alphabetical order. A feature placed anywhere else is silently ignored.
+
+What the config sets on every camera:
+
+- `GammaSelector: sRGB` with `GammaEnable: true`. Without it the output is linear and looks dark.
+- Auto-exposure and auto-gain meter on an AOI, not the whole frame. Pano cameras use rows 0-831, which
+  leaves out the roof rail and hood. Lower cameras leave out the ego-vehicle wedge.
+- Exposure is between 31 and 15000 µs, and gain is at most 15 dB.
+
+To check what a camera is actually running, read it while no driver is using it:
+
+```sh
+arv-tool-0.8 -n <guid> control GammaEnable AutoExposureTimeUpperLimit AutoGainUpperLimit Brightness
+```
