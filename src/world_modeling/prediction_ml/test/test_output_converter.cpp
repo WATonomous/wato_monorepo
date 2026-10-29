@@ -30,6 +30,7 @@ prediction_ml::MtrBatchSidecar makeSidecar()
   target.detection_id = "agent-7";
   target.center_x = 10.0;
   target.center_y = 20.0;
+  target.center_z = -9.7;
   target.center_heading = 3.14159265358979323846 / 2.0;
   sidecar.targets.push_back(target);
   return sidecar;
@@ -61,6 +62,7 @@ TEST(OutputConverter, RotatesTranslatesSortsAndTimestampsModes)
   ASSERT_EQ(prediction.poses.size(), 3U);
   EXPECT_NEAR(prediction.poses[0].pose.position.x, 9.0, 1.0e-6);
   EXPECT_NEAR(prediction.poses[0].pose.position.y, 20.0, 1.0e-6);
+  EXPECT_DOUBLE_EQ(prediction.poses[0].pose.position.z, -9.7);  // not 0: map ground is not at z=0
   EXPECT_NEAR(prediction.poses[0].pose.orientation.z, 1.0, 1.0e-6);
   EXPECT_NEAR(prediction.poses[0].pose.orientation.w, 0.0, 1.0e-6);
   EXPECT_EQ(prediction.poses[0].header.stamp.sec, 12);

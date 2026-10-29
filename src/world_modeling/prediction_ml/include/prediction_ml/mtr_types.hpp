@@ -102,6 +102,7 @@ struct MtrTargetSidecar
   int track_index{0};
   double center_x{0.0};
   double center_y{0.0};
+  double center_z{0.0};  // MTR predicts x/y only; predicted poses keep the agent's current height
   double center_heading{0.0};
 };
 

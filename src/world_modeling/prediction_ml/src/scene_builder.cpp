@@ -842,6 +842,7 @@ bool SceneBuilder::packObjectTensors(
     sidecar.track_index = static_cast<int>(target_track_index[t]);
     sidecar.center_x = center.x;  // scene frame, so predictions can be rotated back
     sidecar.center_y = center.y;
+    sidecar.center_z = center.z;
     sidecar.center_heading = center.heading;
     tensors.sidecar.targets.push_back(sidecar);
 

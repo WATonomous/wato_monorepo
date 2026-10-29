@@ -188,7 +188,7 @@ MtrInferenceResult convertMtrOutput(
         geometry_msgs::msg::Point point;
         point.x = target.center_x + local_x * cos_heading - local_y * sin_heading;
         point.y = target.center_y + local_x * sin_heading + local_y * cos_heading;
-        point.z = 0.0;
+        point.z = target.center_z;
         positions.push_back(point);
       }
       if (!valid_mode || positions.empty()) {
