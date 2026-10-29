@@ -37,7 +37,7 @@ WorldObjectsMarkersNode::WorldObjectsMarkersNode()
   this->declare_parameter("label_z_offset", 0.6);
   this->declare_parameter("history_line_width", 0.1);
   this->declare_parameter("prediction_line_width", 0.08);
-  this->declare_parameter("prediction_min_relative_conf", 0.0);
+  this->declare_parameter("prediction_min_relative_conf", 0.3);
   this->declare_parameter("lanelet_boundary_line_width", 0.05);
   this->declare_parameter("lanelet_centerline_line_width", 0.03);
   this->declare_parameter("lanelet_boundary_color_r", 0.3);
