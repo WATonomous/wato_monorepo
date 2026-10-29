@@ -230,15 +230,17 @@ std::optional<double> SceneBuilder::timestampFromHeader(const vision_msgs::msg::
 
 std::optional<std::array<double, 2>> SceneBuilder::measuredVelocity(const std::string & detection_id) const
 {
+  if (!config_.velocity_from_history) {
+    return std::nullopt;
+  }
+  // ponytail: unmeasured -> stationary, so a car that appears already moving gets no fallback path
+  // for its first 0.3 s; the old size-based prior drew 14 m paths on every newly seen parked car.
   const auto it = history_.find(detection_id);
-  if (!config_.velocity_from_history || it == history_.end() || it->second.empty()) {
-    return std::nullopt;
+  if (it == history_.end() || it->second.empty() ||
+      it->second.back().timestamp - it->second.front().timestamp < kMinHistoryVelocitySpanS) {
+    return std::array<double, 2>{0.0, 0.0};
   }
-  const auto & h = it->second;
-  if (h.back().timestamp - h.front().timestamp < kMinHistoryVelocitySpanS) {
-    return std::nullopt;
-  }
-  return std::array<double, 2>{h.back().vx, h.back().vy};
+  return std::array<double, 2>{it->second.back().vx, it->second.back().vy};
 }
 
 double SceneBuilder::yawFromQuaternion(const geometry_msgs::msg::Quaternion & q)

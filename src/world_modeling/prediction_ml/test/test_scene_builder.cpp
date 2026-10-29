@@ -810,7 +810,9 @@ TEST(SceneBuilder, MeasuredVelocityForFallback)
   const auto parked = builder.measuredVelocity("parked");
   ASSERT_TRUE(parked.has_value());
   EXPECT_DOUBLE_EQ((*parked)[0], 0.0);  // 0.6 m/s jitter is under the deadband
-  EXPECT_FALSE(builder.measuredVelocity("unknown").has_value());
+  const auto unknown = builder.measuredVelocity("barrier_or_new_track");
+  ASSERT_TRUE(unknown.has_value());  // unmeasured -> stationary
+  EXPECT_DOUBLE_EQ((*unknown)[0], 0.0);
 
   SceneBuilder off{MtrConfig{}};  // option off: no measured velocity, fallback keeps its prior
   off.addFrame(makeArray(100.0, {makeDetection("mover", "vehicle", 10.0, 0.0, 0.0, 0.0)}));
