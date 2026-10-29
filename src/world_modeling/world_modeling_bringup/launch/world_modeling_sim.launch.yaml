@@ -42,26 +42,48 @@ launch:
       description: Log level for behaviour_node
 
   - arg:
-      name: use_sim_time
-      default: "true"
-      description: Use simulation time from /clock topic
+      name: mtr_mode
+      default: "disabled"
+      description: prediction_ml backend mode (disabled, null, or tensorrt)
+
+  - arg:
+      name: mtr_engine_path
+      default: ""
+      description: Path to the serialized MTR TensorRT engine
+
+  - arg:
+      name: mtr_metadata_path
+      default: $(find-pkg-share prediction_ml)/config/contract_8_target.yaml
+      description: Path to the MTR TensorRT binding contract
 
   # Prediction - generates trajectory hypotheses for tracked objects
   - node:
-      pkg: prediction
-      exec: prediction_node
-      name: prediction_node
+      pkg: prediction_ml
+      exec: prediction_ml_node
+      name: prediction_ml_node
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share prediction)/config/params.yaml
+        - from: $(find-pkg-share prediction_ml)/config/params.yaml
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: mtr.mode
+          value: $(var mtr_mode)
+        - name: mtr.engine_path
+          value: $(var mtr_engine_path)
+        - name: mtr.metadata_path
+          value: $(var mtr_metadata_path)
       remap:
         - from: tracks_3d
           to: /carla/tracked_detections_3d
         - from: ego_pose
           to: /localization/pose
+        - from: ego_odometry
+          to: /world_modeling/transform/odometry
         - from: lanelet_ahead
           to: lanelet/lanelet_ahead
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
 
   # World Model
   - node:
@@ -306,7 +328,7 @@ launch:
       param:
         - name: node_names
           value:
-            - /world_modeling/prediction_node
+            - /world_modeling/prediction_ml_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node

@@ -1,0 +1,11 @@
+---
+# Experimental performance build. This recipe is not approved for deployment:
+# on the development sm_86 GPU it passed only 1/9 rung-3 target parity checks.
+precision: fp16
+allow_tf32: false
+workspace_size_mb: 4096
+# Static shapes throughout: contract_8_target.yaml pins every dimension.
+optimization_profiles: []
+# TensorRT 11 removed the legacy cuBLAS/cuDNN tactic-source selectors.
+tactic_sources: [EDGE_MASK_CONVOLUTIONS, JIT_CONVOLUTIONS]
+builder_optimization_level: 3

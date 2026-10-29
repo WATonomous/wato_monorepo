@@ -6,6 +6,7 @@ world_objects_markers_node:
     label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
+    prediction_min_relative_conf: 0.3  # hide paths < 30% as likely as the object's top path
     lanelet_boundary_line_width: 0.2
     lanelet_centerline_line_width: 0.1
     lanelet_boundary_color_r: 0.2
@@ -26,6 +27,7 @@ dynamic_objects_markers_node:
     label_z_offset: 0.6
     history_line_width: 0.1
     prediction_line_width: 0.08
+    prediction_min_relative_conf: 0.3  # hide paths < 30% as likely as the object's top path
     lanelet_boundary_line_width: 0.2
     lanelet_centerline_line_width: 0.1
     lanelet_boundary_color_r: 0.2

@@ -1,4 +1,6 @@
 __pycache__/
+*.egg-info/
+.pytest_cache/
 code_server_config/*/extensions
 code_server_config/*/start_code_server.sh
 *.pyc
