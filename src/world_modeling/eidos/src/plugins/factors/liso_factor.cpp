@@ -665,7 +665,7 @@ void LisoFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
       q_avg.normalize();
       Eigen::Matrix3d R_world_base = q_avg.toRotationMatrix() * R_base_imu_.transpose();
       gtsam::Rot3 full_rot(R_world_base);
-      initial_gravity_orientation_ = gtsam::Rot3::RzRyRx(0.0, full_rot.pitch(), full_rot.roll());
+      initial_gravity_orientation_ = gtsam::Rot3::RzRyRx(full_rot.roll(), full_rot.pitch(), 0.0);
       imu_warmup_complete_ = true;
       RCLCPP_INFO(
         node_->get_logger(),

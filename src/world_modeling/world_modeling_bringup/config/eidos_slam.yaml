@@ -124,6 +124,8 @@
     wheel_odom_factor:
       plugin: "eidos::WheelOdomFactor"
       add_factors: false                        # No graph factors — odom output only
+      publish_markers: true                     # Debug: wheel-only path + per-state wheel deltas vs the graph
+      markers_topic: "wheel_odom/markers"
       joint_states_topic: "/interfacing/can_state_estimator/wheel_joint_states"
       left_joint: "rear_left_joint"
       right_joint: "rear_right_joint"

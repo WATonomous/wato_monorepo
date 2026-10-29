@@ -34,6 +34,15 @@ On `latchFactor(key, t)`, samples in `(last_key_time, t]` are integrated with a 
 
 If no wheel samples fall in the interval, no factor is added (rather than asserting zero motion).
 
+## Debug Markers
+
+With `publish_markers: true`, a `MarkerArray` is published on `markers_topic` in the map frame after every optimization. This works with `add_factors: false`, so the wheel data can be compared against the graph without affecting it.
+- `wheel_path` (cyan line strip): the wheel-only dead-reckoned path, anchored at the first state's optimized pose. Shows accumulated drift.
+- `wheel_delta` (orange lines + spheres): for each state, the wheel delta since the previous state, applied to the previous state's optimized pose.
+- `wheel_delta_error` (red lines): from that prediction to the state's optimized pose. Each one is the residual a wheel BetweenFactor would pull against.
+
+The path keeps one point per 0.25 m for the whole run, so it is meant for debugging rather than long live sessions.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -46,6 +55,8 @@ If no wheel samples fall in the interval, no factor is added (rather than assert
 | `imu_frame` | string | `"imu_link"` | TF frame of the IMU. |
 | `odom_topic` | string | `"<name>/odometry"` | Published odometry topic. |
 | `add_factors` | bool | `false` | Whether to add BetweenFactors to the graph. |
+| `publish_markers` | bool | `false` | Publish the debug markers (see Debug Markers). |
+| `markers_topic` | string | `"<name>/markers"` | Debug marker topic. |
 | `max_dt` | double | `0.5` | Integration gaps longer than this (s) are skipped. |
 | `speed_std_moving` | double | `0.05` | Forward speed std-dev when moving (m/s). |
 | `zero_speed_std` | double | `0.4` | Forward speed std-dev at zero reading (m/s). Also the creep rate used in factor noise. |

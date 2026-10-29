@@ -18,12 +18,15 @@
 #include <Eigen/Core>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
 #include "eidos/utils/wheel_kinematics.hpp"
@@ -42,6 +45,11 @@ namespace eidos
  * When add_factors is true, latchFactor() attaches a planar BetweenFactor<Pose3>
  * between consecutive states created by other plugins. The plugin only consumes
  * sensor topics; it never reads other plugins' outputs.
+ *
+ * When publish_markers is true, it also publishes debug markers in the map frame
+ * after each optimization: the wheel-only dead-reckoned path anchored at the first
+ * state, and the per-state wheel deltas (whether or not they are added as factors)
+ * drawn from the previous optimized state, with their error to the optimized state.
  */
 class WheelOdomFactor : public FactorPlugin
 {
@@ -57,7 +65,17 @@ public:
 
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
+  void onOptimizationComplete(const gtsam::Values & values, bool graph_corrected) override;
+
 private:
+  /// Wheel delta between two consecutive states, kept for the debug markers
+  struct StateDelta
+  {
+    gtsam::Key from;
+    gtsam::Key to;
+    gtsam::Pose3 delta;
+  };
+
   void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg);
 
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
@@ -67,9 +85,13 @@ private:
 
   void publishOdometry(const builtin_interfaces::msg::Time & stamp, const wheel_kinematics::Sample & sample);
 
+  /// Dead-reckoned odom pose at time t (caller holds sample_mtx_).
+  wheel_kinematics::Pose2 odomPoseAt(double t) const;
+
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
   // Latest IMU yaw rate in base frame (guarded by imu_mtx_)
   std::mutex imu_mtx_;
@@ -82,13 +104,20 @@ private:
   bool has_imu_tf_ = false;
   bool has_axle_tf_ = false;
 
-  // Samples for latchFactor (guarded by sample_mtx_)
+  // Samples for latchFactor and live odometry state (guarded by sample_mtx_)
   std::mutex sample_mtx_;
   std::deque<wheel_kinematics::Sample> samples_;
-
-  // Live odometry state (wheel callback only)
   wheel_kinematics::Pose2 odom_pose_;
   double last_sample_time_ = 0.0;
+
+  // Debug markers: odom poses spaced kPathSpacing apart (guarded by sample_mtx_), the
+  // odom pose at the first state, and the wheel delta for each later state (SLAM thread).
+  std::deque<std::pair<double, wheel_kinematics::Pose2>> path_;
+  wheel_kinematics::Pose2 anchor_odom_pose_;
+  bool has_anchor_ = false;
+  gtsam::Key anchor_key_{0};
+  double anchor_time_ = 0.0;
+  std::vector<StateDelta> state_deltas_;
 
   // latchFactor bookkeeping
   gtsam::Key last_key_{0};
@@ -105,13 +134,17 @@ private:
   std::string imu_frame_;
   std::string odom_frame_;
   std::string base_link_frame_;
+  std::string map_frame_;
   wheel_kinematics::SpeedNoise speed_noise_;
   wheel_kinematics::FactorNoise factor_noise_;
   double max_dt_ = 0.5;
   bool active_ = false;
   bool add_factors_ = false;
+  bool publish_markers_ = false;
 
   static constexpr size_t kMaxSampleBuffer = 2000;
+  static constexpr double kPathSpacing = 0.25;  ///< Min distance between drawn path points (m)
+  static constexpr double kPreAnchorPathWindow = 10.0;  ///< Path kept before the first state (s)
 };
 
 }  // namespace eidos

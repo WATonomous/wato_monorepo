@@ -19,7 +19,9 @@
 #include <tf2_ros/buffer.h>
 
 #include <algorithm>
+#include <cmath>
 #include <string>
+#include <utility>
 
 #include <pluginlib/class_list_macros.hpp>
 
@@ -49,6 +51,8 @@ void WheelOdomFactor::onInitialize()
   node_->declare_parameter(prefix + ".imu_frame", std::string("imu_link"));
   node_->declare_parameter(prefix + ".odom_topic", std::string(name_ + "/odometry"));
   node_->declare_parameter(prefix + ".add_factors", add_factors_);
+  node_->declare_parameter(prefix + ".publish_markers", publish_markers_);
+  node_->declare_parameter(prefix + ".markers_topic", std::string(name_ + "/markers"));
   node_->declare_parameter(prefix + ".max_dt", max_dt_);
   node_->declare_parameter(prefix + ".speed_std_moving", speed_noise_.speed_std_moving);
   node_->declare_parameter(prefix + ".zero_speed_std", speed_noise_.zero_speed_std);
@@ -61,6 +65,7 @@ void WheelOdomFactor::onInitialize()
   node_->declare_parameter(prefix + ".factor.loose_std", factor_noise_.loose_std);
 
   std::string odom_topic;
+  std::string markers_topic;
   node_->get_parameter(prefix + ".joint_states_topic", joint_states_topic_);
   node_->get_parameter(prefix + ".left_joint", left_joint_);
   node_->get_parameter(prefix + ".right_joint", right_joint_);
@@ -70,6 +75,8 @@ void WheelOdomFactor::onInitialize()
   node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".odom_topic", odom_topic);
   node_->get_parameter(prefix + ".add_factors", add_factors_);
+  node_->get_parameter(prefix + ".publish_markers", publish_markers_);
+  node_->get_parameter(prefix + ".markers_topic", markers_topic);
   node_->get_parameter(prefix + ".max_dt", max_dt_);
   node_->get_parameter(prefix + ".speed_std_moving", speed_noise_.speed_std_moving);
   node_->get_parameter(prefix + ".zero_speed_std", speed_noise_.zero_speed_std);
@@ -83,6 +90,7 @@ void WheelOdomFactor::onInitialize()
   factor_noise_.zero_speed_std = speed_noise_.zero_speed_std;
   node_->get_parameter("frames.odometry", odom_frame_);
   node_->get_parameter("frames.base_link", base_link_frame_);
+  node_->get_parameter("frames.map", map_frame_);
 
   rclcpp::SubscriptionOptions sub_opts;
   sub_opts.callback_group = callback_group_;
@@ -98,21 +106,26 @@ void WheelOdomFactor::onInitialize()
     sub_opts);
 
   odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odom_topic, 10);
+  if (publish_markers_) {
+    marker_pub_ = node_->create_publisher<visualization_msgs::msg::MarkerArray>(markers_topic, 1);
+  }
 
   RCLCPP_INFO(
     node_->get_logger(),
-    "[%s] initialized (wheel odom factor, add_factors=%d, joints=%s/%s, odom=%s)",
+    "[%s] initialized (wheel odom factor, add_factors=%d, joints=%s/%s, odom=%s, markers=%s)",
     name_.c_str(),
     add_factors_,
     left_joint_.c_str(),
     right_joint_.c_str(),
-    odom_topic.c_str());
+    odom_topic.c_str(),
+    publish_markers_ ? markers_topic.c_str() : "off");
 }
 
 void WheelOdomFactor::activate()
 {
   active_ = true;
   odom_pub_->on_activate();
+  if (marker_pub_) marker_pub_->on_activate();
   RCLCPP_INFO(node_->get_logger(), "[%s] activated", name_.c_str());
 }
 
@@ -120,6 +133,7 @@ void WheelOdomFactor::deactivate()
 {
   active_ = false;
   odom_pub_->on_deactivate();
+  if (marker_pub_) marker_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
@@ -130,8 +144,15 @@ void WheelOdomFactor::deactivate()
 StampedFactorResult WheelOdomFactor::latchFactor(gtsam::Key key, double timestamp)
 {
   StampedFactorResult result;
-  if (!active_ || !add_factors_) return result;
+  if (!active_ || (!add_factors_ && !publish_markers_)) return result;
   if (!has_last_key_) {
+    if (publish_markers_) {
+      std::lock_guard lock(sample_mtx_);
+      anchor_odom_pose_ = odomPoseAt(timestamp);
+      anchor_key_ = key;
+      anchor_time_ = timestamp;
+      has_anchor_ = true;
+    }
     last_key_ = key;
     last_key_time_ = timestamp;
     has_last_key_ = true;
@@ -153,23 +174,27 @@ StampedFactorResult WheelOdomFactor::latchFactor(gtsam::Key key, double timestam
   // No wheel data over the interval: skip rather than assert "did not move".
   if (has_samples) {
     gtsam::Pose3 delta(gtsam::Rot3::Yaw(seg.delta.theta), gtsam::Point3(seg.delta.x, seg.delta.y, 0.0));
-    auto stds = wk::betweenStd(seg, factor_noise_);
-    auto noise = gtsam::noiseModel::Diagonal::Sigmas(
-      (gtsam::Vector6() << stds[0], stds[1], stds[2], stds[3], stds[4], stds[5]).finished());
-    result.factors.push_back(gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(last_key_, key, delta, noise));
+    if (publish_markers_) state_deltas_.push_back({last_key_, key, delta});
 
-    gtsam::Symbol prev_x(last_key_);
-    gtsam::Symbol curr_x(key);
-    RCLCPP_INFO(
-      node_->get_logger(),
-      "\033[34m[%s] WheelBetween (%c,%lu)->(%c,%lu) dist=%.2f yaw=%.3f\033[0m",
-      name_.c_str(),
-      prev_x.chr(),
-      prev_x.index(),
-      curr_x.chr(),
-      curr_x.index(),
-      seg.distance,
-      seg.delta.theta);
+    if (add_factors_) {
+      auto stds = wk::betweenStd(seg, factor_noise_);
+      auto noise = gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector6() << stds[0], stds[1], stds[2], stds[3], stds[4], stds[5]).finished());
+      result.factors.push_back(gtsam::make_shared<gtsam::BetweenFactor<gtsam::Pose3>>(last_key_, key, delta, noise));
+
+      gtsam::Symbol prev_x(last_key_);
+      gtsam::Symbol curr_x(key);
+      RCLCPP_INFO(
+        node_->get_logger(),
+        "\033[34m[%s] WheelBetween (%c,%lu)->(%c,%lu) dist=%.2f yaw=%.3f\033[0m",
+        name_.c_str(),
+        prev_x.chr(),
+        prev_x.index(),
+        curr_x.chr(),
+        curr_x.index(),
+        seg.distance,
+        seg.delta.theta);
+    }
   }
 
   last_key_ = key;
@@ -296,20 +321,34 @@ void WheelOdomFactor::jointStateCallback(const sensor_msgs::msg::JointState::Sha
   sample.wz = gyro.z();
   sample.zero_speed = v_axle <= 0.0;
 
-  if (add_factors_) {
+  {
     std::lock_guard lock(sample_mtx_);
-    samples_.push_back(sample);
-    while (samples_.size() > kMaxSampleBuffer) samples_.pop_front();
-  }
+    if (add_factors_ || publish_markers_) {
+      samples_.push_back(sample);
+      while (samples_.size() > kMaxSampleBuffer) samples_.pop_front();
+    }
 
-  // Live dead-reckoned pose (debug / setOdomPose only)
-  if (last_sample_time_ > 0.0) {
-    const double dt = sample.t - last_sample_time_;
-    if (dt > 0.0 && dt <= max_dt_) {
-      odom_pose_ = wk::compose(odom_pose_, wk::integrateConstantTwist(sample.vx, sample.vy, sample.wz, dt));
+    // Live dead-reckoned pose (debug / setOdomPose only)
+    if (last_sample_time_ > 0.0) {
+      const double dt = sample.t - last_sample_time_;
+      if (dt > 0.0 && dt <= max_dt_) {
+        odom_pose_ = wk::compose(odom_pose_, wk::integrateConstantTwist(sample.vx, sample.vy, sample.wz, dt));
+      }
+    }
+    last_sample_time_ = sample.t;
+
+    if (publish_markers_) {
+      if (
+        path_.empty() ||
+        std::hypot(odom_pose_.x - path_.back().second.x, odom_pose_.y - path_.back().second.y) >= kPathSpacing)
+      {
+        path_.emplace_back(sample.t, odom_pose_);
+      }
+      while (!has_anchor_ && path_.size() > 1 && path_.front().first < sample.t - kPreAnchorPathWindow) {
+        path_.pop_front();
+      }
     }
   }
-  last_sample_time_ = sample.t;
   setOdomPose(gtsam::Pose3(gtsam::Rot3::Yaw(odom_pose_.theta), gtsam::Point3(odom_pose_.x, odom_pose_.y, 0.0)));
 
   publishOdometry(msg->header.stamp, sample);
@@ -338,6 +377,100 @@ void WheelOdomFactor::publishOdometry(const builtin_interfaces::msg::Time & stam
   std::copy(cov.begin(), cov.end(), odom_msg.twist.covariance.begin());
 
   odom_pub_->publish(odom_msg);
+}
+
+// ==========================================================================
+// Debug markers
+// ==========================================================================
+
+wk::Pose2 WheelOdomFactor::odomPoseAt(double t) const
+{
+  if (samples_.empty()) return odom_pose_;
+  if (t >= last_sample_time_) {
+    // Wheel data lags the state: hold the latest twist forward, as integrateSegment does
+    const auto & s = samples_.back();
+    const double dt = t - last_sample_time_;
+    if (dt > max_dt_) return odom_pose_;
+    return wk::compose(odom_pose_, wk::integrateConstantTwist(s.vx, s.vy, s.wz, dt));
+  }
+  // Undo the motion over (t, last_sample_time_]
+  const wk::Pose2 d = wk::integrateSegment(samples_, t, last_sample_time_, max_dt_).delta;
+  const double c = std::cos(d.theta);
+  const double s = std::sin(d.theta);
+  return wk::compose(odom_pose_, {-(c * d.x + s * d.y), s * d.x - c * d.y, -d.theta});
+}
+
+void WheelOdomFactor::onOptimizationComplete(const gtsam::Values & values, bool /*graph_corrected*/)
+{
+  if (!publish_markers_ || !has_anchor_ || !marker_pub_->is_activated()) return;
+  if (!values.exists(anchor_key_)) return;
+
+  using visualization_msgs::msg::Marker;
+  const auto now = node_->now();
+  auto make_marker = [&](const std::string & ns, int32_t type, double scale, float r, float g, float b) {
+    Marker m;
+    m.header.stamp = now;
+    m.header.frame_id = map_frame_;
+    m.ns = ns;
+    m.id = 0;
+    m.type = type;
+    m.action = Marker::ADD;
+    m.pose.orientation.w = 1.0;
+    m.scale.x = scale;
+    m.scale.y = scale;
+    m.scale.z = scale;
+    m.color.r = r;
+    m.color.g = g;
+    m.color.b = b;
+    m.color.a = 1.0f;
+    return m;
+  };
+  auto to_msg = [](const gtsam::Point3 & p) {
+    geometry_msgs::msg::Point q;
+    q.x = p.x();
+    q.y = p.y();
+    q.z = p.z();
+    return q;
+  };
+  auto planar = [](const wk::Pose2 & p) {
+    return gtsam::Pose3(gtsam::Rot3::Yaw(p.theta), gtsam::Point3(p.x, p.y, 0.0));
+  };
+
+  // Wheel-only path: odom poses relative to the odom pose at the first state, placed at
+  // that state's optimized map pose.
+  Marker path = make_marker("wheel_path", Marker::LINE_STRIP, 0.15, 0.1f, 0.8f, 1.0f);
+  const gtsam::Pose3 anchor = values.at<gtsam::Pose3>(anchor_key_);
+  const gtsam::Pose3 anchor_odom_inv = planar(anchor_odom_pose_).inverse();
+  path.points.push_back(to_msg(anchor.translation()));
+  {
+    std::lock_guard lock(sample_mtx_);
+    for (const auto & [t, pose] : path_) {
+      if (t <= anchor_time_) continue;
+      path.points.push_back(to_msg(anchor.compose(anchor_odom_inv.compose(planar(pose))).translation()));
+    }
+  }
+
+  // Per-state wheel deltas applied to the previous optimized state, and the miss to the
+  // optimized state (what a wheel BetweenFactor would pull against)
+  Marker deltas = make_marker("wheel_delta", Marker::LINE_LIST, 0.1, 1.0f, 0.6f, 0.0f);
+  Marker ends = make_marker("wheel_delta_end", Marker::SPHERE_LIST, 0.4, 1.0f, 0.6f, 0.0f);
+  Marker errors = make_marker("wheel_delta_error", Marker::LINE_LIST, 0.1, 1.0f, 0.1f, 0.1f);
+  for (const auto & d : state_deltas_) {
+    if (!values.exists(d.from) || !values.exists(d.to)) continue;
+    const gtsam::Pose3 from = values.at<gtsam::Pose3>(d.from);
+    const gtsam::Point3 predicted = from.compose(d.delta).translation();
+    deltas.points.push_back(to_msg(from.translation()));
+    deltas.points.push_back(to_msg(predicted));
+    ends.points.push_back(to_msg(predicted));
+    errors.points.push_back(to_msg(predicted));
+    errors.points.push_back(to_msg(values.at<gtsam::Pose3>(d.to).translation()));
+  }
+
+  visualization_msgs::msg::MarkerArray markers;
+  for (auto * m : {&path, &deltas, &ends, &errors}) {
+    if (!m->points.empty()) markers.markers.push_back(std::move(*m));
+  }
+  marker_pub_->publish(markers);
 }
 
 }  // namespace eidos
