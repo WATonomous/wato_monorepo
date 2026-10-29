@@ -30,6 +30,11 @@ launch:
       default: "true"
       description: "Load the per-camera JPEG encoder (image_rect_compressed). CPU intensive; set false to disable."
 
+  - arg:
+      name: "enable_lower_cameras"
+      default: "true"
+      description: "Load the 4 lower cameras. Set false to run only the 8 pano cameras."
+
   # Panorama Cameras (8 cameras)
   # camera 0 - pano NN
   - include:
@@ -154,6 +159,7 @@ launch:
   # Lower Cameras (4 cameras)
   # camera 8 - lower NE
   - include:
+      if: "$(var enable_lower_cameras)"
       file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
@@ -169,6 +175,7 @@ launch:
 
   # camera 9 - lower SE
   - include:
+      if: "$(var enable_lower_cameras)"
       file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
@@ -184,6 +191,7 @@ launch:
 
   # camera 10 - lower SW
   - include:
+      if: "$(var enable_lower_cameras)"
       file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
@@ -199,6 +207,7 @@ launch:
 
   # camera 11 - lower NW
   - include:
+      if: "$(var enable_lower_cameras)"
       file: "$(find-pkg-share perception_bringup)/launch/template_camera_load.yaml"
       arg:
         - name: "container_name"
