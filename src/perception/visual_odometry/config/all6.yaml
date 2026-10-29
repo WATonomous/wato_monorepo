@@ -1,0 +1,55 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Stretch camera set: all six recorded pano cameras (ee and ww are not recorded in bags), four
+# rectified pairs: nw/nn, nn/ne (front) and se/ss, ss/sw (rear). Offsets vs nn: nw +3.0, sw -3.3,
+# se -4.1, ss +18.5, ne +21.2 ms. Also the config calibrate_pairs uses to calibrate every pair.
+/**:
+  ros__parameters:
+    # First camera is the reference: its stamp is the frame-set stamp.
+    cameras: ["camera_pano_nn", "camera_pano_nw", "camera_pano_ne", "camera_pano_ss", "camera_pano_se", "camera_pano_sw"]
+    image_topic: "/{camera}/image_rect_compressed"
+    camera_info_topic: "/{camera}/camera_info"   # P (rectified intrinsics) is used, D is ignored
+
+    # Overlapping neighbours are 45 deg apart; cuVSLAM cannot match across that, so each pair is
+    # re-rendered as a rectified virtual stereo pair ("cam_a:cam_b", order does not matter).
+    stereo_pairs: ["camera_pano_nw:camera_pano_nn", "camera_pano_nn:camera_pano_ne", "camera_pano_se:camera_pano_ss", "camera_pano_ss:camera_pano_sw"]
+    rectified_stereo_camera: true
+
+    rig_frame: "base_link"          # extrinsics are looked up as rig_frame <- camera frame
+    # Self-calibrated pair rotations (calibrate_pairs); relative to this file. The nominal URDF
+    # rotations are 1-2 deg off, which breaks rectified matching. "" = use TF as is.
+    extrinsics_file: "pano_extrinsics.yaml"
+    calibration_anchors: ["camera_pano_nn", "camera_pano_ss"]   # cameras calibrate_pairs keeps nominal
+    odom_frame: "vo_odom"           # = rig_frame at the start of a tracking session
+    odom_topic: "visual_odometry/odometry"
+    status_topic: "visual_odometry/status"
+
+    # Software grouping of unsynchronized frames
+    sync_slop_ms: 30.0              # max |stamp - reference stamp| for a camera to join a set
+    max_wait_ms: 300.0              # finalize a set without a camera that stopped publishing
+    allow_incomplete: false         # track sets with a missing camera (passed to cuVSLAM as empty)
+
+    downscale: 1                    # 1, 2, 4 or 8 (JPEG decoded at reduced size)
+    border: [0, 110, 0, 0]          # pixels to ignore (top, bottom, left, right): roof rack at the bottom
+
+    # cuVSLAM odometry
+    multicam_mode: "precision"      # performance | precision | moderate
+    async_sba: true                 # offline_vo forces false for reproducibility
+    use_motion_model: true
+    use_denoising: false
+    verbosity: 0                    # cuVSLAM log level: 0 none, 1 errors, 2 warnings, 3 info
+
+    queue_size: 5                   # frame sets waiting for the GPU before the oldest is dropped
+    max_twist_dt: 0.2               # finite-difference twist only across gaps up to this (s)

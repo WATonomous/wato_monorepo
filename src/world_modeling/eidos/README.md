@@ -131,6 +131,7 @@ Each plugin is configured under its own YAML namespace. Full parameter documenta
 - [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration with warmup gating
 - [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure (SLAM only)
 - [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform
+- [OdometryFactor](docs/plugins/factors/odometry_factor.md) -- BetweenFactor from an external odometry topic (e.g. cuVSLAM visual odometry)
 
 **Relocalization Plugins:**
 - [GpsIcpRelocalization](docs/plugins/relocalization/gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
@@ -181,6 +182,7 @@ All topics and services are published under the node namespace (default: `/world
 | `liso/odometry` | `nav_msgs/msg/Odometry` | LISO scan-matching odometry (from `liso_factor` plugin). |
 | `liso/odometry_incremental` | `nav_msgs/msg/Odometry` | LISO incremental odometry (from `liso_factor` plugin). |
 | `imu_factor/odometry` | `nav_msgs/msg/Odometry` | IMU preintegrated odometry with body-frame twist (from `imu_factor` plugin, if loaded). |
+| `<name>/residual` | `geometry_msgs/msg/PoseStamped` | External-odometry vs graph residual per keyframe pair (from an `odometry_factor` plugin instance, if loaded). |
 | `gps_factor/utm_to_map_tf` | `geometry_msgs/msg/TransformStamped` | UTM-to-map transform published on a latched topic by `gps_factor` (no static TF broadcaster). Consumed by `eidos_transform` for `utm->map` TF broadcasting. |
 
 ### Services

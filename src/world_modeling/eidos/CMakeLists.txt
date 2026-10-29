@@ -86,6 +86,7 @@ add_library(eidos_plugins SHARED
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
   src/plugins/factors/imu_factor.cpp
   src/plugins/factors/motion_model_factor.cpp
+  src/plugins/factors/odometry_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
@@ -131,6 +132,13 @@ install(DIRECTORY include/
 install(DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_odometry_buffer test/test_odometry_buffer.cpp)
+  target_include_directories(test_odometry_buffer PRIVATE include ${GTSAM_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
+  target_link_libraries(test_odometry_buffer gtsam)
+endif()
 
 install(FILES
   factor_plugins.xml
