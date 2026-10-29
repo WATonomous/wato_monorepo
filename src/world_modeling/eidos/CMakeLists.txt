@@ -86,6 +86,7 @@ add_library(eidos_plugins SHARED
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
   src/plugins/factors/imu_factor.cpp
   src/plugins/factors/motion_model_factor.cpp
+  src/plugins/factors/wheel_odom_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
@@ -137,6 +138,16 @@ install(FILES
   relocalization_plugins.xml visualization_plugins.xml
   DESTINATION share/${PROJECT_NAME}
 )
+
+# ---- Tests ----
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_wheel_kinematics test/test_wheel_kinematics.cpp)
+  target_include_directories(test_wheel_kinematics PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    ${EIGEN3_INCLUDE_DIR}
+  )
+endif()
 
 # ---- Export ----
 ament_export_include_directories(include)
