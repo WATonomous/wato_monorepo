@@ -793,6 +793,31 @@ TEST(SceneBuilder, VelocityFromHistoryZeroesBoxJitter)
   EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(row), T - 1, F - 4)], 0.0F);
 }
 
+TEST(SceneBuilder, MeasuredVelocityForFallback)
+{
+  MtrConfig cfg;
+  cfg.velocity_from_history = true;
+  SceneBuilder builder{cfg};
+  for (int k = 0; k <= 5; ++k) {
+    builder.addFrame(makeArray(
+      100.0 + 0.1 * k,
+      {makeDetection("mover", "vehicle", 10.0 + 1.0 * k, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0),
+       makeDetection("parked", "vehicle", 20.0 + 0.06 * k, 5.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));
+  }
+  const auto mover = builder.measuredVelocity("mover");
+  ASSERT_TRUE(mover.has_value());
+  EXPECT_NEAR((*mover)[0], 10.0, 1e-6);
+  const auto parked = builder.measuredVelocity("parked");
+  ASSERT_TRUE(parked.has_value());
+  EXPECT_DOUBLE_EQ((*parked)[0], 0.0);  // 0.6 m/s jitter is under the deadband
+  EXPECT_FALSE(builder.measuredVelocity("unknown").has_value());
+
+  SceneBuilder off{MtrConfig{}};  // option off: no measured velocity, fallback keeps its prior
+  off.addFrame(makeArray(100.0, {makeDetection("mover", "vehicle", 10.0, 0.0, 0.0, 0.0)}));
+  off.addFrame(makeArray(100.5, {makeDetection("mover", "vehicle", 15.0, 0.0, 0.0, 0.0)}));
+  EXPECT_FALSE(off.measuredVelocity("mover").has_value());
+}
+
 TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.

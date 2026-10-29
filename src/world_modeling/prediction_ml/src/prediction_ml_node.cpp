@@ -404,8 +404,13 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     const double z = detection.bbox.center.position.z;
     const auto & q = detection.bbox.center.orientation;
     const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-    const double speed = selectFallbackSpeed(
+    // Measured track velocity when available (parked cars measure 0 and get a zero-length path);
+    // otherwise the size-based speed prior along the heading.
+    const auto measured = scene_builder_ ? scene_builder_->measuredVelocity(detection.id) : std::nullopt;
+    const double speed = measured ? 0.0 : selectFallbackSpeed(
       detection.bbox.size.x, fallback_vehicle_size_threshold_m_, fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
+    const double vx = measured ? (*measured)[0] : speed * std::cos(yaw);
+    const double vy = measured ? (*measured)[1] : speed * std::sin(yaw);
 
     world_model_msgs::msg::Prediction pred;
     pred.header = msg.header;
@@ -417,8 +422,8 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
       geometry_msgs::msg::PoseStamped ps;
       ps.header.frame_id = frame_id;
       ps.header.stamp = source_time + rclcpp::Duration::from_seconds(t);
-      ps.pose.position.x = x + speed * std::cos(yaw) * t;
-      ps.pose.position.y = y + speed * std::sin(yaw) * t;
+      ps.pose.position.x = x + vx * t;
+      ps.pose.position.y = y + vy * t;
       ps.pose.position.z = z;
       ps.pose.orientation = detection.bbox.center.orientation;
       pred.poses.push_back(ps);
@@ -467,9 +472,8 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   const bool has_source_stamp = msg->header.stamp.sec != 0 || msg->header.stamp.nanosec != 0U;
   const rclcpp::Time source_time = has_source_stamp ? rclcpp::Time(msg->header.stamp) : now;
 
+  scene_builder_->addFrame(*msg);  // first, so the fallback sees this frame's measured velocity
   auto fallback = buildFallback(*msg, source_time);
-
-  scene_builder_->addFrame(*msg);
   if (mtr_diagnostics_enabled_) {
     auto synchronized = exact_stamp_joiner_.addTracks(msg);
     runtime_->submitFrame(

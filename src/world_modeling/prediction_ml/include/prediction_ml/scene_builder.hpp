@@ -42,6 +42,10 @@ public:
   // Pack the current scene into MTR input tensors + sidecar.
   MtrInputTensors build(const MtrFrameContext & frame);
 
+  // Scene-frame (vx, vy) of a track's latest sample, measured from its own positions (zeroed below
+  // the jitter deadband). Empty unless mtr.velocity_from_history is on and the history spans >= 0.3 s.
+  std::optional<std::array<double, 2>> measuredVelocity(const std::string & detection_id) const;
+
 private:
   enum class MtrObjectClass
   {

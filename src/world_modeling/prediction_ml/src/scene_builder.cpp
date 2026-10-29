@@ -64,6 +64,8 @@ constexpr double kMovingSpeedMps = 2.0;
 // mtr.velocity_from_history: speeds below this are box jitter and are zeroed. On the BEVFusion
 // replay parked cars read 0.31 m/s p50 / 0.88 p90; moving cars 1.6 m/s p10, walking peds 0.8 p10.
 constexpr double kHistoryVelocityDeadbandMps = 1.0;
+// Shorter spans amplify box jitter; younger tracks keep the tracker's velocity.
+constexpr double kMinHistoryVelocitySpanS = 0.3;
 constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
@@ -226,6 +228,19 @@ std::optional<double> SceneBuilder::timestampFromHeader(const vision_msgs::msg::
   return timestamp;
 }
 
+std::optional<std::array<double, 2>> SceneBuilder::measuredVelocity(const std::string & detection_id) const
+{
+  const auto it = history_.find(detection_id);
+  if (!config_.velocity_from_history || it == history_.end() || it->second.empty()) {
+    return std::nullopt;
+  }
+  const auto & h = it->second;
+  if (h.back().timestamp - h.front().timestamp < kMinHistoryVelocitySpanS) {
+    return std::nullopt;
+  }
+  return std::array<double, 2>{h.back().vx, h.back().vy};
+}
+
 double SceneBuilder::yawFromQuaternion(const geometry_msgs::msg::Quaternion & q)
 {
   const double siny_cosp = 2.0 * (q.w * q.z + q.x * q.y);
@@ -345,11 +360,10 @@ void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray 
     }
     const auto it = history_.find(sample->detection_id);
     if (config_.velocity_from_history && it != history_.end() && !it->second.empty()) {
-      // Mean velocity since the oldest retained sample (<= one history window); short spans
-      // amplify box jitter, so younger tracks keep the tracker's value.
+      // Mean velocity since the oldest retained sample (<= one history window).
       const auto & oldest = it->second.front();
       const double span = sample->timestamp - oldest.timestamp;
-      if (span >= 0.3) {
+      if (span >= kMinHistoryVelocitySpanS) {
         const double vx = (sample->x - oldest.x) / span;
         const double vy = (sample->y - oldest.y) / span;
         const bool still = std::hypot(vx, vy) < kHistoryVelocityDeadbandMps;

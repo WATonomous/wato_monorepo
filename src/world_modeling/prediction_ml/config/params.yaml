@@ -34,5 +34,6 @@ prediction_ml_node:
     mtr.history_steps: 11
     mtr.history_rate_hz: 10.0
     # true: velocity from each track's own positions over the history window, not the tracker's
-    # linear_velocity (tracking's Kalman velocity is far too small on moving cars).
+    # linear_velocity (tracking's Kalman velocity is far too small on moving cars). Also makes the
+    # fallback constant-velocity with that measured velocity (parked cars: zero-length path).
     mtr.velocity_from_history: false
