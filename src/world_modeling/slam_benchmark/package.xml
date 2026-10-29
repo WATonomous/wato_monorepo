@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>slam_benchmark</name>
+  <version>0.1.0</version>
+  <description>Launch files and scripts for benchmarking Eidos against RTAB-Map on recorded bags</description>
+  <maintainer email="infra@watonomous.ca">WATonomous</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>eidos</exec_depend>
+  <exec_depend>eidos_tools</exec_depend>
+  <exec_depend>wato_lifecycle_manager</exec_depend>
+  <exec_depend>world_modeling_bringup</exec_depend>
+  <!-- Baseline under test; rosdep installs it into the world_modeling image -->
+  <exec_depend>rtabmap_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

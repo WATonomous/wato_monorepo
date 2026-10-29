@@ -1,0 +1,53 @@
+# Eidos mapping run for the RTAB-Map comparison (bag replay, no eidos_transform/TF).
+#
+# Usage:
+#   With GPS factors:     ros2 launch slam_benchmark eidos_bench.launch.yaml
+#   LiDAR-inertial only:  ros2 launch slam_benchmark eidos_bench.launch.yaml use_gps:=false
+---
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_slam.yaml
+      description: Eidos configuration (defaults to the car's SLAM config)
+
+  - arg:
+      name: use_gps
+      default: "true"
+      description: Inject GPS factors. false gives a LiDAR-inertial run comparable to RTAB-Map
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
+
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: gps_factor.add_factors
+          value: $(var use_gps)
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/eidos_node
+        - name: autostart
+          value: true
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

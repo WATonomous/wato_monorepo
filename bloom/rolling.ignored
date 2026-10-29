@@ -57,6 +57,7 @@ prediction
 roscco_msg
 sensor_interfacing
 simulation_bringup
+slam_benchmark
 spatial_association
 tf_static_relay
 topic_healthchecker
