@@ -221,7 +221,7 @@
 # World Object Marker Nodes
 # =============================================================================
 
-# Pre-enrichment (subscribes to world_object_seeds from simple_prediction)
+# Pre-enrichment (subscribes to world_object_seeds from prediction_ml)
 /**/world_objects_markers_seed_node:
   ros__parameters:
     frame_id: "map"
