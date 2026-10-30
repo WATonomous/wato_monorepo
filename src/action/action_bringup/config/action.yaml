@@ -87,7 +87,7 @@
 
     # Speed limits
     max_speed: 30.0  # Default maximum speed (m/s) if lanelet limit unavailable
-    max_tangential_accel: 0.5  # Max tangential acceleration (m/s^2)
+    max_tangential_accel: 2.2  # Max tangential acceleration (m/s^2)
     max_emergency_accel: 4.0  # Max emergency braking deceleration (m/s^2)
     max_lateral_accel: 2.0  # Max lateral acceleration (m/s^2) to slow down in curves
 
@@ -272,13 +272,13 @@
     w_terminal: 5.0           # [1 - 20] terminal weight multiplier. Raise: stabilizes horizon tail.
 
     # Actuator limits — must match vehicle hardware.
-    max_steering_angle: 0.5   # [0.3 - 1.0] rad
-    max_accel: 2.5            # [1.0 - 5.0] m/s^2
+    max_steering_angle: 0.53  # [0.3 - 1.0] rad
+    max_accel: 2.2            # [1.0 - 5.0] m/s^2
     max_decel: -4.0           # [-8.0 - -1.0] m/s^2
     max_speed: 15.0           # [1.0 - 30.0] m/s — global cap on top of trajectory planner limits.
 
     # Comfort limits — rate constraints. Tighter = smoother but less responsive.
-    max_steering_rate: 0.3    # [0.1 - 1.5] rad/s. Raise: quicker steering. Lower: smoother.
+    max_steering_rate: 0.5    # [0.1 - 1.5] rad/s. Raise: quicker steering. Lower: smoother.
     max_jerk: 5.0             # [1.0 - 15.0] m/s^3. Raise: snappier. Lower: gentler transitions.
 
     # Solver
