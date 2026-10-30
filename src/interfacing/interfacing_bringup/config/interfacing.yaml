@@ -40,7 +40,7 @@
 
     # ACKERMANN SCALING ---- max speed and steering angle
     ackermann_max_speed: 5.0
-    ackermann_max_steering_angle: 0.5
+    ackermann_max_steering_angle: 0.53
 
     # ROSCCO SCALING ---- max speed and steering angle
     roscco_max_speed: 1.0
