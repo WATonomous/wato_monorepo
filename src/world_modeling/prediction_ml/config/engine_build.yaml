@@ -1,0 +1,13 @@
+---
+# Sign-off engine build configuration. Paired with mtr.onnx as the portable
+# artifact. The engine itself is a build product: never committed, never copied
+# between machines. TensorRT engines are architecture-specific (3060 Ti is
+# sm_86, the vehicle's 4080 is sm_89) and will not load across that boundary.
+#
+# Builds FP32 (TensorRT's default) with TF32 off: FP16 failed checkpoint parity
+# on the replay fixtures, and FP32 still failed until TensorFloat-32 was off.
+allow_tf32: false
+workspace_size_mb: 4096
+# TensorRT 11 removed the legacy cuBLAS/cuDNN tactic-source selectors.
+tactic_sources: [EDGE_MASK_CONVOLUTIONS, JIT_CONVOLUTIONS]
+builder_optimization_level: 3
