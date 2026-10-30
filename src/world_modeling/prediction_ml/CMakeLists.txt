@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.17)
 project(prediction_ml)
 
 if(NOT CMAKE_CXX_STANDARD)
@@ -32,19 +32,18 @@ find_package(geometry_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(world_model_msgs REQUIRED)
 find_package(lanelet_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(Threads REQUIRED)
 
 add_library(prediction_ml_lib
   src/fallback_prediction.cpp
-  # >>> PERSON_B sources
   src/null_backend.cpp
-  # <<< PERSON_B sources
-  # >>> PERSON_A sources
   src/scene_builder.cpp
-  # <<< PERSON_A sources
-  # >>> PERSON_C sources
   src/output_converter.cpp
   src/mtr_runtime.cpp
-  # <<< PERSON_C sources
 )
 
 if(PREDICTION_ML_ENABLE_TENSORRT)
@@ -112,6 +111,7 @@ if(PREDICTION_ML_ENABLE_TENSORRT)
 
   target_include_directories(
     prediction_ml_lib
+    SYSTEM
     PRIVATE
       ${TENSORRT_INCLUDE_DIR}
   )
@@ -133,6 +133,11 @@ target_link_libraries(prediction_ml_lib
   ${vision_msgs_TARGETS}
   ${world_model_msgs_TARGETS}
   ${lanelet_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  ${tf2_TARGETS}
+  ${tf2_ros_TARGETS}
+  ${tf2_geometry_msgs_TARGETS}
+  Threads::Threads
 )
 
 add_executable(prediction_ml_node src/prediction_ml_node.cpp)
@@ -141,13 +146,16 @@ target_link_libraries(prediction_ml_node prediction_ml_lib)
 install(TARGETS prediction_ml_lib
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(TARGETS prediction_ml_node DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(lifecycle_msgs REQUIRED)
+  find_package(rosbag2_cpp REQUIRED)
+  find_package(ZLIB REQUIRED)
   ament_add_gtest(test_contract_compiles test/test_contract_compiles.cpp)
   target_link_libraries(test_contract_compiles prediction_ml_lib)
-  # >>> PERSON_B tests
   ament_add_gtest(test_backend test/test_backend.cpp)
   target_link_libraries(test_backend prediction_ml_lib)
   if(PREDICTION_ML_ENABLE_TENSORRT)
@@ -157,17 +165,40 @@ if(BUILD_TESTING)
         PREDICTION_ML_ENABLE_TENSORRT
     )
   endif()
-  # <<< PERSON_B tests
-  # >>> PERSON_A tests
   ament_add_gtest(test_scene_builder test/test_scene_builder.cpp)
   target_link_libraries(test_scene_builder prediction_ml_lib)
-  # <<< PERSON_A tests
-  # >>> PERSON_C tests
   ament_add_gtest(test_runtime test/test_runtime.cpp)
   target_link_libraries(test_runtime prediction_ml_lib)
-  # <<< PERSON_C tests
+  ament_add_gtest(
+    test_prediction_ml_node
+    test/test_prediction_ml_node.cpp
+    src/prediction_ml_node.cpp)
+  target_compile_definitions(
+    test_prediction_ml_node
+    PRIVATE
+      PREDICTION_ML_DISABLE_MAIN
+      PREDICTION_ML_PARAMS_FILE="${CMAKE_CURRENT_SOURCE_DIR}/config/params.yaml")
+  target_link_libraries(
+    test_prediction_ml_node
+    prediction_ml_lib
+    ${lifecycle_msgs_TARGETS})
+  ament_add_gtest(test_output_converter test/test_output_converter.cpp)
+  target_link_libraries(test_output_converter prediction_ml_lib)
   ament_add_gtest(test_fallback_prediction test/test_fallback_prediction.cpp)
   target_link_libraries(test_fallback_prediction prediction_ml_lib)
+  # tensor_io reads the eval fixtures; only tests link it.
+  ament_add_gtest(test_tensor_io test/test_tensor_io.cpp src/tensor_io.cpp)
+  target_link_libraries(test_tensor_io prediction_ml_lib ZLIB::ZLIB)
+  set_tests_properties(test_tensor_io PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
+  ament_add_gtest(test_scene_builder_parity test/test_scene_builder_parity.cpp src/tensor_io.cpp)
+  target_link_libraries(
+    test_scene_builder_parity
+    prediction_ml_lib
+    rosbag2_cpp::rosbag2_cpp
+    ZLIB::ZLIB)
+  set_tests_properties(test_scene_builder_parity PROPERTIES
+    ENVIRONMENT "PREDICTION_ML_FIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures")
 endif()
 
 ament_package()

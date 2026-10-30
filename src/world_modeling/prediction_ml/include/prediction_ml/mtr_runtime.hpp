@@ -15,13 +15,21 @@
 #ifndef PREDICTION_ML__MTR_RUNTIME_HPP_
 #define PREDICTION_ML__MTR_RUNTIME_HPP_
 
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "prediction_ml/mtr_inference_engine.hpp"
 #include "prediction_ml/mtr_types.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
+#include "world_model_msgs/msg/world_object_array.hpp"
 
 namespace prediction_ml
 {
@@ -32,21 +40,63 @@ class MtrRuntime
 {
 public:
   explicit MtrRuntime(MtrConfig config);
+  MtrRuntime(MtrConfig config, std::unique_ptr<IMtrInferenceEngine> engine);
   ~MtrRuntime();
 
-  // Hand the latest packed tensors to the (future) async worker.
-  void submitFrame(const MtrInputTensors & input, const std::string & frame_id, double horizon_s, double time_step_s);
+  MtrRuntime(const MtrRuntime &) = delete;
+  MtrRuntime & operator=(const MtrRuntime &) = delete;
+
+  // Hand packed tensors to the async worker. A queued frame is replaced by the
+  // newest submission. An in-flight result is still cached when newer frames arrive,
+  // unless one of them was unusable (invalid input), which discards it.
+  void submitFrame(
+    MtrInputTensors input, const std::string & frame_id, double source_time_s, double horizon_s, double time_step_s);
 
   // Start from fallback; replace only objects with fresh valid cached MTR predictions.
   std::vector<world_model_msgs::msg::WorldObject> selectOutput(
     const std::vector<world_model_msgs::msg::WorldObject> & fallback, double now_s);
 
+  // Pop one accepted pinned-target batch for evaluation publishing. A batch is
+  // returned exactly once and is independent of production cache selection.
+  std::optional<world_model_msgs::msg::WorldObjectArray> takeDiagnosticOutput();
+
   bool ready() const;
   std::string lastError() const;
 
 private:
+  struct PendingFrame
+  {
+    MtrInputTensors input;
+    std::string frame_id;
+    double source_time_s{0.0};
+    double horizon_s{0.0};
+    double time_step_s{0.0};
+    std::uint64_t sequence{0};
+  };
+
+  struct CachedPrediction
+  {
+    std::vector<world_model_msgs::msg::Prediction> predictions;
+    double source_time_s{0.0};
+  };
+
+  void workerLoop();
+
   MtrConfig config_;
   std::unique_ptr<IMtrInferenceEngine> engine_;
+  bool engine_ready_{false};
+  std::string engine_error_;
+
+  mutable std::mutex mutex_;
+  std::condition_variable worker_cv_;
+  std::optional<PendingFrame> pending_frame_;
+  std::unordered_map<std::string, CachedPrediction> cache_;
+  std::deque<world_model_msgs::msg::WorldObjectArray> pending_diagnostics_;
+  std::string worker_error_;
+  std::thread worker_;
+  std::uint64_t latest_sequence_{0};
+  std::uint64_t invalidated_sequence_{0};  // newest submission that could not be queued
+  bool stop_requested_{false};
 };
 
 }  // namespace prediction_ml
