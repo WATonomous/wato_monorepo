@@ -15,8 +15,10 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -24,6 +26,7 @@
 #include <vector>
 
 #include "prediction_ml/mtr_inference_engine.hpp"
+#include "prediction_ml/scene_builder.hpp"
 
 namespace
 {
@@ -190,6 +193,87 @@ TEST(TensorRtBackendInitialization, RejectsMissingEngineAndPreservesError)
   const auto output = engine->infer(input);
   EXPECT_FALSE(output.valid);
   EXPECT_EQ(engine->lastError(), initialization_error);
+}
+
+TEST(TensorRtBackendInitialization, LoadsRealEngineAndValidatesBindingsWhenProvided)
+{
+  const char * engine_path = std::getenv("MTR_ENGINE_PATH");
+  const char * metadata_path = std::getenv("MTR_METADATA_PATH");
+  if (engine_path == nullptr || metadata_path == nullptr) {
+    GTEST_SKIP() << "set MTR_ENGINE_PATH and MTR_METADATA_PATH for the real-engine gate";
+  }
+
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.engine_path = engine_path;
+  cfg.metadata_path = metadata_path;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
+  ASSERT_NE(engine, nullptr);
+  ASSERT_TRUE(engine->ready()) << engine->lastError();
+  EXPECT_TRUE(engine->lastError().empty());
+}
+
+TEST(TensorRtBackendInference, RepeatedInferenceReusesBuffersAndMatchesWhenProvided)
+{
+  const char * engine_path = std::getenv("MTR_ENGINE_PATH");
+  const char * metadata_path = std::getenv("MTR_METADATA_PATH");
+  if (engine_path == nullptr || metadata_path == nullptr) {
+    GTEST_SKIP() << "set MTR_ENGINE_PATH and MTR_METADATA_PATH for the real-engine gate";
+  }
+
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.engine_path = engine_path;
+  cfg.metadata_path = metadata_path;
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+  ASSERT_TRUE(engine->ready()) << engine->lastError();
+
+  // One car driving +x at 10 m/s for a full 1 s history, ego at the origin.
+  prediction_ml::SceneBuilder builder{cfg};
+  vision_msgs::msg::Detection3DArray tracks;
+  tracks.header.frame_id = "map";
+  for (int k = 0; k <= 10; ++k) {
+    tracks.header.stamp.sec = 100;
+    tracks.header.stamp.nanosec = static_cast<uint32_t>(k) * 100000000U;
+    tracks.detections.assign(1, vision_msgs::msg::Detection3D{});
+    auto & car = tracks.detections[0];
+    car.id = "car";
+    car.bbox.center.position.x = 10.0 + k;
+    car.bbox.center.orientation.w = 1.0;
+    car.bbox.size.x = 4.5;
+    car.bbox.size.y = 2.0;
+    car.bbox.size.z = 1.6;
+    vision_msgs::msg::ObjectHypothesisWithPose label;
+    label.hypothesis.class_id = "car";
+    label.hypothesis.score = 1.0;
+    car.results.push_back(label);
+    builder.addFrame(tracks);
+  }
+  prediction_ml::MtrFrameContext frame;
+  frame.detections = tracks;
+  frame.ego_pose.header.frame_id = "map";
+  frame.ego_pose.pose.orientation.w = 1.0;
+  frame.has_ego = true;
+  const auto input = builder.build(frame);
+  ASSERT_TRUE(input.valid);
+
+  const auto first = engine->infer(input);
+  ASSERT_TRUE(first.valid) << engine->lastError();
+  constexpr int kRepeats = 50;
+  prediction_ml::MtrOutputTensors last;
+  const auto started = std::chrono::steady_clock::now();
+  for (int i = 0; i < kRepeats; ++i) {
+    last = engine->infer(input);
+    ASSERT_TRUE(last.valid) << engine->lastError();
+  }
+  const double mean_ms =
+    std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count() / kRepeats;
+  std::cout << "mean infer() over " << kRepeats << " runs: " << mean_ms << " ms" << std::endl;
+
+  EXPECT_EQ(last.pred_scores, first.pred_scores);
+  EXPECT_EQ(last.pred_trajs, first.pred_trajs);
 }
 #endif
 

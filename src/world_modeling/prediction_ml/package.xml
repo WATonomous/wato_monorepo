@@ -16,10 +16,18 @@
   <depend>vision_msgs</depend>
   <depend>world_model_msgs</depend>
   <depend>lanelet_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>lifecycle_msgs</test_depend>
+  <test_depend>rosbag2_cpp</test_depend>
+  <test_depend>rosbag2_storage_mcap</test_depend>
+  <test_depend>zlib</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

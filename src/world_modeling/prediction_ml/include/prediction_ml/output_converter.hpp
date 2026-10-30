@@ -27,7 +27,9 @@ MtrInferenceResult convertMtrOutput(
   const MtrOutputTensors & out,
   const MtrBatchSidecar & sidecar,
   const std::string & frame_id,
+  double source_time_s,
   double horizon_s,
+  double model_time_step_s,
   double time_step_s);
 
 }  // namespace prediction_ml

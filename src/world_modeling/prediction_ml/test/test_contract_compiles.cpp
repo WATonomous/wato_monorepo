@@ -28,6 +28,7 @@ TEST(MtrContract, DefaultsAreFallbackSafe)
 {
   prediction_ml::MtrConfig cfg;
   EXPECT_EQ(cfg.mode, prediction_ml::MtrMode::Disabled);
+  EXPECT_DOUBLE_EQ(cfg.model_time_step_s, 0.1);
   prediction_ml::MtrInputTensors in;
   EXPECT_FALSE(in.valid);
   prediction_ml::MtrOutputTensors out;

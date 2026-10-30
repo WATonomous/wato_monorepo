@@ -412,6 +412,194 @@ TEST(SceneBuilder, ClosestForwardTargetSelectedFirst)
   EXPECT_EQ(tensors.sidecar.targets[2].detection_id, "behind");
 }
 
+TEST(SceneBuilder, MovingTargetRankedAheadOfNearerParkedCars)
+{
+  SceneBuilder builder{MtrConfig{}};
+  vision_msgs::msg::Detection3DArray arr;
+  // 1 s of history: eight parked cars 5..12 m ahead, one car 40 m ahead driving at 10 m/s.
+  for (int k = 0; k <= 10; ++k) {
+    const double t = 100.0 + 0.1 * k;
+    std::vector<vision_msgs::msg::Detection3D> dets;
+    for (int i = 0; i < 8; ++i) {
+      dets.push_back(makeDetection("parked_" + std::to_string(i), "vehicle", 5.0 + i, 3.0, 0.0, 0.0));
+    }
+    dets.push_back(makeDetection("mover", "vehicle", 40.0 + 1.0 * k, -3.0, 0.0, 0.0));
+    arr = makeArray(t, dets);
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_EQ(tensors.sidecar.targets.size(), kTargetCap);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "mover");
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "parked_0");  // then nearest-first as before
+}
+
+TEST(SceneBuilderPinnedTargets, EmptyPinnedListUsesHeuristic)
+{
+  MtrConfig config;
+  ASSERT_TRUE(config.pinned_target_ids.empty()) << "production default must use the heuristic";
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("behind", "vehicle", -5.0, 0.0, 0.0, 0.0),
+     makeDetection("near_front", "vehicle", 8.0, 0.0, 0.0, 0.0),
+     makeDetection("far_front", "vehicle", 30.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 3U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "near_front");
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "far_front");
+  EXPECT_EQ(tensors.sidecar.targets[2].detection_id, "behind");
+}
+
+TEST(SceneBuilderPinnedTargets, PinnedIdsSelectExactlyThoseDetectionsInConfiguredOrder)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"c", "a"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("a", "vehicle", 5.0, 0.0, 0.0, 0.0),
+     makeDetection("b", "vehicle", 6.0, 0.0, 0.0, 0.0),
+     makeDetection("c", "vehicle", 7.0, 0.0, 0.0, 0.0),
+     makeDetection("d", "vehicle", 8.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  std::vector<std::string> got;
+  for (const auto & target : tensors.sidecar.targets) {
+    got.push_back(target.detection_id);
+  }
+  EXPECT_EQ(got, (std::vector<std::string>{"c", "a"}));
+}
+
+TEST(SceneBuilderPinnedTargets, UnknownPinnedIdIsSkippedNotFatal)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"a", "does_not_exist"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0, {makeDetection("a", "vehicle", 5.0, 0.0, 0.0, 0.0), makeDetection("b", "vehicle", 6.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "a");
+}
+
+TEST(SceneBuilderPinnedTargets, PinnedListIsTruncatedToConfiguredTargetLimit)
+{
+  MtrConfig config;
+  config.selected_target_agent_limit = 8;
+  std::vector<std::string> ids;
+  std::vector<vision_msgs::msg::Detection3D> detections;
+  for (int i = 0; i < 12; ++i) {
+    ids.push_back("id" + std::to_string(i));
+    detections.push_back(makeDetection(ids.back(), "vehicle", 5.0 + i, 0.0, 0.0, 0.0));
+  }
+  config.pinned_target_ids = ids;
+  SceneBuilder builder{config};
+  const auto arr = makeArray(100.0, detections);
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 8U);
+  for (std::size_t i = 0; i < tensors.sidecar.targets.size(); ++i) {
+    EXPECT_EQ(tensors.sidecar.targets[i].detection_id, ids[i]);
+  }
+}
+
+TEST(SceneBuilderPinnedTargets, PinningIgnoresForwardHemisphereAndDistanceRanking)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"behind"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("front", "vehicle", 1.0, 0.0, 0.0, 0.0), makeDetection("behind", "vehicle", -25.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "behind");
+}
+
+TEST(SceneBuilderPinnedTargets, DuplicatePinnedIdsOccupyOneTargetSlot)
+{
+  MtrConfig config;
+  config.pinned_target_ids = {"a", "a", "b"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(
+    100.0, {makeDetection("a", "vehicle", 5.0, 0.0, 0.0, 0.0), makeDetection("b", "vehicle", 6.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 2U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "a");
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "b");
+}
+
+TEST(SceneBuilderPinnedTargets, TargetOutsideNearestContextCapacityIsInserted)
+{
+  MtrConfig config;
+  config.history_steps = 1;
+  config.pinned_target_ids = {"far_required"};
+  SceneBuilder builder{config};
+
+  std::vector<vision_msgs::msg::Detection3D> detections;
+  for (std::size_t i = 0; i < kContextCap; ++i) {
+    detections.push_back(
+      makeDetection("near_" + std::to_string(i), "vehicle", static_cast<double>(i + 1U), 0.0, 0.0, 0.0));
+  }
+  detections.push_back(makeDetection("far_required", "vehicle", 1000.0, 0.0, 0.0, 0.0));
+  const auto arr = makeArray(100.0, detections);
+  builder.addFrame(arr);
+
+  const auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "far_required");
+  EXPECT_EQ(tensors.sidecar.targets[0].track_index, 127);
+  EXPECT_EQ(tensors.track_index_to_predict[0], 127);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 127, 0, 9)], 1.0F);
+}
+
+TEST(SceneBuilderPinnedTargets, ReservedEgoIdSelectsSyntheticEgoTrack)
+{
+  MtrConfig config;
+  config.history_steps = 1;
+  config.pinned_target_ids = {"__ego__"};
+  SceneBuilder builder{config};
+  const auto arr = makeArray(100.0, {});
+  const auto ego = makePose(4.0, -3.0, 0.25);
+
+  const auto tensors = builder.build(makeFrame(arr, ego));
+
+  ASSERT_TRUE(tensors.valid);
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "__ego__");
+  EXPECT_EQ(tensors.sidecar.targets[0].track_index, 0);
+  EXPECT_DOUBLE_EQ(tensors.sidecar.targets[0].center_x, 4.0);
+  EXPECT_DOUBLE_EQ(tensors.sidecar.targets[0].center_y, -3.0);
+  EXPECT_EQ(tensors.center_type_ids[0], 0);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, 0, 9)], 1.0F);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, 0, 10)], 1.0F);
+}
+
 TEST(SceneBuilder, DuplicateDetectionIdsTakeOneTargetSlot)
 {
   // Two detections sharing an id must not occupy two target slots.
@@ -558,6 +746,116 @@ TEST(SceneBuilder, VelocityIsRotatedIntoTargetFrame)
   EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(b_row), T - 1, vy_off)], -2.0F, 1e-4);
 }
 
+TEST(SceneBuilder, VelocityFromHistoryReplacesTrackerVelocity)
+{
+  // Car moves +x at 10 m/s for 0.5 s while the tracker reports 0.3 m/s.
+  for (const bool from_history : {false, true}) {
+    MtrConfig cfg;
+    cfg.velocity_from_history = from_history;
+    SceneBuilder builder{cfg};
+    vision_msgs::msg::Detection3DArray arr;
+    for (int k = 0; k <= 5; ++k) {
+      arr = makeArray(
+        100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + 1.0 * k, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)});
+      builder.addFrame(arr);
+    }
+    auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+    ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+    const int row = tensors.sidecar.targets[0].track_index;
+    const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+    const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+    EXPECT_NEAR(
+      tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(row), T - 1, F - 4)],
+      from_history ? 10.0F : 0.3F,
+      1e-3);
+  }
+}
+
+TEST(SceneBuilder, ScalarTimeCountsFromOldestSlotLikeOfficialMtr)
+{
+  // Official MTR packs timestamps_seconds[:11] = 0.0 .. 1.0, so the current slot reads 1.0, not 0.
+  SceneBuilder builder{MtrConfig{}};
+  vision_msgs::msg::Detection3DArray arr;
+  for (int k = 0; k <= 10; ++k) {
+    arr = makeArray(100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + k, 0.0, 0.0, 0.0)});
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  const auto row = static_cast<std::size_t>(tensors.sidecar.targets[0].track_index);
+  const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+  const std::size_t scalar_time = 11 + T;
+  for (std::size_t s = 0; s < T; ++s) {
+    EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, row, s, scalar_time)], 0.1F * static_cast<float>(s), 1e-5)
+      << "slot " << s;
+  }
+}
+
+TEST(SceneBuilder, VelocityFromHistorySwitchAddsNoFakeAcceleration)
+{
+  // New car at a steady 10 m/s; the lagging tracker says 0.4 m/s. Before 0.3 s of history the
+  // samples carry the tracker velocity, so without the backfill slot 3 read ax = (10 - 0.4) * 10.
+  MtrConfig cfg;
+  cfg.velocity_from_history = true;
+  SceneBuilder builder{cfg};
+  vision_msgs::msg::Detection3DArray arr;
+  for (int k = 0; k <= 10; ++k) {
+    arr = makeArray(
+      100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + 1.0 * k, 0.0, 0.0, 0.0, true, 0.4, 0.0, 0.0)});
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+  const auto row = static_cast<std::size_t>(tensors.sidecar.targets[0].track_index);
+  const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+  const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+  for (std::size_t s = 0; s < T; ++s) {
+    ASSERT_EQ(tensors.obj_trajs_mask[maskIdx(tensors, 0, row, s)], 1U);
+    EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, row, s, F - 4)], 10.0F, 1e-3) << "vx at slot " << s;
+    EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, row, s, F - 2)], 0.0F, 1e-2) << "ax at slot " << s;
+  }
+}
+
+TEST(SceneBuilder, VelocityFromHistoryZeroesBoxJitter)
+{
+  // Parked car whose box drifts 0.3 m in 0.5 s (0.6 m/s): below the deadband, so velocity is 0.
+  MtrConfig cfg;
+  cfg.velocity_from_history = true;
+  SceneBuilder builder{cfg};
+  vision_msgs::msg::Detection3DArray arr;
+  for (int k = 0; k <= 5; ++k) {
+    arr = makeArray(
+      100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0 + 0.06 * k, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)});
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+  const int row = tensors.sidecar.targets[0].track_index;
+  const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+  const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+  EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, static_cast<std::size_t>(row), T - 1, F - 4)], 0.0F);
+}
+
+TEST(SceneBuilder, MeasuredVelocityForFallback)
+{
+  MtrConfig cfg;
+  cfg.velocity_from_history = true;
+  SceneBuilder builder{cfg};
+  for (int k = 0; k <= 5; ++k) {
+    builder.addFrame(makeArray(
+      100.0 + 0.1 * k,
+      {makeDetection("mover", "vehicle", 10.0 + 1.0 * k, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0),
+       makeDetection("parked", "vehicle", 20.0 + 0.06 * k, 5.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));
+  }
+  EXPECT_NEAR(builder.measuredVelocity("mover")[0], 10.0, 1e-6);
+  EXPECT_DOUBLE_EQ(builder.measuredVelocity("parked")[0], 0.0);  // 0.6 m/s jitter is under the deadband
+  EXPECT_DOUBLE_EQ(builder.measuredVelocity("barrier_or_new_track")[0], 0.0);  // unmeasured -> stationary
+
+  SceneBuilder off{MtrConfig{}};  // option off: MTR keeps tracker velocity, the fallback still measures
+  off.addFrame(makeArray(100.0, {makeDetection("mover", "vehicle", 10.0, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));
+  off.addFrame(makeArray(100.5, {makeDetection("mover", "vehicle", 15.0, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));
+  EXPECT_NEAR(off.measuredVelocity("mover")[0], 10.0, 1e-6);
+}
+
 TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.
@@ -630,6 +928,28 @@ TEST(SceneBuilder, CenterTypeIdsMapCorrectly)
   EXPECT_EQ(tensors.center_type_ids[0], 0);  // vehicle
   EXPECT_EQ(tensors.center_type_ids[1], 1);  // pedestrian
   EXPECT_EQ(tensors.center_type_ids[2], 2);  // cyclist
+}
+
+TEST(SceneBuilder, NuScenesNumericClassIdsMapToMtrTypes)
+{
+  // BEVFusion -> tracking passes nuScenes indices through as class_id strings.
+  SceneBuilder builder{MtrConfig{}};
+  const auto arr = makeArray(
+    100.0,
+    {makeDetection("car", "0", 8.0, 0.0, 0.0, 0.0),
+     makeDetection("ped", "8", 9.0, 0.0, 0.0, 0.0),
+     makeDetection("bike", "7", 10.0, 0.0, 0.0, 0.0),
+     makeDetection("moto", "6", 11.0, 0.0, 0.0, 0.0),
+     makeDetection("cone", "9", 12.0, 0.0, 0.0, 0.0),
+     makeDetection("barrier", "5", 13.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_EQ(tensors.sidecar.targets.size(), 4U);  // cone and barrier dropped
+  EXPECT_EQ(tensors.center_type_ids[0], 0);  // car -> vehicle
+  EXPECT_EQ(tensors.center_type_ids[1], 1);  // pedestrian
+  EXPECT_EQ(tensors.center_type_ids[2], 2);  // bicycle -> cyclist
+  EXPECT_EQ(tensors.center_type_ids[3], 0);  // motorcycle -> vehicle
 }
 
 TEST(SceneBuilder, EgoContextRowIsSdc)

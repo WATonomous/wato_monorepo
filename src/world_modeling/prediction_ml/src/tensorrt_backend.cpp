@@ -96,11 +96,14 @@ public:
   cudaError_t allocate(const std::size_t bytes)
   {
     reset();
-    bytes_ = bytes;
-    if (bytes_ == 0) {
+    if (bytes == 0) {
       return cudaSuccess;
     }
-    return cudaMalloc(&data_, bytes_);
+    const cudaError_t status = cudaMalloc(&data_, bytes);
+    if (status == cudaSuccess) {
+      bytes_ = bytes;
+    }
+    return status;
   }
 
   void * data() const
@@ -269,17 +272,7 @@ public:
       return output;
     }
 
-    std::vector<int64_t> track_indices;
-    track_indices.reserve(input.track_index_to_predict.size());
-    for (const int32_t track_index : input.track_index_to_predict) {
-      track_indices.push_back(static_cast<int64_t>(track_index));
-    }
-
-    std::vector<int64_t> center_type_ids;
-    if (!encodeCenterObjectTypes(input.center_objects_type, center_type_ids)) {
-      return output;
-    }
-    if (!validateInput(input, track_indices, center_type_ids)) {
+    if (!validateInput(input)) {
       return output;
     }
 
@@ -290,18 +283,16 @@ public:
       {"map_polylines", {input.map_polylines.data(), input.map_polylines.size() * sizeof(float)}},
       {"map_polylines_mask", {input.map_polylines_mask.data(), input.map_polylines_mask.size()}},
       {"map_polylines_center", {input.map_polylines_center.data(), input.map_polylines_center.size() * sizeof(float)}},
-      {"track_index_to_predict", {track_indices.data(), track_indices.size() * sizeof(int64_t)}},
-      {"center_type_ids", {center_type_ids.data(), center_type_ids.size() * sizeof(int64_t)}}};
+      {"track_index_to_predict",
+       {input.track_index_to_predict.data(), input.track_index_to_predict.size() * sizeof(int64_t)}},
+      {"center_type_ids", {input.center_type_ids.data(), input.center_type_ids.size() * sizeof(int64_t)}}};
 
-    std::unordered_map<std::string, DeviceBuffer> device_buffers;
-    device_buffers.reserve(static_cast<std::size_t>(engine_->getNbIOTensors()));
-
-    if (!prepareInputs(input_views, device_buffers)) {
+    if (!prepareInputs(input_views, device_buffers_)) {
       return output;
     }
     if (
-      !prepareOutput("pred_scores", output.scores_shape, output.pred_scores, device_buffers) ||
-      !prepareOutput("pred_trajs", output.trajs_shape, output.pred_trajs, device_buffers))
+      !prepareOutput("pred_scores", output.scores_shape, output.pred_scores, device_buffers_) ||
+      !prepareOutput("pred_trajs", output.trajs_shape, output.pred_trajs, device_buffers_))
     {
       return output;
     }
@@ -311,11 +302,11 @@ public:
       return output;
     }
     if (
-      !copyOutput("pred_scores", output.pred_scores, device_buffers) ||
-      !copyOutput("pred_trajs", output.pred_trajs, device_buffers))
+      !copyOutput("pred_scores", output.pred_scores, device_buffers_) ||
+      !copyOutput("pred_trajs", output.pred_trajs, device_buffers_))
     {
-      // enqueueV3 may still be using these buffers. Synchronize before their
-      // RAII owners leave scope, while preserving the original copy error.
+      // enqueueV3 may still be using these buffers. Synchronize before the next
+      // inference reuses them, while preserving the original copy error.
       (void)cudaStreamSynchronize(stream_.get());
       return MtrOutputTensors{};
     }
@@ -458,25 +449,6 @@ private:
     return true;
   }
 
-  bool encodeCenterObjectTypes(const std::vector<std::string> & object_types, std::vector<int64_t> & type_ids)
-  {
-    type_ids.clear();
-    type_ids.reserve(object_types.size());
-    for (const auto & object_type : object_types) {
-      if (object_type.empty() || object_type == "TYPE_VEHICLE") {
-        type_ids.push_back(0);
-      } else if (object_type == "TYPE_PEDESTRIAN") {
-        type_ids.push_back(1);
-      } else if (object_type == "TYPE_CYCLIST") {
-        type_ids.push_back(2);
-      } else {
-        setError("unsupported center object type '" + object_type + "'");
-        return false;
-      }
-    }
-    return true;
-  }
-
   template <typename T>
   bool requireElements(const std::string & name, const std::vector<T> & values, const std::size_t expected)
   {
@@ -489,10 +461,7 @@ private:
     return true;
   }
 
-  bool validateInput(
-    const MtrInputTensors & input,
-    const std::vector<int64_t> & track_indices,
-    const std::vector<int64_t> & center_type_ids)
+  bool validateInput(const MtrInputTensors & input)
   {
     constexpr std::size_t target_capacity = static_cast<std::size_t>(kTargetCapacity);
     constexpr std::size_t context_capacity = static_cast<std::size_t>(kContextAgentCapacity);
@@ -531,8 +500,8 @@ private:
       !requireElements(
         "map_polylines_mask", input.map_polylines_mask, target_capacity * map_capacity * points_per_polyline) ||
       !requireElements("map_polylines_center", input.map_polylines_center, target_capacity * map_capacity * 3) ||
-      !requireElements("track_index_to_predict", track_indices, target_capacity) ||
-      !requireElements("center_type_ids", center_type_ids, target_capacity))
+      !requireElements("track_index_to_predict", input.track_index_to_predict, target_capacity) ||
+      !requireElements("center_type_ids", input.center_type_ids, target_capacity))
     {
       return false;
     }
@@ -560,11 +529,15 @@ private:
         return false;
       }
 
-      DeviceBuffer buffer;
-      const cudaError_t allocation_status = buffer.allocate(input->second.bytes);
-      if (allocation_status != cudaSuccess) {
-        setError(cudaErrorMessage("cudaMalloc(" + spec.name + ")", allocation_status));
-        return false;
+      // Binding shapes are fixed, so each buffer is allocated once and reused. Per-inference
+      // cudaMalloc/cudaFree moved ~6 MB and cudaFree synchronizes the whole device.
+      DeviceBuffer & buffer = device_buffers[spec.name];
+      if (buffer.bytes() != input->second.bytes) {
+        const cudaError_t allocation_status = buffer.allocate(input->second.bytes);
+        if (allocation_status != cudaSuccess) {
+          setError(cudaErrorMessage("cudaMalloc(" + spec.name + ")", allocation_status));
+          return false;
+        }
       }
       const cudaError_t copy_status =
         cudaMemcpyAsync(buffer.data(), input->second.data, input->second.bytes, cudaMemcpyHostToDevice, stream_.get());
@@ -576,7 +549,6 @@ private:
         setError("failed to set TensorRT address for input '" + spec.name + "'");
         return false;
       }
-      device_buffers.emplace(spec.name, std::move(buffer));
     }
     return true;
   }
@@ -597,17 +569,18 @@ private:
     shape = tensorRtDimsToVector(dimensions);
     host_buffer.resize(element_count);
 
-    DeviceBuffer buffer;
-    const cudaError_t allocation_status = buffer.allocate(element_count * sizeof(float));
-    if (allocation_status != cudaSuccess) {
-      setError(cudaErrorMessage("cudaMalloc(" + name + ")", allocation_status));
-      return false;
+    DeviceBuffer & buffer = device_buffers[name];
+    if (buffer.bytes() != element_count * sizeof(float)) {
+      const cudaError_t allocation_status = buffer.allocate(element_count * sizeof(float));
+      if (allocation_status != cudaSuccess) {
+        setError(cudaErrorMessage("cudaMalloc(" + name + ")", allocation_status));
+        return false;
+      }
     }
     if (!context_->setTensorAddress(name.c_str(), buffer.data())) {
       setError("failed to set TensorRT address for output '" + name + "'");
       return false;
     }
-    device_buffers.emplace(name, std::move(buffer));
     return true;
   }
 
@@ -646,6 +619,8 @@ private:
   std::unique_ptr<nvinfer1::ICudaEngine> engine_;
   std::unique_ptr<nvinfer1::IExecutionContext> context_;
   CudaStream stream_;
+  // Declared after stream_ so buffers are freed before the stream is destroyed.
+  std::unordered_map<std::string, DeviceBuffer> device_buffers_;
 };
 
 }  // namespace

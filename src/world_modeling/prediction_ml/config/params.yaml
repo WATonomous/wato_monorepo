@@ -1,9 +1,14 @@
 ---
 # prediction_ml node parameters.
-prediction_ml_node:
+/**/prediction_ml_node:  # any namespace; bringup runs it under /world_modeling
   ros__parameters:
+    # Frame of ego pose, lanelets and outputs. Tracks in another frame (e.g. lidar_cc) are moved here via TF.
+    map_frame: "map"
     prediction_horizon: 3.0      # seconds — fallback + MTR horizon
     prediction_time_step: 0.2    # seconds — waypoint spacing
+    # Fallback = constant velocity measured from each track's own history (parked cars, barriers and
+    # tracks younger than 0.3 s get a zero-length path). The size-based speeds below are used only
+    # for tracks that cannot be moved into map_frame (no TF).
     fallback.vehicle_size_threshold_m: 3.5
     fallback.vehicle_speed_mps: 5.0
     fallback.vru_speed_mps: 1.4
@@ -16,12 +21,22 @@ prediction_ml_node:
     mtr.selected_target_agent_limit: 8
     # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
     mtr.target_forward_half_angle_deg: 90.0
+    # Evaluation only: mtr.pinned_target_ids (string list) pins targets in order and bypasses the
+    # selection heuristic. Leave it unset in deployment; an empty YAML list has no type and makes
+    # the node throw at startup.
+    # Native MTR future-trajectory cadence. Published predictions are downsampled to prediction_time_step.
+    mtr.model_time_step_s: 0.1
+    # EVE dimensions from eve_description/urdf/eve_chassis.xacro.
+    mtr.ego_length: 4.0936
+    mtr.ego_width: 1.3579
+    mtr.ego_height: 1.4090
+    # nav_msgs/Odometry expresses twist in child_frame_id; Eidos defaults to base_footprint.
+    mtr.ego_velocity_child_frame: "base_footprint"
 
     # --- Scene builder ---
     mtr.history_steps: 11
     mtr.history_rate_hz: 10.0
-    # Static ego bounding-box footprint (metres) for the SDC row in obj_trajs.
-    # Kia Soul EV chassis (eve_description/eve_chassis.xacro).
-    mtr.ego_length: 4.0936
-    mtr.ego_width: 1.3579
-    mtr.ego_height: 1.4090
+    # true: MTR inputs use velocity from each track's own positions over the history window, not the
+    # tracker's linear_velocity (tracking's Kalman velocity is far too small on moving cars).
+    # The fallback always uses the measured velocity.
+    mtr.velocity_from_history: false

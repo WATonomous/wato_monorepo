@@ -42,6 +42,12 @@ public:
   // Pack the current scene into MTR input tensors + sidecar.
   MtrInputTensors build(const MtrFrameContext & frame);
 
+  // Scene-frame (vx, vy) of a track, measured from its own positions over the retained history
+  // (zeroed below the jitter deadband): (0, 0) until a track has 0.3 s of history, and for
+  // non-agents (barriers, cones) that never enter it. Used by the fallback whatever
+  // mtr.velocity_from_history says; that flag only decides whether MTR inputs use it too.
+  std::array<double, 2> measuredVelocity(const std::string & detection_id) const;
+
 private:
   enum class MtrObjectClass
   {
@@ -66,6 +72,7 @@ private:
     double vz{0.0};
     MtrObjectClass object_class{MtrObjectClass::Vehicle};
     std::string frame_id;
+    bool measured_velocity{false};  // mtr.velocity_from_history: v came from this track's positions
   };
 
   // A context track ranked by ego-frame distance for the 128-row obj_trajs dimension.
@@ -86,6 +93,7 @@ private:
     HistorySample sample;
     double distance_sq{0.0};
     bool in_forward_region{false};
+    bool moving{false};  // history shows >= kMovingSpeedMps; ranked ahead of stationary agents
   };
 
   // One scene-frame map point: position + (backward-diff, normalized) direction.
@@ -123,11 +131,12 @@ private:
   static std::optional<HistorySample> sampleFromDetection(
     const vision_msgs::msg::Detection3D & detection, double timestamp, const std::string & frame_id);
   static double clampForwardHalfAngleDeg(double half_angle_deg);
+  // Mean (vx, vy, vz) from oldest to latest, deadbanded; empty below the minimum span.
+  static std::optional<std::array<double, 3>> meanHistoryVelocity(
+    const HistorySample & oldest, const HistorySample & latest);
 
   void addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray & detections, double timestamp);
   void addSample(const HistorySample & sample);
-  // Append the ego pose as an SDC track sample; velocity is finite-differenced from the
-  // previous ego sample.
   // Append the ego pose as an SDC track sample. When has_ego_velocity is true, the body-frame
   // odom twist is rotated into the scene frame; otherwise velocity is finite-differenced from the
   // previous ego sample.
@@ -146,9 +155,11 @@ private:
     const vision_msgs::msg::Detection3DArray & detections,
     double current_time,
     const geometry_msgs::msg::PoseStamped & ego_pose) const;
-  // Rank every retained track (incl. ego) by ego-frame 2D distance_sq and return the closest
-  // kContextCapacity ids, tie-broken by detection_id ascending.
-  std::vector<std::string> contextTrackIds(const geometry_msgs::msg::PoseStamped & ego_pose) const;
+  // Rank every retained track (incl. ego) globally by ego-frame 2D distance_sq/id. Keep the
+  // closest kContextCapacity while making every selected target a mandatory row: a missing target
+  // replaces the farthest non-target, then the retained rows are re-sorted by the same key.
+  std::vector<std::string> contextTrackIds(
+    const geometry_msgs::msg::PoseStamped & ego_pose, const std::vector<TargetCandidate> & required_targets) const;
   static int findTrackIndex(const std::vector<std::string> & track_ids, const std::string & detection_id);
   // Pack obj_trajs / masks / last_pos / center_* to the fixed [8,128,T,F] contract. Returns false
   // (hard frame failure) if any selected target is absent from the context list.
@@ -157,7 +168,6 @@ private:
     const std::vector<std::string> & context_track_ids,
     const std::vector<ResampledTrack> & resampled_tracks,
     const std::vector<double> & desired_times,
-    double current_time,
     MtrInputTensors & tensors) const;
   // Convert lanelet centerlines into fixed-length scene-frame polyline chunks
   std::vector<MapPolyline> buildMapPolylines(const lanelet_msgs::msg::LaneletAhead & lanelet_ahead) const;

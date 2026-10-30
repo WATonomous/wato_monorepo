@@ -46,8 +46,18 @@ struct MtrConfig
   // Half-angle from ego heading that counts as "forward" for target priority (degrees).
   // 90 => front hemisphere, including agents beside the car at ±90°.
   double target_forward_half_angle_deg{90.0};
+  // Evaluation only: when non-empty, select these detection ids as MTR targets in this
+  // order, bypassing the forward-hemisphere/distance heuristic. The quality harness sets
+  // this to Waymo's tracks_to_predict. Empty is the production default.
+  std::vector<std::string> pinned_target_ids;
+  // Native interval between consecutive future trajectory samples emitted by MTR.
+  double model_time_step_s{0.1};
   int history_steps{11};
   double history_rate_hz{10.0};
+  // Estimate each track's velocity from its own positions over the history window instead of the
+  // tracker's linear_velocity. ByteTrack's Kalman velocity from tracking is ~4% of true speed on
+  // moving cars (BEVFusion replay), which makes MTR predict passing traffic as nearly stopped.
+  bool velocity_from_history{false};
   // Static ego (SDC) bounding-box dimensions (metres). Used to give the ego row a real
   // footprint in obj_trajs instead of a zero-size box, matching MTR training. Defaults are
   // the Kia Soul EV chassis from eve_description (eve_chassis.xacro).
@@ -75,7 +85,8 @@ struct MtrFrameContext
 {
   vision_msgs::msg::Detection3DArray detections;
   geometry_msgs::msg::PoseStamped ego_pose;
-  // Raw odometry twist, body frame (base_link).
+  // Body-frame twist from the validated Odometry.child_frame_id. SceneBuilder rotates linear
+  // velocity into the map frame using ego_pose before packing target-relative features.
   geometry_msgs::msg::Twist ego_velocity;
   lanelet_msgs::msg::LaneletAhead lanelet_ahead;
   double timestamp{0.0};
@@ -91,6 +102,7 @@ struct MtrTargetSidecar
   int track_index{0};
   double center_x{0.0};
   double center_y{0.0};
+  double center_z{0.0};  // MTR predicts x/y only; predicted poses keep the agent's current height
   double center_heading{0.0};
 };
 
