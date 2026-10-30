@@ -64,40 +64,7 @@ private:
   std::filesystem::path path_;
 };
 
-constexpr const char * kEightTargetContract = R"yaml(---
-inputs:
-  - name: obj_trajs
-    dtype: float32
-    shape: [8, 128, 11, 29]
-  - name: obj_trajs_mask
-    dtype: bool
-    shape: [8, 128, 11]
-  - name: obj_trajs_last_pos
-    dtype: float32
-    shape: [8, 128, 3]
-  - name: map_polylines
-    dtype: float32
-    shape: [8, 768, 20, 9]
-  - name: map_polylines_mask
-    dtype: bool
-    shape: [8, 768, 20]
-  - name: map_polylines_center
-    dtype: float32
-    shape: [8, 768, 3]
-  - name: track_index_to_predict
-    dtype: int64
-    shape: [8]
-  - name: center_type_ids
-    dtype: int64
-    shape: [8]
-outputs:
-  - name: pred_scores
-    dtype: float32
-    shape: [8, 6]
-  - name: pred_trajs
-    dtype: float32
-    shape: [8, 6, 80, 7]
-)yaml";
+constexpr const char * kEightTargetContract = PREDICTION_ML_CONTRACT_FILE;
 
 prediction_ml::MtrModelContract makeSmallContract()
 {
@@ -175,11 +142,10 @@ TEST(TensorRtBackendInitialization, RejectsEmptyMetadataPath)
 
 TEST(TensorRtBackendInitialization, RejectsMissingEngineAndPreservesError)
 {
-  const TemporaryMetadataFile metadata(kEightTargetContract);
   prediction_ml::MtrConfig cfg;
   cfg.mode = prediction_ml::MtrMode::TensorRt;
   cfg.engine_path = "/path/that/does/not/exist/mtr.engine";
-  cfg.metadata_path = metadata.path();
+  cfg.metadata_path = kEightTargetContract;
 
   auto engine = prediction_ml::createMtrInferenceEngine(cfg);
 
@@ -279,9 +245,7 @@ TEST(TensorRtBackendInference, RepeatedInferenceReusesBuffersAndMatchesWhenProvi
 
 TEST(MtrModelContractLoader, LoadsEightTargetMetadata)
 {
-  const TemporaryMetadataFile metadata(kEightTargetContract);
-
-  const auto contract = prediction_ml::loadMtrModelContract(metadata.path());
+  const auto contract = prediction_ml::loadMtrModelContract(kEightTargetContract);
 
   ASSERT_EQ(contract.inputs.size(), 8u);
   EXPECT_EQ(contract.inputs[0].name, "obj_trajs");

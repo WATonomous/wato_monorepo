@@ -47,8 +47,6 @@ add_library(prediction_ml_lib
 )
 
 if(PREDICTION_ML_ENABLE_TENSORRT)
-  # target_sources(prediction_ml_lib PRIVATE src/tensorrt_backend.cpp)
-  # target_compile_definitions(prediction_ml_lib PRIVATE PREDICTION_ML_ENABLE_TENSORRT)
   find_package(CUDAToolkit REQUIRED)
 
   find_path(
@@ -158,6 +156,10 @@ if(BUILD_TESTING)
   target_link_libraries(test_contract_compiles prediction_ml_lib)
   ament_add_gtest(test_backend test/test_backend.cpp)
   target_link_libraries(test_backend prediction_ml_lib)
+  target_compile_definitions(
+    test_backend
+    PRIVATE
+      PREDICTION_ML_CONTRACT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/config/contract_8_target.yaml")
   if(PREDICTION_ML_ENABLE_TENSORRT)
     target_compile_definitions(
       test_backend

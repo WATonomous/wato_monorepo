@@ -73,21 +73,6 @@ public:
   DeviceBuffer(const DeviceBuffer &) = delete;
   DeviceBuffer & operator=(const DeviceBuffer &) = delete;
 
-  DeviceBuffer(DeviceBuffer && other) noexcept
-  : data_(std::exchange(other.data_, nullptr))
-  , bytes_(std::exchange(other.bytes_, 0))
-  {}
-
-  DeviceBuffer & operator=(DeviceBuffer && other) noexcept
-  {
-    if (this != &other) {
-      reset();
-      data_ = std::exchange(other.data_, nullptr);
-      bytes_ = std::exchange(other.bytes_, 0);
-    }
-    return *this;
-  }
-
   ~DeviceBuffer()
   {
     reset();
@@ -589,19 +574,10 @@ private:
     std::vector<float> & host_buffer,
     const std::unordered_map<std::string, DeviceBuffer> & device_buffers)
   {
-    const auto device_buffer = device_buffers.find(name);
-    if (device_buffer == device_buffers.end()) {
-      setError("missing TensorRT device buffer for output '" + name + "'");
-      return false;
-    }
+    // prepareOutput sized this buffer to host_buffer just before enqueue.
     const std::size_t bytes = host_buffer.size() * sizeof(float);
-    if (device_buffer->second.bytes() != bytes) {
-      setError("TensorRT output buffer size mismatch for '" + name + "'");
-      return false;
-    }
-
     const cudaError_t copy_status =
-      cudaMemcpyAsync(host_buffer.data(), device_buffer->second.data(), bytes, cudaMemcpyDeviceToHost, stream_.get());
+      cudaMemcpyAsync(host_buffer.data(), device_buffers.at(name).data(), bytes, cudaMemcpyDeviceToHost, stream_.get());
     if (copy_status != cudaSuccess) {
       setError(cudaErrorMessage("cudaMemcpyAsync(" + name + ")", copy_status));
       return false;
