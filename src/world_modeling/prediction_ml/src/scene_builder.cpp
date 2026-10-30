@@ -57,6 +57,15 @@ constexpr float kMapLaneCenterlineType = 0.0F;
 // distribution; do not "improve" it for curves without accepting that mismatch. Currently inert:
 // forward-BFS LaneletAhead almost always yields < 768 chunks, so ranking never actually trims.
 constexpr double kMapCenterOffsetX = 30.0;
+// Agents whose history moved at least this fast take MTR target slots before stationary ones. A busy
+// street has dozens of parked cars; ranked by distance alone they fill all 8 slots and passing traffic
+// only gets the constant-velocity fallback. 2 m/s sits above BEVFusion box jitter (~0.6 m p90).
+constexpr double kMovingSpeedMps = 2.0;
+// mtr.velocity_from_history: speeds below this are box jitter and are zeroed. On the BEVFusion
+// replay parked cars read 0.31 m/s p50 / 0.88 p90; moving cars 1.6 m/s p10, walking peds 0.8 p10.
+constexpr double kHistoryVelocityDeadbandMps = 1.0;
+// Shorter spans amplify box jitter; younger tracks keep the tracker's velocity.
+constexpr double kMinHistoryVelocitySpanS = 0.3;
 constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
@@ -69,7 +78,7 @@ constexpr int64_t kTypeCyclist = 2;
 //   [3..5]   dx, dy, dz                  (box dims, untransformed)
 //   [6..10]  one-hot: veh, ped, cyc, is_center_object, is_sdc
 //   [11..11+T-1] time one-hot (this step = 1)
-//   [11+T]   scalar timestamp            (slot time relative to current frame, seconds)
+//   [11+T]   scalar timestamp            (seconds since the oldest history slot: 0 .. 1.0)
 //   [12+T..13+T] sin, cos of relative heading
 //   [14+T..15+T] relative vx, vy
 //   [16+T..17+T] ax, ay                  (target-centered acceleration)
@@ -89,7 +98,9 @@ bool isUsableTimestamp(const double timestamp)
 
 bool isHistoryConfigValid(const MtrConfig & config)
 {
-  return config.history_steps > 0 && config.history_rate_hz > 0.0 && isFinite(config.history_rate_hz);
+  return config.history_steps > 0 && config.history_rate_hz > 0.0 && isFinite(config.history_rate_hz) &&
+         isFinite(config.ego_length) && config.ego_length > 0.0 && isFinite(config.ego_width) &&
+         config.ego_width > 0.0 && isFinite(config.ego_height) && config.ego_height > 0.0;
 }
 
 std::string lowerAscii(std::string value)
@@ -186,7 +197,7 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
     return tensors;
   }
 
-  const auto context_track_ids = contextTrackIds(frame.ego_pose);
+  const auto context_track_ids = contextTrackIds(frame.ego_pose, targets);
   if (context_track_ids.empty()) {
     return tensors;
   }
@@ -196,7 +207,7 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
 
   // packObjectTensors returns false (hard frame failure) if a selected target is missing from the
   // 128-row context; in that case tensors stay untouched and invalid.
-  if (!packObjectTensors(targets, context_track_ids, resampled_tracks, desired_times, *current_time, tensors)) {
+  if (!packObjectTensors(targets, context_track_ids, resampled_tracks, desired_times, tensors)) {
     return tensors;
   }
 
@@ -215,6 +226,33 @@ std::optional<double> SceneBuilder::timestampFromHeader(const vision_msgs::msg::
     return std::nullopt;
   }
   return timestamp;
+}
+
+std::optional<std::array<double, 3>> SceneBuilder::meanHistoryVelocity(
+  const HistorySample & oldest, const HistorySample & latest)
+{
+  const double span = latest.timestamp - oldest.timestamp;
+  if (span < kMinHistoryVelocitySpanS) {
+    return std::nullopt;
+  }
+  const double vx = (latest.x - oldest.x) / span;
+  const double vy = (latest.y - oldest.y) / span;
+  if (std::hypot(vx, vy) < kHistoryVelocityDeadbandMps) {
+    return std::array<double, 3>{0.0, 0.0, 0.0};
+  }
+  return std::array<double, 3>{vx, vy, (latest.z - oldest.z) / span};
+}
+
+std::array<double, 2> SceneBuilder::measuredVelocity(const std::string & detection_id) const
+{
+  // ponytail: unmeasured -> stationary, so a car that appears already moving gets no fallback path
+  // for its first 0.3 s; the old size-based prior drew 14 m paths on every newly seen parked car.
+  const auto it = history_.find(detection_id);
+  if (it == history_.end() || it->second.empty()) {
+    return {0.0, 0.0};
+  }
+  const auto velocity = meanHistoryVelocity(it->second.front(), it->second.back());
+  return velocity ? std::array<double, 2>{(*velocity)[0], (*velocity)[1]} : std::array<double, 2>{0.0, 0.0};
 }
 
 double SceneBuilder::yawFromQuaternion(const geometry_msgs::msg::Quaternion & q)
@@ -241,6 +279,20 @@ std::optional<SceneBuilder::MtrObjectClass> SceneBuilder::parseObjectClass(
     }
     if (label == "cyclist" || label == "bicycle" || label == "bike") {
       return MtrObjectClass::Cyclist;
+    }
+
+    // BEVFusion publishes nuScenes class indices as strings (bevfusion_constants.hpp):
+    // 0 car, 1 truck, 2 construction_vehicle, 3 bus, 4 trailer, 5 barrier, 6 motorcycle,
+    // 7 bicycle, 8 pedestrian, 9 traffic_cone. Motorcycles are vehicles in the Waymo taxonomy MTR
+    // was trained on; barriers and cones are static and dropped.
+    if (label == "0" || label == "1" || label == "2" || label == "3" || label == "4" || label == "6") {
+      return MtrObjectClass::Vehicle;
+    }
+    if (label == "7") {
+      return MtrObjectClass::Cyclist;
+    }
+    if (label == "8") {
+      return MtrObjectClass::Pedestrian;
     }
   }
 
@@ -316,10 +368,32 @@ void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray 
   }
 
   for (const auto & detection : detections.detections) {
-    const auto sample = sampleFromDetection(detection, timestamp, detections.header.frame_id);
-    if (sample.has_value()) {
-      addSample(*sample);
+    auto sample = sampleFromDetection(detection, timestamp, detections.header.frame_id);
+    if (!sample.has_value()) {
+      continue;
     }
+    const auto it = history_.find(sample->detection_id);
+    if (config_.velocity_from_history && it != history_.end() && !it->second.empty()) {
+      // Mean velocity since the oldest retained sample (<= one history window).
+      if (const auto velocity = meanHistoryVelocity(it->second.front(), *sample)) {
+        sample->vx = (*velocity)[0];
+        sample->vy = (*velocity)[1];
+        sample->vz = (*velocity)[2];
+        sample->measured_velocity = true;
+        // The track's first measured velocity also replaces the tracker velocity its younger
+        // samples carry; otherwise MTR sees that switch as an acceleration (~100 m/s^2 when the
+        // tracker lags at 0.4 m/s and the car does 10 m/s).
+        for (auto & earlier : it->second) {
+          if (!earlier.measured_velocity) {
+            earlier.vx = sample->vx;
+            earlier.vy = sample->vy;
+            earlier.vz = sample->vz;
+            earlier.measured_velocity = true;
+          }
+        }
+      }
+    }
+    addSample(*sample);
   }
 
   pruneHistory(timestamp);
@@ -373,8 +447,8 @@ void SceneBuilder::addEgoSample(
   const auto & linear = ego_velocity.linear;
   const bool velocity_finite = isFinite(linear.x) && isFinite(linear.y) && isFinite(linear.z);
   if (has_ego_velocity && velocity_finite) {
-    // Odom twist is body frame (base_link); rotate linear x/y into the scene frame by ego heading
-    // so it matches how tracker velocities are stored. z is frame-independent.
+    // The node validates the odometry child frame as the configured body frame. Rotate body FLU
+    // linear x/y into the scene frame by ego heading; z is unchanged.
     const double cos_h = std::cos(heading);
     const double sin_h = std::sin(heading);
     sample.vx = linear.x * cos_h - linear.y * sin_h;
@@ -521,6 +595,51 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     return candidates;
   }
 
+  if (!config_.pinned_target_ids.empty()) {
+    if (config_.selected_target_agent_limit <= 0) {
+      return candidates;
+    }
+
+    const auto limit = static_cast<std::size_t>(config_.selected_target_agent_limit);
+    candidates.reserve(std::min(config_.pinned_target_ids.size(), limit));
+    std::unordered_set<std::string> accepted_ids;
+
+    for (const auto & wanted : config_.pinned_target_ids) {
+      if (candidates.size() >= limit) {
+        break;
+      }
+      if (accepted_ids.find(wanted) != accepted_ids.end()) {
+        continue;
+      }
+
+      if (wanted == kEgoTrackId) {
+        const auto ego = history_.find(kEgoTrackId);
+        if (ego != history_.end() && !ego->second.empty()) {
+          candidates.push_back(TargetCandidate{ego->second.back(), 0.0, true});
+          accepted_ids.insert(wanted);
+        }
+        continue;
+      }
+
+      for (const auto & detection : detections.detections) {
+        if (detection.id != wanted) {
+          continue;
+        }
+        const auto sample = sampleFromDetection(detection, current_time, detections.header.frame_id);
+        if (!sample.has_value() || history_.find(sample->detection_id) == history_.end()) {
+          continue;
+        }
+
+        const double dx = sample->x - ego_position.x;
+        const double dy = sample->y - ego_position.y;
+        candidates.push_back(TargetCandidate{*sample, dx * dx + dy * dy, true});
+        accepted_ids.insert(sample->detection_id);
+        break;
+      }
+    }
+    return candidates;
+  }
+
   const double ego_yaw = yawFromQuaternion(ego_orientation);
   const double cos_yaw = std::cos(ego_yaw);
   const double sin_yaw = std::sin(ego_yaw);
@@ -554,10 +673,17 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     candidate.sample = *sample;
     candidate.distance_sq = dx * dx + dy * dy;
     candidate.in_forward_region = bearing_abs <= half_angle_rad;
+    const auto & hist = history_.at(sample->detection_id);
+    const double span = hist.back().timestamp - hist.front().timestamp;
+    candidate.moving = span >= 0.5 && std::hypot(hist.back().x - hist.front().x, hist.back().y - hist.front().y) >=
+                                        kMovingSpeedMps * span;
     candidates.push_back(std::move(candidate));
   }
 
   std::sort(candidates.begin(), candidates.end(), [](const TargetCandidate & lhs, const TargetCandidate & rhs) {
+    if (lhs.moving != rhs.moving) {
+      return lhs.moving;
+    }
     if (lhs.in_forward_region != rhs.in_forward_region) {
       return lhs.in_forward_region;
     }
@@ -577,7 +703,8 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
   return candidates;
 }
 
-std::vector<std::string> SceneBuilder::contextTrackIds(const geometry_msgs::msg::PoseStamped & ego_pose) const
+std::vector<std::string> SceneBuilder::contextTrackIds(
+  const geometry_msgs::msg::PoseStamped & ego_pose, const std::vector<TargetCandidate> & required_targets) const
 {
   const auto & ego_position = ego_pose.pose.position;
 
@@ -603,7 +730,47 @@ std::vector<std::string> SceneBuilder::contextTrackIds(const geometry_msgs::msg:
   });
 
   if (tracks.size() > kContextCapacity) {
-    tracks.resize(kContextCapacity);
+    std::vector<ContextTrack> selected(tracks.begin(), tracks.begin() + kContextCapacity);
+    // A selected target cannot be packed unless it has a context row. Preserve the global
+    // distance/id ranking, but make selected targets mandatory by evicting the farthest
+    // non-target for each target that fell outside the nearest-context budget.
+    std::unordered_set<std::string> required_ids;
+    required_ids.reserve(required_targets.size());
+    for (const auto & target : required_targets) {
+      required_ids.insert(target.sample.detection_id);
+    }
+
+    for (const auto & target : required_targets) {
+      const auto already_selected = std::find_if(selected.begin(), selected.end(), [&](const ContextTrack & track) {
+        return track.detection_id == target.sample.detection_id;
+      });
+      if (already_selected != selected.end()) {
+        continue;
+      }
+
+      const auto required_track = std::find_if(tracks.begin(), tracks.end(), [&](const ContextTrack & track) {
+        return track.detection_id == target.sample.detection_id;
+      });
+      if (required_track == tracks.end()) {
+        continue;
+      }
+
+      const auto replace = std::find_if(selected.rbegin(), selected.rend(), [&](const ContextTrack & track) {
+        return required_ids.find(track.detection_id) == required_ids.end();
+      });
+      if (replace == selected.rend()) {
+        break;
+      }
+      *replace = *required_track;
+    }
+
+    std::sort(selected.begin(), selected.end(), [](const ContextTrack & lhs, const ContextTrack & rhs) {
+      if (lhs.distance_sq != rhs.distance_sq) {
+        return lhs.distance_sq < rhs.distance_sq;
+      }
+      return lhs.detection_id < rhs.detection_id;
+    });
+    tracks = std::move(selected);
   }
 
   std::vector<std::string> ids;
@@ -628,7 +795,6 @@ bool SceneBuilder::packObjectTensors(
   const std::vector<std::string> & context_track_ids,
   const std::vector<ResampledTrack> & resampled_tracks,
   const std::vector<double> & desired_times,
-  const double current_time,
   MtrInputTensors & tensors) const
 {
   const std::size_t num_steps = static_cast<std::size_t>(config_.history_steps);
@@ -690,6 +856,7 @@ bool SceneBuilder::packObjectTensors(
     sidecar.track_index = static_cast<int>(target_track_index[t]);
     sidecar.center_x = center.x;  // scene frame, so predictions can be rotated back
     sidecar.center_y = center.y;
+    sidecar.center_z = center.z;
     sidecar.center_heading = center.heading;
     tensors.sidecar.targets.push_back(sidecar);
 
@@ -770,7 +937,9 @@ bool SceneBuilder::packObjectTensors(
         feat[kOneHotOffset + 3] = is_center ? 1.0F : 0.0F;
         feat[kOneHotOffset + 4] = is_sdc ? 1.0F : 0.0F;
         feat[kTimeOffset + s] = 1.0F;  // time one-hot
-        feat[scalar_time_idx] = static_cast<float>(desired_times[s] - current_time);  // scalar time
+        // Official MTR packs Waymo's timestamps_seconds[:11] (0.0 .. 1.0), not time relative to now;
+        // the relative -1 .. 0 encoding doubled minADE on validation shard 0 (0.29 -> 0.60 m).
+        feat[scalar_time_idx] = static_cast<float>(desired_times[s] - desired_times.front());
         feat[scalar_time_idx + 1] = static_cast<float>(std::sin(rel_heading));
         feat[scalar_time_idx + 2] = static_cast<float>(std::cos(rel_heading));
         feat[scalar_time_idx + 3] = static_cast<float>(rel_vx[s]);
