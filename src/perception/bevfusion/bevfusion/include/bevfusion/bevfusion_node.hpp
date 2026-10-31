@@ -38,6 +38,7 @@
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <message_filters/subscriber.h>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
 #include <tf2_ros/buffer.hpp>
@@ -267,6 +268,24 @@ private:
    */
   visualization_msgs::msg::MarkerArray createMarkers(const vision_msgs::msg::Detection3DArray & detections_3d) const;
 
+  /**
+   * @brief Convert one class of a SegMap into an OccupancyGrid in the LiDAR frame.
+   * @param seg_map Segmentation map from the core (row = x, col = y)
+   * @param class_index Index of the class mask to convert
+   * @param stamp Timestamp for the grid
+   * @return OccupancyGrid with 100 where the class is present and 0 elsewhere; empty data if class_index is invalid
+   *         or masks is too small
+   * @note OccupancyGrid is indexed data[y * width + x], so the SegMap is transposed: grid width = SegMap height.
+   */
+  nav_msgs::msg::OccupancyGrid createOccupancyGrid(
+    const SegMap & seg_map, int class_index, const builtin_interfaces::msg::Time & stamp) const;
+
+  /**
+   * @brief Publish the core's latest SegMap, one OccupancyGrid per class.
+   * @param stamp Timestamp for the grids
+   */
+  void publishSegMap(const builtin_interfaces::msg::Time & stamp);
+
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
   BEVFusionInputConfig config_;
@@ -298,9 +317,16 @@ private:
   // Ego-vehicle suppression radius
   float ego_suppression_radius_{0.0f};
 
+  // BEV map segmentation
+  bool seg_enabled_{false};
+  std::vector<std::string> seg_class_names_;
+  std::string seg_topic_prefix_;
+
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  std::vector<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::OccupancyGrid>::SharedPtr>
+    seg_pubs_;  // One per class
 
   // Subscribers
   std::shared_ptr<LidarSub> lidar_sub_;
