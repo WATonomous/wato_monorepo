@@ -28,6 +28,11 @@ launch:
       default: "true"
       description: "Launch physical camera drivers (set to false when using a rosbag or simulator)"
 
+  - arg:
+      name: bevfusion_overrides
+      default: "$(find-pkg-share perception_bringup)/config/bevfusion_resnet50.yaml"
+      description: "Model-specific BEVFusion parameter overrides"
+
   # ===========================================================================
   # Single component container: cameras, camera_sync, deep object detection, tracking, patchwork++
   # ===========================================================================
@@ -135,6 +140,7 @@ launch:
               value: "true"
           param:
             - from: $(var config_file)
+            - from: $(var bevfusion_overrides)
           remap:
             - from: camera_info
               to: /multi_camera_sync/multi_camera_info

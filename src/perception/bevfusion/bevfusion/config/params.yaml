@@ -41,6 +41,7 @@ bevfusion_node:
     max_points_per_voxel: 10  # Max # of points to sample in 1 voxel
     max_points: 300000  # Upper limit on total # of lidar points processed
     max_voxels: 160000  # Upper limit on total # of voxels generated on the grid
+    precision: "int8"
 
     # --- Bounding Box Post-processing & Head ---
     post_center_range_start: [-61.2, -61.2, -10.0]  # BBox center filter lower boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
@@ -50,6 +51,7 @@ bevfusion_node:
     # --- BEV Map Segmentation ---
     # Currently publishes a placeholder map (road ahead, divider on the left) until the CUDA seg head is ready
     seg_enabled: false  # true: publish one nav_msgs/OccupancyGrid per class
+    seg_num_classes: 6 # nuscenes classes
     seg_topic_prefix: "/perception/bev_seg"  # Topics are <prefix>/<class name>
     seg_class_names:  # Must match the seg model's class order
       - "drivable_area"

@@ -28,7 +28,6 @@
 
 namespace wato::perception::bevfusion
 {
-
 /**
  * @brief Input parameters for CUDA-BEVFusion
  */
@@ -41,6 +40,7 @@ struct BEVFusionInputConfig
   std::string camera_vtransform_plan;  // Projects image features to BEV
   std::string fuser_plan;  // Fuses image and LiDAR BEV features
   std::string head_bbox_plan;  // Predicts 3D bounding boxes
+  std::string head_seg_plan;  // Predicts the BEV map segmentation
   std::string lidar_backbone_onnx;  // Extracts LiDAR features
 
   // --- Camera Normalization & Preprocessing ---
@@ -223,7 +223,6 @@ public:
   /**
    * @brief Segmentation map from the most recent infer() call.
    * @return The latest SegMap; empty (num_classes == 0) if seg is disabled or infer() has not produced one
-   * @note Currently returns makePlaceholderSegMap() output until the CUDA seg head lands in wato-cuda-bevfusion.
    */
   const SegMap & getSegMap() const;
 
@@ -273,7 +272,7 @@ private:
   // Reused across inference calls to avoid per-frame heap allocation.
   std::vector<__half> lidar_half_buf_;
 
-  // Latest segmentation map, filled by infer() when config_.seg_enabled is true.
+  // Latest segmentation map, filled by infer() when the seg head is enabled.
   SegMap seg_map_;
 };
 

@@ -56,40 +56,6 @@ public:
 TrtLogger g_trt_logger;
 }  // namespace
 
-SegMap makePlaceholderSegMap(int num_classes)
-{
-  // Expected nuScenes map grid: x, y in [-50, 50) m at 0.5 m per pixel
-  SegMap seg;
-  seg.num_classes = std::max(num_classes, 0);
-  seg.height = 200;
-  seg.width = 200;
-  seg.resolution = 0.5f;
-  seg.origin_x = -50.0f;
-  seg.origin_y = -50.0f;
-  seg.masks.assign(static_cast<size_t>(seg.num_classes) * seg.height * seg.width, 0);
-  if (seg.num_classes == 0) {
-    return seg;
-  }
-
-  const auto set_region = [&seg](int cls, float x_min, float x_max, float y_min, float y_max) {
-    for (int row = 0; row < seg.height; ++row) {
-      const float x = seg.origin_x + (static_cast<float>(row) + 0.5f) * seg.resolution;
-      if (x < x_min || x >= x_max) continue;
-      for (int col = 0; col < seg.width; ++col) {
-        const float y = seg.origin_y + (static_cast<float>(col) + 0.5f) * seg.resolution;
-        if (y < y_min || y >= y_max) continue;
-        seg.masks[static_cast<size_t>(cls) * seg.height * seg.width + static_cast<size_t>(row) * seg.width + col] = 1;
-      }
-    }
-  };
-
-  // drivable_area: an 8 m wide corridor that only extends forward (+x)
-  set_region(0, 0.0f, 40.0f, -4.0f, 4.0f);
-  // divider: a thin line 2 m to the left (+y), only in front of the vehicle
-  set_region(seg.num_classes - 1, 0.0f, 40.0f, 2.0f, 2.5f);
-  return seg;
-}
-
 BEVFusionCore::BEVFusionCore(const BEVFusionInputConfig & config)
 : config_(config)
 {}
@@ -209,6 +175,11 @@ bool BEVFusionCore::initialize()
   transbbox.confidence_threshold = config_.confidence_threshold;
   transbbox.sorted_bboxes = config_.sorted_bboxes;
 
+  // Segmentation head: produces the per-class BEV map instead of bounding boxes
+  ::bevfusion::head::segmap::SegHeadParameters segmap;
+  segmap.model = config_.head_seg_plan;
+  segmap.enabled = config_.seg_enabled;
+
   // Deserialize all TensorRT engines and allocate GPU buffers for the full pipeline
   ::bevfusion::CoreParameter param;
   param.camera_model = config_.camera_backbone_plan;
@@ -218,6 +189,7 @@ bool BEVFusionCore::initialize()
   param.lidar_scn = scn;
   param.transfusion = config_.fuser_plan;
   param.transbbox = transbbox;
+  param.segmap = segmap;
 
   pipeline_ = ::bevfusion::create_core(param);
   if (pipeline_ == nullptr) {
@@ -234,6 +206,11 @@ bool BEVFusionCore::initialize()
     return false;
   }
 
+  // Expected nuScenes map grid: x, y in [-50, 50) m at 0.5 m per pixel
+  seg_map_.resolution = 0.5f;
+  seg_map_.origin_x = -50.0f;
+  seg_map_.origin_y = -50.0f;
+
   initialized_ = true;
   return true;
 }
@@ -249,10 +226,6 @@ std::vector<BoundingBox> BEVFusionCore::infer(
     std::cerr << "[BEVFusionCore] ERROR: infer called before calibration was updated." << std::endl;
     return {};
   }
-
-  // std::cout << "[BEVFusionCore] infer called: camera_images=" << camera_images.size()
-  //           << ", expected_num_cameras=" << config_.num_cameras << ", lidar_points.size=" << lidar_points.size()
-  //           << ", num_points=" << num_points << std::endl;
 
   // Ensure images are not empty
   for (size_t i = 0; i < camera_images.size(); ++i) {
@@ -289,36 +262,39 @@ std::vector<BoundingBox> BEVFusionCore::infer(
   //   The `reinterpret_cast` is used to cast this pointer to `const nvtype::half*`, which is the expected type for the vendor library API.
   //   Could have also used memcpy to manually copy bits from __half to nvtype::half since they are bitwise identical.
   // - Use .data() for underlying array
-  auto detections = pipeline_->forward(
+  // - returns pair of (1) 3d bounding box detections (2) (optional) classified 2d map segmentations
+  auto head_outputs = pipeline_->forward(
     const_cast<const unsigned char **>(camera_images.data()),
     reinterpret_cast<const nvtype::half *>(lidar_half_buf_.data()),
     num_points,
     stream_);
 
-  // std::cout << "[BEVFusionCore] pipeline_->forward returned " << detections.size() << " detections" << std::endl;
-  // if (detections.empty()) {
-  //   std::cerr << "[BEVFusionCore] WARNING: pipeline returned zero detections. has_calibration=" << has_calibration_
-  //             << ", pipeline_ptr=" << pipeline_.get() << ", precision=" << config_.precision << std::endl;
-  // }
+  auto detections = head_outputs.first;
 
   // map vendor type to our bounding box type
   std::vector<BoundingBox> result;
-  result.reserve(detections.size());
-  for (const auto & d : detections) {
-    BoundingBox box;
-    box.position = {d.position.x, d.position.y, d.position.z};
-    box.size = {d.size.w, d.size.l, d.size.h};
-    box.velocity = {d.velocity.vx, d.velocity.vy};
-    box.z_rotation = d.z_rotation;
-    box.score = d.score;
-    box.id = d.id;
-    result.push_back(box);
+  // NOTE: SwinT doesn't have detection head, only segmentation outputs for dev testing currently
+  if (! config_.seg_enabled) {
+    result.reserve(detections.size());
+    for (const auto & d : detections) {
+      BoundingBox box;
+      box.position = {d.position.x, d.position.y, d.position.z};
+      box.size = {d.size.w, d.size.l, d.size.h};
+      box.velocity = {d.velocity.vx, d.velocity.vy};
+      box.z_rotation = d.z_rotation;
+      box.score = d.score;
+      box.id = d.id;
+      result.push_back(box);
+    }
   }
 
-  // TODO(lane seg): replace with the vendor's get_seg_map() once the CUDA seg head lands in wato-cuda-bevfusion.
-  // placeholder map is static => build it once.
-  if (config_.seg_enabled && seg_map_.masks.empty()) {
-    seg_map_ = makePlaceholderSegMap(config_.seg_num_classes);
+  // update segmentation map
+  if (config_.seg_enabled) {
+    auto map = head_outputs.second;
+    seg_map_.num_classes = map.classes;
+    seg_map_.height = map.height;
+    seg_map_.width = map.width;
+    seg_map_.masks.assign(map.data, map.data + map.numel());
   }
   return result;
 }
@@ -354,7 +330,12 @@ bool BEVFusionCore::checkModelFilesExist() const
     std::cerr << "[BEVFusionCore] MISSING: fuser_plan='" << config_.fuser_plan << "'" << std::endl;
     result = false;
   }
-  if (!std::filesystem::exists(config_.head_bbox_plan)) {
+  if (config_.seg_enabled) {
+    if (!std::filesystem::exists(config_.head_seg_plan)) {
+      std::cerr << "[BEVFusionCore] MISSING: head_seg_plan='" << config_.head_seg_plan << "'" << std::endl;
+      result = false;
+    }
+  } else if (!std::filesystem::exists(config_.head_bbox_plan)) {
     std::cerr << "[BEVFusionCore] MISSING: head_bbox_plan='" << config_.head_bbox_plan << "'" << std::endl;
     result = false;
   }
@@ -367,8 +348,8 @@ bool BEVFusionCore::checkModelFilesExist() const
 
 bool BEVFusionCore::buildTRTEngines() const
 {
-  std::filesystem::path model_dir(config_.model_dir);
-  std::filesystem::path build_dir(config_.build_dir);
+  const std::filesystem::path model_dir(config_.model_dir);
+  const std::filesystem::path build_dir(config_.build_dir);
 
   std::cout << "[BEVFusionCore][buildTRTEngines] Detected TensorRT version: " << NV_TENSORRT_MAJOR << "."
             << NV_TENSORRT_MINOR << std::endl;
@@ -383,7 +364,11 @@ bool BEVFusionCore::buildTRTEngines() const
   {
     return false;
   }
-  if (!compileTrtModel("head.bbox", model_dir / "head.bbox.onnx", build_dir / "head.bbox.plan")) {
+  if (config_.seg_enabled) {
+    if (!compileTrtModel("head.seg", model_dir / "head.seg.onnx", build_dir / "head.seg.plan")) {
+      return false;
+    }
+  } else if (!compileTrtModel("head.bbox", model_dir / "head.bbox.onnx", build_dir / "head.bbox.plan")) {
     return false;
   }
 

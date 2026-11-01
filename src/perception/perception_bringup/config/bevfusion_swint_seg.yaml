@@ -1,0 +1,20 @@
+/**/bevfusion_node:
+  ros__parameters:
+    model_dir: "/opt/watonomous/models/bevfusion/seg_swint_fp16"
+    seg_enabled: true
+    precision: "fp16"
+    xbound: [-51.2, 51.2, 0.4]
+    ybound: [-51.2, 51.2, 0.4]
+    zbound: [-10.0, 10.0, 20.0]
+    dbound: [1.0, 60.0, 0.5]
+    geometry_dim: [256, 256, 80]
+    feat_width: 88
+    feat_height: 32
+    min_range: [-51.2, -51.2, -5.0]
+    max_range: [51.2, 51.2, 3.0]
+    voxel_size: [0.1, 0.1, 0.2]
+    max_voxels: 160000
+    max_points: 300000
+    max_points_per_voxel: 10
+    num_features: 5
+    scn_order: "XYZ"

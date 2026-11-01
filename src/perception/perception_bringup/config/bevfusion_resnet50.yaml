@@ -1,0 +1,18 @@
+/**/bevfusion_node:
+  ros__parameters:
+    precision: "int8"
+    xbound: [-54.0, 54.0, 0.3]
+    ybound: [-54.0, 54.0, 0.3]
+    zbound: [-10.0, 10.0, 20.0]
+    dbound: [1.0, 60.0, 0.5]
+    geometry_dim: [360, 360, 80]
+    feat_width: 88
+    feat_height: 32
+    min_range: [-54.0, -54.0, -5.0]
+    max_range: [54.0, 54.0, 3.0]
+    voxel_size: [0.075, 0.075, 0.2]
+    max_voxels: 160000
+    max_points: 300000
+    max_points_per_voxel: 10
+    num_features: 5
+    scn_order: "XYZ"

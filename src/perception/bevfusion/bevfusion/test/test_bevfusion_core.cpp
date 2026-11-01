@@ -32,9 +32,11 @@ class MockCore : public ::bevfusion::Core  // Create a fake version of cuda-bevf
 public:
   bool update_called = false;
   bool forward_called = false;
+  bool return_seg_map = false;
+  std::vector<uint8_t> seg_map_data;
   int last_num_points = 0;
 
-  std::vector<::bevfusion::head::transbbox::BoundingBox> forward(
+  ::bevfusion::HeadOutputs forward(
     const unsigned char ** /*camera_images*/,
     const nvtype::half * /*lidar_points*/,
     int num_points,
@@ -55,10 +57,21 @@ public:
     box.z_rotation = 9.0f;
     box.score = 0.95f;
     box.id = 2;
-    return {box};
+
+    if (return_seg_map) {
+      ::bevfusion::head::segmap::MapView map;
+      seg_map_data.assign(6 * 200 * 200, 0);
+      map.data = seg_map_data.data();
+      map.classes = 6;
+      map.height = 200;
+      map.width = 200;
+      return {{box}, map};
+    }
+
+    return {{box}, ::bevfusion::head::segmap::MapView{}};
   }
 
-  std::vector<::bevfusion::head::transbbox::BoundingBox> forward_no_normalize(
+  ::bevfusion::HeadOutputs forward_no_normalize(
     const nvtype::half * /*camera_normed_images_device*/,
     const nvtype::half * /*lidar_points*/,
     int /*num_points*/,
@@ -90,10 +103,13 @@ public:
 static BEVFusionInputConfig make_test_config()
 {
   BEVFusionInputConfig config;
+  config.model_dir = "/dev/null";
+  config.build_dir = "/dev/null/build";
   config.camera_backbone_plan = "/dev/null/camera.backbone.plan";
   config.camera_vtransform_plan = "/dev/null/camera.vtransform.plan";
   config.fuser_plan = "/dev/null/fuser.plan";
   config.head_bbox_plan = "/dev/null/head.bbox.plan";
+  config.head_seg_plan = "/dev/null/head.seg.plan";
   config.lidar_backbone_onnx = "/dev/null/lidar.backbone.onnx";
   return config;
 }
@@ -118,7 +134,7 @@ TEST_CASE("BEVFusionCore: isInitialized is false after construction", "[core][fa
 // =============================================================================
 TEST_CASE("BEVFusionCore: checkModelFilesExist returns false when model files are missing", "[core][fast]")
 {
-  BEVFusionInputConfig config;
+  auto config = make_test_config();
   config.camera_backbone_plan = "/tmp/nonexistent_path_123/camera.backbone.plan";
   config.camera_vtransform_plan = "/tmp/nonexistent_path_123/camera.vtransform.plan";
   config.fuser_plan = "/tmp/nonexistent_path_123/fuser.plan";
@@ -136,8 +152,7 @@ TEST_CASE("BEVFusionCore: checkModelFilesExist returns false when model files ar
 // =============================================================================
 TEST_CASE("BEVFusionCore: compileTrtModel returns false when ONNX file is missing", "[core][fast]")
 {
-  BEVFusionInputConfig config;
-  BEVFusionCore core(config);
+  BEVFusionCore core(make_test_config());
 
   bool success = core.compileTrtModel(
     "missing_model", "/tmp/nonexistent_dir_abc/missing.onnx", "/tmp/nonexistent_dir_abc/missing.plan");
@@ -253,39 +268,6 @@ static uint8_t seg_at(const SegMap & seg, int cls, float x, float y)
 }
 
 // =============================================================================
-// TEST: makePlaceholderSegMap geometry and asymmetric pattern
-// WHY: The placeholder map stands in for the CUDA seg head so the node and Foxglove
-//      view can be built first. Its pattern is deliberately one-sided (road only
-//      ahead, divider only on the left) so a flipped or rotated map is visible.
-//      If this pattern changes, the orientation check in Foxglove is meaningless.
-// =============================================================================
-TEST_CASE("makePlaceholderSegMap: grid geometry and one-sided pattern", "[core][seg][fast]")
-{
-  const SegMap seg = makePlaceholderSegMap(6);
-
-  REQUIRE(seg.num_classes == 6);
-  REQUIRE(seg.height == 200);
-  REQUIRE(seg.width == 200);
-  REQUIRE(seg.resolution == Catch::Approx(0.5f));
-  REQUIRE(seg.origin_x == Catch::Approx(-50.0f));
-  REQUIRE(seg.origin_y == Catch::Approx(-50.0f));
-  REQUIRE(seg.masks.size() == 6u * 200u * 200u);
-
-  // drivable_area (class 0): ahead of the vehicle, not behind
-  REQUIRE(seg_at(seg, 0, 10.0f, 0.0f) == 1);
-  REQUIRE(seg_at(seg, 0, -10.0f, 0.0f) == 0);
-
-  // divider (last class): on the left (+y), not the right
-  REQUIRE(seg_at(seg, 5, 10.0f, 2.2f) == 1);
-  REQUIRE(seg_at(seg, 5, 10.0f, -2.2f) == 0);
-
-  // Classes in between are empty
-  for (int cls = 1; cls < 5; ++cls) {
-    REQUIRE(seg_at(seg, cls, 10.0f, 0.0f) == 0);
-  }
-}
-
-// =============================================================================
 // TEST: infer() fills the seg map only when seg is enabled
 // WHY: Detection-only deployments must not pay for or publish segmentation.
 // =============================================================================
@@ -311,9 +293,11 @@ TEST_CASE("BEVFusionCore: infer() produces a SegMap only when seg_enabled", "[co
   {
     auto config = make_test_config();
     config.seg_enabled = true;
-    config.seg_num_classes = 6;
+
     BEVFusionCore core(config);
-    core.pipeline_ = std::make_shared<MockCore>();
+    auto mock_pipeline = std::make_shared<MockCore>();
+    mock_pipeline->return_seg_map = true;
+    core.pipeline_ = mock_pipeline;
     core.initialized_ = true;
     core.has_calibration_ = true;
 

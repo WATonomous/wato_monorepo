@@ -18,9 +18,9 @@ namespace wato::perception::bevfusion
 {
 
 /**
- * @brief A structure to hold RGBA values used for drawing bounding boxes
+ * @brief A structure to hold RGBA colour values.
  */
-struct BoxColor
+struct Color
 {
   float r = 1.0f;
   float g = 1.0f;
@@ -29,13 +29,13 @@ struct BoxColor
 };
 
 /**
- * @brief Retrieves the standard bounding box RGBA color for a given class ID.
- *        Follows nuScenes dataset color convention.
+ * @brief Retrieves the standard bounding box RGBA colour for a given class ID.
+ *        Follows nuScenes dataset colour convention.
  *
- * @param class_id The ID of the class for which to get the color.
- * @return BoxColor The RGBA color for the given class ID.
+ * @param class_id The ID of the class for which to get the colour.
+ * @return Color The RGBA colour for the given class ID.
  */
-inline BoxColor getBoxColor(int class_id)
+inline Color getBoxColor(int class_id)
 {
   switch (class_id) {
     case 0:
@@ -60,6 +60,32 @@ inline BoxColor getBoxColor(int class_id)
       return {1.0f, 0.8f, 0.0f, 0.8f};  // Traffic cone — amber
     default:
       return {1.0f, 1.0f, 1.0f, 0.8f};  // Default white
+  }
+}
+
+/**
+ * @brief Retrieves the RGBA colour for one of the six nuScenes map classes.
+ *
+ * @param class_id Segmentation class ID (see seg_class_names in params.yaml).
+ * @return Color The RGBA colour for the given map class.
+ */
+inline Color getClassColor(int class_id)
+{
+  switch (class_id) {
+    case 0:
+      return {0.0f, 0.4f, 1.0f, 0.8f};  // Drivable area — blue
+    case 1:
+      return {1.0f, 0.5f, 0.0f, 0.8f};  // Ped crossing — orange
+    case 2:
+      return {0.0f, 1.0f, 0.0f, 0.8f};  // Walkway — green
+    case 3:
+      return {1.0f, 0.0f, 0.0f, 0.8f};  // Stop line — red
+    case 4:
+      return {0.6f, 0.0f, 1.0f, 0.8f};  // Carpark area — purple
+    case 5:
+      return {1.0f, 1.0f, 0.0f, 0.8f};  // Divider — yellow
+    default:
+      return {1.0f, 1.0f, 1.0f, 0.8f};  // Unknown — white
   }
 }
 

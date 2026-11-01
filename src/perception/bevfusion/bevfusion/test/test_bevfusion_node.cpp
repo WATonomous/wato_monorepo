@@ -346,11 +346,11 @@ TEST_CASE("img_aug_matrix: nuScenes defaults 1600x900 resize_lim=0.48", "[calibr
   auto node = make_configured_node();
 
   // Override config to nuScenes defaults
-  node->config_.image_width = 1600;
-  node->config_.image_height = 900;
-  node->config_.resize_lim = 0.48f;
-  node->config_.norm_output_width = 704;
-  node->config_.norm_output_height = 256;
+  node->image_width_ = 1600;
+  node->image_height_ = 900;
+  node->resize_lim_ = 0.48f;
+  node->norm_output_width_ = 704;
+  node->norm_output_height_ = 256;
 
   // Compute expected values following camera-normalization.cu logic:
   //   resized_w = (int)(1600 * 0.48) = 768
@@ -389,10 +389,10 @@ TEST_CASE("img_aug_matrix: nuScenes defaults 1600x900 resize_lim=0.48", "[calibr
   // The img_aug_matrix is the last 16 floats we can verify through the core.
   // Since computeCalibrationMatrices calls core_->updateCalibration which
   // requires GPU, we manually replicate the aug matrix logic here instead.
-  int actual_resized_w = static_cast<int>(node->config_.image_width * node->config_.resize_lim);
-  int actual_resized_h = static_cast<int>(node->config_.image_height * node->config_.resize_lim);
-  int actual_crop_x = (actual_resized_w - node->config_.norm_output_width) / 2;
-  int actual_crop_y = actual_resized_h - node->config_.norm_output_height;
+  int actual_resized_w = static_cast<int>(node->image_width_ * node->resize_lim_);
+  int actual_resized_h = static_cast<int>(node->image_height_ * node->resize_lim_);
+  int actual_crop_x = (actual_resized_w - node->norm_output_width_) / 2;
+  int actual_crop_y = actual_resized_h - node->norm_output_height_;
 
   // Verify the crop/resize math
   REQUIRE(actual_crop_x == expected_crop_x);
@@ -1223,11 +1223,10 @@ TEST_CASE("declareParameters: seg defaults", "[params][seg][fast]")
   auto node = make_configured_node();
 
   REQUIRE_FALSE(node->seg_enabled_);
-  REQUIRE_FALSE(node->config_.seg_enabled);
   REQUIRE(node->seg_class_names_.size() == 6);
   REQUIRE(node->seg_class_names_.front() == "drivable_area");
   REQUIRE(node->seg_class_names_.back() == "divider");
-  REQUIRE(node->config_.seg_num_classes == 6);
+  REQUIRE(node->seg_class_names_.size() == 6);
   REQUIRE(node->seg_topic_prefix_ == "/perception/bev_seg");
 
   rclcpp::shutdown();
