@@ -29,13 +29,9 @@ endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
-  # AVX2+FMA is a safe baseline for any x86-64 deployment target of the last decade (this is NOT
-  # -march=native: that would bake in the exact build host's ISA, which risks SIGILL if a built
-  # image is later run on older/different silicon). Restricted to x86_64 so this build still works
-  # on an arm64 dev machine.
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    add_compile_options(-mavx2 -mfma)
-  endif()
+  # Do not add -mavx2/-mfma/-march=native here: they raise Eigen's alignment to 32 bytes, which is
+  # ABI-incompatible with the prebuilt ROS GTSAM (16 bytes) and corrupts the heap in
+  # NoiseModelFactor::linearize. Only enable them if GTSAM is rebuilt with the same flags.
 endif()
 
 # ---- Dependencies ----
