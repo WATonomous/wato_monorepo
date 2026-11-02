@@ -57,6 +57,7 @@ ros2 launch prediction_ml prediction_ml.launch.yaml
 
 # Supply model assets when using a build that includes a working TensorRT backend.
 ros2 launch prediction_ml prediction_ml.launch.yaml \
+  mtr_mode:=tensorrt \
   engine_path:=/path/to/mtr.engine \
   metadata_path:=/path/to/mtr_metadata.yaml
 ```
@@ -76,13 +77,10 @@ Parameters in `config/params.yaml`:
 |-----------|---------|-------------|
 | `prediction_horizon` | `3.0` | Prediction window in seconds |
 | `prediction_time_step` | `0.2` | Waypoint spacing in seconds |
-| `fallback.vehicle_size_threshold_m` | `3.5` | Bounding-box X size above which the no-TF fallback uses vehicle speed |
-| `fallback.vehicle_speed_mps` | `5.0` | Vehicle speed for tracks with no map transform, in metres per second |
-| `fallback.vru_speed_mps` | `1.4` | Pedestrian/cyclist speed for tracks with no map transform, in metres per second |
-| `mtr.mode` | `"disabled"` | `disabled`, `null`, or `tensorrt` |
+| `mtr.mode` | `"disabled"` | `disabled`, `null`, or `tensorrt`; anything else logs an ERROR and runs fallback-only |
 | `mtr.engine_path` | `""` | TensorRT engine path |
 | `mtr.metadata_path` | `""` | MTR model metadata path |
-| `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds |
+| `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds; an ego pose further than this from the tracks skips MTR for that frame |
 | `mtr.selected_target_agent_limit` | `8` | Maximum target agents per MTR batch |
 | `mtr.target_forward_half_angle_deg` | `90.0` | Ego-heading half-angle used to prioritize forward targets |
 | `mtr.pinned_target_ids` | `[]` | Evaluation only: pin MTR targets to these detection IDs in order, bypassing the selection heuristic |
@@ -93,6 +91,7 @@ Parameters in `config/params.yaml`:
 | `mtr.ego_velocity_child_frame` | `"base_footprint"` | Required odometry child frame for body-frame twist |
 | `mtr.history_steps` | `11` | History steps fed to the scene builder |
 | `mtr.history_rate_hz` | `10.0` | Expected history sample rate |
+| `mtr.velocity_from_history` | `true` | MTR inputs use velocity measured from each track's positions instead of the tracker's `linear_velocity` |
 
 ## CV Fallback Behavior
 
@@ -100,8 +99,8 @@ When `mtr.mode` is `disabled`, or the MTR path is not ready, the node publishes 
 constant-velocity straight-line trajectory per detection, using the velocity measured from that
 track's own positions over the history window. Speeds under 1 m/s (box jitter), tracks with less
 than 0.3 s of history, and non-agents that never enter the history (barriers, cones) get a
-zero-length path. Only tracks that cannot be moved into `map_frame` (no TF) fall back to the
-size prior: `bbox.size.x > 3.5 m` uses `5.0 m/s`, everything else `1.4 m/s`.
+zero-length path. Only tracks that cannot be moved into `map_frame` (no TF) use the tracker's
+`linear_velocity` (m/s) instead, or a zero-length path when it is missing.
 
 ## Runtime Selection
 

@@ -77,10 +77,11 @@ prediction_ml::MtrOutputTensors makeOutput()
 {
   prediction_ml::MtrOutputTensors output;
   output.valid = true;
-  output.scores_shape = {1, 1};
-  output.trajs_shape = {1, 1, 2, 2};
-  output.pred_scores = {0.8F};
-  output.pred_trajs = {1.0F, 0.0F, 2.0F, 0.0F};
+  // Scores sum to 1 so the converter's renormalization keeps the 0.8 sentinel the tests look for.
+  output.scores_shape = {1, 2};
+  output.trajs_shape = {1, 2, 2, 2};
+  output.pred_scores = {0.8F, 0.2F};
+  output.pred_trajs = {1.0F, 0.0F, 2.0F, 0.0F, 0.0F, 1.0F, 0.0F, 2.0F};
   return output;
 }
 
@@ -186,12 +187,14 @@ TEST(MtrRuntime, PinnedEgoDiagnosticIsOneShotAndIndependentOfFallback)
   EXPECT_EQ(diagnostic->header.stamp.sec, 100);
   ASSERT_EQ(diagnostic->objects.size(), 1U);
   EXPECT_EQ(diagnostic->objects[0].detection.id, "__ego__");
-  ASSERT_EQ(diagnostic->objects[0].predictions.size(), 1U);
+  ASSERT_EQ(diagnostic->objects[0].predictions.size(), 2U);
   EXPECT_NEAR(diagnostic->objects[0].predictions[0].conf, 0.8, 1.0e-6);
   EXPECT_FALSE(runtime.takeDiagnosticOutput()) << "each diagnostic batch must be returned exactly once";
 
-  const auto production = runtime.selectOutput({}, 100.1);
-  EXPECT_TRUE(production.empty()) << "ego diagnostics must not enter production world_object_seeds";
+  const auto production = runtime.selectOutput({makeFallback("other")}, 100.1);
+  ASSERT_EQ(production.size(), 1U) << "ego diagnostics must not enter production world_object_seeds";
+  EXPECT_EQ(production[0].detection.id, "other");
+  EXPECT_DOUBLE_EQ(production[0].predictions[0].conf, 1.0);
 }
 
 namespace
@@ -307,7 +310,9 @@ public:
 
   std::string lastError() const override
   {
-    return "cudaMalloc(obj_trajs) failed: out of memory";
+    // Empty until infer() fails, so the runtime can only report this reason via its worker error,
+    // not via the construction-time engine error.
+    return calls_ > 0 ? "cudaMalloc(obj_trajs) failed: out of memory" : "";
   }
 
   prediction_ml::MtrOutputTensors infer(const prediction_ml::MtrInputTensors &) override

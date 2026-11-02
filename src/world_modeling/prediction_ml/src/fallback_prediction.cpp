@@ -28,16 +28,23 @@
 
 #include "prediction_ml/fallback_prediction.hpp"
 
+#include <cmath>
+
 namespace prediction_ml
 {
 
-double selectFallbackSpeed(
-  const double size_x,
-  const double vehicle_size_threshold_m,
-  const double vehicle_speed_mps,
-  const double vru_speed_mps)
+std::array<double, 2> trackerVelocity(const vision_msgs::msg::Detection3D & detection)
 {
-  return size_x > vehicle_size_threshold_m ? vehicle_speed_mps : vru_speed_mps;
+  for (const auto & result : detection.results) {
+    const auto & v = result.pose.pose.position;
+    if (
+      result.hypothesis.class_id == "linear_velocity" && result.hypothesis.score > 0.0 && std::isfinite(v.x) &&
+      std::isfinite(v.y))
+    {
+      return {v.x, v.y};
+    }
+  }
+  return {0.0, 0.0};
 }
 
 }  // namespace prediction_ml

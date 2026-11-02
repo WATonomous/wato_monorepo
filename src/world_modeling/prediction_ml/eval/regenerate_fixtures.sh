@@ -28,6 +28,10 @@ eval_dir=$(cd "$(dirname "$0")" && pwd)
 fixtures=$eval_dir/../test/fixtures
 expected=(262112a66742fe8d 923a0c6bb90f4127 9f62a2970e4e8d4c)  # dense, sparse, gappy in shard 0
 
+# Check before deleting anything, and make the path absolute because of the cd below.
+[ -f "$shard" ] || { echo "shard not found: $shard" >&2; exit 1; }
+shard=$(realpath "$shard")
+
 cd "$eval_dir"
 export PYTHONPATH="$eval_dir${PYTHONPATH:+:$PYTHONPATH}"
 # Only scenario fixtures are directories; the synthetic tensor_io_*.bin.gz files stay.

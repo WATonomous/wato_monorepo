@@ -123,7 +123,7 @@ The Gate B parity test needs the Waymo-derived replay fixtures, which are not
 committed (WOD terms). They skip until you build them with `eval/regenerate_fixtures.sh <shard>`.
 
 The package test targets cover shared contracts, inference backend selection, scene building,
-runtime selection and TTL behavior, output conversion, and fallback speed selection.
+runtime selection and TTL behavior, output conversion, and the fallback's tracker velocity.
 
 When a real engine is available, enable the optional binding gate:
 

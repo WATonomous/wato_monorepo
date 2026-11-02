@@ -228,6 +228,16 @@ MtrInferenceResult convertMtrOutput(
     }
 
     if (!object.predictions.empty()) {
+      // MTR's scores are a softmax over all 64 queries, so the kept modes sum to well under 1
+      // (top mode ~0.15). Consumers read conf as a probability (costmap scales cost by it), so
+      // renormalize over the modes actually published.
+      double total = 0.0;
+      for (const auto & prediction : object.predictions) {
+        total += prediction.conf;
+      }
+      for (auto & prediction : object.predictions) {
+        prediction.conf /= total;
+      }
       std::stable_sort(object.predictions.begin(), object.predictions.end(), [](const auto & lhs, const auto & rhs) {
         return lhs.conf > rhs.conf;
       });

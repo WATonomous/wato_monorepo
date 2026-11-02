@@ -7,11 +7,8 @@
     prediction_horizon: 3.0      # seconds — fallback + MTR horizon
     prediction_time_step: 0.2    # seconds — waypoint spacing
     # Fallback = constant velocity measured from each track's own history (parked cars, barriers and
-    # tracks younger than 0.3 s get a zero-length path). The size-based speeds below are used only
-    # for tracks that cannot be moved into map_frame (no TF).
-    fallback.vehicle_size_threshold_m: 3.5
-    fallback.vehicle_speed_mps: 5.0
-    fallback.vru_speed_mps: 1.4
+    # tracks younger than 0.3 s get a zero-length path). Tracks that cannot be moved into map_frame
+    # (no TF) use the tracker's linear_velocity, or a zero-length path without one.
 
     # --- MTR group ---
     mtr.mode: "disabled"         # disabled | null | tensorrt
@@ -37,6 +34,7 @@
     mtr.history_steps: 11
     mtr.history_rate_hz: 10.0
     # true: MTR inputs use velocity from each track's own positions over the history window, not the
-    # tracker's linear_velocity (tracking's Kalman velocity is far too small on moving cars).
-    # The fallback always uses the measured velocity.
-    mtr.velocity_from_history: false
+    # tracker's linear_velocity. Keep true on the car: tracking runs in lidar_cc without ego-motion
+    # compensation, so its velocity is relative to the moving ego.
+    # Set false only for inputs with true map-frame velocities (e.g. Waymo ground-truth replays).
+    mtr.velocity_from_history: true

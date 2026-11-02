@@ -86,7 +86,19 @@ TEST(OutputConverter, DropsInvalidModeButKeepsValidObject)
   ASSERT_TRUE(result.ok) << result.error;
   ASSERT_EQ(result.objects.size(), 1U);
   ASSERT_EQ(result.objects[0].predictions.size(), 1U);
-  EXPECT_DOUBLE_EQ(result.objects[0].predictions[0].conf, 0.75);
+  EXPECT_DOUBLE_EQ(result.objects[0].predictions[0].conf, 1.0);  // renormalized over the kept mode
+}
+
+TEST(OutputConverter, RenormalizesConfidenceOverPublishedModes)
+{
+  // Raw MTR scores are a softmax over 64 queries; the 6 kept after NMS sum to well under 1.
+  auto output = makeTwoModeOutput();
+  output.pred_scores = {0.05F, 0.15F};
+  const auto result = prediction_ml::convertMtrOutput(output, makeSidecar(), "map", 12.0, 1.5, 0.5, 0.5);
+  ASSERT_TRUE(result.ok) << result.error;
+  ASSERT_EQ(result.objects[0].predictions.size(), 2U);
+  EXPECT_NEAR(result.objects[0].predictions[0].conf, 0.75, 1.0e-6);
+  EXPECT_NEAR(result.objects[0].predictions[1].conf, 0.25, 1.0e-6);
 }
 
 TEST(OutputConverter, DownsamplesNativeModelCadenceWithoutStretchingTime)

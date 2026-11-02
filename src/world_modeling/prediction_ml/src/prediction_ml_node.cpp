@@ -18,7 +18,9 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,10 +44,11 @@ vision_msgs::msg::Detection3DArray transformTracks(
     const auto source = detection.bbox.center;
     tf2::doTransform(source, detection.bbox.center, transform);
 
-    // ponytail: velocity is rotated only, never ego-motion compensated. tracking's Kalman velocity
-    // barely follows frame motion (WATcloud BEVFusion bag: median 0.6 m/s in lidar_cc while parked
-    // cars moved ~6 m/s relative), so adding the frame's motion would make parked cars drive at ego
-    // speed. Run tracking with output_frame map when absolute velocities matter. Covariance untouched.
+    // ponytail: velocity is rotated only, never ego-motion compensated, so with tracking in a moving
+    // frame (lidar_cc) parked cars keep their sensor-relative velocity (about -ego speed; tracking's
+    // velocity is m/s since it passes ByteTrack the real dt). Only MTR inputs with
+    // mtr.velocity_from_history false read it. Run tracking with output_frame map when absolute
+    // velocities matter. Covariance untouched.
     for (auto & result : detection.results) {
       if (result.hypothesis.class_id != "linear_velocity") {
         continue;
@@ -58,6 +61,13 @@ vision_msgs::msg::Detection3DArray transformTracks(
     }
   }
   return out;
+}
+
+bool egoPoseIsFresh(const geometry_msgs::msg::PoseStamped & pose, const double tracks_time_s, const double max_age_s)
+{
+  const double pose_time_s =
+    static_cast<double>(pose.header.stamp.sec) + static_cast<double>(pose.header.stamp.nanosec) * 1.0e-9;
+  return std::abs(tracks_time_s - pose_time_s) <= max_age_s;
 }
 
 std::optional<ExactStampJoiner::Stamp> ExactStampJoiner::stampKey(
@@ -135,9 +145,6 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("map_frame", "map");
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
-  this->declare_parameter("fallback.vehicle_size_threshold_m", 3.5);
-  this->declare_parameter("fallback.vehicle_speed_mps", 5.0);
-  this->declare_parameter("fallback.vru_speed_mps", 1.4);
   this->declare_parameter("mtr.mode", "disabled");
   this->declare_parameter("mtr.engine_path", "");
   this->declare_parameter("mtr.metadata_path", "");
@@ -160,7 +167,13 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
 MtrConfig PredictionMlNode::loadMtrConfig()
 {
   MtrConfig cfg;
-  cfg.mode = parseMtrMode(this->get_parameter("mtr.mode").as_string());
+  try {
+    cfg.mode = parseMtrMode(this->get_parameter("mtr.mode").as_string());
+  } catch (const std::invalid_argument & error) {
+    // A typo must not take down the only seeds publisher: be loud, then run fallback-only.
+    RCLCPP_ERROR(this->get_logger(), "%s; publishing fallback only", error.what());
+    cfg.mode = MtrMode::Disabled;
+  }
   cfg.engine_path = this->get_parameter("mtr.engine_path").as_string();
   cfg.metadata_path = this->get_parameter("mtr.metadata_path").as_string();
   cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
@@ -182,9 +195,6 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
   map_frame_ = this->get_parameter("map_frame").as_string();
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
-  fallback_vehicle_size_threshold_m_ = this->get_parameter("fallback.vehicle_size_threshold_m").as_double();
-  fallback_vehicle_speed_mps_ = this->get_parameter("fallback.vehicle_speed_mps").as_double();
-  fallback_vru_speed_mps_ = this->get_parameter("fallback.vru_speed_mps").as_double();
   ego_velocity_child_frame_ = this->get_parameter("mtr.ego_velocity_child_frame").as_string();
 
   const MtrConfig cfg = loadMtrConfig();
@@ -195,10 +205,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
                                         std::abs(cadence_ratio - std::round(cadence_ratio)) <= 1.0e-9;
   const bool valid_config =
     std::isfinite(prediction_horizon_) && prediction_horizon_ > 0.0 && valid_prediction_cadence &&
-    std::isfinite(fallback_vehicle_size_threshold_m_) && fallback_vehicle_size_threshold_m_ >= 0.0 &&
-    std::isfinite(fallback_vehicle_speed_mps_) && fallback_vehicle_speed_mps_ >= 0.0 &&
-    std::isfinite(fallback_vru_speed_mps_) && fallback_vru_speed_mps_ >= 0.0 && std::isfinite(cfg.cache_ttl_s) &&
-    cfg.cache_ttl_s >= 0.0 && cfg.selected_target_agent_limit >= 0 &&
+    std::isfinite(cfg.cache_ttl_s) && cfg.cache_ttl_s >= 0.0 && cfg.selected_target_agent_limit >= 0 &&
     std::isfinite(cfg.target_forward_half_angle_deg) && valid_model_time_step && std::isfinite(cfg.ego_length) &&
     cfg.ego_length > 0.0 && std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) &&
     cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && !map_frame_.empty() && cfg.history_steps > 0 &&
@@ -210,6 +217,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  mtr_cache_ttl_s_ = cfg.cache_ttl_s;
   scene_builder_ = std::make_unique<SceneBuilder>(cfg);
   runtime_ = std::make_unique<MtrRuntime>(cfg);
   mtr_diagnostics_enabled_ = !cfg.pinned_target_ids.empty();
@@ -217,7 +225,10 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
   mtr_predictions_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("mtr_predictions", 10);
   RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs)", prediction_horizon_, prediction_time_step_);
-  if (!runtime_->ready()) {
+  if (!runtime_->ready() && cfg.mode == MtrMode::TensorRt) {
+    // TensorRT was asked for (bad engine, or a build without the backend): that is an error, not a mode.
+    RCLCPP_ERROR(this->get_logger(), "MTR unavailable; publishing fallback only: %s", runtime_->lastError().c_str());
+  } else if (!runtime_->ready()) {
     RCLCPP_WARN(this->get_logger(), "MTR unavailable; publishing fallback only: %s", runtime_->lastError().c_str());
   }
   return CallbackReturn::SUCCESS;
@@ -395,7 +406,7 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
 {
   std::vector<world_model_msgs::msg::WorldObject> objects;
   const std::string & frame_id = msg.header.frame_id;
-  // Measured velocities live in map_frame_; tracks left in their sensor frame (no TF) use the prior.
+  // Measured velocities live in map_frame_; tracks left in their sensor frame (no TF) use the tracker's.
   const bool in_map_frame = frame_id.empty() || frame_id == map_frame_;
   for (const auto & detection : msg.detections) {
     world_model_msgs::msg::WorldObject obj;
@@ -405,24 +416,21 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     const double x = detection.bbox.center.position.x;
     const double y = detection.bbox.center.position.y;
     const double z = detection.bbox.center.position.z;
-    const auto & q = detection.bbox.center.orientation;
-    const double yaw = std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
     // Velocity measured from the track's own history (parked cars, barriers and tracks younger than
-    // 0.3 s measure 0 and get a zero-length path); the size-based speed prior along the heading only
-    // for tracks left in their sensor frame.
-    const auto measured = (scene_builder_ && in_map_frame)
-                            ? std::optional<std::array<double, 2>>(scene_builder_->measuredVelocity(detection.id))
-                            : std::nullopt;
-    const double speed = measured ? 0.0 : selectFallbackSpeed(
-      detection.bbox.size.x, fallback_vehicle_size_threshold_m_, fallback_vehicle_speed_mps_, fallback_vru_speed_mps_);
-    const double vx = measured ? (*measured)[0] : speed * std::cos(yaw);
-    const double vy = measured ? (*measured)[1] : speed * std::sin(yaw);
+    // 0.3 s measure 0 and get a zero-length path). Tracks left in their sensor frame use the tracker's
+    // linear_velocity, or a zero-length path without one.
+    const auto velocity = (scene_builder_ && in_map_frame) ? scene_builder_->measuredVelocity(detection.id)
+                                                           : trackerVelocity(detection);
+    const double vx = velocity[0];
+    const double vy = velocity[1];
 
     world_model_msgs::msg::Prediction pred;
     pred.header = msg.header;
     pred.header.stamp = source_time;
     pred.conf = 1.0;
-    const int num_steps = static_cast<int>(std::round(prediction_horizon_ / prediction_time_step_));
+    // Same step count as MTR (output_converter.cpp): never past the horizon.
+    const int num_steps = static_cast<int>(
+      std::floor(prediction_horizon_ / prediction_time_step_ + std::numeric_limits<double>::epsilon() * 8.0));
     for (int i = 1; i <= num_steps; ++i) {
       const double t = i * prediction_time_step_;
       geometry_msgs::msg::PoseStamped ps;
@@ -463,6 +471,16 @@ vision_msgs::msg::Detection3DArray::SharedPtr PredictionMlNode::tracksInMapFrame
 
 void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3DArray::SharedPtr raw_msg)
 {
+  // rclcpp::Time throws on a negative stamp, which would terminate the node from this callback.
+  if (raw_msg->header.stamp.sec < 0) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "Dropping tracks with negative stamp %d",
+      raw_msg->header.stamp.sec);
+    return;
+  }
   const rclcpp::Time now = this->get_clock()->now();
   const bool has_source_stamp = raw_msg->header.stamp.sec != 0 || raw_msg->header.stamp.nanosec != 0U;
   const rclcpp::Time source_time = has_source_stamp ? rclcpp::Time(raw_msg->header.stamp) : now;
@@ -491,13 +509,8 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   scene_builder_->addFrame(*msg);  // first, so the fallback sees this frame's measured velocity
   auto fallback = buildFallback(*msg, source_time);
   if (mtr_diagnostics_enabled_) {
+    // MTR is submitted only from the exact-stamp join; this frame's tensors may not exist yet.
     auto synchronized = exact_stamp_joiner_.addTracks(msg);
-    runtime_->submitFrame(
-      MtrInputTensors{},
-      msg->header.frame_id,
-      source_time.seconds(),
-      prediction_horizon_,
-      prediction_time_step_);
 
     world_model_msgs::msg::WorldObjectArray output;
     output.header = msg->header;
@@ -514,9 +527,17 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
 
   MtrFrameContext frame;
   frame.detections = *msg;
-  if (ego_pose_) {
+  // A stale pose gets no MTR this frame (fallback only), exactly like a missing one.
+  if (ego_pose_ && egoPoseIsFresh(*ego_pose_, track_now_s, mtr_cache_ttl_s_)) {
     frame.ego_pose = *ego_pose_;
     frame.has_ego = true;
+  } else if (ego_pose_) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "Ego pose is more than mtr.cache_ttl_s (%.2f s) from the tracks; skipping MTR",
+      mtr_cache_ttl_s_);
   }
   if (ego_odometry_) {
     frame.ego_velocity = ego_odometry_->twist.twist;

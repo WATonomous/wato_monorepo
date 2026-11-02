@@ -40,7 +40,8 @@ def _states(
 
 def _scenario() -> scenario.Scenario:
     # The first lane is behind the target-forward offset; the second is near it.
-    # Its 25 points also exercise direction continuity across a 20-point chunk.
+    # Its 25 points (49 after 0.5 m resampling) also exercise direction continuity
+    # across a 20-point chunk.
     behind = np.column_stack((np.linspace(-20.0, -10.0, 4), np.zeros(4), np.zeros(4)))
     ahead = np.column_stack((np.linspace(20.0, 44.0, 25), np.zeros(25), np.zeros(25)))
     stale_valid = np.ones(11)
@@ -105,9 +106,16 @@ def test_map_chunks_are_ranked_and_keep_cross_chunk_direction():
     # Ahead chunks rank before the geometrically behind lane.
     assert tensors["map_polylines_center"][0, 0, 0] > 0.0
     assert tensors["map_polylines_center"][0, 1, 0] > 0.0
-    # First point of the five-point tail window keeps the full-lane backward diff.
-    tail = next(index for index in range(3) if int(mask[index].sum()) == 5)
+    # First point of the nine-point tail window keeps the full-lane backward diff.
+    tail = next(index for index in range(3) if int(mask[index].sum()) == 9)
     np.testing.assert_allclose(packed[tail, 0, 3:6], [1.0, 0.0, 0.0])
+
+
+def test_sparse_centerline_is_resampled_to_half_metre_spacing():
+    sparse = np.asarray([[0.0, 0.0, 0.0], [10.2, 0.0, 0.0]])
+    resampled = reference_pack._resample_centerline(sparse)
+    # 0, 0.5, ..., 10.0 and the end vertex 10.2 (same as the C++ test).
+    np.testing.assert_allclose(resampled[:, 0], [*np.arange(21) * 0.5, 10.2])
 
 
 def test_pinned_target_is_mandatory_context_member():
