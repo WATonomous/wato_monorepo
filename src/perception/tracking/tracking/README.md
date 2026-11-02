@@ -19,7 +19,7 @@ Core logic draws inspiration from ByteTrackV2 (Zhang et al., 2023). The implemen
 
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked detections, track velocities are stored in the results field (ObjectHypothesisWithPose[]) |
+| `/perception/detections_3D_tracked` | `vision_msgs/Detection3DArray` | Tracked detections, track velocities (m/s, `linear_velocity` result) are stored in the results field (ObjectHypothesisWithPose[]) |
 
 ## Parameters
 
