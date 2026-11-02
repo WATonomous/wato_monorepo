@@ -454,7 +454,10 @@ def _pack_objects(
                 )
                 row[rep.OBJ_COL["size"]] = dimensions
                 type_code = rep.MTR_TYPE_CODES[context_track.object_type]
-                row[6 + type_code] = 1.0
+                # Official MTR tests 'TYPE_PEDESTRAIN' (sic): the pedestrian column
+                # was never set in training, so it stays 0 here too.
+                if type_code != rep.MTR_TYPE_CODES["pedestrian"]:
+                    row[6 + type_code] = 1.0
                 row[rep.OBJ_COL["is_center"]] = (
                     1.0 if context_track.detection_id == target_id else 0.0
                 )

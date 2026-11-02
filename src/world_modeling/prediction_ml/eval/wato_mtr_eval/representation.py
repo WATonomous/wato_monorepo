@@ -72,7 +72,8 @@ CLASS_ID_FOR_TYPE = {
 }
 VELOCITY_CLASS_ID = "linear_velocity"
 
-WATO_GLOBAL_TYPE = 0
+# Waymo TYPE_SURFACE_STREET: official MTR packs lane types -1/1/2/3, never 0.
+WATO_GLOBAL_TYPE = 2
 
 # Centerlines are resampled to this arc-length spacing before 20-point chunking
 # (scene_builder.cpp kMapPointSpacingM). MTR trained on Waymo polylines ~0.5 m apart.
