@@ -1153,8 +1153,8 @@ TEST(SceneBuilder, StraightCenterlineProducesExpectedPointFeatures)
   // Direction of point 1 = normalized (+x): dir_x=1, dir_y=0.
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 3)], 1.0F, 1e-5);
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 4)], 0.0F, 1e-5);
-  // global_type constant.
-  EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 6)], 0.0F);
+  // global_type constant: Waymo TYPE_SURFACE_STREET.
+  EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 6)], 2.0F);
   // pre_x of point 1 == point 0 rx == -10; point 0 pre copies itself.
   EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 7)], -10.0F);
   EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 0, 7)], -10.0F);

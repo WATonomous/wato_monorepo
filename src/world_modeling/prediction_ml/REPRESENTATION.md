@@ -47,7 +47,7 @@ From `scene_builder.cpp:763-781` in the design snapshot:
 | Cols | Content |
 |---|---|
 | 0–5 | `rx, ry, rz` (target-centered position), `dx, dy, dz` (box dims) |
-| 6–10 | one-hot: vehicle, pedestrian, cyclist, `is_center`, `is_sdc` |
+| 6–10 | one-hot: vehicle, pedestrian (always 0, as in official MTR training), cyclist, `is_center`, `is_sdc` |
 | 11–21 | time one-hot over the 11 history steps |
 | 22 | scalar time, `desired_times[s] - desired_times[0]` (0..1 s, as official MTR packs Waymo's `timestamps_seconds`) |
 | 23–24 | `sin(rel_heading)`, `cos(rel_heading)` |
@@ -65,7 +65,7 @@ silently truncated by the deployment representation.
 Every map point has nine columns:
 `[x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]`
 (`scene_builder.cpp:939` in the design snapshot). `global_type` is the same
-constant for every packed polyline (`scene_builder.cpp:50`).
+constant for every packed polyline, 2 (Waymo `TYPE_SURFACE_STREET`) (`scene_builder.cpp:50`).
 
 Each centerline is first resampled to a point every 0.5 m of arc length from its
 first vertex, plus its last vertex, matching the ~0.5 m spacing of the Waymo
