@@ -373,7 +373,7 @@ launch:
   # ---- Lifecycle Manager ----
 
   # Full stack lifecycle (localization mode)
-  # eidos_transform activates first (broadcasts identity TF), then eidos
+  # eidos_transform activates before eidos (broadcasts identity TF)
   - node:
       unless: "$(var mapping)"
       pkg: wato_lifecycle_manager
@@ -384,12 +384,13 @@ launch:
       param:
         - name: node_names
           value:
+            # First: the only seeds publisher, its configure depends on no other node, so a later
+            # node's failure must not stop seeds.
+            - /world_modeling/prediction_ml_node
             - /world_modeling/eidos_transform_node
             - /world_modeling/world_model
             - /world_modeling/costmap_node
             - /world_modeling/eidos_node
-            # Last: a leaf consumer whose slow or failed configure must not block the rest.
-            - /world_modeling/prediction_ml_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
