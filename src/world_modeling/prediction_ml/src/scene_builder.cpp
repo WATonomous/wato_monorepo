@@ -47,8 +47,9 @@ constexpr int64_t kNumSrcPolylines = 768;
 constexpr int64_t kNumPointsPerPolyline = 20;
 constexpr int64_t kMapFeatureDim = 9;
 
-// Generic lane-centerline global_type token
-constexpr float kMapLaneCenterlineType = 0.0F;
+// global_type for every lane centerline: Waymo TYPE_SURFACE_STREET (2), the commonest lane type the
+// checkpoint trained on. Official MTR packs lane types -1/1/2/3, so 0 was never seen in training.
+constexpr float kMapLaneCenterlineType = 2.0F;
 // Centerlines are resampled to this spacing before chunking: MTR trained on Waymo polylines about
 // 0.5 m apart, while OSM centerlines can be two vertices per straight, which made one 20-point chunk
 // span tens of metres. MTR's 1.0 m VECTOR_BREAK_DIST_THRESH split cannot fire inside a resampled
@@ -988,7 +989,9 @@ bool SceneBuilder::packObjectTensors(
         feat[kBoxOffset + 4] = static_cast<float>(smp.dy);
         feat[kBoxOffset + 5] = static_cast<float>(smp.dz);
         feat[kOneHotOffset + 0] = (smp.object_class == MtrObjectClass::Vehicle) ? 1.0F : 0.0F;
-        feat[kOneHotOffset + 1] = (smp.object_class == MtrObjectClass::Pedestrian) ? 1.0F : 0.0F;
+        // Pedestrian column left 0, as in training: official MTR tests 'TYPE_PEDESTRAIN' (sic), so the
+        // checkpoint never saw it set. center_type_ids still carries pedestrian = 1.
+        feat[kOneHotOffset + 1] = 0.0F;
         feat[kOneHotOffset + 2] = (smp.object_class == MtrObjectClass::Cyclist) ? 1.0F : 0.0F;
         feat[kOneHotOffset + 3] = is_center ? 1.0F : 0.0F;
         feat[kOneHotOffset + 4] = is_sdc ? 1.0F : 0.0F;
