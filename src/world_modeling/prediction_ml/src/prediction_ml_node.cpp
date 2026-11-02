@@ -79,8 +79,7 @@ std::optional<ExactStampJoiner::Stamp> ExactStampJoiner::stampKey(
   return static_cast<Stamp>(seconds) * 1000000000LL + static_cast<Stamp>(nanoseconds);
 }
 
-std::optional<ExactStampInputs> ExactStampJoiner::addTracks(
-  vision_msgs::msg::Detection3DArray::SharedPtr message)
+std::optional<ExactStampInputs> ExactStampJoiner::addTracks(vision_msgs::msg::Detection3DArray::SharedPtr message)
 {
   return insertAndTake(tracks_, std::move(message));
 }
@@ -151,8 +150,7 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
   this->declare_parameter("mtr.selected_target_agent_limit", 8);
   this->declare_parameter("mtr.target_forward_half_angle_deg", 90.0);
-  this->declare_parameter<std::vector<std::string>>(
-    "mtr.pinned_target_ids", std::vector<std::string>{});
+  this->declare_parameter<std::vector<std::string>>("mtr.pinned_target_ids", std::vector<std::string>{});
   this->declare_parameter("mtr.model_time_step_s", 0.1);
   this->declare_parameter("mtr.ego_length", 4.0936);
   this->declare_parameter("mtr.ego_width", 1.3579);
@@ -203,13 +201,13 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
   const bool valid_prediction_cadence = std::isfinite(prediction_time_step_) && prediction_time_step_ > 0.0 &&
                                         std::isfinite(cadence_ratio) && cadence_ratio >= 1.0 &&
                                         std::abs(cadence_ratio - std::round(cadence_ratio)) <= 1.0e-9;
-  const bool valid_config =
-    std::isfinite(prediction_horizon_) && prediction_horizon_ > 0.0 && valid_prediction_cadence &&
-    std::isfinite(cfg.cache_ttl_s) && cfg.cache_ttl_s >= 0.0 && cfg.selected_target_agent_limit >= 0 &&
-    std::isfinite(cfg.target_forward_half_angle_deg) && valid_model_time_step && std::isfinite(cfg.ego_length) &&
-    cfg.ego_length > 0.0 && std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) &&
-    cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && !map_frame_.empty() && cfg.history_steps > 0 &&
-    std::isfinite(cfg.history_rate_hz) && cfg.history_rate_hz > 0.0;
+  const bool valid_config = std::isfinite(prediction_horizon_) && prediction_horizon_ > 0.0 &&
+                            valid_prediction_cadence && std::isfinite(cfg.cache_ttl_s) && cfg.cache_ttl_s >= 0.0 &&
+                            cfg.selected_target_agent_limit >= 0 && std::isfinite(cfg.target_forward_half_angle_deg) &&
+                            valid_model_time_step && std::isfinite(cfg.ego_length) && cfg.ego_length > 0.0 &&
+                            std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) &&
+                            cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && !map_frame_.empty() &&
+                            cfg.history_steps > 0 && std::isfinite(cfg.history_rate_hz) && cfg.history_rate_hz > 0.0;
   if (!valid_config) {
     RCLCPP_ERROR(this->get_logger(), "Invalid prediction_ml timing, fallback, or MTR parameters");
     return CallbackReturn::FAILURE;
@@ -394,11 +392,7 @@ void PredictionMlNode::submitSynchronizedMtr(ExactStampInputs inputs)
 
   MtrInputTensors tensors = scene_builder_->build(frame);
   runtime_->submitFrame(
-    std::move(tensors),
-    inputs.tracks->header.frame_id,
-    frame.timestamp,
-    prediction_horizon_,
-    prediction_time_step_);
+    std::move(tensors), inputs.tracks->header.frame_id, frame.timestamp, prediction_horizon_, prediction_time_step_);
 }
 
 std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
@@ -419,8 +413,8 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
     // Velocity measured from the track's own history (parked cars, barriers and tracks younger than
     // 0.3 s measure 0 and get a zero-length path). Tracks left in their sensor frame use the tracker's
     // linear_velocity, or a zero-length path without one.
-    const auto velocity = (scene_builder_ && in_map_frame) ? scene_builder_->measuredVelocity(detection.id)
-                                                           : trackerVelocity(detection);
+    const auto velocity =
+      (scene_builder_ && in_map_frame) ? scene_builder_->measuredVelocity(detection.id) : trackerVelocity(detection);
     const double vx = velocity[0];
     const double vy = velocity[1];
 

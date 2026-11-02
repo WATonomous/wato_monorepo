@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -69,8 +70,7 @@ private:
 
   template <typename MessageT>
   std::optional<ExactStampInputs> insertAndTake(
-    std::map<Stamp, std::shared_ptr<MessageT>> & cache,
-    std::shared_ptr<MessageT> message)
+    std::map<Stamp, std::shared_ptr<MessageT>> & cache, std::shared_ptr<MessageT> message)
   {
     if (!message) {
       return std::nullopt;
