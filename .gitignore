@@ -1,4 +1,6 @@
 __pycache__/
+*.egg-info/
+.pytest_cache/
 code_server_config/*/extensions
 code_server_config/*/start_code_server.sh
 *.pyc
@@ -21,3 +23,6 @@ external/
 weights/
 models/
 maps/
+# Waymo-derived replay fixtures: built by prediction_ml/eval/regenerate_fixtures.sh, never
+# committed (the Waymo Open Dataset terms forbid public redistribution).
+src/world_modeling/prediction_ml/test/fixtures/*/
