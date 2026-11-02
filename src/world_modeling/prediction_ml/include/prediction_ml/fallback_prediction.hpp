@@ -29,11 +29,16 @@
 #ifndef PREDICTION_ML__FALLBACK_PREDICTION_HPP_
 #define PREDICTION_ML__FALLBACK_PREDICTION_HPP_
 
+#include <array>
+
+#include <vision_msgs/msg/detection3_d.hpp>
+
 namespace prediction_ml
 {
 
-double selectFallbackSpeed(
-  double size_x, double vehicle_size_threshold_m, double vehicle_speed_mps, double vru_speed_mps);
+// (vx, vy) of the tracker's linear_velocity result (m/s, in the detection's frame), or (0, 0) when it
+// is missing, unscored or non-finite, so an unmeasured track gets a zero-length fallback path.
+std::array<double, 2> trackerVelocity(const vision_msgs::msg::Detection3D & detection);
 
 }  // namespace prediction_ml
 

@@ -434,6 +434,32 @@ TEST(SceneBuilder, MovingTargetRankedAheadOfNearerParkedCars)
   EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "parked_0");  // then nearest-first as before
 }
 
+TEST(SceneBuilder, WalkingPedestrianAheadOutranksCarsBehindAndParkedCarAhead)
+{
+  SceneBuilder builder{MtrConfig{}};
+  vision_msgs::msg::Detection3DArray arr;
+  // 1 s of history: a pedestrian 5 m ahead walking at 1.4 m/s, a parked car 3 m ahead, and eight
+  // cars behind ego driving away at 10 m/s.
+  for (int k = 0; k <= 10; ++k) {
+    const double t = 100.0 + 0.1 * k;
+    std::vector<vision_msgs::msg::Detection3D> dets;
+    for (int i = 0; i < 8; ++i) {
+      dets.push_back(makeDetection("behind_" + std::to_string(i), "vehicle", -10.0 - 5.0 * i - 1.0 * k, 0.0, 0.0, kPi));
+    }
+    dets.push_back(makeDetection("parked", "vehicle", 3.0, 3.0, 0.0, 0.0));
+    dets.push_back(
+      makeDetection("ped", "pedestrian", 5.0, 1.0 + 0.14 * k, 0.0, kPi / 2.0, false, 0.0, 0.0, 0.0, 0.5, 0.5, 1.7));
+    arr = makeArray(t, dets);
+    builder.addFrame(arr);
+  }
+  auto tensors = builder.build(makeFrame(arr, makePose(0, 0, 0)));
+
+  ASSERT_EQ(tensors.sidecar.targets.size(), kTargetCap);
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "ped");  // forward and moving
+  EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "parked");  // forward
+  EXPECT_EQ(tensors.sidecar.targets[2].detection_id, "behind_0");  // then moving, nearest first
+}
+
 TEST(SceneBuilderPinnedTargets, EmptyPinnedListUsesHeuristic)
 {
   MtrConfig config;
@@ -856,6 +882,20 @@ TEST(SceneBuilder, MeasuredVelocityForFallback)
   EXPECT_NEAR(off.measuredVelocity("mover")[0], 10.0, 1e-6);
 }
 
+TEST(SceneBuilder, BackwardTimeJumpDropsStaleHistory)
+{
+  // A bag loop replays t=50 after t=100.5. The t=100 samples are "newer" than now and would never
+  // be pruned, so measured velocity would span the jump instead of the current 10 m/s motion.
+  SceneBuilder builder{MtrConfig{}};
+  for (int k = 0; k <= 5; ++k) {
+    builder.addFrame(makeArray(100.0 + 0.1 * k, {makeDetection("mover", "vehicle", 10.0 + k, 0.0, 0.0, 0.0)}));
+  }
+  for (int k = 0; k <= 5; ++k) {
+    builder.addFrame(makeArray(50.0 + 0.1 * k, {makeDetection("mover", "vehicle", 100.0 + k, 0.0, 0.0, 0.0)}));
+  }
+  EXPECT_NEAR(builder.measuredVelocity("mover")[0], 10.0, 1e-6);
+}
+
 TEST(SceneBuilder, AccelerationZeroWhenSamplesMissing)
 {
   // Single frame -> only current slot present -> no adjacent pair -> acceleration zero.
@@ -910,6 +950,31 @@ TEST(SceneBuilder, EgoVelocityIsFiniteDifferencedAcrossBuilds)
   // Ego is at distance 0 => context row 0; target heading 0 => rel vx == scene vx == 10.
   EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, 10)], 1.0F);  // is_sdc row
   EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, F - 4)], 10.0F, 1e-3);
+}
+
+TEST(SceneBuilder, EgoVelocityHoldsWhilePoseStampIsUnchanged)
+{
+  // Pose at 5 Hz, tracks at 10 Hz, ego at 10 m/s along +x. The 100.2 track frame reuses the 100.1
+  // pose: ego speed must stay 10 (not 0), and the next new pose differences over its own 0.2 s
+  // (not the tracks' 0.1 s, which would read 20).
+  SceneBuilder builder{MtrConfig{}};
+  const std::vector<std::array<double, 3>> frames{  // track time, pose x, pose stamp
+    {100.0, 0.0, 100.0}, {100.1, 1.0, 100.1}, {100.2, 1.0, 100.1}, {100.3, 3.0, 100.3}};
+  for (const auto & [track_time, pose_x, pose_stamp] : frames) {
+    const auto arr = makeArray(track_time, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
+    builder.addFrame(arr);
+    auto pose = makePose(pose_x, 0.0, 0.0);
+    setStamp(pose.header.stamp, pose_stamp);
+    auto tensors = builder.build(makeFrame(arr, pose));
+
+    ASSERT_TRUE(tensors.valid);
+    if (track_time > 100.0) {
+      const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+      const std::size_t F = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+      // Ego is context row 0 (distance 0); target heading 0 => rel vx == scene vx.
+      EXPECT_NEAR(tensors.obj_trajs[objIdx(tensors, 0, 0, T - 1, F - 4)], 10.0F, 1e-3) << "t=" << track_time;
+    }
+  }
 }
 
 TEST(SceneBuilder, CenterTypeIdsMapCorrectly)
@@ -1075,7 +1140,8 @@ TEST(SceneBuilder, StraightCenterlineProducesExpectedPointFeatures)
   SceneBuilder builder{MtrConfig{}};
   const auto arr = makeArray(100.0, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
   builder.addFrame(arr);
-  // Straight centerline along +x, 5 points; single target at (10,0) heading 0.
+  // Straight centerline along +x, 5 points 1 m apart (resampled to 0.5 m); single target at (10,0)
+  // heading 0.
   const auto lanelet = makeLanelet({{0, 0, 0}, {1, 0, 0}, {2, 0, 0}, {3, 0, 0}, {4, 0, 0}});
   auto tensors = builder.build(makeFrameWithMap(arr, makePose(0, 0, 0), {lanelet}));
 
@@ -1083,7 +1149,7 @@ TEST(SceneBuilder, StraightCenterlineProducesExpectedPointFeatures)
   ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
   // Target-centered x = scene x - 10; single chunk lands in poly row 0.
   EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 0, 0)], -10.0F);  // point 0 rx
-  EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 0)], -9.0F);  // point 1 rx
+  EXPECT_FLOAT_EQ(tensors.map_polylines[mapIdx(0, 0, 1, 0)], -9.5F);  // point 1 rx
   // Direction of point 1 = normalized (+x): dir_x=1, dir_y=0.
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 3)], 1.0F, 1e-5);
   EXPECT_NEAR(tensors.map_polylines[mapIdx(0, 0, 1, 4)], 0.0F, 1e-5);
@@ -1103,10 +1169,11 @@ TEST(SceneBuilder, MapMasksDistinguishPaddedPoints)
   auto tensors = builder.build(makeFrameWithMap(arr, makePose(0, 0, 0), {lanelet}));
 
   ASSERT_TRUE(tensors.valid);
-  for (std::size_t j = 0; j < 5; ++j) {
+  // 4 m resampled at 0.5 m = 9 real points.
+  for (std::size_t j = 0; j < 9; ++j) {
     EXPECT_EQ(tensors.map_polylines_mask[mapMaskIdx(0, 0, j)], 1U) << "point " << j;
   }
-  for (std::size_t j = 5; j < kNumPointsPerPolyline; ++j) {
+  for (std::size_t j = 9; j < kNumPointsPerPolyline; ++j) {
     EXPECT_EQ(tensors.map_polylines_mask[mapMaskIdx(0, 0, j)], 0U) << "padded point " << j;
   }
 }
@@ -1120,11 +1187,38 @@ TEST(SceneBuilder, MapCenterFromValidPointsOnly)
   auto tensors = builder.build(makeFrameWithMap(arr, makePose(0, 0, 0), {lanelet}));
 
   ASSERT_TRUE(tensors.valid);
-  // Mean of target-centered x over the 5 real points = mean(-10..-6) = -8; y = 0. Padded points
+  // Mean of target-centered x over the 9 real points = mean(-10..-6) = -8; y = 0. Padded points
   // must not dilute the mean.
   const std::size_t center_idx = (0U * kNumSrcPolylines + 0U) * 3U;
   EXPECT_FLOAT_EQ(tensors.map_polylines_center[center_idx + 0], -8.0F);
   EXPECT_FLOAT_EQ(tensors.map_polylines_center[center_idx + 1], 0.0F);
+}
+
+TEST(SceneBuilder, SparseCenterlineIsResampledBeforeChunking)
+{
+  SceneBuilder builder{MtrConfig{}};
+  const auto arr = makeArray(100.0, {makeDetection("veh_1", "vehicle", 0.0, 0.0, 0.0, 0.0)});
+  builder.addFrame(arr);
+  // An OSM-style straight: two vertices 10.2 m apart -> 0, 0.5, ..., 10.0 and the end vertex 10.2,
+  // i.e. 22 points: one full 20-point chunk spanning 9.5 m and a 2-point tail.
+  const auto lanelet = makeLanelet({{0, 0, 0}, {10.2, 0, 0}});
+  auto tensors = builder.build(makeFrameWithMap(arr, makePose(0, 0, 0), {lanelet}));
+
+  ASSERT_TRUE(tensors.valid);
+  std::vector<int> real_points;
+  for (std::size_t poly = 0; poly < 2; ++poly) {
+    int count = 0;
+    for (std::size_t j = 0; j < kNumPointsPerPolyline; ++j) {
+      count += tensors.map_polylines_mask[mapMaskIdx(0, poly, j)];
+    }
+    real_points.push_back(count);
+  }
+  std::sort(real_points.begin(), real_points.end());
+  EXPECT_EQ(real_points, (std::vector<int>{2, 20}));
+  const std::size_t full = tensors.map_polylines_mask[mapMaskIdx(0, 0, 2)] == 1U ? 0U : 1U;
+  for (std::size_t j = 0; j < kNumPointsPerPolyline; ++j) {
+    EXPECT_NEAR(tensors.map_polylines[mapIdx(0, full, j, 0)], 0.5F * static_cast<float>(j), 1e-5) << "point " << j;
+  }
 }
 
 TEST(SceneBuilder, MapTargetCenteredTransformHeadingHalfPi)

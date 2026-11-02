@@ -101,6 +101,10 @@ private:
 vision_msgs::msg::Detection3DArray transformTracks(
   const vision_msgs::msg::Detection3DArray & tracks, const geometry_msgs::msg::TransformStamped & transform);
 
+// True when the ego pose stamp is within max_age_s of the tracks, either side. A pose further off
+// means SLAM stalled or lags, and MTR would predict around a frozen ego.
+bool egoPoseIsFresh(const geometry_msgs::msg::PoseStamped & pose, double tracks_time_s, double max_age_s);
+
 class PredictionMlNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
@@ -155,9 +159,7 @@ private:
 
   double prediction_horizon_{3.0};
   double prediction_time_step_{0.2};
-  double fallback_vehicle_size_threshold_m_{3.5};
-  double fallback_vehicle_speed_mps_{5.0};
-  double fallback_vru_speed_mps_{1.4};
+  double mtr_cache_ttl_s_{0.5};  // also the maximum ego pose age for an MTR submission
 };
 
 }  // namespace prediction_ml

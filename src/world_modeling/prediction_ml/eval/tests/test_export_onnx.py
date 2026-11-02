@@ -27,7 +27,12 @@ model = pytest.importorskip("wato_mtr_eval.model")
 ops_dense = pytest.importorskip("wato_mtr_eval.ops_dense")
 rep = pytest.importorskip("wato_mtr_eval.representation")
 
-ONNX_PATH = pathlib.Path(os.environ.get("MTR_ONNX", "build/mtr.onnx"))
+# The README exports from eval/, so the default is eval/build/mtr.onnx whatever pytest's cwd is.
+ONNX_PATH = pathlib.Path(
+    os.environ.get(
+        "MTR_ONNX", pathlib.Path(__file__).resolve().parents[1] / "build" / "mtr.onnx"
+    )
+)
 CONTRACT_PATH = (
     pathlib.Path(__file__).resolve().parents[2] / "config" / "contract_8_target.yaml"
 )

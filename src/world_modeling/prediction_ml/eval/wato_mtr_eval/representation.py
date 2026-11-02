@@ -73,3 +73,7 @@ CLASS_ID_FOR_TYPE = {
 VELOCITY_CLASS_ID = "linear_velocity"
 
 WATO_GLOBAL_TYPE = 0
+
+# Centerlines are resampled to this arc-length spacing before 20-point chunking
+# (scene_builder.cpp kMapPointSpacingM). MTR trained on Waymo polylines ~0.5 m apart.
+MAP_POINT_SPACING_M = 0.5

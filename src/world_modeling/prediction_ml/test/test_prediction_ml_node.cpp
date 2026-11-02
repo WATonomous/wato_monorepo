@@ -141,6 +141,18 @@ TEST(TransformTracks, ReexpressesPoseOrientationAndVelocityInTargetFrame)
   EXPECT_NEAR(v.z, 0.0, 1e-9);
 }
 
+TEST(EgoPoseIsFresh, RejectsPoseFurtherThanTtlFromTracks)
+{
+  geometry_msgs::msg::PoseStamped pose;
+  pose.header.stamp.sec = 100;
+  EXPECT_TRUE(prediction_ml::egoPoseIsFresh(pose, 100.4, 0.5));
+  EXPECT_TRUE(prediction_ml::egoPoseIsFresh(pose, 99.6, 0.5));
+  EXPECT_FALSE(prediction_ml::egoPoseIsFresh(pose, 100.6, 0.5));  // SLAM stalled
+  EXPECT_FALSE(prediction_ml::egoPoseIsFresh(pose, 99.4, 0.5));
+  pose.header.stamp.sec = 0;  // unstamped pose against stamped tracks
+  EXPECT_FALSE(prediction_ml::egoPoseIsFresh(pose, 100.0, 0.5));
+}
+
 TEST(PredictionMlNode, ConfiguresSeparateProductionAndMtrDiagnosticPublishers)
 {
   if (!rclcpp::ok()) {
@@ -163,6 +175,25 @@ TEST(PredictionMlNode, ConfiguresSeparateProductionAndMtrDiagnosticPublishers)
   EXPECT_EQ(node->activate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
   EXPECT_EQ(node->deactivate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
   EXPECT_EQ(node->cleanup().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED);
+
+  node.reset();
+  rclcpp::shutdown();
+}
+
+TEST(PredictionMlNode, UnknownMtrModeConfiguresFallbackOnly)
+{
+  if (!rclcpp::ok()) {
+    int argc = 0;
+    rclcpp::init(argc, nullptr);
+  }
+
+  // A misspelled mode logs an ERROR but must not stop the only seeds publisher from configuring.
+  rclcpp::NodeOptions options;
+  options.arguments({"--ros-args", "-r", "__ns:=/world_modeling"});
+  options.parameter_overrides({rclcpp::Parameter("mtr.mode", "tensortr")});
+  auto node = std::make_shared<prediction_ml::PredictionMlNode>(options);
+  ASSERT_EQ(node->configure().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+  EXPECT_EQ(node->activate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
 
   node.reset();
   rclcpp::shutdown();
@@ -239,6 +270,57 @@ TEST(PredictionMlNode, PublishesFallbackInTrackFrameWhenTransformIsMissing)
   ASSERT_EQ(seeds->objects[0].predictions.size(), 1U);
   EXPECT_EQ(seeds->objects[0].predictions[0].poses.size(), 15U);  // 3.0 s / 0.2 s
   EXPECT_EQ(seeds->objects[0].predictions[0].poses[0].header.frame_id, "lidar_cc");
+
+  executor.remove_node(io);
+  executor.remove_node(node->get_node_base_interface());
+  node.reset();
+  rclcpp::shutdown();
+}
+
+TEST(PredictionMlNode, NegativeTrackStampIsDroppedNotFatal)
+{
+  if (!rclcpp::ok()) {
+    int argc = 0;
+    rclcpp::init(argc, nullptr);
+  }
+
+  rclcpp::NodeOptions options;
+  options.arguments({"--ros-args", "-r", "__ns:=/world_modeling"});
+  auto node = std::make_shared<prediction_ml::PredictionMlNode>(options);
+  ASSERT_EQ(node->configure().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+  ASSERT_EQ(node->activate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+
+  auto io = std::make_shared<rclcpp::Node>("negative_stamp_io");
+  auto tracks_pub = io->create_publisher<vision_msgs::msg::Detection3DArray>("/world_modeling/tracks_3d", 10);
+  std::vector<world_model_msgs::msg::WorldObjectArray::SharedPtr> seeds;
+  auto seeds_sub = io->create_subscription<world_model_msgs::msg::WorldObjectArray>(
+    "/world_modeling/world_object_seeds", 10, [&seeds](world_model_msgs::msg::WorldObjectArray::SharedPtr msg) {
+      seeds.push_back(msg);
+    });
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  executor.add_node(io);
+  const auto spin_until = [&executor](const std::function<bool()> & done) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!done() && std::chrono::steady_clock::now() < deadline) {
+      executor.spin_some(std::chrono::milliseconds(20));
+    }
+    return done();
+  };
+  ASSERT_TRUE(
+    spin_until([&] { return tracks_pub->get_subscription_count() > 0 && seeds_sub->get_publisher_count() > 0; }));
+
+  vision_msgs::msg::Detection3DArray tracks;
+  tracks.header.frame_id = "map";
+  tracks.header.stamp.sec = -1;  // rclcpp::Time would throw on this
+  tracks_pub->publish(tracks);
+  tracks.header.stamp.sec = 100;
+  tracks_pub->publish(tracks);
+
+  ASSERT_TRUE(spin_until([&] { return !seeds.empty(); }));
+  for (const auto & output : seeds) {
+    EXPECT_EQ(output->header.stamp.sec, 100) << "the negative-stamp frame must be dropped";
+  }
 
   executor.remove_node(io);
   executor.remove_node(node->get_node_base_interface());
