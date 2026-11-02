@@ -958,8 +958,11 @@ TEST(SceneBuilder, EgoVelocityHoldsWhilePoseStampIsUnchanged)
   // pose: ego speed must stay 10 (not 0), and the next new pose differences over its own 0.2 s
   // (not the tracks' 0.1 s, which would read 20).
   SceneBuilder builder{MtrConfig{}};
-  const std::vector<std::array<double, 3>> frames{  // track time, pose x, pose stamp
-    {100.0, 0.0, 100.0}, {100.1, 1.0, 100.1}, {100.2, 1.0, 100.1}, {100.3, 3.0, 100.3}};
+  const std::vector<std::array<double, 3>> frames{// track time, pose x, pose stamp
+                                                  {100.0, 0.0, 100.0},
+                                                  {100.1, 1.0, 100.1},
+                                                  {100.2, 1.0, 100.1},
+                                                  {100.3, 3.0, 100.3}};
   for (const auto & [track_time, pose_x, pose_stamp] : frames) {
     const auto arr = makeArray(track_time, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 0.0, 0.0)});
     builder.addFrame(arr);

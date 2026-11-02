@@ -729,10 +729,9 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     candidate.in_forward_region = bearing_abs <= half_angle_rad;
     const auto & hist = history_.at(sample->detection_id);
     const double span = hist.back().timestamp - hist.front().timestamp;
-    const double moving_speed =
-      sample->object_class == MtrObjectClass::Vehicle ? kMovingSpeedMps : kVruMovingSpeedMps;
-    candidate.moving = span >= 0.5 && std::hypot(hist.back().x - hist.front().x, hist.back().y - hist.front().y) >=
-                                        moving_speed * span;
+    const double moving_speed = sample->object_class == MtrObjectClass::Vehicle ? kMovingSpeedMps : kVruMovingSpeedMps;
+    candidate.moving =
+      span >= 0.5 && std::hypot(hist.back().x - hist.front().x, hist.back().y - hist.front().y) >= moving_speed * span;
     candidates.push_back(std::move(candidate));
   }
 

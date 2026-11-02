@@ -63,7 +63,8 @@ TEST(TrackerVelocity, UsesScoredLinearVelocity)
 TEST(TrackerVelocity, ZeroWithoutAUsableVelocity)
 {
   for (const auto & detection :
-       {vision_msgs::msg::Detection3D{}, withVelocity(3.0, 0.0, 0.0),
+       {vision_msgs::msg::Detection3D{},
+        withVelocity(3.0, 0.0, 0.0),
         withVelocity(std::numeric_limits<double>::quiet_NaN(), 0.0, 1.0)})
   {
     const auto v = trackerVelocity(detection);

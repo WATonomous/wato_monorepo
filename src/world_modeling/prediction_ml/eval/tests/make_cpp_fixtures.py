@@ -69,7 +69,8 @@ def main(output_dir: pathlib.Path) -> None:
     _normalize_gzip_header(output_dir / "tensor_io_ordered.bin.gz")
     tensor_io.write_bundle(
         output_dir / "tensor_io_scalar.bin.gz",
-        {"scalar": np.array([42], dtype=np.int64)},  # dims [1], as test_tensor_io expects
+        # dims [1], as test_tensor_io expects
+        {"scalar": np.array([42], dtype=np.int64)},
     )
     _normalize_gzip_header(output_dir / "tensor_io_scalar.bin.gz")
 
