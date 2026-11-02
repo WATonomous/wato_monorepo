@@ -70,8 +70,11 @@ std::vector<vision_msgs::msg::Detection3DArray> getTestInput(
   const std::vector<std::vector<std::string>> & class_ids)
 {
   std::vector<vision_msgs::msg::Detection3DArray> test_case;
+  const rclcpp::Time t0 = rclcpp::Clock().now();
   for (size_t i = 0; i < class_ids.size(); ++i) {
     test_case.push_back(arraysToDetection3DArray(det_info[i], class_ids[i]));
+    // 10 Hz stamps: the tracker's Kalman dt comes from them.
+    test_case.back().header.stamp = t0 + rclcpp::Duration::from_seconds(0.1 * static_cast<double>(i));
   }
   return test_case;
 }
@@ -286,4 +289,60 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]")
       }
     }
   }
+}
+
+// Test 5: linear_velocity is m/s, not metres per frame
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Track velocity is in metres per second", "[ros]")
+{
+  // One car moving +1 m in x per 0.1 s frame, i.e. 10 m/s.
+  std::vector<std::vector<std::array<float, 8>>> vdet_info;
+  std::vector<std::vector<std::string>> vclass_ids;
+  for (int i = 0; i < 6; ++i) {
+    vdet_info.push_back({{static_cast<float>(i), 0.0f, 0.0f, 0.0f, 4.0f, 2.0f, 1.5f, 0.9f}});
+    vclass_ids.push_back({"car"});
+  }
+  std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
+
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions());
+  add_node(node);
+  auto test_pub =
+    std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kDetectionsTopic);
+  auto test_sub =
+    std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kTracksTopic);
+  add_node(test_pub);
+  add_node(test_sub);
+
+  auto tf_broadcaster_node = std::make_shared<rclcpp::Node>("tf_broadcaster");
+  auto static_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(tf_broadcaster_node);
+  geometry_msgs::msg::TransformStamped map_to_base;
+  map_to_base.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  map_to_base.header.frame_id = "map";
+  map_to_base.child_frame_id = "base_link";
+  map_to_base.transform.rotation.w = 1.0;
+  static_broadcaster->sendTransform(map_to_base);
+  add_node(tf_broadcaster_node);
+
+  node->configure();
+  node->activate();
+  start_spinning();
+
+  vision_msgs::msg::Detection3DArray last;
+  for (const auto & msg : msgs) {
+    auto future = test_sub->expect_next_message();
+    test_pub->publish(msg);
+    REQUIRE(future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready);
+    last = future.get();
+  }
+
+  REQUIRE(last.detections.size() == 1);
+  const vision_msgs::msg::ObjectHypothesisWithPose * velocity = nullptr;
+  for (const auto & result : last.detections[0].results) {
+    if (result.hypothesis.class_id == "linear_velocity") {
+      velocity = &result;
+    }
+  }
+  REQUIRE(velocity != nullptr);
+  // With ByteTrack's old dt = 1 this read 1.0 (metres per frame).
+  REQUIRE_THAT(velocity->pose.pose.position.x, Catch::Matchers::WithinAbs(10.0, 1.0));
+  REQUIRE_THAT(velocity->pose.pose.position.y, Catch::Matchers::WithinAbs(0.0, 1.0));
 }

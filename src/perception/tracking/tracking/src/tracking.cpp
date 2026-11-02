@@ -375,12 +375,19 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
 
   // Run bytetrack on detections, with per-class tracker routing.
   auto objs = detsToObjects(tf_msg);
+  // Pass ByteTrack the real frame interval so its Kalman linear_velocity is m/s (its default dt = 1
+  // made it metres per frame). First frame or a non-increasing stamp: predict no motion.
+  const rclcpp::Time stamp(tf_msg.header.stamp);
+  const float dt = (last_tracker_stamp_.nanoseconds() > 0 && stamp > last_tracker_stamp_)
+                     ? static_cast<float>((stamp - last_tracker_stamp_).seconds())
+                     : 0.0F;
+  last_tracker_stamp_ = stamp;
   vision_msgs::msg::Detection3DArray tracked_dets;
   tracked_dets.header.frame_id = tf_msg.header.frame_id;
   tracked_dets.header.stamp = tf_msg.header.stamp;
 
   if (class_trackers_.empty()) {
-    auto stracks = tracker_->update(objs);
+    auto stracks = tracker_->update(objs, dt);
     tracked_dets = STracksToTracks(stracks, tf_msg.header);
   } else {
     // Split objects by class: each class with a dedicated tracker gets its own group.
@@ -400,7 +407,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       // Always call update (even with empty vector) so the tracker can age out stale tracks.
       std::vector<byte_track::Object> empty_objs;
       auto & cls_objs = (it != class_objs.end()) ? it->second : empty_objs;
-      auto stracks = class_tracker->update(cls_objs);
+      auto stracks = class_tracker->update(cls_objs, dt);
       auto cls_dets = STracksToTracks(stracks, tf_msg.header);
       const int offset = class_tracker_id_offsets_[cls];
       for (auto & det : cls_dets.detections) {
@@ -409,7 +416,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       }
     }
 
-    auto default_stracks = tracker_->update(default_objs);
+    auto default_stracks = tracker_->update(default_objs, dt);
     auto default_dets = STracksToTracks(default_stracks, tf_msg.header);
     for (auto & det : default_dets.detections) {
       tracked_dets.detections.push_back(std::move(det));

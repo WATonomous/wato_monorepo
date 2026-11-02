@@ -180,6 +180,8 @@ private:
   // Per-track state: Kalman filters and centroid history
   std::unordered_map<int, TrackKalmanFilter> track_filters_;
   std::unordered_map<int, std::deque<geometry_msgs::msg::PoseStamped>> track_centroids_;
+  /** Stamp of the last ByteTrack update, for its Kalman dt. */
+  rclcpp::Time last_tracker_stamp_{0, 0, RCL_ROS_TIME};
 
   static rclcpp::Logger static_logger_;
 };
