@@ -16,6 +16,7 @@
 #include <NvInfer.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -46,6 +47,9 @@ constexpr int64_t kObjectFeatureCount = 29;
 constexpr int64_t kMapPolylineCapacity = 768;
 constexpr int64_t kPointsPerPolyline = 20;
 constexpr int64_t kMapFeatureCount = 9;
+// The exported engine was trained on 10 Hz history and emits 0.1 s future steps.
+constexpr double kHistoryRateHz = 10.0;
+constexpr double kModelTimeStepS = 0.1;
 
 class TensorRtLogger final : public nvinfer1::ILogger
 {
@@ -317,6 +321,15 @@ private:
   {
     std::lock_guard<std::mutex> lock(mutex_);
     try {
+      // Other values would pack the history or read the 80 output steps on the wrong time scale
+      // (e.g. half-speed paths) without any shape error, so refuse them up front.
+      if (
+        config_.history_steps != kHistorySteps || std::abs(config_.history_rate_hz - kHistoryRateHz) > 1.0e-9 ||
+        std::abs(config_.model_time_step_s - kModelTimeStepS) > 1.0e-9)
+      {
+        setError("engine requires mtr.history_steps 11, mtr.history_rate_hz 10.0 and mtr.model_time_step_s 0.1");
+        return;
+      }
       if (config_.engine_path.empty()) {
         setError("mtr.engine_path is empty");
         return;

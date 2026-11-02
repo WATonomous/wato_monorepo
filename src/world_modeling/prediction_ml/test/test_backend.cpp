@@ -112,6 +112,10 @@ TEST(MtrInferenceEngineFactory, TensorRtModeReturnsEngine)
   ASSERT_NE(engine, nullptr);
   EXPECT_FALSE(engine->ready());
   EXPECT_FALSE(engine->lastError().empty());
+#ifndef PREDICTION_ML_ENABLE_TENSORRT
+  // Without the backend this is the null engine; it must say why rather than "mtr disabled".
+  EXPECT_NE(engine->lastError().find("PREDICTION_ML_ENABLE_TENSORRT"), std::string::npos) << engine->lastError();
+#endif
 }
 
 #ifdef PREDICTION_ML_ENABLE_TENSORRT
@@ -125,6 +129,21 @@ TEST(TensorRtBackendInitialization, RejectsEmptyEnginePath)
   ASSERT_NE(engine, nullptr);
   EXPECT_FALSE(engine->ready());
   EXPECT_NE(engine->lastError().find("mtr.engine_path is empty"), std::string::npos);
+}
+
+TEST(TensorRtBackendInitialization, RejectsTimingTheEngineWasNotExportedFor)
+{
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.engine_path = "/unused/nonempty/mtr.engine";
+  cfg.metadata_path = kEightTargetContract;
+  cfg.model_time_step_s = 0.2;  // would silently publish half-speed paths
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
+  ASSERT_NE(engine, nullptr);
+  EXPECT_FALSE(engine->ready());
+  EXPECT_NE(engine->lastError().find("mtr.model_time_step_s"), std::string::npos) << engine->lastError();
 }
 
 TEST(TensorRtBackendInitialization, RejectsEmptyMetadataPath)

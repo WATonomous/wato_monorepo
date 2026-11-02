@@ -495,6 +495,29 @@ def _pack_objects(
     }
 
 
+def _resample_centerline(points: np.ndarray) -> np.ndarray:
+    """Mirror scene_builder.cpp resampleCenterline: a point every MAP_POINT_SPACING_M
+    of arc length from the first vertex, plus the last vertex. Scalar on purpose, so
+    the sample count matches the C++ bit for bit."""
+    spacing = rep.MAP_POINT_SPACING_M
+    out = [points[0]]
+    travelled = 0.0
+    next_s = spacing
+    for i in range(1, len(points)):
+        ax, ay, az = (float(v) for v in points[i - 1])
+        bx, by, bz = (float(v) for v in points[i])
+        length = math.sqrt(
+            (bx - ax) * (bx - ax) + (by - ay) * (by - ay) + (bz - az) * (bz - az)
+        )
+        while next_s + 1.0e-6 < travelled + length:
+            t = (next_s - travelled) / length
+            out.append((ax + t * (bx - ax), ay + t * (by - ay), az + t * (bz - az)))
+            next_s += spacing
+        travelled += length
+    out.append(points[-1])
+    return np.asarray(out, dtype=np.float64)
+
+
 def _map_chunks(polylines: list[scenario.MapPolyline]) -> list[_MapChunk]:
     chunks: list[_MapChunk] = []
     for polyline in polylines:
@@ -506,7 +529,7 @@ def _map_chunks(polylines: list[scenario.MapPolyline]) -> list[_MapChunk]:
             or not np.isfinite(points[:, :3]).all()
         ):
             continue
-        points = points[:, :3]
+        points = _resample_centerline(points[:, :3])
         directions = np.zeros_like(points)
         differences = points[1:] - points[:-1]
         norms = np.linalg.norm(differences, axis=1)

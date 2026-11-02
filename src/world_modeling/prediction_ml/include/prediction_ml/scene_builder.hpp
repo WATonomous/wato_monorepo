@@ -73,6 +73,7 @@ private:
     MtrObjectClass object_class{MtrObjectClass::Vehicle};
     std::string frame_id;
     bool measured_velocity{false};  // mtr.velocity_from_history: v came from this track's positions
+    double pose_stamp{0.0};  // ego only: the pose message's own stamp (timestamp is the tracks')
   };
 
   // A context track ranked by ego-frame distance for the 128-row obj_trajs dimension.
@@ -93,7 +94,7 @@ private:
     HistorySample sample;
     double distance_sq{0.0};
     bool in_forward_region{false};
-    bool moving{false};  // history shows >= kMovingSpeedMps; ranked ahead of stationary agents
+    bool moving{false};  // history shows >= the class's moving speed; ranked ahead of stationary agents
   };
 
   // One scene-frame map point: position + (backward-diff, normalized) direction.

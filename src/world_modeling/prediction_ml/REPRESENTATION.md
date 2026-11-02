@@ -67,8 +67,10 @@ Every map point has nine columns:
 (`scene_builder.cpp:939` in the design snapshot). `global_type` is the same
 constant for every packed polyline (`scene_builder.cpp:50`).
 
-Direction vectors are computed over each complete scene-frame centerline before
-it is divided into 20-point chunks, so the first point of a later chunk retains
+Each centerline is first resampled to a point every 0.5 m of arc length from its
+first vertex, plus its last vertex, matching the ~0.5 m spacing of the Waymo
+polylines MTR trained on. Direction vectors are computed over each complete
+resampled centerline before it is divided into 20-point chunks, so the first point of a later chunk retains
 the preceding point's direction. Non-finite centerlines and centerlines with
 fewer than two points are skipped; direction norms at or below `1e-6` become
 zero. For each target, all chunks are ranked by distance from their mean center

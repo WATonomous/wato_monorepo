@@ -49,6 +49,11 @@ constexpr int64_t kMapFeatureDim = 9;
 
 // Generic lane-centerline global_type token
 constexpr float kMapLaneCenterlineType = 0.0F;
+// Centerlines are resampled to this spacing before chunking: MTR trained on Waymo polylines about
+// 0.5 m apart, while OSM centerlines can be two vertices per straight, which made one 20-point chunk
+// span tens of metres. MTR's 1.0 m VECTOR_BREAK_DIST_THRESH split cannot fire inside a resampled
+// centerline; it only separates lanes, which per-lanelet chunking already does.
+constexpr double kMapPointSpacingM = 0.5;
 // Forward offset (target frame, along the target heading) used only to RANK map chunks when the
 // count exceeds the 768 cap: it biases which chunks are kept toward the road ahead. This is a
 // selection heuristic, never geometry -- selected chunks are still packed at their true positions,
@@ -57,10 +62,13 @@ constexpr float kMapLaneCenterlineType = 0.0F;
 // distribution; do not "improve" it for curves without accepting that mismatch. Currently inert:
 // forward-BFS LaneletAhead almost always yields < 768 chunks, so ranking never actually trims.
 constexpr double kMapCenterOffsetX = 30.0;
-// Agents whose history moved at least this fast take MTR target slots before stationary ones. A busy
-// street has dozens of parked cars; ranked by distance alone they fill all 8 slots and passing traffic
-// only gets the constant-velocity fallback. 2 m/s sits above BEVFusion box jitter (~0.6 m p90).
+// Within the forward region and outside it, agents whose history moved at least this fast take MTR
+// target slots before stationary ones. A busy street has dozens of parked cars; ranked by distance
+// alone they fill all 8 slots and passing traffic only gets the constant-velocity fallback. 2 m/s sits
+// above BEVFusion box jitter (~0.6 m p90). Pedestrians and cyclists use the lower threshold, or a
+// walking pedestrian (~1.4 m/s) would never count as moving.
 constexpr double kMovingSpeedMps = 2.0;
+constexpr double kVruMovingSpeedMps = 0.5;
 // mtr.velocity_from_history: speeds below this are box jitter and are zeroed. On the BEVFusion
 // replay parked cars read 0.31 m/s p50 / 0.88 p90; moving cars 1.6 m/s p10, walking peds 0.8 p10.
 constexpr double kHistoryVelocityDeadbandMps = 1.0;
@@ -137,6 +145,33 @@ std::optional<std::array<double, 3>> velocityFromDetection(const vision_msgs::ms
   }
 
   return std::nullopt;
+}
+
+// Points every kMapPointSpacingM of arc length from the first vertex, plus the last vertex. A sample
+// within 1e-6 m of a vertex is left to the next segment, so the last vertex is never duplicated.
+// eval/wato_mtr_eval/reference_pack.py _resample_centerline must stay identical.
+std::vector<geometry_msgs::msg::Point> resampleCenterline(const std::vector<geometry_msgs::msg::Point> & centerline)
+{
+  std::vector<geometry_msgs::msg::Point> out{centerline.front()};
+  double travelled = 0.0;  // arc length at the start of the current segment
+  double next = kMapPointSpacingM;  // arc length of the next sample
+  for (std::size_t i = 1; i < centerline.size(); ++i) {
+    const auto & a = centerline[i - 1];
+    const auto & b = centerline[i];
+    const double length = std::sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
+    while (next + 1.0e-6 < travelled + length) {
+      const double t = (next - travelled) / length;
+      geometry_msgs::msg::Point p;
+      p.x = a.x + t * (b.x - a.x);
+      p.y = a.y + t * (b.y - a.y);
+      p.z = a.z + t * (b.z - a.z);
+      out.push_back(p);
+      next += kMapPointSpacingM;
+    }
+    travelled += length;
+  }
+  out.push_back(centerline.back());
+  return out;
 }
 
 double wrapToPi(double angle)
@@ -367,6 +402,16 @@ void SceneBuilder::addFrameAtTimestamp(const vision_msgs::msg::Detection3DArray 
     return;
   }
 
+  // Tracks arrive in stamp order, so a frame older than retained history means time jumped back
+  // (bag loop, sim reset). pruneHistory only drops the old end, so the stale "future" samples would
+  // stay at back() and corrupt velocity, ranking and ego history: start over instead.
+  for (const auto & entry : history_) {
+    if (!entry.second.empty() && entry.second.back().timestamp > timestamp) {
+      history_.clear();
+      break;
+    }
+  }
+
   for (const auto & detection : detections.detections) {
     auto sample = sampleFromDetection(detection, timestamp, detections.header.frame_id);
     if (!sample.has_value()) {
@@ -443,6 +488,7 @@ void SceneBuilder::addEgoSample(
   sample.heading = heading;
   sample.object_class = MtrObjectClass::Vehicle;
   sample.frame_id = ego_pose.header.frame_id;
+  sample.pose_stamp = stampToSeconds(ego_pose.header.stamp);
 
   const auto & linear = ego_velocity.linear;
   const bool velocity_finite = isFinite(linear.x) && isFinite(linear.y) && isFinite(linear.z);
@@ -455,12 +501,19 @@ void SceneBuilder::addEgoSample(
     sample.vy = linear.x * sin_h + linear.y * cos_h;
     sample.vz = linear.z;
   } else {
-    // Fallback: finite-difference ego velocity from the previous ego sample.
+    // Fallback: finite-difference ego velocity from the previous ego sample, over the poses' own
+    // stamps when both have one. A pose reused across track frames keeps the previous velocity
+    // instead of reading 0 now and double speed on the next new pose.
     const auto it = history_.find(kEgoTrackId);
     if (it != history_.end() && !it->second.empty()) {
       const auto & prev = it->second.back();
-      const double dt = timestamp - prev.timestamp;
-      if (isFinite(dt) && dt > 0.0) {
+      const bool stamped = isUsableTimestamp(sample.pose_stamp) && isUsableTimestamp(prev.pose_stamp);
+      const double dt = stamped ? sample.pose_stamp - prev.pose_stamp : timestamp - prev.timestamp;
+      if (stamped && dt == 0.0) {
+        sample.vx = prev.vx;
+        sample.vy = prev.vy;
+        sample.vz = prev.vz;
+      } else if (isFinite(dt) && dt > 0.0) {
         sample.vx = (position.x - prev.x) / dt;
         sample.vy = (position.y - prev.y) / dt;
         sample.vz = (position.z - prev.z) / dt;
@@ -600,7 +653,7 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
       return candidates;
     }
 
-    const auto limit = static_cast<std::size_t>(config_.selected_target_agent_limit);
+    const auto limit = std::min(static_cast<std::size_t>(config_.selected_target_agent_limit), kTargetCapacity);
     candidates.reserve(std::min(config_.pinned_target_ids.size(), limit));
     std::unordered_set<std::string> accepted_ids;
 
@@ -675,17 +728,20 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     candidate.in_forward_region = bearing_abs <= half_angle_rad;
     const auto & hist = history_.at(sample->detection_id);
     const double span = hist.back().timestamp - hist.front().timestamp;
+    const double moving_speed =
+      sample->object_class == MtrObjectClass::Vehicle ? kMovingSpeedMps : kVruMovingSpeedMps;
     candidate.moving = span >= 0.5 && std::hypot(hist.back().x - hist.front().x, hist.back().y - hist.front().y) >=
-                                        kMovingSpeedMps * span;
+                                        moving_speed * span;
     candidates.push_back(std::move(candidate));
   }
 
+  // Forward and moving, then forward, then moving, then nearest.
   std::sort(candidates.begin(), candidates.end(), [](const TargetCandidate & lhs, const TargetCandidate & rhs) {
-    if (lhs.moving != rhs.moving) {
-      return lhs.moving;
-    }
     if (lhs.in_forward_region != rhs.in_forward_region) {
       return lhs.in_forward_region;
+    }
+    if (lhs.moving != rhs.moving) {
+      return lhs.moving;
     }
     return lhs.distance_sq < rhs.distance_sq;
   });
@@ -695,7 +751,7 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     return candidates;
   }
 
-  const auto limit = static_cast<std::size_t>(config_.selected_target_agent_limit);
+  const auto limit = std::min(static_cast<std::size_t>(config_.selected_target_agent_limit), kTargetCapacity);
   if (candidates.size() > limit) {
     candidates.resize(limit);
   }
@@ -975,14 +1031,13 @@ std::vector<SceneBuilder::MapPolyline> SceneBuilder::buildMapPolylines(
   const auto points_per_polyline = static_cast<std::size_t>(kNumPointsPerPolyline);
 
   for (const auto & lanelet : lanelet_ahead.lanelets) {
-    const auto & centerline = lanelet.centerline;
-    if (centerline.size() < 2) {
+    if (lanelet.centerline.size() < 2) {
       continue;  // need at least two points to form a direction / a segment
     }
 
     // Skip any centerline holding a non-finite coordinate rather than poisoning the tensor.
     bool finite = true;
-    for (const auto & pt : centerline) {
+    for (const auto & pt : lanelet.centerline) {
       if (!isFinite(pt.x) || !isFinite(pt.y) || !isFinite(pt.z)) {
         finite = false;
       }
@@ -990,6 +1045,7 @@ std::vector<SceneBuilder::MapPolyline> SceneBuilder::buildMapPolylines(
     if (!finite) {
       continue;
     }
+    const auto centerline = resampleCenterline(lanelet.centerline);
 
     // Direction per point = normalized backward diff (matches the mtr repo)
     std::vector<MapPoint> scene_points;

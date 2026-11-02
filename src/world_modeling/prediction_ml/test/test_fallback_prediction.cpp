@@ -28,6 +28,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "prediction_ml/fallback_prediction.hpp"
 
 namespace prediction_ml
@@ -35,24 +37,39 @@ namespace prediction_ml
 namespace
 {
 
-constexpr double kVehicleSizeThresholdM = 3.5;
-constexpr double kVehicleSpeedMps = 5.0;
-constexpr double kVruSpeedMps = 1.4;
-
-TEST(SelectFallbackSpeed, UsesVehicleSpeedAboveThreshold)
+vision_msgs::msg::Detection3D withVelocity(double vx, double vy, double score)
 {
-  EXPECT_DOUBLE_EQ(selectFallbackSpeed(3.6, kVehicleSizeThresholdM, kVehicleSpeedMps, kVruSpeedMps), kVehicleSpeedMps);
+  vision_msgs::msg::Detection3D detection;
+  vision_msgs::msg::ObjectHypothesisWithPose label;
+  label.hypothesis.class_id = "car";
+  label.hypothesis.score = 1.0;
+  detection.results.push_back(label);
+  vision_msgs::msg::ObjectHypothesisWithPose velocity;
+  velocity.hypothesis.class_id = "linear_velocity";
+  velocity.hypothesis.score = score;
+  velocity.pose.pose.position.x = vx;
+  velocity.pose.pose.position.y = vy;
+  detection.results.push_back(velocity);
+  return detection;
 }
 
-TEST(SelectFallbackSpeed, UsesVruSpeedAtThreshold)
+TEST(TrackerVelocity, UsesScoredLinearVelocity)
 {
-  EXPECT_DOUBLE_EQ(
-    selectFallbackSpeed(kVehicleSizeThresholdM, kVehicleSizeThresholdM, kVehicleSpeedMps, kVruSpeedMps), kVruSpeedMps);
+  const auto v = trackerVelocity(withVelocity(3.0, -1.5, 1.0));
+  EXPECT_DOUBLE_EQ(v[0], 3.0);
+  EXPECT_DOUBLE_EQ(v[1], -1.5);
 }
 
-TEST(SelectFallbackSpeed, UsesVruSpeedBelowThreshold)
+TEST(TrackerVelocity, ZeroWithoutAUsableVelocity)
 {
-  EXPECT_DOUBLE_EQ(selectFallbackSpeed(3.4, kVehicleSizeThresholdM, kVehicleSpeedMps, kVruSpeedMps), kVruSpeedMps);
+  for (const auto & detection :
+       {vision_msgs::msg::Detection3D{}, withVelocity(3.0, 0.0, 0.0),
+        withVelocity(std::numeric_limits<double>::quiet_NaN(), 0.0, 1.0)})
+  {
+    const auto v = trackerVelocity(detection);
+    EXPECT_DOUBLE_EQ(v[0], 0.0);
+    EXPECT_DOUBLE_EQ(v[1], 0.0);
+  }
 }
 
 }  // namespace

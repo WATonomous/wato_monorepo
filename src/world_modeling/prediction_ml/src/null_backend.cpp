@@ -133,7 +133,12 @@ std::unique_ptr<IMtrInferenceEngine> createTensorRtMtrInferenceEngine(const MtrC
 
 NullMtrInferenceEngine::NullMtrInferenceEngine(MtrConfig config)
 : config_(std::move(config))
-{}
+{
+  if (config_.mode == MtrMode::TensorRt) {
+    // createMtrInferenceEngine only gets here for tensorrt when the backend was not compiled in.
+    last_error_ = "mtr.mode is tensorrt but this build lacks PREDICTION_ML_ENABLE_TENSORRT";
+  }
+}
 
 bool NullMtrInferenceEngine::ready() const
 {
@@ -174,7 +179,11 @@ MtrMode parseMtrMode(const std::string & mode_str)
   if (s == "tensorrt" || s == "trt") {
     return MtrMode::TensorRt;
   }
-  return MtrMode::Disabled;
+  if (s == "disabled") {
+    return MtrMode::Disabled;
+  }
+  // A typo must not silently turn MTR off.
+  throw std::invalid_argument("unknown mtr.mode '" + mode_str + "' (expected disabled, null or tensorrt)");
 }
 
 MtrModelContract loadMtrModelContract(const std::string & metadata_path)
