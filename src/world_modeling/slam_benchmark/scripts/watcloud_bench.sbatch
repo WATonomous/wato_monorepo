@@ -43,6 +43,8 @@ if [ -n "${SLURM_ARRAY_TASK_ID:-}" ]; then
   fi
 fi
 slurm-start-dockerd.sh || { say "Docker failed to start"; exit 1; }
+# Batch jobs don't get DOCKER_HOST set like interactive shells do
+export DOCKER_HOST=unix:///tmp/run/docker.sock
 cd "$MONO" || exit 1
 
 if [ -f "$IMAGES" ]; then
