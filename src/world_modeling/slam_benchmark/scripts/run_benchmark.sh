@@ -44,8 +44,13 @@ S=/ws/src/world_modeling/slam_benchmark/scripts
 TOPICS=(/lidar_cc/velodyne_points /novatel/oem7/imu/data /novatel/oem7/fix /tf_static)
 NODE_PATTERN='eidos_node|wato_lifecycle_manager_node|rtabmap'
 
-mkdir -p "$B" "$LOG"
 say() { echo "[$(date +%H:%M:%S)] $*"; }
+if ! mkdir -p "$B" "$LOG" "$B/results" || ! touch "$LOG/.write_test"; then
+  say "Cannot write to $B from inside the container (rootless Docker maps your user to a different ID)."
+  say "Fix: on the login node run   chmod -R a+rwX ~/wato_monorepo/maps   then resubmit."
+  exit 1
+fi
+rm -f "$LOG/.write_test"
 
 # Wait up to 90 s for a command to succeed.
 wait_for() {
