@@ -203,12 +203,21 @@ evaluate() {
     done
     [ -s "$SB_OUT/${SB_PREFIX}_rtabmap_r${r}_poses.txt" ] && est+=(--est "RTAB-Map=$SB_OUT/${SB_PREFIX}_rtabmap_r${r}_poses.txt")
     if [ ${#est[@]} -eq 0 ]; then continue; fi
-    [ -s "$car" ] && est+=(--est "Eidos (car, live)=$car")
 
     say "Scoring repeat $r"
     "$py" "$SB_SCRIPTS/evaluate.py" --ref "$gnss" "${est[@]}" "${osm_args[@]}" \
       --out "$SB_OUT/results/${SB_PREFIX}_r$r" 2>&1 | tee "$SB_LOG/eval_r$r.log"
   done
+
+  # The car's live Eidos is scored on its own: it covers only part of the drive, and in the
+  # same evaluation it would shrink the shared time window for every other method.
+  local gps1=$SB_OUT/${SB_PREFIX}_eidos_gps_r1.tum
+  if [ -s "$car" ] && [ -s "$gps1" ]; then
+    say "Scoring the car's live Eidos against offline Eidos (GPS) r1"
+    "$py" "$SB_SCRIPTS/evaluate.py" --ref "$gnss" \
+      --est "Eidos (car, live)=$car" --est "Eidos (GPS, offline r1)=$gps1" "${osm_args[@]}" \
+      --out "$SB_OUT/results/${SB_PREFIX}_car" 2>&1 | tee "$SB_LOG/eval_car.log"
+  fi
 
   # Mean +- spread over the repeats
   "$py" - "$SB_OUT/results" "$SB_PREFIX" << 'EOF' | tee "$SB_OUT/results/${SB_PREFIX}_summary.md"

@@ -23,6 +23,10 @@ SE(3) Umeyama fit (no scale). Reported per method:
 The GNSS track is scored against the lane map too: that row is the floor of the lane
 metric, since the car never drives exactly on the centerline.
 
+The lane metric only counts sections the lane map covers: poses whose GNSS position is
+more than --lane-cover metres from every mapped lane are left out of the lane columns
+(for every method alike), so driving off the edge of the map doesn't swamp the numbers.
+
 Example:
   evaluate.py --ref gnss.tum --est "Eidos=eidos.tum" --est "RTAB-Map=rtabmap.tum" \\
       --osm test_track.osm --out results/bag1
@@ -211,6 +215,12 @@ def main():
         help="Align on the first N s only (0 = all)",
     )
     parser.add_argument(
+        "--lane-cover",
+        type=float,
+        default=5.0,
+        help="Score the lane metric only where GNSS is within this distance of a mapped lane (m); 0 = everywhere",
+    )
+    parser.add_argument(
         "--max-gap",
         type=float,
         default=0.2,
@@ -244,15 +254,22 @@ def main():
 
     rows, plotted = [], []
     in_win = (ref_t >= t0) & (ref_t <= t1)
+    cover = args.lane_cover if args.lane_cover > 0 else np.inf
     if lane_tree is not None:
         d, _ = lane_tree.query(ref_xyz[in_win, :2])
-        rows.append(
-            {
-                "method": "GNSS (lane floor)",
-                "poses": int(in_win.sum()),
-                **{f"lane_{k}": v for k, v in stats(d).items()},
-            }
+        on_map = d <= cover
+        print(
+            f"Lane metric: {100.0 * on_map.mean():.0f}% of the GNSS track in the window is within "
+            f"{args.lane_cover:g} m of a mapped lane; only those sections are scored"
         )
+        if on_map.any():
+            rows.append(
+                {
+                    "method": "GNSS (lane floor)",
+                    "poses": int(on_map.sum()),
+                    **{f"lane_{k}": v for k, v in stats(d[on_map]).items()},
+                }
+            )
     for name, t, xyz in ests:
         keep = (t >= t0) & (t <= t1)
         t, xyz = t[keep], xyz[keep]
@@ -280,7 +297,11 @@ def main():
         lane = None
         if lane_tree is not None:
             lane, _ = lane_tree.query(aligned[:, :2])
-            row.update({f"lane_{k}": v for k, v in stats(lane).items()})
+            ref_lane, _ = lane_tree.query(ref_at[:, :2])
+            on_map = ref_lane <= cover
+            if on_map.any():
+                row.update({f"lane_{k}": v for k, v in stats(lane[on_map]).items()})
+            lane = np.where(on_map, lane, np.nan)  # plot only the scored sections
         rows.append(row)
         plotted.append((name, t, aligned, ate, lane))
 
@@ -315,9 +336,16 @@ def main():
     plot_errors(args, t0, plotted, lane_tree is not None)
 
 
-def break_gaps(t, *series, gap=1.0):
-    """Insert NaN where consecutive samples are more than `gap` s apart so plots don't bridge dropouts."""
-    cut = np.where(np.diff(t) > gap)[0] + 1
+def break_gaps(t, *series, gap=None):
+    """Insert NaN where consecutive samples are more than `gap` s apart so plots don't bridge dropouts.
+
+    The default gap adapts to the series' own rate (3x its median spacing, at least 1 s), so
+    sparse keyframe trajectories (RTAB-Map nodes, Eidos keyframes) still draw as lines.
+    """
+    dt = np.diff(t)
+    if gap is None:
+        gap = max(1.0, 3.0 * float(np.median(dt))) if len(dt) else 1.0
+    cut = np.where(dt > gap)[0] + 1
     return [np.insert(np.asarray(s, float), cut, np.nan, axis=0) for s in (t, *series)]
 
 
