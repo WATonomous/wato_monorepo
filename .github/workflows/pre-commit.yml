@@ -9,7 +9,7 @@ on:
 jobs:
   run-pre-commit:
     name: Pre-commit Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
