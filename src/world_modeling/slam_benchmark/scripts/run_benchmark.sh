@@ -22,35 +22,35 @@
 #
 # Settings (environment variables, all optional):
 #   BAG        bag to replay              (default /ws/bags/ring_road_corrected_0.mcap)
-#   PREFIX     output file prefix         (default rr)
+#   PREFIX     output file prefix         (default ringroad)
 #   OSM        lane map for evaluation    (default /opt/watonomous/maps/ring_road.osm)
 #   RUNS       repeats per method         (default 3)
 #   RATE       bag playback rate          (default 0.5)
 #   EVAL_ONLY  set to 1 to skip the runs and only evaluate
-#   ONLY       do just this one run (e.g. rr_rtabmap_r2) and skip evaluation;
+#   ONLY       do just this one run (e.g. ringroad_rtabmap_r2) and skip evaluation;
 #              used by the parallel job array
 
-BAG=${BAG:-/ws/bags/ring_road_corrected_0.mcap}
-PREFIX=${PREFIX:-rr}
-OSM=${OSM:-/opt/watonomous/maps/ring_road.osm}
-RUNS=${RUNS:-3}
-RATE=${RATE:-0.5}
-EVAL_ONLY=${EVAL_ONLY:-0}
-ONLY=${ONLY:-}
+SB_BAG=${BAG:-/ws/bags/ring_road_corrected_0.mcap}
+SB_PREFIX=${PREFIX:-ringroad}
+SB_OSM=${OSM:-/opt/watonomous/maps/ring_road.osm}
+SB_RUNS=${RUNS:-3}
+SB_RATE=${RATE:-0.5}
+SB_EVAL_ONLY=${EVAL_ONLY:-0}
+SB_ONLY=${ONLY:-}
 
-B=/opt/watonomous/maps/bench
-LOG=$B/logs
-S=/ws/src/world_modeling/slam_benchmark/scripts
-TOPICS=(/lidar_cc/velodyne_points /novatel/oem7/imu/data /novatel/oem7/fix /tf_static)
-NODE_PATTERN='eidos_node|wato_lifecycle_manager_node|rtabmap'
+SB_OUT=/opt/watonomous/maps/bench
+SB_LOG=$SB_OUT/logs
+SB_SCRIPTS=/ws/src/world_modeling/slam_benchmark/scripts
+SB_TOPICS=(/lidar_cc/velodyne_points /novatel/oem7/imu/data /novatel/oem7/fix /tf_static)
+SB_NODE_PATTERN='eidos_node|wato_lifecycle_manager_node|rtabmap'
 
 say() { echo "[$(date +%H:%M:%S)] $*"; }
-if ! mkdir -p "$B" "$LOG" "$B/results" || ! touch "$LOG/.write_test"; then
-  say "Cannot write to $B from inside the container (rootless Docker maps your user to a different ID)."
+if ! mkdir -p "$SB_OUT" "$SB_LOG" "$SB_OUT/results" || ! touch "$SB_LOG/.write_test"; then
+  say "Cannot write to $SB_OUT from inside the container (rootless Docker maps your user to a different ID)."
   say "Fix: on the login node run   chmod -R a+rwX ~/wato_monorepo/maps   then resubmit."
   exit 1
 fi
-rm -f "$LOG/.write_test"
+rm -f "$SB_LOG/.write_test"
 
 # Wait up to 90 s for a command to succeed.
 wait_for() {
@@ -73,59 +73,59 @@ stop_launch() {
   done
   kill -KILL "$pid" 2> /dev/null
   wait "$pid" 2> /dev/null
-  pkill -INT -f "$NODE_PATTERN" 2> /dev/null
+  pkill -INT -f "$SB_NODE_PATTERN" 2> /dev/null
   sleep 3
-  pkill -KILL -f "$NODE_PATTERN" 2> /dev/null
+  pkill -KILL -f "$SB_NODE_PATTERN" 2> /dev/null
 }
 
 play_bag() {
-  ros2 bag play "$BAG" --clock --rate "$RATE" --disable-keyboard-controls \
-    --topics "${TOPICS[@]}" > "$LOG/$1.play.log" 2>&1 < /dev/null
+  ros2 bag play "$SB_BAG" --clock --rate "$SB_RATE" --disable-keyboard-controls \
+    --topics "${SB_TOPICS[@]}" > "$SB_LOG/$1.play.log" 2>&1 < /dev/null
 }
 
 eidos_run() {
   local name=$1 gps=$2
-  if [ -s "$B/$name.csv" ]; then
+  if [ -s "$SB_OUT/$name.csv" ]; then
     say "$name: already done, skipping"
     return
   fi
   say "$name: starting Eidos (use_gps:=$gps)"
   ros2 launch slam_benchmark eidos_bench.launch.yaml use_gps:="$gps" \
-    > "$LOG/$name.launch.log" 2>&1 < /dev/null &
+    > "$SB_LOG/$name.launch.log" 2>&1 < /dev/null &
   local lpid=$!
   if ! wait_for "Eidos save_map service" \
     "ros2 service list --no-daemon | grep -q /world_modeling/slam/save_map"; then
     stop_launch "$lpid"
-    say "$name: FAILED to start, see $LOG/$name.launch.log"
+    say "$name: FAILED to start, see $SB_LOG/$name.launch.log"
     return
   fi
   sleep 5
   ros2 topic echo /world_modeling/slam/status --field state \
-    > "$LOG/$name.status.log" 2>&1 < /dev/null &
+    > "$SB_LOG/$name.status.log" 2>&1 < /dev/null &
   local epid=$!
 
-  say "$name: playing bag at rate $RATE"
+  say "$name: playing bag at rate $SB_RATE"
   play_bag "$name"
   sleep 15
   kill "$epid" 2> /dev/null
-  say "$name: SLAM states seen, count then state (3 = TRACKING): $(grep -E '^[0-9]+$' "$LOG/$name.status.log" | sort | uniq -c | tr -s ' \n' ' ')"
+  say "$name: SLAM states seen, count then state (3 = TRACKING): $(grep -E '^[0-9]+$' "$SB_LOG/$name.status.log" | sort | uniq -c | tr -s ' \n' ' ')"
 
   timeout 300 ros2 service call /world_modeling/slam/save_map eidos_msgs/srv/SaveMap \
-    "{filepath: '$B/$name.map'}" > "$LOG/$name.save.log" 2>&1
+    "{filepath: '$SB_OUT/$name.map'}" > "$SB_LOG/$name.save.log" 2>&1
   stop_launch "$lpid"
 
-  if [ -s "$B/$name.map" ] && eidos poses "$B/$name.map" > "$B/$name.csv" 2>> "$LOG/$name.save.log" \
-    && [ -s "$B/$name.csv" ]; then
-    say "$name: done ($(wc -l < "$B/$name.csv") lines in $name.csv)"
+  if [ -s "$SB_OUT/$name.map" ] && eidos poses "$SB_OUT/$name.map" > "$SB_OUT/$name.csv" 2>> "$SB_LOG/$name.save.log" \
+    && [ -s "$SB_OUT/$name.csv" ]; then
+    say "$name: done ($(wc -l < "$SB_OUT/$name.csv") lines in $name.csv)"
   else
-    rm -f "$B/$name.csv"
-    say "$name: FAILED, see $LOG/$name.*.log"
+    rm -f "$SB_OUT/$name.csv"
+    say "$name: FAILED, see $SB_LOG/$name.*.log"
   fi
 }
 
 rtabmap_run() {
   local name=$1
-  if [ -s "$B/${name}_poses.txt" ]; then
+  if [ -s "$SB_OUT/${name}_poses.txt" ]; then
     say "$name: already done, skipping"
     return
   fi
@@ -134,28 +134,28 @@ rtabmap_run() {
   ros2 launch rtabmap_examples lidar3d.launch.py use_sim_time:=true \
     lidar_topic:=/lidar_cc/velodyne_points frame_id:=base_footprint \
     imu_topic:=/novatel/oem7/imu/data voxel_size:=0.5 \
-    > "$LOG/$name.launch.log" 2>&1 < /dev/null &
+    > "$SB_LOG/$name.launch.log" 2>&1 < /dev/null &
   local lpid=$!
   if ! wait_for "RTAB-Map node" "ros2 node list --no-daemon | grep -q rtabmap"; then
     stop_launch "$lpid"
-    say "$name: FAILED to start, see $LOG/$name.launch.log"
+    say "$name: FAILED to start, see $SB_LOG/$name.launch.log"
     return
   fi
   sleep 10
 
-  say "$name: playing bag at rate $RATE"
+  say "$name: playing bag at rate $SB_RATE"
   play_bag "$name"
   sleep 15
   stop_launch "$lpid"  # RTAB-Map writes its database on shutdown
 
   if [ -s ~/.ros/rtabmap.db ]; then
-    cp ~/.ros/rtabmap.db "$B/$name.db"
-    (cd "$B" && rtabmap-export --poses --poses_format 10 "$name.db") > "$LOG/$name.export.log" 2>&1
+    cp ~/.ros/rtabmap.db "$SB_OUT/$name.db"
+    (cd "$SB_OUT" && rtabmap-export --poses --poses_format 10 "$name.db") > "$SB_LOG/$name.export.log" 2>&1
   fi
-  if [ -s "$B/${name}_poses.txt" ]; then
-    say "$name: done ($(wc -l < "$B/${name}_poses.txt") poses)"
+  if [ -s "$SB_OUT/${name}_poses.txt" ]; then
+    say "$name: done ($(wc -l < "$SB_OUT/${name}_poses.txt") poses)"
   else
-    say "$name: FAILED, see $LOG/$name.*.log"
+    say "$name: FAILED, see $SB_LOG/$name.*.log"
   fi
 }
 
@@ -164,54 +164,54 @@ evaluate() {
   local venv=/tmp/slam-bench-venv
   local py=$venv/bin/python
   if [ ! -x "$py" ]; then
-    if ! python3 -m venv --system-site-packages "$venv" > "$LOG/venv.log" 2>&1; then
-      sudo apt-get update -qq >> "$LOG/venv.log" 2>&1
-      sudo apt-get install -y -qq python3-venv >> "$LOG/venv.log" 2>&1
-      python3 -m venv --system-site-packages "$venv" >> "$LOG/venv.log" 2>&1
+    if ! python3 -m venv --system-site-packages "$venv" > "$SB_LOG/venv.log" 2>&1; then
+      sudo apt-get update -qq >> "$SB_LOG/venv.log" 2>&1
+      sudo apt-get install -y -qq python3-venv >> "$SB_LOG/venv.log" 2>&1
+      python3 -m venv --system-site-packages "$venv" >> "$SB_LOG/venv.log" 2>&1
     fi
-    if ! "$venv/bin/pip" install -q evo pyproj >> "$LOG/venv.log" 2>&1; then
-      say "Python setup FAILED, see $LOG/venv.log"
+    if ! "$venv/bin/pip" install -q evo pyproj >> "$SB_LOG/venv.log" 2>&1; then
+      say "Python setup FAILED, see $SB_LOG/venv.log"
       return
     fi
   fi
 
-  local gnss=$B/${PREFIX}_gnss.tum car=$B/${PREFIX}_eidos_car.tum
+  local gnss=$SB_OUT/${SB_PREFIX}_gnss.tum car=$SB_OUT/${SB_PREFIX}_eidos_car.tum
   if [ ! -s "$gnss" ]; then
     say "Converting GNSS reference (reads the whole bag, can take a few minutes)"
-    "$py" "$S/to_tum.py" gnss "$BAG" -o "$gnss" 2>&1 | tee "$LOG/gnss.log"
+    "$py" "$SB_SCRIPTS/to_tum.py" gnss "$SB_BAG" -o "$gnss" 2>&1 | tee "$SB_LOG/gnss.log"
   fi
   if [ ! -s "$car" ]; then
-    "$py" "$S/to_tum.py" pose "$BAG" --topic /world_modeling/slam/pose -o "$car" > "$LOG/car_pose.log" 2>&1 \
+    "$py" "$SB_SCRIPTS/to_tum.py" pose "$SB_BAG" --topic /world_modeling/slam/pose -o "$car" > "$SB_LOG/car_pose.log" 2>&1 \
       || say "No live Eidos pose in this bag; skipping the car row"
   fi
   if [ ! -s "$gnss" ]; then
-    say "GNSS conversion FAILED, see $LOG/gnss.log"
+    say "GNSS conversion FAILED, see $SB_LOG/gnss.log"
     return
   fi
 
   local osm_args=()
-  if [ -f "$OSM" ]; then osm_args=(--osm "$OSM"); else say "Lane map $OSM not found; scoring ATE only"; fi
+  if [ -f "$SB_OSM" ]; then osm_args=(--osm "$SB_OSM"); else say "Lane map $SB_OSM not found; scoring ATE only"; fi
 
-  for r in $(seq "$RUNS"); do
+  for r in $(seq "$SB_RUNS"); do
     local est=() m label csv
     for m in nogps gps; do
-      csv=$B/${PREFIX}_eidos_${m}_r$r.csv
+      csv=$SB_OUT/${SB_PREFIX}_eidos_${m}_r$r.csv
       [ "$m" = gps ] && label="Eidos (GPS)" || label="Eidos (no GPS)"
-      if [ -s "$csv" ] && "$py" "$S/to_tum.py" eidos "$csv" -o "${csv%.csv}.tum" > /dev/null; then
+      if [ -s "$csv" ] && "$py" "$SB_SCRIPTS/to_tum.py" eidos "$csv" -o "${csv%.csv}.tum" > /dev/null; then
         est+=(--est "$label=${csv%.csv}.tum")
       fi
     done
-    [ -s "$B/${PREFIX}_rtabmap_r${r}_poses.txt" ] && est+=(--est "RTAB-Map=$B/${PREFIX}_rtabmap_r${r}_poses.txt")
+    [ -s "$SB_OUT/${SB_PREFIX}_rtabmap_r${r}_poses.txt" ] && est+=(--est "RTAB-Map=$SB_OUT/${SB_PREFIX}_rtabmap_r${r}_poses.txt")
     if [ ${#est[@]} -eq 0 ]; then continue; fi
     [ -s "$car" ] && est+=(--est "Eidos (car, live)=$car")
 
     say "Scoring repeat $r"
-    "$py" "$S/evaluate.py" --ref "$gnss" "${est[@]}" "${osm_args[@]}" \
-      --out "$B/results/${PREFIX}_r$r" 2>&1 | tee "$LOG/eval_r$r.log"
+    "$py" "$SB_SCRIPTS/evaluate.py" --ref "$gnss" "${est[@]}" "${osm_args[@]}" \
+      --out "$SB_OUT/results/${SB_PREFIX}_r$r" 2>&1 | tee "$SB_LOG/eval_r$r.log"
   done
 
   # Mean +- spread over the repeats
-  "$py" - "$B/results" "$PREFIX" << 'EOF' | tee "$B/results/${PREFIX}_summary.md"
+  "$py" - "$SB_OUT/results" "$SB_PREFIX" << 'EOF' | tee "$SB_OUT/results/${SB_PREFIX}_summary.md"
 import csv
 import glob
 import statistics as st
@@ -246,23 +246,23 @@ EOF
 source /opt/ros/jazzy/setup.bash
 cd /ws || exit 1
 say "Building workspace"
-if ! colcon build > "$LOG/colcon_build.log" 2>&1; then
-  say "colcon build FAILED, see $LOG/colcon_build.log"
+if ! colcon build > "$SB_LOG/colcon_build.log" 2>&1; then
+  say "colcon build FAILED, see $SB_LOG/colcon_build.log"
   exit 1
 fi
-source /ws/install/setup.bash
+source /ws/install/setup.bash  # note: this sets generic variables such as PREFIX, hence the SB_ names
 
-want() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
+want() { [ -z "$SB_ONLY" ] || [ "$SB_ONLY" = "$1" ]; }
 
-say "Bag: $BAG | runs per method: $RUNS | rate: $RATE${ONLY:+ | only: $ONLY}"
-if [ "$EVAL_ONLY" != 1 ]; then
-  for r in $(seq "$RUNS"); do
-    want "${PREFIX}_eidos_nogps_r$r" && eidos_run "${PREFIX}_eidos_nogps_r$r" false
-    want "${PREFIX}_rtabmap_r$r" && rtabmap_run "${PREFIX}_rtabmap_r$r"
-    want "${PREFIX}_eidos_gps_r$r" && eidos_run "${PREFIX}_eidos_gps_r$r" true
+say "Bag: $SB_BAG | runs per method: $SB_RUNS | rate: $SB_RATE${SB_ONLY:+ | only: $SB_ONLY}"
+if [ "$SB_EVAL_ONLY" != 1 ]; then
+  for r in $(seq "$SB_RUNS"); do
+    want "${SB_PREFIX}_eidos_nogps_r$r" && eidos_run "${SB_PREFIX}_eidos_nogps_r$r" false
+    want "${SB_PREFIX}_rtabmap_r$r" && rtabmap_run "${SB_PREFIX}_rtabmap_r$r"
+    want "${SB_PREFIX}_eidos_gps_r$r" && eidos_run "${SB_PREFIX}_eidos_gps_r$r" true
   done
 fi
-if [ -n "$ONLY" ]; then
+if [ -n "$SB_ONLY" ]; then
   say "Single run finished; evaluation runs in its own job"
   exit 0
 fi
