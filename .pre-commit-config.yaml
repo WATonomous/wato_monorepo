@@ -83,7 +83,6 @@ repos:
     rev: v0.1
     hooks:
       - id: ament_xmllint
-        entry: python .config/run_ament_xmllint.py
 
   # YAML linting
   - repo: https://github.com/adrienverge/yamllint.git
