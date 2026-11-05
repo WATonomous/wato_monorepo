@@ -52,7 +52,7 @@ All wato_monorepo base images are created using [GitHub Workflows](https://docs.
 
 ### Module Build Caching in CI
 
-CI (`Build and Test Monorepo`) builds each changed module in isolation with `watod build`/`watod test`. To keep PR runs fast, buildkit's registry cache is exported to GHCR (`cache_to` in the CI-only `modules/docker-compose*.ci-cache.yaml` overrides, which `watod_scripts/watod-compose.sh` adds only when `$CI`/`$GITHUB_ACTIONS` is set; refs like `<module image>:ci_cache_source` / `:ci_cache_deps` / `:ci_cache_bringup` / `:ci_cache_test`) and imported back (`cache_from`) on later runs:
+CI (`Build and Test Monorepo`) builds each changed module in isolation with `watod build`/`watod test`. To keep PR runs fast, buildkit's registry cache is exported to GHCR (`cache_to` in `modules/docker-compose.yaml`, refs like `<module image>:ci_cache_source` / `:ci_cache_deps` / `:ci_cache_bringup` / `:ci_cache_test`) and imported back (`cache_from`) on later runs:
 
 - Regular `docker compose push` of the images is NOT enough for caching: images loaded through the docker image store lose buildkit's cache metadata, so `cache_from` on pushed image tags finds no layers. The `ci_cache_*` cache manifests are exported directly by buildkit (`cache_to`), and that is what makes the imports hit.
 - `source`/`deps` stages (apt TensorRT / Isaac ROS installs, upstream git clones) re-execute only when their inputs change — i.e. on base image or Dockerfile changes — not on every branch or commit.
