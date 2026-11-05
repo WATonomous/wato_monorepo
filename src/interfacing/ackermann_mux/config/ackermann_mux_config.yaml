@@ -8,6 +8,21 @@
 
     publish_rate_hz: 50.0
 
+    # Fault-driven emergency stop: a hard override on top of priority arbitration and
+    # safety gating, for every input EXCEPT those listed in bypass_inputs. When enabled,
+    # subscribes to fault_collector's latched emergency_stop Bool; if it is true (or has
+    # gone stale, see timeout_s below), the mux publishes the highest-priority eligible
+    # bypass input's command if one exists, or the emergency command otherwise.
+    fault_estop:
+      enabled: false  # Set true once fault_collector is running in this deployment.
+      topic: /faults/emergency_stop
+      # If > 0, an estop signal not refreshed within this many seconds is treated as
+      # asserted (fail-safe on losing the fault collector). 0.0 disables staleness checking.
+      timeout_s: 0.0
+      # Input names (see `inputs` below) that remain selectable even while the fault estop
+      # is asserted, so the safety driver is never locked out of the vehicle.
+      bypass_inputs: ["joystick"]
+
     #HIGHER NUMBER == higher priority
     inputs:
       joystick:

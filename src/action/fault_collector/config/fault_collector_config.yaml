@@ -1,0 +1,73 @@
+/**/fault_collector:
+  ros__parameters:
+
+    # ------------------------------------------------------------------
+    # Topics
+    # ------------------------------------------------------------------
+    faults_topic: "faults"                       # Remapped to /faults in launch
+    diagnostics_topic: "/diagnostics"            # Absolute -- read by Foxglove's Diagnostics panel
+    emergency_stop_topic: "emergency_stop"       # Tier B. Remapped to /faults/emergency_stop in launch
+    autonomy_disarm_topic: "autonomy_disarm"     # Tier A status (observability only). Remapped to /faults/autonomy_disarm
+
+    # Real vehicle authority's arm service. oscc_interfacing is NEVER modified by this
+    # package -- it already owns arming, ignores commands while disarmed, and performs its
+    # own graceful ~600ms steering-torque rampdown on disarm. This is just the client side.
+    arm_service: "/oscc_interfacing/arm"
+
+    # oscc_interfacing's arm-state feedback. Watched so that a re-arm attempted while a
+    # disarm-level fault is still active/latched can be undone immediately -- this is the
+    # re-engage lockout, enforced entirely here because oscc_interfacing is never modified.
+    is_armed_topic: "/oscc_interfacing/is_armed"
+
+    # Minimum spacing between disarm service calls, so a repeated arm/disarm fight cannot
+    # flood oscc_interfacing. Set to 0.0 to disable rate limiting.
+    min_disarm_interval_s: 0.5
+
+    publish_rate_hz: 5.0   # Diagnostics + Tier B publish rate (Hz). Tier A fires on-edge only.
+
+    # ------------------------------------------------------------------
+    # Fault lifetime
+    # ------------------------------------------------------------------
+    # A fault not re-reported within this window is considered stale and expires
+    # automatically, even if the source never explicitly clears it (active: false).
+    fault_timeout_s: 5.0
+
+    # ------------------------------------------------------------------
+    # Severity semantics -- LOWER number == MORE severe.
+    #   1 = CRITICAL  Unsafe to continue driving.
+    #   2 = SEVERE    Major degradation; autonomy may need to hand back control.
+    #   3 = MODERATE  Degraded but driveable.
+    #   4 = MILD      Informational / nuisance.
+    #
+    # Two independent response tiers, both driven by severity (disarm_level <= brake_level):
+    #   Tier A (disarm): fault level <= disarm_level -> call /oscc_interfacing/arm with
+    #                     data:false on the rising edge, AND again on any observed re-arm
+    #                     while the fault is still active/latched (the re-engage lockout --
+    #                     see DEVELOPING.md). oscc_interfacing itself is never modified.
+    #   Tier B (brake):   fault level <= brake_level -> assert emergency_stop, which
+    #                     ackermann_mux treats as a hard override (except bypass inputs,
+    #                     e.g. the joystick -- see ackermann_mux's fault_estop.bypass_inputs).
+    #   Levels below both thresholds: /diagnostics only, no actuation.
+    # ------------------------------------------------------------------
+    disarm_level: 1   # Tier A. Only CRITICAL faults disarm by default.
+    brake_level: 2    # Tier B. CRITICAL and SEVERE faults brake by default.
+
+    # Once tripped, each tier stays tripped even if the offending fault clears or expires,
+    # until the ~/clear_faults service is called. This is the fail-safe default: a fault
+    # that "goes away" on its own (e.g. a sensor dropout that self-recovers) should not
+    # silently restore normal operation without an operator/engineer explicitly clearing it.
+    # Note this does NOT lock the operator out of re-arming -- see disarm_enabled below.
+    latch: true
+
+    # If true, Tier A actually calls arm_service on the rising edge. If false, Tier A is
+    # observed only (autonomy_disarm still publishes, /diagnostics still reports it) but no
+    # service call is made -- useful for dry-running new fault sources against a real vehicle.
+    disarm_enabled: true
+
+    # Prefix used for DiagnosticStatus.name, e.g. "fault_collector: summary".
+    diagnostic_name_prefix: "fault_collector"
+
+    # Maps fault level (1=CRITICAL .. 4=MILD) to a diagnostic_msgs/DiagnosticStatus level.
+    # DiagnosticStatus levels: OK=0, WARN=1, ERROR=2, STALE=3.
+    # Index 0 -> CRITICAL, index 1 -> SEVERE, index 2 -> MODERATE, index 3 -> MILD.
+    diagnostic_level_map: [2, 2, 1, 0]

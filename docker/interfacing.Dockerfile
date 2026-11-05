@@ -11,6 +11,7 @@ WORKDIR ${AMENT_WS}/src
 # Copy in module-specific source code
 COPY src/interfacing interfacing
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
+COPY src/infrastructure/wato_fault_msgs wato_fault_msgs
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################
