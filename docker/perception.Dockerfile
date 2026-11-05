@@ -23,13 +23,33 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git -C wato-cuda-bevfusion lfs install && \
     git -C wato-cuda-bevfusion lfs pull
 
-# Clone isaac_ros_nitros fork with lifecycle node support
+# The lifecycle fork changes the NITROS C++ ABI. Build the camera pipeline's
+# types and nodes against it too; release 4.5 binaries expect rclcpp::Node&
+# callbacks and cannot be mixed with the fork's NitrosNodeInterfaces callbacks.
 RUN R=/tmp/isaac_ros_nitros && \
     git clone https://github.com/WATonomous/isaac_ros_nitros.git $R && \
     git -C $R checkout a60cda942d21172b28a09e4be7ca959d7515e8e1 && \
     git -C $R lfs install && \
     git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
     mv $R/isaac_ros_nitros $R/isaac_ros_managed_nitros . && \
+    mv $R/isaac_ros_nitros_type/isaac_ros_nitros_image_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_camera_info_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_tensor_list_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_compressed_image_type . && \
+    rm -rf $R
+
+# Isaac ROS v4.5-0 sources for the nodes that consume the fork's NITROS types.
+RUN R=/tmp/isaac_ros_image_pipeline && \
+    git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline.git $R && \
+    git -C $R checkout 203e41be2a4a96382fe69abac08c0cec76720a7a && \
+    mv $R/isaac_ros_image_proc . && \
+    rm -rf $R
+
+RUN R=/tmp/isaac_ros_compression && \
+    git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_compression.git $R && \
+    git -C $R checkout 818227579e3af2a448c542fdf453d0a871b0d213 && \
+    mkdir isaac_ros_compression && \
+    mv $R/isaac_ros_h264_encoder $R/codec isaac_ros_compression/ && \
     rm -rf $R
 
 COPY src/perception perception
