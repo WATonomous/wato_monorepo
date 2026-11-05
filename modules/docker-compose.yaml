@@ -9,8 +9,6 @@ services:
       dockerfile: docker/infrastructure.Dockerfile
       cache_from:
         - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_source
-      cache_to:
-        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_source,mode=max
       target: source
     image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
 
@@ -21,8 +19,6 @@ services:
       dockerfile: docker/infrastructure.Dockerfile
       cache_from:
         - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_deps
-      cache_to:
-        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_deps,mode=max
       target: dependencies
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
@@ -40,8 +36,6 @@ services:
         MODULE_DEPS: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_bringup
-      cache_to:
-        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_bringup,mode=max
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch infrastructure_bringup infrastructure.launch.yaml foxglove_port:=${FOXGLOVE_BRIDGE_PORT:?}"
@@ -73,8 +67,6 @@ services:
       dockerfile: docker/interfacing.Dockerfile
       cache_from:
         - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_source
-      cache_to:
-        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_source,mode=max
       target: source
     image: "${INTERFACING_IMAGE}:source_${TAG}"
 
@@ -85,8 +77,6 @@ services:
       dockerfile: docker/interfacing.Dockerfile
       cache_from:
         - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_deps
-      cache_to:
-        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_deps,mode=max
       target: dependencies
     image: "${INTERFACING_IMAGE}:deps_${TAG}"
 
@@ -104,8 +94,6 @@ services:
         MODULE_DEPS: "${INTERFACING_IMAGE}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_bringup
-      cache_to:
-        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_bringup,mode=max
       target: deploy
     image: "${INTERFACING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch interfacing_bringup interfacing.launch.yaml"
@@ -132,8 +120,6 @@ services:
       dockerfile: docker/perception.Dockerfile
       cache_from:
         - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_source
-      cache_to:
-        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_source,mode=max
       target: source
     image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
 
@@ -144,8 +130,6 @@ services:
       dockerfile: docker/perception.Dockerfile
       cache_from:
         - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_deps
-      cache_to:
-        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_deps,mode=max
       target: dependencies
     image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
 
@@ -165,8 +149,6 @@ services:
         MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_bringup
-      cache_to:
-        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_bringup,mode=max
       target: deploy
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
@@ -198,8 +180,6 @@ services:
       dockerfile: docker/world_modeling.Dockerfile
       cache_from:
         - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_source
-      cache_to:
-        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_source,mode=max
       target: source
     image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
 
@@ -210,8 +190,6 @@ services:
       dockerfile: docker/world_modeling.Dockerfile
       cache_from:
         - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_deps
-      cache_to:
-        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_deps,mode=max
       target: dependencies
     image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
 
@@ -229,8 +207,6 @@ services:
         MODULE_DEPS: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_bringup
-      cache_to:
-        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_bringup,mode=max
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.yaml"
@@ -254,8 +230,6 @@ services:
       dockerfile: docker/action.Dockerfile
       cache_from:
         - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_source
-      cache_to:
-        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_source,mode=max
       target: source
     image: "${ACTION_IMAGE}:source_${TAG}"
 
@@ -266,8 +240,6 @@ services:
       dockerfile: docker/action.Dockerfile
       cache_from:
         - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_deps
-      cache_to:
-        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_deps,mode=max
       target: dependencies
     image: "${ACTION_IMAGE}:deps_${TAG}"
 
@@ -285,8 +257,6 @@ services:
         MODULE_DEPS: "${ACTION_IMAGE}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_bringup
-      cache_to:
-        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_bringup,mode=max
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch action_bringup action.launch.yaml"
@@ -330,8 +300,6 @@ services:
       dockerfile: docker/simulation.Dockerfile
       cache_from:
         - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_source
-      cache_to:
-        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_source,mode=max
       target: source
     image: "${SIMULATION_IMAGE}:source_${TAG}"
 
@@ -342,8 +310,6 @@ services:
       dockerfile: docker/simulation.Dockerfile
       cache_from:
         - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_deps
-      cache_to:
-        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_deps,mode=max
       target: dependencies
     image: "${SIMULATION_IMAGE}:deps_${TAG}"
 
@@ -361,8 +327,6 @@ services:
         MODULE_DEPS: "${SIMULATION_IMAGE}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_bringup
-      cache_to:
-        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_bringup,mode=max
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
     environment:
