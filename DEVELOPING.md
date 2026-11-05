@@ -29,7 +29,9 @@ watod --help
 - **ROS bag management**: Record and play ROS2 bags with automatic mounting (`watod bag <command>`)
 - **VSCode Setup**: Configure local VSCode IntelliSense by extracting headers from containers (`watod -s`)
 
-To begin using `watod`, edit the [`watod-config.sh`](./watod-config.sh) or create a copy called `watod-config.local.sh` to configure important settings for `watod` like $ACTIVE_MODULES which defines which docker services to start.
+To configure `watod`, create a `watod-config.local.sh` file next to [`watod-config.sh`](./watod-config.sh). The local file is untracked and overrides the tracked configuration; `watod-config.sh` itself is protected by CI and should not be modified. Set `ACTIVE_MODULES` in `watod-config.local.sh` to choose which docker services to start.
+
+On NVIDIA machines, also set `CUDASM` in `watod-config.local.sh` to match your GPU's compute capability. For example, use `export CUDASM=86` if you have a RTX 30 series or older. Run `nvidia-smi --query-gpu=compute_cap --format=csv,noheader` to check your GPU, and remove the decimal point (`8.6` becomes `86`). After changing `CUDASM`, rebuild with `./watod build`; `watod up --build` does not rebuild the source and dependency pre-build stages.
 
 ## Base Images and Docker Registry
 

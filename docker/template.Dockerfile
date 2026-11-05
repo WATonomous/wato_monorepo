@@ -57,10 +57,14 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 ################################ Build ################################
 FROM rosdep_install AS build
 
+# CUDA compute capability used by CUDA-enabled vendored packages.
+# Defaults to the vehicle/CI target; override with e.g. CUDASM=86 for Ampere.
+ARG CUDASM=89
+
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    CUDASM="${CUDASM}" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 ################################ Deploy ################################
