@@ -33,6 +33,9 @@ services:
       args:
         MODULE_SOURCE: "${PERCEPTION_IMAGE:?}:source_${TAG}"
         MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+      cache_from:
+        - "${PERCEPTION_IMAGE:?}:test_${TAG}"
+        - "${PERCEPTION_IMAGE:?}:test_main"
       target: build
     image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
     runtime: runc

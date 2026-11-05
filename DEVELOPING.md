@@ -50,6 +50,14 @@ ALL WATONOMOUS BASE IMAGES ARE BUILT USING THE WATO_MONOREPO. It is configured [
 
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
 
+### Module Build Caching in CI
+
+CI (`Build and Test Monorepo`) builds each changed module in isolation with `watod build`/`watod test`. To keep PR runs fast, the module `source`/`deps` pre-build images are pushed to GHCR by CI (`watod_scripts/watod-compose.sh`) and used as buildx registry cache:
+
+- Each `<module>_source` / `<module>_deps` service in `modules/docker-compose.yaml` pulls cache from both the PR branch's own image tags (`source_<branch>`) and the images pushed by the most recent `main` run (`source_main`, `deps_main`).
+- This means the first run of a new PR branch reuses the apt (TensorRT / Isaac ROS), git clone and image layers from `main` instead of rebuilding them (~20 min for perception); only layers after the first `COPY src` re-execute.
+- Every push to `main` refreshes these `*_main` images for the modules it builds, so anchor images generally track `main` closely. A run cancelled mid-build (concurrency cancel-in-progress) may miss its push and need to rebuild once.
+
 ## DevContainers
 The WATonomous monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.
 

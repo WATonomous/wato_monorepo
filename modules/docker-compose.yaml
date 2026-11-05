@@ -9,6 +9,7 @@ services:
       dockerfile: docker/infrastructure.Dockerfile
       cache_from:
         - "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:source_main"
       target: source
     image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
 
@@ -19,6 +20,7 @@ services:
       dockerfile: docker/infrastructure.Dockerfile
       cache_from:
         - "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+        - "${INFRASTRUCTURE_IMAGE:?}:deps_main"
       target: dependencies
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
@@ -68,6 +70,7 @@ services:
       dockerfile: docker/interfacing.Dockerfile
       cache_from:
         - "${INTERFACING_IMAGE:?}:source_${TAG}"
+        - "${INTERFACING_IMAGE:?}:source_main"
       target: source
     image: "${INTERFACING_IMAGE}:source_${TAG}"
 
@@ -78,6 +81,7 @@ services:
       dockerfile: docker/interfacing.Dockerfile
       cache_from:
         - "${INTERFACING_IMAGE:?}:deps_${TAG}"
+        - "${INTERFACING_IMAGE:?}:deps_main"
       target: dependencies
     image: "${INTERFACING_IMAGE}:deps_${TAG}"
 
@@ -122,6 +126,7 @@ services:
       dockerfile: docker/perception.Dockerfile
       cache_from:
         - "${PERCEPTION_IMAGE:?}:source_${TAG}"
+        - "${PERCEPTION_IMAGE:?}:source_main"
       target: source
     image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
 
@@ -132,6 +137,7 @@ services:
       dockerfile: docker/perception.Dockerfile
       cache_from:
         - "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+        - "${PERCEPTION_IMAGE:?}:deps_main"
       target: dependencies
     image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
 
@@ -183,6 +189,7 @@ services:
       dockerfile: docker/world_modeling.Dockerfile
       cache_from:
         - "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
+        - "${WORLD_MODELING_IMAGE:?}:source_main"
       target: source
     image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
 
@@ -193,6 +200,7 @@ services:
       dockerfile: docker/world_modeling.Dockerfile
       cache_from:
         - "${WORLD_MODELING_IMAGE:?}:deps_${TAG}"
+        - "${WORLD_MODELING_IMAGE:?}:deps_main"
       target: dependencies
     image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
 
@@ -234,6 +242,7 @@ services:
       dockerfile: docker/action.Dockerfile
       cache_from:
         - "${ACTION_IMAGE:?}:source_${TAG}"
+        - "${ACTION_IMAGE:?}:source_main"
       target: source
     image: "${ACTION_IMAGE}:source_${TAG}"
 
@@ -244,6 +253,7 @@ services:
       dockerfile: docker/action.Dockerfile
       cache_from:
         - "${ACTION_IMAGE:?}:deps_${TAG}"
+        - "${ACTION_IMAGE:?}:deps_main"
       target: dependencies
     image: "${ACTION_IMAGE}:deps_${TAG}"
 
@@ -305,6 +315,7 @@ services:
       dockerfile: docker/simulation.Dockerfile
       cache_from:
         - "${SIMULATION_IMAGE:?}:source_${TAG}"
+        - "${SIMULATION_IMAGE:?}:source_main"
       target: source
     image: "${SIMULATION_IMAGE}:source_${TAG}"
 
@@ -315,6 +326,7 @@ services:
       dockerfile: docker/simulation.Dockerfile
       cache_from:
         - "${SIMULATION_IMAGE:?}:deps_${TAG}"
+        - "${SIMULATION_IMAGE:?}:deps_main"
       target: dependencies
     image: "${SIMULATION_IMAGE}:deps_${TAG}"
 
