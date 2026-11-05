@@ -412,6 +412,7 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
             "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
             "carla_scenarios.scenarios.oval_scenario": "Oval OpenDRIVE Map",
+            "carla_scenarios.scenarios.ring_road_scenario": "Ring Road OpenDRIVE Map",
         }
         self.available_scenarios.update(builtin_scenarios)
 
