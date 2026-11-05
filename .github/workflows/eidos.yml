@@ -1,0 +1,66 @@
+name: Eidos
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - src/world_modeling/eidos/**
+      - src/world_modeling/eidos_msgs/**
+      - src/world_modeling/eidos_transform/**
+      - src/world_modeling/eidos_tools/**
+      - .github/workflows/eidos.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - src/world_modeling/eidos/**
+      - src/world_modeling/eidos_msgs/**
+      - src/world_modeling/eidos_transform/**
+      - src/world_modeling/eidos_tools/**
+      - .github/workflows/eidos.yml
+
+concurrency:
+  group: eidos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Jazzy
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            build-essential \
+            cmake
+          rosdep init || true
+          rosdep update --rosdistro jazzy
+
+      - name: Isolate Eidos packages
+        run: |
+          mkdir -p /ws/src
+          cp -a src/world_modeling/eidos /ws/src/eidos
+          cp -a src/world_modeling/eidos_msgs /ws/src/eidos_msgs
+          cp -a src/world_modeling/eidos_transform /ws/src/eidos_transform
+          cp -a src/world_modeling/eidos_tools /ws/src/eidos_tools
+
+      - name: Install rosdeps
+        working-directory: /ws
+        run: rosdep install --from-paths src --ignore-src -y --rosdistro jazzy
+
+      - name: Build
+        working-directory: /ws
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build \
+            --packages-up-to eidos eidos_transform eidos_tools \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release
