@@ -38,10 +38,6 @@ services:
       target: build
     image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
     runtime: runc
-    deploy:
-      resources:
-        reservations:
-          devices: []
     ipc: host
     network_mode: host
     environment:
