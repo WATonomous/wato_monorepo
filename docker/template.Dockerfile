@@ -8,8 +8,13 @@ ARG MODULE_SOURCE
 ARG MODULE_DEPS
 
 # Scan for rosdeps from the source stage
+# Only package.xml files are scanned, so this layer stays cacheable across
+# source-code changes as long as the package manifests don't change.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && \
+RUN mkdir -p /tmp/pkgery && \
+    find ${AMENT_WS}/src -name package.xml -type f -exec cp --parents {} /tmp/pkgery \; && \
+    cd /tmp/pkgery && \
+    apt-get -qq update && \
     rosdep install --from-paths . --ignore-src -r -s > /tmp/rosdep_output && \
     (grep 'apt-get install' /tmp/rosdep_output || true) \
         | awk '{print $3}' \

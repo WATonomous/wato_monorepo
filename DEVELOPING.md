@@ -52,11 +52,12 @@ All wato_monorepo base images are created using [GitHub Workflows](https://docs.
 
 ### Module Build Caching in CI
 
-CI (`Build and Test Monorepo`) builds each changed module in isolation with `watod build`/`watod test`. To keep PR runs fast, the module `source`/`deps` pre-build images are pushed to GHCR by CI (`watod_scripts/watod-compose.sh`) and used as buildx registry cache:
+CI (`Build and Test Monorepo`) builds each changed module in isolation with `watod build`/`watod test`. To keep PR runs fast, buildkit's registry cache is exported to GHCR (`cache_to` in `modules/docker-compose.yaml`, refs like `<module image>:ci_cache_source` / `:ci_cache_deps` / `:ci_cache_bringup` / `:ci_cache_test`) and imported back (`cache_from`) on later runs:
 
-- Each `<module>_source` / `<module>_deps` service in `modules/docker-compose.yaml` pulls cache from both the PR branch's own image tags (`source_<branch>`) and the images pushed by the most recent `main` run (`source_main`, `deps_main`).
-- This means the first run of a new PR branch reuses the apt (TensorRT / Isaac ROS), git clone and image layers from `main` instead of rebuilding them (~20 min for perception); only layers after the first `COPY src` re-execute.
-- Every push to `main` refreshes these `*_main` images for the modules it builds, so anchor images generally track `main` closely. A run cancelled mid-build (concurrency cancel-in-progress) may miss its push and need to rebuild once.
+- Regular `docker compose push` of the images is NOT enough for caching: images loaded through the docker image store lose buildkit's cache metadata, so `cache_from` on pushed image tags finds no layers. The `ci_cache_*` cache manifests are exported directly by buildkit (`cache_to`), and that is what makes the imports hit.
+- `source`/`deps` stages (apt TensorRT / Isaac ROS installs, upstream git clones) re-execute only when their inputs change — i.e. on base image or Dockerfile changes — not on every branch or commit.
+- `docker/template.Dockerfile`'s `rosdep_scan` stage scans only `package.xml` files, so adding a dependency re-runs it, but source-code edits alone don't.
+- `colcon build`/`colcon test` layers are content-keyed by the copied source, so they still re-run on every commit (that's the remaining non-cacheable core of perception CI, ~8 min).
 
 ## DevContainers
 The WATonomous monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.
