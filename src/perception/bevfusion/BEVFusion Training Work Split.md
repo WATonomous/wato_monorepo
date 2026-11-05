@@ -4,6 +4,15 @@ Nov 4, 2026 · @Shourrya
 
 This document divides the nuScenes training exercise into three sub-tasks. It defines the scope of each sub-task, the interfaces between them, and the criteria for completion. Script contents and background on the full training recipe are in **[BEVFusion nuScenes Training Exercise: Pipeline and Code](./BEVFusion%20nuScenes%20Training%20Exercise%20Pipeline%20and%20Code.md)**. Where the two documents differ, this one takes precedence on scope and code location.
 
+> [!WARNING]
+> **TODO: pin `wato-cuda-bevfusion` to a commit before trusting any result.**
+> For now, both the training image (`training/docker/Dockerfile`) and the perception image (`docker/perception.Dockerfile`) clone the **latest `main`** of `wato-cuda-bevfusion`. This is deliberate for the exercise, but it means:
+> - an exported model can be loaded by a node built from **different** code than it was exported with, and nothing will warn you;
+> - rebuilding an image later can change results without any change on our side;
+> - `MODEL_CARD.md` cannot say exactly which code produced a model.
+>
+> **Fix:** add one `ARG WATO_CUDA_BEVFUSION_REF=<commit>` to both Dockerfiles, `git checkout` it after cloning, record it in `MODEL_CARD.md`, and only change it in a reviewed PR that reruns Gate G1. Until then, record the commit each image was built from (`git -C /opt/wato-cuda-bevfusion rev-parse HEAD`) in every model card.
+
 ---
 
 ## Contents
@@ -70,11 +79,10 @@ All training code lives in the monorepo under `src/perception/bevfusion/training
 src/perception/bevfusion/training/
 ├── COLCON_IGNORE
 ├── README.md                  # how to run each stage; results table
-├── docker/Dockerfile          # training image (Sub-task 1)
+├── docker/Dockerfile          # training image; clones wato-cuda-bevfusion (Sub-task 1)
 ├── scripts/
 │   ├── env.sh                 # shared paths and variables (Sub-task 1)
-│   ├── fetch_deps.sh          # pinned clone of wato-cuda-bevfusion (Sub-task 1)
-│   ├── setup_container.sh     # builds CUDA ops, links configs and data (Sub-task 1)
+│   ├── setup_container.sh     # links model.zip files and data at job start (Sub-task 1)
 │   ├── prepare_data.sh        # Sub-task 2
 │   ├── train.sh               # Sub-task 2
 │   ├── eval.sh                # Sub-task 3
@@ -87,11 +95,16 @@ src/perception/bevfusion/training/
 
 **Dependencies outside git:**
 
-- **`wato-cuda-bevfusion`** is cloned by `fetch_deps.sh` into `wato_monorepo/external/wato-cuda-bevfusion/`. `external/` is already in `.gitignore`. The clone must be pinned to a specific commit, and its `CUDA-BEVFusion/bevfusion` submodule must be at `db75150`. Note that `docker/perception.Dockerfile` currently clones `wato-cuda-bevfusion` without a pin. The deployed node and the training pipeline should use the same commit, so the pin should be shared.
+- **`wato-cuda-bevfusion`** is cloned inside the training image to `/opt/wato-cuda-bevfusion`, the same way `docker/perception.Dockerfile` clones it (with submodules and LFS files). Nothing is cloned into the monorepo. Its `CUDA-BEVFusion/bevfusion` submodule must be at `db75150`. The clone is currently unpinned; see the warning at the top.
+- **NVIDIA's `model.zip`** (published ResNet-50 checkpoint and configs) is stored unzipped in `$SHARED/cuda-bevfusion-model/` and linked into the clone by `setup_container.sh` at job start. It is too large to bake into the image.
 - **Datasets, checkpoints, the Docker image tar and run outputs** are stored on cluster storage (`$NUSC_ROOT`, `$SHARED`, `$RUNS`), never in git. Home directories on WATcloud are limited to 20 GiB.
 - **Exported models** go in `wato_monorepo/models/bevfusion/<version>/`, which is also gitignored.
 
-The scripts from the exercise doc are reused with two path changes: `env.sh` sets `CB` to `$REPO_ROOT/external/wato-cuda-bevfusion/CUDA-BEVFusion`, where `REPO_ROOT` is the monorepo root, and `job.sbatch` mounts the monorepo root at `/workspace`. Jobs are submitted from the monorepo root.
+The scripts from the exercise doc are reused with these changes:
+
+- `CB` is `/opt/wato-cuda-bevfusion/CUDA-BEVFusion` and `BF` is `$CB/bevfusion`. Both are set as `ENV` in the Dockerfile, so they are available inside every container, including in command arguments passed to `job.sbatch` in single quotes (e.g. `'$CB/model/...'`).
+- `job.sbatch` mounts the monorepo root at `/workspace`, so `TRAINING_DIR` is `/workspace/src/perception/bevfusion/training`. Jobs are submitted from the monorepo root.
+- `setup_container.sh` no longer runs `python setup.py develop`; the CUDA ops are compiled when the image is built.
 
 ---
 
@@ -278,7 +291,7 @@ torchpack dist-run -np "$NGPUS" python "$TRAINING_DIR/tools/train_frozen.py" "$R
 | | **Sub-task 1: Environment & cluster** | **Sub-task 2: Data & training** | **Sub-task 3: Evaluation, export & deployment** |
 | --- | --- | --- | --- |
 | **Objective** | The pipeline runs on WATcloud with a single `sbatch` command | Frozen-backbone runs F0–F2 trained and handed off | Results measured against the published model; export running in `bevfusion_node` |
-| **Owns** | `docker/Dockerfile`, `scripts/env.sh`, `scripts/fetch_deps.sh`, `scripts/setup_container.sh`, `slurm/job.sbatch`, `README.md` setup section | `scripts/prepare_data.sh`, `scripts/train.sh`, `tools/train_frozen.py`, `tools/strip_head.py` | `scripts/eval.sh`, `scripts/export.sh`, `MODEL_CARD.md` template, `README.md` results table |
+| **Owns** | `docker/Dockerfile`, `scripts/env.sh`, `scripts/setup_container.sh`, `slurm/job.sbatch`, `README.md` setup section | `scripts/prepare_data.sh`, `scripts/train.sh`, `tools/train_frozen.py`, `tools/strip_head.py` | `scripts/eval.sh`, `scripts/export.sh`, `MODEL_CARD.md` template, `README.md` results table |
 | **Complete when** | `sbatch slurm/job.sbatch python -c "import mmdet3d"` succeeds on a GPU node | F2 checkpoint delivered with its training log and settings | Gate G1 passed; F1 and F2 evaluated; F2 exported and loaded in `bevfusion_node` on an Eve bag |
 | **Carries over to Eve** | Same cluster setup | Eve dataset converter; Stage A configs | Eve validation set; model releases |
 
@@ -304,7 +317,7 @@ The only hard dependency is that the trainval info files (Sub-task 2, step 2.6) 
 
 ## Sub-task 1: Environment and cluster
 
-**Objective:** Any team member can run any pipeline script on a WATcloud GPU node inside the pinned training image, with the monorepo and dataset mounted.
+**Objective:** Any team member can run any pipeline script on a WATcloud GPU node inside the training image, with the monorepo and dataset mounted.
 
 **Constraints:**
 
@@ -323,9 +336,43 @@ The only hard dependency is that the trainval info files (Sub-task 2, step 2.6) 
   docker run --rm --gpus all nvidia/cuda:11.3.1-base-ubuntu20.04 nvidia-smi
   ```
   If the flag is rejected, obtain the correct one from WATcloud and use it in `job.sbatch`.
-- [ ] **1.3 Dependencies.** Write `fetch_deps.sh` to clone `wato-cuda-bevfusion` at a pinned commit into `external/`, with submodules and LFS files. Verify the `bevfusion` submodule is at `db75150`. Download NVIDIA's `model.zip` (link in the [CUDA-BEVFusion README](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/tree/master/CUDA-BEVFusion)) to `$SHARED` and unzip it into `CUDA-BEVFusion/`. It provides the published ResNet-50 checkpoint and configs.
-- [ ] **1.4 Image.** Build `bevfusion:upstream` from the upstream Dockerfile, then `wato-bevfusion-train:latest` from `training/docker/Dockerfile`. Save the result with `docker save` to `$SHARED/wato-bevfusion-train.tar`.
-- [ ] **1.5 Container setup.** Write `env.sh` and `setup_container.sh` with the monorepo paths described in [Code location](#code-location). Verify that `python setup.py develop` compiles the CUDA ops in a container.
+- [ ] **1.3 Published weights.** Download NVIDIA's `model.zip` (link in the [CUDA-BEVFusion README](https://github.com/NVIDIA-AI-IOT/Lidar_AI_Solution/tree/master/CUDA-BEVFusion)) and unzip it to `$SHARED/cuda-bevfusion-model/`. It contains `model/` (the published ResNet-50 checkpoint) and `configs/` (the ResNet-50 configs).
+- [ ] **1.4 Image.** The perception image cannot be reused for training: it is a CUDA 12.8 *runtime* image on Ubuntu 24.04 with Python 3.12, and has no `nvcc`. BEVFusion training needs Python 3.8, PyTorch 1.10, mmcv 1.4.0 and a CUDA 11.x *devel* image to compile its ops. Only the clone step is shared with `perception.Dockerfile`.
+
+  Build in two steps:
+  1. **`bevfusion:upstream`**, once, from the upstream Dockerfile in the fork (`CUDA-BEVFusion/bevfusion/docker/`). It provides the pinned Python, PyTorch, mmcv and mmdet versions.
+  2. **`wato-bevfusion-train:latest`** from `training/docker/Dockerfile`:
+
+  ```dockerfile
+  # Stage 1: clone wato-cuda-bevfusion the same way docker/perception.Dockerfile does.
+  # TODO: unpinned (latest main). See the warning at the top of the work-split doc.
+  FROM alpine/git AS source
+  RUN apk add --no-cache git-lfs && \
+      git clone --recurse-submodules https://github.com/WATonomous/wato-cuda-bevfusion.git /src/wato-cuda-bevfusion && \
+      git -C /src/wato-cuda-bevfusion lfs install && \
+      git -C /src/wato-cuda-bevfusion lfs pull
+
+  # Stage 2: training environment (Python 3.8, PyTorch 1.10, mmcv 1.4.0, CUDA 11.x devel)
+  FROM bevfusion:upstream
+  COPY --from=source /src/wato-cuda-bevfusion /opt/wato-cuda-bevfusion
+  ENV CB=/opt/wato-cuda-bevfusion/CUDA-BEVFusion
+  ENV BF=${CB}/bevfusion
+  # ONNX and quantization tools used by the qat/ export scripts
+  RUN pip install --no-cache-dir -r ${CB}/tool/requirements.txt
+  # Compile BEVFusion's CUDA ops at build time, for A100 and RTX 3090, without a visible GPU
+  ENV TORCH_CUDA_ARCH_LIST="8.0;8.6"
+  RUN cd ${BF} && python setup.py develop
+  WORKDIR /workspace
+  ```
+
+  Check the clone before saving: `docker run --rm wato-bevfusion-train:latest git -C /opt/wato-cuda-bevfusion/CUDA-BEVFusion/bevfusion rev-parse HEAD` must start with `db75150`. Record the fork's commit (`git -C /opt/wato-cuda-bevfusion rev-parse HEAD`) in `training/README.md`. Then save the image with `docker save` to `$SHARED/wato-bevfusion-train.tar`.
+
+  Because the image contains the clone, **rebuild it whenever the fork changes**. Editing scripts in the monorepo does not need a rebuild, since the monorepo is mounted.
+- [ ] **1.5 Container setup.** Write `env.sh` and `setup_container.sh` with the paths described in [Code location](#code-location). `setup_container.sh` runs at the start of every job and:
+  - links `$SHARED/cuda-bevfusion-model/model` to `$CB/model` and copies `$SHARED/cuda-bevfusion-model/configs/.` into `$BF/configs/` (so the ResNet-50 config exists);
+  - links `$NUSC_DIR` to `data/nuscenes` in both `$BF` and `$CB`.
+
+  `job.sbatch` must mount `$SHARED` into the container at the same path, and pass `SHARED` in with `-e SHARED`. Verify with a job that runs `ls $CB/model/resnet50 $BF/configs/nuscenes/det/transfusion/secfpn/camera+lidar/resnet50`.
 - [ ] **1.6 Job script.** Write `slurm/job.sbatch`, defaulting to `--partition=compute`, `--gres=shard:20480,tmpdisk:40960` and `--time=1-00:00:00`. Validate it from the monorepo root:
   ```bash
   mkdir -p logs
@@ -352,7 +399,7 @@ The only hard dependency is that the trainval info files (Sub-task 2, step 2.6) 
 - [ ] **2.4 Training tools.** Implement `train_frozen.py`, `strip_head.py` and `train.sh` as specified in [Implementation](#implementation). Generate the head-stripped checkpoint once and store it in `$SHARED`:
   ```bash
   python src/perception/bevfusion/training/tools/strip_head.py \
-    $CB/model/resnet50/bevfusion-det.pth $SHARED/bevfusion-det-nohead.pth
+    $CB/model/resnet50/bevfusion-det.pth $SHARED/bevfusion-det-nohead.pth   # run inside the container
   ```
 - [ ] **2.5 Run F0 (mini smoke test).**
   ```bash
@@ -392,7 +439,7 @@ The only hard dependency is that the trainval info files (Sub-task 2, step 2.6) 
   ```bash
   export NUSC_HOST_DIR=$NUSC_ROOT/full
   sbatch --time=12:00:00 slurm/job.sbatch scripts/eval.sh \
-    external/wato-cuda-bevfusion/CUDA-BEVFusion/model/resnet50/bevfusion-det.pth
+    '$CB/model/resnet50/bevfusion-det.pth'
   ```
   The result must be within 0.3 of **67.93 mAP / 70.97 NDS**. Training results are not meaningful until this passes.
 - [ ] **3.3 Visualization.** Set up `tools/visualize.py` in both modes and provide the `--mode gt` command to Sub-task 2 for step 2.3:
@@ -404,7 +451,7 @@ The only hard dependency is that the trainval info files (Sub-task 2, step 2.6) 
 - [ ] **3.4 Export script.** Write `export.sh` (from the exercise doc) and run it on the published checkpoint as version `r50-nusc-published`. Confirm the export directory matches interface 3.
 - [ ] **3.5 Deployment check.** Copy the export to `wato_monorepo/models/bevfusion/r50-nusc-published/`, set `model_dir` in the `bevfusion_node` block of `src/perception/perception_bringup/config/perception_bringup.yaml`, launch perception and play an Eve bag (see [Running_BEVFusion.md](./Running_BEVFusion.md)). Detections on `/perception/bev_detection_markers` must match those of the current `resnet50_trt11_int8` model. This validates the export path before any trained model is available.
 - [ ] **3.6 PTQ cost.** Run `qat/test-mAP-for-cuda.py` on the exported engines and record the drop from the PyTorch result. The expected drop is about 0.3 mAP; more than 0.5 needs investigation.
-- [ ] **3.7 Trained runs.** For F1, F2 and F3: evaluate the checkpoint, export it (e.g. `r50-nusc-f2-v1`), measure the PTQ cost, and run the deployment check on the F2 export. Complete `MODEL_CARD.md` for each export.
+- [ ] **3.7 Trained runs.** For F1, F2 and F3: evaluate the checkpoint, export it (e.g. `r50-nusc-f2-v1`), measure the PTQ cost, and run the deployment check on the F2 export. Complete `MODEL_CARD.md` for each export, including the `wato-cuda-bevfusion` commit the training image was built from (the clone is unpinned; see the warning at the top).
 - [ ] **3.8 Results table.** Maintain the table in `training/README.md`:
 
   | Run | Layers trained | Init | Epochs | mAP | NDS | INT8 mAP | Notes |
