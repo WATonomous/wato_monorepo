@@ -12,9 +12,10 @@ ARG MODULE_DEPS
 # source-code changes as long as the package manifests don't change.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN mkdir -p /tmp/pkgery && \
-    find "${AMENT_WS}/src" -name package.xml -type f -exec cp --parents {} /tmp/pkgery \; && \
+    find ${AMENT_WS}/src -name package.xml -type f -exec cp --parents {} /tmp/pkgery \; && \
+    cd /tmp/pkgery && \
     apt-get -qq update && \
-    rosdep install --from-paths /tmp/pkgery --ignore-src -r -s > /tmp/rosdep_output && \
+    rosdep install --from-paths . --ignore-src -r -s > /tmp/rosdep_output && \
     (grep 'apt-get install' /tmp/rosdep_output || true) \
         | awk '{print $3}' \
         | sort > /tmp/colcon_install_list && \
