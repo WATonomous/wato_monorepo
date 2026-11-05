@@ -335,6 +335,8 @@ services:
         - "${SIMULATION_IMAGE:?}:main"
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
+    volumes:
+      - ${MONO_DIR}/maps:/opt/watonomous/maps:ro
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
