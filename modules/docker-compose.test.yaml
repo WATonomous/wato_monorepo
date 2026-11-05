@@ -35,8 +35,6 @@ services:
         MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
       cache_from:
         - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_test
-      cache_to:
-        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_test,mode=max
       target: build
     image: "${PERCEPTION_IMAGE:?}:test_${TAG}"
     runtime: runc
