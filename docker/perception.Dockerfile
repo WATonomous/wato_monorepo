@@ -23,6 +23,35 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git -C wato-cuda-bevfusion lfs install && \
     git -C wato-cuda-bevfusion lfs pull
 
+# The lifecycle fork changes the NITROS C++ ABI. Build the camera pipeline's
+# types and nodes against it too; release 4.5 binaries expect rclcpp::Node&
+# callbacks and cannot be mixed with the fork's NitrosNodeInterfaces callbacks.
+RUN R=/tmp/isaac_ros_nitros && \
+    git clone https://github.com/WATonomous/isaac_ros_nitros.git $R && \
+    git -C $R checkout a60cda942d21172b28a09e4be7ca959d7515e8e1 && \
+    git -C $R lfs install && \
+    git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
+    mv $R/isaac_ros_nitros $R/isaac_ros_managed_nitros . && \
+    mv $R/isaac_ros_nitros_type/isaac_ros_nitros_image_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_camera_info_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_tensor_list_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_compressed_image_type . && \
+    rm -rf $R
+
+# Isaac ROS v4.5-0 sources for the nodes that consume the fork's NITROS types.
+RUN R=/tmp/isaac_ros_image_pipeline && \
+    git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline.git $R && \
+    git -C $R checkout 203e41be2a4a96382fe69abac08c0cec76720a7a && \
+    mv $R/isaac_ros_image_proc . && \
+    rm -rf $R
+
+RUN R=/tmp/isaac_ros_compression && \
+    git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_compression.git $R && \
+    git -C $R checkout 818227579e3af2a448c542fdf453d0a871b0d213 && \
+    mkdir isaac_ros_compression && \
+    mv $R/isaac_ros_h264_encoder $R/codec isaac_ros_compression/ && \
+    rm -rf $R
+
 COPY src/perception perception
 
 COPY src/world_modeling/world_model_msgs world_model_msgs
@@ -42,12 +71,17 @@ FROM ${BASE_IMAGE} AS dependencies
 # Use bash with pipefail so piped RUN commands (e.g. curl | gpg) fail loudly.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install TensorRT dependencies for deep_ros
+# Install TensorRT dependencies for deep_ros (TRT 10) and bevfusion (TRT 11)
+ARG TRT10_VERSION=10.16.1.11-1+cuda12.9
+ARG TRT11_VERSION=11.4.0.106-1+cuda13.4
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libnvinfer10 \
-    libnvinfer-plugin10 \
-    libnvonnxparsers10 \
+    libnvinfer10=${TRT10_VERSION} \
+    libnvinfer-plugin10=${TRT10_VERSION} \
+    libnvonnxparsers10=${TRT10_VERSION} \
+    libnvinfer-dev=${TRT11_VERSION} \
+    libnvinfer-plugin-dev=${TRT11_VERSION} \
+    libnvonnxparsers-dev=${TRT11_VERSION} \
     protobuf-compiler \
     libprotobuf-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -58,7 +92,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
     curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key \
       | gpg --dearmor -o /usr/share/keyrings/nvidia-isaac-ros.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/nvidia-isaac-ros.gpg] https://isaac.download.nvidia.com/isaac-ros/release-4.4 noble main" \
+    echo "deb [signed-by=/usr/share/keyrings/nvidia-isaac-ros.gpg] https://isaac.download.nvidia.com/isaac-ros/release-4.5 noble main" \
       > /etc/apt/sources.list.d/nvidia-isaac-ros.list && \
     curl -fsSL https://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
       | gpg --dearmor -o /usr/share/keyrings/nvidia-jetson.gpg && \

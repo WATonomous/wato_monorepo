@@ -24,6 +24,25 @@ ros2 launch perception_bringup all_cameras_composed.yaml container_name:=<contai
 
 > NOTE: The camera pipeline runs on NVIDIA Isaac ROS (NITROS): frames are GPU-rectified (`isaac_ros_image_proc`) and the rectified stream is NVENC-encoded to H.264 on `image_rect_h264`, with an optional JPEG stream on `image_rect_compressed` (toggle via the `enable_jpeg` launch arg, which is CPU-bound).
 
+## NITROS lifecycle fork compatibility
+
+The lifecycle fork pinned in `docker/perception.Dockerfile` changes the NITROS
+C++ binary interface, including format callbacks from `rclcpp::Node&` to
+`NitrosNodeInterfaces`. Its core library cannot be combined with NVIDIA's
+prebuilt NITROS type libraries or image processing nodes, even when both report
+version 4.5.0. The Dockerfile therefore also includes source builds of the image,
+camera info, tensor list, and compressed image types, plus the rectifier and
+H.264 encoder, against the same fork.
+
+A mixed build can crash the component container immediately after
+`Successfully allocated 3 CUDA streams`. A debugger backtrace can show the
+fork's `NitrosPublisher::createCompatiblePublisher` calling a packaged
+`NitrosFormatAgent::createCompatiblePublisherCallback(rclcpp::Node&, ...)` in
+`/opt/ros/jazzy/lib/libisaac_ros_nitros_image_type.so`. Rebuild the perception
+image and workspace together when changing the fork; sourcing the workspace
+again does not rebuild these binary dependencies. Lifecycle service timeouts
+after the container exits are a consequence of the crash.
+
 ## Computer specific
 
 The cameras are plugged into a switch that is connected to the main computer.
