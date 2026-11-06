@@ -1,0 +1,78 @@
+# CI-only: export buildkit registry cache to GHCR. Added by
+# watod_scripts/watod-compose.sh only when $CI / $GITHUB_ACTIONS is set,
+# since the default local 'docker' buildx driver cannot export cache and
+# developers generally lack GHCR push access.
+---
+services:
+  infrastructure_source:
+    build:
+      cache_to:
+        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_source,mode=max
+  infrastructure_deps:
+    build:
+      cache_to:
+        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_deps,mode=max
+  infrastructure_bringup:
+    build:
+      cache_to:
+        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_bringup,mode=max
+  interfacing_source:
+    build:
+      cache_to:
+        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_source,mode=max
+  interfacing_deps:
+    build:
+      cache_to:
+        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_deps,mode=max
+  interfacing_bringup:
+    build:
+      cache_to:
+        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_bringup,mode=max
+  perception_source:
+    build:
+      cache_to:
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_source,mode=max
+  perception_deps:
+    build:
+      cache_to:
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_deps,mode=max
+  perception_bringup:
+    build:
+      cache_to:
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_bringup,mode=max
+  world_modeling_source:
+    build:
+      cache_to:
+        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_source,mode=max
+  world_modeling_deps:
+    build:
+      cache_to:
+        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_deps,mode=max
+  world_modeling_bringup:
+    build:
+      cache_to:
+        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_bringup,mode=max
+  action_source:
+    build:
+      cache_to:
+        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_source,mode=max
+  action_deps:
+    build:
+      cache_to:
+        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_deps,mode=max
+  action_bringup:
+    build:
+      cache_to:
+        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_bringup,mode=max
+  simulation_source:
+    build:
+      cache_to:
+        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_source,mode=max
+  simulation_deps:
+    build:
+      cache_to:
+        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_deps,mode=max
+  simulation_bringup:
+    build:
+      cache_to:
+        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_bringup,mode=max
