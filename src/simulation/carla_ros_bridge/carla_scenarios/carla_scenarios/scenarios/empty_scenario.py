@@ -40,7 +40,7 @@ class EmptyScenario(ScenarioBase):
             return False
 
         try:
-            self._load_map("Town10HD")
+            self._load_map("Town10HD_Opt")
 
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:

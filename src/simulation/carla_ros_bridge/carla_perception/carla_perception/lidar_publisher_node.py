@@ -176,7 +176,8 @@ class LidarPublisherNode(LifecycleNode):
             return TransitionCallbackReturn.FAILURE
 
         # Initialize TF
-        self.tf_buffer = Buffer()
+        # Follow simulation time so world reloads clear the previous TF history.
+        self.tf_buffer = Buffer(node=self)
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Load LiDAR configurations and create publishers
@@ -384,9 +385,14 @@ class LidarPublisherNode(LifecycleNode):
         self.ego_vehicle = None
         self.carla_client = None
 
-        # Release TF resources
-        self.tf_listener = None
-        self.tf_buffer = None
+        # Subscriptions retain listeners until explicitly unregistered.
+        if self.tf_listener is not None:
+            self.tf_listener.unregister()
+            self.tf_listener = None
+        if self.tf_buffer is not None:
+            self.tf_buffer.jump_handle.unregister()
+            self.destroy_service(self.tf_buffer.srv)
+            self.tf_buffer = None
 
         self.get_logger().info("Cleanup complete")
         return TransitionCallbackReturn.SUCCESS
