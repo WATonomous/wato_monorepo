@@ -77,6 +77,7 @@
 ## Path to Zenoh session configuration. DEFAULT ="file:///opt/watonomous/rmw_zenoh_session_config.json5"
 # export ZENOH_SESSION_CONFIG_URI=""
 
+
 ## ROS 2 Domain ID for network isolation. DEFAULT = "<your_uid> % 230"
 ## Each user gets a unique domain to prevent cross-talk on shared networks
 # export ROS_DOMAIN_ID=""
