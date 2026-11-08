@@ -134,6 +134,7 @@
 /**/eidos_transform_node:
   ros__parameters:
     tick_rate: 200.0
+    history_window: 5.0  # seconds of global EKF history for replaying delayed measurements
 
     frames:
       odom: "odom"
@@ -162,7 +163,7 @@
          1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1, 1.0e-1,
          1.0e-6, 1.0e-6, 1.0e-6]
 
-    # Odom sources (local EKF only, odom frame)
+    # Odom sources (both EKFs; global EKF skips odom-frame pose and yaw)
     odom_sources:
       - "liso_odom"
       - "imu_raw"

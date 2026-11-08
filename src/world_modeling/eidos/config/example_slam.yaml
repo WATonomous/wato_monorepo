@@ -160,6 +160,7 @@
 /**/eidos_transform_node:
   ros__parameters:
     tick_rate: 200.0
+    history_window: 5.0
     frames:
       odom: "odom"
       base_link: "base_footprint"

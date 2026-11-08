@@ -17,8 +17,21 @@ project(eidos)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Colcon/ament does not pin a build type by default, which left this package built without
+# optimization. The BnB relocalization search (voxel pyramid build, branch-and-bound scoring,
+# GICP polish) is squarely CPU-bound and re-runs its hot loops dozens of times per relocalization
+# attempt, so an unoptimized build directly costs wall-clock time to lock. Default to Release
+# only when the invoker hasn't chosen a build type, so an explicit -DCMAKE_BUILD_TYPE=Debug still
+# wins.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
+  # Do not add -mavx2/-mfma/-march=native here: they raise Eigen's alignment to 32 bytes, which is
+  # ABI-incompatible with the prebuilt ROS GTSAM (16 bytes) and corrupts the heap in
+  # NoiseModelFactor::linearize. Only enable them if GTSAM is rebuilt with the same flags.
 endif()
 
 # ---- Dependencies ----
@@ -87,6 +100,7 @@ add_library(eidos_plugins SHARED
   src/plugins/factors/imu_factor.cpp
   src/plugins/factors/motion_model_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
+  src/plugins/relocalization/bnb_voxel_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
 )
