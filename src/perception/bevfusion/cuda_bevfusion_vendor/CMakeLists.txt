@@ -158,8 +158,9 @@ macro(build_cuda_bevfusion)
     # libbevfusion_core.so has a hard dependency on libspconv.so. The upstream
     # CUDA-BEVFusion repo ships it as a prebuilt library instead of building it,
     # so it must be copied into the install tree alongside the compiled libs.
-    set(_spconv_lib_dir
-        "${CUDA_BEVFUSION_SOURCE_DIR}/libraries/3DSparseConvolution/libspconv/lib/${CMAKE_HOST_SYSTEM_PROCESSOR}_cuda$ENV{SPCONV_CUDA_VERSION}"
+    string(CONCAT _spconv_lib_dir
+        "${CUDA_BEVFUSION_SOURCE_DIR}/libraries/3DSparseConvolution/libspconv/lib/"
+        "${CMAKE_HOST_SYSTEM_PROCESSOR}_cuda$ENV{SPCONV_CUDA_VERSION}"
     )
 
     # Copy files to install folder via custom command (triggered only when source updates)
