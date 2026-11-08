@@ -17,6 +17,11 @@ x-common-settings: &common_settings
   verbose: false
   transport_layer_packet_size: 9156
 
+  # Device clock timestamping (#559). false = stamp with host arrival time (previous behaviour).
+  device_clock_stamp_enable: false
+  device_clock_window_s: 10.0     # offset estimation window; arrival-time stamps for the first window
+  device_clock_latency_ms: 0.0    # constant transfer latency to subtract; calibrate before changing
+
   # Auto-exposure and gain settings
   AcquisitionControl:
     ExposureAuto: "Continuous"

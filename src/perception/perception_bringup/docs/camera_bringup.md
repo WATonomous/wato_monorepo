@@ -52,3 +52,29 @@ To configure permanent settings for cameras, use the MVS tool located at:
 We use [camera_aravis2](https://github.com/FraunhoferIOSB/camera_aravis2) to communicate with Hikrobot cameras throught the GenICam standard interface.
 
 The config file located at perception_bringup/config/MV-CU013-80GC_master_config.mfs can be loaded in the MVS software to ensure camera settings are consistent.
+
+## Timestamps
+
+The Hikrobot cameras do not support PTP. By default, each image is stamped with the time its
+first packet reached the computer, which includes exposure, readout, network and driver delay
+(varies per frame by tens of ms).
+
+With `device_clock_stamp_enable: true` (in `config/hikrobot_camera_config.yaml`), the driver
+instead stamps each image with the camera's internal capture timestamp, mapped onto the computer
+clock per camera using the minimum of `arrival - device` over a sliding window:
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `device_clock_stamp_enable` | `false` | Use the device clock. `false` keeps the arrival-time stamps |
+| `device_clock_window_s` | `10.0` | Offset estimation window. Arrival time is used for the first window after start-up |
+| `device_clock_latency_ms` | `0.0` | Constant transfer latency subtracted from stamps. Calibrate before changing |
+
+When enabled, every camera logs a summary every 5 s:
+
+```text
+(camera_pano_nn) device clock: converged=1 offset=... s (change +0.012 ms) arrival-stamp min/mean/max=7.90/9.40/31.20 ms clamped=0 resets=0 frames=100
+```
+
+`change` should stay well under 1 ms, `arrival-stamp min` must be >= 0, and `clamped` and
+`resets` should be 0. To measure stamp jitter for all cameras, run
+`camera_aravis2/scripts/stamp_jitter.py` from the `camera_aravis2_nitros` repository.
