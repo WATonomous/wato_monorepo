@@ -27,6 +27,7 @@ This document divides the nuScenes training exercise into three sub-tasks. It de
 8. [Sub-task 3: Evaluation, export and deployment](#sub-task-3-evaluation-export-and-deployment)
 9. [WATcloud reference](#watcloud-reference)
 10. [Sources](#sources)
+11. [Status: Nov 7, 2026](#status-nov-7-2026)
 
 ---
 
@@ -528,3 +529,50 @@ Export and deployment:
 Cluster:
 
 - [WATcloud SLURM](https://cloud.watonomous.ca/docs/compute-cluster/slurm), [SSH](https://cloud.watonomous.ca/docs/compute-cluster/ssh), [quotas](https://cloud.watonomous.ca/docs/compute-cluster/quotas).
+
+---
+
+## Status: Nov 7, 2026
+
+This section records what is on cluster storage, what has been checked, and what still blocks run F0. The data paths below are the real ones on `/mnt/wato-drive2`. Where they differ from the `$NUSC_ROOT/v1.0-mini` and `$NUSC_ROOT/full` paths used in the steps above, these take precedence.
+
+### Done
+
+| Item | State |
+| --- | --- |
+| Images | `bevfusion:upstream` and `wato-bevfusion-train:latest` are built. Their tars are in `$SHARED` (`/mnt/wato-drive2/bevfusion_training_image/`). |
+| Published weights (step 1.3) | `$SHARED/cuda-bevfusion-model/model/` holds `resnet50/`, `resnet50int8/` and `swint/`, including `resnet50/bevfusion-det.pth`. The drive copy has no `configs/` folder. This is expected: the ResNet-50 configs ship in the fork at `CUDA-BEVFusion/configs/` (`resnet50/convfuser.yaml` and `default.yaml` are present on `main`), and `setup_container.sh` copies them from there. |
+| Fork submodule | `CUDA-BEVFusion/bevfusion` is at `db75150` on the fork's `main`. The fork itself is still unpinned (see the warning at the top). |
+| `$RUNS` | `$SHARED/runs/` exists and is empty. |
+| `env.sh` | `NUSC_DIR` now defaults to `$SHARED/nuscenes-mini`, the folder built by `link_nuscenes.sh`, instead of the raw mini copy. The header comment's `SHARED` default now matches the code (`/mnt/wato-drive2/bevfusion_training_image`). |
+| Mini root | `link_nuscenes.sh mini $SHARED/nuscenes-mini` has been run. It holds links to the raw `samples/`, `sweeps/` and metadata (as `v1.0-mini/`), links to the 4 map PNGs, and the unzipped map expansion v1.3 (`maps/expansion/`, plus the unused `basemap/` and `prediction/`). |
+| Full dataset | Checked complete (see below). |
+| Training tools | `train_frozen.py`, `train.sh` and `strip_head.py` reviewed. Replacing `train_model` takes effect because upstream `main()` looks it up at call time. The BatchNorm override survives the `model.train()` call at each epoch. Misspelled `TRAINABLE` names fail early. |
+
+### Outstanding
+
+- [ ] **`slurm/job.sbatch` does not exist.** Every `sbatch slurm/job.sbatch …` command above depends on it, as does passing `SHARED`, `NUSC_DIR` and `INIT_CKPT` into the container. Until it exists, run by hand in an `srun` session: `slurm-start-dockerd.sh`, `docker load`, then `docker run` with `-v /mnt/wato-drive2:/mnt/wato-drive2` and the monorepo at `/workspace`. The drive must be mounted at the same path, because the dataset roots are absolute symlinks into it.
+- [ ] Mini info files (step 2.2): run `setup_container.sh` then `prepare_data.sh mini` in the container. Expect train 323 / val 81.
+- [ ] Full root: `link_nuscenes.sh full $SHARED/nuscenes-full`, then `prepare_data.sh full` with `NUSC_DIR=$SHARED/nuscenes-full` (step 2.6). Expect train 28,130 / val 6,019. Needed for Gate G1, F1 and F2, not for F0.
+- [ ] Head-stripped checkpoint `$SHARED/bevfusion-det-nohead.pth` (step 2.4). Needed for F2 and F3 only.
+- [ ] `training/README.md` (step 1.7), with the storage paths and the fork commit each image was built from.
+- [ ] The image tars in `$SHARED` are mode `600`. Run `chmod 644` on them so teammates can `docker load` them.
+
+### nuScenes copies on wato-drive2
+
+Two copies exist. Both have the same layout, the same 12 sensors (6 cameras, 1 LiDAR, 5 radars) and the same 4 base map PNGs. Neither includes the map expansion. That is a separate zip in `wato-datasets/nuscenes/map-expansion/`, which `link_nuscenes.sh` unzips into each root.
+
+| | **Mini** | **Full** |
+| --- | --- | --- |
+| Raw path | `/mnt/wato-drive2/nuscenes-1.0-mini` | `/mnt/wato-drive2/wato-datasets/nuscenes/full-dataset` |
+| Root built by `link_nuscenes.sh` | `$SHARED/nuscenes-mini` (built) | `$SHARED/nuscenes-full` (not yet built) |
+| Scenes | 10 | 850 trainval + 150 test |
+| Keyframe samples per sensor | 404 | 34,149 trainval + 6,008 test = 40,157 |
+| LiDAR sweeps | Not counted | 297,737 |
+| Metadata folders | One, misnamed `v1.0-trainval/`. It holds the mini scenes and is linked as `v1.0-mini/`. | `v1.0-trainval/` and `v1.0-test/` |
+| Test split | None | Present but unlabeled (`instance.json` and `sample_annotation.json` are empty). Linked only because `create_data.py --version v1.0` processes it after trainval. Not used for training or evaluation. |
+| Train / val after `prepare_data.sh` | 323 / 81 | 28,130 / 6,019 |
+| Used for | F0 smoke test. Scores on mini say nothing about accuracy. | Gate G1, F1, F2, F3. G1 is only comparable to 67.93 mAP on the 6,019 val samples. |
+| Leftover files | The original archive (`data.tgz`, 4 GB) | The original download archives (about 30 GB per trainval part, 57 GB for test), plus `extract.sh` |
+
+Both raw folders also contain `.pkl` info files and a `gt_database_10sweeps_withvelo/` from an earlier OpenPCDet setup. BEVFusion cannot use them. `prepare_data.sh` writes its own into the linked root, never into the raw folders. Do not point `NUSC_DIR` at a raw folder: the mini one is world-writable, so `create_data.py` would write into the shared dataset.
