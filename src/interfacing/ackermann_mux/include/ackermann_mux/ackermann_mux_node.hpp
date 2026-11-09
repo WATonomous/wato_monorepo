@@ -15,12 +15,14 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include <ackermann_msgs/msg/ackermann_drive.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 #include "ackermann_mux/input_handle.hpp"
 
@@ -99,17 +101,58 @@ private:
    */
   void ackerman_cmd_callback();
 
+  /**
+   * @brief Callback for the fault-collector-driven emergency stop signal.
+   * @param msg Latched Bool published by fault_collector's emergency_stop topic.
+   */
+  void fault_estop_callback(const std_msgs::msg::Bool::ConstSharedPtr msg);
+
+  /**
+   * @brief Determines whether the fault-driven emergency stop is currently asserted.
+   *
+   * This is a hard override on top of priority arbitration and safety gating: if it
+   * returns true, the mux publishes emergency (or a bypass input's command -- see
+   * ackerman_cmd_callback()) instead of running normal arbitration. Returns false when
+   * `fault_estop.enabled` is false. When enabled, treats a signal that has gone stale for
+   * longer than `fault_estop.timeout_s` (if > 0) as asserted -- fail-safe on losing the
+   * fault collector.
+   *
+   * @param now Current ROS time, used to check staleness.
+   * @return True if the fault-driven emergency stop is currently asserted.
+   */
+  bool is_fault_estop_asserted(const rclcpp::Time & now) const;
+
+  /**
+   * @brief Selects the highest-priority eligible input that is allowed to bypass the fault
+   * emergency stop (see `fault_estop.bypass_inputs`), so the operator is never locked out.
+   * @return The winning bypass input, or nullptr if none is currently eligible.
+   */
+  std::shared_ptr<InputHandle> select_fault_estop_bypass_input() const;
+
   // Params
   double safety_threshold_{};  ///< Max age (seconds) before a command is considered stale.
   double publish_rate_hz_{};  ///< Rate at which to publish output commands.
   ackermann_msgs::msg::AckermannDriveStamped emergency_{};  ///< Emergency stop command.
 
+  bool fault_estop_enabled_{false};  ///< Whether to subscribe to a fault-collector emergency stop signal.
+  std::string fault_estop_topic_;  ///< Topic for the fault-collector emergency stop signal.
+  double fault_estop_timeout_s_{0.0};  ///< Staleness timeout (s); 0.0 disables staleness checking.
+  std::vector<std::string> fault_estop_bypass_inputs_;  ///< Input names allowed to bypass the fault estop.
+
   // IO
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr pub_out_;  ///< Output publisher.
   rclcpp::TimerBase::SharedPtr timer_;  ///< Periodic timer for command selection.
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr fault_estop_sub_;  ///< Fault-collector emergency stop input.
 
   // Input handles --dynamic array
   std::vector<std::shared_ptr<InputHandle>> inputs_;  ///< List of input handles.
+
+  // Cached fault-estop state. The node is single-threaded via the timer, but this is
+  // guarded like InputHandle's cached state for consistency and safety.
+  mutable std::mutex fault_estop_mtx_;
+  bool fault_estop_value_{false};  ///< Most recently received emergency stop value.
+  bool has_fault_estop_msg_{false};  ///< Whether any emergency stop message has been received yet.
+  rclcpp::Time last_fault_estop_time_{0, 0, RCL_ROS_TIME};  ///< Time of the last emergency stop message.
 };
 
 }  // namespace ackermann_mux

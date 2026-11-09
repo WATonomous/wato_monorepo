@@ -21,6 +21,8 @@
   <exec_depend>ackermann_pure_pursuit</exec_depend>
   <exec_depend>mpc_controller</exec_depend>
   <exec_depend>wato_lifecycle_manager</exec_depend>
+  <exec_depend>fault_collector</exec_depend>
+  <exec_depend>wato_fault_msgs</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

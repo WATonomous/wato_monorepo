@@ -1,0 +1,20 @@
+launch:
+  - arg:
+      name: "fault_collector_config_file"
+      default: "$(find-pkg-share fault_collector)/config/fault_collector_config.yaml"
+      description: "Path to the fault collector configuration file"
+
+  - node:
+      pkg: "fault_collector"
+      exec: "fault_collector_node"
+      name: "fault_collector"
+      output: "screen"
+      param:
+        - from: "$(var fault_collector_config_file)"
+      remap:
+        - from: "faults"
+          to: "/faults"
+        - from: "emergency_stop"
+          to: "/faults/emergency_stop"
+        - from: "autonomy_disarm"
+          to: "/faults/autonomy_disarm"

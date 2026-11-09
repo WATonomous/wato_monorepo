@@ -39,6 +39,11 @@ struct InputConfig
   std::string mask_topic;  ///< Topic for masking this input (Bool message).
 
   bool safety_gating{false};  ///< If true, triggers emergency stop on timeout.
+
+  /// If true, this input remains selectable while the fault-collector emergency stop
+  /// (fault_estop) is asserted. Lets the operator (typically the joystick) retain control
+  /// instead of being locked out by a fault-driven brake. Set from fault_estop.bypass_inputs.
+  bool bypasses_fault_estop{false};
 };
 
 /**
