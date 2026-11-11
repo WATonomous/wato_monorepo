@@ -1,7 +1,7 @@
 FROM ros:jazzy-ros-base
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates python3-venv python3-yaml python3-colcon-common-extensions libvulkan1 libegl1 libgl1 \
+    curl ca-certificates git python3-venv python3-yaml python3-colcon-common-extensions libvulkan1 libegl1 libgl1 \
     ros-jazzy-ackermann-msgs ros-jazzy-nav-msgs ros-jazzy-geometry-msgs \
     ros-jazzy-rosgraph-msgs ros-jazzy-tf2-ros ros-jazzy-vision-msgs \
     ros-jazzy-rmw-cyclonedds-cpp && rm -rf /var/lib/apt/lists/*

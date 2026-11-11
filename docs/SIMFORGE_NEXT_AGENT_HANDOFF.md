@@ -19,7 +19,7 @@ Implemented:
 - Collision/duration/travel scorer with JSON and JUnit output. Diagnostic, unavailable-event, truncated, nonfinite-threshold and stationary cases cannot masquerade as a passing driving test.
 - Launch generation from the actual repository launch files, with command/detection remaps, one simulation-time setting per node, ground-truth localization and combined launch copy.
 - Fresh-process suite orchestration, stage liveness monitoring, timeouts, process-group cleanup, optional explicit container cleanup, and incremental suite results.
-- Provenance collector for source status, dependencies, scenario file digests, image identity and installed CLI inspection output.
+- Provenance collector for source status, dependencies, scenario file digests, image identity and installed CLI inspection output. The adapter image includes Git so source provenance can be captured from its mounted checkout.
 
 No fabricated map, runtime field indices, coordinate semantics, actor truth, command authority, obstacle cloud or pipeline barrier was added. Those require runtime inspection and experiments. All contract review flags remain false.
 
