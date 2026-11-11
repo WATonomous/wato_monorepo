@@ -1,0 +1,20 @@
+# Copy to .github/workflows only after reviewing the local suite and runner.
+name: SimForge prototype
+on:
+  workflow_dispatch:
+jobs:
+  prototype:
+    runs-on: [self-hosted, linux, x64, simforge]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated adapter
+        run: bash watod_scripts/simforge/sf build
+      - name: Check adapter contracts
+        run: bash watod_scripts/simforge/sf run python -m pytest /repo/src/simulation/sim_forge/test -q
+      - name: Run reviewed suite
+        run: bash watod_scripts/simforge/sf run python /repo/watod_scripts/simforge/run_suite.py /repo/.simforge/suite.json --out /repo/.simforge/results/ci_${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simforge_evidence
+          path: .simforge/results

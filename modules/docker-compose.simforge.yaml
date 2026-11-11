@@ -1,0 +1,19 @@
+services:
+  simforge:
+    build:
+      context: ..
+      dockerfile: docker/simforge.Dockerfile
+      args:
+        TASK_UID: ${SIMFORGE_UID:-1000}
+        TASK_GID: ${SIMFORGE_GID:-1000}
+    init: true
+    network_mode: host
+    environment:
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-183}
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      SIMFORGE_RUNTIME_ROOT: /home/simforge/.local/share/simforge/runtime
+      SIMFORGE_MAPS_CACHE_ROOT: /home/simforge/.local/share/simforge/maps
+    volumes:
+      - ..:/repo
+      - ../.simforge/home:/home/simforge
+      - ../.simforge/run:/run/simforge

@@ -1,0 +1,12 @@
+{
+  "reviewed": false,
+  "cases": [{
+    "name": "reviewed_lead_brake_seed_7",
+    "socket": "/run/simforge/case_000.sock",
+    "wall_timeout_s": 300,
+    "server_argv": ["simforge", "env", "serve", "/repo/.simforge/workspaces/lead_brake_wato", "--socket", "/run/simforge/case_000.sock", "--no-sensors", "--max-sessions", "1"],
+    "stack_argv": ["ros2", "launch", "/repo/.simforge/launch/combined_simforge.launch.py"],
+    "bridge_argv": ["ros2", "run", "sim_forge", "simforge_ros_bridge", "--socket", "/run/simforge/case_000.sock", "--contract", "/repo/.simforge/contract.json", "--out", "{out}", "--seed", "7", "--steps", "200", "--controller-kind", "wato", "--publish-actors"],
+    "score_argv": ["ros2", "run", "sim_forge", "simforge_score", "{out}", "--collision-kind", "REPLACE_WITH_VERIFIED_EVENT_KIND", "--minimum-duration", "10", "--minimum-travel", "2"]
+  }]
+}

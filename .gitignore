@@ -22,3 +22,6 @@ external/
 weights/
 models/
 maps/
+
+# Local SimForge credentials, assets, sockets and run evidence
+.simforge/

@@ -1,0 +1,4 @@
+include package.xml
+include resource/sim_forge
+include config/*.json
+include requirements.txt

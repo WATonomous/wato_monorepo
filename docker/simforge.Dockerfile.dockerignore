@@ -1,0 +1,11 @@
+# Keep credentials, downloaded runtime, and unrelated monorepo data out of this build.
+**
+!src/
+!src/simulation/
+!src/simulation/sim_forge/
+!src/simulation/sim_forge/**
+!watod_scripts/
+!watod_scripts/simforge/
+!watod_scripts/simforge/container_entrypoint.sh
+**/__pycache__
+**/.DS_Store

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo_dir"
+mkdir -p .simforge/home .simforge/run .simforge/results .simforge/workspaces
+export SIMFORGE_UID="$(id -u)"
+export SIMFORGE_GID="$(id -g)"
+compose=(docker compose -p wato_simforge -f modules/docker-compose.simforge.yaml)
+action="${1:-help}"
+if (($#)); then shift; fi
+case "$action" in
+  build) "${compose[@]}" build simforge ;;
+  run) "${compose[@]}" run --rm simforge "$@" ;;
+  *) printf '%s\n' 'Usage: bash watod_scripts/simforge/sf build' '       bash watod_scripts/simforge/sf run COMMAND [ARGS...]'; exit 2 ;;
+esac
