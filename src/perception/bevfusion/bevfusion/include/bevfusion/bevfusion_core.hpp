@@ -17,6 +17,7 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -84,7 +85,42 @@ struct BEVFusionInputConfig
   std::vector<float> post_center_range_end = {61.2f, 61.2f, 10.0f};  // BBox center filter upper boundary [X, Y, Z]
   float confidence_threshold = 0.3f;  // Detection score threshold (detections below this score are discarded)
   bool sorted_bboxes = true;  // True to sort bounding boxes descending by confidence score
+
+  // --- BEV Map Segmentation ---
+  bool seg_enabled = false;  // True to produce a BEV segmentation map alongside detections
+  int seg_num_classes = 6;  // Number of map classes (6 for the nuScenes map classes)
 };
+
+/**
+ * @brief Top-down segmentation map around the LiDAR, one binary mask per class.
+ *
+ * Grid convention (LiDAR frame, x forward, y left):
+ *   - row indexes x, col indexes y
+ *   - pixel (row, col) covers x in [origin_x + row * resolution, origin_x + (row + 1) * resolution),
+ *     and likewise for y with col
+ *   - masks[c * height * width + row * width + col] is 1 if class c is present, else 0
+ */
+struct SegMap
+{
+  int num_classes = 0;
+  int height = 0;  // rows (x direction)
+  int width = 0;  // cols (y direction)
+  float resolution = 0.0f;  // meters per pixel
+  float origin_x = 0.0f;  // LiDAR-frame x of the min corner of pixel (0, 0), meters
+  float origin_y = 0.0f;  // LiDAR-frame y of the min corner of pixel (0, 0), meters
+  std::vector<uint8_t> masks;
+};
+
+/**
+ * @brief Build a placeholder SegMap with a known asymmetric pattern, used until the CUDA seg head is available.
+ *
+ * Uses the expected nuScenes map grid (200x200, 0.5 m, centered on the LiDAR). Class 0 (drivable_area) is a
+ * corridor only in front of the vehicle, and the last class (divider) is a line only on its left side, so a
+ * flipped or rotated map is obvious in Foxglove.
+ * @param num_classes Number of class masks to allocate
+ * @return Placeholder segmentation map
+ */
+SegMap makePlaceholderSegMap(int num_classes);
 
 /**
  * @brief 3D position of the bounding box
@@ -185,6 +221,13 @@ public:
     const std::vector<float> & img_aug_matrix);
 
   /**
+   * @brief Segmentation map from the most recent infer() call.
+   * @return The latest SegMap; empty (num_classes == 0) if seg is disabled or infer() has not produced one
+   * @note Currently returns makePlaceholderSegMap() output until the CUDA seg head lands in wato-cuda-bevfusion.
+   */
+  const SegMap & getSegMap() const;
+
+  /**
    * @brief Check if the core is initialized
    * @return true if initialized, false otherwise
    */
@@ -229,6 +272,9 @@ private:
   // Pre-allocated FP16 buffer for lidar point conversion (CPU side).
   // Reused across inference calls to avoid per-frame heap allocation.
   std::vector<__half> lidar_half_buf_;
+
+  // Latest segmentation map, filled by infer() when config_.seg_enabled is true.
+  SegMap seg_map_;
 };
 
 }  // namespace wato::perception::bevfusion

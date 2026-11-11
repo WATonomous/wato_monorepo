@@ -129,6 +129,13 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
   this->declare_parameter<bool>("sorted_bboxes", true);
 
+  // BEV map segmentation parameters
+  this->declare_parameter<bool>("seg_enabled", false);
+  this->declare_parameter<std::vector<std::string>>(
+    "seg_class_names",
+    std::vector<std::string>{"drivable_area", "ped_crossing", "walkway", "stop_line", "carpark_area", "divider"});
+  this->declare_parameter<std::string>("seg_topic_prefix", "/perception/bev_seg");
+
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
   target_frame_ = this->get_parameter("target_frame").as_string();
   use_raw_images_ = this->get_parameter("use_raw_images").as_bool();
@@ -211,6 +218,12 @@ void BEVFusionNode::declareParameters()
   config_.transbbox_voxel_size = to_float_vec("transbbox_voxel_size");
   config_.sorted_bboxes = this->get_parameter("sorted_bboxes").as_bool();
 
+  seg_enabled_ = this->get_parameter("seg_enabled").as_bool();
+  seg_class_names_ = this->get_parameter("seg_class_names").as_string_array();
+  seg_topic_prefix_ = this->get_parameter("seg_topic_prefix").as_string();
+  config_.seg_enabled = seg_enabled_;
+  config_.seg_num_classes = static_cast<int>(seg_class_names_.size());
+
   core_ = std::make_unique<BEVFusionCore>(config_);
 }
 
@@ -290,6 +303,9 @@ void BEVFusionNode::processFrame(
   auto markers = createMarkers(detections_3d);
   detection_pub_->publish(detections_3d);
   marker_pub_->publish(markers);
+  if (seg_enabled_) {
+    publishSegMap(header.stamp);
+  }
   const auto t_after_postproc = std::chrono::steady_clock::now();
 
   // Calculate stage durations in milliseconds
@@ -890,6 +906,62 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
   return marker_array;
 }
 
+nav_msgs::msg::OccupancyGrid BEVFusionNode::createOccupancyGrid(
+  const SegMap & seg_map, int class_index, const builtin_interfaces::msg::Time & stamp) const
+{
+  nav_msgs::msg::OccupancyGrid grid;
+  grid.header.stamp = stamp;
+  grid.header.frame_id = lidar_frame_id_;
+  const size_t plane = static_cast<size_t>(seg_map.height) * seg_map.width;
+  if (
+    class_index < 0 || class_index >= seg_map.num_classes ||
+    seg_map.masks.size() < static_cast<size_t>(class_index + 1) * plane)
+  {
+    return grid;
+  }
+
+  // OccupancyGrid: width runs along x, height along y, data[y * width + x].
+  // SegMap: rows run along x, cols along y, so grid width = SegMap rows (transpose).
+  grid.info.map_load_time = stamp;
+  grid.info.resolution = seg_map.resolution;
+  grid.info.width = static_cast<uint32_t>(seg_map.height);
+  grid.info.height = static_cast<uint32_t>(seg_map.width);
+  grid.info.origin.position.x = seg_map.origin_x;
+  grid.info.origin.position.y = seg_map.origin_y;
+  grid.info.origin.orientation.w = 1.0;
+
+  const uint8_t * mask = seg_map.masks.data() + static_cast<size_t>(class_index) * plane;
+  grid.data.resize(plane);
+  for (int row = 0; row < seg_map.height; ++row) {
+    for (int col = 0; col < seg_map.width; ++col) {
+      grid.data[static_cast<size_t>(col) * seg_map.height + row] =
+        mask[static_cast<size_t>(row) * seg_map.width + col] ? 100 : 0;
+    }
+  }
+  return grid;
+}
+
+void BEVFusionNode::publishSegMap(const builtin_interfaces::msg::Time & stamp)
+{
+  const SegMap & seg_map = core_->getSegMap();
+  if (seg_map.num_classes == 0) {
+    return;
+  }
+  if (seg_map.num_classes != static_cast<int>(seg_pubs_.size())) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "SegMap has %d classes but %zu seg_class_names are configured; skipping seg publish",
+      seg_map.num_classes,
+      seg_pubs_.size());
+    return;
+  }
+  for (size_t i = 0; i < seg_pubs_.size(); ++i) {
+    seg_pubs_[i]->publish(createOccupancyGrid(seg_map, static_cast<int>(i), stamp));
+  }
+}
+
 cv::Mat BEVFusionNode::decompressImage(const sensor_msgs::msg::CompressedImage & compressed_img) const
 {
   try {
@@ -1185,6 +1257,16 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       marker_pub_->on_activate();
     }
 
+    seg_pubs_.clear();
+    if (seg_enabled_) {
+      for (const auto & class_name : seg_class_names_) {
+        auto pub =
+          this->create_publisher<nav_msgs::msg::OccupancyGrid>(seg_topic_prefix_ + "/" + class_name, publisher_qos_);
+        pub->on_activate();
+        seg_pubs_.push_back(pub);
+      }
+    }
+
     if (diagnostic_updater_ && detection_pub_) {
       pub_diagnostic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
         kOutputDetectionsTopic,
@@ -1220,6 +1302,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
     RCLCPP_INFO(this->get_logger(), "  - 3D Detections: '%s'", detection_pub_->get_topic_name());
     RCLCPP_INFO(this->get_logger(), "  - Markers: '%s'", marker_pub_->get_topic_name());
+    for (const auto & pub : seg_pubs_) {
+      RCLCPP_INFO(this->get_logger(), "  - Seg map: '%s'", pub->get_topic_name());
+    }
     RCLCPP_INFO(
       this->get_logger(),
       "[SYNC] ApproximateTime sync (queue=%d, max=%.3fs)",
@@ -1244,6 +1329,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   }
   if (marker_pub_) {
     marker_pub_->on_deactivate();
+  }
+  for (const auto & pub : seg_pubs_) {
+    pub->on_deactivate();
   }
 
   raw_sync_.reset();
@@ -1279,6 +1367,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
   detection_pub_.reset();
   marker_pub_.reset();
+  seg_pubs_.clear();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
   tf_listener_.reset();
@@ -1326,6 +1415,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   calibration_initialized_ = false;
   detection_pub_.reset();
   marker_pub_.reset();
+  seg_pubs_.clear();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
   tf_listener_.reset();
