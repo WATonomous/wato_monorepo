@@ -5,8 +5,10 @@ Usage (from $BF): TRAINABLE=heads.object torchpack dist-run -np 1 \
 """
 import importlib.util
 import os
+import time
 
 import torch
+from mmdet3d.datasets.custom_3d import Custom3DDataset
 
 spec = importlib.util.spec_from_file_location("bf_train", os.path.join(os.environ["BF"], "tools/train.py"))
 bf_train = importlib.util.module_from_spec(spec)
@@ -42,6 +44,26 @@ def train_model(model, *args, **kwargs):
 
 
 bf_train.train_model = train_model
+
+# nuScenes is read from NFS (wato-drive2), which can briefly return "Stale file handle" (errno 116).
+# One failed read in a dataloader worker otherwise kills a multi-hour run, so reload the sample.
+LOAD_RETRIES = 5
+upstream_getitem = Custom3DDataset.__getitem__
+
+
+def getitem_with_retry(self, idx):
+    for attempt in range(1, LOAD_RETRIES + 1):
+        try:
+            return upstream_getitem(self, idx)
+        except OSError as e:
+            if attempt == LOAD_RETRIES:
+                raise
+            print(f"train_frozen: OSError loading sample {idx} (attempt {attempt}/{LOAD_RETRIES}): {e}",
+                  flush=True)
+            time.sleep(10 * attempt)
+
+
+Custom3DDataset.__getitem__ = getitem_with_retry
 
 if __name__ == "__main__":
     bf_train.main()
