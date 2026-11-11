@@ -1,6 +1,6 @@
 # BEVFusion Training: Work Split
 
-Nov 4, 2026 · @Shourrya
+Nov 4, 2026 · @Shourrya and Claude Opus 5.5 medium
 
 This document divides the nuScenes training exercise into three sub-tasks. It defines the scope of each sub-task, the interfaces between them, and the criteria for completion. Script contents and background on the full training recipe are in **[BEVFusion nuScenes Training Exercise: Pipeline and Code](./BEVFusion%20nuScenes%20Training%20Exercise%20Pipeline%20and%20Code.md)**. Where the two documents differ, this one takes precedence on scope and code location.
 

@@ -1,6 +1,6 @@
 # BEVFusion nuScenes Training Exercise: Pipeline and Code
 
-Oct 23, 2026 · @Shourrya
+Oct 23, 2026 · @Shourrya and Claude Opus 5.5 medium
 
 ## Goal
 
