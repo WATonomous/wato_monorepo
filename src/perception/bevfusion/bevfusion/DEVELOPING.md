@@ -67,8 +67,11 @@ graph TD
 * **`syncedRawCallback(multi_image_msg, lidar_msg)`**
   * **Purpose:** Main driver when `use_raw_images` is `true`. Subscribes to `input_multi_image_raw_topic` (`deep_msgs/msg/MultiImage`).
   * **Flow:** Reorders camera frames to match `camera_names_`, wraps raw pixel buffers into `cv::Mat` instances without CPU decompression overhead (0 ms decode time, leveraging ROS 2 zero-copy intra-process transport), converts encoding to RGB, and passes the images to `processFrame(...)`.
+* **`nitrosImageCallback(camera_idx, image_view)`** and **`nitrosLidarCallback(lidar_msg)`**
+  * **Purpose:** Main drivers while the cameras are running (`use_nitros_images` is `true`). One NITROS subscriber per entry in `camera_names` reads `/<camera_name>/image_rect` (RGB8, already in GPU memory).
+  * **Flow:** `nitrosImageCallback` keeps the newest image from each camera. `nitrosLidarCallback` runs on every LiDAR scan, accepts the frame only if every camera has an image within `sync_max_time_diff_ms` of the scan, and passes the GPU buffers to `runInference(...)`. While it is handling frames, the two synced callbacks above return immediately.
 * **`processFrame(rgb_images, lidar_msg, header, t_start)`**
-  * **Purpose:** The centralized execution pipeline invoked by both synced callbacks.
+  * **Purpose:** Image validation for the two synced callbacks, followed by `runInference(...)`, the execution pipeline shared with the NITROS path.
   * **Steps:**
 
         1. Checks core and calibration readiness.

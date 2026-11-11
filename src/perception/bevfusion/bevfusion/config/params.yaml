@@ -8,6 +8,7 @@ bevfusion_node:
     # Input topics for message filters (remapping does not work for message_filters)
     use_raw_images: false  # true: subscribe to /multi_camera_sync/multi_image_raw; false: subscribe to /multi_camera_sync/multi_image_compressed
     input_multi_image_raw_topic: "/multi_camera_sync/multi_image_raw"  # Batched raw images (deep_msgs/msg/MultiImage)
+    use_nitros_images: true  # Use per-camera NITROS (GPU) images on /<camera_name>/image_rect whenever they are published; the batched topics are used otherwise (e.g. bag replay)
     input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
     input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
