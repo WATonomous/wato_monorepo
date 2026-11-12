@@ -346,3 +346,62 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Track velocity is in metres p
   REQUIRE_THAT(velocity->pose.pose.position.x, Catch::Matchers::WithinAbs(10.0, 1.0));
   REQUIRE_THAT(velocity->pose.pose.position.y, Catch::Matchers::WithinAbs(0.0, 1.0));
 }
+
+// Test 6: a box yaw that flips by pi between frames does not flip the track heading
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Track heading ignores box yaw flips", "[ros]")
+{
+  // Car A drives +x at 10 m/s but its first box faces backwards; car B is parked facing +x.
+  // Both box yaws alternate by pi every frame, and car B is missed in frame 4.
+  const float pi = static_cast<float>(M_PI);
+  std::vector<std::vector<std::array<float, 8>>> vdet_info;
+  std::vector<std::vector<std::string>> vclass_ids;
+  for (int i = 0; i < 12; ++i) {
+    const float flip = (i % 2) ? pi : 0.0f;
+    vdet_info.push_back({{static_cast<float>(i), 0.0f, 0.0f, pi - flip, 4.0f, 2.0f, 1.5f, 0.9f}});
+    vclass_ids.push_back({"car"});
+    if (i != 4) {
+      vdet_info.back().push_back({0.0f, 20.0f, 0.0f, flip, 4.0f, 2.0f, 1.5f, 0.9f});
+      vclass_ids.back().push_back("car");
+    }
+  }
+  std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
+
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions());
+  add_node(node);
+  auto test_pub =
+    std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kDetectionsTopic);
+  auto test_sub =
+    std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kTracksTopic);
+  add_node(test_pub);
+  add_node(test_sub);
+
+  auto tf_broadcaster_node = std::make_shared<rclcpp::Node>("tf_broadcaster");
+  auto static_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(tf_broadcaster_node);
+  geometry_msgs::msg::TransformStamped map_to_base;
+  map_to_base.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  map_to_base.header.frame_id = "map";
+  map_to_base.child_frame_id = "base_link";
+  map_to_base.transform.rotation.w = 1.0;
+  static_broadcaster->sendTransform(map_to_base);
+  add_node(tf_broadcaster_node);
+
+  node->configure();
+  node->activate();
+  start_spinning();
+
+  for (size_t i = 0; i < msgs.size(); ++i) {
+    auto future = test_sub->expect_next_message();
+    test_pub->publish(msgs[i]);
+    REQUIRE(future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready);
+    const auto trks = future.get();
+    REQUIRE(trks.detections.size() == vdet_info[i].size());
+    for (const auto & trk : trks.detections) {
+      const double cos_yaw = std::cos(tf2::getYaw(trk.bbox.center.orientation));
+      if (trk.bbox.center.position.y > 10.0) {
+        REQUIRE(cos_yaw > 0.99);  // parked: keeps its first heading, also after the miss
+      } else if (i >= 8) {
+        REQUIRE(cos_yaw > 0.99);  // moving: faces its velocity once its velocity is significant
+      }
+    }
+  }
+}
