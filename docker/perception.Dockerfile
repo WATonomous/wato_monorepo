@@ -1,27 +1,14 @@
 ARG BASE_IMAGE=ghcr.io/watonomous/wato_monorepo/base:cuda12.8.1-cudnn-runtime-ubuntu24.04
 
-################################ Source ################################
-# NOTE: You should add in the source stage in the following order:
-#   - clone git repositories -> copy source code
-# This will make your builds significantly faster
-FROM ${BASE_IMAGE} AS source
+######################## Pinned Isaac ROS Sources ########################
+FROM ${BASE_IMAGE} AS isaac_ros_source
 
-WORKDIR ${AMENT_WS}/src
+WORKDIR /opt/isaac_ros_ws/src
 
-# git-lfs must be installed here since wato-cuda-bevfusion uses LFS
+# NITROS includes GXF libraries stored in Git LFS.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git-lfs && \
     rm -rf /var/lib/apt/lists/*
-
-# Clone required repositories.
-# Add COLCON_IGNORE to wato-cuda-bevfusion so colcon doesn't pick up the
-# upstream CUDA-BEVFusion package.xml as a duplicate to our own bevfusion pkg.
-RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
-    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
-    git clone --recurse-submodules https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
-    touch wato-cuda-bevfusion/COLCON_IGNORE && \
-    git -C wato-cuda-bevfusion lfs install && \
-    git -C wato-cuda-bevfusion lfs pull
 
 # The lifecycle fork changes the NITROS C++ ABI. Build the camera pipeline's
 # types and nodes against it too; release 4.5 binaries expect rclcpp::Node&
@@ -51,17 +38,6 @@ RUN R=/tmp/isaac_ros_compression && \
     mkdir isaac_ros_compression && \
     mv $R/isaac_ros_h264_encoder $R/codec isaac_ros_compression/ && \
     rm -rf $R
-
-COPY src/perception perception
-
-COPY src/world_modeling/world_model_msgs world_model_msgs
-COPY src/world_modeling/lanelet_msgs lanelet_msgs
-
-COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
-COPY src/interfacing/calibration/camera_calib camera_calib
-COPY src/interfacing/sensor_interfacing sensor_interfacing
-
-COPY src/wato_test wato_test
 
 ################################# Dependencies ################################
 # NOTE: You should be relying on ROSDEP as much as possible
@@ -102,5 +78,55 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ros-jazzy-isaac-ros-nitros \
       ros-jazzy-isaac-ros-image-proc \
-      ros-jazzy-isaac-ros-h264-encoder && \
+      ros-jazzy-isaac-ros-h264-encoder \
+      libnvvpi4 vpi4-dev cvcuda0-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Build the pinned lifecycle fork and its ABI-dependent camera pipeline once.
+# Keep their sources/build outputs outside /ws so ordinary development builds
+# only discover application packages. Both source and template images reuse
+# this installation, independent of changes to application sources.
+# NVIDIA's VPI/CV-CUDA keys are installed above; the CUDA toolkit comes with
+# the Isaac ROS binary dependencies. These keys are absent from stock rosdep.
+ENV ISAAC_ROS_INSTALL=/opt/watonomous/isaac_ros
+COPY --from=isaac_ros_source /opt/isaac_ros_ws/src /opt/isaac_ros_ws/src
+WORKDIR /opt/isaac_ros_ws
+RUN source "/opt/ros/${ROS_DISTRO}/setup.bash" && \
+    apt-get update && \
+    rosdep install --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" -y \
+      --dependency-types build --dependency-types buildtool \
+      --dependency-types build_export --dependency-types buildtool_export \
+      --dependency-types exec \
+      --skip-keys "libnvvpi4 vpi4-dev cvcuda0-dev cuda-toolkit" && \
+    colcon build --merge-install --install-base "${ISAAC_ROS_INSTALL}" \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF && \
+    rm -rf /opt/isaac_ros_ws /var/lib/apt/lists/*
+WORKDIR ${AMENT_WS}
+
+################################ Source ################################
+# Inherit the compiled underlay so rosdep can also recognize its packages.
+FROM dependencies AS source
+
+WORKDIR ${AMENT_WS}/src
+
+# git-lfs is needed for wato-cuda-bevfusion's assets.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git-lfs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add COLCON_IGNORE to prevent the upstream package.xml from being discovered
+# as a duplicate of our own bevfusion package.
+RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
+    git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
+    git clone --recurse-submodules https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
+    touch wato-cuda-bevfusion/COLCON_IGNORE && \
+    git -C wato-cuda-bevfusion lfs install && \
+    git -C wato-cuda-bevfusion lfs pull
+
+COPY src/perception perception
+COPY src/world_modeling/world_model_msgs world_model_msgs
+COPY src/world_modeling/lanelet_msgs lanelet_msgs
+COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
+COPY src/interfacing/calibration/camera_calib camera_calib
+COPY src/interfacing/sensor_interfacing sensor_interfacing
+COPY src/wato_test wato_test

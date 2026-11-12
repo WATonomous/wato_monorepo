@@ -11,7 +11,11 @@ ARG MODULE_DEPS
 # Only package.xml files are scanned, so this layer stays cacheable across
 # source-code changes as long as the package manifests don't change.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN mkdir -p /tmp/pkgery && \
+RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
+    if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then \
+      . "${ISAAC_ROS_INSTALL}/local_setup.sh"; \
+    fi && \
+    mkdir -p /tmp/pkgery && \
     find "${AMENT_WS}/src" -name package.xml -type f -exec cp --parents {} /tmp/pkgery \; && \
     apt-get -qq update && \
     rosdep install --from-paths /tmp/pkgery --ignore-src -r -s > /tmp/rosdep_output && \
@@ -64,6 +68,9 @@ FROM rosdep_install AS build
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
+    if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then \
+      . "${ISAAC_ROS_INSTALL}/local_setup.sh"; \
+    fi && \
     colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 

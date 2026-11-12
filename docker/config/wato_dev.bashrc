@@ -3,6 +3,8 @@
 
 # Enable terminal colors
 export TERM=xterm-256color
+# Used by the calling interactive bashrc.
+# shellcheck disable=SC2034
 force_color_prompt=yes
 
 # Colored prompt - clearly indicates we're in a container
@@ -19,8 +21,16 @@ alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
-# Source ROS2 environment
-source /opt/ros/${ROS_DISTRO}/setup.bash
+# Source the same underlays as the entrypoint. Shells opened through docker
+# exec (watod -t / VSCode attach) do not run the container entrypoint again.
+# shellcheck disable=SC1090,SC1091
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
+if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then
+  source "${ISAAC_ROS_INSTALL}/local_setup.bash"
+fi
+if [ -f /opt/watonomous/local_setup.bash ]; then
+  source /opt/watonomous/local_setup.bash
+fi
 
 # Allow ANSI color codes in ROS2 log output
 export RCUTILS_COLORIZED_OUTPUT=1
