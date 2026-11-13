@@ -337,7 +337,8 @@ private:
   // Ego-vehicle suppression radius
   float ego_suppression_radius_{0.0f};
 
-  // BEV map segmentation
+  // Heads
+  bool det_enabled_{true};
   bool seg_enabled_{false};
   std::vector<std::string> seg_class_names_;
   std::string seg_topic_prefix_;

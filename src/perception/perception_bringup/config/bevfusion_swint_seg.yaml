@@ -3,6 +3,7 @@
     model_dir: "/opt/watonomous/models/bevfusion/seg_swint_fp16"
     seg_enabled: true
     precision: "fp16"
+    det_enabled: false
     xbound: [-51.2, 51.2, 0.4]
     ybound: [-51.2, 51.2, 0.4]
     zbound: [-10.0, 10.0, 20.0]

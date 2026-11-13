@@ -28,6 +28,7 @@
 
 namespace wato::perception::bevfusion
 {
+
 /**
  * @brief Input parameters for CUDA-BEVFusion
  */
@@ -86,7 +87,8 @@ struct BEVFusionInputConfig
   float confidence_threshold = 0.3f;  // Detection score threshold (detections below this score are discarded)
   bool sorted_bboxes = true;  // True to sort bounding boxes descending by confidence score
 
-  // --- BEV Map Segmentation ---
+  // --- Heads ---
+  bool det_enabled = true;  // True to run/publish the 3D object detection head
   bool seg_enabled = false;  // True to produce a BEV segmentation map alongside detections
   int seg_num_classes = 6;  // Number of map classes (6 for the nuScenes map classes)
 };

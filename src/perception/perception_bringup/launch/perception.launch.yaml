@@ -30,7 +30,7 @@ launch:
 
   - arg:
       name: bevfusion_overrides
-      default: "$(find-pkg-share perception_bringup)/config/bevfusion_resnet50.yaml"
+      default: "$(find-pkg-share perception_bringup)/config/bevfusion_dualhead.yaml"
       description: "Model-specific BEVFusion parameter overrides"
 
   # ===========================================================================

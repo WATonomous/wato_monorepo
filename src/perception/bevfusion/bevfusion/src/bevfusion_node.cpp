@@ -130,7 +130,8 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
   this->declare_parameter<bool>("sorted_bboxes", true);
 
-  // BEV map segmentation parameters
+  // Head selection
+  this->declare_parameter<bool>("det_enabled", true);
   this->declare_parameter<bool>("seg_enabled", false);
   this->declare_parameter<std::vector<std::string>>(
     "seg_class_names",
@@ -147,6 +148,7 @@ void BEVFusionNode::declareParameters()
 
   camera_names_ = this->get_parameter("camera_names").as_string_array();
   ego_suppression_radius_ = static_cast<float>(this->get_parameter("ego_suppression_radius").as_double());
+  det_enabled_ = this->get_parameter("det_enabled").as_bool();
   seg_enabled_ = this->get_parameter("seg_enabled").as_bool();
   seg_class_names_ = this->get_parameter("seg_class_names").as_string_array();
   seg_topic_prefix_ = this->get_parameter("seg_topic_prefix").as_string();
@@ -232,7 +234,8 @@ BEVFusionInputConfig BEVFusionNode::buildInputConfig()
   config.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
   config.sorted_bboxes = this->get_parameter("sorted_bboxes").as_bool();
 
-  // BEV map segmentation
+  // Heads
+  config.det_enabled = det_enabled_;
   config.seg_enabled = seg_enabled_;
   config.seg_num_classes = this->get_parameter("seg_num_classes").as_int();
 

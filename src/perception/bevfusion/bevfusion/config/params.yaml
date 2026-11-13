@@ -50,6 +50,7 @@ bevfusion_node:
 
     # --- BEV Map Segmentation ---
     # Currently publishes a placeholder map (road ahead, divider on the left) until the CUDA seg head is ready
+    det_enabled: true
     seg_enabled: false  # true: publish one nav_msgs/OccupancyGrid per class
     seg_num_classes: 6 # nuscenes classes
     seg_topic_prefix: "/perception/bev_seg"  # Topics are <prefix>/<class name>
