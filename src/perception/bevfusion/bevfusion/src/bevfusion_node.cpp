@@ -78,6 +78,7 @@ void BEVFusionNode::declareParameters()
 
   // Directory containing all .plan and .onnx engine files for the model
   this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50_trt11_int8");
+  this->declare_parameter<std::string>("precision", "int8");
 
   // Detection confidence, bounding boxes below threshold are discarded
   this->declare_parameter<double>("confidence_threshold", 0.3);
@@ -129,11 +130,13 @@ void BEVFusionNode::declareParameters()
   this->declare_parameter<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
   this->declare_parameter<bool>("sorted_bboxes", true);
 
-  // BEV map segmentation parameters
+  // Head selection
+  this->declare_parameter<bool>("det_enabled", true);
   this->declare_parameter<bool>("seg_enabled", false);
   this->declare_parameter<std::vector<std::string>>(
     "seg_class_names",
     std::vector<std::string>{"drivable_area", "ped_crossing", "walkway", "stop_line", "carpark_area", "divider"});
+  this->declare_parameter<int>("seg_num_classes", 6);
   this->declare_parameter<std::string>("seg_topic_prefix", "/perception/bev_seg");
 
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
@@ -143,88 +146,100 @@ void BEVFusionNode::declareParameters()
   multi_image_compressed_topic_ = this->get_parameter("input_multi_image_compressed_topic").as_string();
   lidar_topic_ = this->get_parameter("input_lidar_topic").as_string();
 
-  // Build BEVFusionInputConfig from declared parameters
-  const std::string model_dir = this->get_parameter("model_dir").as_string();
-  const std::string build_dir = model_dir + "/build";
-  const std::string precision = (model_dir.find("int8") != std::string::npos) ? "int8" : "fp16";
   camera_names_ = this->get_parameter("camera_names").as_string_array();
+  ego_suppression_radius_ = static_cast<float>(this->get_parameter("ego_suppression_radius").as_double());
+  det_enabled_ = this->get_parameter("det_enabled").as_bool();
+  seg_enabled_ = this->get_parameter("seg_enabled").as_bool();
+  seg_class_names_ = this->get_parameter("seg_class_names").as_string_array();
+  seg_topic_prefix_ = this->get_parameter("seg_topic_prefix").as_string();
 
-  // ROS params use double; BEVFusionInputConfig uses float — convert on read
+  image_width_ = this->get_parameter("image_width").as_int();
+  image_height_ = this->get_parameter("image_height").as_int();
+  norm_output_width_ = this->get_parameter("norm_output_width").as_int();
+  norm_output_height_ = this->get_parameter("norm_output_height").as_int();
+  resize_lim_ = std::max(
+    static_cast<float>(norm_output_width_) / static_cast<float>(image_width_),
+    static_cast<float>(norm_output_height_) / static_cast<float>(image_height_));
+  num_features_ = this->get_parameter("num_features").as_int();
+  max_points_ = this->get_parameter("max_points").as_int();
+
+  config_ = buildInputConfig();
+  core_ = std::make_unique<BEVFusionCore>(config_);
+}
+
+// Build the core input config once at configure-time from ROS params. The core only
+// ever sees BEVFusionInputConfig, so vendor/CUDA parameter structs stay in the node.
+BEVFusionInputConfig BEVFusionNode::buildInputConfig()
+{
   const auto to_float_vec = [this](const std::string & name) {
     const auto d = this->get_parameter(name).as_double_array();
     return std::vector<float>(d.begin(), d.end());
   };
-
   const auto to_int_vec = [this](const std::string & name) {
     const auto d = this->get_parameter(name).as_integer_array();
     return std::vector<int>(d.begin(), d.end());
   };
 
-  config_.model_dir = model_dir;
-  config_.build_dir = build_dir;
-  config_.camera_backbone_plan = build_dir + "/camera.backbone.plan";
-  config_.camera_vtransform_plan = build_dir + "/camera.vtransform.plan";
-  config_.fuser_plan = build_dir + "/fuser.plan";
-  config_.head_bbox_plan = build_dir + "/head.bbox.plan";
-  config_.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
+  const std::string model_dir = this->get_parameter("model_dir").as_string();
 
-  config_.precision = precision;
-  config_.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
-  ego_suppression_radius_ = static_cast<float>(this->get_parameter("ego_suppression_radius").as_double());
+  BEVFusionInputConfig config;
+  config.model_dir = model_dir;
+  config.build_dir = model_dir + "/build";
+  config.camera_backbone_plan = config.build_dir + "/camera.backbone.plan";
+  config.camera_vtransform_plan = config.build_dir + "/camera.vtransform.plan";
+  config.fuser_plan = config.build_dir + "/fuser.plan";
+  config.head_bbox_plan = config.build_dir + "/head.bbox.plan";
+  config.head_seg_plan = config.build_dir + "/head.seg.plan";
+  config.lidar_backbone_onnx = model_dir + "/lidar.backbone.xyz.onnx";
 
-  config_.num_cameras = static_cast<int>(camera_names_.size());
-  config_.image_width = this->get_parameter("image_width").as_int();
-  config_.image_height = this->get_parameter("image_height").as_int();
-  config_.norm_output_width = this->get_parameter("norm_output_width").as_int();
-  config_.norm_output_height = this->get_parameter("norm_output_height").as_int();
+  // Camera normalization & preprocessing
+  config.num_cameras = static_cast<int>(camera_names_.size());
+  config.image_width = image_width_;
+  config.image_height = image_height_;
+  config.norm_output_width = norm_output_width_;
+  config.norm_output_height = norm_output_height_;
+  config.resize_lim = resize_lim_;
+  config.interpolation = this->get_parameter("interpolation").as_string();
+  config.norm_mean = to_float_vec("norm_mean");
+  config.norm_std = to_float_vec("norm_std");
+  config.norm_scale = static_cast<float>(this->get_parameter("norm_scale").as_double());
+  config.norm_bias = static_cast<float>(this->get_parameter("norm_bias").as_double());
 
-  // Calculate resize_lim from the input and output dimensions
-  // This is done to ensure that the shorter side of the image is resized to at least
-  // 'resize_lim' of the original side, and the longer side is resized to a
-  // corresponding ratio to maintain the aspect ratio.
-  config_.resize_lim = std::max(
-    static_cast<float>(config_.norm_output_width) / static_cast<float>(config_.image_width),
-    static_cast<float>(config_.norm_output_height) / static_cast<float>(config_.image_height));
+  // Camera geometry & feature map dimensions
+  config.xbound = to_float_vec("xbound");
+  config.ybound = to_float_vec("ybound");
+  config.zbound = to_float_vec("zbound");
+  config.dbound = to_float_vec("dbound");
+  config.geometry_dim = to_int_vec("geometry_dim");
+  config.feat_width = this->get_parameter("feat_width").as_int();
+  config.feat_height = this->get_parameter("feat_height").as_int();
 
-  config_.interpolation = this->get_parameter("interpolation").as_string();
-  config_.norm_mean = to_float_vec("norm_mean");
-  config_.norm_std = to_float_vec("norm_std");
-  config_.norm_scale = static_cast<float>(this->get_parameter("norm_scale").as_double());
-  config_.norm_bias = static_cast<float>(this->get_parameter("norm_bias").as_double());
+  // LiDAR voxelization & SCN
+  config.min_range = to_float_vec("min_range");
+  config.max_range = to_float_vec("max_range");
+  config.voxel_size = to_float_vec("voxel_size");
+  config.max_points_per_voxel = this->get_parameter("max_points_per_voxel").as_int();
+  config.max_points = this->get_parameter("max_points").as_int();
+  config.max_voxels = this->get_parameter("max_voxels").as_int();
+  config.num_features = this->get_parameter("num_features").as_int();
+  config.scn_order = this->get_parameter("scn_order").as_string();
+  config.precision = this->get_parameter("precision").as_string();
 
-  config_.geometry_dim = to_int_vec("geometry_dim");
-  config_.feat_width = static_cast<int>(this->get_parameter("feat_width").as_int());
-  config_.feat_height = static_cast<int>(this->get_parameter("feat_height").as_int());
+  // Bounding box post-processing & head
+  config.out_size_factor = this->get_parameter("out_size_factor").as_int();
+  config.transbbox_pc_range = to_float_vec("transbbox_pc_range");
+  config.transbbox_voxel_size = to_float_vec("transbbox_voxel_size");
+  config.post_center_range_start = to_float_vec("post_center_range_start");
+  config.post_center_range_end = to_float_vec("post_center_range_end");
+  config.confidence_threshold = static_cast<float>(this->get_parameter("confidence_threshold").as_double());
+  config.sorted_bboxes = this->get_parameter("sorted_bboxes").as_bool();
 
-  config_.min_range = to_float_vec("min_range");
-  config_.max_range = to_float_vec("max_range");
-  config_.voxel_size = to_float_vec("voxel_size");
-  config_.max_points_per_voxel = this->get_parameter("max_points_per_voxel").as_int();
-  config_.max_points = this->get_parameter("max_points").as_int();
-  config_.max_voxels = this->get_parameter("max_voxels").as_int();
-  config_.num_features = this->get_parameter("num_features").as_int();
-  config_.scn_order = this->get_parameter("scn_order").as_string();
+  // Heads
+  config.det_enabled = det_enabled_;
+  config.seg_enabled = seg_enabled_;
+  config.seg_num_classes = this->get_parameter("seg_num_classes").as_int();
 
-  config_.xbound = to_float_vec("xbound");
-  config_.ybound = to_float_vec("ybound");
-  config_.zbound = to_float_vec("zbound");
-  config_.dbound = to_float_vec("dbound");
-
-  config_.post_center_range_start = to_float_vec("post_center_range_start");
-  config_.post_center_range_end = to_float_vec("post_center_range_end");
-
-  config_.out_size_factor = static_cast<int>(this->get_parameter("out_size_factor").as_int());
-  config_.transbbox_pc_range = to_float_vec("transbbox_pc_range");
-  config_.transbbox_voxel_size = to_float_vec("transbbox_voxel_size");
-  config_.sorted_bboxes = this->get_parameter("sorted_bboxes").as_bool();
-
-  seg_enabled_ = this->get_parameter("seg_enabled").as_bool();
-  seg_class_names_ = this->get_parameter("seg_class_names").as_string_array();
-  seg_topic_prefix_ = this->get_parameter("seg_topic_prefix").as_string();
-  config_.seg_enabled = seg_enabled_;
-  config_.seg_num_classes = static_cast<int>(seg_class_names_.size());
-
-  core_ = std::make_unique<BEVFusionCore>(config_);
+  return config;
 }
 
 void BEVFusionNode::processFrame(
@@ -251,14 +266,14 @@ void BEVFusionNode::processFrame(
   }
 
   // Camera count validation
-  if (rgb_images.size() != static_cast<size_t>(config_.num_cameras)) {
+  if (rgb_images.size() != camera_names_.size()) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
-      "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
+      "Mismatch between number of camera images (%zu) and configured num_cameras (%zu); skipping frame",
       rgb_images.size(),
-      config_.num_cameras);
+      camera_names_.size());
     return;
   }
 
@@ -281,7 +296,7 @@ void BEVFusionNode::processFrame(
 
   // LiDAR validation
   if (!validateAndTrimLidar(lidar_data)) return;
-  int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
+  int num_points = static_cast<int>(lidar_data.size() / num_features_);
 
   // Mark time after LiDAR processing
   const auto t_after_lidar = std::chrono::steady_clock::now();
@@ -622,18 +637,18 @@ void BEVFusionNode::computeCalibrationMatrices()
     // - X Translation: -crop_x
     // - Y Translation: -crop_y
     // - Translation lives in column 3 (mmdet3d ImageAug3D: transform[:2, 3]); the vendor kernels read it from .w
-    int resized_w = static_cast<int>(config_.image_width * config_.resize_lim);
-    int resized_h = static_cast<int>(config_.image_height * config_.resize_lim);
-    int crop_x = (resized_w - config_.norm_output_width) / 2;
-    int crop_y = resized_h - config_.norm_output_height;
+    int resized_w = static_cast<int>(image_width_ * resize_lim_);
+    int resized_h = static_cast<int>(image_height_ * resize_lim_);
+    int crop_x = (resized_w - norm_output_width_) / 2;
+    int crop_y = resized_h - norm_output_height_;
     // - Auto-formatting is not great, but this should look like a 4x4 matrix
     float aug[16] = {
-      config_.resize_lim,
+      resize_lim_,
       0.0f,
       0.0f,
       static_cast<float>(-crop_x),
       0.0f,
-      config_.resize_lim,
+      resize_lim_,
       0.0f,
       static_cast<float>(-crop_y),
       0.0f,
@@ -723,9 +738,9 @@ bool BEVFusionNode::validateAndNormalizeImage(cv::Mat & img, size_t index)
 
   // Resize image if necessary
   // TODO(Ashish): Check if there's a better way to handle this, as resizing can be expensive
-  if (img.cols != config_.image_width || img.rows != config_.image_height) {
+  if (img.cols != image_width_ || img.rows != image_height_) {
     cv::Mat resized;
-    cv::resize(img, resized, cv::Size(config_.image_width, config_.image_height), 0, 0, cv::INTER_LINEAR);
+    cv::resize(img, resized, cv::Size(image_width_, image_height_), 0, 0, cv::INTER_LINEAR);
     img = std::move(resized);
   }
 
@@ -742,17 +757,17 @@ bool BEVFusionNode::validateAndTrimLidar(std::vector<float> & lidar_data)
   }
 
   // Ensure LiDAR data length is a multiple of num_features (no stray floats at the end)
-  if (lidar_data.size() % config_.num_features != 0) {
+  if (lidar_data.size() % num_features_ != 0) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
       "LiDAR data length (%zu) is not a multiple of %d — trimming to nearest multiple",
       lidar_data.size(),
-      config_.num_features);
-    lidar_data.resize((lidar_data.size() / config_.num_features) * config_.num_features);
+      num_features_);
+    lidar_data.resize((lidar_data.size() / num_features_) * num_features_);
   }
-  int num_points = static_cast<int>(lidar_data.size() / config_.num_features);
+  int num_points = static_cast<int>(lidar_data.size() / num_features_);
   if (num_points <= 0) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(), *this->get_clock(), 5000, "No valid LiDAR points after trimming; skipping frame");
@@ -760,16 +775,16 @@ bool BEVFusionNode::validateAndTrimLidar(std::vector<float> & lidar_data)
   }
 
   // Truncate LiDAR data if it exceeds max_points
-  if (num_points > config_.max_points) {
+  if (num_points > max_points_) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
       "LiDAR point count (%d) exceeds configured max_points (%d); truncating to max_points",
       num_points,
-      config_.max_points);
-    lidar_data.resize(static_cast<size_t>(config_.max_points) * config_.num_features);
-    num_points = config_.max_points;
+      max_points_);
+    lidar_data.resize(static_cast<size_t>(max_points_) * num_features_);
+    num_points = max_points_;
   }
 
   return true;
@@ -892,7 +907,7 @@ visualization_msgs::msg::MarkerArray BEVFusionNode::createMarkers(
     marker.scale.z = det.bbox.size.z;
 
     const int class_id = det.results.empty() ? -1 : std::stoi(det.results[0].hypothesis.class_id);
-    BoxColor color = getBoxColor(class_id);
+    Color color = getBoxColor(class_id);
     marker.color.r = color.r;
     marker.color.g = color.g;
     marker.color.b = color.b;
@@ -920,8 +935,6 @@ nav_msgs::msg::OccupancyGrid BEVFusionNode::createOccupancyGrid(
     return grid;
   }
 
-  // OccupancyGrid: width runs along x, height along y, data[y * width + x].
-  // SegMap: rows run along x, cols along y, so grid width = SegMap rows (transpose).
   grid.info.map_load_time = stamp;
   grid.info.resolution = seg_map.resolution;
   grid.info.width = static_cast<uint32_t>(seg_map.height);
@@ -930,14 +943,68 @@ nav_msgs::msg::OccupancyGrid BEVFusionNode::createOccupancyGrid(
   grid.info.origin.position.y = seg_map.origin_y;
   grid.info.origin.orientation.w = 1.0;
 
-  const uint8_t * mask = seg_map.masks.data() + static_cast<size_t>(class_index) * plane;
-  grid.data.resize(plane);
-  for (int row = 0; row < seg_map.height; ++row) {
-    for (int col = 0; col < seg_map.width; ++col) {
-      grid.data[static_cast<size_t>(col) * seg_map.height + row] =
-        mask[static_cast<size_t>(row) * seg_map.width + col] ? 100 : 0;
-    }
+  // inference outputs uint8 host buffer with 100/0 occupancy values, no CPU processing needed
+  // transpose to BEV/OccupancyGrid major convention fused into ONNX plan
+  grid.data.assign(
+    seg_map.masks.begin() + static_cast<size_t>(class_index) * plane,
+    seg_map.masks.begin() + (static_cast<size_t>(class_index) + 1) * plane
+  );
+
+  return grid;
+}
+
+foxglove_msgs::msg::Grid BEVFusionNode::createSegGrid(
+  const SegMap & seg_map, const builtin_interfaces::msg::Time & stamp) const
+{
+  foxglove_msgs::msg::Grid grid;
+  grid.timestamp = stamp;
+  grid.frame_id = lidar_frame_id_;
+  grid.pose.position.x = seg_map.origin_x;
+  grid.pose.position.y = seg_map.origin_y;
+  grid.pose.orientation.w = 1.0;
+  grid.column_count = static_cast<uint32_t>(seg_map.width);
+  grid.cell_size.x = seg_map.resolution;
+  grid.cell_size.y = seg_map.resolution;
+
+  constexpr uint32_t kBytesPerCell = 4;
+  grid.row_stride = grid.column_count * kBytesPerCell;
+  grid.cell_stride = kBytesPerCell;
+
+  const auto make_field = [](const std::string & name, uint32_t offset) {
+    foxglove_msgs::msg::PackedElementField field;
+    field.name = name;
+    field.offset = offset;
+    field.type = foxglove_msgs::msg::PackedElementField::UINT8;
+    return field;
+  };
+  grid.fields = {make_field("red", 0), make_field("green", 1), make_field("blue", 2), make_field("alpha", 3)};
+
+  const size_t cells = static_cast<size_t>(seg_map.width) * static_cast<size_t>(seg_map.height);
+  const size_t required = static_cast<size_t>(seg_map.num_classes) * cells;
+  if (seg_map.num_classes <= 0 || seg_map.masks.size() < required) {
+    return grid;
   }
+
+  grid.data.assign(cells * kBytesPerCell, 0);
+  for (size_t i = 0; i < cells; ++i) {
+    int class_index = -1;
+    for (int c = 0; c < seg_map.num_classes; ++c) {
+      if (seg_map.masks[static_cast<size_t>(c) * cells + i] > 0) {
+        class_index = c;
+      }
+    }
+    if (class_index < 0) {
+      continue;
+    }
+
+    const Color color = getClassColor(class_index);
+    const size_t offset = i * kBytesPerCell;
+    grid.data[offset + 0] = static_cast<uint8_t>(std::lround(color.r * 255.0f));
+    grid.data[offset + 1] = static_cast<uint8_t>(std::lround(color.g * 255.0f));
+    grid.data[offset + 2] = static_cast<uint8_t>(std::lround(color.b * 255.0f));
+    grid.data[offset + 3] = static_cast<uint8_t>(std::lround(color.a * 255.0f));
+  }
+
   return grid;
 }
 
@@ -947,6 +1014,8 @@ void BEVFusionNode::publishSegMap(const builtin_interfaces::msg::Time & stamp)
   if (seg_map.num_classes == 0) {
     return;
   }
+  RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu segmentation classes", seg_map.num_classes);
+
   if (seg_map.num_classes != static_cast<int>(seg_pubs_.size())) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
@@ -959,6 +1028,9 @@ void BEVFusionNode::publishSegMap(const builtin_interfaces::msg::Time & stamp)
   }
   for (size_t i = 0; i < seg_pubs_.size(); ++i) {
     seg_pubs_[i]->publish(createOccupancyGrid(seg_map, static_cast<int>(i), stamp));
+  }
+  if (seg_grid_pub_) {
+    seg_grid_pub_->publish(createSegGrid(seg_map, stamp));
   }
 }
 
@@ -1258,6 +1330,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     }
 
     seg_pubs_.clear();
+    seg_grid_pub_.reset();
     if (seg_enabled_) {
       for (const auto & class_name : seg_class_names_) {
         auto pub =
@@ -1265,6 +1338,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
         pub->on_activate();
         seg_pubs_.push_back(pub);
       }
+      seg_grid_pub_ =
+        this->create_publisher<foxglove_msgs::msg::Grid>(seg_topic_prefix_ + "/grid", publisher_qos_);
+      seg_grid_pub_->on_activate();
     }
 
     if (diagnostic_updater_ && detection_pub_) {
@@ -1333,6 +1409,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   for (const auto & pub : seg_pubs_) {
     pub->on_deactivate();
   }
+  if (seg_grid_pub_) {
+    seg_grid_pub_->on_deactivate();
+  }
 
   raw_sync_.reset();
   compressed_sync_.reset();
@@ -1368,6 +1447,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   detection_pub_.reset();
   marker_pub_.reset();
   seg_pubs_.clear();
+  seg_grid_pub_.reset();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
   tf_listener_.reset();
@@ -1416,6 +1496,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   detection_pub_.reset();
   marker_pub_.reset();
   seg_pubs_.clear();
+  seg_grid_pub_.reset();
   pub_diagnostic_.reset();
   diagnostic_updater_.reset();
   tf_listener_.reset();
