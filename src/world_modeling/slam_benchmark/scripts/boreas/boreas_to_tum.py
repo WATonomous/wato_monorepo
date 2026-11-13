@@ -27,7 +27,7 @@ cannot score an .osm lane map against this reference.
 Orientation is written as identity, as for the GNSS reference: evaluate.py scores positions only.
 
 Example:
-  boreas_to_tum.py /ws/bags/boreas/boreas-2020-11-26-13-58 -o boreas_gt.tum
+  boreas_to_tum.py /ws/bags/boreas-2020-11-26-13-58 -o boreas_gt.tum
 """
 
 import argparse
@@ -35,7 +35,11 @@ import csv
 import os
 import sys
 
-from to_tum import write_tum
+# write_tum lives in the in-house bag tools, next door
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "inhouse_bag")
+)
+from to_tum import write_tum  # noqa: E402
 
 
 def main():

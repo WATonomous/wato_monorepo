@@ -7,11 +7,11 @@ Tools for comparing Eidos against RTAB-Map on recorded bags, for the Eidos paper
 | Path | Purpose |
 |---|---|
 | `launch/eidos_bench.launch.yaml` | Eidos mapping on a bag with the car config; `use_gps:=false` gives a LiDAR-inertial-only run |
-| `scripts/to_tum.py` | Converts GNSS fixes, pose topics, and `eidos poses` CSVs to TUM trajectories |
+| `scripts/inhouse_bag/to_tum.py` | Converts GNSS fixes, pose topics, and `eidos poses` CSVs to TUM trajectories |
 | `scripts/evaluate.py` | ATE vs GNSS and distance to lane centerlines (`.osm`), results table and plots |
 | `launch/boreas_eidos_bench.launch.yaml`, `config/boreas_eidos.yaml` | Eidos on a Boreas bag: the car config with Boreas topics, frames and IMU warmup on top |
-| `scripts/boreas_to_tum.py` | Converts a Boreas sequence's Applanix ground truth to a TUM reference |
-| `scripts/boreas_benchmark.sh` | Eidos vs RTAB-Map on a Boreas bag, scored against the Applanix ground truth |
+| `scripts/boreas/boreas_to_tum.py` | Converts a Boreas sequence's Applanix ground truth to a TUM reference |
+| `scripts/boreas/boreas_benchmark.sh` | Eidos vs RTAB-Map on a Boreas bag, scored against the Applanix ground truth |
 
 RTAB-Map uses the stock `rtabmap_examples/lidar3d.launch.py`.
 
@@ -58,8 +58,8 @@ python3 -m venv --system-site-packages ~/slam-bench-venv
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-~/slam-bench-venv/bin/python scripts/to_tum.py gnss <bag>.mcap -o gnss.tum
-~/slam-bench-venv/bin/python scripts/to_tum.py eidos <run>.csv -o eidos.tum
+~/slam-bench-venv/bin/python scripts/inhouse_bag/to_tum.py gnss <bag>.mcap -o gnss.tum
+~/slam-bench-venv/bin/python scripts/inhouse_bag/to_tum.py eidos <run>.csv -o eidos.tum
 ~/slam-bench-venv/bin/python scripts/evaluate.py --ref gnss.tum --est "Eidos=eidos.tum" --est "RTAB-Map=<run>_poses.txt" --osm <lane_map>.osm --out results
 ```
 
@@ -69,22 +69,53 @@ source /opt/ros/jazzy/setup.bash
 
 ## Boreas
 
-The Boreas bags (converted from the [Boreas dataset](https://www.boreas.utias.utoronto.ca/)) carry `/boreas/lidar/points`, `/boreas/imu/data` and `/tf_static`, and no GNSS. `boreas_benchmark.sh` therefore runs Eidos LiDAR-inertial only, and scores against the sequence's `applanix/gps_post_process.csv`: the Applanix post-processed GNSS/INS solution, a much tighter reference than the car's single-point GNSS.
+The Boreas bags (converted from the [Boreas dataset](https://www.boreas.utias.utoronto.ca/)) carry `/boreas/lidar/points`, `/boreas/imu/data` and `/tf_static`, and no GNSS. `scripts/boreas/boreas_benchmark.sh` therefore runs Eidos LiDAR-inertial only (no `eidos/` GPS test and no `car/` comparison), and scores against the sequence's `applanix/gps_post_process.csv`: the Applanix post-processed GNSS/INS solution, a much tighter reference than the car's single-point GNSS.
 
 `config/boreas_eidos.yaml` changes only the topics, the frames and the IMU warmup threshold (0.02 rad/s instead of 0.005: the Boreas gyro's resting noise sits on 0.005, and Eidos would never leave warmup). Everything else is the car's config.
 
-The dev container only sees `<repo>/bags` (as `/ws/bags`). Mount the Boreas folder under it on the host **before** `./watod up`, since a mount made later doesn't reach a running container. The folder needs the bags and the raw sequence (for `applanix/`).
+### Data on WATcloud
 
-Each Eidos map of the full drive is about 10 GB on disk (every keyframe keeps its 128-beam cloud), and Eidos holds it in RAM while running. Put `maps/` on a disk with room for one map per repeat, for example by making it a symlink before `./watod up`:
+The container sees only `~/wato_monorepo/bags` (as `/ws/bags`). That is usually a symlink to your own folder on the drive (`ls -ld ~/wato_monorepo/bags` shows where it points, e.g. `/mnt/wato-drive2/$USER/bags`). Docker follows that symlink, but not symlinks inside the folder, so the Boreas data has to be in it for real. A hard-linked copy of the shared bag is instant and takes no extra space, since both folders are on the same drive:
 
 ```bash
-mkdir -p /mnt/data/wato_maps && ln -s /mnt/data/wato_maps ~/wato_monorepo/maps
-sudo mkdir -p ~/wato_monorepo/bags/boreas
-sudo mount --bind /mnt/data/boreas ~/wato_monorepo/bags/boreas
-./watod up
-./watod exec world_modeling_bringup_dev bash /ws/src/world_modeling/slam_benchmark/scripts/boreas_benchmark.sh
+cd /mnt/wato-drive2
+cp -al bags/boreas-2020-11-26-13-58-lidar-imu $USER/bags/      # or cp -r (34 GB) if hard links aren't permitted
+mkdir -p $USER/bags/boreas-2020-11-26-13-58/applanix
 ```
 
-Settings are environment variables (`./watod exec -e RUNS=1 ...`): `BAG` (default `/ws/bags/boreas/bags/boreas-2020-11-26-13-58-lidar-imu`), `SEQUENCE` (the raw sequence with `applanix/`, default `/ws/bags/boreas/boreas-2020-11-26-13-58`), `PREFIX`, `RUNS` (3), `RATE` (0.5), `METHODS` (`eidos rtabmap`) and `EVAL_ONLY`. The 18-minute drive takes about 36 minutes per run at rate 0.5. Outputs land in `maps/bench/` as for the car, with a `<PREFIX>_summary.md` over the repeats.
+Then copy the ground truth into that `applanix/` folder. Only `gps_post_process.csv` (77 MB) is needed from the raw sequence. The defaults expect:
+
+```text
+~/wato_monorepo/bags/boreas-2020-11-26-13-58-lidar-imu/                      the bag
+~/wato_monorepo/bags/boreas-2020-11-26-13-58/applanix/gps_post_process.csv   the ground truth
+```
+
+### Running
+
+```bash
+cd ~ && BENCH=boreas sbatch ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
+```
+
+or as a job array, one test per task (two tests per repeat, so `1-6` for three repeats):
+
+```bash
+cd ~ && JOB=$(BENCH=boreas sbatch --parsable --array=1-6%4 --time=01:30:00 ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch)
+BENCH=boreas EVAL_ONLY=1 sbatch --dependency=afterany:$JOB --cpus-per-task=4 --mem=16G --time=01:00:00 ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
+```
+
+The job checks the bag and ground truth on the login node before starting Docker. Settings passed through: `BAG`, `SEQUENCE` (folder holding `applanix/`), `DATASET` (default `boreas`), `RUNS` (3), `RATE` (0.5), `METHODS` (`eidos_nogps rtabmap`) and `EVAL_ONLY`. The 18-minute drive takes about 40 minutes per test at rate 0.5, and each Eidos map is about 10 GB on disk and in RAM.
+
+Outputs land in `maps/bench/results/<DATASET>/`:
+
+```text
+test1/
+  eidos_nogps/    eidos.map, poses.csv, poses.tum, launch/play/save/status logs
+  rtabmap/        rtabmap.db, poses.txt, launch/play/export logs
+  results.csv, trajectories.png, errors.png, eval.log
+test2/  test3/    same as test1
+reference/        gnss.tum (the Applanix ground truth) + gnss.log
+logs/             build and Python setup logs
+summary.md        mean ± std over the tests
+```
 
 The reference is in the sequence's local east/north/up frame, not UTM, so there is no lane metric: UTM's grid scale shortens distances by about 0.02% in Toronto, which the scale-free alignment would count as error.

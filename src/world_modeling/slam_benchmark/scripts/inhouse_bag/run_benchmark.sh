@@ -165,9 +165,11 @@ evaluate() {
   local py=$venv/bin/python
   if [ ! -x "$py" ]; then
     if ! python3 -m venv --system-site-packages "$venv" > "$SB_LOG/venv.log" 2>&1; then
-      sudo apt-get update -qq >> "$SB_LOG/venv.log" 2>&1
-      sudo apt-get install -y -qq python3-venv >> "$SB_LOG/venv.log" 2>&1
-      python3 -m venv --system-site-packages "$venv" >> "$SB_LOG/venv.log" 2>&1
+      {
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq python3-venv
+        python3 -m venv --system-site-packages "$venv"
+      } >> "$SB_LOG/venv.log" 2>&1
     fi
     if ! "$venv/bin/pip" install -q evo pyproj >> "$SB_LOG/venv.log" 2>&1; then
       say "Python setup FAILED, see $SB_LOG/venv.log"
@@ -178,10 +180,10 @@ evaluate() {
   local gnss=$SB_OUT/${SB_PREFIX}_gnss.tum car=$SB_OUT/${SB_PREFIX}_eidos_car.tum
   if [ ! -s "$gnss" ]; then
     say "Converting GNSS reference (reads the whole bag, can take a few minutes)"
-    "$py" "$SB_SCRIPTS/to_tum.py" gnss "$SB_BAG" -o "$gnss" 2>&1 | tee "$SB_LOG/gnss.log"
+    "$py" "$SB_SCRIPTS/inhouse_bag/to_tum.py" gnss "$SB_BAG" -o "$gnss" 2>&1 | tee "$SB_LOG/gnss.log"
   fi
   if [ ! -s "$car" ]; then
-    "$py" "$SB_SCRIPTS/to_tum.py" pose "$SB_BAG" --topic /world_modeling/slam/pose -o "$car" > "$SB_LOG/car_pose.log" 2>&1 \
+    "$py" "$SB_SCRIPTS/inhouse_bag/to_tum.py" pose "$SB_BAG" --topic /world_modeling/slam/pose -o "$car" > "$SB_LOG/car_pose.log" 2>&1 \
       || say "No live Eidos pose in this bag; skipping the car row"
   fi
   if [ ! -s "$gnss" ]; then
@@ -197,7 +199,7 @@ evaluate() {
     for m in nogps gps; do
       csv=$SB_OUT/${SB_PREFIX}_eidos_${m}_r$r.csv
       [ "$m" = gps ] && label="Eidos (GPS)" || label="Eidos (no GPS)"
-      if [ -s "$csv" ] && "$py" "$SB_SCRIPTS/to_tum.py" eidos "$csv" -o "${csv%.csv}.tum" > /dev/null; then
+      if [ -s "$csv" ] && "$py" "$SB_SCRIPTS/inhouse_bag/to_tum.py" eidos "$csv" -o "${csv%.csv}.tum" > /dev/null; then
         est+=(--est "$label=${csv%.csv}.tum")
       fi
     done
