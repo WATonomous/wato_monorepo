@@ -180,21 +180,25 @@ class CameraPublisherNode(LifecycleNode):
 
     def _load_camera_config(self, name: str) -> Optional[CameraConfig]:
         """Load configuration for a named camera from parameters."""
-        # Declare parameters for this camera
-        self.declare_parameter(f"{name}.frame_id", "")
-        self.declare_parameter(f"{name}.image_width", 0)
-        self.declare_parameter(f"{name}.image_height", 0)
-        self.declare_parameter(f"{name}.fov", 90.0)
-        self.declare_parameter(f"{name}.optical_frame", True)
-        self.declare_parameter(f"{name}.noise_stddev", 0.0)
-        self.declare_parameter(f"{name}.distortion_model", "plumb_bob")
-        self.declare_parameter(f"{name}.camera_matrix.data", [0.0] * 9)
-        self.declare_parameter(f"{name}.distortion_coefficients.data", [0.0] * 5)
-        self.declare_parameter(
-            f"{name}.rectification_matrix.data",
-            [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-        )
-        self.declare_parameter(f"{name}.projection_matrix.data", [0.0] * 12)
+        # Keep declarations across lifecycle cleanup/configure cycles.
+        # Scenario switches reconfigure this node using the same camera names.
+        defaults = {
+            "frame_id": "",
+            "image_width": 0,
+            "image_height": 0,
+            "fov": 90.0,
+            "optical_frame": True,
+            "noise_stddev": 0.0,
+            "distortion_model": "plumb_bob",
+            "camera_matrix.data": [0.0] * 9,
+            "distortion_coefficients.data": [0.0] * 5,
+            "rectification_matrix.data": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            "projection_matrix.data": [0.0] * 12,
+        }
+        for key, default in defaults.items():
+            parameter_name = f"{name}.{key}"
+            if not self.has_parameter(parameter_name):
+                self.declare_parameter(parameter_name, default)
 
         # Get values
         frame_id = self.get_parameter(f"{name}.frame_id").value
@@ -284,12 +288,12 @@ class CameraPublisherNode(LifecycleNode):
         """Cleanup lifecycle callback."""
         self.get_logger().info("Cleaning up...")
 
-        # Destroy publishers
+        # Unregister managed publishers before the next configure cycle.
         for name, camera in self.cameras.items():
             if camera.image_publisher:
-                self.destroy_publisher(camera.image_publisher)
+                self.destroy_lifecycle_publisher(camera.image_publisher)
             if camera.camera_info_publisher:
-                self.destroy_publisher(camera.camera_info_publisher)
+                self.destroy_lifecycle_publisher(camera.camera_info_publisher)
         self.cameras.clear()
 
         # Release CARLA resources

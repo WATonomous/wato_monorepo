@@ -43,6 +43,13 @@
       "timeoutSeconds": 20,
       "serviceName": "/world_modeling/despawn_wall"
     },
+    "Image!frontcamera": {
+      "foxglovePanelTitle": "Front camera",
+      "imageMode": {
+        "imageTopic": "/carla/camera_publisher/front_camera/image_raw",
+        "calibrationTopic": "/carla/camera_publisher/front_camera/camera_info"
+      }
+    },
     "3D!30zmknt": {
       "cameraState": {
         "perspective": true,
@@ -157,13 +164,13 @@
         "/hd_map_current_lane": {
           "visible": true
         },
-        "/camera_publisher/camera_info": {
+        "/carla/camera_publisher/front_camera/camera_info": {
           "visible": false
         },
-        "/camera_publisher/image_raw": {
+        "/carla/camera_publisher/front_camera/image_raw": {
           "visible": true,
           "frameLocked": true,
-          "cameraInfoTopic": "/camera_publisher/camera_info",
+          "cameraInfoTopic": "/carla/camera_publisher/front_camera/camera_info",
           "distance": 1,
           "planarProjectionFactor": 0,
           "color": "#ffffff"
@@ -357,7 +364,12 @@
       "direction": "column",
       "splitPercentage": 27.461607949412826
     },
-    "second": "3D!30zmknt",
+    "second": {
+      "first": "3D!30zmknt",
+      "second": "Image!frontcamera",
+      "direction": "column",
+      "splitPercentage": 70
+    },
     "direction": "row",
     "splitPercentage": 26.693967361408227
   }

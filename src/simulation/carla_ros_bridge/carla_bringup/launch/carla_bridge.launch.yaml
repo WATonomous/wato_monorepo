@@ -50,6 +50,7 @@ launch:
             - /carla/carla_localization
             - /carla/carla_teleop
             - /carla/ackermann_control
+            - /carla/camera_publisher
             - /carla/lidar_publisher
             - /carla/bbox_publisher
             - /carla/pygame_hud
@@ -91,6 +92,20 @@ launch:
       pkg: carla_control
       exec: ackermann_control
       name: ackermann_control
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: true
+        - from: $(var config_file)
+        - name: carla_port
+          value: $(var carla_port)
+
+  # Camera Publisher Node (front-facing RGB image and calibration)
+  - node:
+      pkg: carla_perception
+      exec: camera_publisher
+      name: camera_publisher
       namespace: carla
       output: screen
       param:

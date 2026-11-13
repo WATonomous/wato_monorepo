@@ -37,7 +37,8 @@
     camera_names:
       - front_camera
     # Per-camera settings (prefix with camera name)
-    front_camera.frame_id: "front_camera_optical"
+    # Forward-facing optical frame from eve_description.
+    front_camera.frame_id: "camera_pano_nn"
     front_camera.image_width: 800
     front_camera.image_height: 600
     front_camera.fov: 90.0
