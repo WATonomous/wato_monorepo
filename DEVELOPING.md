@@ -58,8 +58,9 @@ CI (`Build and Test Monorepo`) builds each changed module in isolation with `wat
 
 - Regular `docker compose push` of the images is NOT enough for caching: images loaded through the docker image store lose buildkit's cache metadata, so `cache_from` on pushed image tags finds no layers. The `ci_cache_*` cache manifests are exported directly by buildkit (`cache_to`), and that is what makes the imports hit.
 - `source`/`deps` stages (apt TensorRT / Isaac ROS installs, upstream git clones) re-execute only when their inputs change — i.e. on base image or Dockerfile changes — not on every branch or commit.
+- Perception's `deps` stage also compiles the pinned Isaac ROS fork stack, the most expensive layer in the module. Its `source` stage builds on top of `deps`, so a `deps` cache miss also re-runs the clones, copies, and everything after them.
 - `docker/template.Dockerfile`'s `rosdep_scan` stage scans only `package.xml` files, so adding a dependency re-runs it, but source-code edits alone don't.
-- `colcon build`/`colcon test` layers are content-keyed by the copied source, so they still re-run on every commit (that's the remaining non-cacheable core of perception CI, ~8 min).
+- `colcon build`/`colcon test` layers are content-keyed by the copied source, so they still re-run on every commit (that's the remaining non-cacheable core of perception CI).
 
 ## DevContainers
 The WATonomous monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.
