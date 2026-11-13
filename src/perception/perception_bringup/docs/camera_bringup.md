@@ -34,14 +34,22 @@ version 4.5.0. The Dockerfile therefore also includes source builds of the image
 camera info, tensor list, and compressed image types, plus the rectifier and
 H.264 encoder, against the same fork.
 
-A mixed build can crash the component container immediately after
-`Successfully allocated 3 CUDA streams`. A debugger backtrace can show the
-fork's `NitrosPublisher::createCompatiblePublisher` calling a packaged
-`NitrosFormatAgent::createCompatiblePublisherCallback(rclcpp::Node&, ...)` in
-`/opt/ros/jazzy/lib/libisaac_ros_nitros_image_type.so`. Rebuild the perception
-image and workspace together when changing the fork; sourcing the workspace
-again does not rebuild these binary dependencies. Lifecycle service timeouts
-after the container exits are a consequence of the crash.
+If the fork's core library ends up loading NVIDIA's prebuilt type libraries
+instead of the fork-built ones, the component container crashes right after
+`Successfully allocated 3 CUDA streams`, and lifecycle service timeouts follow.
+The timeouts are a side effect of the crash: the fork is
+calling NVIDIA's packaged libraries in `/opt/ros/jazzy/lib` instead of its own.
+
+NVIDIA's apt packages (`ros-jazzy-isaac-ros-nitros`, `-image-proc`,
+`-h264-encoder`) are still installed in `/opt/ros/jazzy`. The fork's install in
+`ISAAC_ROS_INSTALL` only takes precedence because it is sourced after base ROS
+(see `wato_entrypoint.sh`, `wato_dev.bashrc`, and `template.Dockerfile`). Any
+shell or script that sources only `/opt/ros/jazzy/setup.bash` loads the
+incompatible libraries and hits the crash above.
+
+These packages are built with `BUILD_TESTING=OFF` and are not covered by
+`watod test perception`. When changing the pin, check lifecycle behavior,
+rectification, and H.264 encoding on a GPU machine.
 
 ## Computer specific
 
