@@ -40,12 +40,11 @@ instead of the fork-built ones, the component container crashes right after
 The timeouts are a side effect of the crash: the fork is
 calling NVIDIA's packaged libraries in `/opt/ros/jazzy/lib` instead of its own.
 
-NVIDIA's apt packages (`ros-jazzy-isaac-ros-nitros`, `-image-proc`,
-`-h264-encoder`) are still installed in `/opt/ros/jazzy`. The fork's install in
-`ISAAC_ROS_INSTALL` only takes precedence because it is sourced after base ROS
-(see `wato_entrypoint.sh`, `wato_dev.bashrc`, and `template.Dockerfile`). Any
-shell or script that sources only `/opt/ros/jazzy/setup.bash` loads the
-incompatible libraries and hits the crash above.
+To prevent this, the image does not install NVIDIA's apt packages for these
+components (`ros-jazzy-isaac-ros-nitros`, `-image-proc`, `-h264-encoder`,
+`-cvcuda-utils`), only their binary dependencies. Do not add them back, directly
+or through a package that depends on them; doing so puts the incompatible
+libraries in `/opt/ros/jazzy`.
 
 These packages are built with `BUILD_TESTING=OFF` and are not covered by
 `watod test perception`. When changing the pin, check lifecycle behavior,

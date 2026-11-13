@@ -3,8 +3,6 @@
 
 # Enable terminal colors
 export TERM=xterm-256color
-# Used by the calling interactive bashrc.
-# shellcheck disable=SC2034
 force_color_prompt=yes
 
 # Colored prompt - clearly indicates we're in a container

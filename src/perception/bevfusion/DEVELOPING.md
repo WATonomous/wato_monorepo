@@ -170,7 +170,7 @@ Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filter
 The perception image installs two TensorRT major versions, pinned via the `TRT10_VERSION` and `TRT11_VERSION` build args in `docker/perception.Dockerfile`:
 
 - **TensorRT 10** runtime libraries (`libnvinfer10`, `libnvinfer-plugin10`, `libnvonnxparsers10`) for `deep_ros`.
-- **TensorRT 11** development packages (`libnvinfer-dev`, `libnvinfer-plugin-dev`, `libnvonnxparsers-dev`) for BEVFusion. These are `+cuda13.4` builds, while the base image is CUDA 12.8.1.
+- **TensorRT 11** development packages (`libnvinfer-dev`, `libnvinfer-plugin-dev`, `libnvonnxparsers-dev`) for BEVFusion. These are `+cuda13.4` builds, while the base image is CUDA 12.8.1; the CUDA 13 toolkit they build against comes from `ros-jazzy-isaac-ros-common`.
 
 `cuda_bevfusion_vendor` defaults `SPCONV_CUDA_VERSION` to `13.0` to match. Change the TRT 11 pin and `SPCONV_CUDA_VERSION` together, and rebuild engines (`.plan` files) after a TensorRT upgrade, since serialized engines are tied to the TensorRT version that built them.
 
