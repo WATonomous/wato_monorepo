@@ -1,0 +1,52 @@
+# Eidos LiDAR-inertial mapping on a Boreas bag (bag replay, no eidos_transform/TF).
+# The car's SLAM config with config/boreas_eidos.yaml loaded on top of it.
+#
+# Usage:
+#   ros2 launch slam_benchmark boreas_eidos_bench.launch.yaml
+---
+launch:
+  - arg:
+      name: config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_slam.yaml
+      description: Base Eidos configuration (defaults to the car's SLAM config)
+
+  - arg:
+      name: boreas_config_file
+      default: $(find-pkg-share slam_benchmark)/config/boreas_eidos.yaml
+      description: Boreas topics, frames and IMU warmup, applied over config_file
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use simulation time from /clock topic
+
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var config_file)
+        - from: $(var boreas_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/eidos_node
+        - name: autostart
+          value: true
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

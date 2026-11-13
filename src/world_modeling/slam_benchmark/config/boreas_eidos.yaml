@@ -1,0 +1,23 @@
+# Boreas overrides on top of the car's Eidos config (world_modeling_bringup/config/eidos_slam.yaml).
+# boreas_eidos_bench.launch.yaml loads this file after the car config, so only these keys change.
+/**/eidos_node:
+  ros__parameters:
+    frames:
+      base_link: "boreas_base"
+
+    # The Boreas bags have no GNSS topic. The GPS plugins stay loaded and receive nothing,
+    # as in the car's use_gps:=false runs.
+    gps_factor:
+      add_factors: false
+
+    liso_factor:
+      lidar_topic: "/boreas/lidar/points"
+      imu_topic: "/boreas/imu/data"
+      lidar_frame: "boreas_lidar"
+      imu_frame: "boreas_imu_raw"
+
+      initialization:
+        # The Applanix gyro's resting noise (median 0.0048 rad/s) sits on the car's 0.005 threshold,
+        # so warmup never sees 200 still samples in a row and Eidos never reaches TRACKING.
+        # At 0.02 warmup completes 3 s into the bag, while the car is still parked.
+        stationary_gyr_threshold: 0.02
