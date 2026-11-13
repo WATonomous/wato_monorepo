@@ -26,10 +26,12 @@ RUN R=/tmp/isaac_ros_nitros && \
     rm -rf $R
 
 # Isaac ROS v4.5-0 sources for the nodes that consume the fork's NITROS types.
+# cvcuda_utils is built here too: NVIDIA's apt build depends on the stock
+# NITROS type packages, which would reinstall duplicates of the fork.
 RUN R=/tmp/isaac_ros_image_pipeline && \
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline.git $R && \
     git -C $R checkout 203e41be2a4a96382fe69abac08c0cec76720a7a && \
-    mv $R/isaac_ros_image_proc . && \
+    mv $R/isaac_ros_image_proc $R/isaac_ros_cvcuda_utils . && \
     rm -rf $R
 
 RUN R=/tmp/isaac_ros_compression && \
@@ -62,8 +64,12 @@ RUN apt-get update && \
     libprotobuf-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Isaac ROS (NITROS + image_proc + h264_encoder) for GPU-accelerated image
-# rectification and NVENC H.264 compression of the rectified stream.
+# Binary dependencies of the Isaac ROS packages built from source below
+# (NITROS fork, image_proc, h264_encoder). Their own apt packages are not
+# installed: NVIDIA's builds target stock NITROS and would duplicate the fork.
+# Stock rosdep cannot resolve these keys, so they are listed explicitly.
+# ros-jazzy-isaac-ros-common brings in the CUDA 13 toolkit; nvv4l2 is the NVENC
+# backend the H.264 encoder loads at runtime (not declared in its package.xml).
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
     curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key \
@@ -76,9 +82,17 @@ RUN apt-get update && \
       > /etc/apt/sources.list.d/nvidia-jetson.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-      ros-jazzy-isaac-ros-nitros \
-      ros-jazzy-isaac-ros-image-proc \
-      ros-jazzy-isaac-ros-h264-encoder \
+      ros-jazzy-isaac-ros-common \
+      ros-jazzy-isaac-ros-gxf \
+      ros-jazzy-isaac-ros-vpi-utils \
+      ros-jazzy-isaac-ros-tensor-list-interfaces \
+      ros-jazzy-gxf-isaac-atlas \
+      ros-jazzy-gxf-isaac-gxf-helpers \
+      ros-jazzy-gxf-isaac-message-compositor \
+      ros-jazzy-gxf-isaac-optimizer \
+      ros-jazzy-gxf-isaac-sight \
+      ros-jazzy-negotiated \
+      nvv4l2 libv4l-0t64 \
       libnvvpi4 vpi4-dev cvcuda0-dev && \
     rm -rf /var/lib/apt/lists/*
 
@@ -86,8 +100,8 @@ RUN apt-get update && \
 # Keep their sources/build outputs outside /ws so ordinary development builds
 # only discover application packages. Both source and template images reuse
 # this installation, independent of changes to application sources.
-# NVIDIA's VPI/CV-CUDA keys are installed above; the CUDA toolkit comes with
-# the Isaac ROS binary dependencies. These keys are absent from stock rosdep.
+# rosdep skips the VPI/CV-CUDA keys (installed above) and cuda-toolkit, which
+# stock rosdep maps to Ubuntu's nvidia-cuda-toolkit instead of CUDA 13.
 ENV ISAAC_ROS_INSTALL=/opt/watonomous/isaac_ros
 COPY --from=isaac_ros_source /opt/isaac_ros_ws/src /opt/isaac_ros_ws/src
 WORKDIR /opt/isaac_ros_ws
