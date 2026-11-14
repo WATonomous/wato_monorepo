@@ -70,8 +70,11 @@ std::vector<vision_msgs::msg::Detection3DArray> getTestInput(
   const std::vector<std::vector<std::string>> & class_ids)
 {
   std::vector<vision_msgs::msg::Detection3DArray> test_case;
+  const rclcpp::Time t0 = rclcpp::Clock().now();
   for (size_t i = 0; i < class_ids.size(); ++i) {
     test_case.push_back(arraysToDetection3DArray(det_info[i], class_ids[i]));
+    // 10 Hz stamps: the tracker's Kalman dt comes from them.
+    test_case.back().header.stamp = t0 + rclcpp::Duration::from_seconds(0.1 * static_cast<double>(i));
   }
   return test_case;
 }
@@ -283,6 +286,121 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Node tests", "[ros]")
             REQUIRE(trks[i].detections[1].id == trks[i - 1].detections[1].id);
           }
         }
+      }
+    }
+  }
+}
+
+// Test 5: linear_velocity is m/s, not metres per frame
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Track velocity is in metres per second", "[ros]")
+{
+  // One car moving +1 m in x per 0.1 s frame, i.e. 10 m/s.
+  std::vector<std::vector<std::array<float, 8>>> vdet_info;
+  std::vector<std::vector<std::string>> vclass_ids;
+  for (int i = 0; i < 6; ++i) {
+    vdet_info.push_back({{static_cast<float>(i), 0.0f, 0.0f, 0.0f, 4.0f, 2.0f, 1.5f, 0.9f}});
+    vclass_ids.push_back({"car"});
+  }
+  std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
+
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions());
+  add_node(node);
+  auto test_pub =
+    std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kDetectionsTopic);
+  auto test_sub =
+    std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kTracksTopic);
+  add_node(test_pub);
+  add_node(test_sub);
+
+  auto tf_broadcaster_node = std::make_shared<rclcpp::Node>("tf_broadcaster");
+  auto static_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(tf_broadcaster_node);
+  geometry_msgs::msg::TransformStamped map_to_base;
+  map_to_base.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  map_to_base.header.frame_id = "map";
+  map_to_base.child_frame_id = "base_link";
+  map_to_base.transform.rotation.w = 1.0;
+  static_broadcaster->sendTransform(map_to_base);
+  add_node(tf_broadcaster_node);
+
+  node->configure();
+  node->activate();
+  start_spinning();
+
+  vision_msgs::msg::Detection3DArray last;
+  for (const auto & msg : msgs) {
+    auto future = test_sub->expect_next_message();
+    test_pub->publish(msg);
+    REQUIRE(future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready);
+    last = future.get();
+  }
+
+  REQUIRE(last.detections.size() == 1);
+  const vision_msgs::msg::ObjectHypothesisWithPose * velocity = nullptr;
+  for (const auto & result : last.detections[0].results) {
+    if (result.hypothesis.class_id == "linear_velocity") {
+      velocity = &result;
+    }
+  }
+  REQUIRE(velocity != nullptr);
+  // With ByteTrack's old dt = 1 this read 1.0 (metres per frame).
+  REQUIRE_THAT(velocity->pose.pose.position.x, Catch::Matchers::WithinAbs(10.0, 1.0));
+  REQUIRE_THAT(velocity->pose.pose.position.y, Catch::Matchers::WithinAbs(0.0, 1.0));
+}
+
+// Test 6: a box yaw that flips by pi between frames does not flip the track heading
+TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Track heading ignores box yaw flips", "[ros]")
+{
+  // Car A drives +x at 10 m/s but its first box faces backwards; car B is parked facing +x.
+  // Both box yaws alternate by pi every frame, and car B is missed in frame 4.
+  const float pi = static_cast<float>(M_PI);
+  std::vector<std::vector<std::array<float, 8>>> vdet_info;
+  std::vector<std::vector<std::string>> vclass_ids;
+  for (int i = 0; i < 12; ++i) {
+    const float flip = (i % 2) ? pi : 0.0f;
+    vdet_info.push_back({{static_cast<float>(i), 0.0f, 0.0f, pi - flip, 4.0f, 2.0f, 1.5f, 0.9f}});
+    vclass_ids.push_back({"car"});
+    if (i != 4) {
+      vdet_info.back().push_back({0.0f, 20.0f, 0.0f, flip, 4.0f, 2.0f, 1.5f, 0.9f});
+      vclass_ids.back().push_back("car");
+    }
+  }
+  std::vector<vision_msgs::msg::Detection3DArray> msgs = getTestInput(vdet_info, vclass_ids);
+
+  auto node = std::make_shared<TrackingNode>(rclcpp::NodeOptions());
+  add_node(node);
+  auto test_pub =
+    std::make_shared<wato::test::PublisherTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kDetectionsTopic);
+  auto test_sub =
+    std::make_shared<wato::test::SubscriberTestNode<vision_msgs::msg::Detection3DArray>>(TrackingNode::kTracksTopic);
+  add_node(test_pub);
+  add_node(test_sub);
+
+  auto tf_broadcaster_node = std::make_shared<rclcpp::Node>("tf_broadcaster");
+  auto static_broadcaster = std::make_shared<tf2_ros::StaticTransformBroadcaster>(tf_broadcaster_node);
+  geometry_msgs::msg::TransformStamped map_to_base;
+  map_to_base.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+  map_to_base.header.frame_id = "map";
+  map_to_base.child_frame_id = "base_link";
+  map_to_base.transform.rotation.w = 1.0;
+  static_broadcaster->sendTransform(map_to_base);
+  add_node(tf_broadcaster_node);
+
+  node->configure();
+  node->activate();
+  start_spinning();
+
+  for (size_t i = 0; i < msgs.size(); ++i) {
+    auto future = test_sub->expect_next_message();
+    test_pub->publish(msgs[i]);
+    REQUIRE(future.wait_for(std::chrono::milliseconds(1000)) == std::future_status::ready);
+    const auto trks = future.get();
+    REQUIRE(trks.detections.size() == vdet_info[i].size());
+    for (const auto & trk : trks.detections) {
+      const double cos_yaw = std::cos(tf2::getYaw(trk.bbox.center.orientation));
+      if (trk.bbox.center.position.y > 10.0) {
+        REQUIRE(cos_yaw > 0.99);  // parked: keeps its first heading, also after the miss
+      } else if (i >= 8) {
+        REQUIRE(cos_yaw > 0.99);  // moving: faces its velocity once its velocity is significant
       }
     }
   }
