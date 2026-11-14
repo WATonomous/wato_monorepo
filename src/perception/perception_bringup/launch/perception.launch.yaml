@@ -164,8 +164,10 @@ launch:
               to: /perception/detections_3D_tracked
             - from: output_markers
               to: /perception/tracked_markers
+            # Kalman predictions stay on a perception topic: prediction_ml is the only publisher of
+            # /world_modeling/world_object_seeds, which world_model consumes.
             - from: output_predictions
-              to: /world_modeling/world_object_seeds
+              to: /perception/tracked_predictions
 
 
   # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)

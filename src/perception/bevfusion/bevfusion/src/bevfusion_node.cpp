@@ -821,9 +821,12 @@ vision_msgs::msg::Detection3DArray BEVFusionNode::createDetections3D(
     pose_lidar.pose.position.y = bbox.position.y;
     pose_lidar.pose.position.z = bbox.position.z;
 
-    // Negate z_rotation to convert from BEV-map convention to ROS2/LiDAR frame convention.
+    // CUDA-BEVFusion boxes use the mmdet3d v0.x LiDAR convention: size (w, l, h) with w along the
+    // box x-axis, z_rotation clockwise, so the object's heading (its long side l) is the box's -y axis.
+    // Downstream (tracking, prediction) read the pose x-axis as heading and size.x as length, so rotate
+    // by -pi/2 and swap w/l. The footprint is unchanged; only which axis is "forward" changes.
     tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, -bbox.z_rotation);
+    q.setRPY(0.0, 0.0, -bbox.z_rotation - M_PI / 2.0);
     pose_lidar.pose.orientation = tf2::toMsg(q);
 
     geometry_msgs::msg::PoseStamped pose_target;
@@ -833,8 +836,8 @@ vision_msgs::msg::Detection3DArray BEVFusionNode::createDetections3D(
     det_3d.header.frame_id = target_frame_;
     det_3d.header.stamp = stamp;
     det_3d.bbox.center = pose_target.pose;
-    det_3d.bbox.size.x = bbox.size.w;
-    det_3d.bbox.size.y = bbox.size.l;
+    det_3d.bbox.size.x = bbox.size.l;
+    det_3d.bbox.size.y = bbox.size.w;
     det_3d.bbox.size.z = bbox.size.h;
 
     vision_msgs::msg::ObjectHypothesisWithPose hyp;

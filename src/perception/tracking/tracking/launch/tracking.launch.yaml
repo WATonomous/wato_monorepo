@@ -23,7 +23,7 @@ launch:
       description: Topic to publish tracks to
   - arg:
       name: predictions_topic
-      default: /perception/predicted_objects
+      default: /perception/tracked_predictions
       description: Topic to publish predicted world objects to
 
   # Launch the 2D tracking node
