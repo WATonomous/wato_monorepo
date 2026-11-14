@@ -18,6 +18,7 @@
 #include <behaviortree_cpp/condition_node.h>
 
 #include <cmath>
+#include <deque>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -30,7 +31,7 @@ namespace behaviour
 {
 /**
  * @class EgoStoppedCondition
- * @brief ConditionNode to check whether ego speed is below a threshold.
+ * @brief ConditionNode to check whether ego speed is below a threshold using a moving average window.
  */
 
 class EgoStoppedCondition : public BT::ConditionNode, protected BTLoggerBase
@@ -46,6 +47,7 @@ public:
     return {
       BT::InputPort<nav_msgs::msg::Odometry::SharedPtr>("ego_odom"),
       BT::InputPort<double>("threshold_velocity"),
+      BT::InputPort<int>("window_size", 5, "Number of velocity samples to average"),
     };
   }
 
@@ -57,24 +59,49 @@ public:
 
     auto ego_odom = ports::tryGetPtr<nav_msgs::msg::Odometry>(*this, "ego_odom");
     if (!ports::require(ego_odom, "ego_odom", missing_input_callback)) {
+      velocity_history_.clear();
       return BT::NodeStatus::FAILURE;
     }
     auto threshold_velocity = ports::tryGet<double>(*this, "threshold_velocity");
     if (!ports::require(threshold_velocity, "threshold_velocity", missing_input_callback)) {
+      velocity_history_.clear();
       return BT::NodeStatus::FAILURE;
     }
 
+    int window_size = ports::tryGet<int>(*this, "window_size").value_or(5);
+    if (window_size <= 0) {
+      window_size = 1;
+    }
+
     const double v = std::hypot(ego_odom->twist.twist.linear.x, ego_odom->twist.twist.linear.y);
+
+    velocity_history_.push_back(v);
+    while (velocity_history_.size() > static_cast<size_t>(window_size)) {
+      velocity_history_.pop_front();
+    }
+
+    double sum = 0.0;
+    for (double speed : velocity_history_) {
+      sum += speed;
+    }
+    const double avg_v = sum / static_cast<double>(velocity_history_.size());
     const double thresh = *threshold_velocity;
 
-    if (v <= thresh) {
-      RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " <= threshold_velocity " << thresh);
+    if (avg_v <= thresh) {
+      RCLCPP_DEBUG_STREAM(
+        logger(), "avg speed " << avg_v << " (inst: " << v << ", samples: " << velocity_history_.size()
+                               << ") <= threshold_velocity " << thresh);
       return BT::NodeStatus::SUCCESS;
     }
 
-    RCLCPP_DEBUG_STREAM(logger(), "speed " << v << " > threshold_velocity " << thresh);
+    RCLCPP_DEBUG_STREAM(
+      logger(), "avg speed " << avg_v << " (inst: " << v << ", samples: " << velocity_history_.size()
+                             << ") > threshold_velocity " << thresh);
     return BT::NodeStatus::FAILURE;
   }
+
+private:
+  std::deque<double> velocity_history_;
 };
 
 }  // namespace behaviour
