@@ -40,13 +40,14 @@ PERCEPTION="$PROJECT-perception_bringup_dev-1"
 INFRASTRUCTURE="$PROJECT-infrastructure_bringup-1"
 export BAG_DIRECTORY="${BAG_DIRECTORY:-/mnt/data/bags}"
 
-# Run a command inside a dev container with ROS and the workspace sourced
+# Run a command inside a dev container with ROS and the workspace sourced.
+# docker exec skips the entrypoint, so the Isaac ROS underlay (rectify, H.264 encoder) is sourced here.
 in_container() {
   local container=$1
   shift
   docker exec "$container" bash -c "
     source /opt/ros/\$ROS_DISTRO/setup.bash
-    [[ -f /opt/watonomous/setup.bash ]] && source /opt/watonomous/setup.bash
+    [[ -n \"\${ISAAC_ROS_INSTALL:-}\" ]] && source \"\$ISAAC_ROS_INSTALL/local_setup.bash\"
     [[ -f /ws/install/setup.bash ]] && source /ws/install/setup.bash
     $*"
 }
@@ -57,7 +58,7 @@ in_container_detached() {
   shift 2
   docker exec -d "$container" bash -c "
     source /opt/ros/\$ROS_DISTRO/setup.bash
-    [[ -f /opt/watonomous/setup.bash ]] && source /opt/watonomous/setup.bash
+    [[ -n \"\${ISAAC_ROS_INSTALL:-}\" ]] && source \"\$ISAAC_ROS_INSTALL/local_setup.bash\"
     source /ws/install/setup.bash
     { $*; } > $log 2>&1"
 }
@@ -84,16 +85,17 @@ preflight() {
 }
 
 build_drivers() {
+  # --base-paths src: /ws/bags is a bind mount of BAG_DIRECTORY and colcon must not crawl it
   # The whole workspace: interfacing_bringup does not declare every package its launch uses
   echo "==> Building interfacing (~2 min the first time, incremental after)"
-  in_container "$INTERFACING" "cd /ws && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
+  in_container "$INTERFACING" "cd /ws && colcon build --base-paths src --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
 
   # Only what the camera launch needs. Ignoring the rest of the workspace stops colcon from
   # requiring perception_bringup's other dependencies (detection, tracking, ...) to be built.
   echo "==> Building camera drivers"
   in_container "$PERCEPTION" "cd /ws \
-    && others=\$(colcon list --names-only | grep -vxE 'perception_bringup|camera_aravis2|camera_aravis2_msgs|camera_calib') \
-    && colcon build --packages-up-to perception_bringup camera_aravis2 --packages-ignore \$others \
+    && others=\$(colcon list --base-paths src --names-only | grep -vxE 'perception_bringup|camera_aravis2|camera_aravis2_msgs|camera_calib') \
+    && colcon build --base-paths src --packages-up-to perception_bringup camera_aravis2 --packages-ignore \$others \
       --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
 }
 

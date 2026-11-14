@@ -29,6 +29,13 @@ model = [
   "onnx>=1.17",
   "onnxruntime>=1.20",
 ]
+# Build an engine from an existing ONNX file without installing PyTorch/MTR.
+engine = [
+  "onnx>=1.17",
+  "tensorrt-cu12==10.13.2.6",
+  "cuda-python>=12.9,<13",
+  "nvidia-cuda-runtime-cu12>=12.8,<13",
+]
 # Waymo publishes platform-specific wheels; install this extra in the Linux
 # environment used to parse and preprocess the validation shard.
 waymo = ["waymo-open-dataset-tf-2-12-0"]

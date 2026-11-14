@@ -77,11 +77,36 @@ colcon build --packages-select prediction_ml \
   --cmake-args -DPREDICTION_ML_ENABLE_TENSORRT=ON
 ```
 
-The validated development environment uses TensorRT 10.13.2.6. Install the
-matching CUDA-12 Python builder in the model venv:
+The world modeling image installs the eval project's `engine` extra dependencies
+in `/opt/watonomous/mtr-engine-venv`. They include ONNX, TensorRT 10.13.2.6, CUDA
+Python, and the CUDA 12 runtime, separate from ROS Python and without PyTorch.
+Changes to `eval/pyproject.toml` take effect when rebuilding the image.
+
+Rebuild and recreate the dev container from the repository root on the host:
 
 ```bash
-python -m pip install "tensorrt-cu12==10.13.2.6"
+./watod -m world_modeling:dev build
+./watod -m world_modeling:dev up -d --no-deps world_modeling_bringup_dev
+```
+
+Inside the dev container, activate the engine environment and build the mounted model:
+
+```bash
+source /opt/watonomous/mtr-engine-venv/bin/activate
+python3 /ws/src/world_modeling/prediction_ml/eval/wato_mtr_eval/build_engine.py \
+  --onnx /ws/models/prediction/mtr_av2_r2.onnx \
+  --config /ws/src/world_modeling/prediction_ml/config/engine_build.yaml \
+  --out /ws/models/prediction/mtr_av2_r2.engine
+```
+
+The dev service requests an NVIDIA GPU. The engine is written back to the host's
+`models/prediction` directory. The default `python3` outside this environment
+continues to use the ROS Python packages.
+
+For an existing model venv outside Docker, install the engine extra from `eval/`:
+
+```bash
+python -m pip install '.[engine]'
 ```
 
 The C++ build additionally needs matching TensorRT headers and

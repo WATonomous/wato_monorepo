@@ -98,6 +98,21 @@ TEST_CASE("TF alignment rotates absolute UTM into the Eidos map", "[map_projecti
   checkRoundTrip(projector, point);
 }
 
+TEST_CASE("OSM elevation offset lifts map-relative heights before TF alignment", "[map_projection]")
+{
+  auto config = ovalConfig();
+  config.alignment_mode = "tf";
+  config.osm_ele_offset = 298.0;
+  geometry_msgs::msg::Transform transform;
+  transform.rotation.w = 1.0;
+  transform.translation.z = -298.0;  // utm -> map removes absolute altitude.
+  const world_model::MapProjector projector(config, transform);
+
+  const lanelet::GPSPoint point{45.5017, -73.5673, 2.5};  // ele relative to map.
+  CHECK(std::abs(projector.forward(point).z() - 2.5) < 1e-6);
+  checkRoundTrip(projector, point);
+}
+
 TEST_CASE("TF alignment handles roll and a local ENU source frame", "[map_projection]")
 {
   auto config = ovalConfig();

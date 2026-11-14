@@ -38,6 +38,9 @@ void validateMapConfig(const MapConfig & config)
   {
     throw std::invalid_argument("Map origin must contain finite, valid latitude, longitude, and altitude");
   }
+  if (!std::isfinite(config.osm_ele_offset)) {
+    throw std::invalid_argument("osm_ele_offset must be finite");
+  }
   if (config.alignment_mode == "tf" && config.projected_frame.empty()) {
     throw std::invalid_argument("projected_frame is required for alignment_mode=tf");
   }
@@ -75,6 +78,8 @@ MapProjector::MapProjector(
     projected_to_map_.linear() = rotation.normalized().toRotationMatrix();
     projected_to_map_.translation() = translation;
   }
+  // Shift OSM elevations in the projected frame, before alignment.
+  projected_to_map_ = projected_to_map_ * Eigen::Translation3d(0.0, 0.0, config.osm_ele_offset);
   map_to_projected_ = projected_to_map_.inverse();
 }
 

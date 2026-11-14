@@ -133,3 +133,4 @@ private:
 }  // namespace behaviour
 
 #endif  // BEHAVIOUR__NODES__COMMON__CONDITIONS__EGO_STOPPED_CONDITION_HPP_
+

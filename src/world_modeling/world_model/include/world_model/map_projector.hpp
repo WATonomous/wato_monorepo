@@ -37,6 +37,9 @@ struct MapConfig
   double origin_lat{0.0};
   double origin_lon{0.0};
   double origin_alt{0.0};
+  // Metres added to every OSM `ele` before alignment. Use when the OSM stores
+  // heights relative to the map frame but the alignment expects absolute ones.
+  double osm_ele_offset{0.0};
 };
 
 /** Throws std::invalid_argument for unsupported modes or invalid origins. */
