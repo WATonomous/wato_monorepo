@@ -80,9 +80,6 @@ done
 # Keep pre-profiles as-is (they're used for building)
 TEST_PRE_PROFILES=("${PRE_PROFILES[@]}")
 
-# Use unique ROS_DOMAIN_ID for test isolation
-TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
-
 # Services to skip (non-ROS services that don't have colcon tests)
 SKIP_SERVICES=("log_viewer" "network_namespace")
 
@@ -114,18 +111,18 @@ run_tests() {
     colcon_cmd="colcon test --event-handlers console_direct+ --packages-select ${FILTER_PACKAGES[*]}"
   fi
 
-  # Capture test output
+  # Capture test output. ROS_DOMAIN_ID is unset so add_wato_test()'s isolated runner can give
+  # each test its own domain (it keeps any preset value, which would put every test on one domain).
   local test_output
   test_output=$( "$MONO_DIR/watod_scripts/watod-compose.sh" run \
     --pre-profiles "${TEST_PRE_PROFILES[@]}" \
     --all-profiles "${TEST_ALL_PROFILES[@]}" \
     --compose-files "${TEST_ALL_COMPOSE_FILES[@]}" \
     --rm \
-    -e ROS_DOMAIN_ID="$TEST_ROS_DOMAIN_ID" \
     --name "${service}_test_$$" \
     -w /ws \
     "$test_service" \
-    /bin/bash -c "source /opt/watonomous/setup.bash && $colcon_cmd && colcon test-result --verbose" 2>&1)
+    /bin/bash -c "source /opt/watonomous/setup.bash && unset ROS_DOMAIN_ID && $colcon_cmd && colcon test-result --verbose" 2>&1)
 
   local exit_code=$?
   echo "$test_output"

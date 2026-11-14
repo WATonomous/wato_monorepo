@@ -60,9 +60,17 @@ function(add_wato_test TEST_NAME TEST_SOURCE)
   # Add test include directory
   target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/test)
 
+  # Run each test on its own free ROS domain so tests that colcon runs in parallel
+  # cannot cross-talk. Same runner ament_add_ros_isolated_gtest uses; find_file instead of
+  # find_package(ament_cmake_ros) to avoid its BUILD_SHARED_LIBS / add_definitions side effects.
+  find_file(WATO_TEST_ISOLATED_RUNNER run_test_isolated.py
+    PATHS ENV AMENT_PREFIX_PATH
+    PATH_SUFFIXES share/ament_cmake_ros/cmake REQUIRED)
+
   # Register the test with ament
   ament_add_test(
     ${TEST_NAME}
+    RUNNER "${WATO_TEST_ISOLATED_RUNNER}"
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
     COMMAND "$<TARGET_FILE:${TEST_NAME}>"
       -r junit

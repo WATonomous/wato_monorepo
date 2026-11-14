@@ -8,6 +8,7 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>ament_cmake_ros</depend>
   <depend>catch2</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
