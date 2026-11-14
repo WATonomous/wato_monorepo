@@ -43,6 +43,9 @@ struct MtrConfig
   std::string metadata_path;
   double cache_ttl_s{0.5};
   int selected_target_agent_limit{8};
+  // Only agents whose history shows motion become MTR targets; stationary ones keep the fallback's
+  // zero-length path instead of an occasional phantom path from the model.
+  bool moving_targets_only{false};
   // Half-angle from ego heading that counts as "forward" for target priority (degrees).
   // 90 => front hemisphere, including agents beside the car at ±90°.
   double target_forward_half_angle_deg{90.0};

@@ -774,6 +774,14 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
     return candidates;
   }
 
+  if (config_.moving_targets_only) {
+    // ponytail: a car pulling out stays on the fallback until its history-window displacement
+    // crosses the moving speed (about 0.5 s); add a faster release if the track test shows it matters.
+    candidates.erase(
+      std::remove_if(candidates.begin(), candidates.end(), [](const TargetCandidate & c) { return !c.moving; }),
+      candidates.end());
+  }
+
   const auto limit = std::min(static_cast<std::size_t>(config_.selected_target_agent_limit), kTargetCapacity);
   if (candidates.size() > limit) {
     candidates.resize(limit);

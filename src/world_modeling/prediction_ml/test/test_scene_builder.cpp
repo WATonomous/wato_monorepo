@@ -432,6 +432,18 @@ TEST(SceneBuilder, MovingTargetRankedAheadOfNearerParkedCars)
   ASSERT_EQ(tensors.sidecar.targets.size(), kTargetCap);
   EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "mover");
   EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "parked_0");  // then nearest-first as before
+
+  MtrConfig cfg;
+  cfg.moving_targets_only = true;
+  SceneBuilder moving_only{cfg};
+  for (int k = 0; k <= 10; ++k) {
+    moving_only.addFrame(makeArray(
+      100.0 + 0.1 * k, {makeDetection("parked", "vehicle", 5.0, 3.0, 0.0, 0.0),
+                        makeDetection("mover", "vehicle", 40.0 + 1.0 * k, -3.0, 0.0, 0.0)}));
+  }
+  tensors = moving_only.build(makeFrame(arr, makePose(0, 0, 0)));
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);  // the parked car is left to the fallback
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "mover");
 }
 
 TEST(SceneBuilder, WalkingPedestrianAheadOutranksCarsBehindAndParkedCarAhead)
