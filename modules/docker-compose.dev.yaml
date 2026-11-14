@@ -17,7 +17,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/infrastructure:/ws/src/infrastructure
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/ws/bags
 
   #################### INTERFACING SERVICE ####################
   interfacing_bringup_dev:
@@ -36,7 +36,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/interfacing:/ws/src/interfacing
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/ws/bags
 
   #################### PERCEPTION SERVICE ####################
   perception_bringup_dev:
@@ -56,7 +56,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/perception:/ws/src/perception
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/ws/bags
       - ${MONO_DIR}/models:/opt/watonomous/models
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -86,7 +86,7 @@ services:
     volumes:
       - ${MONO_DIR}/maps:/opt/watonomous/maps
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/ws/bags
 
   #################### ACTION SERVICE ####################
   action_bringup_dev:
@@ -105,7 +105,7 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/action:/ws/src/action
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/ws/bags
 
   #################### SIMULATION SERVICE ####################
   carla_sim:
@@ -136,4 +136,4 @@ services:
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/src/simulation:/ws/src/simulation
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY}:/ws/bags

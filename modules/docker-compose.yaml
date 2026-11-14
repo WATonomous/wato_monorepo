@@ -8,7 +8,7 @@ services:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
+        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_source
       target: source
     image: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
 
@@ -18,7 +18,7 @@ services:
       context: ..
       dockerfile: docker/infrastructure.Dockerfile
       cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
+        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_deps
       target: dependencies
     image: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
 
@@ -35,8 +35,7 @@ services:
         MODULE_SOURCE: "${INFRASTRUCTURE_IMAGE:?}:source_${TAG}"
         MODULE_DEPS: "${INFRASTRUCTURE_IMAGE:?}:deps_${TAG}"
       cache_from:
-        - "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-        - "${INFRASTRUCTURE_IMAGE:?}:main"
+        - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch infrastructure_bringup infrastructure.launch.yaml foxglove_port:=${FOXGLOVE_BRIDGE_PORT:?}"
@@ -67,7 +66,7 @@ services:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
       cache_from:
-        - "${INTERFACING_IMAGE:?}:source_${TAG}"
+        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_source
       target: source
     image: "${INTERFACING_IMAGE}:source_${TAG}"
 
@@ -77,7 +76,7 @@ services:
       context: ..
       dockerfile: docker/interfacing.Dockerfile
       cache_from:
-        - "${INTERFACING_IMAGE:?}:deps_${TAG}"
+        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_deps
       target: dependencies
     image: "${INTERFACING_IMAGE}:deps_${TAG}"
 
@@ -94,8 +93,7 @@ services:
         MODULE_SOURCE: "${INTERFACING_IMAGE}:source_${TAG}"
         MODULE_DEPS: "${INTERFACING_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${INTERFACING_IMAGE}:${TAG}"
-        - "${INTERFACING_IMAGE}:main"
+        - type=registry,ref=${INTERFACING_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${INTERFACING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch interfacing_bringup interfacing.launch.yaml"
@@ -121,7 +119,7 @@ services:
       context: ..
       dockerfile: docker/perception.Dockerfile
       cache_from:
-        - "${PERCEPTION_IMAGE:?}:source_${TAG}"
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_source
       target: source
     image: "${PERCEPTION_IMAGE:?}:source_${TAG}"
 
@@ -131,7 +129,7 @@ services:
       context: ..
       dockerfile: docker/perception.Dockerfile
       cache_from:
-        - "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_deps
       target: dependencies
     image: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
 
@@ -149,9 +147,9 @@ services:
       args:
         MODULE_SOURCE: "${PERCEPTION_IMAGE:?}:source_${TAG}"
         MODULE_DEPS: "${PERCEPTION_IMAGE:?}:deps_${TAG}"
+        CUDASM: "${CUDASM:-89}"
       cache_from:
-        - "${PERCEPTION_IMAGE:?}:${TAG}"
-        - "${PERCEPTION_IMAGE:?}:main"
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${PERCEPTION_IMAGE:?}:${TAG}"
     command: /bin/bash -c "ros2 launch perception_bringup perception.launch.yaml"
@@ -182,7 +180,7 @@ services:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
       cache_from:
-        - "${WORLD_MODELING_IMAGE:?}:source_${TAG}"
+        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_source
       target: source
     image: "${WORLD_MODELING_IMAGE}:source_${TAG}"
 
@@ -192,7 +190,7 @@ services:
       context: ..
       dockerfile: docker/world_modeling.Dockerfile
       cache_from:
-        - "${WORLD_MODELING_IMAGE:?}:deps_${TAG}"
+        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_deps
       target: dependencies
     image: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
 
@@ -209,8 +207,7 @@ services:
         MODULE_SOURCE: "${WORLD_MODELING_IMAGE}:source_${TAG}"
         MODULE_DEPS: "${WORLD_MODELING_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${WORLD_MODELING_IMAGE}:${TAG}"
-        - "${WORLD_MODELING_IMAGE}:main"
+        - type=registry,ref=${WORLD_MODELING_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${WORLD_MODELING_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch world_modeling_bringup world_modeling.launch.yaml"
@@ -233,7 +230,7 @@ services:
       context: ..
       dockerfile: docker/action.Dockerfile
       cache_from:
-        - "${ACTION_IMAGE:?}:source_${TAG}"
+        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_source
       target: source
     image: "${ACTION_IMAGE}:source_${TAG}"
 
@@ -243,7 +240,7 @@ services:
       context: ..
       dockerfile: docker/action.Dockerfile
       cache_from:
-        - "${ACTION_IMAGE:?}:deps_${TAG}"
+        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_deps
       target: dependencies
     image: "${ACTION_IMAGE}:deps_${TAG}"
 
@@ -260,8 +257,7 @@ services:
         MODULE_SOURCE: "${ACTION_IMAGE}:source_${TAG}"
         MODULE_DEPS: "${ACTION_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${ACTION_IMAGE}:${TAG}"
-        - "${ACTION_IMAGE}:main"
+        - type=registry,ref=${ACTION_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${ACTION_IMAGE}:${TAG}"
     command: /bin/bash -c "ros2 launch action_bringup action.launch.yaml"
@@ -304,7 +300,7 @@ services:
       context: ..
       dockerfile: docker/simulation.Dockerfile
       cache_from:
-        - "${SIMULATION_IMAGE:?}:source_${TAG}"
+        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_source
       target: source
     image: "${SIMULATION_IMAGE}:source_${TAG}"
 
@@ -314,7 +310,7 @@ services:
       context: ..
       dockerfile: docker/simulation.Dockerfile
       cache_from:
-        - "${SIMULATION_IMAGE:?}:deps_${TAG}"
+        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_deps
       target: dependencies
     image: "${SIMULATION_IMAGE}:deps_${TAG}"
 
@@ -331,8 +327,7 @@ services:
         MODULE_SOURCE: "${SIMULATION_IMAGE}:source_${TAG}"
         MODULE_DEPS: "${SIMULATION_IMAGE}:deps_${TAG}"
       cache_from:
-        - "${SIMULATION_IMAGE:?}:${TAG}"
-        - "${SIMULATION_IMAGE:?}:main"
+        - type=registry,ref=${SIMULATION_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${SIMULATION_IMAGE}:${TAG}"
     volumes:

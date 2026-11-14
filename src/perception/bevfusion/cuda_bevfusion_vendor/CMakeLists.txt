@@ -73,7 +73,7 @@ macro(build_cuda_bevfusion)
       set(ENV{CUDASM} "89")
     endif()
     if(NOT DEFINED ENV{SPCONV_CUDA_VERSION})
-      set(ENV{SPCONV_CUDA_VERSION} "12.8")
+      set(ENV{SPCONV_CUDA_VERSION} "13.0")
     endif()
     if(NOT DEFINED ENV{CUDA_Inc})
       set(ENV{CUDA_Inc} "/usr/local/cuda/include")
@@ -155,6 +155,14 @@ macro(build_cuda_bevfusion)
         @ONLY
     )
 
+    # libbevfusion_core.so has a hard dependency on libspconv.so. The upstream
+    # CUDA-BEVFusion repo ships it as a prebuilt library instead of building it,
+    # so it must be copied into the install tree alongside the compiled libs.
+    string(CONCAT _spconv_lib_dir
+        "${CUDA_BEVFUSION_SOURCE_DIR}/libraries/3DSparseConvolution/libspconv/lib/"
+        "${CMAKE_HOST_SYSTEM_PROCESSOR}_cuda$ENV{SPCONV_CUDA_VERSION}"
+    )
+
     # Copy files to install folder via custom command (triggered only when source updates)
     add_custom_command(
         OUTPUT ${BEVFUSION_INSTALL_DIR}/stamp
@@ -166,6 +174,7 @@ macro(build_cuda_bevfusion)
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${BINARY_DIR}/libbevfusion_core.so
                 ${BINARY_DIR}/libcustom_layernorm.so
+                ${_spconv_lib_dir}/libspconv.so
                 ${BEVFUSION_INSTALL_DIR}/lib/
 
         # Copy headers from the CUDA-BEVFusion/src directory
