@@ -80,7 +80,8 @@ done
 # Keep pre-profiles as-is (they're used for building)
 TEST_PRE_PROFILES=("${PRE_PROFILES[@]}")
 
-# Use unique ROS_DOMAIN_ID for test isolation
+# Fallback for tests without their own domain isolation. add_wato_test allocates
+# a separate domain per executable, even when this value is inherited.
 TEST_ROS_DOMAIN_ID=${TEST_ROS_DOMAIN_ID:-99}
 
 # Services to skip (non-ROS services that don't have colcon tests)

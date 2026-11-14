@@ -37,14 +37,9 @@ TestExecutorFixture::TestExecutorFixture()
 
 TestExecutorFixture::~TestExecutorFixture()
 {
-  // Shut down ROS first to unblock any blocking wait calls (wait_for_service,
-  // future.wait_for, etc.), ensuring the spin thread exits promptly.
-  // rclcpp::shutdown() is idempotent; ROS2Initializer::~ROS2Initializer() will
-  // call it again safely.
-  if (rclcpp::ok()) {
-    rclcpp::shutdown();
-  }
-
+  // Keep the context valid until in-flight callbacks finish. In particular,
+  // callbacks may still publish or create timers after the test body returns.
+  // Blocking callbacks must use bounded waits so cancellation can finish.
   executor_.cancel();
 
   if (spin_thread_.joinable()) {
@@ -77,6 +72,10 @@ void TestExecutorFixture::start_spinning()
 {
   if (!spin_thread_.joinable()) {
     spin_thread_ = std::thread([this]() { executor_.spin(); });
+    // cancel() must not race with spin() setting its spinning flag on startup.
+    while (!executor_.is_spinning()) {
+      std::this_thread::yield();
+    }
   }
 }
 
@@ -86,14 +85,8 @@ MultiThreadedTestFixture::MultiThreadedTestFixture()
 
 MultiThreadedTestFixture::~MultiThreadedTestFixture()
 {
-  // Shut down ROS first to unblock any blocking wait calls (wait_for_service,
-  // future.wait_for, etc.), ensuring the spin thread exits promptly.
-  // rclcpp::shutdown() is idempotent; ROS2Initializer::~ROS2Initializer() will
-  // call it again safely.
-  if (rclcpp::ok()) {
-    rclcpp::shutdown();
-  }
-
+  // Join all callback threads before ROS2Initializer shuts down the context.
+  // Blocking callbacks must use bounded waits so cancellation can finish.
   executor_.cancel();
 
   if (spin_thread_.joinable()) {
@@ -126,6 +119,9 @@ void MultiThreadedTestFixture::start_spinning()
 {
   if (!spin_thread_.joinable()) {
     spin_thread_ = std::thread([this]() { executor_.spin(); });
+    while (!executor_.is_spinning()) {
+      std::this_thread::yield();
+    }
   }
 }
 

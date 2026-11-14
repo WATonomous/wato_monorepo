@@ -14,6 +14,8 @@
 
 #include "pid_control/vel_driven_feedforward_pid_node.hpp"
 
+#include <chrono>
+#include <future>
 #include <memory>
 
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
@@ -76,21 +78,26 @@ TEST_CASE_METHOD(TestExecutorFixture, "VelDrivenFeedforwardPidNode Velocity Sour
     AckermannDriveStamped ack_msg;
     ack_msg.drive.speed = 1.0;
     ackermann_pub->publish(ack_msg);
+    REQUIRE(flush_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     flush_future.get();
 
+    // A timer output may already be in flight. Wait for the braking result,
+    // not merely the next output message.
     // ODOM publishes first and would win under the old "first publisher locks forever" logic.
-    auto future1 = roscco_sub->expect_next_message();
+    auto future1 = roscco_sub->expect_message([](const RosccoMsg & msg) { return msg.forward < 0.0; });
     Odometry odom_msg;
     odom_msg.twist.twist.linear.x = 2.0;  // error = 1.0 - 2.0 = -1.0 -> braking (negative forward)
     odom_pub->publish(odom_msg);
+    REQUIRE(future1.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     auto msg1 = future1.get();
     REQUIRE(msg1.forward < 0.0);
 
     // CAN publishes afterward and must reclaim the source, not be locked out by ODOM.
-    auto future2 = roscco_sub->expect_next_message();
+    auto future2 = roscco_sub->expect_message([](const RosccoMsg & msg) { return msg.forward > 0.0; });
     Float64 can_msg;
     can_msg.data = 0.0;  // error = 1.0 - 0.0 = 1.0 -> throttle (positive forward)
     can_pub->publish(can_msg);
+    REQUIRE(future2.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     auto msg2 = future2.get();
     REQUIRE(msg2.forward > 0.0);
   }
@@ -108,12 +115,14 @@ TEST_CASE_METHOD(TestExecutorFixture, "VelDrivenFeedforwardPidNode Velocity Sour
     AckermannDriveStamped ack_msg;
     ack_msg.drive.speed = 1.0;
     ackermann_pub->publish(ack_msg);
+    REQUIRE(flush_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     flush_future.get();
 
-    auto future = roscco_sub->expect_next_message();
+    auto future = roscco_sub->expect_message([](const RosccoMsg & msg) { return msg.forward > 0.0; });
     Odometry odom_msg;
     odom_msg.twist.twist.linear.x = 0.0;  // error = 1.0 - 0.0 = 1.0 -> throttle (positive forward)
     odom_pub->publish(odom_msg);
+    REQUIRE(future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     auto msg = future.get();
     REQUIRE(msg.forward > 0.0);
   }

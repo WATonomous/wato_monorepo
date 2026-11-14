@@ -124,6 +124,34 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "Multiple nodes with TestExecu
     REQUIRE(last_msg.has_value());
     REQUIRE(last_msg->data == "Test 2");
   }
+
+  SECTION("Matching expectations ignore stale messages and preserve FIFO order")
+  {
+    auto matching = sub_node->expect_message([](const std_msgs::msg::String & msg) { return msg.data == "target"; });
+    auto following = sub_node->expect_next_message();
+
+    std_msgs::msg::String msg;
+    msg.data = "stale";
+    pub_node->publish(msg);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (sub_node->get_message_count() == 0 && std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    REQUIRE(sub_node->get_message_count() == 1);
+    REQUIRE(matching.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+    REQUIRE(following.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+
+    msg.data = "target";
+    pub_node->publish(msg);
+    REQUIRE(matching.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    REQUIRE(matching.get().data == "target");
+    REQUIRE(following.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+
+    msg.data = "following";
+    pub_node->publish(msg);
+    REQUIRE(following.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    REQUIRE(following.get().data == "following");
+  }
 }
 
 }  // namespace wato

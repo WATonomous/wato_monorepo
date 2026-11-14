@@ -87,6 +87,8 @@ if(BUILD_TESTING)
     LIBRARIES
       ${std_msgs_TARGETS}
   )
+
+  add_wato_test(test_executor_teardown test/test_executor_teardown.cpp)
 endif()
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
