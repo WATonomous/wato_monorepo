@@ -132,7 +132,9 @@ RUN apt-get update && \
 # as a duplicate of our own bevfusion package.
 RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
-    git clone --recurse-submodules https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
+    git clone https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
+    git -C wato-cuda-bevfusion checkout 08ec4db80ec768e9410c11e032e2a26dd24ded52 && \
+    git -C wato-cuda-bevfusion submodule update --init --recursive && \
     touch wato-cuda-bevfusion/COLCON_IGNORE && \
     git -C wato-cuda-bevfusion lfs install && \
     git -C wato-cuda-bevfusion lfs pull
