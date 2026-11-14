@@ -159,6 +159,7 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.history_steps", 11);
   this->declare_parameter("mtr.history_rate_hz", 10.0);
   this->declare_parameter("mtr.velocity_from_history", false);
+  this->declare_parameter("mtr.planar_inputs", false);
   RCLCPP_INFO(this->get_logger(), "PredictionMlNode created (unconfigured)");
 }
 
@@ -185,6 +186,7 @@ MtrConfig PredictionMlNode::loadMtrConfig()
   cfg.history_steps = static_cast<int>(this->get_parameter("mtr.history_steps").as_int());
   cfg.history_rate_hz = this->get_parameter("mtr.history_rate_hz").as_double();
   cfg.velocity_from_history = this->get_parameter("mtr.velocity_from_history").as_bool();
+  cfg.planar_inputs = this->get_parameter("mtr.planar_inputs").as_bool();
   return cfg;
 }
 

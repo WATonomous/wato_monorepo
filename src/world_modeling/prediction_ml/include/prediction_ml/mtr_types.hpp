@@ -58,6 +58,9 @@ struct MtrConfig
   // tracker's linear_velocity, which is relative to the moving ego when tracking runs in the sensor
   // frame (lidar_cc) without ego-motion compensation.
   bool velocity_from_history{false};
+  // Zero every height and box-size input (agent z and box dims, map z and dir_z). Set for a model
+  // trained on data that has neither, e.g. Argoverse 2; leave off for the Waymo-trained model.
+  bool planar_inputs{false};
   // Static ego (SDC) bounding-box dimensions (metres). Used to give the ego row a real
   // footprint in obj_trajs instead of a zero-size box, matching MTR training. Defaults are
   // the Kia Soul EV chassis from eve_description (eve_chassis.xacro).

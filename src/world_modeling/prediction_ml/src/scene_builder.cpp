@@ -95,6 +95,26 @@ constexpr std::size_t kBoxOffset = 0;
 constexpr std::size_t kOneHotOffset = 6;
 constexpr std::size_t kTimeOffset = 11;  // time one-hot starts here; scalar at kTimeOffset + T
 
+// mtr.planar_inputs: tensors as a model trained without heights or box sizes saw them.
+void zeroHeightAndBoxSize(MtrInputTensors & tensors)
+{
+  const auto obj_dim = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+  for (std::size_t i = kBoxOffset + 2; i < tensors.obj_trajs.size(); i += obj_dim) {
+    std::fill_n(&tensors.obj_trajs[i], 4, 0.0F);  // z, dx, dy, dz
+  }
+  for (std::size_t i = 2; i < tensors.obj_trajs_last_pos.size(); i += 3) {
+    tensors.obj_trajs_last_pos[i] = 0.0F;
+  }
+  const auto map_dim = static_cast<std::size_t>(tensors.map_polylines_shape[3]);
+  for (std::size_t i = 2; i < tensors.map_polylines.size(); i += map_dim) {
+    tensors.map_polylines[i] = 0.0F;  // z
+    tensors.map_polylines[i + 3] = 0.0F;  // dir_z
+  }
+  for (std::size_t i = 2; i < tensors.map_polylines_center.size(); i += 3) {
+    tensors.map_polylines_center[i] = 0.0F;
+  }
+}
+
 bool isFinite(const double value)
 {
   return std::isfinite(value);
@@ -250,6 +270,9 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
   // Buffers are always sized to the fixed contract regardless of whether a usable map exists.
   const auto polylines = frame.has_map ? buildMapPolylines(frame.lanelet_ahead) : std::vector<MapPolyline>{};
   packMapTensors(targets, polylines, tensors);
+  if (config_.planar_inputs) {
+    zeroHeightAndBoxSize(tensors);
+  }
 
   tensors.valid = !tensors.sidecar.targets.empty();
   return tensors;

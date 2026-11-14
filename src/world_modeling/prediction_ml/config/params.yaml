@@ -38,3 +38,7 @@
     # compensation, so its velocity is relative to the moving ego.
     # Set false only for inputs with true map-frame velocities (e.g. Waymo ground-truth replays).
     mtr.velocity_from_history: true
+    # true: zero agent z / box size and map z before inference. Required for a model trained on
+    # Argoverse 2 (no heights or box sizes there; pair it with contract_8_target_av2.yaml, 6 s output).
+    # false for the Waymo-trained model.
+    mtr.planar_inputs: false
