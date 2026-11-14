@@ -43,6 +43,9 @@ struct MtrConfig
   std::string metadata_path;
   double cache_ttl_s{0.5};
   int selected_target_agent_limit{8};
+  // Only agents whose history shows motion become MTR targets; stationary ones keep the fallback's
+  // zero-length path instead of an occasional phantom path from the model.
+  bool moving_targets_only{false};
   // Half-angle from ego heading that counts as "forward" for target priority (degrees).
   // 90 => front hemisphere, including agents beside the car at ±90°.
   double target_forward_half_angle_deg{90.0};
@@ -58,6 +61,9 @@ struct MtrConfig
   // tracker's linear_velocity, which is relative to the moving ego when tracking runs in the sensor
   // frame (lidar_cc) without ego-motion compensation.
   bool velocity_from_history{false};
+  // Zero every height and box-size input (agent z and box dims, map z and dir_z). Set for a model
+  // trained on data that has neither, e.g. Argoverse 2; leave off for the Waymo-trained model.
+  bool planar_inputs{false};
   // Static ego (SDC) bounding-box dimensions (metres). Used to give the ego row a real
   // footprint in obj_trajs instead of a zero-size box, matching MTR training. Defaults are
   // the Kia Soul EV chassis from eve_description (eve_chassis.xacro).
