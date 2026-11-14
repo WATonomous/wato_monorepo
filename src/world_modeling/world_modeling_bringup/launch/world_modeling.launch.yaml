@@ -32,6 +32,13 @@ launch:
       description: Path to the .map file for localization. Empty string skips loading.
 
   - arg:
+      name: eidos_config
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+      description: >-
+        Eidos params for the full stack. eidos_slam.yaml (with eidos_map_path:="") runs SLAM from
+        the start pose instead of localizing on a prior map, for driving off the mapped area.
+
+  - arg:
       name: use_sim_time
       default: "false"
       description: Use simulation time from /clock topic
@@ -66,6 +73,11 @@ launch:
       default: $(find-pkg-share prediction_ml)/config/contract_8_target.yaml
       description: Path to the MTR TensorRT binding contract
 
+  - arg:
+      name: mtr_planar_inputs
+      default: "false"
+      description: Zero heights and box sizes before MTR inference (true for the Argoverse 2 model)
+
   # ---- Autonomy stack (localization mode only) ----
 
   # Prediction - generates trajectory hypotheses for tracked objects
@@ -86,6 +98,8 @@ launch:
           value: $(var mtr_engine_path)
         - name: mtr.metadata_path
           value: $(var mtr_metadata_path)
+        - name: mtr.planar_inputs
+          value: $(var mtr_planar_inputs)
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked
@@ -365,7 +379,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - from: $(var eidos_config)
         - name: use_sim_time
           value: $(var use_sim_time)
 
@@ -377,7 +391,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - from: $(var eidos_config)
         - name: use_sim_time
           value: $(var use_sim_time)
         - name: map.load_path
