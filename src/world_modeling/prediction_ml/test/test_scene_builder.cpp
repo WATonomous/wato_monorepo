@@ -922,6 +922,13 @@ TEST(SceneBuilder, MeasuredVelocityForFallback)
   EXPECT_DOUBLE_EQ(builder.measuredVelocity("parked")[0], 0.0);  // 0.6 m/s jitter is under the deadband
   EXPECT_DOUBLE_EQ(builder.measuredVelocity("barrier_or_new_track")[0], 0.0);  // unmeasured -> stationary
 
+  SceneBuilder jitter{cfg};  // a box that jumps 1.2 m and back: fast enough, but no consistent direction
+  const double xs[] = {30.0, 30.0, 31.2, 31.2, 30.0, 31.2};
+  for (int k = 0; k <= 5; ++k) {
+    jitter.addFrame(makeArray(100.0 + 0.1 * k, {makeDetection("far", "vehicle", xs[k], 5.0, 0.0, 0.0)}));
+  }
+  EXPECT_DOUBLE_EQ(jitter.measuredVelocity("far")[0], 0.0);
+
   SceneBuilder off{MtrConfig{}};  // option off: MTR keeps tracker velocity, the fallback still measures
   off.addFrame(makeArray(100.0, {makeDetection("mover", "vehicle", 10.0, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));
   off.addFrame(makeArray(100.5, {makeDetection("mover", "vehicle", 15.0, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));

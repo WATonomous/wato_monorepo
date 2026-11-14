@@ -75,6 +75,11 @@ constexpr double kVruMovingSpeedMps = 0.5;
 constexpr double kHistoryVelocityDeadbandMps = 1.0;
 // Shorter spans amplify box jitter; younger tracks keep the tracker's velocity.
 constexpr double kMinHistoryVelocitySpanS = 0.3;
+// Fallback path only (measuredVelocity): tuned on the two May 30 replay slices, which hold 736
+// parked-car samples but only 8 moving ones, so re-check them on drives with traffic.
+constexpr double kFallbackMinSpanS = 0.5;
+constexpr double kFallbackMinTravelM = 1.0;
+constexpr double kFallbackMinDirectionCos = 0.5;
 constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
@@ -310,8 +315,28 @@ std::array<double, 2> SceneBuilder::measuredVelocity(const std::string & detecti
   if (it == history_.end() || it->second.empty()) {
     return {0.0, 0.0};
   }
-  const auto velocity = meanHistoryVelocity(it->second.front(), it->second.back());
-  return velocity ? std::array<double, 2>{(*velocity)[0], (*velocity)[1]} : std::array<double, 2>{0.0, 0.0};
+  const auto & hist = it->second;
+  const auto velocity = meanHistoryVelocity(hist.front(), hist.back());
+  if (!velocity) {
+    return {0.0, 0.0};
+  }
+  // Box jitter on young or distant tracks passes the speed deadband (4.9% of parked-car samples on
+  // the BEVFusion replay, 0.5% with these checks): real motion also covers kFallbackMinTravelM over
+  // at least kFallbackMinSpanS and keeps its direction between the two halves of the history.
+  const auto & mid = hist[hist.size() / 2];
+  const double ax = mid.x - hist.front().x;
+  const double ay = mid.y - hist.front().y;
+  const double bx = hist.back().x - mid.x;
+  const double by = hist.back().y - mid.y;
+  const bool same_direction =
+    hist.size() < 3 || ax * bx + ay * by > kFallbackMinDirectionCos * std::hypot(ax, ay) * std::hypot(bx, by);
+  if (
+    hist.back().timestamp - hist.front().timestamp < kFallbackMinSpanS ||
+    std::hypot(ax + bx, ay + by) < kFallbackMinTravelM || !same_direction)
+  {
+    return {0.0, 0.0};
+  }
+  return {(*velocity)[0], (*velocity)[1]};
 }
 
 double SceneBuilder::yawFromQuaternion(const geometry_msgs::msg::Quaternion & q)
