@@ -73,6 +73,9 @@ void BEVFusionNode::declareParameters()
   // Topics
   this->declare_parameter<bool>("use_raw_images", false);
   this->declare_parameter<std::string>("input_multi_image_raw_topic", kMultiImageRawTopic);
+  // Use GPU images from "/<camera_name>/image_rect" for every entry in camera_names whenever they are
+  // being published; the batched topics below are used otherwise
+  this->declare_parameter<bool>("use_nitros_images", true);
   this->declare_parameter<std::string>("input_multi_image_compressed_topic", kMultiImageCompressedTopic);
   this->declare_parameter<std::string>("input_lidar_topic", kLidarTopic);
 
@@ -134,6 +137,7 @@ void BEVFusionNode::declareParameters()
   use_raw_images_ = this->get_parameter("use_raw_images").as_bool();
   multi_image_raw_topic_ = this->get_parameter("input_multi_image_raw_topic").as_string();
   multi_image_compressed_topic_ = this->get_parameter("input_multi_image_compressed_topic").as_string();
+  use_nitros_images_ = this->get_parameter("use_nitros_images").as_bool();
   lidar_topic_ = this->get_parameter("input_lidar_topic").as_string();
 
   // Build BEVFusionInputConfig from declared parameters
@@ -256,6 +260,15 @@ void BEVFusionNode::processFrame(
     camera_images[i] = rgb_images[i].data;
   }
 
+  runInference(camera_images, lidar_msg, header, t_start);
+}
+
+void BEVFusionNode::runInference(
+  const std::vector<const unsigned char *> & camera_images,
+  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
+  const std_msgs::msg::Header & header,
+  const std::chrono::steady_clock::time_point t_start)
+{
   // Mark time after image processing
   const auto t_after_image = std::chrono::steady_clock::now();
 
@@ -319,6 +332,12 @@ void BEVFusionNode::syncedRawCallback(
   const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
+  // GPU images are being published, so the NITROS path is handling frames
+  if (nitrosImagesActive()) {
+    return;
+  }
+  noteCameraInput(CameraInput::kBatchedRaw);
+
   RCLCPP_DEBUG_THROTTLE(
     this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image raw synced, processing");
 
@@ -389,10 +408,158 @@ void BEVFusionNode::syncedRawCallback(
   processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start);
 }
 
+void BEVFusionNode::nitrosImageCallback(size_t camera_idx, const NitrosImageView & image_view)
+{
+  // The camera driver always publishes RGB8 and RectifyNode keeps that encoding, which is also what
+  // the model expects, so this path does no color conversion. Drop anything else rather than feed
+  // the model wrong colors.
+  if (image_view.GetEncoding() != "rgb8") {
+    RCLCPP_ERROR_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "NITROS image %zu has encoding '%s', expected 'rgb8'; dropping it",
+      camera_idx,
+      image_view.GetEncoding().c_str());
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(nitros_image_mutex_);
+  if (camera_idx < latest_nitros_images_.size()) {
+    latest_nitros_images_[camera_idx] = std::make_shared<const NitrosImageMsg>(image_view.GetMessage());
+  }
+}
+
+void BEVFusionNode::nitrosLidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
+{
+  const auto t_start = std::chrono::steady_clock::now();
+
+  // Take the newest image from every camera
+  std::vector<NitrosImageMsg::ConstSharedPtr> images;
+  {
+    std::lock_guard<std::mutex> lock(nitros_image_mutex_);
+    images = latest_nitros_images_;
+  }
+
+  // No GPU images are being published (e.g. bag replay), so the batched image path handles this scan
+  if (std::none_of(images.begin(), images.end(), [](const auto & image) { return image != nullptr; })) {
+    return;
+  }
+
+  // Accept the frame only if every camera has an image close enough in time to this scan
+  const rclcpp::Time lidar_stamp(lidar_msg->header.stamp);
+  for (size_t i = 0; i < images.size(); ++i) {
+    if (!images[i]) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "[SYNC] No NITROS image received yet from camera %zu; skipping",
+        i);
+      return;
+    }
+    const rclcpp::Time image_stamp(
+      static_cast<int32_t>(images[i]->get_timestamp_sec()),
+      images[i]->get_timestamp_nsec(),
+      lidar_stamp.get_clock_type());
+    const double time_diff_sec = std::abs((image_stamp - lidar_stamp).seconds());
+    if (time_diff_sec > sync_max_time_diff_sec_) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "[SYNC] NITROS image from camera %zu is %.3f s from the LiDAR scan (max %.3f s); skipping",
+        i,
+        time_diff_sec,
+        sync_max_time_diff_sec_);
+      return;
+    }
+  }
+
+  // The model reads packed RGB8 at the configured resolution, the same layout the CPU path gives it.
+  // The GPU buffers stay alive through `images` until inference returns.
+  std::vector<const unsigned char *> camera_images(images.size());
+  for (size_t i = 0; i < images.size(); ++i) {
+    const NitrosImageView image_view(*images[i]);
+    if (
+      image_view.GetWidth() != static_cast<uint32_t>(config_.image_width) ||
+      image_view.GetHeight() != static_cast<uint32_t>(config_.image_height) ||
+      image_view.GetStride() != image_view.GetWidth() * 3)
+    {
+      RCLCPP_ERROR_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "NITROS image %zu is %ux%u with stride %u, expected %dx%d packed RGB8; skipping",
+        i,
+        image_view.GetWidth(),
+        image_view.GetHeight(),
+        image_view.GetStride(),
+        config_.image_width,
+        config_.image_height);
+      return;
+    }
+    camera_images[i] = image_view.GetGpuData();
+  }
+
+  // From here the NITROS path owns the frame, so the batched image callbacks stand down
+  last_nitros_frame_ns_ = std::chrono::duration_cast<std::chrono::nanoseconds>(t_start.time_since_epoch()).count();
+  noteCameraInput(CameraInput::kNitros);
+
+  if (!core_ || !core_->isInitialized() || !core_->hasCalibration()) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(), *this->get_clock(), 5000, "NITROS frame matched with core not ready; skipping");
+    return;
+  }
+
+  lidar_msg_count_++;
+  synced_msg_count_++;
+
+  // CUDA-BEVFusion must accept device pointers for its camera input (wato-cuda-bevfusion)
+  runInference(camera_images, lidar_msg, lidar_msg->header, t_start);
+}
+
+void BEVFusionNode::noteCameraInput(CameraInput input)
+{
+  if (camera_input_.exchange(input) == input) {
+    return;
+  }
+  switch (input) {
+    case CameraInput::kNitros:
+      RCLCPP_INFO(this->get_logger(), "Camera input: NITROS images (GPU memory, no copy through the CPU)");
+      break;
+    case CameraInput::kBatchedRaw:
+      RCLCPP_INFO(this->get_logger(), "Camera input: batched raw images (CPU memory)");
+      break;
+    case CameraInput::kBatchedCompressed:
+      RCLCPP_INFO(this->get_logger(), "Camera input: batched compressed images (CPU decode)");
+      break;
+    default:
+      break;
+  }
+}
+
+bool BEVFusionNode::nitrosImagesActive() const
+{
+  const int64_t last_frame_ns = last_nitros_frame_ns_.load();
+  if (last_frame_ns == 0) {
+    return false;
+  }
+  const int64_t now_ns =
+    std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  return now_ns - last_frame_ns < std::chrono::duration_cast<std::chrono::nanoseconds>(kNitrosActiveTimeout).count();
+}
+
 void BEVFusionNode::syncedCompressedCallback(
   const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
 {
+  // GPU images are being published, so the NITROS path is handling frames
+  if (nitrosImagesActive()) {
+    return;
+  }
+  noteCameraInput(CameraInput::kBatchedCompressed);
+
   RCLCPP_DEBUG_THROTTLE(
     this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image compressed synced, processing");
 
@@ -1152,6 +1319,32 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     lidar_sub_ =
       std::make_shared<LidarSub>(this->shared_from_this(), lidar_topic_, subscriber_qos_.get_rmw_qos_profile());
 
+    if (use_nitros_images_) {
+      // One subscriber per entry in camera_names, so the number of cameras follows that list.
+      // These only receive data while the cameras are running; frames then use the GPU images directly.
+      RCLCPP_INFO(this->get_logger(), "Configuring NITROS image subscribers (use_nitros_images=true):");
+      nitros_image_subs_.clear();
+      {
+        std::lock_guard<std::mutex> lock(nitros_image_mutex_);
+        latest_nitros_images_.assign(camera_names_.size(), nullptr);
+      }
+      for (size_t i = 0; i < camera_names_.size(); ++i) {
+        const std::string topic = "/" + camera_names_[i] + "/" + kNitrosImageTopicName;
+        RCLCPP_INFO(this->get_logger(), "  - NITROS image topic: '%s'", topic.c_str());
+        nitros_image_subs_.push_back(std::make_shared<NitrosImageSub>(
+          this,
+          topic,
+          NitrosImageMsg::GetDefaultCompatibleFormat(),
+          [this, i](const NitrosImageView & image_view) { this->nitrosImageCallback(i, image_view); },
+          nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
+          subscriber_qos_));
+      }
+      // Each LiDAR scan is matched with the newest image from every camera
+      lidar_sub_->registerCallback(std::bind(&BEVFusionNode::nitrosLidarCallback, this, std::placeholders::_1));
+    }
+
+    // The batched image path is always set up. It handles frames whenever GPU images are not being
+    // published, e.g. bag replay, where only compressed images exist.
     if (use_raw_images_) {
       RCLCPP_INFO(this->get_logger(), "Configuring MultiImage (raw) subscriber (use_raw_images=true):");
       RCLCPP_INFO(this->get_logger(), "  - MultiImage (raw) topic: '%s'", multi_image_raw_topic_.c_str());
@@ -1212,6 +1405,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
     RCLCPP_INFO(this->get_logger(), "Subscribed to:");
     RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo: '%s'", multi_camera_info_sub_->get_topic_name());
+    if (use_nitros_images_) {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "  - NITROS images: %zu cameras ('/<camera_name>/%s')",
+        nitros_image_subs_.size(),
+        kNitrosImageTopicName);
+    }
     RCLCPP_INFO(
       this->get_logger(),
       "  - MultiImage: '%s'",
@@ -1250,6 +1450,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   compressed_sync_.reset();
   multi_image_raw_sub_.reset();
   multi_image_compressed_sub_.reset();
+  nitros_image_subs_.clear();
+  {
+    std::lock_guard<std::mutex> lock(nitros_image_mutex_);
+    latest_nitros_images_.clear();
+  }
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   calibration_initialized_ = false;
@@ -1268,6 +1473,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   compressed_sync_.reset();
   multi_image_raw_sub_.reset();
   multi_image_compressed_sub_.reset();
+  nitros_image_subs_.clear();
+  {
+    std::lock_guard<std::mutex> lock(nitros_image_mutex_);
+    latest_nitros_images_.clear();
+  }
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   {
@@ -1317,6 +1527,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   compressed_sync_.reset();
   multi_image_raw_sub_.reset();
   multi_image_compressed_sub_.reset();
+  nitros_image_subs_.clear();
+  {
+    std::lock_guard<std::mutex> lock(nitros_image_mutex_);
+    latest_nitros_images_.clear();
+  }
   lidar_sub_.reset();
   multi_camera_info_sub_.reset();
   {

@@ -46,6 +46,8 @@ find_package(OpenCV REQUIRED)
 enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
 find_package(cuda_bevfusion_vendor REQUIRED)
+find_package(isaac_ros_managed_nitros REQUIRED)
+find_package(isaac_ros_nitros_image_type REQUIRED)
 
 # ---- Core library ----
 add_library(${PROJECT_NAME}_wato_core SHARED
@@ -100,6 +102,11 @@ target_link_libraries(${PROJECT_NAME}_node
     ${diagnostic_msgs_TARGETS}
     tf2_eigen::tf2_eigen
     Eigen3::Eigen
+)
+
+ament_target_dependencies(${PROJECT_NAME}_node PUBLIC
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
 )
 
 # ---- Register component ----
