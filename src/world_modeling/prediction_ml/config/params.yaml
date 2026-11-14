@@ -1,0 +1,40 @@
+---
+# prediction_ml node parameters.
+/**/prediction_ml_node:  # any namespace; bringup runs it under /world_modeling
+  ros__parameters:
+    # Frame of ego pose, lanelets and outputs. Tracks in another frame (e.g. lidar_cc) are moved here via TF.
+    map_frame: "map"
+    prediction_horizon: 3.0      # seconds — fallback + MTR horizon
+    prediction_time_step: 0.2    # seconds — waypoint spacing
+    # Fallback = constant velocity measured from each track's own history (parked cars, barriers and
+    # tracks younger than 0.3 s get a zero-length path). Tracks that cannot be moved into map_frame
+    # (no TF) use the tracker's linear_velocity, or a zero-length path without one.
+
+    # --- MTR group ---
+    mtr.mode: "disabled"         # disabled | null | tensorrt
+    mtr.engine_path: ""          # injected at launch for deploy
+    mtr.metadata_path: ""        # injected at launch for deploy
+    mtr.cache_ttl_s: 0.5
+    mtr.selected_target_agent_limit: 8
+    # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
+    mtr.target_forward_half_angle_deg: 90.0
+    # Evaluation only: mtr.pinned_target_ids (string list) pins targets in order and bypasses the
+    # selection heuristic. Leave it unset in deployment; an empty YAML list has no type and makes
+    # the node throw at startup.
+    # Native MTR future-trajectory cadence. Published predictions are downsampled to prediction_time_step.
+    mtr.model_time_step_s: 0.1
+    # EVE dimensions from eve_description/urdf/eve_chassis.xacro.
+    mtr.ego_length: 4.0936
+    mtr.ego_width: 1.3579
+    mtr.ego_height: 1.4090
+    # nav_msgs/Odometry expresses twist in child_frame_id; Eidos defaults to base_footprint.
+    mtr.ego_velocity_child_frame: "base_footprint"
+
+    # --- Scene builder ---
+    mtr.history_steps: 11
+    mtr.history_rate_hz: 10.0
+    # true: MTR inputs use velocity from each track's own positions over the history window, not the
+    # tracker's linear_velocity. Keep true on the car: tracking runs in lidar_cc without ego-motion
+    # compensation, so its velocity is relative to the moving ego.
+    # Set false only for inputs with true map-frame velocities (e.g. Waymo ground-truth replays).
+    mtr.velocity_from_history: true
