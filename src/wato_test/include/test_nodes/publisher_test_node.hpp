@@ -63,6 +63,12 @@ public:
    */
   bool wait_for_subscribers(size_t count = 1, std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
 
+  /**
+   * @brief Wait for reliable middleware delivery, not subscription callback execution.
+   * Requires an RMW implementation that supports acknowledgment waits.
+   */
+  bool wait_for_all_acked(std::chrono::milliseconds timeout = std::chrono::seconds(10)) const;
+
 private:
   typename rclcpp::Publisher<MessageType>::SharedPtr publisher_;
 };
@@ -82,6 +88,12 @@ void PublisherTestNode<MessageType>::publish(const MessageType & message)
 {
   publisher_->publish(message);
   RCLCPP_DEBUG(this->get_logger(), "Published message");
+}
+
+template <typename MessageType>
+bool PublisherTestNode<MessageType>::wait_for_all_acked(std::chrono::milliseconds timeout) const
+{
+  return publisher_->wait_for_all_acked(timeout);
 }
 
 template <typename MessageType>

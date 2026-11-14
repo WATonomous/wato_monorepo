@@ -35,6 +35,7 @@ function(add_wato_test TEST_NAME TEST_SOURCE)
   find_package(Catch2 3 REQUIRED)
   find_package(rclcpp REQUIRED)
   find_package(rclcpp_lifecycle REQUIRED)
+  find_package(ament_cmake_ros REQUIRED)
 
   # Create the test executable
   add_executable(${TEST_NAME} ${TEST_SOURCE})
@@ -64,10 +65,17 @@ function(add_wato_test TEST_NAME TEST_SOURCE)
   ament_add_test(
     ${TEST_NAME}
     GENERATE_RESULT_FOR_RETURN_CODE_ZERO
+    RUNNER "${ament_cmake_ros_DIR}/run_test_isolated.py"
     COMMAND "$<TARGET_FILE:${TEST_NAME}>"
       -r junit
       -o test_results/${PROJECT_NAME}/${TEST_NAME}_output.xml
     ENV CATCH_CONFIG_CONSOLE_WIDTH=120 NO_COLOR=1
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+  )
+
+  # The isolated runner preserves an inherited ROS_DOMAIN_ID. Clear it before
+  # starting the runner so parallel tests cannot share watod's fallback domain.
+  set_tests_properties(${TEST_NAME} PROPERTIES
+    ENVIRONMENT_MODIFICATION "ROS_DOMAIN_ID=unset:"
   )
 endfunction()

@@ -9,6 +9,7 @@ A ROS 2 testing framework built on Catch2 that provides test fixtures and utilit
   - **Discovery Waiting**: `PublisherTestNode::wait_for_subscribers()` and `SubscriberTestNode::wait_for_publishers()` poll DDS discovery state with a timeout, replacing fragile hardcoded sleeps
   - **Future-based Messaging**: `SubscriberTestNode::expect_next_message()` returns a `std::future` that resolves when the next message arrives
 - **CMake Integration**: Simple `add_wato_test()` function for creating tests
+- **Parallel Isolation**: Each `add_wato_test()` executable gets a coordinated ROS domain, including when `ROS_DOMAIN_ID` is inherited from `watod`
 - **Catch2 Integration**: Built on Catch2 for modern C++ testing
 
 ## Quick Start
@@ -43,6 +44,18 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "My ROS Test", "[ros]") {
   }
 }
 ```
+
+For timer-driven outputs, use `expect_message(predicate)` to ignore messages
+already in flight that do not match the expected result. Register expectations
+before publishing inputs, and check `future.wait_for(timeout)` before `get()`.
+Predicates run in the subscription callback and must not block or call back into
+the subscriber test node.
+
+Fixtures cancel and join executors before deactivating nodes and shutting ROS
+down. Callbacks must use bounded service and future waits so teardown can finish.
+`PublisherTestNode::wait_for_all_acked()` waits for reliable middleware delivery;
+it does not guarantee that the receiving callback has executed and requires RMW
+support for acknowledgment waits.
 
 ## Package.xml Usage
 
