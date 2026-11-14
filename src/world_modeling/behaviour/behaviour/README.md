@@ -114,6 +114,17 @@ Use the `Call Service` panel with:
 - Stop sign and yield now use a shared `RegElemEgoPriority` latch to avoid wall flashing once ego has earned the turn but has not physically passed the regulatory element yet.
 - If a stop/yield regulatory element has no usable `ref_line`, `GetLaneletEndPose` falls back to the midpoint of the current lanelet centerline.
 
+## Stop Detection
+
+`EgoStopped` uses a median of three distinct odometry timestamps by default. `window_size`
+remains configurable: three rejects one isolated spike; five rejects two but delays movement
+recognition by another sample. The condition requires a full window and clears history for
+missing or invalid input, reversed timestamps, or a message age/sample gap over 500 ms.
+It uses the ROS node's clock for message age and steady time to reject frozen messages.
+The existing stop-sign tree and timer are unchanged. Filtering only sees odometry observed
+at BT ticks, so it can miss movement between ticks and cannot distinguish a single real
+movement sample from noise. Run `colcon test --packages-select behaviour` for the focused tests.
+
 ## Tree Structure
 
 The main tree (`main_tree.xml`) includes modular subtrees:
