@@ -54,7 +54,7 @@ launch:
             - /carla/bbox_publisher
             - /carla/pygame_hud
         - name: service_timeout
-          value: 10.0
+          value: 20.0
         - name: startup_retry_interval
           value: 5.0
 

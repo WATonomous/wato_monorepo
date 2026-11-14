@@ -1,0 +1,19 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+/**/world_model:
+  ros__parameters:
+    osm_map_path: "/opt/watonomous/maps/osm/ring_road.osm"
+
+    # Projection:
+    # - 'local_cartesian' for CARLA-synthesized OSM maps
+    # - 'utm' for geographically referenced OSM maps
+    projector_type: "utm"
+
+    # Alignment:
+    # - 'fixed' when projected coordinates already use the map frame
+    # - 'tf' to apply projected_frame -> map before loading the map
+    alignment_mode: "fixed"
+
+    # Geographic centre subtracted while generating ring_road.xodr.
+    origin_lat: 43.470649301705
+    origin_lon: -80.54326355965
+    origin_alt: 298.0

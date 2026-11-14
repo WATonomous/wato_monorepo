@@ -24,6 +24,7 @@ except ImportError:
 class CustomScenario(ScenarioBase):
     """Customizable mixed-traffic scenario for CARLA experiments."""
 
+    MAP_NAME = "Town10HD_Opt"
     NUM_VEHICLES = 10
     NUM_PEDESTRIANS = 20
     NUM_TRAFFIC_ENTITIES = 8
@@ -83,8 +84,6 @@ class CustomScenario(ScenarioBase):
             return False
 
         try:
-            self._load_map("Town10HD_Opt")
-
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")

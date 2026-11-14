@@ -24,6 +24,7 @@ except ImportError:
 class EmptyScenario(ScenarioBase):
     """Empty scenario with only the ego vehicle - useful for testing."""
 
+    MAP_NAME = "Town10HD_Opt"
     SPAWN_POINT_INDEX = 10
 
     def get_name(self) -> str:
@@ -40,8 +41,6 @@ class EmptyScenario(ScenarioBase):
             return False
 
         try:
-            self._load_map("Town10HD_Opt")
-
             spawn_points = self.world.get_map().get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")
