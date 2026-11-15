@@ -18,10 +18,13 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -227,192 +230,223 @@ static bool execSql(sqlite3 * db, const char * sql)
 
 bool MapManager::saveMap(const std::string & path)
 {
-  std::lock_guard<std::mutex> lock(mtx_);
   namespace fs = std::filesystem;
 
-  // Ensure parent directory exists
-  fs::create_directories(fs::path(path).parent_path());
-
-  sqlite3 * db = nullptr;
-  if (sqlite3_open(path.c_str(), &db) != SQLITE_OK) {
-    RCLCPP_ERROR(logger_, "\033[33m[MapManager]\033[0m Failed to open map file for writing: %s", path.c_str());
-    return false;
-  }
-
-  // Create tables
-  execSql(db, "PRAGMA journal_mode=WAL;");
-  execSql(db, "BEGIN TRANSACTION;");
-
-  execSql(db, "CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT);");
-  execSql(
-    db,
-    "CREATE TABLE IF NOT EXISTS keyframes ("
-    "id INTEGER PRIMARY KEY, gtsam_key INTEGER UNIQUE, "
-    "x REAL, y REAL, z REAL, roll REAL, pitch REAL, yaw REAL, "
-    "time REAL, owner TEXT);");
-  execSql(
-    db,
-    "CREATE TABLE IF NOT EXISTS keyframe_data ("
-    "gtsam_key INTEGER, data_key TEXT, data BLOB, "
-    "PRIMARY KEY (gtsam_key, data_key));");
-  execSql(
-    db,
-    "CREATE TABLE IF NOT EXISTS global_data ("
-    "data_key TEXT PRIMARY KEY, data BLOB);");
-  execSql(
-    db,
-    "CREATE TABLE IF NOT EXISTS edges ("
-    "key_a INTEGER, key_b INTEGER, owner TEXT, "
-    "PRIMARY KEY (key_a, key_b));");
-  execSql(
-    db,
-    "CREATE TABLE IF NOT EXISTS data_formats ("
-    "data_key TEXT PRIMARY KEY, format TEXT, scope TEXT);");
-
-  // Metadata
+  // Snapshot everything under the lock; SQLite I/O happens after releasing it.
+  struct KeyframeRow
   {
-    sqlite3_stmt * stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO metadata VALUES(?,?)", -1, &stmt, nullptr);
-    auto insert = [&](const char * k, const std::string & v) {
-      sqlite3_bind_text(stmt, 1, k, -1, SQLITE_STATIC);
-      sqlite3_bind_text(stmt, 2, v.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_step(stmt);
-      sqlite3_reset(stmt);
-    };
-    insert("version", "4");
-    insert("num_states", std::to_string(key_list_.size()));
-    sqlite3_finalize(stmt);
-  }
+    gtsam::Key key;
+    std::array<double, 7> pose;  // x, y, z, roll, pitch, yaw, time
+    std::string owner;
+  };
 
-  // Keyframe poses
+  std::vector<KeyframeRow> keyframes;
+  std::vector<std::tuple<gtsam::Key, std::string, std::vector<uint8_t>>> keyframe_blobs;
+  std::vector<std::pair<std::string, std::vector<uint8_t>>> global_blobs;
+  std::map<std::pair<gtsam::Key, gtsam::Key>, std::string> edges;
+  std::vector<std::tuple<std::string, std::string, const char *>> data_formats;
   {
-    sqlite3_stmt * stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO keyframes VALUES(?,?,?,?,?,?,?,?,?,?)", -1, &stmt, nullptr);
+    std::lock_guard<std::mutex> lock(mtx_);
+    const auto & fmt_reg = formats::registry();
+
     for (size_t i = 0; i < key_list_.size(); i++) {
-      auto k = key_list_[i];
-      auto & p = key_poses_6d_->points[i];
-      std::string owner;
-      auto oit = key_owner_plugin_.find(k);
-      if (oit != key_owner_plugin_.end()) owner = oit->second;
-
-      sqlite3_bind_int(stmt, 1, static_cast<int>(i));
-      sqlite3_bind_int64(stmt, 2, static_cast<int64_t>(k));
-      sqlite3_bind_double(stmt, 3, p.x);
-      sqlite3_bind_double(stmt, 4, p.y);
-      sqlite3_bind_double(stmt, 5, p.z);
-      sqlite3_bind_double(stmt, 6, p.roll);
-      sqlite3_bind_double(stmt, 7, p.pitch);
-      sqlite3_bind_double(stmt, 8, p.yaw);
-      sqlite3_bind_double(stmt, 9, p.time);
-      sqlite3_bind_text(stmt, 10, owner.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_step(stmt);
-      sqlite3_reset(stmt);
+      const auto & p = key_poses_6d_->points[i];
+      auto oit = key_owner_plugin_.find(key_list_[i]);
+      keyframes.push_back(
+        {key_list_[i],
+         {p.x, p.y, p.z, p.roll, p.pitch, p.yaw, p.time},
+         oit != key_owner_plugin_.end() ? oit->second : ""});
     }
-    sqlite3_finalize(stmt);
-  }
-
-  const auto & fmt_reg = formats::registry();
-
-  // Keyframe data blobs
-  {
-    sqlite3_stmt * stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO keyframe_data VALUES(?,?,?)", -1, &stmt, nullptr);
 
     for (const auto & [data_key, format_name] : keyframe_formats_) {
       auto fit = fmt_reg.find(format_name);
       if (fit == fmt_reg.end()) continue;
-
-      for (size_t i = 0; i < key_list_.size(); i++) {
-        auto kit = keyframe_data_.find(key_list_[i]);
+      for (auto k : key_list_) {
+        auto kit = keyframe_data_.find(k);
         if (kit == keyframe_data_.end()) continue;
         auto dit = kit->second.find(data_key);
         if (dit == kit->second.end()) continue;
-
         try {
           auto bytes = fit->second->serialize(dit->second);
-          if (bytes.empty()) continue;
-
-          sqlite3_bind_int64(stmt, 1, static_cast<int64_t>(key_list_[i]));
-          sqlite3_bind_text(stmt, 2, data_key.c_str(), -1, SQLITE_TRANSIENT);
-          sqlite3_bind_blob(stmt, 3, bytes.data(), static_cast<int>(bytes.size()), SQLITE_TRANSIENT);
-          sqlite3_step(stmt);
-          sqlite3_reset(stmt);
-        } catch (const std::bad_any_cast & e) {
-          // Type contract violation — log and skip
+          if (!bytes.empty()) keyframe_blobs.emplace_back(k, data_key, std::move(bytes));
+        } catch (const std::bad_any_cast &) {
+          RCLCPP_WARN(logger_, "\033[33m[MapManager]\033[0m Type mismatch serializing '%s', skipped", data_key.c_str());
         }
       }
     }
-    sqlite3_finalize(stmt);
-  }
-
-  // Global data blobs
-  {
-    sqlite3_stmt * stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO global_data VALUES(?,?)", -1, &stmt, nullptr);
 
     for (const auto & [data_key, format_name] : global_formats_) {
       auto fit = fmt_reg.find(format_name);
       if (fit == fmt_reg.end()) continue;
       auto dit = global_data_.find(data_key);
       if (dit == global_data_.end()) continue;
-
       try {
         auto bytes = fit->second->serialize(dit->second);
-        if (bytes.empty()) continue;
-
-        sqlite3_bind_text(stmt, 1, data_key.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_blob(stmt, 2, bytes.data(), static_cast<int>(bytes.size()), SQLITE_TRANSIENT);
-        sqlite3_step(stmt);
-        sqlite3_reset(stmt);
+        if (!bytes.empty()) global_blobs.emplace_back(data_key, std::move(bytes));
       } catch (const std::bad_any_cast &) {
+        RCLCPP_WARN(logger_, "\033[33m[MapManager]\033[0m Type mismatch serializing '%s', skipped", data_key.c_str());
       }
     }
+
+    for (const auto & [a, neighbors] : adjacency_) {
+      for (auto b : neighbors) edges.emplace(std::make_pair(std::min(a, b), std::max(a, b)), "");
+    }
+    for (const auto & [edge, owner] : edge_owners_) edges[edge] = owner;
+
+    for (const auto & [dk, fmt] : keyframe_formats_) data_formats.emplace_back(dk, fmt, "keyframe");
+    for (const auto & [dk, fmt] : global_formats_) data_formats.emplace_back(dk, fmt, "global");
+  }
+
+  // Write a fresh database to a temp file, then atomically rename it over the target.
+  std::error_code ec;
+  auto parent = fs::path(path).parent_path();
+  if (!parent.empty()) fs::create_directories(parent, ec);
+  const std::string tmp_path = path + ".tmp";
+  fs::remove(tmp_path, ec);
+
+  sqlite3 * db = nullptr;
+  sqlite3_stmt * stmt = nullptr;
+  auto fail = [&](const char * what) {
+    RCLCPP_ERROR(
+      logger_,
+      "\033[33m[MapManager]\033[0m Failed to save map %s: %s (%s)",
+      path.c_str(),
+      what,
+      db ? sqlite3_errmsg(db) : "no db");
     sqlite3_finalize(stmt);
+    if (db) {
+      sqlite3_exec(db, "ROLLBACK;", nullptr, nullptr, nullptr);
+      sqlite3_close(db);
+    }
+    fs::remove(tmp_path, ec);
+    return false;
+  };
+  auto prepare = [&](const char * sql) {
+    sqlite3_finalize(stmt);
+    stmt = nullptr;
+    return sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK;
+  };
+  auto step = [&]() {
+    int rc = sqlite3_step(stmt);
+    sqlite3_reset(stmt);
+    return rc == SQLITE_DONE;
+  };
+
+  if (sqlite3_open(tmp_path.c_str(), &db) != SQLITE_OK) return fail("open");
+  if (!execSql(db, "BEGIN TRANSACTION;")) return fail("begin");
+  if (
+    !execSql(db, "CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT);") ||
+    !execSql(
+      db,
+      "CREATE TABLE keyframes ("
+      "id INTEGER PRIMARY KEY, gtsam_key INTEGER UNIQUE, "
+      "x REAL, y REAL, z REAL, roll REAL, pitch REAL, yaw REAL, "
+      "time REAL, owner TEXT);") ||
+    !execSql(
+      db,
+      "CREATE TABLE keyframe_data ("
+      "gtsam_key INTEGER, data_key TEXT, data BLOB, "
+      "PRIMARY KEY (gtsam_key, data_key));") ||
+    !execSql(db, "CREATE TABLE global_data (data_key TEXT PRIMARY KEY, data BLOB);") ||
+    !execSql(
+      db,
+      "CREATE TABLE edges ("
+      "key_a INTEGER, key_b INTEGER, owner TEXT, "
+      "PRIMARY KEY (key_a, key_b));") ||
+    !execSql(db, "CREATE TABLE data_formats (data_key TEXT PRIMARY KEY, format TEXT, scope TEXT);"))
+  {
+    return fail("create tables");
+  }
+
+  // Metadata
+  if (!prepare("INSERT INTO metadata VALUES(?,?)")) return fail("prepare metadata");
+  auto insert_metadata = [&](const char * k, const std::string & v) {
+    sqlite3_bind_text(stmt, 1, k, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, v.c_str(), -1, SQLITE_TRANSIENT);
+    return step();
+  };
+  if (!insert_metadata("version", "4") || !insert_metadata("num_states", std::to_string(keyframes.size()))) {
+    return fail("insert metadata");
+  }
+
+  // Keyframe poses
+  if (!prepare("INSERT INTO keyframes VALUES(?,?,?,?,?,?,?,?,?,?)")) return fail("prepare keyframes");
+  for (size_t i = 0; i < keyframes.size(); i++) {
+    const auto & kf = keyframes[i];
+    sqlite3_bind_int(stmt, 1, static_cast<int>(i));
+    sqlite3_bind_int64(stmt, 2, static_cast<int64_t>(kf.key));
+    for (int j = 0; j < 7; j++) sqlite3_bind_double(stmt, 3 + j, kf.pose[j]);
+    sqlite3_bind_text(stmt, 10, kf.owner.c_str(), -1, SQLITE_TRANSIENT);
+    if (!step()) return fail("insert keyframe");
+  }
+
+  // Keyframe data blobs
+  if (!prepare("INSERT INTO keyframe_data VALUES(?,?,?)")) return fail("prepare keyframe_data");
+  for (const auto & [k, data_key, bytes] : keyframe_blobs) {
+    sqlite3_bind_int64(stmt, 1, static_cast<int64_t>(k));
+    sqlite3_bind_text(stmt, 2, data_key.c_str(), -1, SQLITE_TRANSIENT);
+    if (sqlite3_bind_blob64(stmt, 3, bytes.data(), bytes.size(), SQLITE_STATIC) != SQLITE_OK || !step()) {
+      return fail("insert keyframe_data");
+    }
+  }
+
+  // Global data blobs
+  if (!prepare("INSERT INTO global_data VALUES(?,?)")) return fail("prepare global_data");
+  for (const auto & [data_key, bytes] : global_blobs) {
+    sqlite3_bind_text(stmt, 1, data_key.c_str(), -1, SQLITE_TRANSIENT);
+    if (sqlite3_bind_blob64(stmt, 2, bytes.data(), bytes.size(), SQLITE_STATIC) != SQLITE_OK || !step()) {
+      return fail("insert global_data");
+    }
   }
 
   // Edges
-  {
-    sqlite3_stmt * stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO edges VALUES(?,?,?)", -1, &stmt, nullptr);
-    for (const auto & [edge, owner] : edge_owners_) {
-      sqlite3_bind_int64(stmt, 1, static_cast<int64_t>(edge.first));
-      sqlite3_bind_int64(stmt, 2, static_cast<int64_t>(edge.second));
-      sqlite3_bind_text(stmt, 3, owner.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_step(stmt);
-      sqlite3_reset(stmt);
-    }
-    sqlite3_finalize(stmt);
+  if (!prepare("INSERT INTO edges VALUES(?,?,?)")) return fail("prepare edges");
+  for (const auto & [edge, owner] : edges) {
+    sqlite3_bind_int64(stmt, 1, static_cast<int64_t>(edge.first));
+    sqlite3_bind_int64(stmt, 2, static_cast<int64_t>(edge.second));
+    sqlite3_bind_text(stmt, 3, owner.c_str(), -1, SQLITE_TRANSIENT);
+    if (!step()) return fail("insert edge");
   }
 
   // Data formats (self-describing)
-  {
-    sqlite3_stmt * stmt;
-    sqlite3_prepare_v2(db, "INSERT INTO data_formats VALUES(?,?,?)", -1, &stmt, nullptr);
-    for (const auto & [dk, fmt] : keyframe_formats_) {
-      sqlite3_bind_text(stmt, 1, dk.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt, 2, fmt.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt, 3, "keyframe", -1, SQLITE_STATIC);
-      sqlite3_step(stmt);
-      sqlite3_reset(stmt);
-    }
-    for (const auto & [dk, fmt] : global_formats_) {
-      sqlite3_bind_text(stmt, 1, dk.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt, 2, fmt.c_str(), -1, SQLITE_TRANSIENT);
-      sqlite3_bind_text(stmt, 3, "global", -1, SQLITE_STATIC);
-      sqlite3_step(stmt);
-      sqlite3_reset(stmt);
-    }
-    sqlite3_finalize(stmt);
+  if (!prepare("INSERT INTO data_formats VALUES(?,?,?)")) return fail("prepare data_formats");
+  for (const auto & [dk, fmt, scope] : data_formats) {
+    sqlite3_bind_text(stmt, 1, dk.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, fmt.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, scope, -1, SQLITE_STATIC);
+    if (!step()) return fail("insert data_format");
   }
 
-  execSql(db, "COMMIT;");
-  sqlite3_close(db);
+  sqlite3_finalize(stmt);
+  stmt = nullptr;
+  if (!execSql(db, "COMMIT;")) return fail("commit");
+  if (sqlite3_close(db) != SQLITE_OK) {
+    db = nullptr;
+    return fail("close");
+  }
+  db = nullptr;
+
+  // Stale WAL/SHM files from older saves would otherwise be replayed onto the new file.
+  fs::remove(path + "-wal", ec);
+  fs::remove(path + "-shm", ec);
+  fs::rename(tmp_path, path, ec);
+  if (ec) {
+    RCLCPP_ERROR(
+      logger_,
+      "\033[33m[MapManager]\033[0m Failed to move %s to %s: %s",
+      tmp_path.c_str(),
+      path.c_str(),
+      ec.message().c_str());
+    fs::remove(tmp_path, ec);
+    return false;
+  }
+
   RCLCPP_INFO(
     logger_,
     "\033[33m[MapManager]\033[0m Saved map: %s (%zu keyframes, %zu edges)",
     path.c_str(),
-    key_list_.size(),
-    edge_owners_.size());
+    keyframes.size(),
+    edges.size());
   return true;
 }
 
