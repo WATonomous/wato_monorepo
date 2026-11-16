@@ -54,6 +54,7 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<double>("origin_lat", 0.0);
   this->declare_parameter<double>("origin_lon", 0.0);
   this->declare_parameter<double>("origin_alt", 0.0);
+  this->declare_parameter<double>("osm_ele_offset", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -72,6 +73,7 @@ WorldModelNode::CallbackReturn WorldModelNode::on_configure(const rclcpp_lifecyc
   map_config_.origin_lat = this->get_parameter("origin_lat").as_double();
   map_config_.origin_lon = this->get_parameter("origin_lon").as_double();
   map_config_.origin_alt = this->get_parameter("origin_alt").as_double();
+  map_config_.osm_ele_offset = this->get_parameter("osm_ele_offset").as_double();
   try {
     validateMapConfig(map_config_);
     if (map_frame_.empty() || base_frame_.empty()) {
