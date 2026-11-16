@@ -64,29 +64,54 @@ prepares MTR inputs, `MtrRuntime` owns asynchronous inference and its result cac
 
 ## Build
 
-CPU-only development and CI build:
-
 ```bash
 colcon build --packages-select prediction_ml
 ```
 
-Build with the TensorRT translation unit included:
+`PREDICTION_ML_ENABLE_TENSORRT` defaults to `AUTO`: the TensorRT translation unit is compiled in
+when TensorRT headers, `libnvinfer`, and the CUDA runtime are found, and left out otherwise (the
+configure log says which). `ON` makes a missing dependency a configure error; `OFF` never builds it.
+A full CUDA toolkit is used when present, but no `nvcc` is required.
+
+The world modeling image installs the eval project's `engine` extra dependencies
+in `/opt/watonomous/mtr-engine-venv`. They include ONNX, TensorRT 10.13.2.6, CUDA
+Python, and the CUDA 12 runtime, separate from ROS Python and without PyTorch.
+The image also adds the matching TensorRT C++ headers under
+`/opt/watonomous/mtr-engine-venv/tensorrt/include`, so in the dev and deploy images the plain
+`colcon build` above includes the TensorRT backend. The node's RPATH points at the venv's
+libraries, so no `LD_LIBRARY_PATH` is needed.
+Changes to `eval/pyproject.toml` take effect when rebuilding the image.
+
+Rebuild and recreate the dev container from the repository root on the host:
 
 ```bash
-colcon build --packages-select prediction_ml \
-  --cmake-args -DPREDICTION_ML_ENABLE_TENSORRT=ON
+./watod -m world_modeling:dev build
+./watod -m world_modeling:dev up -d --no-deps world_modeling_bringup_dev
 ```
 
-The validated development environment uses TensorRT 10.13.2.6. Install the
-matching CUDA-12 Python builder in the model venv:
+Inside the dev container, activate the engine environment and build the mounted model:
 
 ```bash
-python -m pip install "tensorrt-cu12==10.13.2.6"
+source /opt/watonomous/mtr-engine-venv/bin/activate
+python3 /ws/src/world_modeling/prediction_ml/eval/wato_mtr_eval/build_engine.py \
+  --onnx /ws/models/prediction/mtr_av2_r2.onnx \
+  --config /ws/src/world_modeling/prediction_ml/config/engine_build.yaml \
+  --out /ws/models/prediction/mtr_av2_r2.engine
 ```
 
-The C++ build additionally needs matching TensorRT headers and
-`libnvinfer.so.10`, normally supplied by NVIDIA's `tensorrt-dev` Debian
-package. A source-header checkout can be used explicitly:
+The dev service requests an NVIDIA GPU. The engine is written back to the host's
+`models/prediction` directory. The default `python3` outside this environment
+continues to use the ROS Python packages.
+
+For an existing model venv outside Docker, install the engine extra from `eval/`:
+
+```bash
+python -m pip install '.[engine]'
+```
+
+Outside the image, the C++ build needs matching TensorRT headers and
+`libnvinfer.so.10` (for example NVIDIA's `tensorrt-dev` Debian package) plus the CUDA runtime.
+A source-header checkout can be used explicitly:
 
 ```bash
 colcon build --packages-select prediction_ml --cmake-args \
@@ -95,8 +120,8 @@ colcon build --packages-select prediction_ml --cmake-args \
   -DTENSORRT_NVINFER_LIBRARY="/path/to/libnvinfer.so.10"
 ```
 
-`PREDICTION_ML_ENABLE_TENSORRT` is off by default and the repository deploy image builds without
-it, so deployment must enable it explicitly.
+A build directory configured before `AUTO` existed keeps its cached value; reconfigure it with
+`colcon build --packages-select prediction_ml --cmake-clean-cache`.
 
 Runtime selection is separate from compile-time inclusion. `mtr.mode: "tensorrt"` requests the
 TensorRT engine only in a build that includes it; otherwise the factory returns the null engine and

@@ -75,6 +75,11 @@ constexpr double kVruMovingSpeedMps = 0.5;
 constexpr double kHistoryVelocityDeadbandMps = 1.0;
 // Shorter spans amplify box jitter; younger tracks keep the tracker's velocity.
 constexpr double kMinHistoryVelocitySpanS = 0.3;
+// Fallback path only (measuredVelocity): tuned on the two May 30 replay slices, which hold 736
+// parked-car samples but only 8 moving ones, so re-check them on drives with traffic.
+constexpr double kFallbackMinSpanS = 0.5;
+constexpr double kFallbackMinTravelM = 1.0;
+constexpr double kFallbackMinDirectionCos = 0.5;
 constexpr double kMapCenterOffsetY = 0.0;
 
 // INT64 type codes the engine consumes and the matching debug tokens (correct spelling).
@@ -94,6 +99,26 @@ constexpr int64_t kTypeCyclist = 2;
 constexpr std::size_t kBoxOffset = 0;
 constexpr std::size_t kOneHotOffset = 6;
 constexpr std::size_t kTimeOffset = 11;  // time one-hot starts here; scalar at kTimeOffset + T
+
+// mtr.planar_inputs: tensors as a model trained without heights or box sizes saw them.
+void zeroHeightAndBoxSize(MtrInputTensors & tensors)
+{
+  const auto obj_dim = static_cast<std::size_t>(tensors.obj_trajs_shape[3]);
+  for (std::size_t i = kBoxOffset + 2; i < tensors.obj_trajs.size(); i += obj_dim) {
+    std::fill_n(&tensors.obj_trajs[i], 4, 0.0F);  // z, dx, dy, dz
+  }
+  for (std::size_t i = 2; i < tensors.obj_trajs_last_pos.size(); i += 3) {
+    tensors.obj_trajs_last_pos[i] = 0.0F;
+  }
+  const auto map_dim = static_cast<std::size_t>(tensors.map_polylines_shape[3]);
+  for (std::size_t i = 2; i < tensors.map_polylines.size(); i += map_dim) {
+    tensors.map_polylines[i] = 0.0F;  // z
+    tensors.map_polylines[i + 3] = 0.0F;  // dir_z
+  }
+  for (std::size_t i = 2; i < tensors.map_polylines_center.size(); i += 3) {
+    tensors.map_polylines_center[i] = 0.0F;
+  }
+}
 
 bool isFinite(const double value)
 {
@@ -250,6 +275,9 @@ MtrInputTensors SceneBuilder::build(const MtrFrameContext & frame)
   // Buffers are always sized to the fixed contract regardless of whether a usable map exists.
   const auto polylines = frame.has_map ? buildMapPolylines(frame.lanelet_ahead) : std::vector<MapPolyline>{};
   packMapTensors(targets, polylines, tensors);
+  if (config_.planar_inputs) {
+    zeroHeightAndBoxSize(tensors);
+  }
 
   tensors.valid = !tensors.sidecar.targets.empty();
   return tensors;
@@ -287,8 +315,28 @@ std::array<double, 2> SceneBuilder::measuredVelocity(const std::string & detecti
   if (it == history_.end() || it->second.empty()) {
     return {0.0, 0.0};
   }
-  const auto velocity = meanHistoryVelocity(it->second.front(), it->second.back());
-  return velocity ? std::array<double, 2>{(*velocity)[0], (*velocity)[1]} : std::array<double, 2>{0.0, 0.0};
+  const auto & hist = it->second;
+  const auto velocity = meanHistoryVelocity(hist.front(), hist.back());
+  if (!velocity) {
+    return {0.0, 0.0};
+  }
+  // Box jitter on young or distant tracks passes the speed deadband (4.9% of parked-car samples on
+  // the BEVFusion replay, 0.5% with these checks): real motion also covers kFallbackMinTravelM over
+  // at least kFallbackMinSpanS and keeps its direction between the two halves of the history.
+  const auto & mid = hist[hist.size() / 2];
+  const double ax = mid.x - hist.front().x;
+  const double ay = mid.y - hist.front().y;
+  const double bx = hist.back().x - mid.x;
+  const double by = hist.back().y - mid.y;
+  const bool same_direction =
+    hist.size() < 3 || ax * bx + ay * by > kFallbackMinDirectionCos * std::hypot(ax, ay) * std::hypot(bx, by);
+  if (
+    hist.back().timestamp - hist.front().timestamp < kFallbackMinSpanS ||
+    std::hypot(ax + bx, ay + by) < kFallbackMinTravelM || !same_direction)
+  {
+    return {0.0, 0.0};
+  }
+  return {(*velocity)[0], (*velocity)[1]};
 }
 
 double SceneBuilder::yawFromQuaternion(const geometry_msgs::msg::Quaternion & q)
@@ -749,6 +797,14 @@ std::vector<SceneBuilder::TargetCandidate> SceneBuilder::selectTargets(
   if (config_.selected_target_agent_limit < 0) {
     candidates.clear();
     return candidates;
+  }
+
+  if (config_.moving_targets_only) {
+    // ponytail: a car pulling out stays on the fallback until its history-window displacement
+    // crosses the moving speed (about 0.5 s); add a faster release if the track test shows it matters.
+    candidates.erase(
+      std::remove_if(candidates.begin(), candidates.end(), [](const TargetCandidate & c) { return !c.moving; }),
+      candidates.end());
   }
 
   const auto limit = std::min(static_cast<std::size_t>(config_.selected_target_agent_limit), kTargetCapacity);
