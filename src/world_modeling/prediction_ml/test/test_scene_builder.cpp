@@ -432,6 +432,19 @@ TEST(SceneBuilder, MovingTargetRankedAheadOfNearerParkedCars)
   ASSERT_EQ(tensors.sidecar.targets.size(), kTargetCap);
   EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "mover");
   EXPECT_EQ(tensors.sidecar.targets[1].detection_id, "parked_0");  // then nearest-first as before
+
+  MtrConfig cfg;
+  cfg.moving_targets_only = true;
+  SceneBuilder moving_only{cfg};
+  for (int k = 0; k <= 10; ++k) {
+    moving_only.addFrame(makeArray(
+      100.0 + 0.1 * k,
+      {makeDetection("parked", "vehicle", 5.0, 3.0, 0.0, 0.0),
+       makeDetection("mover", "vehicle", 40.0 + 1.0 * k, -3.0, 0.0, 0.0)}));
+  }
+  tensors = moving_only.build(makeFrame(arr, makePose(0, 0, 0)));
+  ASSERT_EQ(tensors.sidecar.targets.size(), 1U);  // the parked car is left to the fallback
+  EXPECT_EQ(tensors.sidecar.targets[0].detection_id, "mover");
 }
 
 TEST(SceneBuilder, WalkingPedestrianAheadOutranksCarsBehindAndParkedCarAhead)
@@ -842,6 +855,40 @@ TEST(SceneBuilder, VelocityFromHistorySwitchAddsNoFakeAcceleration)
   }
 }
 
+TEST(SceneBuilder, PlanarInputsZeroHeightsAndBoxSizes)
+{
+  // A car 2 m above the ego next to a lane 3 m up: z, box size and map z reach the model only when
+  // planar_inputs is off; x and y are untouched either way.
+  for (const bool planar : {false, true}) {
+    MtrConfig cfg;
+    cfg.planar_inputs = planar;
+    SceneBuilder builder{cfg};
+    vision_msgs::msg::Detection3DArray arr;
+    for (int k = 0; k <= 5; ++k) {
+      arr = makeArray(100.0 + 0.1 * k, {makeDetection("veh_1", "vehicle", 10.0, 0.0, 2.0, 0.0)});
+      builder.addFrame(arr);
+    }
+    auto tensors = builder.build(makeFrameWithMap(arr, makePose(0, 0, 0), {makeLanelet({{0, 0, 3}, {30, 0, 3}})}));
+    ASSERT_EQ(tensors.sidecar.targets.size(), 1U);
+    const auto row = static_cast<std::size_t>(tensors.sidecar.targets[0].track_index);
+    const std::size_t T = static_cast<std::size_t>(tensors.obj_trajs_shape[2]);
+    float height_sum = 0.0F;
+    for (std::size_t ctx = 0; ctx < kContextCap; ++ctx) {
+      for (std::size_t f = 2; f < 6; ++f) {
+        height_sum += std::abs(tensors.obj_trajs[objIdx(tensors, 0, ctx, T - 1, f)]);
+      }
+      height_sum += std::abs(tensors.obj_trajs_last_pos[ctx * 3 + 2]);
+    }
+    for (std::size_t point = 0; point < kNumPointsPerPolyline; ++point) {
+      height_sum += std::abs(tensors.map_polylines[mapIdx(0, 0, point, 2)]);
+    }
+    height_sum += std::abs(tensors.map_polylines_center[2]);
+    EXPECT_EQ(height_sum == 0.0F, planar);
+    EXPECT_FLOAT_EQ(tensors.obj_trajs[objIdx(tensors, 0, row, T - 1, 6)], 1.0F);  // vehicle one-hot survives
+    EXPECT_NE(tensors.map_polylines[mapIdx(0, 0, 0, 0)], 0.0F);  // map x survives
+  }
+}
+
 TEST(SceneBuilder, VelocityFromHistoryZeroesBoxJitter)
 {
   // Parked car whose box drifts 0.3 m in 0.5 s (0.6 m/s): below the deadband, so velocity is 0.
@@ -875,6 +922,13 @@ TEST(SceneBuilder, MeasuredVelocityForFallback)
   EXPECT_NEAR(builder.measuredVelocity("mover")[0], 10.0, 1e-6);
   EXPECT_DOUBLE_EQ(builder.measuredVelocity("parked")[0], 0.0);  // 0.6 m/s jitter is under the deadband
   EXPECT_DOUBLE_EQ(builder.measuredVelocity("barrier_or_new_track")[0], 0.0);  // unmeasured -> stationary
+
+  SceneBuilder jitter{cfg};  // a box that jumps 1.2 m and back: fast enough, but no consistent direction
+  const double xs[] = {30.0, 30.0, 31.2, 31.2, 30.0, 31.2};
+  for (int k = 0; k <= 5; ++k) {
+    jitter.addFrame(makeArray(100.0 + 0.1 * k, {makeDetection("far", "vehicle", xs[k], 5.0, 0.0, 0.0)}));
+  }
+  EXPECT_DOUBLE_EQ(jitter.measuredVelocity("far")[0], 0.0);
 
   SceneBuilder off{MtrConfig{}};  // option off: MTR keeps tracker velocity, the fallback still measures
   off.addFrame(makeArray(100.0, {makeDetection("mover", "vehicle", 10.0, 0.0, 0.0, 0.0, true, 0.3, 0.0, 0.0)}));

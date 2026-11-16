@@ -321,7 +321,7 @@ private:
   {
     std::lock_guard<std::mutex> lock(mutex_);
     try {
-      // Other values would pack the history or read the 80 output steps on the wrong time scale
+      // Other values would pack the history or read the output steps on the wrong time scale
       // (e.g. half-speed paths) without any shape error, so refuse them up front.
       if (
         config_.history_steps != kHistorySteps || std::abs(config_.history_rate_hz - kHistoryRateHz) > 1.0e-9 ||

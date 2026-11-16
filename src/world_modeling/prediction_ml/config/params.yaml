@@ -16,6 +16,9 @@
     mtr.metadata_path: ""        # injected at launch for deploy
     mtr.cache_ttl_s: 0.5
     mtr.selected_target_agent_limit: 8
+    # true: only agents whose history shows motion become MTR targets; parked cars keep the fallback's
+    # zero-length path (the model otherwise gives them an occasional 5-10 m path).
+    mtr.moving_targets_only: false
     # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
     mtr.target_forward_half_angle_deg: 90.0
     # Evaluation only: mtr.pinned_target_ids (string list) pins targets in order and bypasses the
@@ -38,3 +41,7 @@
     # compensation, so its velocity is relative to the moving ego.
     # Set false only for inputs with true map-frame velocities (e.g. Waymo ground-truth replays).
     mtr.velocity_from_history: true
+    # true: zero agent z / box size and map z before inference. Required for a model trained on
+    # Argoverse 2 (no heights or box sizes there; pair it with contract_8_target_av2.yaml, 6 s output).
+    # false for the Waymo-trained model.
+    mtr.planar_inputs: false

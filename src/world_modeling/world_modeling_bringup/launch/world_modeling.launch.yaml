@@ -73,6 +73,11 @@ launch:
       default: $(find-pkg-share prediction_ml)/config/contract_8_target.yaml
       description: Path to the MTR TensorRT binding contract
 
+  - arg:
+      name: mtr_planar_inputs
+      default: "false"
+      description: Zero heights and box sizes before MTR inference (true for the Argoverse 2 model)
+
   # ---- Autonomy stack (localization mode only) ----
 
   # Prediction - generates trajectory hypotheses for tracked objects
@@ -93,6 +98,8 @@ launch:
           value: $(var mtr_engine_path)
         - name: mtr.metadata_path
           value: $(var mtr_metadata_path)
+        - name: mtr.planar_inputs
+          value: $(var mtr_planar_inputs)
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked
