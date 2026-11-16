@@ -22,6 +22,13 @@ launch:
       description: Path to the .map file for localization. Empty string skips loading.
 
   - arg:
+      name: eidos_config
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+      description: >-
+        Eidos params for the full stack. eidos_slam.yaml (with eidos_map_path:="") runs SLAM from
+        the start pose instead of localizing on a prior map, for driving off the mapped area.
+
+  - arg:
       name: use_sim_time
       default: "false"
       description: Use simulation time from /clock topic
@@ -324,7 +331,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - from: $(var eidos_config)
         - name: use_sim_time
           value: $(var use_sim_time)
 
@@ -336,7 +343,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - from: $(var eidos_config)
         - name: use_sim_time
           value: $(var use_sim_time)
         - name: map.load_path

@@ -13,13 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Brings up the sensor drivers for a recording session without recording.
-# Topics come from the pano_cameras_lidar_cc recording profile.
+# Brings up the sensor drivers for a recording session, without recording. By default only the
+# drivers run (interfacing + cameras), so this is just a recorder. Opt in to more of the stack:
 #
-#   ./record_session.sh          start containers, build and start the drivers (no recording)
-#   ./record_session.sh status   check that the drivers are publishing
-#   ./record_session.sh record   record until Ctrl+C (can be run again for each take)
-#   ./record_session.sh down     stop the drivers and containers
+#   --b,  --bevfusion        full perception launch: cameras plus camera_sync, BEVFusion, tracking
+#   --wm, --world-modeling   world modeling: eidos SLAM, world model (prediction on its fallback only)
+#   --p,  --prediction       MTR prediction on TensorRT; implies --wm, needs --b for tracked objects
+#
+#   ./record_session.sh [up] [--b] [--wm] [--p]   start containers, build and start (no recording)
+#   ./record_session.sh status                    check that what is running is publishing
+#   ./record_session.sh record                    record until Ctrl+C (can be run again for each take)
+#   ./record_session.sh down                      stop everything and the containers
+#
+# Only the sensor topics in the pano_cameras_lidar_cc recording profile are recorded; BEVFusion,
+# tracking, world modeling and prediction outputs are not. /tf is recorded, so with --wm it also
+# carries the map -> odom -> base_footprint transforms that eidos_transform broadcasts.
 #
 # Bags go to $BAG_DIRECTORY (default /mnt/data/bags).
 
@@ -28,7 +36,48 @@ set -euo pipefail
 MONO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WATOD="$MONO_DIR/watod"
 PROFILE="$MONO_DIR/src/perception/perception_bringup/config/bag_recorder/pano_cameras_lidar_cc.yaml"
+
+usage() {
+  echo "Usage: $0 [up|status|record|down] [--b|--bevfusion] [--wm|--world-modeling] [--p|--prediction]" >&2
+  exit 1
+}
+
+COMMAND=up
+WITH_BEVFUSION=false
+WITH_WORLD_MODELING=false
+WITH_PREDICTION=false
+command_set=false
+for arg in "$@"; do
+  case "$arg" in
+    --b | --bevfusion) WITH_BEVFUSION=true ;;
+    --wm | --world-modeling) WITH_WORLD_MODELING=true ;;
+    --p | --prediction)
+      # TODO(ashish): re-enable once prediction merges in (prediction_ml, the AV2 contract and
+      # the mtr_planar_inputs launch arg are not on this branch yet)
+      echo "--p is disabled until prediction merges in." >&2
+      exit 1
+      # WITH_PREDICTION=true
+      ;;
+    -h | --help) usage ;;
+    up | status | record | down)
+      $command_set && usage
+      COMMAND=$arg
+      command_set=true
+      ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      usage
+      ;;
+  esac
+done
+
+# prediction_ml is launched by world_modeling.launch.yaml and needs eidos for its map frame
+$WITH_PREDICTION && WITH_WORLD_MODELING=true
+
 MODULES=(-m interfacing:dev -m perception:dev)
+$WITH_WORLD_MODELING && MODULES+=(-m world_modeling:dev)
+# down stops every container this script can start, whatever flags were used for up
+ALL_MODULES=(-m interfacing:dev -m perception:dev -m world_modeling:dev)
 
 # Same config watod reads, so the container names match
 [[ -f "$MONO_DIR/watod-config.sh" ]] && source "$MONO_DIR/watod-config.sh"
@@ -36,17 +85,24 @@ MODULES=(-m interfacing:dev -m perception:dev)
 PROJECT="${COMPOSE_PROJECT_NAME:-watod_$USER}"
 INTERFACING="$PROJECT-interfacing_bringup_dev-1"
 PERCEPTION="$PROJECT-perception_bringup_dev-1"
+WORLD_MODELING="$PROJECT-world_modeling_bringup_dev-1"
 # Runs the Zenoh router and the Foxglove bridge
 INFRASTRUCTURE="$PROJECT-infrastructure_bringup-1"
 export BAG_DIRECTORY="${BAG_DIRECTORY:-/mnt/data/bags}"
 
-# Run a command inside a dev container with ROS and the workspace sourced
+# MTR prediction (Argoverse 2 model). The engine is machine-local: build it on this machine with
+# the steps in src/world_modeling/prediction_ml/DEVELOPING.md. Paths are inside the world modeling
+# dev container, which mounts $MONO_DIR/models at /ws/models.
+MTR_ENGINE=/ws/models/prediction/mtr_av2_r2.engine
+
+# Run a command inside a dev container with ROS and the workspace sourced.
+# docker exec skips the entrypoint, so the Isaac ROS underlay (rectify, H.264 encoder) is sourced here.
 in_container() {
   local container=$1
   shift
   docker exec "$container" bash -c "
     source /opt/ros/\$ROS_DISTRO/setup.bash
-    [[ -f /opt/watonomous/setup.bash ]] && source /opt/watonomous/setup.bash
+    [[ -n \"\${ISAAC_ROS_INSTALL:-}\" ]] && source \"\$ISAAC_ROS_INSTALL/local_setup.bash\"
     [[ -f /ws/install/setup.bash ]] && source /ws/install/setup.bash
     $*"
 }
@@ -57,9 +113,28 @@ in_container_detached() {
   shift 2
   docker exec -d "$container" bash -c "
     source /opt/ros/\$ROS_DISTRO/setup.bash
-    [[ -f /opt/watonomous/setup.bash ]] && source /opt/watonomous/setup.bash
+    [[ -n \"\${ISAAC_ROS_INSTALL:-}\" ]] && source \"\$ISAAC_ROS_INSTALL/local_setup.bash\"
     source /ws/install/setup.bash
     { $*; } > $log 2>&1"
+}
+
+container_running() {
+  [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2> /dev/null)" == true ]]
+}
+
+# [x]yz patterns keep pgrep from matching the bash -c wrapper that runs it
+full_perception_running() {
+  container_running "$PERCEPTION" \
+    && in_container "$PERCEPTION" "pgrep -f '[p]erception_bringup perception.launch' > /dev/null"
+}
+
+cameras_only_running() {
+  container_running "$PERCEPTION" && in_container "$PERCEPTION" "pgrep -f '[c]amera_container' > /dev/null"
+}
+
+world_modeling_running() {
+  container_running "$WORLD_MODELING" \
+    && in_container "$WORLD_MODELING" "pgrep -f '[w]orld_modeling_bringup world_modeling.launch' > /dev/null"
 }
 
 profile_topics() {
@@ -81,24 +156,65 @@ preflight() {
     echo "$others" >&2
     exit 1
   fi
+
+  # Each perception mode starts its own camera drivers, and the cameras accept one at a time
+  if $WITH_BEVFUSION && cameras_only_running; then
+    echo "Cameras-only drivers are running. Run ./record_session.sh down, then up --b." >&2
+    exit 1
+  fi
+  if ! $WITH_BEVFUSION && full_perception_running; then
+    echo "BEVFusion/tracking perception is running. Run ./record_session.sh down first, or keep it with up --b." >&2
+    exit 1
+  fi
+
+  # World modeling only reads the prediction flags at launch
+  if world_modeling_running; then
+    echo "Note: world modeling is already running and keeps its current prediction mode;" >&2
+    echo "      run ./record_session.sh down first to switch --p on or off." >&2
+  fi
+
+  if $WITH_PREDICTION && [[ ! -f "$MONO_DIR/models/prediction/$(basename "$MTR_ENGINE")" ]]; then
+    echo "MTR engine not found at models/prediction/$(basename "$MTR_ENGINE")." >&2
+    echo "Build it with the steps in src/world_modeling/prediction_ml/DEVELOPING.md." >&2
+    exit 1
+  fi
+
+  if $WITH_PREDICTION && ! $WITH_BEVFUSION; then
+    echo "Note: --p without --b: MTR prediction gets no tracked objects to predict." >&2
+  fi
 }
 
-build_drivers() {
+build() {
+  # --base-paths src: /ws/bags is a bind mount of BAG_DIRECTORY and colcon must not crawl it
   # The whole workspace: interfacing_bringup does not declare every package its launch uses
   echo "==> Building interfacing (~2 min the first time, incremental after)"
-  in_container "$INTERFACING" "cd /ws && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
+  in_container "$INTERFACING" "cd /ws && colcon build --base-paths src --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
 
-  # Only what the camera launch needs. Ignoring the rest of the workspace stops colcon from
-  # requiring perception_bringup's other dependencies (detection, tracking, ...) to be built.
-  echo "==> Building camera drivers"
-  in_container "$PERCEPTION" "cd /ws \
-    && others=\$(colcon list --names-only | grep -vxE 'perception_bringup|camera_aravis2|camera_aravis2_msgs|camera_calib') \
-    && colcon build --packages-up-to perception_bringup camera_aravis2 --packages-ignore \$others \
-      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
+  if $WITH_BEVFUSION; then
+    # perception.launch.yaml needs the camera drivers, BEVFusion and everything perception_bringup
+    # depends on (tracking, patchwork++, camera_sync, spatial_association, ...)
+    echo "==> Building perception (cameras, BEVFusion, tracking)"
+    in_container "$PERCEPTION" "cd /ws \
+      && colcon build --base-paths src --packages-up-to perception_bringup camera_aravis2 bevfusion \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
+  else
+    # Only what the camera launch needs. Ignoring the rest of the workspace stops colcon from
+    # requiring perception_bringup's other dependencies (detection, tracking, ...) to be built.
+    echo "==> Building camera drivers"
+    in_container "$PERCEPTION" "cd /ws \
+      && others=\$(colcon list --base-paths src --names-only | grep -vxE 'perception_bringup|camera_aravis2|camera_aravis2_msgs|camera_calib') \
+      && colcon build --base-paths src --packages-up-to perception_bringup camera_aravis2 --packages-ignore \$others \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
+  fi
+
+  if $WITH_WORLD_MODELING; then
+    # The whole workspace: prediction_ml is launched (on its fallback) even without --p
+    echo "==> Building world modeling (localization, world model, prediction)"
+    in_container "$WORLD_MODELING" "cd /ws && colcon build --base-paths src --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF"
+  fi
 }
 
-start_drivers() {
-  # [x]yz patterns keep pgrep from matching the bash -c wrapper that runs it
+start() {
   if in_container "$INTERFACING" "pgrep -f '[i]nterfacing_bringup interfacing.launch' > /dev/null"; then
     echo "==> Interfacing drivers already running"
   else
@@ -107,19 +223,57 @@ start_drivers() {
       "ros2 launch interfacing_bringup interfacing.launch.yaml"
   fi
 
-  # Cameras only: a component container plus all_cameras_composed, without the
-  # detection/tracking nodes that perception.launch.yaml also starts
-  if in_container "$PERCEPTION" "pgrep -f '[c]amera_container' > /dev/null"; then
-    echo "==> Camera drivers already running"
+  if $WITH_BEVFUSION; then
+    # The full perception launch: the camera drivers plus camera_sync, BEVFusion and tracking,
+    # all in perception_container
+    if full_perception_running; then
+      echo "==> Perception already running"
+    else
+      echo "==> Starting perception (cameras, BEVFusion, tracking)"
+      in_container_detached "$PERCEPTION" /tmp/perception.log \
+        "ros2 launch perception_bringup perception.launch.yaml"
+    fi
   else
-    echo "==> Starting camera drivers"
-    in_container_detached "$PERCEPTION" /tmp/cameras.log \
-      "ros2 run rclcpp_components component_container_mt --ros-args -r __node:=camera_container &
-       ros2 launch perception_bringup all_cameras_composed.yaml container_name:=camera_container
-       wait"
+    # Cameras only: a component container plus all_cameras_composed, without the
+    # detection/tracking nodes that perception.launch.yaml also starts
+    if cameras_only_running; then
+      echo "==> Camera drivers already running"
+    else
+      echo "==> Starting camera drivers"
+      in_container_detached "$PERCEPTION" /tmp/cameras.log \
+        "ros2 run rclcpp_components component_container_mt --ros-args -r __node:=camera_container &
+         ros2 launch perception_bringup all_cameras_composed.yaml container_name:=camera_container
+         wait"
+    fi
+  fi
+
+  if $WITH_WORLD_MODELING; then
+    if world_modeling_running; then
+      echo "==> World modeling already running"
+    else
+      # Eidos runs SLAM from wherever the car starts (no prior map): localization mode only works on
+      # the test track. MTR needs its map frame and ego pose; the OSM lanelets are optional.
+      # eidos_map_path is '' (quotes included): ros2 launch rejects an empty value, and launch_ros
+      # parses the quotes as YAML into the empty path that skips loading a map.
+      # Without --p, mtr_mode stays at its launch default (disabled): prediction_ml still publishes
+      # the world object seeds, from its fallback only.
+      local prediction_args="" what="eidos SLAM, world model, prediction fallback"
+      if $WITH_PREDICTION; then
+        prediction_args="mtr_mode:=tensorrt mtr_engine_path:=$MTR_ENGINE mtr_planar_inputs:=true \
+          mtr_metadata_path:=\$(ros2 pkg prefix prediction_ml)/share/prediction_ml/config/contract_8_target_av2.yaml"
+        what="eidos SLAM, world model, MTR prediction"
+      fi
+      echo "==> Starting world modeling ($what)"
+      in_container_detached "$WORLD_MODELING" /tmp/world_modeling.log \
+        "ros2 launch world_modeling_bringup world_modeling.launch.yaml \
+          eidos_config:=\$(ros2 pkg prefix world_modeling_bringup)/share/world_modeling_bringup/config/eidos_slam.yaml \
+          eidos_map_path:=\"''\" \
+          $prediction_args"
+    fi
   fi
 }
 
+# Checks the sensor topics, plus perception and world modeling outputs when those are running
 status() {
   echo "==> Publish rates over 5 s (blank = nothing received)"
   local topics=(
@@ -129,6 +283,10 @@ status() {
     /camera_pano_ww/image_rect_compressed /camera_pano_nw/image_rect_compressed
     /lidar_cc/velodyne_points /novatel/oem7/fix /interfacing/can_state_estimator/body_velocity
   )
+  # Not recorded: BEVFusion, tracking and prediction outputs
+  full_perception_running && topics+=(/perception/detections_3d_bev /perception/detections_3D_tracked)
+  world_modeling_running && topics+=(/world_modeling/world_object_seeds)
+
   in_container "$PERCEPTION" "
     for t in ${topics[*]}; do
       ( rate=\$(timeout -s INT 5 ros2 topic hz \"\$t\" 2>/dev/null | grep -m1 -o 'average rate: [0-9.]*' | cut -d' ' -f3)
@@ -146,19 +304,28 @@ status() {
   fi
 }
 
-case "${1:-up}" in
+case "$COMMAND" in
   up)
     preflight
-    echo "==> Starting containers (interfacing + perception dev, infrastructure)"
+    started="interfacing + perception dev"
+    $WITH_WORLD_MODELING && started+=" + world modeling dev"
+    echo "==> Starting containers ($started, infrastructure)"
     "$WATOD" "${MODULES[@]}" up -d
-    build_drivers
-    start_drivers
+    build
+    start
     echo "==> Waiting 20 s for the drivers to come up"
     sleep 20
     status
     echo
     echo "Drivers are running; nothing is being recorded."
-    echo "  Logs:   docker exec $PERCEPTION tail -f /tmp/cameras.log"
+    if $WITH_BEVFUSION; then
+      echo "  BEVFusion loads its engines ~20 s after start and can take a minute or two more;"
+      echo "  rerun ./record_session.sh status if its topics are still blank."
+      echo "  Logs:   docker exec $PERCEPTION tail -f /tmp/perception.log"
+    else
+      echo "  Logs:   docker exec $PERCEPTION tail -f /tmp/cameras.log"
+    fi
+    $WITH_WORLD_MODELING && echo "          docker exec $WORLD_MODELING tail -f /tmp/world_modeling.log"
     echo "          docker exec $INTERFACING tail -f /tmp/interfacing.log"
     echo "  Record: ./record_session.sh record   (Ctrl+C to stop)"
     echo "  Foxglove can stay connected while recording; close image panels to spare CPU."
@@ -168,14 +335,11 @@ case "${1:-up}" in
     status
     ;;
   record)
+    # Only the profile's sensor topics: perception and world modeling outputs are left out
     mapfile -t topics < <(profile_topics)
     "$WATOD" "${MODULES[@]}" bag record -o "pano_lidar_cc_$(date +%Y%m%d_%H%M%S)" --topics "${topics[@]}"
     ;;
   down)
-    "$WATOD" "${MODULES[@]}" down
-    ;;
-  *)
-    echo "Usage: $0 [up|status|record|down]" >&2
-    exit 1
+    "$WATOD" "${ALL_MODULES[@]}" down
     ;;
 esac
