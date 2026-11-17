@@ -223,7 +223,6 @@ Tests live under `bevfusion/test/` and use `wato_test`/Catch2. The core tests mo
 
 `bevfusion.launch.yaml` in this package can run the node standalone. In practice, it's loaded as a composable node into the shared `perception_container` from `perception_bringup/launch/perception.launch.yaml`, with `camera_info`, `output_detections`, and `output_markers` remapped to `/multi_camera_sync/multi_camera_info`, `/perception/detections_3d_bev`, and `/perception/bev_detection_markers` respectively, and parameters sourced from `perception_bringup/config/perception_bringup.yaml`. It's also listed in the `perception_lifecycle_manager`'s `node_names` for autostart. Recall that `input_multi_image_topic` and `input_lidar_topic` must be changed via params, not launch-time `remap` (see the message_filters note above).
 
-
 ## GPU lidar preprocessing
 
 `lidar_processing_backend` selects `auto` (default), `cuda`, or `cpu`.
@@ -272,9 +271,9 @@ is disabled by default to avoid its bundled-protobuf conflict with BEVFusion.
 
 ### Validation and performance comparison
 
-1. Run `test_point_cloud_layout` in the NITROS point-cloud package. It covers metadata,
-   intensity, organized row padding, byte preservation, shared ownership, empty and
-   malformed clouds, and explicit rejection of XYZI by legacy XYZ/XYZRGB-only GXF.
+1. Verify PointCloud2 to NITROS round-trips preserve field metadata, intensity,
+   organized row padding, headers, and payload bytes. Check empty/malformed inputs,
+   shared ownership, and rejection of XYZI by legacy XYZ/XYZRGB-only GXF.
 2. Build the vendor with `-DBUILD_LIDAR_PREPROCESS_TESTS=ON` and run
    `ctest -R lidar_preprocess --output-on-failure`. This model-independent GPU test
    compares FP16 bytes against a CPU reference and exercises truncation, invalid

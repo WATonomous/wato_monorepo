@@ -15,7 +15,7 @@ RUN apt-get update && \
 # callbacks and cannot be mixed with the fork's NitrosNodeInterfaces callbacks.
 RUN R=/tmp/isaac_ros_nitros && \
     git clone https://github.com/WATonomous/isaac_ros_nitros.git $R && \
-    git -C $R checkout 53748fff81c4e6012b9c953024fb7c70e3c06055 && \
+    git -C $R checkout 4770e806e59ec18d91d99de68b77224beb43ec7b && \
     git -C $R lfs install && \
     git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
     mv $R/isaac_ros_nitros $R/isaac_ros_managed_nitros . && \
@@ -90,6 +90,8 @@ RUN apt-get update && \
       ros-jazzy-gxf-isaac-atlas \
       ros-jazzy-gxf-isaac-gxf-helpers \
       ros-jazzy-gxf-isaac-message-compositor \
+      ros-jazzy-gxf-isaac-messages \
+      ros-jazzy-gxf-isaac-ros-messages \
       ros-jazzy-gxf-isaac-optimizer \
       ros-jazzy-gxf-isaac-sight \
       ros-jazzy-negotiated \
