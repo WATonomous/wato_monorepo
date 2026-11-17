@@ -64,7 +64,9 @@ ros2 lifecycle set /perception/prediction_ml_node activate
 
 ## Configuration
 
-Parameters in `config/params.yaml` (the perception bringup block mirrors them):
+Parameters in `config/params.yaml`. The perception bringup block mirrors them, except that on the car
+it sets `mtr.mode: "tensorrt"` and reads Novatel odometry (`/novatel/oem7/odom`, child `base_link`).
+Without the ONNX files in `models/prediction/` the node logs an ERROR and publishes the fallback only:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|

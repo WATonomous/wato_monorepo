@@ -566,16 +566,18 @@ multi_camera_sync:
     # map, SLAM or dynamic TF needed.
     map_frame: "odom"
     # One nav_msgs/Odometry gives the ego pose and velocity. Its frame_id must be map_frame and its
-    # child_frame_id mtr.ego_velocity_child_frame. CAN wheel odometry (topic only, no TF) by default;
-    # /novatel/oem7/odom is the alternative.
-    odometry_topic: "/interfacing/can_state_estimator/odom"
+    # child_frame_id mtr.ego_velocity_child_frame. Novatel GNSS/INS odometry (frame odom, child
+    # base_link) by default: on the may_30 replay it matched the map-frame setup, while lidar-odometry
+    # heading drift made parked cars move. CAN wheel odometry (/interfacing/can_state_estimator/odom,
+    # child base_footprint) is the alternative; it is untested on bags.
+    odometry_topic: "/novatel/oem7/odom"
     # Tracks further than this from every odometry sample are not transformed: fallback only.
     odometry_max_gap_s: 0.2
     prediction_horizon: 3.0      # seconds: fallback + MTR horizon
     prediction_time_step: 0.2    # seconds: waypoint spacing
 
     # --- MTR ---
-    mtr.mode: "disabled"         # disabled | null | tensorrt (disabled = constant-velocity fallback only)
+    mtr.mode: "tensorrt"         # disabled | null | tensorrt (disabled = constant-velocity fallback only)
     # tensorrt only: a missing plan is built from the ONNX at configure (takes minutes, first run
     # only) and reused after. Delete build/ after a TensorRT or GPU change.
     mtr.onnx_path: "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx"
@@ -598,7 +600,7 @@ multi_camera_sync:
     mtr.ego_length: 4.0936
     mtr.ego_width: 1.3579
     mtr.ego_height: 1.4090
-    mtr.ego_velocity_child_frame: "base_footprint"
+    mtr.ego_velocity_child_frame: "base_link"  # must match the odometry's child_frame_id
     mtr.history_steps: 11
     mtr.history_rate_hz: 10.0
     # Tracking runs in lidar_cc without ego-motion compensation: use each track's own history.
