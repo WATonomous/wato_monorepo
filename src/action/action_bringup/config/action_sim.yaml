@@ -65,7 +65,7 @@
 
     stop_distance: 0.3
     max_speed: 10.0
-    max_tangential_accel: 2.5
+    max_tangential_accel: 2.2
     max_emergency_accel: 5.0
     max_lateral_accel: 1.0
     interpolation_resolution: 0.1
@@ -231,8 +231,8 @@
     # Actuator limits — hard constraints, vehicle physical limits.
     # Must match your actual vehicle capabilities.
     # =========================================================================
-    max_steering_angle: 0.5   # [0.3 - 1.0] rad — max steering angle. Must match vehicle hardware.
-    max_accel: 2.5            # [1.0 - 5.0] m/s^2 — max forward acceleration. Must match vehicle capability.
+    max_steering_angle: 0.53  # [0.3 - 1.0] rad — max steering angle. Must match vehicle hardware.
+    max_accel: 2.2            # [1.0 - 5.0] m/s^2 — max forward acceleration. Must match vehicle capability.
     max_decel: -4.0           # [-8.0 - -1.0] m/s^2 — max braking. More negative = harder braking allowed.
     max_speed: 10.0           # [1.0 - 30.0] m/s — global speed cap, on top of trajectory planner's per-point limits.
 

@@ -60,7 +60,7 @@ private:
   std::unique_ptr<WorldState> world_state_;  // Entity storage
   std::unique_ptr<LaneletHandler> lanelet_handler_;  // Map queries
 
-  // TF (for map loading - utm->map transform)
+  // TF (vehicle pose queries and optional projected-frame-to-map alignment)
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
@@ -74,19 +74,15 @@ private:
   std::string osm_map_path_;
   std::string map_frame_;
   std::string base_frame_;
-  std::string utm_frame_;
-  std::string projector_type_;
-  double origin_lat_{0.0};
-  double origin_lon_{0.0};
+  MapConfig map_config_;
   rclcpp::TimerBase::SharedPtr map_init_timer_;
 
   /**
-   * @brief Attempt to load the lanelet map using TF-derived UTM origin.
+   * @brief Load OSM geometry into map_frame using the configured projection and alignment.
    *
-   * Called by a wall timer after activation. For UTM projector, waits for the
-   * utm-to-map transform to determine the origin offset. For local_cartesian
-   * projector (simulation), loads immediately with zero offset. Cancels the
-   * timer after success or failure.
+   * Fixed mode loads immediately. TF mode retries until projected_frame ->
+   * map_frame is available and applies its full rotation and translation while
+   * parsing OSM. Cancels the timer after success or a map-load failure.
    */
   void tryLoadMap();
 

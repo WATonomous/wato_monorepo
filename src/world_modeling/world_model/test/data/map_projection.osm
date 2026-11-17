@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lat="45.5017" lon="-73.5673"><tag k="ele" v="298.0"/></node>
+  <node id="2" lat="45.5017" lon="-73.5672"><tag k="ele" v="298.0"/></node>
+  <node id="3" lat="45.50167" lon="-73.5673"><tag k="ele" v="298.0"/></node>
+  <node id="4" lat="45.50167" lon="-73.5672"><tag k="ele" v="298.0"/></node>
+  <way id="10"><nd ref="1"/><nd ref="2"/><tag k="type" v="line_thin"/><tag k="subtype" v="solid"/></way>
+  <way id="11"><nd ref="3"/><nd ref="4"/><tag k="type" v="line_thin"/><tag k="subtype" v="solid"/></way>
+  <relation id="100">
+    <member type="way" ref="10" role="left"/>
+    <member type="way" ref="11" role="right"/>
+    <tag k="type" v="lanelet"/>
+    <tag k="subtype" v="road"/>
+    <tag k="location" v="urban"/>
+    <tag k="one_way" v="yes"/>
+  </relation>
+</osm>

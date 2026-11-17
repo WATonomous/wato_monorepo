@@ -39,6 +39,7 @@ find_package(lanelet2_routing REQUIRED)
 find_package(lanelet2_traffic_rules REQUIRED)
 
 add_library(${PROJECT_NAME}_lib SHARED
+  src/map_projector.cpp
   src/lanelet_handler.cpp
   src/world_model_node.cpp
 )
@@ -69,6 +70,7 @@ target_link_libraries(${PROJECT_NAME}_lib
 )
 
 add_executable(world_model_node
+  src/map_projector.cpp
   src/world_model_node.cpp
   src/lanelet_handler.cpp
 )
@@ -121,6 +123,15 @@ if(BUILD_TESTING)
       ${vision_msgs_TARGETS}
       ${geometry_msgs_TARGETS}
       lanelet2_core::lanelet2_core
+  )
+  target_compile_definitions(test_world_model PRIVATE
+    WORLD_MODEL_TEST_OSM="${CMAKE_CURRENT_SOURCE_DIR}/test/data/map_projection.osm"
+  )
+
+  add_wato_test(test_map_projector
+    test/test_map_projector.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_lib
   )
 endif()
 
