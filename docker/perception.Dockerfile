@@ -15,7 +15,7 @@ RUN apt-get update && \
 # callbacks and cannot be mixed with the fork's NitrosNodeInterfaces callbacks.
 RUN R=/tmp/isaac_ros_nitros && \
     git clone https://github.com/WATonomous/isaac_ros_nitros.git $R && \
-    git -C $R checkout 00d1d2fb2919e1b7bc99d87ed257026e5d778f8b && \
+    git -C $R checkout 53748fff81c4e6012b9c953024fb7c70e3c06055 && \
     git -C $R lfs install && \
     git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
     mv $R/isaac_ros_nitros $R/isaac_ros_managed_nitros . && \
@@ -136,7 +136,7 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
     git -C camera_aravis2_nitros checkout 3b625b3100b962ee06342b36369116a6da486f77 && \
     git clone https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
-    git -C wato-cuda-bevfusion checkout 40174c0bc8221cf6a962d3c7cc7f769bfac6400e && \
+    git -C wato-cuda-bevfusion checkout d88652aafecef902ab4fbf238b4f0178bd83b08b && \
     git -C wato-cuda-bevfusion submodule update --init --recursive && \
     touch wato-cuda-bevfusion/COLCON_IGNORE && \
     git -C wato-cuda-bevfusion lfs install && \
