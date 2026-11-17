@@ -230,13 +230,14 @@ TEST(TensorRtBackendInitialization, BuildsMissingEngineFromOnnxWhenProvided)
   cfg.metadata_path = metadata_path;
   const auto started = std::chrono::steady_clock::now();
   auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+  std::error_code error;
   std::cout << "engine build + load: "
-            << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s" << std::endl;
+            << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s, plan "
+            << std::filesystem::file_size(plan, error) << " bytes" << std::endl;
 
   EXPECT_TRUE(engine->ready()) << engine->lastError();
   EXPECT_TRUE(std::filesystem::exists(plan));
   EXPECT_FALSE(std::filesystem::exists(plan.string() + ".partial"));
-  std::error_code error;
   std::filesystem::remove_all(build_dir, error);
 }
 
