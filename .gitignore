@@ -26,4 +26,4 @@ models/
 maps/
 # Waymo-derived replay fixtures: built by prediction_ml/eval/regenerate_fixtures.sh, never
 # committed (the Waymo Open Dataset terms forbid public redistribution).
-src/world_modeling/prediction_ml/test/fixtures/*/
+src/perception/prediction_ml/test/fixtures/*/

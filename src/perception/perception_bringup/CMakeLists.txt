@@ -32,4 +32,14 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  # Exactly one publisher (prediction_ml) on /world_modeling/world_object_seeds across the car bringup.
+  # world_modeling's launch file is checked too when the source tree has it.
+  add_test(
+    NAME seeds_single_publisher_car
+    COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/test/check_seeds_publishers.py
+      ${CMAKE_CURRENT_SOURCE_DIR}/launch/perception.launch.yaml
+      ${CMAKE_CURRENT_SOURCE_DIR}/../../world_modeling/world_modeling_bringup/launch/world_modeling.launch.yaml)
+endif()
+
 ament_package()

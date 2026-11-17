@@ -24,7 +24,7 @@ The complete suite, including real checkpoint loading, runs with:
 MTR_ROOT=/root/mtr-task0 \
 MTR_CHECKPOINT=/root/mtr-task0/checkpoints/100_percent/MTR/checkpoint_epoch_30.pth \
 /root/mtr-harness-venv/bin/python -m pytest \
-  /mnt/c/Users/rylei/github/wato_monorepo/src/world_modeling/prediction_ml/eval/tests -v
+  /mnt/c/Users/rylei/github/wato_monorepo/src/perception/prediction_ml/eval/tests -v
 ```
 
 ## Gate B — C++ representation parity

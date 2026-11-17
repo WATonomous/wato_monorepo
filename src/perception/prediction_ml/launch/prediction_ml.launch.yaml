@@ -1,0 +1,22 @@
+launch:
+  - arg:
+      name: param_file
+      default: $(find-pkg-share prediction_ml)/config/params.yaml
+      description: Path to config file for prediction_ml node
+
+  - node:
+      pkg: prediction_ml
+      exec: prediction_ml_node
+      name: prediction_ml_node
+      namespace: "perception"
+      output: screen
+      param:
+        - from: $(var param_file)
+          allow_substs: true
+      remap:
+        - from: tracks_3d
+          to: /perception/detections_3D_tracked
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
+        - from: mtr_predictions
+          to: /world_modeling/mtr_predictions

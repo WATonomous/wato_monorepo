@@ -14,8 +14,8 @@
 """Static check: prediction_ml is the only publisher of /world_modeling/world_object_seeds.
 
 usage: check_seeds_publishers.py <launch.yaml>...  The files together form one bringup; across
-them there must be exactly one publisher, prediction_ml. Missing files are skipped (perception's
-launch file is not in the world_modeling image). Two publishers on one topic made world_model flip between
+them there must be exactly one publisher, prediction_ml. Missing files are skipped (world_modeling's
+launch file is not in the perception image). Two publishers on one topic made world_model flip between
 tracking's Kalman predictions and prediction_ml's every frame.
 """
 

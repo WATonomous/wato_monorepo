@@ -169,6 +169,25 @@ launch:
             - from: output_predictions
               to: /perception/tracked_predictions
 
+  # Trajectory prediction (MTR, constant-velocity fallback) for world_model. A plain process, not a
+  # component: a first-run TensorRT engine build blocks its configure for minutes.
+  - node:
+      pkg: prediction_ml
+      exec: prediction_ml_node
+      name: prediction_ml_node
+      namespace: "perception"
+      output: screen
+      param:
+        - from: $(var config_file)
+          allow_substs: true  # mtr.metadata_path uses $(find-pkg-share prediction_ml)
+      remap:
+        - from: tracks_3d
+          to: /perception/detections_3D_tracked
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
+        - from: mtr_predictions
+          to: /world_modeling/mtr_predictions
+
 
   # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)
   # Subscribes: multi_camera_info, detections, non_ground_cloud; optional multi_image (compressed) for viz

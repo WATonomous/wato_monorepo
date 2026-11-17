@@ -556,6 +556,50 @@ multi_camera_sync:
     # -------------------------------------------------------------------------
 
 # =============================================================================
+# Prediction ML Node (MTR trajectory prediction, constant-velocity fallback)
+# =============================================================================
+/**/prediction_ml_node:
+  ros__parameters:
+    # --- Frames / inputs ---
+    # Map-free: tracks (lidar_cc) are moved into odom with the static TF (odometry child frame <-
+    # tracks frame) and the odometry pose at the track stamp, and seeds go back out in lidar_cc. No
+    # map, SLAM or dynamic TF needed.
+    map_frame: "odom"
+    # One nav_msgs/Odometry gives the ego pose and velocity. Its frame_id must be map_frame and its
+    # child_frame_id mtr.ego_velocity_child_frame. CAN wheel odometry (topic only, no TF) by default;
+    # /novatel/oem7/odom is the alternative.
+    odometry_topic: "/interfacing/can_state_estimator/odom"
+    # Tracks further than this from every odometry sample are not transformed: fallback only.
+    odometry_max_gap_s: 0.2
+    prediction_horizon: 3.0      # seconds: fallback + MTR horizon
+    prediction_time_step: 0.2    # seconds: waypoint spacing
+
+    # --- MTR ---
+    mtr.mode: "disabled"         # disabled | null | tensorrt (disabled = constant-velocity fallback only)
+    # tensorrt only: a missing plan is built from the ONNX at configure (takes minutes, first run
+    # only) and reused after. Delete build/ after a TensorRT or GPU change.
+    mtr.onnx_path: "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx"
+    mtr.engine_path: "/opt/watonomous/models/prediction/build/mtr_av2_nomap_r2.plan"
+    mtr.metadata_path: "$(find-pkg-share prediction_ml)/config/contract_8_target_av2.yaml"
+    # Argoverse 2 model: no heights or box sizes in its training data.
+    mtr.planar_inputs: true
+    mtr.cache_ttl_s: 0.5
+    mtr.selected_target_agent_limit: 8
+    # true: parked cars keep the fallback's zero-length path instead of an occasional phantom MTR path.
+    mtr.moving_targets_only: false
+    mtr.target_forward_half_angle_deg: 90.0
+    mtr.model_time_step_s: 0.1
+    # EVE dimensions from eve_description/urdf/eve_chassis.xacro.
+    mtr.ego_length: 4.0936
+    mtr.ego_width: 1.3579
+    mtr.ego_height: 1.4090
+    mtr.ego_velocity_child_frame: "base_footprint"
+    mtr.history_steps: 11
+    mtr.history_rate_hz: 10.0
+    # Tracking runs in lidar_cc without ego-motion compensation: use each track's own history.
+    mtr.velocity_from_history: true
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
@@ -570,10 +614,12 @@ detection_lifecycle_manager:
 
 perception_lifecycle_manager:
   ros__parameters:
-    # Manages segmentation, association, and tracking pipeline nodes.
-    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
+    # Manages segmentation, tracking and prediction pipeline nodes.
+    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node", "/perception/prediction_ml_node"]
     autostart: true
     autostart_delay_s: 3.0
-    transition_timeout_s: 3.0
+    # An upper bound per transition: prediction_ml's first configure with mtr.mode tensorrt builds
+    # its TensorRT engine, which takes minutes.
+    transition_timeout_s: 600.0
     bond_timeout_s: 4.0
     bond_enabled: false

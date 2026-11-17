@@ -1,7 +1,6 @@
-# Keep dependency metadata for image builds, but exclude the offline prediction_ml eval harness
-# (COLCON_IGNOREd, holds large local build artifacts) and Waymo-derived replay fixtures.
-src/world_modeling/prediction_ml/eval/*
-!src/world_modeling/prediction_ml/eval/pyproject.toml
-src/world_modeling/prediction_ml/test/fixtures/262112a66742fe8d
-src/world_modeling/prediction_ml/test/fixtures/923a0c6bb90f4127
-src/world_modeling/prediction_ml/test/fixtures/9f62a2970e4e8d4c
+# Exclude the offline prediction_ml eval harness (COLCON_IGNOREd, holds large local build
+# artifacts) and Waymo-derived replay fixtures.
+src/perception/prediction_ml/eval
+src/perception/prediction_ml/test/fixtures/262112a66742fe8d
+src/perception/prediction_ml/test/fixtures/923a0c6bb90f4127
+src/perception/prediction_ml/test/fixtures/9f62a2970e4e8d4c
