@@ -21,6 +21,9 @@ done
 
 # Replace a path with a symlink. A real directory already there (e.g. from the clone) is moved
 # to <path>.orig first, because ln would otherwise put the link inside it.
+# termninal message for using this function will output in the format, 
+# linked docker container directory -> source directory on the wato cluster.
+# argument order is: wato-drive_directory, docker_container_directory
 link() {
   local target="$1" link_path="$2"
   if [[ -d "$link_path" && ! -L "$link_path" ]]; then
@@ -45,7 +48,7 @@ echo "copied $CB/configs into $BF/configs"
 link "$NUSC_DIR" "$BF/data/nuscenes"
 link "$NUSC_DIR" "$CB/data/nuscenes"
 
-# termninal message will output in the format, linked docker container directory to the source directory on the wato cluster.
+
 
 # Check that the files the training and export scripts need are now reachable.
 missing=0
