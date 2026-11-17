@@ -63,6 +63,9 @@ BEVFusionCore::BEVFusionCore(const BEVFusionInputConfig & config)
 BEVFusionCore::~BEVFusionCore()
 {
   if (stream_ != nullptr) {
+    cudaStreamSynchronize(stream_);
+    lidar_preprocessor_.reset();
+    pipeline_.reset();
     cudaStreamDestroy(stream_);
   }
 }
@@ -262,7 +265,47 @@ std::vector<BoundingBox> BEVFusionCore::infer(
   //             << ", pipeline_ptr=" << pipeline_.get() << ", precision=" << config_.precision << std::endl;
   // }
 
-  // map vendor type to our bounding box type
+  return convertDetections(detections);
+}
+
+void BEVFusionCore::initializeLidarPreprocessor(int max_input_points)
+{
+  if (!initialized_ || config_.num_features != 5) {
+    throw std::runtime_error("CUDA lidar preprocessing requires an initialized five-feature model");
+  }
+  lidar_preprocessor_ = ::bevfusion::lidar::create_preprocessor(max_input_points, std::min(config_.max_points, 300000));
+}
+
+void BEVFusionCore::releaseLidarPreprocessor()
+{
+  if (stream_) cudaStreamSynchronize(stream_);
+  lidar_preprocessor_.reset();
+}
+
+::bevfusion::lidar::PreparedLidar BEVFusionCore::preprocessLidar(
+  const void * device_points, const ::bevfusion::lidar::PointCloudLayout & layout)
+{
+  if (!lidar_preprocessor_) throw std::runtime_error("CUDA lidar preprocessing is not initialized");
+  return lidar_preprocessor_->forward(device_points, layout, stream_);
+}
+
+std::vector<BoundingBox> BEVFusionCore::inferDeviceLidar(
+  const std::vector<const unsigned char *> & camera_images, const ::bevfusion::lidar::PreparedLidar & lidar)
+{
+  if (!initialized_ || !has_calibration_ || camera_images.size() != static_cast<size_t>(config_.num_cameras)) {
+    throw std::runtime_error("BEVFusion is not ready for device lidar inference");
+  }
+  for (const auto * image : camera_images) {
+    if (!image) throw std::invalid_argument("Null camera image");
+  }
+  if (!lidar.count) return {};
+  return convertDetections(pipeline_->forward_device_lidar(
+    const_cast<const unsigned char **>(camera_images.data()), lidar.points, lidar.count, stream_));
+}
+
+std::vector<BoundingBox> BEVFusionCore::convertDetections(
+  const std::vector<::bevfusion::head::transbbox::BoundingBox> & detections) const
+{
   std::vector<BoundingBox> result;
   result.reserve(detections.size());
   for (const auto & d : detections) {

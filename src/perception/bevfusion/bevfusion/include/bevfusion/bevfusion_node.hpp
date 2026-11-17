@@ -49,10 +49,37 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
+#include "bevfusion/lidar_backend.hpp"
+#include <isaac_ros_nitros_point_cloud_type/nitros_point_cloud_view.hpp>
+#include <message_filters/simple_filter.h>
 // clang-format on
 
 namespace wato::perception::bevfusion
 {
+
+// One lightweight envelope lets both backends use exactly the same camera matching policy.
+// Only the selected subscription exists; copying an envelope never copies the point array.
+struct LidarFrame
+{
+  using ConstSharedPtr = std::shared_ptr<const LidarFrame>;
+  std_msgs::msg::Header header;
+  sensor_msgs::msg::PointCloud2::ConstSharedPtr cpu;
+  nvidia::isaac_ros::nitros::NitrosPointCloud::ConstSharedPtr gpu;
+
+  bool empty() const
+  {
+    return gpu ? gpu->width == 0 || gpu->height == 0 : !cpu || cpu->data.empty();
+  }
+};
+
+class LidarFrameFilter : public message_filters::SimpleFilter<LidarFrame>
+{
+public:
+  void add(const LidarFrame::ConstSharedPtr & frame)
+  {
+    this->signalMessage(frame);
+  }
+};
 
 /**
  * @brief ROS 2 lifecycle composable node for BEVFusion
@@ -131,7 +158,7 @@ private:
    */
   void syncedCompressedCallback(
     const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+    const LidarFrame::ConstSharedPtr & lidar_msg);
 
   /**
    * @brief Main processing callback for batched raw MultiImage + LiDAR.
@@ -139,8 +166,7 @@ private:
    * @param lidar_msg PointCloud2 containing point cloud data
    */
   void syncedRawCallback(
-    const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+    const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg, const LidarFrame::ConstSharedPtr & lidar_msg);
 
   /**
    * @brief Synced callback helper for processing a frame of 6 RGB images and LiDAR cloud.
@@ -151,7 +177,7 @@ private:
    */
   void processFrame(
     std::vector<cv::Mat> & rgb_images,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
+    const LidarFrame::ConstSharedPtr & lidar_msg,
     const std_msgs::msg::Header & header,
     std::chrono::steady_clock::time_point t_start);
 
@@ -164,7 +190,7 @@ private:
    */
   void runInference(
     const std::vector<const unsigned char *> & camera_images,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
+    const LidarFrame::ConstSharedPtr & lidar_msg,
     const std_msgs::msg::Header & header,
     std::chrono::steady_clock::time_point t_start);
 
@@ -232,14 +258,17 @@ private:
   using NitrosImageMsg = NitrosImageView::BaseType;
   using NitrosImageSub = nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<NitrosImageView>;
   using MultiImageRawSub = message_filters::Subscriber<MultiImageRawMsg, rclcpp_lifecycle::LifecycleNode>;
-  using LidarSub = message_filters::Subscriber<PointCloud2Msg, rclcpp_lifecycle::LifecycleNode>;
+  using NitrosCloudView = nvidia::isaac_ros::nitros::NitrosPointCloudView;
+  using NitrosCloudSub = nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<NitrosCloudView>;
+  void acceptLidarFrame(const LidarFrame::ConstSharedPtr & frame);
+  void initializeLidarSubscription();
 
-  using MultiImageCompressedSyncPolicy = message_filters::sync_policies::
-    ApproximateTime<deep_msgs::msg::MultiImageCompressed, sensor_msgs::msg::PointCloud2>;
+  using MultiImageCompressedSyncPolicy =
+    message_filters::sync_policies::ApproximateTime<deep_msgs::msg::MultiImageCompressed, LidarFrame>;
   using MultiImageCompressedSynchronizer = message_filters::Synchronizer<MultiImageCompressedSyncPolicy>;
 
   using MultiImageRawSyncPolicy =
-    message_filters::sync_policies::ApproximateTime<deep_msgs::msg::MultiImage, sensor_msgs::msg::PointCloud2>;
+    message_filters::sync_policies::ApproximateTime<deep_msgs::msg::MultiImage, LidarFrame>;
   using MultiImageRawSynchronizer = message_filters::Synchronizer<MultiImageRawSyncPolicy>;
 
   /**
@@ -255,7 +284,7 @@ private:
    *          Does nothing while no GPU images are being published, so the batched image path handles the scan.
    * @param lidar_msg PointCloud2 containing point cloud data
    */
-  void nitrosLidarCallback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+  void nitrosLidarCallback(const LidarFrame::ConstSharedPtr & lidar_msg);
 
   /// Which camera input the most recent frame came from
   enum class CameraInput
@@ -361,7 +390,14 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
   // Subscribers
-  std::shared_ptr<LidarSub> lidar_sub_;
+  rclcpp::Subscription<PointCloud2Msg>::SharedPtr lidar_sub_;
+  std::shared_ptr<NitrosCloudSub> nitros_lidar_sub_;
+  LidarFrameFilter lidar_filter_;
+  std::string lidar_processing_backend_{"auto"};
+  std::string lidar_fallback_reason_;
+  bool use_cuda_lidar_{false};
+  int lidar_max_input_points_{1000000};
+  std::atomic<bool> processing_enabled_{false};
   std::shared_ptr<MultiImageCompressedSub> multi_image_compressed_sub_;
   std::shared_ptr<MultiImageRawSub> multi_image_raw_sub_;
   // One NITROS subscriber and one newest-image slot per camera, in camera_names order

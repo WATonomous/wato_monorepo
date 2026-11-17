@@ -222,3 +222,99 @@ Tests live under `bevfusion/test/` and use `wato_test`/Catch2. The core tests mo
 ### Launch
 
 `bevfusion.launch.yaml` in this package can run the node standalone. In practice, it's loaded as a composable node into the shared `perception_container` from `perception_bringup/launch/perception.launch.yaml`, with `camera_info`, `output_detections`, and `output_markers` remapped to `/multi_camera_sync/multi_camera_info`, `/perception/detections_3d_bev`, and `/perception/bev_detection_markers` respectively, and parameters sourced from `perception_bringup/config/perception_bringup.yaml`. It's also listed in the `perception_lifecycle_manager`'s `node_names` for autostart. Recall that `input_multi_image_topic` and `input_lidar_topic` must be changed via params, not launch-time `remap` (see the message_filters note above).
+
+
+## GPU lidar preprocessing
+
+`lidar_processing_backend` selects `auto` (default), `cuda`, or `cpu`.
+During configuration, `auto` initializes the CUDA preprocessing workspace and
+selects CPU preprocessing if that initialization fails. Subscription initialization
+can also select the CPU route before activation completes. `cuda` requires both
+steps to succeed; `cpu` uses the original PointCloud2 subscription and preprocessing.
+The selected backend and initialization fallback reason appear in node diagnostics.
+Backend selection is fixed while active: malformed frames and runtime CUDA errors
+are reported without switching backends. The inference model always requires a GPU.
+
+The driver continues publishing `/lidar_cc/velodyne_points` as standard PointCloud2,
+so other consumers keep their CPU messages. The adapted NITROS subscription uploads
+the point array once; an in-process NITROS GPU producer can supply a shared device
+buffer instead. Field metadata and timestamp matching remain on the CPU.
+
+The CUDA backend supports scalar FLOAT32 x/y/z/intensity fields with arbitrary valid
+offsets, point/row padding, and either byte order. It stably removes points with
+nonfinite features, truncates to `max_points` (also bounded by the vendor's 300000-point
+capacity), and packs FP16 `[x,y,z,intensity,0]` features on the GPU. The fifth feature
+is zero sweep time lag, not ring. `lidar_max_input_points` (default 1000000) bounds
+preallocated filtering workspace; larger raw input clouds are rejected, not silently
+cropped before invalid-point removal. Only the resulting scalar point count is
+returned to the CPU. Device-input inference bypasses host staging and lidar upload.
+
+PR #599's latest-image matching and batched-image fallback are retained. Both camera
+paths use the same selected lidar backend. A lightweight message-filter envelope
+retains the source cloud and timestamp without downloading GPU points. NITROS read
+handles coordinate buffer lifetime with the core's nondefault CUDA stream.
+
+### Building the three repositories together
+
+The perception image must include matching versions of the NITROS point-cloud
+package and the vendor's `lidar-preprocess.hpp` / `forward_device_lidar` interface.
+Rebuild the image after changing its pinned dependency commits; rebuild consumers
+together after changing the point-cloud type's ABI. Dependency commits must be
+available in their origin repositories before a clean Docker clone can fetch them.
+
+For local development before publishing dependency commits, build the checked-out
+NITROS point-cloud package against the perception underlay, source that overlay,
+and build the application with
+`-DCUDA_BEVFUSION_SOURCE_DIR=/path/to/wato-cuda-bevfusion`. The vendor directory must
+be writable for protobuf generation. The package environment hook adds the GXF serialization/compositor runtime paths
+needed by the existing NITROS camera libraries. Legacy point-cloud GXF conversion
+is disabled by default to avoid its bundled-protobuf conflict with BEVFusion.
+
+### Validation and performance comparison
+
+1. Run `test_point_cloud_layout` in the NITROS point-cloud package. It covers metadata,
+   intensity, organized row padding, byte preservation, shared ownership, empty and
+   malformed clouds, and explicit rejection of XYZI by legacy XYZ/XYZRGB-only GXF.
+2. Build the vendor with `-DBUILD_LIDAR_PREPROCESS_TESTS=ON` and run
+   `ctest -R lidar_preprocess --output-on-failure`. This model-independent GPU test
+   compares FP16 bytes against a CPU reference and exercises truncation, invalid
+   values, unaligned offsets, padded rows, both byte orders, and capacity errors.
+3. Run the monorepo's BEVFusion tests. Backend selection tests inject an initialization
+   failure: `auto` selects CPU and records the reason, while `cuda` throws. Additional
+   checks cover CPU subscription cleanup and timestamp matching for both envelopes.
+4. On deployment hardware, replay the same bag with identical models, calibration,
+   camera settings, QoS, and sync tolerance. Compare `cpu` and `cuda`, warming up first
+   and alternating repeated trials. Hold PR #599's camera configuration constant.
+   Compare prepared features and detections for identical sensor timestamp pairs;
+   use the CPU baseline's repeatability to establish detection tolerances.
+5. Record p50/p95/p99 processing and receipt-to-publication latency, CPU utilization,
+   GPU memory, output rate, and unmatched/dropped scans at normal and increased replay
+   rates. Capture a short Nsight Systems CUDA/NVTX trace to inspect copies and kernels;
+   collect final throughput without tracing overhead. There should be one raw-cloud
+   upload from a CPU publisher, scalar count downloads, and no full-cloud download or
+   second upload before inference. The existing callback profiler excludes receipt
+   and sync wait; add receive/publish tracepoints for end-to-end measurements.
+6. Exercise configure/activate/deactivate/cleanup/reactivation with CPU and CUDA lidar,
+   each with NITROS cameras and batched cameras. Check `auto` failure selection before
+   activation using an intentionally oversized workspace on a test deployment.
+
+A lower lidar preparation time is not by itself proof of higher whole-pipeline FPS:
+GPU contention, raw upload size, camera processing, and model inference may dominate.
+
+### Local implementation validation (2026-11-17)
+
+- CUDA 13 / SM 89 vendor library and ROS 2 Jazzy BEVFusion package builds passed.
+- All 58 BEVFusion core/node test cases passed with the package's sourced runtime setup.
+- All six point-cloud regression cases passed, including a real CPU PointCloud2
+  publisher to Managed NITROS subscriber and GPU payload round-trip.
+- The standalone CUDA preprocessing test passed on the available GTX 1080 using
+  CUDA 12.8 / SM 61. Production CUDA 13 does not compile for this older GPU.
+- An actual incompatible CUDA 13 / SM 89 binary verified initialization fallback:
+  `auto` selected CPU and strict `cuda` rejected initialization.
+- The optional legacy point-cloud GXF configuration compiled separately.
+
+Full-model detection equivalence and end-to-end latency/FPS remain unmeasured:
+this checkout has neither BEVFusion model assets nor a representative recorded bag,
+and the available GPU is older than the production architecture. The checks above
+establish transport/preprocessing correctness and build integration, not a measured
+whole-pipeline performance gain.
