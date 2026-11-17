@@ -180,6 +180,66 @@ TEST(TensorRtBackendInitialization, RejectsMissingEngineAndPreservesError)
   EXPECT_EQ(engine->lastError(), initialization_error);
 }
 
+TEST(TensorRtBackendInitialization, MissingEngineAndMissingOnnxNamesBoth)
+{
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.onnx_path = "/path/that/does/not/exist/mtr.onnx";
+  cfg.engine_path = "/path/that/does/not/exist/mtr.plan";
+  cfg.metadata_path = kEightTargetContract;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
+  ASSERT_NE(engine, nullptr);
+  EXPECT_FALSE(engine->ready());
+  EXPECT_NE(engine->lastError().find("is missing and mtr.onnx_path"), std::string::npos) << engine->lastError();
+}
+
+TEST(TensorRtBackendInitialization, ExistingEngineIsLoadedNotRebuilt)
+{
+  const TemporaryMetadataFile plan("not a TensorRT plan");
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.onnx_path = "/path/that/does/not/exist/mtr.onnx";
+  cfg.engine_path = plan.path();
+  cfg.metadata_path = kEightTargetContract;
+
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+
+  ASSERT_NE(engine, nullptr);
+  EXPECT_FALSE(engine->ready());
+  EXPECT_EQ(engine->lastError().find("mtr.onnx_path"), std::string::npos) << "rebuilt an existing plan";
+}
+
+// Builds on the GPU (minutes): run the test binary directly, colcon's timeout is shorter.
+TEST(TensorRtBackendInitialization, BuildsMissingEngineFromOnnxWhenProvided)
+{
+  const char * onnx_path = std::getenv("MTR_ONNX_PATH");
+  const char * metadata_path = std::getenv("MTR_METADATA_PATH");
+  if (onnx_path == nullptr || metadata_path == nullptr) {
+    GTEST_SKIP() << "set MTR_ONNX_PATH and MTR_METADATA_PATH for the engine-build gate";
+  }
+  const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
+  const auto build_dir = std::filesystem::temp_directory_path() / ("prediction_ml_build_" + std::to_string(suffix));
+  const auto plan = build_dir / "mtr.plan";
+
+  prediction_ml::MtrConfig cfg;
+  cfg.mode = prediction_ml::MtrMode::TensorRt;
+  cfg.onnx_path = onnx_path;
+  cfg.engine_path = plan.string();
+  cfg.metadata_path = metadata_path;
+  const auto started = std::chrono::steady_clock::now();
+  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
+  std::cout << "engine build + load: "
+            << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s" << std::endl;
+
+  EXPECT_TRUE(engine->ready()) << engine->lastError();
+  EXPECT_TRUE(std::filesystem::exists(plan));
+  EXPECT_FALSE(std::filesystem::exists(plan.string() + ".partial"));
+  std::error_code error;
+  std::filesystem::remove_all(build_dir, error);
+}
+
 TEST(TensorRtBackendInitialization, LoadsRealEngineAndValidatesBindingsWhenProvided)
 {
   const char * engine_path = std::getenv("MTR_ENGINE_PATH");

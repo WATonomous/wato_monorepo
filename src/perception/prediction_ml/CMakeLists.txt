@@ -22,8 +22,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# AUTO builds the TensorRT backend when TensorRT and the CUDA runtime are found (the world
-# modeling image provides both in the MTR engine venv); ON requires them; OFF never builds it.
+# AUTO builds the TensorRT backend when TensorRT (with its ONNX parser) and the CUDA toolkit are
+# found (the perception image provides both); ON requires them; OFF never builds it.
 set(PREDICTION_ML_ENABLE_TENSORRT "AUTO" CACHE STRING "Build the TensorRT MTR backend (AUTO, ON, OFF)")
 set_property(CACHE PREDICTION_ML_ENABLE_TENSORRT PROPERTY STRINGS AUTO ON OFF)
 
@@ -51,68 +51,18 @@ add_library(prediction_ml_lib
 
 set(PREDICTION_ML_BUILD_TENSORRT OFF)
 if(PREDICTION_ML_ENABLE_TENSORRT STREQUAL "AUTO" OR PREDICTION_ML_ENABLE_TENSORRT)
-  # Besides system installs, search the MTR engine venv: its pip wheels ship libnvinfer.so.10 and
-  # libcudart.so.12 (versioned names only), and the image adds matching headers under tensorrt/.
-  set(_mtr_venv "$ENV{MTR_ENGINE_VENV}")
-  if(NOT _mtr_venv)
-    set(_mtr_venv /opt/watonomous/mtr-engine-venv)
-  endif()
-  file(GLOB _mtr_site_packages LIST_DIRECTORIES true "${_mtr_venv}/lib/python3*/site-packages")
-
   find_path(
     TENSORRT_INCLUDE_DIR
     NAMES NvInfer.h
-    HINTS
-      $ENV{TENSORRT_ROOT}
-      ${_mtr_venv}/tensorrt
-      /usr
-      /usr/local/TensorRT
-    PATH_SUFFIXES
-      include
-      include/x86_64-linux-gnu
-      include/aarch64-linux-gnu
+    HINTS $ENV{TENSORRT_ROOT} /usr /usr/local/TensorRT
+    PATH_SUFFIXES include include/x86_64-linux-gnu include/aarch64-linux-gnu
   )
-
   set(_tensorrt_lib_hints $ENV{TENSORRT_ROOT} /usr /usr/local/TensorRT)
-  set(_cudart_include_hints)
-  set(_cudart_lib_hints)
-  foreach(_site IN LISTS _mtr_site_packages)
-    list(APPEND _tensorrt_lib_hints ${_site}/tensorrt_libs)
-    list(APPEND _cudart_include_hints ${_site}/nvidia/cuda_runtime/include ${_site}/nvidia/cuda_nvcc/include)
-    list(APPEND _cudart_lib_hints ${_site}/nvidia/cuda_runtime/lib)
-  endforeach()
-
+  set(_tensorrt_lib_suffixes lib lib64 lib/x86_64-linux-gnu lib/aarch64-linux-gnu)
+  find_library(TENSORRT_NVINFER_LIBRARY NAMES nvinfer HINTS ${_tensorrt_lib_hints} PATH_SUFFIXES ${_tensorrt_lib_suffixes})
   find_library(
-    TENSORRT_NVINFER_LIBRARY
-    NAMES nvinfer libnvinfer.so.10
-    HINTS ${_tensorrt_lib_hints}
-    PATH_SUFFIXES
-      lib
-      lib64
-      lib/x86_64-linux-gnu
-      lib/aarch64-linux-gnu
-  )
-
-  # A full CUDA toolkit (with nvcc) is preferred; otherwise link the CUDA runtime directly, which
-  # is all the backend needs and is what the engine venv provides.
+    TENSORRT_NVONNXPARSER_LIBRARY NAMES nvonnxparser HINTS ${_tensorrt_lib_hints} PATH_SUFFIXES ${_tensorrt_lib_suffixes})
   find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    set(_cudart_target CUDA::cudart)
-  else()
-    # cuda_runtime_api.h includes crt/host_defines.h, which the CUDA wheels ship in cuda_nvcc.
-    find_path(PREDICTION_ML_CUDART_INCLUDE_DIR NAMES cuda_runtime_api.h HINTS ${_cudart_include_hints})
-    find_path(PREDICTION_ML_CUDA_CRT_INCLUDE_DIR NAMES crt/host_defines.h HINTS ${_cudart_include_hints})
-    find_library(PREDICTION_ML_CUDART_LIBRARY NAMES cudart libcudart.so.12 HINTS ${_cudart_lib_hints})
-    if(PREDICTION_ML_CUDART_INCLUDE_DIR AND PREDICTION_ML_CUDA_CRT_INCLUDE_DIR AND PREDICTION_ML_CUDART_LIBRARY)
-      add_library(prediction_ml_cudart UNKNOWN IMPORTED)
-      set(_cudart_include_dirs ${PREDICTION_ML_CUDART_INCLUDE_DIR} ${PREDICTION_ML_CUDA_CRT_INCLUDE_DIR})
-      list(REMOVE_DUPLICATES _cudart_include_dirs)
-      set_target_properties(prediction_ml_cudart PROPERTIES
-        IMPORTED_LOCATION "${PREDICTION_ML_CUDART_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${_cudart_include_dirs}")
-      set(_cudart_target prediction_ml_cudart)
-    endif()
-  endif()
 
   set(_tensorrt_missing)
   if(NOT TENSORRT_INCLUDE_DIR)
@@ -121,8 +71,11 @@ if(PREDICTION_ML_ENABLE_TENSORRT STREQUAL "AUTO" OR PREDICTION_ML_ENABLE_TENSORR
   if(NOT TENSORRT_NVINFER_LIBRARY)
     list(APPEND _tensorrt_missing "libnvinfer")
   endif()
-  if(NOT _cudart_target)
-    list(APPEND _tensorrt_missing "CUDA runtime (cuda_runtime_api.h, crt/host_defines.h, libcudart)")
+  if(NOT TENSORRT_NVONNXPARSER_LIBRARY)
+    list(APPEND _tensorrt_missing "libnvonnxparser")
+  endif()
+  if(NOT CUDAToolkit_FOUND)
+    list(APPEND _tensorrt_missing "CUDA toolkit")
   endif()
 
   if(NOT _tensorrt_missing)
@@ -133,7 +86,7 @@ if(PREDICTION_ML_ENABLE_TENSORRT STREQUAL "AUTO" OR PREDICTION_ML_ENABLE_TENSORR
     message(
       FATAL_ERROR
       "PREDICTION_ML_ENABLE_TENSORRT=ON but not found: ${_tensorrt_missing}. "
-      "Install TensorRT and the CUDA runtime, or set TENSORRT_ROOT / MTR_ENGINE_VENV."
+      "Install TensorRT and the CUDA toolkit, or set TENSORRT_ROOT."
     )
   endif()
 endif()
@@ -141,7 +94,6 @@ endif()
 if(PREDICTION_ML_BUILD_TENSORRT)
   message(STATUS "TensorRT include: ${TENSORRT_INCLUDE_DIR}")
   message(STATUS "TensorRT library: ${TENSORRT_NVINFER_LIBRARY}")
-  message(STATUS "CUDA runtime: ${_cudart_target}")
 
   target_sources(
     prediction_ml_lib
@@ -164,15 +116,16 @@ if(PREDICTION_ML_BUILD_TENSORRT)
 
   target_link_libraries(
     prediction_ml_lib
-    ${_cudart_target}
+    CUDA::cudart
     ${TENSORRT_NVINFER_LIBRARY}
+    ${TENSORRT_NVONNXPARSER_LIBRARY}
   )
 endif()
 
 set_target_properties(prediction_ml_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(PREDICTION_ML_BUILD_TENSORRT)
-  # The venv's TensorRT and CUDA libraries are not on the loader path; keep their directories in
-  # the installed RPATH so the node starts without LD_LIBRARY_PATH.
+  # A TENSORRT_ROOT install is not on the loader path; keep its directory in the installed RPATH so
+  # the node starts without LD_LIBRARY_PATH.
   set_target_properties(prediction_ml_lib PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 target_include_directories(prediction_ml_lib PUBLIC include)

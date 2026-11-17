@@ -14,12 +14,14 @@
 
 #include <cuda_runtime_api.h>
 #include <NvInfer.h>
+#include <NvOnnxParser.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -336,6 +338,9 @@ private:
       }
 
       expected_contract_ = loadMtrModelContract(config_.metadata_path);
+      if (!config_.onnx_path.empty() && !std::filesystem::exists(config_.engine_path) && !buildEngine()) {
+        return;
+      }
       if (!loadSerializedEngine()) {
         return;
       }
@@ -370,6 +375,69 @@ private:
     } catch (const std::exception & exception) {
       setError(std::string("failed to initialize TensorRT backend: ") + exception.what());
     }
+  }
+
+  // Builds engine_path from onnx_path with the config/engine_build.yaml settings (the offline
+  // eval/build_engine.py uses the same file): FP32 with TF32 off, 4096 MB workspace, optimization
+  // level 3, edge-mask and JIT convolution tactics. Written atomically, so a crash never leaves a
+  // partial plan behind for the next start to load.
+  bool buildEngine()
+  {
+    if (!std::filesystem::exists(config_.onnx_path)) {
+      setError(
+        "TensorRT engine " + config_.engine_path + " is missing and mtr.onnx_path " + config_.onnx_path +
+        " does not exist");
+      return false;
+    }
+    std::unique_ptr<nvinfer1::IBuilder> builder(nvinfer1::createInferBuilder(logger_));
+    std::unique_ptr<nvinfer1::INetworkDefinition> network(builder ? builder->createNetworkV2(0U) : nullptr);
+    if (network == nullptr) {
+      setError("failed to create TensorRT builder: " + logger_.lastMessage());
+      return false;
+    }
+    std::unique_ptr<nvonnxparser::IParser> parser(nvonnxparser::createParser(*network, logger_));
+    if (
+      parser == nullptr ||
+      !parser->parseFromFile(config_.onnx_path.c_str(), static_cast<int>(nvinfer1::ILogger::Severity::kWARNING)))
+    {
+      setError("failed to parse ONNX " + config_.onnx_path + ": " + logger_.lastMessage());
+      return false;
+    }
+
+    std::unique_ptr<nvinfer1::IBuilderConfig> build_config(builder->createBuilderConfig());
+    build_config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 4096ULL * 1024 * 1024);
+    build_config->clearFlag(nvinfer1::BuilderFlag::kTF32);
+    build_config->setBuilderOptimizationLevel(3);
+    build_config->setTacticSources(
+      (1U << static_cast<uint32_t>(nvinfer1::TacticSource::kEDGE_MASK_CONVOLUTIONS)) |
+      (1U << static_cast<uint32_t>(nvinfer1::TacticSource::kJIT_CONVOLUTIONS)));
+    std::unique_ptr<nvinfer1::IHostMemory> plan(builder->buildSerializedNetwork(*network, *build_config));
+    if (plan == nullptr || plan->size() == 0) {
+      setError("failed to build TensorRT engine from " + config_.onnx_path + ": " + logger_.lastMessage());
+      return false;
+    }
+
+    const std::filesystem::path engine_path(config_.engine_path);
+    const std::filesystem::path temp_path = engine_path.string() + ".partial";
+    std::error_code error;
+    if (engine_path.has_parent_path()) {
+      std::filesystem::create_directories(engine_path.parent_path(), error);
+    }
+    bool written = false;
+    {
+      std::ofstream out(temp_path, std::ios::binary | std::ios::trunc);
+      out.write(static_cast<const char *>(plan->data()), static_cast<std::streamsize>(plan->size()));
+      written = static_cast<bool>(out.flush());
+    }
+    if (written) {
+      std::filesystem::rename(temp_path, engine_path, error);
+    }
+    if (!written || error) {
+      std::filesystem::remove(temp_path, error);
+      setError("failed to write TensorRT engine " + config_.engine_path);
+      return false;
+    }
+    return true;
   }
 
   bool loadSerializedEngine()
