@@ -17,18 +17,15 @@ predictions.
 | Topic | Type | Description |
 |-------|------|-------------|
 | `tracks_3d` | `vision_msgs/Detection3DArray` | Tracked agents from perception |
-| `ego_pose` | `geometry_msgs/PoseStamped` | Ego pose in `map_frame`; MTR runs only after one arrives (fallback until then) |
-| `ego_odometry` | `nav_msgs/Odometry` | Optional ego body-frame twist used by the MTR path |
-| `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Optional reachable lanelets used by the MTR path |
+| `odometry_topic` param | `nav_msgs/Odometry` | Ego pose (in `map_frame`) and body-frame twist; MTR runs only with a sample near the track stamp (fallback until then) |
+| `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Optional reachable lanelets for a map-capable model (not wired on the car) |
 
-Default remaps in `launch/prediction_ml.launch.yaml`:
+`perception_bringup` launches the node under `/perception` with these remaps (as does
+`launch/prediction_ml.launch.yaml`):
 
 | Node topic | Remapped to |
 |------------|-------------|
 | `tracks_3d` | `/perception/detections_3D_tracked` |
-| `ego_pose` | `/world_modeling/slam/pose` (eidos) |
-| `ego_odometry` | `/world_modeling/transform/odometry` |
-| `lanelet_ahead` | `lanelet/lanelet_ahead` |
 | `world_object_seeds` | `/world_modeling/world_object_seeds` |
 | `mtr_predictions` | `/world_modeling/mtr_predictions` |
 
@@ -47,40 +44,39 @@ MTR is disabled or not ready, each detection receives one straight-line predicti
 accepted pinned-target inference batch exactly once, including the synthetic `__ego__` target.
 Only `detection.id` and the prediction/header fields are populated; consumers must not treat this
 diagnostic stream as production world-model input. Production `world_object_seeds` behavior is
-unchanged. In this evaluation mode, pose, odometry, lanelet, and tracks are joined by exact source
-stamp before MTR tensor construction so replay results do not depend on cross-topic callback order.
+unchanged. In this evaluation mode, odometry (ego pose and twist), lanelet, and tracks are joined by
+exact source stamp before MTR tensor construction so replay results do not depend on cross-topic
+callback order.
 
 ## Launch
 
+On the car it runs in the perception module (`./watod -m perception up`), managed by
+`perception_lifecycle_manager` after tracking. All its parameters are in the
+`/**/prediction_ml_node` block of `perception_bringup/config/perception_bringup.yaml`; set
+`mtr.mode: "tensorrt"` there to run MTR. Standalone:
+
 ```bash
 ros2 launch prediction_ml prediction_ml.launch.yaml
-
-# Supply model assets when using a build that includes a working TensorRT backend.
-ros2 launch prediction_ml prediction_ml.launch.yaml \
-  mtr_mode:=tensorrt \
-  engine_path:=/path/to/mtr.engine \
-  metadata_path:=/path/to/mtr_metadata.yaml
-```
-
-The node is a lifecycle node. Configure and activate it after launch:
-
-```bash
-ros2 lifecycle set /world_modeling/prediction_ml_node configure
-ros2 lifecycle set /world_modeling/prediction_ml_node activate
+ros2 lifecycle set /perception/prediction_ml_node configure
+ros2 lifecycle set /perception/prediction_ml_node activate
 ```
 
 ## Configuration
 
-Parameters in `config/params.yaml`:
+Parameters in `config/params.yaml` (the perception bringup block mirrors them):
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `map_frame` | `"odom"` | Frame of the ego pose and MTR inputs; tracks in another frame are moved here, seeds go back to the tracks' frame |
+| `odometry_topic` | `"/interfacing/can_state_estimator/odom"` | Ego `nav_msgs/Odometry` (`/novatel/oem7/odom` is the alternative) |
+| `odometry_max_gap_s` | `0.2` | Tracks further than this from every odometry sample get fallback only |
 | `prediction_horizon` | `3.0` | Prediction window in seconds |
 | `prediction_time_step` | `0.2` | Waypoint spacing in seconds |
 | `mtr.mode` | `"disabled"` | `disabled`, `null`, or `tensorrt`; anything else logs an ERROR and runs fallback-only |
-| `mtr.engine_path` | `""` | TensorRT engine path |
-| `mtr.metadata_path` | `""` | MTR model metadata path |
-| `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds; an ego pose further than this from the tracks skips MTR for that frame |
+| `mtr.onnx_path` | `.../prediction/mtr_av2_nomap_r2.onnx` | Built into `mtr.engine_path` at configure when that is missing (tensorrt only) |
+| `mtr.engine_path` | `.../prediction/build/mtr_av2_nomap_r2.plan` | TensorRT engine path; reused when it exists |
+| `mtr.metadata_path` | `contract_8_target_av2.yaml` | MTR model metadata path |
+| `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds |
 | `mtr.selected_target_agent_limit` | `8` | Maximum target agents per MTR batch |
 | `mtr.target_forward_half_angle_deg` | `90.0` | Ego-heading half-angle used to prioritize forward targets |
 | `mtr.pinned_target_ids` | `[]` | Evaluation only: pin MTR targets to these detection IDs in order, bypassing the selection heuristic |
@@ -88,10 +84,11 @@ Parameters in `config/params.yaml`:
 | `mtr.ego_length` | `4.0936` | Ego vehicle length in metres |
 | `mtr.ego_width` | `1.3579` | Ego vehicle width in metres |
 | `mtr.ego_height` | `1.4090` | Ego vehicle height in metres |
-| `mtr.ego_velocity_child_frame` | `"base_footprint"` | Required odometry child frame for body-frame twist |
+| `mtr.ego_velocity_child_frame` | `"base_footprint"` | Required odometry child frame (body-frame twist, static TF to the tracks frame) |
 | `mtr.history_steps` | `11` | History steps fed to the scene builder |
 | `mtr.history_rate_hz` | `10.0` | Expected history sample rate |
 | `mtr.velocity_from_history` | `true` | MTR inputs use velocity measured from each track's positions instead of the tracker's `linear_velocity` |
+| `mtr.planar_inputs` | `true` | Zero heights and box sizes before inference (the Argoverse 2 model) |
 
 ## CV Fallback Behavior
 
@@ -99,7 +96,7 @@ When `mtr.mode` is `disabled`, or the MTR path is not ready, the node publishes 
 constant-velocity straight-line trajectory per detection, using the velocity measured from that
 track's own positions over the history window. Speeds under 1 m/s (box jitter), tracks with less
 than 0.3 s of history, and non-agents that never enter the history (barriers, cones) get a
-zero-length path. Only tracks that cannot be moved into `map_frame` (no TF) use the tracker's
+zero-length path. Only tracks that cannot be moved into `map_frame` (no odometry or mount TF) use the tracker's
 `linear_velocity` (m/s) instead, or a zero-length path when it is missing.
 
 ## Runtime Selection
@@ -112,11 +109,17 @@ and replace only the matching fallback trajectory while their source frame is no
 `mtr.cache_ttl_s`. Invalid tensors, backend errors, malformed outputs, and stale results leave the
 synchronous fallback unchanged.
 
-The ego odometry callback accepts only finite twist whose `child_frame_id` matches
-`mtr.ego_velocity_child_frame`. Eidos publishes `/world_modeling/transform/odometry` with
-body-frame twist and defaults that child frame to `base_footprint`. The scene builder rotates the
-linear velocity into map coordinates once; until valid odometry arrives, it falls back to pose
-finite differences.
+## Map-free frames
+
+No prebuilt map, SLAM or dynamic TF is needed. The node keeps about 1 s of odometry and takes the
+ego pose and twist at each track stamp from it (interpolated between samples, or the nearest sample
+within `odometry_max_gap_s`). Tracks in another frame (tracking publishes `lidar_cc`) are moved into
+`map_frame` by composing that pose with the static TF from the odometry `child_frame_id` to the
+tracks frame. The odometry callback accepts only finite odometry whose `frame_id` is `map_frame`
+and whose `child_frame_id` is `mtr.ego_velocity_child_frame`; anything else empties the buffer, so
+the tracks get the fallback only. Seeds, MTR or fallback, are published back in the tracks' own
+frame: world_model resolves seeds by header frame through TF, and `map_frame` may not be in the TF
+tree (`can_state_estimator` publishes `odom` -> `base_footprint` as a topic only).
 
 Build, architecture, backend status, model validation, testing, and contribution details are in
 [DEVELOPING.md](DEVELOPING.md).

@@ -14,10 +14,14 @@
 
 #include "prediction_ml/prediction_ml_node.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <deque>
+#include <filesystem>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -30,6 +34,18 @@
 
 namespace prediction_ml
 {
+
+namespace
+{
+
+constexpr double kOdometryBufferS = 1.0;  // odometry kept for track stamps that lag behind it
+
+double stampSeconds(const builtin_interfaces::msg::Time & stamp)
+{
+  return static_cast<double>(stamp.sec) + static_cast<double>(stamp.nanosec) * 1.0e-9;
+}
+
+}  // namespace
 
 vision_msgs::msg::Detection3DArray transformTracks(
   const vision_msgs::msg::Detection3DArray & tracks, const geometry_msgs::msg::TransformStamped & transform)
@@ -63,11 +79,84 @@ vision_msgs::msg::Detection3DArray transformTracks(
   return out;
 }
 
-bool egoPoseIsFresh(const geometry_msgs::msg::PoseStamped & pose, const double tracks_time_s, const double max_age_s)
+world_model_msgs::msg::WorldObjectArray transformSeeds(
+  const world_model_msgs::msg::WorldObjectArray & seeds, const geometry_msgs::msg::TransformStamped & transform)
 {
-  const double pose_time_s =
-    static_cast<double>(pose.header.stamp.sec) + static_cast<double>(pose.header.stamp.nanosec) * 1.0e-9;
-  return std::abs(tracks_time_s - pose_time_s) <= max_age_s;
+  vision_msgs::msg::Detection3DArray detections;
+  detections.header = seeds.header;
+  for (const auto & object : seeds.objects) {
+    detections.detections.push_back(object.detection);
+  }
+  detections = transformTracks(detections, transform);
+
+  world_model_msgs::msg::WorldObjectArray out = seeds;
+  const std::string & frame = transform.header.frame_id;
+  out.header.frame_id = frame;
+  for (std::size_t i = 0; i < out.objects.size(); ++i) {
+    auto & object = out.objects[i];
+    object.header.frame_id = frame;
+    object.detection = detections.detections[i];
+    for (auto & prediction : object.predictions) {
+      prediction.header.frame_id = frame;
+      for (auto & pose : prediction.poses) {
+        pose.header.frame_id = frame;  // future stamps stay
+        const auto source = pose.pose;
+        tf2::doTransform(source, pose.pose, transform);
+      }
+    }
+  }
+  return out;
+}
+
+std::optional<nav_msgs::msg::Odometry> odometryAt(
+  const std::deque<nav_msgs::msg::Odometry::SharedPtr> & buffer, const double stamp_s, const double max_gap_s)
+{
+  const auto after = std::lower_bound(
+    buffer.begin(), buffer.end(), stamp_s, [](const nav_msgs::msg::Odometry::SharedPtr & sample, const double t) {
+      return stampSeconds(sample->header.stamp) < t;
+    });
+  if (after == buffer.begin() || after == buffer.end()) {
+    // Before the first or after the last sample: the nearest one, if close enough.
+    if (buffer.empty()) {
+      return std::nullopt;
+    }
+    const auto & nearest = after == buffer.begin() ? *buffer.front() : *buffer.back();
+    if (std::abs(stampSeconds(nearest.header.stamp) - stamp_s) > max_gap_s) {
+      return std::nullopt;
+    }
+    return nearest;
+  }
+
+  const auto & a = **std::prev(after);
+  const auto & b = **after;
+  const double ta = stampSeconds(a.header.stamp);
+  const double tb = stampSeconds(b.header.stamp);
+  if (std::min(stamp_s - ta, tb - stamp_s) > max_gap_s) {
+    return std::nullopt;
+  }
+  const double r = (stamp_s - ta) / (tb - ta);  // tb > ta: lower_bound put stamp_s in (ta, tb]
+  const auto lerp = [r](const double x, const double y) { return x + (y - x) * r; };
+
+  nav_msgs::msg::Odometry out = b;
+  out.header.stamp = rclcpp::Time(static_cast<int64_t>(std::llround(stamp_s * 1.0e9)));
+  auto & position = out.pose.pose.position;
+  position.x = lerp(a.pose.pose.position.x, b.pose.pose.position.x);
+  position.y = lerp(a.pose.pose.position.y, b.pose.pose.position.y);
+  position.z = lerp(a.pose.pose.position.z, b.pose.pose.position.z);
+  tf2::Quaternion qa;
+  tf2::Quaternion qb;
+  tf2::fromMsg(a.pose.pose.orientation, qa);
+  tf2::fromMsg(b.pose.pose.orientation, qb);
+  out.pose.pose.orientation = tf2::toMsg(tf2::slerp(qa, qb, r));
+  auto & linear = out.twist.twist.linear;
+  linear.x = lerp(a.twist.twist.linear.x, b.twist.twist.linear.x);
+  linear.y = lerp(a.twist.twist.linear.y, b.twist.twist.linear.y);
+  linear.z = lerp(a.twist.twist.linear.z, b.twist.twist.linear.z);
+  auto & angular = out.twist.twist.angular;
+  angular.x = lerp(a.twist.twist.angular.x, b.twist.twist.angular.x);
+  angular.y = lerp(a.twist.twist.angular.y, b.twist.twist.angular.y);
+  angular.z = lerp(a.twist.twist.angular.z, b.twist.twist.angular.z);
+  return out;
 }
 
 std::optional<ExactStampJoiner::Stamp> ExactStampJoiner::stampKey(
@@ -84,11 +173,6 @@ std::optional<ExactStampInputs> ExactStampJoiner::addTracks(vision_msgs::msg::De
   return insertAndTake(tracks_, std::move(message));
 }
 
-std::optional<ExactStampInputs> ExactStampJoiner::addPose(geometry_msgs::msg::PoseStamped::SharedPtr message)
-{
-  return insertAndTake(poses_, std::move(message));
-}
-
 std::optional<ExactStampInputs> ExactStampJoiner::addOdometry(nav_msgs::msg::Odometry::SharedPtr message)
 {
   return insertAndTake(odometry_, std::move(message));
@@ -102,16 +186,14 @@ std::optional<ExactStampInputs> ExactStampJoiner::addLanelet(lanelet_msgs::msg::
 std::optional<ExactStampInputs> ExactStampJoiner::take(const Stamp stamp)
 {
   const auto tracks = tracks_.find(stamp);
-  const auto pose = poses_.find(stamp);
   const auto odometry = odometry_.find(stamp);
   const auto lanelet = lanelets_.find(stamp);
-  if (tracks == tracks_.end() || pose == poses_.end() || odometry == odometry_.end() || lanelet == lanelets_.end()) {
+  if (tracks == tracks_.end() || odometry == odometry_.end() || lanelet == lanelets_.end()) {
     return std::nullopt;
   }
 
-  ExactStampInputs inputs{tracks->second, pose->second, odometry->second, lanelet->second};
+  ExactStampInputs inputs{tracks->second, odometry->second, lanelet->second};
   tracks_.erase(tracks);
-  poses_.erase(pose);
   odometry_.erase(odometry);
   lanelets_.erase(lanelet);
   rememberProcessed(stamp);
@@ -131,7 +213,6 @@ void ExactStampJoiner::rememberProcessed(const Stamp stamp)
 void ExactStampJoiner::clear()
 {
   tracks_.clear();
-  poses_.clear();
   odometry_.clear();
   lanelets_.clear();
   processed_order_.clear();
@@ -142,9 +223,12 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("prediction_ml_node", options)
 {
   this->declare_parameter("map_frame", "map");
+  this->declare_parameter("odometry_topic", "/interfacing/can_state_estimator/odom");
+  this->declare_parameter("odometry_max_gap_s", 0.2);
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
   this->declare_parameter("mtr.mode", "disabled");
+  this->declare_parameter("mtr.onnx_path", "");
   this->declare_parameter("mtr.engine_path", "");
   this->declare_parameter("mtr.metadata_path", "");
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
@@ -174,6 +258,7 @@ MtrConfig PredictionMlNode::loadMtrConfig()
     RCLCPP_ERROR(this->get_logger(), "%s; publishing fallback only", error.what());
     cfg.mode = MtrMode::Disabled;
   }
+  cfg.onnx_path = this->get_parameter("mtr.onnx_path").as_string();
   cfg.engine_path = this->get_parameter("mtr.engine_path").as_string();
   cfg.metadata_path = this->get_parameter("mtr.metadata_path").as_string();
   cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
@@ -195,6 +280,8 @@ MtrConfig PredictionMlNode::loadMtrConfig()
 PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lifecycle::State &)
 {
   map_frame_ = this->get_parameter("map_frame").as_string();
+  odometry_topic_ = this->get_parameter("odometry_topic").as_string();
+  odometry_max_gap_s_ = this->get_parameter("odometry_max_gap_s").as_double();
   prediction_horizon_ = this->get_parameter("prediction_horizon").as_double();
   prediction_time_step_ = this->get_parameter("prediction_time_step").as_double();
   ego_velocity_child_frame_ = this->get_parameter("mtr.ego_velocity_child_frame").as_string();
@@ -212,15 +299,23 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
                             std::isfinite(cfg.ego_width) && cfg.ego_width > 0.0 && std::isfinite(cfg.ego_height) &&
                             cfg.ego_height > 0.0 && !ego_velocity_child_frame_.empty() && !map_frame_.empty() &&
                             cfg.history_steps > 0 && std::isfinite(cfg.history_rate_hz) && cfg.history_rate_hz > 0.0;
-  if (!valid_config) {
+  const bool valid_odometry =
+    !odometry_topic_.empty() && std::isfinite(odometry_max_gap_s_) && odometry_max_gap_s_ >= 0.0;
+  if (!valid_config || !valid_odometry) {
     RCLCPP_ERROR(this->get_logger(), "Invalid prediction_ml timing, fallback, or MTR parameters");
     return CallbackReturn::FAILURE;
   }
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-  mtr_cache_ttl_s_ = cfg.cache_ttl_s;
   scene_builder_ = std::make_unique<SceneBuilder>(cfg);
+  if (cfg.mode == MtrMode::TensorRt && !cfg.onnx_path.empty() && !std::filesystem::exists(cfg.engine_path)) {
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Building TensorRT engine %s from %s (takes minutes; reused after)",
+      cfg.engine_path.c_str(),
+      cfg.onnx_path.c_str());
+  }
   runtime_ = std::make_unique<MtrRuntime>(cfg);
   mtr_diagnostics_enabled_ = !cfg.pinned_target_ids.empty();
 
@@ -240,10 +335,8 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_activate(const rclcpp_life
 {
   tracked_objects_sub_ = this->create_subscription<vision_msgs::msg::Detection3DArray>(
     "tracks_3d", 10, std::bind(&PredictionMlNode::trackedObjectsCallback, this, std::placeholders::_1));
-  ego_pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "ego_pose", 10, std::bind(&PredictionMlNode::egoPoseCallback, this, std::placeholders::_1));
   ego_odometry_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-    "ego_odometry", 10, std::bind(&PredictionMlNode::egoOdometryCallback, this, std::placeholders::_1));
+    odometry_topic_, 50, std::bind(&PredictionMlNode::egoOdometryCallback, this, std::placeholders::_1));
   lanelet_ahead_sub_ = this->create_subscription<lanelet_msgs::msg::LaneletAhead>(
     "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
   world_objects_pub_->on_activate();
@@ -259,11 +352,9 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_activate(const rclcpp_life
 PredictionMlNode::CallbackReturn PredictionMlNode::on_deactivate(const rclcpp_lifecycle::State &)
 {
   tracked_objects_sub_.reset();
-  ego_pose_sub_.reset();
   ego_odometry_sub_.reset();
   lanelet_ahead_sub_.reset();
-  ego_pose_.reset();
-  ego_odometry_.reset();
+  odometry_buffer_.clear();
   lanelet_ahead_.reset();
   exact_stamp_joiner_.clear();
   diagnostic_timer_.reset();
@@ -275,7 +366,6 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_deactivate(const rclcpp_li
 PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifecycle::State &)
 {
   tracked_objects_sub_.reset();
-  ego_pose_sub_.reset();
   ego_odometry_sub_.reset();
   lanelet_ahead_sub_.reset();
   diagnostic_timer_.reset();
@@ -285,8 +375,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
   scene_builder_.reset();
   exact_stamp_joiner_.clear();
   mtr_diagnostics_enabled_ = false;
-  ego_pose_.reset();
-  ego_odometry_.reset();
+  odometry_buffer_.clear();
   lanelet_ahead_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
@@ -296,7 +385,6 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
 PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_lifecycle::State &)
 {
   tracked_objects_sub_.reset();
-  ego_pose_sub_.reset();
   ego_odometry_sub_.reset();
   lanelet_ahead_sub_.reset();
   diagnostic_timer_.reset();
@@ -312,49 +400,49 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_life
   scene_builder_.reset();
   exact_stamp_joiner_.clear();
   mtr_diagnostics_enabled_ = false;
-  ego_pose_.reset();
-  ego_odometry_.reset();
+  odometry_buffer_.clear();
   lanelet_ahead_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
   return CallbackReturn::SUCCESS;
 }
 
-void PredictionMlNode::egoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-{
-  if (mtr_diagnostics_enabled_) {
-    if (auto inputs = exact_stamp_joiner_.addPose(msg)) {
-      submitSynchronizedMtr(std::move(*inputs));
-    }
-    return;
-  }
-  ego_pose_ = msg;
-}
-
 void PredictionMlNode::egoOdometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-  const auto & velocity = msg->twist.twist.linear;
+  const auto finite = [](const auto & v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); };
+  const auto & orientation = msg->pose.pose.orientation;
   if (
-    msg->child_frame_id != ego_velocity_child_frame_ || !std::isfinite(velocity.x) || !std::isfinite(velocity.y) ||
-    !std::isfinite(velocity.z))
+    msg->header.frame_id != map_frame_ || msg->child_frame_id != ego_velocity_child_frame_ ||
+    !finite(msg->pose.pose.position) || !finite(orientation) || !std::isfinite(orientation.w) ||
+    !finite(msg->twist.twist.linear) || !finite(msg->twist.twist.angular) || msg->header.stamp.sec < 0)
   {
-    ego_odometry_.reset();
+    odometry_buffer_.clear();
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
-      "Ignoring ego odometry: expected finite twist in child_frame_id '%s', got '%s'",
+      "Ignoring ego odometry: expected a finite '%s' -> '%s' pose and twist, got '%s' -> '%s'",
+      map_frame_.c_str(),
       ego_velocity_child_frame_.c_str(),
+      msg->header.frame_id.c_str(),
       msg->child_frame_id.c_str());
     return;
+  }
+  // A stamp going backwards (bag loop, clock reset) starts a new buffer.
+  if (
+    !odometry_buffer_.empty() && stampSeconds(msg->header.stamp) < stampSeconds(odometry_buffer_.back()->header.stamp))
+  {
+    odometry_buffer_.clear();
+  }
+  odometry_buffer_.push_back(msg);
+  while (stampSeconds(msg->header.stamp) - stampSeconds(odometry_buffer_.front()->header.stamp) > kOdometryBufferS) {
+    odometry_buffer_.pop_front();
   }
   if (mtr_diagnostics_enabled_) {
     if (auto inputs = exact_stamp_joiner_.addOdometry(msg)) {
       submitSynchronizedMtr(std::move(*inputs));
     }
-    return;
   }
-  ego_odometry_ = msg;
 }
 
 void PredictionMlNode::laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg)
@@ -380,13 +468,14 @@ void PredictionMlNode::publishMtrDiagnostics()
 
 void PredictionMlNode::submitSynchronizedMtr(ExactStampInputs inputs)
 {
-  if (!inputs.tracks || !inputs.pose || !inputs.odometry || !inputs.lanelet) {
+  if (!inputs.tracks || !inputs.odometry || !inputs.lanelet) {
     return;
   }
 
   MtrFrameContext frame;
   frame.detections = *inputs.tracks;
-  frame.ego_pose = *inputs.pose;
+  frame.ego_pose.header = inputs.odometry->header;
+  frame.ego_pose.pose = inputs.odometry->pose.pose;
   frame.ego_velocity = inputs.odometry->twist.twist;
   frame.lanelet_ahead = *inputs.lanelet;
   frame.timestamp = rclcpp::Time(inputs.tracks->header.stamp).seconds();
@@ -446,24 +535,32 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
   return objects;
 }
 
-vision_msgs::msg::Detection3DArray::SharedPtr PredictionMlNode::tracksInMapFrame(
-  const vision_msgs::msg::Detection3DArray & tracks)
+std::optional<geometry_msgs::msg::TransformStamped> PredictionMlNode::mapFromTracks(
+  const vision_msgs::msg::Detection3DArray & tracks, const nav_msgs::msg::Odometry & ego)
 {
   try {
-    // Transform at the track stamp (an unstamped message gets the latest one).
-    const auto transform = tf_buffer_->lookupTransform(
-      map_frame_, tracks.header.frame_id, rclcpp::Time(tracks.header.stamp), rclcpp::Duration::from_seconds(0.05));
-    return std::make_shared<vision_msgs::msg::Detection3DArray>(transformTracks(tracks, transform));
+    // The sensor mount is static, so the latest transform is the one; no dynamic TF is needed.
+    const auto mount = tf_buffer_->lookupTransform(ego.child_frame_id, tracks.header.frame_id, tf2::TimePointZero);
+    tf2::Transform map_from_ego;
+    tf2::fromMsg(ego.pose.pose, map_from_ego);
+    tf2::Transform ego_from_tracks;
+    tf2::fromMsg(mount.transform, ego_from_tracks);
+    geometry_msgs::msg::TransformStamped transform;
+    transform.header.frame_id = map_frame_;
+    transform.header.stamp = tracks.header.stamp;
+    transform.child_frame_id = tracks.header.frame_id;
+    transform.transform = tf2::toMsg(map_from_ego * ego_from_tracks);
+    return transform;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
-      "No %s <- %s transform, publishing fallback only: %s",
-      map_frame_.c_str(),
+      "No static %s <- %s transform, publishing fallback only: %s",
+      ego.child_frame_id.c_str(),
       tracks.header.frame_id.c_str(),
       ex.what());
-    return nullptr;
+    return std::nullopt;
   }
 }
 
@@ -486,14 +583,27 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   // whether or not use_sim_time is set.
   const double track_now_s = source_time.seconds();
 
-  // Ego pose, the lanelet map and MTR outputs are all in map_frame_; tracking may publish in a
-  // sensor frame (main's perception_bringup uses lidar_cc).
+  // Ego pose and velocity at the track stamp, from odometry in map_frame_.
+  const auto ego = odometryAt(odometry_buffer_, track_now_s, odometry_max_gap_s_);
+  if (!ego) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "No %s sample within odometry_max_gap_s (%.2f s) of the tracks; publishing fallback only",
+      odometry_topic_.c_str(),
+      odometry_max_gap_s_);
+  }
+
+  // Ego pose, the lanelet map and MTR inputs are all in map_frame_; tracking may publish in a
+  // sensor frame (perception_bringup uses lidar_cc). Seeds go out in the tracks' own frame, which
+  // world_model resolves through the TF tree; map_frame_ (a topic-only odometry) may not be in it.
   auto msg = raw_msg;
+  std::optional<geometry_msgs::msg::TransformStamped> tracks_from_map;
   if (!msg->header.frame_id.empty() && msg->header.frame_id != map_frame_) {
-    msg = tracksInMapFrame(*msg);
-    if (!msg) {
-      // No transform yet: publish the fallback in the tracks' own frame instead of nothing.
-      // world_model resolves seeds by their header frame.
+    const auto map_from_tracks = ego ? mapFromTracks(*msg, *ego) : std::nullopt;
+    if (!map_from_tracks) {
+      // No odometry or mount transform: publish the fallback, not nothing.
       world_model_msgs::msg::WorldObjectArray output;
       output.header = raw_msg->header;
       output.objects = buildFallback(*raw_msg, source_time);
@@ -502,7 +612,19 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
       }
       return;
     }
+    msg = std::make_shared<vision_msgs::msg::Detection3DArray>(transformTracks(*msg, *map_from_tracks));
+    tf2::Transform map_from_tracks_tf;
+    tf2::fromMsg(map_from_tracks->transform, map_from_tracks_tf);
+    tracks_from_map = *map_from_tracks;
+    tracks_from_map->header.frame_id = raw_msg->header.frame_id;
+    tracks_from_map->child_frame_id = map_frame_;
+    tracks_from_map->transform = tf2::toMsg(map_from_tracks_tf.inverse());
   }
+  const auto publish = [this, &tracks_from_map](const world_model_msgs::msg::WorldObjectArray & output) {
+    if (world_objects_pub_ && world_objects_pub_->is_activated()) {
+      world_objects_pub_->publish(tracks_from_map ? transformSeeds(output, *tracks_from_map) : output);
+    }
+  };
 
   scene_builder_->addFrame(*msg);  // first, so the fallback sees this frame's measured velocity
   auto fallback = buildFallback(*msg, source_time);
@@ -513,9 +635,7 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
     world_model_msgs::msg::WorldObjectArray output;
     output.header = msg->header;
     output.objects = runtime_->selectOutput(fallback, track_now_s);
-    if (world_objects_pub_ && world_objects_pub_->is_activated()) {
-      world_objects_pub_->publish(output);
-    }
+    publish(output);
 
     if (synchronized) {
       submitSynchronizedMtr(std::move(*synchronized));
@@ -525,20 +645,12 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
 
   MtrFrameContext frame;
   frame.detections = *msg;
-  // A stale pose gets no MTR this frame (fallback only), exactly like a missing one.
-  if (ego_pose_ && egoPoseIsFresh(*ego_pose_, track_now_s, mtr_cache_ttl_s_)) {
-    frame.ego_pose = *ego_pose_;
+  // Missing or stale odometry gets no MTR this frame (fallback only).
+  if (ego) {
+    frame.ego_pose.header = ego->header;
+    frame.ego_pose.pose = ego->pose.pose;
+    frame.ego_velocity = ego->twist.twist;
     frame.has_ego = true;
-  } else if (ego_pose_) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(),
-      *this->get_clock(),
-      5000,
-      "Ego pose is more than mtr.cache_ttl_s (%.2f s) from the tracks; skipping MTR",
-      mtr_cache_ttl_s_);
-  }
-  if (ego_odometry_) {
-    frame.ego_velocity = ego_odometry_->twist.twist;
     frame.has_ego_velocity = true;
   }
   if (lanelet_ahead_) {
@@ -553,9 +665,7 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;
   output.objects = runtime_->selectOutput(fallback, track_now_s);
-  if (world_objects_pub_ && world_objects_pub_->is_activated()) {
-    world_objects_pub_->publish(output);
-  }
+  publish(output);
 }
 
 }  // namespace prediction_ml

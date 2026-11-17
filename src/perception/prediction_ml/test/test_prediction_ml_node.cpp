@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <string>
@@ -24,6 +25,7 @@
 #include "lifecycle_msgs/msg/state.hpp"
 #include "prediction_ml/prediction_ml_node.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/static_transform_broadcaster.hpp"
 
 namespace
 {
@@ -36,6 +38,25 @@ std::shared_ptr<MessageT> stamped(const std::int32_t seconds)
   return message;
 }
 
+// Odometry in odom at (x, 0) with heading yaw, driving forward at speed.
+nav_msgs::msg::Odometry::SharedPtr odometry(
+  const double stamp_s,
+  const double x,
+  const double yaw,
+  const double speed,
+  const std::string & child = "base_footprint")
+{
+  auto message = std::make_shared<nav_msgs::msg::Odometry>();
+  message->header.stamp = rclcpp::Time(static_cast<int64_t>(stamp_s * 1.0e9));
+  message->header.frame_id = "odom";
+  message->child_frame_id = child;
+  message->pose.pose.position.x = x;
+  message->pose.pose.orientation.z = std::sin(yaw / 2.0);
+  message->pose.pose.orientation.w = std::cos(yaw / 2.0);
+  message->twist.twist.linear.x = speed;
+  return message;
+}
+
 }  // namespace
 
 TEST(ExactStampJoiner, CompletesOutOfOrderOnceWithoutBorrowingStaleInputs)
@@ -43,19 +64,16 @@ TEST(ExactStampJoiner, CompletesOutOfOrderOnceWithoutBorrowingStaleInputs)
   prediction_ml::ExactStampJoiner joiner;
 
   EXPECT_FALSE(joiner.addTracks(stamped<vision_msgs::msg::Detection3DArray>(10)));
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(9)));
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(10)));
+  EXPECT_FALSE(joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(9)));
   EXPECT_FALSE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(10)));
   auto complete = joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(10));
 
   ASSERT_TRUE(complete);
   EXPECT_EQ(complete->tracks->header.stamp.sec, 10);
-  EXPECT_EQ(complete->pose->header.stamp.sec, 10);
   EXPECT_EQ(complete->odometry->header.stamp.sec, 10);
   EXPECT_EQ(complete->lanelet->header.stamp.sec, 10);
 
   EXPECT_FALSE(joiner.addTracks(stamped<vision_msgs::msg::Detection3DArray>(10)));
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(10)));
   EXPECT_FALSE(joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(10)));
   EXPECT_FALSE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(10)));
 }
@@ -65,7 +83,6 @@ TEST(ExactStampJoiner, MissingInputAndZeroStampNeverComplete)
   prediction_ml::ExactStampJoiner joiner;
 
   EXPECT_FALSE(joiner.addTracks(stamped<vision_msgs::msg::Detection3DArray>(20)));
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(20)));
   EXPECT_FALSE(joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(20)));
   EXPECT_FALSE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(0)));
   EXPECT_FALSE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(21)));
@@ -78,11 +95,9 @@ TEST(ExactStampJoiner, EvictsOldestPendingMessageAtCapacity)
     EXPECT_FALSE(joiner.addTracks(stamped<vision_msgs::msg::Detection3DArray>(stamp)));
   }
 
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(1)));
   EXPECT_FALSE(joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(1)));
   EXPECT_FALSE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(1)));
 
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(2)));
   EXPECT_FALSE(joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(2)));
   EXPECT_TRUE(joiner.addLanelet(stamped<lanelet_msgs::msg::LaneletAhead>(2)));
 }
@@ -91,7 +106,6 @@ TEST(ExactStampJoiner, ClearDropsEveryPartialTuple)
 {
   prediction_ml::ExactStampJoiner joiner;
   EXPECT_FALSE(joiner.addTracks(stamped<vision_msgs::msg::Detection3DArray>(30)));
-  EXPECT_FALSE(joiner.addPose(stamped<geometry_msgs::msg::PoseStamped>(30)));
   EXPECT_FALSE(joiner.addOdometry(stamped<nav_msgs::msg::Odometry>(30)));
 
   joiner.clear();
@@ -141,16 +155,34 @@ TEST(TransformTracks, ReexpressesPoseOrientationAndVelocityInTargetFrame)
   EXPECT_NEAR(v.z, 0.0, 1e-9);
 }
 
-TEST(EgoPoseIsFresh, RejectsPoseFurtherThanTtlFromTracks)
+TEST(OdometryAt, InterpolatesPoseAndTwistBetweenSamples)
 {
-  geometry_msgs::msg::PoseStamped pose;
-  pose.header.stamp.sec = 100;
-  EXPECT_TRUE(prediction_ml::egoPoseIsFresh(pose, 100.4, 0.5));
-  EXPECT_TRUE(prediction_ml::egoPoseIsFresh(pose, 99.6, 0.5));
-  EXPECT_FALSE(prediction_ml::egoPoseIsFresh(pose, 100.6, 0.5));  // SLAM stalled
-  EXPECT_FALSE(prediction_ml::egoPoseIsFresh(pose, 99.4, 0.5));
-  pose.header.stamp.sec = 0;  // unstamped pose against stamped tracks
-  EXPECT_FALSE(prediction_ml::egoPoseIsFresh(pose, 100.0, 0.5));
+  const double half_pi = std::acos(0.0);
+  const std::deque<nav_msgs::msg::Odometry::SharedPtr> buffer{
+    odometry(100.0, 10.0, 0.0, 4.0), odometry(100.1, 11.0, half_pi, 6.0)};
+
+  const auto ego = prediction_ml::odometryAt(buffer, 100.025, 0.2);
+
+  ASSERT_TRUE(ego);
+  EXPECT_NEAR(rclcpp::Time(ego->header.stamp).seconds(), 100.025, 1e-6);
+  EXPECT_EQ(ego->header.frame_id, "odom");
+  EXPECT_EQ(ego->child_frame_id, "base_footprint");
+  EXPECT_NEAR(ego->pose.pose.position.x, 10.25, 1e-6);
+  EXPECT_NEAR(2.0 * std::atan2(ego->pose.pose.orientation.z, ego->pose.pose.orientation.w), half_pi / 4.0, 1e-6);
+  EXPECT_NEAR(ego->twist.twist.linear.x, 4.5, 1e-6);
+}
+
+TEST(OdometryAt, MissingOrStaleOdometryGivesNothing)
+{
+  std::deque<nav_msgs::msg::Odometry::SharedPtr> buffer;
+  EXPECT_FALSE(prediction_ml::odometryAt(buffer, 100.0, 0.2));
+
+  buffer = {odometry(100.0, 10.0, 0.0, 4.0), odometry(101.0, 14.0, 0.0, 4.0)};
+  EXPECT_NEAR(prediction_ml::odometryAt(buffer, 101.15, 0.2)->pose.pose.position.x, 14.0, 1e-9);  // nearest
+  EXPECT_NEAR(prediction_ml::odometryAt(buffer, 99.9, 0.2)->pose.pose.position.x, 10.0, 1e-9);
+  EXPECT_FALSE(prediction_ml::odometryAt(buffer, 101.3, 0.2));  // odometry stalled
+  EXPECT_FALSE(prediction_ml::odometryAt(buffer, 99.7, 0.2));  // odometry lags the tracks
+  EXPECT_FALSE(prediction_ml::odometryAt(buffer, 100.5, 0.2));  // a dropout between samples
 }
 
 TEST(PredictionMlNode, ConfiguresSeparateProductionAndMtrDiagnosticPublishers)
@@ -207,11 +239,11 @@ TEST(PredictionMlNode, ParamsFileAppliesUnderBringupNamespace)
   }
 
   rclcpp::NodeOptions options;
-  options.arguments({"--ros-args", "-r", "__ns:=/world_modeling", "--params-file", PREDICTION_ML_PARAMS_FILE});
+  options.arguments({"--ros-args", "-r", "__ns:=/perception", "--params-file", PREDICTION_ML_PARAMS_FILE});
   auto node = std::make_shared<prediction_ml::PredictionMlNode>(options);
 
   const auto & overrides = node->get_node_parameters_interface()->get_parameter_overrides();
-  EXPECT_EQ(overrides.count("mtr.mode"), 1U) << "params.yaml does not match /world_modeling/prediction_ml_node";
+  EXPECT_EQ(overrides.count("mtr.mode"), 1U) << "params.yaml does not match /perception/prediction_ml_node";
 
   node.reset();
   rclcpp::shutdown();
@@ -238,7 +270,7 @@ TEST(PredictionMlNode, PublishesFallbackInTrackFrameWhenTransformIsMissing)
       seeds = msg;
     });
 
-  // Nothing publishes map <- lidar_cc.
+  // No odometry, so nothing can move lidar_cc tracks into map.
   vision_msgs::msg::Detection3DArray tracks;
   tracks.header.frame_id = "lidar_cc";
   tracks.header.stamp.sec = 100;
@@ -251,8 +283,7 @@ TEST(PredictionMlNode, PublishesFallbackInTrackFrameWhenTransformIsMissing)
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node->get_node_base_interface());
   executor.add_node(io);
-  // Publish every 200 ms, not every spin: each tracks callback blocks ~50 ms in the TF lookup and
-  // would otherwise starve the seeds subscription on this single thread.
+  // Publish every 200 ms, not every spin, so the seeds subscription is not starved.
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   auto next_publish = std::chrono::steady_clock::now();
   while (!seeds && std::chrono::steady_clock::now() < deadline) {
@@ -402,6 +433,116 @@ TEST(PredictionMlNode, DefaultFallbackUsesMeasuredVelocityParkedStaysPut)
   EXPECT_DOUBLE_EQ(parked.back().pose.position.y, 5.0);
   EXPECT_NEAR(mover.front().pose.position.x, 15.0 + 10.0 * 0.2, 1e-6) << "measured 10 m/s, not the 5 m/s prior";
   EXPECT_NEAR(mover.back().pose.position.x, 15.0 + 10.0 * 3.0, 1e-6);
+
+  executor.remove_node(io);
+  executor.remove_node(node->get_node_base_interface());
+  node.reset();
+  rclcpp::shutdown();
+}
+
+TEST(PredictionMlNode, OdometryMovesTracksIntoOdomAndSeedsBackOut)
+{
+  if (!rclcpp::ok()) {
+    int argc = 0;
+    rclcpp::init(argc, nullptr);
+  }
+
+  rclcpp::NodeOptions options;
+  options.arguments({"--ros-args", "-r", "__ns:=/perception"});
+  options.parameter_overrides({rclcpp::Parameter("map_frame", "odom")});
+  auto node = std::make_shared<prediction_ml::PredictionMlNode>(options);
+  ASSERT_EQ(node->configure().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+  ASSERT_EQ(node->activate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+
+  auto io = std::make_shared<rclcpp::Node>("odom_io");
+  // lidar_cc 1 m ahead of base_footprint, as a static mount.
+  tf2_ros::StaticTransformBroadcaster mount(io);
+  geometry_msgs::msg::TransformStamped lidar;
+  lidar.header.frame_id = "base_footprint";
+  lidar.child_frame_id = "lidar_cc";
+  lidar.transform.translation.x = 1.0;
+  lidar.transform.rotation.w = 1.0;
+  mount.sendTransform(lidar);
+  auto odom_pub = io->create_publisher<nav_msgs::msg::Odometry>("/interfacing/can_state_estimator/odom", 50);
+  auto tracks_pub = io->create_publisher<vision_msgs::msg::Detection3DArray>("/perception/tracks_3d", 10);
+  std::vector<world_model_msgs::msg::WorldObjectArray::SharedPtr> seeds;
+  auto seeds_sub = io->create_subscription<world_model_msgs::msg::WorldObjectArray>(
+    "/perception/world_object_seeds", 10, [&seeds](world_model_msgs::msg::WorldObjectArray::SharedPtr msg) {
+      seeds.push_back(msg);
+    });
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  executor.add_node(io);
+  const auto spin_until = [&executor](const std::function<bool()> & done) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!done() && std::chrono::steady_clock::now() < deadline) {
+      executor.spin_some(std::chrono::milliseconds(20));
+    }
+    return done();
+  };
+  ASSERT_TRUE(spin_until([&] {
+    return odom_pub->get_subscription_count() > 0 && tracks_pub->get_subscription_count() > 0 &&
+           seeds_sub->get_publisher_count() > 0;
+  }));
+  const auto spin_for = [&spin_until](const std::chrono::milliseconds duration) {
+    const auto until = std::chrono::steady_clock::now() + duration;
+    spin_until([until] { return std::chrono::steady_clock::now() > until; });
+  };
+  spin_for(std::chrono::milliseconds(300));  // the static TF reaches the node
+
+  // Ego drives +x at 10 m/s (x = 10 at t = 100). "mover" keeps pace 2 m ahead of the lidar; "parked"
+  // stands at odom x = 50. Odometry samples bracket each track stamp, as on the car.
+  const auto ego_x = [](const double t) { return 10.0 + 10.0 * (t - 100.0); };
+  const auto car = [](const std::string & id, const double x) {
+    vision_msgs::msg::Detection3D detection;
+    detection.id = id;
+    detection.bbox.center.position.x = x;
+    detection.bbox.center.orientation.w = 1.0;
+    detection.bbox.size.x = 4.5;
+    detection.bbox.size.y = 2.0;
+    detection.bbox.size.z = 1.6;
+    vision_msgs::msg::ObjectHypothesisWithPose label;  // only agents enter the history
+    label.hypothesis.class_id = "car";
+    label.hypothesis.score = 1.0;
+    detection.results.push_back(label);
+    return detection;
+  };
+  const auto frame = [&](const int k, const std::string & child) {
+    const double t = 100.0 + 0.1 * k;
+    odom_pub->publish(*odometry(t - 0.05, ego_x(t - 0.05), 0.0, 10.0, child));
+    odom_pub->publish(*odometry(t + 0.05, ego_x(t + 0.05), 0.0, 10.0, child));
+    spin_for(std::chrono::milliseconds(50));  // odometry before the tracks
+    vision_msgs::msg::Detection3DArray tracks;
+    tracks.header.frame_id = "lidar_cc";
+    tracks.header.stamp = rclcpp::Time(static_cast<int64_t>(std::llround(t * 1.0e9)));
+    tracks.detections = {car("mover", 2.0), car("parked", 50.0 - ego_x(t) - 1.0)};
+    const auto before = seeds.size();
+    tracks_pub->publish(tracks);
+    return spin_until([&] { return seeds.size() > before; });
+  };
+  for (int k = 0; k <= 7; ++k) {  // 0.7 s: the fallback measures speed over at least 0.5 s
+    ASSERT_TRUE(frame(k, "base_footprint"));
+  }
+  {
+    const auto & last = *seeds.back();
+    EXPECT_EQ(last.header.frame_id, "lidar_cc") << "seeds go back to the tracks' frame";
+    ASSERT_EQ(last.objects.size(), 2U);
+    const auto & mover = last.objects[0];
+    const auto & parked = last.objects[1];
+    EXPECT_NEAR(mover.detection.bbox.center.position.x, 2.0, 1e-6);
+    EXPECT_EQ(mover.predictions.at(0).poses.back().header.frame_id, "lidar_cc");
+    EXPECT_NEAR(mover.predictions.at(0).poses.back().pose.position.x, 2.0 + 10.0 * 3.0, 1e-3)
+      << "measured 10 m/s in odom";
+    EXPECT_NEAR(parked.predictions.at(0).poses.back().pose.position.x, parked.detection.bbox.center.position.x, 1e-6)
+      << "a parked car stays put although it moves through lidar_cc";
+  }
+
+  // Odometry with the wrong child frame empties the buffer: fallback only (no tracker velocity, so a
+  // zero-length path), still in the tracks' frame.
+  ASSERT_TRUE(frame(8, "base_link"));
+  const auto & mover = seeds.back()->objects.at(0);
+  EXPECT_EQ(seeds.back()->header.frame_id, "lidar_cc");
+  EXPECT_NEAR(mover.predictions.at(0).poses.back().pose.position.x, 2.0, 1e-9);
 
   executor.remove_node(io);
   executor.remove_node(node->get_node_base_interface());

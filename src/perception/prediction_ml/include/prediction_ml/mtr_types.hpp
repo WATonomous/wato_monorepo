@@ -39,6 +39,8 @@ enum class MtrMode
 struct MtrConfig
 {
   MtrMode mode{MtrMode::Disabled};
+  // TensorRT only: when engine_path does not exist, build it from this ONNX model first.
+  std::string onnx_path;
   std::string engine_path;
   std::string metadata_path;
   double cache_ttl_s{0.5};

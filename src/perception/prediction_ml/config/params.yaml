@@ -1,19 +1,30 @@
 ---
 # prediction_ml node parameters.
-/**/prediction_ml_node:  # any namespace; bringup runs it under /world_modeling
+/**/prediction_ml_node:  # any namespace; perception_bringup runs it under /perception
   ros__parameters:
-    # Frame of ego pose, lanelets and outputs. Tracks in another frame (e.g. lidar_cc) are moved here via TF.
-    map_frame: "map"
+    # Frame of the ego pose, lanelets and MTR inputs. Tracks in another frame (e.g. lidar_cc) are moved
+    # here with the ego odometry at their stamp and the static TF (odometry child frame <- tracks
+    # frame); seeds are published back in the tracks' frame. odom needs no map: drive anywhere.
+    map_frame: "odom"
+    # nav_msgs/Odometry for the ego pose and velocity, frame_id map_frame and child_frame_id
+    # mtr.ego_velocity_child_frame: CAN wheel odometry (topic only, no TF), or /novatel/oem7/odom.
+    odometry_topic: "/interfacing/can_state_estimator/odom"
+    # Tracks further than this from every odometry sample are not transformed: fallback only.
+    odometry_max_gap_s: 0.2
     prediction_horizon: 3.0      # seconds — fallback + MTR horizon
     prediction_time_step: 0.2    # seconds — waypoint spacing
     # Fallback = constant velocity measured from each track's own history (parked cars, barriers and
     # tracks younger than 0.3 s get a zero-length path). Tracks that cannot be moved into map_frame
-    # (no TF) use the tracker's linear_velocity, or a zero-length path without one.
+    # (no odometry or mount TF) use the tracker's linear_velocity, or a zero-length path without one.
 
     # --- MTR group ---
     mtr.mode: "disabled"         # disabled | null | tensorrt
-    mtr.engine_path: ""          # injected at launch for deploy
-    mtr.metadata_path: ""        # injected at launch for deploy
+    # tensorrt only: a missing engine is built from the ONNX at configure (minutes, first run only)
+    # and reused after. Delete build/ after a TensorRT or GPU change.
+    mtr.onnx_path: "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx"
+    mtr.engine_path: "/opt/watonomous/models/prediction/build/mtr_av2_nomap_r2.plan"
+    # Needs the launch file's allow_substs.
+    mtr.metadata_path: "$(find-pkg-share prediction_ml)/config/contract_8_target_av2.yaml"
     mtr.cache_ttl_s: 0.5
     mtr.selected_target_agent_limit: 8
     # true: only agents whose history shows motion become MTR targets; parked cars keep the fallback's
@@ -30,7 +41,7 @@
     mtr.ego_length: 4.0936
     mtr.ego_width: 1.3579
     mtr.ego_height: 1.4090
-    # nav_msgs/Odometry expresses twist in child_frame_id; Eidos defaults to base_footprint.
+    # nav_msgs/Odometry expresses twist in child_frame_id; can_state_estimator uses base_footprint.
     mtr.ego_velocity_child_frame: "base_footprint"
 
     # --- Scene builder ---
@@ -44,4 +55,4 @@
     # true: zero agent z / box size and map z before inference. Required for a model trained on
     # Argoverse 2 (no heights or box sizes there; pair it with contract_8_target_av2.yaml, 6 s output).
     # false for the Waymo-trained model.
-    mtr.planar_inputs: false
+    mtr.planar_inputs: true
