@@ -42,6 +42,10 @@ struct MtrConfig
   // TensorRT only: when engine_path does not exist, build it from this ONNX model first.
   std::string onnx_path;
   std::string engine_path;
+  // Optional map-capable engine, built and loaded the same way; empty map_engine_path disables it.
+  // Frames with fresh lanes run on it, all others on engine_path. Both share metadata_path.
+  std::string map_onnx_path;
+  std::string map_engine_path;
   std::string metadata_path;
   double cache_ttl_s{0.5};
   int selected_target_agent_limit{8};

@@ -18,7 +18,7 @@ predictions.
 |-------|------|-------------|
 | `tracks_3d` | `vision_msgs/Detection3DArray` | Tracked agents from perception |
 | `odometry_topic` param | `nav_msgs/Odometry` | Ego pose (in `map_frame`) and body-frame twist; MTR runs only with a sample near the track stamp (fallback until then) |
-| `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Optional reachable lanelets for a map-capable model (not wired on the car) |
+| `lanelet_ahead` | `lanelet_msgs/LaneletAhead` | Optional lanes; fresh ones run the map engine (see Map-optional) |
 
 `perception_bringup` launches the node under `/perception` with these remaps (as does
 `launch/prediction_ml.launch.yaml`):
@@ -26,6 +26,7 @@ predictions.
 | Node topic | Remapped to |
 |------------|-------------|
 | `tracks_3d` | `/perception/detections_3D_tracked` |
+| `lanelet_ahead` | `/world_modeling/lanelet/lanelet_ahead` (absent without world_modeling) |
 | `world_object_seeds` | `/world_modeling/world_object_seeds` |
 | `mtr_predictions` | `/world_modeling/mtr_predictions` |
 
@@ -75,7 +76,9 @@ Parameters in `config/params.yaml` (the perception bringup block mirrors them):
 | `mtr.mode` | `"disabled"` | `disabled`, `null`, or `tensorrt`; anything else logs an ERROR and runs fallback-only |
 | `mtr.onnx_path` | `.../prediction/mtr_av2_nomap_r2.onnx` | Built into `mtr.engine_path` at configure when that is missing (tensorrt only) |
 | `mtr.engine_path` | `.../prediction/build/mtr_av2_nomap_r2.plan` | TensorRT engine path; reused when it exists |
-| `mtr.metadata_path` | `contract_8_target_av2.yaml` | MTR model metadata path |
+| `mtr.map_onnx_path` | `.../prediction/mtr_av2_r2.onnx` | Map-capable model, built like `mtr.onnx_path` |
+| `mtr.map_engine_path` | `.../prediction/build/mtr_av2_r2.plan` | Map-capable engine; empty disables it |
+| `mtr.metadata_path` | `contract_8_target_av2.yaml` | MTR model metadata path (both engines share it) |
 | `mtr.cache_ttl_s` | `0.5` | Per-object MTR result TTL in seconds |
 | `mtr.selected_target_agent_limit` | `8` | Maximum target agents per MTR batch |
 | `mtr.target_forward_half_angle_deg` | `90.0` | Ego-heading half-angle used to prioritize forward targets |
@@ -120,6 +123,16 @@ and whose `child_frame_id` is `mtr.ego_velocity_child_frame`; anything else empt
 the tracks get the fallback only. Seeds, MTR or fallback, are published back in the tracks' own
 frame: world_model resolves seeds by header frame through TF, and `map_frame` may not be in the TF
 tree (`can_state_estimator` publishes `odom` -> `base_footprint` as a topic only).
+
+## Map-optional
+
+Two engines are built and loaded at configure: the no-map one (`mtr.engine_path`) and, when
+`mtr.map_engine_path` is set, a map-capable one. A frame runs the map engine when that loaded and
+`lanelet_ahead` is within `mtr.cache_ttl_s` of the tracks and can be moved into `map_frame`: TF
+from the lanes' frame to the odometry child frame at the track stamp (eidos for `map`, static for
+BEV lanes in `lidar_cc`), then the ego odometry, as for the tracks. Every other frame runs the
+no-map engine with no lanes. A map engine that fails to load only logs a warning. The node logs
+the engine in use every 10 s (`MTR engine: map (fresh lanes)` or `no-map`).
 
 Build, architecture, backend status, model validation, testing, and contribution details are in
 [DEVELOPING.md](DEVELOPING.md).

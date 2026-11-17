@@ -90,7 +90,9 @@ With `mtr.mode: "tensorrt"`, configure loads `mtr.engine_path`. When that file i
 the `config/engine_build.yaml` settings (FP32, TF32 off, 4096 MB workspace, optimization level 3,
 edge-mask and JIT convolution tactics), writes it atomically, then loads it. That takes minutes, so
 `perception_lifecycle_manager` allows 600 s per transition. An existing engine is reused, like
-BEVFusion's plans: delete `models/prediction/build/` after a TensorRT, driver or GPU change.
+BEVFusion's plans: delete `models/prediction/build/` after a TensorRT, driver or GPU change. The optional map
+engine (`mtr.map_onnx_path` -> `mtr.map_engine_path`) is built the same way, so a first start builds
+two engines.
 
 Put the ONNX in the repository's `models/prediction/` (gitignored); the perception service mounts
 `models/` at `/opt/watonomous/models`. To run MTR, set `mtr.mode: "tensorrt"` in the

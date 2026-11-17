@@ -108,6 +108,32 @@ world_model_msgs::msg::WorldObjectArray transformSeeds(
   return out;
 }
 
+lanelet_msgs::msg::LaneletAhead transformLanes(
+  const lanelet_msgs::msg::LaneletAhead & lanes, const geometry_msgs::msg::TransformStamped & transform)
+{
+  lanelet_msgs::msg::LaneletAhead out = lanes;
+  out.header.frame_id = transform.header.frame_id;
+  for (auto & lanelet : out.lanelets) {
+    for (auto & point : lanelet.centerline) {
+      const auto source = point;
+      tf2::doTransform(source, point, transform);
+    }
+  }
+  return out;
+}
+
+std::optional<lanelet_msgs::msg::LaneletAhead> lanesForFrame(
+  const lanelet_msgs::msg::LaneletAhead::SharedPtr & lanes,
+  const double track_time_s,
+  const double max_age_s,
+  const std::optional<geometry_msgs::msg::TransformStamped> & map_from_lanes)
+{
+  if (!lanes || !map_from_lanes || std::abs(stampSeconds(lanes->header.stamp) - track_time_s) > max_age_s) {
+    return std::nullopt;
+  }
+  return transformLanes(*lanes, *map_from_lanes);
+}
+
 std::optional<nav_msgs::msg::Odometry> odometryAt(
   const std::deque<nav_msgs::msg::Odometry::SharedPtr> & buffer, const double stamp_s, const double max_gap_s)
 {
@@ -230,6 +256,8 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.mode", "disabled");
   this->declare_parameter("mtr.onnx_path", "");
   this->declare_parameter("mtr.engine_path", "");
+  this->declare_parameter("mtr.map_onnx_path", "");
+  this->declare_parameter("mtr.map_engine_path", "");
   this->declare_parameter("mtr.metadata_path", "");
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
   this->declare_parameter("mtr.selected_target_agent_limit", 8);
@@ -260,6 +288,8 @@ MtrConfig PredictionMlNode::loadMtrConfig()
   }
   cfg.onnx_path = this->get_parameter("mtr.onnx_path").as_string();
   cfg.engine_path = this->get_parameter("mtr.engine_path").as_string();
+  cfg.map_onnx_path = this->get_parameter("mtr.map_onnx_path").as_string();
+  cfg.map_engine_path = this->get_parameter("mtr.map_engine_path").as_string();
   cfg.metadata_path = this->get_parameter("mtr.metadata_path").as_string();
   cfg.cache_ttl_s = this->get_parameter("mtr.cache_ttl_s").as_double();
   cfg.selected_target_agent_limit = static_cast<int>(this->get_parameter("mtr.selected_target_agent_limit").as_int());
@@ -308,13 +338,18 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
 
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  lane_max_age_s_ = cfg.cache_ttl_s;
   scene_builder_ = std::make_unique<SceneBuilder>(cfg);
-  if (cfg.mode == MtrMode::TensorRt && !cfg.onnx_path.empty() && !std::filesystem::exists(cfg.engine_path)) {
-    RCLCPP_INFO(
-      this->get_logger(),
-      "Building TensorRT engine %s from %s (takes minutes; reused after)",
-      cfg.engine_path.c_str(),
-      cfg.onnx_path.c_str());
+  const std::array<std::pair<std::string, std::string>, 2> engines{
+    {{cfg.onnx_path, cfg.engine_path}, {cfg.map_onnx_path, cfg.map_engine_path}}};
+  for (const auto & [onnx, engine] : engines) {
+    if (cfg.mode == MtrMode::TensorRt && !onnx.empty() && !engine.empty() && !std::filesystem::exists(engine)) {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Building TensorRT engine %s from %s (takes minutes; reused after)",
+        engine.c_str(),
+        onnx.c_str());
+    }
   }
   runtime_ = std::make_unique<MtrRuntime>(cfg);
   mtr_diagnostics_enabled_ = !cfg.pinned_target_ids.empty();
@@ -327,6 +362,9 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
     RCLCPP_ERROR(this->get_logger(), "MTR unavailable; publishing fallback only: %s", runtime_->lastError().c_str());
   } else if (!runtime_->ready()) {
     RCLCPP_WARN(this->get_logger(), "MTR unavailable; publishing fallback only: %s", runtime_->lastError().c_str());
+  } else if (!cfg.map_engine_path.empty() && !runtime_->mapReady()) {
+    RCLCPP_WARN(
+      this->get_logger(), "MTR map engine unavailable; every frame runs no-map: %s", runtime_->mapError().c_str());
   }
   return CallbackReturn::SUCCESS;
 }
@@ -485,7 +523,12 @@ void PredictionMlNode::submitSynchronizedMtr(ExactStampInputs inputs)
 
   MtrInputTensors tensors = scene_builder_->build(frame);
   runtime_->submitFrame(
-    std::move(tensors), inputs.tracks->header.frame_id, frame.timestamp, prediction_horizon_, prediction_time_step_);
+    std::move(tensors),
+    inputs.tracks->header.frame_id,
+    frame.timestamp,
+    prediction_horizon_,
+    prediction_time_step_,
+    frame.has_map);
 }
 
 std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
@@ -535,30 +578,30 @@ std::vector<world_model_msgs::msg::WorldObject> PredictionMlNode::buildFallback(
   return objects;
 }
 
-std::optional<geometry_msgs::msg::TransformStamped> PredictionMlNode::mapFromTracks(
-  const vision_msgs::msg::Detection3DArray & tracks, const nav_msgs::msg::Odometry & ego)
+std::optional<geometry_msgs::msg::TransformStamped> PredictionMlNode::mapFrom(
+  const std::string & frame, const builtin_interfaces::msg::Time & stamp, const nav_msgs::msg::Odometry & ego)
 {
   try {
-    // The sensor mount is static, so the latest transform is the one; no dynamic TF is needed.
-    const auto mount = tf_buffer_->lookupTransform(ego.child_frame_id, tracks.header.frame_id, tf2::TimePointZero);
+    // At the track stamp (an unstamped message gets the latest); no wait, a late transform is a miss.
+    const auto ego_from_frame_msg = tf_buffer_->lookupTransform(ego.child_frame_id, frame, tf2_ros::fromMsg(stamp));
     tf2::Transform map_from_ego;
     tf2::fromMsg(ego.pose.pose, map_from_ego);
-    tf2::Transform ego_from_tracks;
-    tf2::fromMsg(mount.transform, ego_from_tracks);
+    tf2::Transform ego_from_frame;
+    tf2::fromMsg(ego_from_frame_msg.transform, ego_from_frame);
     geometry_msgs::msg::TransformStamped transform;
     transform.header.frame_id = map_frame_;
-    transform.header.stamp = tracks.header.stamp;
-    transform.child_frame_id = tracks.header.frame_id;
-    transform.transform = tf2::toMsg(map_from_ego * ego_from_tracks);
+    transform.header.stamp = stamp;
+    transform.child_frame_id = frame;
+    transform.transform = tf2::toMsg(map_from_ego * ego_from_frame);
     return transform;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
-      "No static %s <- %s transform, publishing fallback only: %s",
+      "No %s <- %s transform at the track stamp (tracks: fallback only; lanes: no-map engine): %s",
       ego.child_frame_id.c_str(),
-      tracks.header.frame_id.c_str(),
+      frame.c_str(),
       ex.what());
     return std::nullopt;
   }
@@ -601,7 +644,8 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   auto msg = raw_msg;
   std::optional<geometry_msgs::msg::TransformStamped> tracks_from_map;
   if (!msg->header.frame_id.empty() && msg->header.frame_id != map_frame_) {
-    const auto map_from_tracks = ego ? mapFromTracks(*msg, *ego) : std::nullopt;
+    const auto map_from_tracks = ego ? mapFrom(msg->header.frame_id, msg->header.stamp, *ego)
+                                     : std::optional<geometry_msgs::msg::TransformStamped>{};
     if (!map_from_tracks) {
       // No odometry or mount transform: publish the fallback, not nothing.
       world_model_msgs::msg::WorldObjectArray output;
@@ -653,14 +697,35 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
     frame.has_ego = true;
     frame.has_ego_velocity = true;
   }
-  if (lanelet_ahead_) {
-    frame.lanelet_ahead = *lanelet_ahead_;
-    frame.has_map = true;
+  // Fresh lanes, moved into map_frame_ like the tracks, run the map engine; every other frame runs the
+  // no-map engine with no lanes, as it was trained.
+  if (ego && lanelet_ahead_ && runtime_->mapReady()) {
+    std::optional<geometry_msgs::msg::TransformStamped> map_from_lanes;
+    if (lanelet_ahead_->header.frame_id == map_frame_) {
+      map_from_lanes.emplace();
+      map_from_lanes->header.frame_id = map_frame_;
+      map_from_lanes->transform.rotation.w = 1.0;
+    } else {
+      map_from_lanes = mapFrom(lanelet_ahead_->header.frame_id, raw_msg->header.stamp, *ego);
+    }
+    if (auto lanes = lanesForFrame(lanelet_ahead_, track_now_s, lane_max_age_s_, map_from_lanes)) {
+      frame.lanelet_ahead = std::move(*lanes);
+      frame.has_map = true;
+    }
+  }
+  if (runtime_->ready()) {
+    RCLCPP_INFO_THROTTLE(
+      this->get_logger(), *this->get_clock(), 10000, "MTR engine: %s", frame.has_map ? "map (fresh lanes)" : "no-map");
   }
   frame.timestamp = track_now_s;
   MtrInputTensors tensors = scene_builder_->build(frame);
   runtime_->submitFrame(
-    std::move(tensors), msg->header.frame_id, source_time.seconds(), prediction_horizon_, prediction_time_step_);
+    std::move(tensors),
+    msg->header.frame_id,
+    source_time.seconds(),
+    prediction_horizon_,
+    prediction_time_step_,
+    frame.has_map);
 
   world_model_msgs::msg::WorldObjectArray output;
   output.header = msg->header;

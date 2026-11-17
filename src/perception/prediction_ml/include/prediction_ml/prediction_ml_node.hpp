@@ -102,6 +102,19 @@ vision_msgs::msg::Detection3DArray transformTracks(
 world_model_msgs::msg::WorldObjectArray transformSeeds(
   const world_model_msgs::msg::WorldObjectArray & seeds, const geometry_msgs::msg::TransformStamped & transform);
 
+// Re-expresses lane centerlines (the only lane geometry the scene builder reads) in transform's
+// target frame.
+lanelet_msgs::msg::LaneletAhead transformLanes(
+  const lanelet_msgs::msg::LaneletAhead & lanes, const geometry_msgs::msg::TransformStamped & transform);
+
+// The lanes for a frame at track_time_s, re-expressed by map_from_lanes; nullopt (no-map engine) when
+// there are none, their stamp is more than max_age_s from the tracks, or there is no transform.
+std::optional<lanelet_msgs::msg::LaneletAhead> lanesForFrame(
+  const lanelet_msgs::msg::LaneletAhead::SharedPtr & lanes,
+  double track_time_s,
+  double max_age_s,
+  const std::optional<geometry_msgs::msg::TransformStamped> & map_from_lanes);
+
 // Ego odometry at stamp_s from a buffer sorted by stamp: interpolated between the samples around it,
 // or the nearest sample when stamp_s is outside the buffer. nullopt when the nearest sample is more
 // than max_gap_s away (odometry missing, stalled or lagging).
@@ -128,10 +141,11 @@ private:
   void laneletAheadCallback(const lanelet_msgs::msg::LaneletAhead::SharedPtr msg);
   void publishMtrDiagnostics();
   void submitSynchronizedMtr(ExactStampInputs inputs);
-  // map_frame_ <- tracks frame: the ego odometry at the track stamp composed with the static
-  // odometry-child <- tracks transform, or nullopt (logged) when that transform is unavailable.
-  std::optional<geometry_msgs::msg::TransformStamped> mapFromTracks(
-    const vision_msgs::msg::Detection3DArray & tracks, const nav_msgs::msg::Odometry & ego);
+  // map_frame_ <- frame: the ego odometry at the track stamp composed with the TF odometry-child <-
+  // frame at that stamp (static for lidar_cc tracks or lanes, eidos' for lanelets in map), or nullopt
+  // (logged) when TF has no such transform.
+  std::optional<geometry_msgs::msg::TransformStamped> mapFrom(
+    const std::string & frame, const builtin_interfaces::msg::Time & stamp, const nav_msgs::msg::Odometry & ego);
 
   // Constant-velocity straight-line fallback (ported from simple_prediction).
   std::vector<world_model_msgs::msg::WorldObject> buildFallback(
@@ -158,6 +172,7 @@ private:
   std::string map_frame_{"map"};
   std::string odometry_topic_;
   double odometry_max_gap_s_{0.2};
+  double lane_max_age_s_{0.5};  // mtr.cache_ttl_s
   std::string ego_velocity_child_frame_{"base_footprint"};
   bool mtr_diagnostics_enabled_{false};
 

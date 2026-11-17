@@ -580,6 +580,11 @@ multi_camera_sync:
     # only) and reused after. Delete build/ after a TensorRT or GPU change.
     mtr.onnx_path: "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx"
     mtr.engine_path: "/opt/watonomous/models/prediction/build/mtr_av2_nomap_r2.plan"
+    # Optional map-capable model: frames with fresh lanes (lanelet_ahead, remapped in the launch file
+    # to world_modeling's topic, within mtr.cache_ttl_s of the tracks) run on it, all others no-map.
+    # Empty map_engine_path disables it; a missing or broken one leaves the no-map path running.
+    mtr.map_onnx_path: "/opt/watonomous/models/prediction/mtr_av2_r2.onnx"
+    mtr.map_engine_path: "/opt/watonomous/models/prediction/build/mtr_av2_r2.plan"
     mtr.metadata_path: "$(find-pkg-share prediction_ml)/config/contract_8_target_av2.yaml"
     # Argoverse 2 model: no heights or box sizes in its training data.
     mtr.planar_inputs: true

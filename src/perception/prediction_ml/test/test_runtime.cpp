@@ -62,6 +62,36 @@ private:
   prediction_ml::MtrOutputTensors output_;
 };
 
+// Counts its inferences; ready unless built broken (a map engine that failed to load).
+class CountingEngine : public prediction_ml::IMtrInferenceEngine
+{
+public:
+  explicit CountingEngine(const bool ready = true)
+  : ready_(ready)
+  {}
+
+  bool ready() const override
+  {
+    return ready_;
+  }
+
+  std::string lastError() const override
+  {
+    return ready_ ? std::string{} : "failed to load";
+  }
+
+  prediction_ml::MtrOutputTensors infer(const prediction_ml::MtrInputTensors &) override
+  {
+    ++calls;
+    return {};
+  }
+
+  std::atomic<int> calls{0};
+
+private:
+  bool ready_;
+};
+
 prediction_ml::MtrInputTensors makeInput(const std::string & detection_id)
 {
   prediction_ml::MtrInputTensors input;
@@ -146,6 +176,36 @@ TEST(MtrRuntime, FreshResultReplacesMatchingFallbackAndExpiresBySourceTime)
   const auto stale = runtime.selectOutput(fallback, 100.6);
   ASSERT_EQ(stale.size(), 2U);
   EXPECT_DOUBLE_EQ(stale[0].predictions[0].conf, 1.0);
+}
+
+TEST(MtrRuntime, FramesWithLanesRunTheMapEngineOthersTheNoMapEngine)
+{
+  struct Case
+  {
+    bool map_loads;
+    bool has_map;
+    bool expect_map;
+  };
+
+  for (const auto & [map_loads, has_map, expect_map] :
+       {Case{true, true, true}, Case{true, false, false}, Case{false, true, false}})
+  {
+    prediction_ml::MtrConfig cfg;
+    cfg.model_time_step_s = 0.5;
+    auto no_map = std::make_unique<CountingEngine>();
+    auto map = std::make_unique<CountingEngine>(map_loads);
+    auto & no_map_calls = no_map->calls;
+    auto & map_calls = map->calls;
+    prediction_ml::MtrRuntime runtime(cfg, std::move(no_map), std::move(map));
+    EXPECT_EQ(runtime.mapReady(), map_loads);
+
+    runtime.submitFrame(makeInput("target"), "odom", 100.0, 1.0, 0.5, has_map);
+    for (int attempt = 0; attempt < 500 && no_map_calls + map_calls == 0; ++attempt) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    EXPECT_EQ(map_calls, expect_map ? 1 : 0) << "map_loads=" << map_loads << " has_map=" << has_map;
+    EXPECT_EQ(no_map_calls, expect_map ? 0 : 1) << "map_loads=" << map_loads << " has_map=" << has_map;
+  }
 }
 
 TEST(MtrRuntime, InvalidSubmissionNeverStartsInference)

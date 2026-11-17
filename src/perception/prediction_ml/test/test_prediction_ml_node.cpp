@@ -185,6 +185,44 @@ TEST(OdometryAt, MissingOrStaleOdometryGivesNothing)
   EXPECT_FALSE(prediction_ml::odometryAt(buffer, 100.5, 0.2));  // a dropout between samples
 }
 
+TEST(LanesForFrame, FreshLanesMoveIntoTheOdometryFrame)
+{
+  // eidos map -> odom: odom is map shifted by (+5, 0) and turned +90 deg.
+  const double half = std::sqrt(0.5);
+  geometry_msgs::msg::TransformStamped odom_from_map;
+  odom_from_map.header.frame_id = "odom";
+  odom_from_map.child_frame_id = "map";
+  odom_from_map.transform.translation.x = 5.0;
+  odom_from_map.transform.rotation.z = half;
+  odom_from_map.transform.rotation.w = half;
+  auto lanes = stamped<lanelet_msgs::msg::LaneletAhead>(100);
+  lanes->header.frame_id = "map";
+  lanes->lanelets.resize(1);
+  geometry_msgs::msg::Point point;
+  point.x = 1.0;
+  lanes->lanelets[0].centerline = {point};
+
+  const auto out = prediction_ml::lanesForFrame(lanes, 100.3, 0.5, odom_from_map);
+
+  ASSERT_TRUE(out);
+  EXPECT_EQ(out->header.frame_id, "odom");
+  EXPECT_NEAR(out->lanelets[0].centerline[0].x, 5.0, 1e-9);
+  EXPECT_NEAR(out->lanelets[0].centerline[0].y, 1.0, 1e-9);
+}
+
+TEST(LanesForFrame, AbsentStaleOrUntransformableLanesGiveNoMap)
+{
+  geometry_msgs::msg::TransformStamped identity;
+  identity.header.frame_id = "odom";
+  identity.transform.rotation.w = 1.0;
+  auto lanes = stamped<lanelet_msgs::msg::LaneletAhead>(100);
+
+  EXPECT_TRUE(prediction_ml::lanesForFrame(lanes, 100.4, 0.5, identity));
+  EXPECT_FALSE(prediction_ml::lanesForFrame(nullptr, 100.0, 0.5, identity));  // world_modeling down
+  EXPECT_FALSE(prediction_ml::lanesForFrame(lanes, 100.6, 0.5, identity));  // stale
+  EXPECT_FALSE(prediction_ml::lanesForFrame(lanes, 100.0, 0.5, std::nullopt));  // TF lookup failed
+}
+
 TEST(PredictionMlNode, ConfiguresSeparateProductionAndMtrDiagnosticPublishers)
 {
   if (!rclcpp::ok()) {

@@ -26,20 +26,40 @@
 
 namespace prediction_ml
 {
+namespace
+{
+
+std::unique_ptr<IMtrInferenceEngine> createMapEngine(MtrConfig config)
+{
+  if (config.map_engine_path.empty()) {
+    return nullptr;
+  }
+  config.onnx_path = config.map_onnx_path;
+  config.engine_path = config.map_engine_path;
+  return createMtrInferenceEngine(config);
+}
+
+}  // namespace
 
 MtrRuntime::MtrRuntime(MtrConfig config)
-: MtrRuntime(config, createMtrInferenceEngine(config))
+: MtrRuntime(config, createMtrInferenceEngine(config), createMapEngine(config))
 {}
 
-MtrRuntime::MtrRuntime(MtrConfig config, std::unique_ptr<IMtrInferenceEngine> engine)
+MtrRuntime::MtrRuntime(
+  MtrConfig config, std::unique_ptr<IMtrInferenceEngine> engine, std::unique_ptr<IMtrInferenceEngine> map_engine)
 : config_(std::move(config))
 , engine_(std::move(engine))
+, map_engine_(std::move(map_engine))
 {
   if (engine_) {
     engine_ready_ = engine_->ready();
     engine_error_ = engine_->lastError();
   } else {
     engine_error_ = "no engine";
+  }
+  if (map_engine_) {
+    map_engine_ready_ = map_engine_->ready();
+    map_engine_error_ = map_engine_->lastError();
   }
 
   if (engine_ready_) {
@@ -65,7 +85,8 @@ void MtrRuntime::submitFrame(
   const std::string & frame_id,
   const double source_time_s,
   const double horizon_s,
-  const double time_step_s)
+  const double time_step_s,
+  const bool has_map)
 {
   bool queued = false;
   {
@@ -78,7 +99,8 @@ void MtrRuntime::submitFrame(
       engine_ready_ && input.valid && !frame_id.empty() && std::isfinite(source_time_s) && std::isfinite(horizon_s) &&
       horizon_s > 0.0 && std::isfinite(time_step_s) && time_step_s > 0.0)
     {
-      pending_frame_ = PendingFrame{std::move(input), frame_id, source_time_s, horizon_s, time_step_s, sequence};
+      pending_frame_ =
+        PendingFrame{std::move(input), frame_id, source_time_s, horizon_s, time_step_s, sequence, has_map};
       queued = true;
     } else {
       pending_frame_.reset();
@@ -144,6 +166,16 @@ std::string MtrRuntime::lastError() const
   return worker_error_.empty() ? engine_error_ : worker_error_;
 }
 
+bool MtrRuntime::mapReady() const
+{
+  return engine_ready_ && map_engine_ready_;
+}
+
+std::string MtrRuntime::mapError() const
+{
+  return map_engine_error_;
+}
+
 void MtrRuntime::workerLoop()
 {
   while (true) {
@@ -158,9 +190,11 @@ void MtrRuntime::workerLoop()
       pending_frame_.reset();
     }
 
+    // A missing or broken map engine never stops the no-map path.
+    IMtrInferenceEngine & engine = frame.has_map && map_engine_ready_ ? *map_engine_ : *engine_;
     MtrInferenceResult converted;
     try {
-      const MtrOutputTensors output = engine_->infer(frame.input);
+      const MtrOutputTensors output = engine.infer(frame.input);
       converted = convertMtrOutput(
         output,
         frame.input.sidecar,
@@ -169,8 +203,8 @@ void MtrRuntime::workerLoop()
         frame.horizon_s,
         config_.model_time_step_s,
         frame.time_step_s);
-      if (!output.valid && !engine_->lastError().empty()) {
-        converted.error += ": " + engine_->lastError();  // the backend's reason (CUDA, contract, ...)
+      if (!output.valid && !engine.lastError().empty()) {
+        converted.error += ": " + engine.lastError();  // the backend's reason (CUDA, contract, ...)
       }
     } catch (const std::exception & error) {
       converted.ok = false;

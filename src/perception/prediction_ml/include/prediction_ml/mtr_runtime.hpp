@@ -34,13 +34,16 @@
 namespace prediction_ml
 {
 
-// Owns the inference engine, runs it async (latest-only), caches per-object
-// predictions with a TTL, and merges them onto the fallback. (Person C)
+// Owns the inference engines (no-map, plus an optional map-capable one), runs them async
+// (latest-only), caches per-object predictions with a TTL, and merges them onto the fallback.
 class MtrRuntime
 {
 public:
   explicit MtrRuntime(MtrConfig config);
-  MtrRuntime(MtrConfig config, std::unique_ptr<IMtrInferenceEngine> engine);
+  MtrRuntime(
+    MtrConfig config,
+    std::unique_ptr<IMtrInferenceEngine> engine,
+    std::unique_ptr<IMtrInferenceEngine> map_engine = nullptr);
   ~MtrRuntime();
 
   MtrRuntime(const MtrRuntime &) = delete;
@@ -48,9 +51,15 @@ public:
 
   // Hand packed tensors to the async worker. A queued frame is replaced by the
   // newest submission. An in-flight result is still cached when newer frames arrive,
-  // unless one of them was unusable (invalid input), which discards it.
+  // unless one of them was unusable (invalid input), which discards it. A frame with has_map runs on
+  // the map engine when that loaded, otherwise on the no-map engine.
   void submitFrame(
-    MtrInputTensors input, const std::string & frame_id, double source_time_s, double horizon_s, double time_step_s);
+    MtrInputTensors input,
+    const std::string & frame_id,
+    double source_time_s,
+    double horizon_s,
+    double time_step_s,
+    bool has_map = false);
 
   // Start from fallback; replace only objects with fresh valid cached MTR predictions.
   std::vector<world_model_msgs::msg::WorldObject> selectOutput(
@@ -62,6 +71,8 @@ public:
 
   bool ready() const;
   std::string lastError() const;
+  bool mapReady() const;  // the map engine loaded (and the no-map one, which runs the worker)
+  std::string mapError() const;  // why the configured map engine did not load
 
 private:
   struct PendingFrame
@@ -72,6 +83,7 @@ private:
     double horizon_s{0.0};
     double time_step_s{0.0};
     std::uint64_t sequence{0};
+    bool has_map{false};
   };
 
   struct CachedPrediction
@@ -86,6 +98,9 @@ private:
   std::unique_ptr<IMtrInferenceEngine> engine_;
   bool engine_ready_{false};
   std::string engine_error_;
+  std::unique_ptr<IMtrInferenceEngine> map_engine_;
+  bool map_engine_ready_{false};
+  std::string map_engine_error_;
 
   mutable std::mutex mutex_;
   std::condition_variable worker_cv_;

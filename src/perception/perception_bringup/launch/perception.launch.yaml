@@ -183,6 +183,8 @@ launch:
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked
+        - from: lanelet_ahead  # optional: absent without world_modeling, then no-map only
+          to: /world_modeling/lanelet/lanelet_ahead
         - from: world_object_seeds
           to: /world_modeling/world_object_seeds
         - from: mtr_predictions
