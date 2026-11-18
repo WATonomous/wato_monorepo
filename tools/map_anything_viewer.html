@@ -1,0 +1,453 @@
+<title>MapAnything Drive Reconstructions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Copyright (c) 2025-present WATonomous. All rights reserved.
+  Licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+
+  Viewer for the scenes written by tools/map_anything_reconstruct.py (<out>.scene.txt).
+  It expects them next to this file as scenes/wato.scene.txt, scenes/nuscenes.scene.txt and
+  scenes/boreas.scene.txt
+  (edit SCENES below for others). To look at it locally, serve the folder over HTTP, e.g.
+  `python3 -m http.server` (a file:// page cannot fetch the scene files).
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one screen. A full-bleed 3D stage with an instrument rail on the left; on a phone the
+     stage comes first and the rail stacks under it. */
+  :root {
+    --stage: #f2f4f3;
+    --panel: #ffffff;
+    --ink: #17212b;
+    --muted: #5a6773;
+    --line: #d8dee2;
+    --field: #eef1f3;
+    --accent: #1f5fa8;
+    --on-accent: #ffffff;
+    --pred: #c2255c;
+    --ref: #0b7285;
+    --cam: #46525e;
+    --grid: #9aa7b2;
+    --sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --stage: #10151b; --panel: #161d25; --ink: #e6ebef; --muted: #94a2af; --line: #2a3541;
+      --field: #1e2731; --accent: #6aa9f0; --on-accent: #0c1218; --pred: #ff6b9d; --ref: #3bc9db;
+      --cam: #b3bec9; --grid: #55626f; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --stage: #10151b; --panel: #161d25; --ink: #e6ebef; --muted: #94a2af; --line: #2a3541;
+    --field: #1e2731; --accent: #6aa9f0; --on-accent: #0c1218; --pred: #ff6b9d; --ref: #3bc9db;
+    --cam: #b3bec9; --grid: #55626f; color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body { margin: 0; }
+  body { background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.45; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  .app { display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); height: 100%; }
+  .rail {
+    display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow-y: auto;
+    padding-block: 18px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-right: 1px solid var(--line);
+  }
+  .stage { position: relative; min-width: 0; min-height: 0; background: var(--stage); }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; outline-offset: -3px; }
+
+  h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+  .lede { margin: 6px 0 0; color: var(--muted); max-width: 46ch; }
+  h2 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; background: var(--field); border-radius: 8px; }
+  .tabs button {
+    font: 500 13px var(--sans); color: var(--ink); background: transparent; border: 0; border-radius: 5px;
+    padding: 7px 4px; cursor: pointer; overflow-wrap: anywhere;
+  }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+  .note { margin: 10px 0 0; color: var(--muted); }
+
+  dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 14px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+  dd small { display: block; font-size: 11.5px; color: var(--muted); }
+
+  .controls { display: flex; flex-direction: column; gap: 12px; }
+  .slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
+  .slider output { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .slider input { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+  .checks { display: flex; flex-direction: column; gap: 7px; }
+  .checks label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .checks input { margin: 0; accent-color: var(--accent); }
+  .swatch { flex: none; width: 18px; height: 3px; border-radius: 2px; }
+  .swatch.pred { background: var(--pred); }
+  .swatch.ref { background: var(--ref); }
+  .swatch.cam { background: var(--cam); }
+  .swatch.grid { background: var(--grid); }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .buttons button {
+    font: 500 13px var(--sans); color: var(--ink); background: var(--field); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  .hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+  :is(button, input, canvas):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .status {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: min(80%, 44ch);
+    padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--ink); text-align: center;
+  }
+
+  @media (max-width: 760px) {
+    html, body { height: auto; }
+    .app { display: flex; flex-direction: column; height: auto; }
+    .stage { order: -1; height: 62vh; min-height: 320px; }
+    .rail { border-right: 0; border-top: 1px solid var(--line); overflow-y: visible; }
+  }
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <header>
+      <h1>MapAnything Drive Reconstructions</h1>
+      <p class="lede">Each scene is one forward pass of MapAnything over the camera images of a short stretch of road. The model was given the images and their intrinsics only: no poses, no depth, no optimisation afterwards.</p>
+    </header>
+
+    <section aria-label="Scene">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <p class="note" id="note"></p>
+    </section>
+
+    <section>
+      <h2>This reconstruction</h2>
+      <dl>
+        <dt>Views</dt><dd id="r-views">&ndash;</dd>
+        <dt>Model time</dt><dd id="r-time">&ndash;</dd>
+        <dt>Points shown</dt><dd id="r-points">&ndash;</dd>
+        <dt>Path length</dt><dd id="r-length">&ndash;</dd>
+        <dt>End of path</dt><dd id="r-gap">&ndash;</dd>
+        <dt>Checkpoint</dt><dd id="r-ckpt">&ndash;</dd>
+      </dl>
+    </section>
+
+    <section class="controls">
+      <h2>Display</h2>
+      <div class="slider">
+        <label for="size">Point size</label><output id="size-out" for="size"></output>
+        <input id="size" type="range" min="1" max="4" step="0.1" value="2">
+      </div>
+      <div class="slider">
+        <label for="hide">Hide least confident points</label><output id="hide-out" for="hide"></output>
+        <input id="hide" type="range" min="0" max="90" step="1" value="10">
+      </div>
+      <div class="slider">
+        <label for="gain">Brightness</label><output id="gain-out" for="gain"></output>
+        <input id="gain" type="range" min="0.6" max="3" step="0.05" value="1">
+      </div>
+      <div class="checks">
+        <label><input id="show-pred" type="checkbox" checked><span class="swatch pred"></span>Camera path the model predicted</label>
+        <label><input id="show-ref" type="checkbox" checked><span class="swatch ref"></span>Reference path</label>
+        <label><input id="show-cams" type="checkbox" checked><span class="swatch cam"></span>Predicted cameras</label>
+        <label><input id="show-grid" type="checkbox" checked><span class="swatch grid"></span>10 m grid on the road plane</label>
+      </div>
+      <div class="buttons">
+        <button type="button" id="reset">Reset view</button>
+        <button type="button" id="top">Top view</button>
+      </div>
+      <p class="hint">Drag to orbit. Scroll or pinch to zoom. Right-drag or two-finger drag to pan.</p>
+    </section>
+  </aside>
+
+  <main class="stage" id="stage">
+    <canvas id="view" tabindex="0" aria-label="3D point cloud of the selected scene"></canvas>
+    <div class="status" id="status" role="status">Loading the scene&hellip;</div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  "use strict";
+  var SCENES = [
+    { id: "wato", label: "WATO", file: "scenes/wato.scene.txt" },
+    { id: "nuscenes", label: "nuScenes", file: "scenes/nuscenes.scene.txt" },
+    { id: "boreas", label: "Boreas", file: "scenes/boreas.scene.txt" }
+  ];
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $("stage"), canvas = $("view"), statusBox = $("status");
+  var loaded = {};      // id -> scene state
+  var current = null;   // scene state on screen
+
+  function say(text) { statusBox.textContent = text; statusBox.hidden = !text; }
+
+  if (!window.THREE || !THREE.OrbitControls) { say("The 3D library did not load, so the scene cannot be drawn."); return; }
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+  } catch (error) {
+    say("This browser could not start WebGL, which the 3D view needs.");
+    return;
+  }
+  var pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(pixelRatio);
+  var world = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(55, 1, 0.2, 3000);
+  camera.up.set(0, 0, 1);  // scenes are z-up, with the road at z = 0
+  var controls = new THREE.OrbitControls(camera, canvas);
+  controls.addEventListener("change", render);
+
+  var pending = false;
+  function render() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(function () { pending = false; renderer.render(world, camera); });
+  }
+
+  function token(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ---- scene file: base64 of "MAPC", header length, JSON header, int16 xyz, uint8 rgb ----
+  function decode(text) {
+    text = text.trim();
+    var padding = text.slice(-2) === "==" ? 2 : text.slice(-1) === "=" ? 1 : 0;
+    var bytes = new Uint8Array((text.length / 4) * 3 - padding), written = 0, step = 1 << 20;  // a multiple of 4
+    for (var at = 0; at < text.length; at += step) {
+      var chunk = atob(text.substr(at, step));
+      for (var k = 0; k < chunk.length; k++) bytes[written++] = chunk.charCodeAt(k);
+    }
+    return bytes.buffer;
+  }
+
+  function parse(buffer) {
+    var bytes = new Uint8Array(buffer, 0, 4);
+    if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== "MAPC") throw new Error("not a scene file");
+    var headerLength = new DataView(buffer).getUint32(4, true);
+    var header = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 8, headerLength)));
+    var n = header.points, offset = 8 + headerLength;
+    var quantised = new Int16Array(buffer, offset, n * 3);
+    var colors = new Uint8Array(buffer, offset + n * 6, n * 3);
+    var positions = new Float32Array(n * 3), scale = header.extent / 32767, c = header.center;
+    for (var i = 0; i < n * 3; i += 3) {
+      positions[i] = quantised[i] * scale + c[0];
+      positions[i + 1] = quantised[i + 1] * scale + c[1];
+      positions[i + 2] = quantised[i + 2] * scale + c[2];
+    }
+    return { header: header, positions: positions, colors: colors };
+  }
+
+  function pathObject(path, colorName) {
+    var flat = [];
+    path.forEach(function (p) { flat.push(p[0], p[1], p[2]); });
+    var geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(flat, 3));
+    var group = new THREE.Group();
+    // drawn over the cloud: the rig origin of two of the datasets is on the road surface
+    var line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ depthTest: false, transparent: true }));
+    var dots = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 6 * pixelRatio, sizeAttenuation: false, depthTest: false, transparent: true }));
+    line.renderOrder = dots.renderOrder = 3;
+    group.add(line, dots);
+    group.userData.colorName = colorName;
+    return group;
+  }
+
+  function frustaObject(cameras) {
+    var depth = 1.0, flat = [];
+    cameras.forEach(function (cam) {
+      var m = new THREE.Matrix4().fromArray(cam.pose).transpose();  // the file is row-major
+      var apex = new THREE.Vector3(0, 0, 0).applyMatrix4(m);
+      var w = cam.half_w * depth, h = cam.half_h * depth;
+      var corners = [[-w, -h], [w, -h], [w, h], [-w, h]].map(function (xy) {
+        return new THREE.Vector3(xy[0], xy[1], depth).applyMatrix4(m);
+      });
+      corners.forEach(function (corner, k) {
+        var next = corners[(k + 1) % 4];
+        flat.push(apex.x, apex.y, apex.z, corner.x, corner.y, corner.z);
+        flat.push(corner.x, corner.y, corner.z, next.x, next.y, next.z);
+      });
+    });
+    var geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(flat, 3));
+    return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ transparent: true, opacity: 0.85 }));
+  }
+
+  function gridObject(header) {
+    var cell = 10, size = Math.ceil((2 * header.extent) / cell) * cell;
+    var grid = new THREE.GridHelper(size, size / cell);
+    grid.rotation.x = Math.PI / 2;  // GridHelper lies in xz; the road is xy
+    grid.position.set(Math.round(header.center[0] / cell) * cell, Math.round(header.center[1] / cell) * cell, 0);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.4;
+    grid.material.depthTest = false;
+    grid.material.vertexColors = false;
+    grid.renderOrder = 1;
+    return grid;
+  }
+
+  function build(id, data) {
+    var header = data.header, n = header.points;
+    var geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(data.colors, 3, true));
+    var material = new THREE.PointsMaterial({ sizeAttenuation: false, vertexColors: true });
+    var cloud = new THREE.Points(geometry, material);
+    cloud.frustumCulled = false;
+
+    // dark footage gets a brighter default: bring the 90th percentile of luminance up to 0.85
+    var stride = Math.max(1, Math.floor(n / 20000)), luminance = [];
+    for (var i = 0; i < n; i += stride) luminance.push((data.colors[3 * i] + data.colors[3 * i + 1] + data.colors[3 * i + 2]) / 765);
+    luminance.sort(function (a, b) { return a - b; });
+    var gain = Math.min(3, Math.max(1, 0.85 / luminance[Math.floor(luminance.length * 0.9)]));
+
+    var group = new THREE.Group();
+    var state = {
+      id: id, header: header, group: group, cloud: cloud,
+      predicted: pathObject(header.predicted_path, "--pred"),
+      reference: pathObject(header.reference_path, "--ref"),
+      frusta: frustaObject(header.cameras),
+      grid: gridObject(header),
+      gain: Math.round(gain * 20) / 20
+    };
+    group.add(state.grid, cloud, state.frusta, state.predicted, state.reference);
+    group.visible = false;
+    world.add(group);
+    return state;
+  }
+
+  // ---- view ----
+  function homeView(state, top) {
+    var path = state.header.predicted_path, a = path[0], b = path[path.length - 1];
+    var dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy) || 1;
+    dx /= length; dy /= length;
+    if (top) {
+      var mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      controls.target.set(mx, my, 0);
+      camera.position.set(mx - dx * 0.05, my - dy * 0.05, length * 1.1 + 35);
+    } else {
+      var reach = Math.min(length * 0.45, 28);
+      controls.target.set(a[0] + dx * reach, a[1] + dy * reach, 1);
+      camera.position.set(a[0] - dx * 17 + dy * 5, a[1] - dy * 17 - dx * 5, 11);
+    }
+    controls.update();
+    render();
+  }
+
+  function applyTheme() {
+    renderer.setClearColor(new THREE.Color(token("--stage")), 1);
+    Object.keys(loaded).forEach(function (id) {
+      var s = loaded[id];
+      [s.predicted, s.reference].forEach(function (group) {
+        var color = new THREE.Color(token(group.userData.colorName));
+        group.children.forEach(function (child) { child.material.color.copy(color); });
+      });
+      s.frusta.material.color.set(token("--cam"));
+      s.grid.material.color.set(token("--grid"));
+    });
+    render();
+  }
+
+  function fmt(value, digits) { return value.toFixed(digits); }
+
+  function applyDisplay() {
+    if (!current) return;
+    var size = parseFloat($("size").value), hide = parseInt($("hide").value, 10), gain = parseFloat($("gain").value);
+    var n = current.header.points, shown = Math.floor(n * (1 - hide / 100));
+    current.cloud.material.size = size * pixelRatio;
+    current.cloud.material.color.setScalar(gain);
+    current.cloud.geometry.setDrawRange(0, shown);  // points are stored most confident first
+    current.gain = gain;
+    current.predicted.visible = $("show-pred").checked;
+    current.reference.visible = $("show-ref").checked;
+    current.frusta.visible = $("show-cams").checked;
+    current.grid.visible = $("show-grid").checked;
+    $("size-out").textContent = fmt(size, 1) + " px";
+    $("hide-out").textContent = hide + " %";
+    $("gain-out").textContent = "\u00d7 " + fmt(gain, 2);
+    $("r-points").innerHTML = fmt(shown / 1e6, 2) + " M<small>sampled from " + fmt(current.header.points_predicted / 1e6, 2) + " M predicted</small>";
+    render();
+  }
+
+  function describe(state) {
+    var h = state.header, cams = h.camera_names.length;
+    $("note").textContent = h.note;
+    $("r-views").innerHTML = h.views + "<small>" + cams + (cams === 1 ? " camera \u00d7 " : " cameras \u00d7 ") + h.instants + " instants, " + h.spacing_m + " m apart</small>";
+    $("r-time").textContent = fmt(h.infer_s, 1) + " s";
+    $("r-length").innerHTML = fmt(h.predicted_length_m, 1) + " m<small>reference " + fmt(h.reference_length_m, 1) + " m (\u00d7 " + fmt(h.predicted_length_m / h.reference_length_m, 2) + ")</small>";
+    $("r-gap").innerHTML = fmt(h.end_gap_m, 1) + " m<small>from the reference</small>";
+    $("r-ckpt").textContent = h.checkpoint;
+  }
+
+  function show(id) {
+    var entry = SCENES.filter(function (s) { return s.id === id; })[0] || SCENES[0];
+    Array.prototype.forEach.call($("tabs").children, function (button) {
+      button.setAttribute("aria-selected", String(button.dataset.id === entry.id));
+    });
+    function activate(state) {
+      if (current) current.group.visible = false;
+      current = state;
+      state.group.visible = true;
+      $("gain").value = state.gain;
+      describe(state);
+      applyTheme();
+      applyDisplay();
+      homeView(state, false);
+      say("");
+    }
+    if (loaded[entry.id]) { activate(loaded[entry.id]); return; }
+    say("Loading the " + entry.label + " scene (about 14 MB)\u2026");
+    fetch(entry.file)
+      .then(function (response) {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.text();
+      })
+      .then(function (text) {
+        loaded[entry.id] = build(entry.id, parse(decode(text)));
+        // the person may have picked another scene while this one was loading
+        if ((location.hash.slice(1) || SCENES[0].id) === entry.id || !current) activate(loaded[entry.id]);
+      })
+      .catch(function (error) {
+        say("The " + entry.label + " scene could not be loaded (" + error.message + "). Check that " + entry.file + " sits next to this page.");
+      });
+  }
+
+  // ---- wiring ----
+  SCENES.forEach(function (scene) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.id = "tab-" + scene.id;
+    button.dataset.id = scene.id;
+    button.setAttribute("role", "tab");
+    button.textContent = scene.label;
+    button.addEventListener("click", function () {
+      if (location.hash.slice(1) === scene.id) show(scene.id); else location.hash = scene.id;
+    });
+    $("tabs").appendChild(button);
+  });
+  window.addEventListener("hashchange", function () { show(location.hash.slice(1)); });
+  ["size", "hide", "gain"].forEach(function (id) { $(id).addEventListener("input", applyDisplay); });
+  ["show-pred", "show-ref", "show-cams", "show-grid"].forEach(function (id) { $(id).addEventListener("change", applyDisplay); });
+  $("reset").addEventListener("click", function () { if (current) homeView(current, false); });
+  $("top").addEventListener("click", function () { if (current) homeView(current, true); });
+
+  function resize() {
+    var width = stage.clientWidth, height = stage.clientHeight;
+    if (!width || !height) return;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    render();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener("resize", resize);
+  resize();
+
+  var scheme = window.matchMedia("(prefers-color-scheme: dark)");
+  if (scheme.addEventListener) scheme.addEventListener("change", applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  applyTheme();
+  show(location.hash.slice(1) || SCENES[0].id);
+})();
+</script>
