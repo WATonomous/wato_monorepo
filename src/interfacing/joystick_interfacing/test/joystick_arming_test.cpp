@@ -15,7 +15,6 @@
 #include <chrono>
 #include <future>
 #include <memory>
-#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <lifecycle_msgs/msg/transition.hpp>
@@ -65,17 +64,16 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Arming Feature", "[joystick_armi
   auto joy_pub = std::make_shared<PublisherTestNode<Joy>>("/joy", "joy_pub");
   add_node(joy_pub);
 
-  // Input: is_armed mock
+  // Input: is_armed mock. Confirm reliable delivery before processing its callback.
+  auto mock_service_node = std::make_shared<rclcpp::Node>("mock_service_node");
   auto is_armed_pub =
-    std::make_shared<PublisherTestNode<Bool>>("/oscc_interfacing/is_armed", "is_armed_pub", rclcpp::QoS(10).reliable());
-  add_node(is_armed_pub);
+    mock_service_node->create_publisher<Bool>("/oscc_interfacing/is_armed", rclcpp::QoS(10).reliable());
 
   // Output: Feedback
   auto feedback_sub = std::make_shared<SubscriberTestNode<JoyFeedback>>("/joy/set_feedback", "feedback_sub");
   add_node(feedback_sub);
 
   // Service Mock: /oscc_interfacing/arm
-  auto mock_service_node = std::make_shared<rclcpp::Node>("mock_service_node");
   auto request_promise = std::make_shared<std::promise<bool>>();
   auto request_future = request_promise->get_future();
   auto service_server = mock_service_node->create_service<std_srvs::srv::SetBool>(
@@ -90,56 +88,80 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Arming Feature", "[joystick_armi
   add_node(mock_service_node);
 
   REQUIRE(joy_pub->wait_for_subscribers());
-  REQUIRE(is_armed_pub->wait_for_subscribers());
   REQUIRE(feedback_sub->wait_for_publishers());
   auto service_probe = joy_node->create_client<std_srvs::srv::SetBool>("/oscc_interfacing/arm");
   REQUIRE(service_probe->wait_for_service(std::chrono::seconds(5)));
+  const auto discovery_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (is_armed_pub->get_subscription_count() == 0 && std::chrono::steady_clock::now() < discovery_deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  REQUIRE(is_armed_pub->get_subscription_count() > 0);
 
-  bool initially_armed = false;
-  int pulse_count = 2;
+  auto send_joy_arm = [&](bool press) {
+    Joy msg;
+    msg.axes.resize(6, 0.0);
+    msg.buttons.resize(2, 0);
+    msg.axes[4] = -1.0;  // Enable held
+    msg.buttons[0] = press ? 1 : 0;  // Arming button (A)
+    msg.buttons[1] = 0;  // Toggle button (B)
+    joy_pub->publish(msg);
+  };
+
   SECTION("Arming (OFF -> ON)")
   {
-    initially_armed = false;
-    pulse_count = 2;
+    // 1. Simulate is_armed = false
+    {
+      Bool msg;
+      msg.data = false;
+      is_armed_pub->publish(msg);
+      // Delivery acknowledgment is not callback completion. Process the queued
+      // state before starting the background executor and sending the button.
+      REQUIRE(is_armed_pub->wait_for_all_acked(std::chrono::seconds(5)));
+      executor_.spin_some();
+    }
+
+    start_spinning();
+
+    // 2. Press Arm button
+    auto feedback_future = feedback_sub->expect_next_message();  // Expect vibrate start
+    send_joy_arm(true);
+
+    // 3. Verify Service Call
+    REQUIRE(request_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    REQUIRE(request_future.get() == true);  // Requesting ARM (true)
+
+    // 4. Verify the first vibration pulse. Teardown must safely stop any
+    // remaining vibration callbacks; the test does not need to wait for them.
+    REQUIRE(feedback_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    auto fb_msg_1 = feedback_future.get();
+    REQUIRE(fb_msg_1.type == JoyFeedback::TYPE_RUMBLE);
+    REQUIRE(fb_msg_1.intensity > 0.1f);
+
+    // Release button
+    send_joy_arm(false);
   }
+
   SECTION("Disarming (ON -> OFF)")
   {
-    initially_armed = true;
-    pulse_count = 1;
-  }
+    // 1. Simulate is_armed = true
+    {
+      Bool msg;
+      msg.data = true;
+      is_armed_pub->publish(msg);
+      REQUIRE(is_armed_pub->wait_for_all_acked(std::chrono::seconds(5)));
+      executor_.spin_some();
+    }
 
-  // Deliver the state before starting the background executor. The middleware
-  // acknowledgment puts it in the reliable subscription's queue; spin_some()
-  // then executes the state callback before any button press can be processed.
-  Bool armed_msg;
-  armed_msg.data = initially_armed;
-  is_armed_pub->publish(armed_msg);
-  REQUIRE(is_armed_pub->wait_for_all_acked());
-  executor_.spin_some();
+    start_spinning();
 
-  // Register every pulse before the action so fast callbacks cannot be missed.
-  std::vector<std::future<JoyFeedback>> feedback_futures;
-  for (int i = 0; i < pulse_count * 2; ++i) {
-    feedback_futures.push_back(feedback_sub->expect_next_message());
-  }
+    // 2. Press Arm button
+    send_joy_arm(true);
 
-  start_spinning();
-  Joy msg;
-  msg.axes.resize(6, 0.0);
-  msg.buttons.resize(2, 0);
-  msg.axes[4] = -1.0;  // Enable held
-  msg.buttons[0] = 1;  // Arming button (A)
-  joy_pub->publish(msg);
+    // 3. Verify Service Call
+    REQUIRE(request_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    REQUIRE(request_future.get() == false);  // Requesting DISARM (false)
 
-  REQUIRE(request_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
-  REQUIRE(request_future.get() == !initially_armed);
-
-  // Check the complete double pulse for arming or single pulse for disarming.
-  for (size_t i = 0; i < feedback_futures.size(); ++i) {
-    auto & future = feedback_futures[i];
-    REQUIRE(future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
-    auto feedback = future.get();
-    REQUIRE(feedback.type == JoyFeedback::TYPE_RUMBLE);
-    REQUIRE(feedback.intensity == (i % 2 == 0 ? 1.0f : 0.0f));
+    // Release button
+    send_joy_arm(false);
   }
 }

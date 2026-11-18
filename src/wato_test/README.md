@@ -53,9 +53,6 @@ the subscriber test node.
 
 Fixtures cancel and join executors before deactivating nodes and shutting ROS
 down. Callbacks must use bounded service and future waits so teardown can finish.
-`PublisherTestNode::wait_for_all_acked()` waits for reliable middleware delivery;
-it does not guarantee that the receiving callback has executed and requires RMW
-support for acknowledgment waits.
 
 ## Package.xml Usage
 

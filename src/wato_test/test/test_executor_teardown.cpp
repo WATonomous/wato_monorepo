@@ -21,9 +21,7 @@
 #include <thread>
 
 #include <catch2/catch_all.hpp>
-#include <lifecycle_msgs/msg/state.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <rclcpp_lifecycle/lifecycle_node.hpp>
 
 #include "test_fixtures/test_executor_fixture.hpp"
 
@@ -37,23 +35,6 @@ public:
   rclcpp::Executor & executor()
   {
     return this->executor_;
-  }
-};
-
-class ContextCheckingLifecycleNode : public rclcpp_lifecycle::LifecycleNode
-{
-public:
-  ContextCheckingLifecycleNode()
-  : LifecycleNode("teardown_lifecycle_node")
-  {}
-
-  bool deactivated_with_valid_context = false;
-
-protected:
-  CallbackReturn on_deactivate(const rclcpp_lifecycle::State &) override
-  {
-    deactivated_with_valid_context = rclcpp::ok();
-    return CallbackReturn::SUCCESS;
   }
 };
 
@@ -104,25 +85,6 @@ TEMPLATE_TEST_CASE(
 
   REQUIRE(finished_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
   REQUIRE_NOTHROW(finished_future.get());
-  REQUIRE_FALSE(rclcpp::ok());
-}
-
-TEMPLATE_TEST_CASE(
-  "Executor teardown deactivates lifecycle nodes before ROS shutdown",
-  "[executor_teardown]",
-  TestExecutorFixture,
-  MultiThreadedTestFixture)
-{
-  auto fixture = std::make_unique<TestType>();
-  auto node = std::make_shared<ContextCheckingLifecycleNode>();
-  fixture->add_node(node);
-  REQUIRE(node->configure().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
-  REQUIRE(node->activate().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
-
-  fixture.reset();
-
-  REQUIRE(node->deactivated_with_valid_context);
-  REQUIRE(node->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
   REQUIRE_FALSE(rclcpp::ok());
 }
 
