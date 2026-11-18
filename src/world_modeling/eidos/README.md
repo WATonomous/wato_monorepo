@@ -128,10 +128,11 @@ Each plugin is configured under its own YAML namespace. Full parameter documenta
 **Factor Plugins:**
 - [LisoFactor](docs/plugins/factors/liso_factor.md) -- LiDAR-Inertial Submap Odometry (GICP scan-to-submap matching)
 - [GpsFactor](docs/plugins/factors/gps_factor.md) -- Unary GPS position constraints
-- [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration with warmup gating
+- [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration (velocity and bias states) with warmup gating
 - [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure (SLAM only)
 - [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform
 - [OdometryFactor](docs/plugins/factors/odometry_factor.md) -- BetweenFactor from an external odometry topic (e.g. cuVSLAM visual odometry)
+- [MultiViewOdometryFactor](docs/plugins/factors/multiview_odometry_factor.md) -- Keyframes and odometry from camera images through a multi-view model service (no lidar), with a dense coloured cloud per keyframe
 
 **Relocalization Plugins:**
 - [GpsIcpRelocalization](docs/plugins/relocalization/gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map

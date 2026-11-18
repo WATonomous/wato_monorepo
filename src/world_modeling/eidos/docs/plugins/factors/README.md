@@ -91,6 +91,8 @@ Then store data per-keyframe via `map_manager_->store(key, "my_plugin/cloud", cl
 - [LisoFactor](liso_factor.md) -- LiDAR-Inertial Submap Odometry (GICP scan-to-submap matching)
 - [GpsFactor](gps_factor.md) -- Unary GPS position constraints
 - [EuclideanDistanceLoopClosureFactor](loop_closure_factor.md) -- KD-tree + GICP loop closure detection
-- [ImuFactor](imu_factor.md) -- IMU preintegration factor
+- [ImuFactor](imu_factor.md) -- IMU preintegration (CombinedImuFactor with velocity and bias states)
 - [MotionModelFactor](motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform predict service
 - [OdometryFactor](odometry_factor.md) -- BetweenFactor from an external odometry topic (e.g. visual odometry), deferred and gated
+- [VisualLoopClosureFactor](visual_loop_closure_factor.md) -- Loop closure from camera images through a multi-view model service; also records keyframe images for visual relocalization
+- [MultiViewOdometryFactor](multiview_odometry_factor.md) -- Keyframes and odometry from camera images through a multi-view model service (no lidar), with a dense coloured cloud per keyframe

@@ -116,6 +116,31 @@
 
       fitness_threshold: 0.3
 
+    # Visual relocalization (experimental; NOT in relocalization_plugins by default).
+    # Needs a prior map recorded with visual_loop_closure_factor (keyframe images and place
+    # descriptors) and perception's map_anything server.
+    # Enable by adding "visual_relocalization" to relocalization_plugins.
+    visual_relocalization:
+      plugin: "eidos::VisualRelocalization"
+      cameras: ["camera_pano_nw", "camera_pano_nn", "camera_pano_ne"]
+      image_topic: "/{camera}/image_rect_compressed"
+      frame_tolerance: 0.06
+      buffer_duration: 2.0
+      pose_service: "/perception/map_anything/estimate_relative_pose"
+      descriptor_service: "/perception/map_anything/compute_place_descriptors"
+      service_timeout: 10.0
+
+      keyframes_from: "visual_loop_closure_factor"   # plugin whose keyframes are in the prior map
+      top_k: 3                     # prior keyframes measured against per attempt
+      min_similarity: 0.5          # place recognition: cosine similarity needed
+      agree_trans: 1.5             # m; two candidates must put the vehicle this close together
+      agree_rot: 0.1               # rad
+      max_trans_spread: 1.0        # m; reject a measurement if the cameras disagree by more
+      max_rot_spread: 0.05         # rad
+      min_interval: 0.2            # s between the two image sets the velocity is taken from
+      max_speed: 40.0              # m/s plausibility bound on that velocity
+      max_age: 3.0                 # s an estimate may be carried forward before a new attempt
+
     # Keyframe Map Visualization
     keyframe_map_visualization:
       plugin: "eidos::KeyframeMapVisualization"

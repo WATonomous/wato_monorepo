@@ -115,6 +115,7 @@
 
       num_neighbors: 10
       loop_closure_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]
+      add_factors: true            # false = shadow mode: only publish .../measurement
 
       gicp_pointcloud_from: "liso_factor/gicp_cloud"
 
@@ -138,6 +139,102 @@
       robust_k: 1.345
       gate_trans: 1.0              # m; reject if VO and graph relative poses disagree by more (0 = off)
       gate_rot: 0.1                # rad
+
+    # Visual loop closure (experimental; NOT in factor_plugins by default).
+    # Relative poses between keyframes come from camera images through perception's map_anything
+    # server (ros2 launch map_anything map_anything.launch.yaml). It also stores every keyframe's
+    # images and place descriptors in the map, which visual_relocalization needs later; expect
+    # roughly 0.5 MB per camera per keyframe in memory and in the saved map.
+    # Enable by adding "visual_loop_closure_factor" to factor_plugins (after liso_factor).
+    visual_loop_closure_factor:
+      plugin: "eidos::VisualLoopClosureFactor"
+      cameras: ["camera_pano_nw", "camera_pano_nn", "camera_pano_ne"]
+      image_topic: "/{camera}/image_rect_compressed"
+      frame_tolerance: 0.06        # s; a keyframe is skipped if a camera has no image this close to it
+      buffer_duration: 2.0         # s of images kept per camera
+      pose_service: "/perception/map_anything/estimate_relative_pose"
+      descriptor_service: "/perception/map_anything/compute_place_descriptors"
+      service_timeout: 10.0
+
+      add_factors: true            # false = shadow mode: only publish visual_loop_closure_factor/measurement
+      shadow_odometry: false       # also measure every consecutive keyframe pair (published, never added)
+
+      candidate_mode: "both"       # distance | place_recognition | both
+      search_radius: 20.0          # m, distance candidates (as euclidean_distance_loop_closure_factor)
+      search_time_diff: 80.0       # s between the two keyframes, both candidate kinds
+      max_heading_diff_deg: 60.0   # distance candidates: the cameras must look the same way
+      min_similarity: 0.6          # place recognition: cosine similarity needed
+      max_queue: 30                # keyframes waiting for the pose service before the oldest is skipped
+
+      min_cameras: 2
+      max_trans_spread: 1.0        # m; reject if the cameras disagree by more
+      max_rot_spread: 0.05         # rad
+      gate_trans: 5.0              # m; reject if it disagrees with the graph by more (0 = off)
+      gate_rot: 0.3                # rad
+      gate_place_recognition: false   # place-recognition candidates skip the gate (they find large drift)
+
+      rot_sigma: 0.02              # rad
+      trans_sigma: 0.3             # m, + trans_sigma_per_m * measured distance
+      trans_sigma_per_m: 0.08
+      robust_kernel: "huber"       # none | huber | cauchy
+      robust_k: 1.345
+
+    # Camera keyframes and odometry (experimental; NOT in factor_plugins by default). Creates the
+    # states itself, without lidar: keyframes every keyframe_distance of GPS travel, the motion
+    # between them and a dense coloured cloud per keyframe from perception's map_anything server.
+    # For a camera + IMU + GPS graph:
+    #   factor_plugins: ["multiview_odometry_factor", "imu_factor", "gps_factor"]
+    #   keyframe_map_visualization.pointcloud_from: "multiview_odometry_factor/cloud"
+    multiview_odometry_factor:
+      plugin: "eidos::MultiViewOdometryFactor"
+      cameras: ["camera_pano_nn", "camera_pano_ne", "camera_pano_ee", "camera_pano_se",
+                "camera_pano_ss", "camera_pano_sw", "camera_pano_ww", "camera_pano_nw"]
+      image_topic: "/{camera}/image_rect_compressed"
+      buffer_duration: 4.0         # s of images; must cover one pose request (0.7 s, 3.5 s with points)
+      service_timeout: 20.0
+      gps_topic: "/novatel/oem7/fix"
+      keyframe_distance: 5.0       # m of GPS travel between keyframes
+      keyframe_max_interval: 1.0   # s, also while stopped
+      add_factors: true
+      create_without_measurement: true   # true only if another plugin (imu_factor) constrains every state
+      cloud:
+        enabled: true
+        voxel: 0.25
+        max_range: 30.0
+        every_n: 3
+      min_cameras: 4
+      max_trans_spread: 1.0
+      max_rot_spread: 0.05
+      rot_sigma: 0.008             # rad; MapAnything measured 0.3-0.4 deg per 5 m step
+      trans_sigma: 0.05
+      trans_sigma_per_m: 0.07      # MapAnything measured 5-7 % per step
+      robust_kernel: "huber"
+      robust_k: 1.345
+
+    # IMU preintegration (NOT in factor_plugins by default): velocity and bias states per keyframe,
+    # CombinedImuFactor between consecutive keyframes. Needs specific force including gravity.
+    imu_factor:
+      plugin: "eidos::ImuFactor"
+      imu_topic: "/novatel/oem7/imu/data_raw"
+      imu_frame: "imu_link"
+      axes_rotation_rpy: [0.0, 0.0, -90.0]     # data_raw is in the IMU's own axes (forward = +y), not imu_link's
+      add_factors: true
+      odom_topic: "imu_factor/odometry"
+      # Noise densities squared, measured at rest (engine running) with a 2-3x margin.
+      acc_cov: [9.0e-4, 9.0e-4, 9.0e-4]
+      gyr_cov: [4.0e-8, 4.0e-8, 4.0e-8]
+      integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]
+      acc_bias_cov: [1.0e-6, 1.0e-6, 1.0e-6]
+      gyr_bias_cov: [4.0e-10, 4.0e-10, 4.0e-10]
+      gravity: 9.80511
+      initialization:
+        warmup_samples: 200
+        stationary_gyr_threshold: 0.005
+      prior:
+        velocity_sigma_stationary: 0.05
+        velocity_sigma_moving: 10.0
+        acc_bias_sigma: 0.1
+        gyr_bias_sigma: 0.002
 
     # GPS + ICP Relocalization
     gps_icp_relocalization:

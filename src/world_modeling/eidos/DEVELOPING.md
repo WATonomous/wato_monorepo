@@ -414,6 +414,8 @@ future reader can deserialize without knowing about your plugin.
 | `raw_double3` | `gtsam::Point3` (Eigen::Vector3d) | 24 bytes | `raw_double3.hpp` |
 | `raw_double4_eigen` | `Eigen::Vector4d` | 32 bytes | `raw_double4_eigen.hpp` |
 | `raw_double5` | `std::array<double, 5>` | 40 bytes | `raw_double5.hpp` |
+| `raw_float_vector` | `std::vector<float>` | 4 * N bytes | `raw_float_vector.hpp` |
+| `visual_frame_set` | `eidos::VisualFrameSet` | compressed images + headers | `visual_frame_set.hpp` |
 
 ### Save / Load Flow
 

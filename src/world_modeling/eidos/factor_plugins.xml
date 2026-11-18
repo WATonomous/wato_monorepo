@@ -17,4 +17,10 @@
   <class name="eidos::OdometryFactor" type="eidos::OdometryFactor" base_class_type="eidos::FactorPlugin">
     <description>External odometry between-factor (e.g. visual odometry) between consecutive states</description>
   </class>
+  <class name="eidos::VisualLoopClosureFactor" type="eidos::VisualLoopClosureFactor" base_class_type="eidos::FactorPlugin">
+    <description>Loop closure from camera images (relative pose from a multi-view model service)</description>
+  </class>
+  <class name="eidos::MultiViewOdometryFactor" type="eidos::MultiViewOdometryFactor" base_class_type="eidos::FactorPlugin">
+    <description>Keyframes and odometry from camera images (relative pose from a multi-view model service), no lidar</description>
+  </class>
 </library>

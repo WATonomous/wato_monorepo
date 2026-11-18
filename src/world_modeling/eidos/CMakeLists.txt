@@ -87,7 +87,12 @@ add_library(eidos_plugins SHARED
   src/plugins/factors/imu_factor.cpp
   src/plugins/factors/motion_model_factor.cpp
   src/plugins/factors/odometry_factor.cpp
+  src/plugins/factors/visual_loop_closure_factor.cpp
+  src/plugins/factors/multiview_odometry_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
+  src/plugins/relocalization/visual_relocalization.cpp
+  src/plugins/visual/visual_keyframes.cpp
+  src/plugins/visual/lidar_depth.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp
 )
@@ -138,6 +143,20 @@ if(BUILD_TESTING)
   ament_add_gtest(test_odometry_buffer test/test_odometry_buffer.cpp)
   target_include_directories(test_odometry_buffer PRIVATE include ${GTSAM_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
   target_link_libraries(test_odometry_buffer gtsam)
+
+  ament_add_gtest(test_timed_history test/test_timed_history.cpp)
+  target_include_directories(test_timed_history PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_biased_relative_pose_factor test/test_biased_relative_pose_factor.cpp)
+  target_include_directories(test_biased_relative_pose_factor PRIVATE include ${GTSAM_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
+  target_link_libraries(test_biased_relative_pose_factor gtsam)
+
+  ament_add_gtest(test_lidar_deskew test/test_lidar_deskew.cpp)
+  target_include_directories(test_lidar_deskew PRIVATE include ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_visual_frames test/test_visual_frames.cpp)
+  target_include_directories(test_visual_frames PRIVATE include ${GTSAM_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR})
+  target_link_libraries(test_visual_frames gtsam)
 endif()
 
 install(FILES

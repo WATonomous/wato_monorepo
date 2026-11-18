@@ -47,13 +47,16 @@ internally -- no mutex contention.
 - [LisoFactor](docs/plugins/factors/liso_factor.md) -- LiDAR-Inertial Submap Odometry (GICP scan-to-submap matching)
 - [GpsFactor](docs/plugins/factors/gps_factor.md) -- Unary GPS position constraints
 - [EuclideanDistanceLoopClosureFactor](docs/plugins/factors/loop_closure_factor.md) -- KD-tree + GICP loop closure detection
-- [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration factor
+- [ImuFactor](docs/plugins/factors/imu_factor.md) -- IMU preintegration (CombinedImuFactor with velocity and bias states)
 - [MotionModelFactor](docs/plugins/factors/motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform predict service
 - [OdometryFactor](docs/plugins/factors/odometry_factor.md) -- BetweenFactor from an external odometry topic (e.g. visual odometry)
+- [VisualLoopClosureFactor](docs/plugins/factors/visual_loop_closure_factor.md) -- Loop closure from camera images through a multi-view model service
+- [MultiViewOdometryFactor](docs/plugins/factors/multiview_odometry_factor.md) -- Keyframes and odometry from camera images through a multi-view model service (no lidar), with a dense coloured cloud per keyframe
 
 ### [Relocalization Plugins](docs/plugins/relocalization/README.md)
 
 - [GpsIcpRelocalization](docs/plugins/relocalization/gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
+- [VisualRelocalization](docs/plugins/relocalization/visual_relocalization.md) -- Place recognition + multi-view model pose against a prior map with keyframe images
 
 ### [Visualization Plugins](docs/plugins/visualization/README.md)
 

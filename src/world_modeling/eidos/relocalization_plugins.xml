@@ -2,4 +2,7 @@
   <class name="eidos::GpsIcpRelocalization" type="eidos::GpsIcpRelocalization" base_class_type="eidos::RelocalizationPlugin">
     <description>GPS + ICP relocalization against prior map</description>
   </class>
+  <class name="eidos::VisualRelocalization" type="eidos::VisualRelocalization" base_class_type="eidos::RelocalizationPlugin">
+    <description>Relocalization from camera images against a prior map with visual keyframes</description>
+  </class>
 </library>

@@ -38,3 +38,4 @@ struct RelocalizationResult {
 ## Built-in Relocalization Plugins
 
 - [GpsIcpRelocalization](gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
+- [VisualRelocalization](visual_relocalization.md) -- Place recognition + multi-view model pose against a prior map with keyframe images, no GPS
