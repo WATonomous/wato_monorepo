@@ -25,6 +25,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -38,6 +39,9 @@ namespace eidos
 {
 
 constexpr double kGpsTimeWindow = 0.2;
+// Fixes are kept this long for latching: a state may be created well after its time (e.g. once a
+// camera measurement of it is back), and must still find the fix taken at that time.
+constexpr double kGpsQueueSec = 30.0;
 constexpr double kElevationLockedNoise = 1e6;
 constexpr double kQuatLength2Min = 0.01;
 
@@ -179,20 +183,30 @@ StampedFactorResult GpsFactor::latchFactor(gtsam::Key key, double timestamp)
   if (!offset_initialized_) {
     if (!has_imu_orientation_.load(std::memory_order_relaxed)) return result;
 
-    utm_zone_ = utm.zone;
-    utm_is_north_ = utm.is_north;
+    // The map's heading in ENU is the vehicle's ENU heading minus its heading in the map, both at
+    // the same moment: the vehicle may have turned since tracking began (map yaw 0). That moment is
+    // the newest keyframe, whose optimized pose is known; the INS heading and GPS position are read
+    // from their histories at its time. Until both cover it, initialization waits.
+    const auto keyframes = map_manager_->getKeyPoses6D();
+    if (keyframes->empty()) return result;
+    const auto & keyframe = keyframes->points.back();
+    const auto utm_at_keyframe = interpolatePoint(utm_history_, keyframe.time);
+    std::optional<double> ins_yaw;
     {
       std::lock_guard<std::mutex> imu_lock(imu_orientation_lock_);
-      initial_yaw_ = latest_imu_yaw_;
+      ins_yaw = interpolateAngle(imu_yaw_history_, keyframe.time);
     }
+    if (!utm_at_keyframe || !ins_yaw) return result;
+
+    utm_zone_ = utm.zone;
+    utm_is_north_ = utm.is_north;
+    initial_yaw_ = *ins_yaw - static_cast<double>(keyframe.yaw);
     double cy = std::cos(-initial_yaw_);
     double sy = std::sin(-initial_yaw_);
     R_map_enu_ << cy, -sy, 0, sy, cy, 0, 0, 0, 1;
 
-    Eigen::Vector3d utm_rotated = utmToMap(utm_pos);
-    auto current_pose = estimator_pose_->load().value_or(gtsam::Pose3::Identity());
-    Eigen::Vector3d map_pos(
-      current_pose.translation().x(), current_pose.translation().y(), current_pose.translation().z());
+    Eigen::Vector3d utm_rotated = utmToMap(*utm_at_keyframe);
+    Eigen::Vector3d map_pos(keyframe.x, keyframe.y, keyframe.z);
     utm_to_map_offset_ = gtsam::Point3(
       utm_rotated.x() - map_pos.x(),
       utm_rotated.y() - map_pos.y(),
@@ -307,6 +321,7 @@ void GpsFactor::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 
   std::lock_guard<std::mutex> lock(imu_orientation_lock_);
   latest_imu_yaw_ = yaw;
+  imu_yaw_history_.push(rclcpp::Time(msg->header.stamp).seconds(), yaw);
   has_imu_orientation_.store(true, std::memory_order_relaxed);
 }
 
@@ -318,8 +333,22 @@ Eigen::Vector3d GpsFactor::utmToMap(const Eigen::Vector3d & utm_pos) const
 void GpsFactor::gpsCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg)
 {
   std::lock_guard<std::mutex> lock(gps_lock_);
+  const double newest = rclcpp::Time(msg->header.stamp).seconds();
+  if (!gps_queue_.empty() && newest < rclcpp::Time(gps_queue_.back().header.stamp).seconds() - 1.0) {
+    gps_queue_.clear();  // the clock went back (bag replayed)
+  }
   gps_queue_.push_back(*msg);
-  while (gps_queue_.size() > 100) gps_queue_.pop_front();
+  while (gps_queue_.size() > 1 && newest - rclcpp::Time(gps_queue_.front().header.stamp).seconds() > kGpsQueueSec) {
+    gps_queue_.pop_front();
+  }
+  if (
+    msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX && msg->position_covariance[0] <= max_cov_ &&
+    msg->position_covariance[4] <= max_cov_)
+  {
+    const UtmCoordinate fix_utm = latLonToUtm(msg->latitude, msg->longitude, msg->altitude);
+    utm_history_.push(
+      rclcpp::Time(msg->header.stamp).seconds(), Eigen::Vector3d(fix_utm.easting, fix_utm.northing, fix_utm.altitude));
+  }
 
   if (active_) {
     UtmCoordinate utm = latLonToUtm(msg->latitude, msg->longitude, msg->altitude);

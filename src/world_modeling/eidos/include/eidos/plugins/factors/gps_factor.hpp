@@ -32,6 +32,7 @@
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 
 #include "eidos/plugins/base_factor_plugin.hpp"
+#include "eidos/utils/timed_history.hpp"
 #include "eidos/utils/types.hpp"
 #include "eidos/utils/utm.hpp"
 
@@ -107,6 +108,8 @@ private:
 
   // GPS queue
   std::deque<sensor_msgs::msg::NavSatFix> gps_queue_;
+  /// UTM positions of usable fixes by stamp, for the same purpose. Guarded by gps_lock_.
+  TimedHistory<Eigen::Vector3d> utm_history_{10.0};
   mutable std::mutex gps_lock_;
 
   // Distance gating
@@ -117,6 +120,8 @@ private:
   // IMU heading
   std::mutex imu_orientation_lock_;
   double latest_imu_yaw_ = 0.0;
+  /// INS heading by stamp, to read it at a keyframe's time when initializing the UTM-to-map offset.
+  TimedHistory<double> imu_yaw_history_{10.0};
   std::atomic<bool> has_imu_orientation_{false};
   double initial_yaw_ = 0.0;
   Eigen::Matrix3d R_map_enu_ = Eigen::Matrix3d::Identity();
