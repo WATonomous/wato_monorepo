@@ -29,10 +29,17 @@
          the lidar reveals the lidar's physical tilt. Absorbing those angles
          into this joint levels the lidar frame, then zero out the roll/pitch
          in imu_rpy (in eve_kia_soul_ev.xacro) so the net transform is unchanged. -->
+    <!-- Measured against the direction of travel (scan-to-scan ICP, bags/extrinsic_check):
+         - yaw 7.2 deg (0.125664), on the May 30, Jul 7 and Oct 4 2026 drives. The lidar turned about
+           1.4 deg between Mar 29 and Apr 1 2026; the hand-set 6.0 deg predates that.
+         - pitch 0.54 deg (0.00939), Jul 7 2026; the camera rotations fitted against this lidar then
+           need no common tilt. The 2.42 deg it replaces came from a lidar-IMU calibration that assumed
+           a level IMU.
+         Roll is unchanged (-0.35 deg); a road-plane fit reads +0.3 deg but road camber biases it. -->
     <joint name="lidar_cc_mount_yaw" type="fixed">
       <parent link="${parent}"/>
       <child link="lidar_cc"/>
-      <origin xyz="0 0 0.35" rpy="-0.006167 0.042198 0.10472"/>
+      <origin xyz="0 0 0.35" rpy="-0.006167 0.00939 0.125664"/>
     </joint>
 
     <!-- Alias frame to match bag/driver frame_id (lidar_top) -->

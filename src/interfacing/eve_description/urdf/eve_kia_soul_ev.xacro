@@ -26,10 +26,14 @@
   <xacro:include filename="eve_roof_mount.xacro"/>
 
   <!-- Base link is the roof frame; attach roof sensors directly to base_link -->
+  <!-- imu_xyz/imu_rpy are relative to lidar_cc, re-derived for the lidar's measured yaw and pitch so
+       that base_link -> imu_link keeps its position, roll (-0.55 deg) and yaw (+1.23 deg) and is level
+       in pitch (it was 2.38 deg, inherited from the lidar's). Before: xyz -0.973762 -0.033626
+       -1.316802, rpy 0 0 -0.083116 relative to the 6.0 / 2.42 deg lidar. -->
   <xacro:roof_mount
     parent="base_link"
-    imu_xyz="-0.973762 -0.033626 -1.316802"
-    imu_rpy="0 0 -0.083116"/>
+    imu_xyz="-1.017073 -0.012281 -1.284026"
+    imu_rpy="-0.002541 -0.008698 -0.104190"/>
 
   <!-- Nominal lower camera extrinsics (placeholder values; update once measured) -->
   <xacro:lower_cameras parent="base_link"/>
