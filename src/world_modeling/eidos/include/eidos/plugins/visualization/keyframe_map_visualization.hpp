@@ -19,6 +19,7 @@
 
 #include <set>
 #include <string>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
@@ -61,6 +62,18 @@ protected:
   void render(const gtsam::Values & optimized_values) override;
 
 private:
+  /**
+   * @brief Keyframe clouds of point type PointT moved into the map frame, voxel-filtered, as msg.
+   * @return false if there are no points.
+   */
+  template <typename PointT>
+  bool assemble(
+    const std::vector<gtsam::Key> & keys, const pcl::PointCloud<PoseType> & poses, sensor_msgs::msg::PointCloud2 & msg);
+
+  /// @brief Keep one point per voxel of edge leaf (no-op if leaf <= 0).
+  template <typename PointT>
+  static void voxelFilter(pcl::PointCloud<PointT> & cloud, float leaf);
+
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_;
 
   std::string pointcloud_from_;
@@ -72,7 +85,6 @@ private:
   double window_radius_;
   rclcpp::Time last_publish_time_{0, 0, RCL_ROS_TIME};
 
-  pcl::PointCloud<PointType>::Ptr accumulated_cloud_;
   std::set<gtsam::Key> seen_keys_;  ///< All keys we've evaluated (skip logic)
   std::set<gtsam::Key> accepted_keys_;  ///< Keys whose clouds we actually render
   int skip_counter_ = 0;

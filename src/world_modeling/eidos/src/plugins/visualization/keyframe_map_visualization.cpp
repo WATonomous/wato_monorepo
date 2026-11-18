@@ -16,7 +16,11 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
+#include <cmath>
+#include <cstdint>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 #include <pluginlib/class_list_macros.hpp>
 
@@ -49,7 +53,6 @@ void KeyframeMapVisualization::onInitialize()
   node_->get_parameter("frames.map", map_frame_);
 
   pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>(topic, 1);
-  accumulated_cloud_ = pcl::make_shared<pcl::PointCloud<PointType>>();
 
   RCLCPP_INFO(node_->get_logger(), "[%s] initialized (mode=%s)", name_.c_str(), mode_.c_str());
 }
@@ -76,8 +79,7 @@ void KeyframeMapVisualization::render(const gtsam::Values & optimized_values)
   auto poses_6d = map_manager_->getKeyPoses6D();
   if (key_list.empty()) return;
 
-  pcl::PointCloud<PointType> output;
-
+  std::vector<gtsam::Key> keys;
   if (mode_ == "accumulate") {
     // Track which keys to include (skip logic), but rebuild output
     // from body-frame clouds + current poses every render so that
@@ -85,6 +87,9 @@ void KeyframeMapVisualization::render(const gtsam::Values & optimized_values)
     for (size_t i = 0; i < key_list.size(); i++) {
       gtsam::Key k = key_list[i];
       if (seen_keys_.count(k)) continue;
+
+      // A keyframe's cloud may be stored after the keyframe itself: decide on it once it is there.
+      if (!map_manager_->hasKeyframeData(k, pointcloud_from_)) continue;
       seen_keys_.insert(k);
 
       if (!accepted_keys_.empty()) {
@@ -92,24 +97,9 @@ void KeyframeMapVisualization::render(const gtsam::Values & optimized_values)
         if (skip_counter_ < skip_factor_) continue;  // skip this key
         skip_counter_ = 0;
       }
-
-      // Check cloud exists before accepting
-      if (!map_manager_->hasKeyframeData(k, pointcloud_from_)) continue;
       accepted_keys_.insert(k);
     }
-
-    for (gtsam::Key k : accepted_keys_) {
-      auto cloud = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(k, pointcloud_from_);
-      if (!cloud || (*cloud)->empty()) continue;
-
-      int idx = map_manager_->getCloudIndex(k);
-      if (idx < 0 || idx >= static_cast<int>(poses_6d->size())) continue;
-
-      Eigen::Affine3f world_T = poseTypeToAffine3f(poses_6d->points[idx]);
-      pcl::PointCloud<PointType> transformed;
-      pcl::transformPointCloud(**cloud, transformed, world_T);
-      output += transformed;
-    }
+    keys.assign(accepted_keys_.begin(), accepted_keys_.end());
   } else {
     // Window center: latest keyframe pose from optimized values
     gtsam::Key latest_key = key_list.back();
@@ -126,24 +116,66 @@ void KeyframeMapVisualization::render(const gtsam::Values & optimized_values)
 
       Eigen::Vector3f pos(poses_6d->points[idx].x, poses_6d->points[idx].y, poses_6d->points[idx].z);
       if ((pos - current_pos).norm() > window_radius_) continue;
-
-      auto cloud = map_manager_->retrieve<pcl::PointCloud<PointType>::Ptr>(key_list[i], pointcloud_from_);
-      if (!cloud || (*cloud)->empty()) continue;
-
-      Eigen::Affine3f world_T = poseTypeToAffine3f(poses_6d->points[idx]);
-      pcl::PointCloud<PointType> transformed;
-      pcl::transformPointCloud(**cloud, transformed, world_T);
-      output += transformed;
+      keys.push_back(key_list[i]);
     }
   }
+  if (keys.empty()) return;
 
-  if (output.empty()) return;
-
+  // Lidar keyframes store intensity clouds, camera keyframes coloured ones.
   sensor_msgs::msg::PointCloud2 msg;
-  pcl::toROSMsg(output, msg);
+  bool built = map_manager_->retrieve<pcl::PointCloud<pcl::PointXYZRGB>::Ptr>(keys.front(), pointcloud_from_)
+                 ? assemble<pcl::PointXYZRGB>(keys, *poses_6d, msg)
+                 : assemble<PointType>(keys, *poses_6d, msg);
+  if (!built) return;
   msg.header.stamp = now;
   msg.header.frame_id = map_frame_;
   pub_->publish(msg);
+}
+
+template <typename PointT>
+bool KeyframeMapVisualization::assemble(
+  const std::vector<gtsam::Key> & keys, const pcl::PointCloud<PoseType> & poses, sensor_msgs::msg::PointCloud2 & msg)
+{
+  pcl::PointCloud<PointT> output;
+  for (gtsam::Key k : keys) {
+    auto cloud = map_manager_->retrieve<typename pcl::PointCloud<PointT>::Ptr>(k, pointcloud_from_);
+    if (!cloud || !*cloud || (*cloud)->empty()) continue;
+
+    int idx = map_manager_->getCloudIndex(k);
+    if (idx < 0 || idx >= static_cast<int>(poses.size())) continue;
+
+    Eigen::Affine3f world_T = poseTypeToAffine3f(poses.points[idx]);
+    pcl::PointCloud<PointT> transformed;
+    pcl::transformPointCloud(**cloud, transformed, world_T);
+    output += transformed;
+  }
+  voxelFilter(output, voxel_leaf_size_);
+  if (output.empty()) return false;
+  pcl::toROSMsg(output, msg);
+  return true;
+}
+
+template <typename PointT>
+void KeyframeMapVisualization::voxelFilter(pcl::PointCloud<PointT> & cloud, float leaf)
+{
+  // One point per voxel, the first one (older keyframes come first). Hashing the voxel index keeps
+  // this linear and, unlike pcl::VoxelGrid, works for maps kilometres across at a fine leaf.
+  if (leaf <= 0.0f || cloud.empty()) return;
+  constexpr int64_t kMask = (int64_t{1} << 21) - 1;  // 21 bits per axis: +-1M voxels
+  const float inv = 1.0f / leaf;
+  std::unordered_set<uint64_t> occupied;
+  occupied.reserve(cloud.size());
+  pcl::PointCloud<PointT> out;
+  out.reserve(cloud.size());
+  for (const auto & p : cloud) {
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) continue;
+    const auto ix = static_cast<int64_t>(std::floor(p.x * inv)) & kMask;
+    const auto iy = static_cast<int64_t>(std::floor(p.y * inv)) & kMask;
+    const auto iz = static_cast<int64_t>(std::floor(p.z * inv)) & kMask;
+    const uint64_t voxel = (static_cast<uint64_t>(ix) << 42) | (static_cast<uint64_t>(iy) << 21) | static_cast<uint64_t>(iz);
+    if (occupied.insert(voxel).second) out.push_back(p);
+  }
+  cloud.swap(out);
 }
 
 }  // namespace eidos

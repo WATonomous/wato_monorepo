@@ -10,8 +10,8 @@ Publishes a composite point cloud map by transforming stored keyframe body-frame
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `topic` | string | `"slam/visualization/map"` | Published PointCloud2 topic. |
-| `pointcloud_from` | string | `"liso_factor"` | MapManager data key prefix for retrieving keyframe point clouds. |
-| `voxel_leaf_size` | double | `0.4` | Voxel downsample leaf size (meters). |
+| `pointcloud_from` | string | `"liso_factor"` | MapManager data key of the keyframe point clouds, e.g. `liso_factor/cloud` (intensity) or `multiview_odometry_factor/cloud` (colour). |
+| `voxel_leaf_size` | double | `0.4` | The published map keeps one point per voxel of this size (meters); `0` keeps every point. |
 | `publish_rate` | double | `1.0` | Publish rate (Hz). |
 | `mode` | string | `"accumulate"` | Visualization mode: `"accumulate"` or `"windowed"`. |
 | `accumulate.skip_factor` | int | `5` | In accumulate mode, include every Nth keyframe to reduce density. |
@@ -19,6 +19,8 @@ Publishes a composite point cloud map by transforming stored keyframe body-frame
 
 ## Notes
 
+- Keyframe clouds may be `pcl::PointXYZI` (lidar) or `pcl::PointXYZRGB` (cameras); the type of the first keyframe's cloud decides the published fields.
+- A keyframe whose cloud is stored after the keyframe itself is picked up once the cloud is there.
 - In accumulate mode, the full map is rebuilt from body-frame clouds plus current poses on every render, so graph corrections (GPS, loop closure) are immediately reflected.
 - In windowed mode, the latest keyframe must exist in the optimized values.
 
