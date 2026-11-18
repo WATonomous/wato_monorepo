@@ -14,14 +14,16 @@
 
 #pragma once
 
-#include <gtsam/navigation/ImuFactor.h>
-#include <gtsam/navigation/PreintegratedRotation.h>
+#include <gtsam/navigation/CombinedImuFactor.h>
+#include <gtsam/navigation/ImuBias.h>
+#include <gtsam/navigation/NavState.h>
 
+#include <atomic>
 #include <deque>
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -38,14 +40,21 @@ namespace eidos
 /**
  * @brief IMU preintegration factor plugin.
  *
- * Subscribes to IMU, performs GTSAM preintegration, and produces ImuFactor +
- * BetweenFactor<imuBias::ConstantBias> constraints between consecutive states.
+ * Latches onto the states other plugins create. Every state i gets a velocity V(i) and an IMU bias
+ * B(i) of its own (gtsam::Symbol('v', i), gtsam::Symbol('b', i)), and consecutive states are joined
+ * by a gtsam::CombinedImuFactor: the IMU measurements between them, preintegrated, constrain the
+ * relative pose, the velocities and the bias random walk. The first state gets priors on its
+ * velocity (tight if the IMU shows the vehicle stationary) and bias (from the stationary warmup).
  *
- * Can create its own states (produceFactor) or latch onto states created by
- * other plugins (latchFactor).
+ * It also offers the IMU's prediction of each new state's pose as its initial value, which eidos
+ * uses when the state's creator gives none.
  *
- * Also writes an odom-frame pose via setOdomPose() for eidos_transform
- * measurement correction — this is how IMU data reaches the TF chain.
+ * Measurements are integrated in the IMU frame with body_P_sensor set to the base_link <- IMU
+ * extrinsic from TF, so the accelerometer must report specific force including gravity (e.g.
+ * /novatel/oem7/imu/data_raw, not a gravity-compensated topic).
+ *
+ * With add_factors false it adds nothing to the graph and only publishes odometry integrated from
+ * the warmup orientation, for eidos_transform.
  */
 class ImuFactor : public FactorPlugin
 {
@@ -63,15 +72,14 @@ public:
   void deactivate() override;
 
   /**
-   * @brief Attach preintegrated IMU factors to an existing state.
+   * @brief Attach the preintegrated IMU factor between the previous state and this one.
    *
-   * Integrates buffered IMU measurements between the previous key's timestamp
-   * and the new state's timestamp, then produces an ImuFactor and a bias
-   * BetweenFactor connecting the two states.
+   * The first state gets its velocity and bias priors instead. Both cases also return initial
+   * values for the new velocity and bias, and the IMU's prediction of the new state's pose.
    *
    * @param key GTSAM key of the newly created state.
    * @param timestamp Timestamp of the new state (seconds).
-   * @return StampedFactorResult with IMU + bias factors, or empty if insufficient data.
+   * @return StampedFactorResult with the factors and initial values, or empty if add_factors is false.
    */
   StampedFactorResult latchFactor(gtsam::Key key, double timestamp) override;
 
@@ -81,66 +89,89 @@ public:
    */
   bool isReady() const override
   {
-    return warmup_complete_;
+    return warmup_complete_.load(std::memory_order_acquire);
   }
 
+  /// @brief Remember the pose tracking starts from (its heading and position seed the first state).
+  void onTrackingBegin(const gtsam::Pose3 & pose) override;
+
   /**
-   * @brief Update IMU bias estimate and reference state after ISAM2 optimization.
+   * @brief Take the optimized pose, velocity and bias of the newest state as the integration start.
    * @param optimized_values Full optimized GTSAM values after ISAM2 update.
    * @param graph_corrected Whether a significant correction (loop closure or GPS) occurred.
    */
   void onOptimizationComplete(const gtsam::Values & optimized_values, bool graph_corrected) override;
 
+  /// @brief Velocity key of state key (same index, character 'v').
+  static gtsam::Key velocityKey(gtsam::Key state);
+
+  /// @brief Bias key of state key (same index, character 'b').
+  static gtsam::Key biasKey(gtsam::Key state);
+
 private:
-  /**
-   * @brief Process incoming IMU message: warmup detection, preintegration, and odom output.
-   * @param msg Incoming IMU message.
-   */
+  struct Sample
+  {
+    double t;
+    Eigen::Vector3d acc;  ///< specific force, IMU frame (m/s^2)
+    Eigen::Vector3d gyr;  ///< angular rate, IMU frame (rad/s)
+  };
+
+  using Params = gtsam::PreintegrationCombinedParams;
+  using ParamsPtr = decltype(Params::MakeSharedU());
+
+  /// @brief Buffer a sample, run the warmup, and integrate live odometry.
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
 
-  /**
-   * @brief Convert an IMU message from the IMU frame to the base_link frame.
-   * @param imu_msg The IMU message in the sensor frame.
-   * @return The same message with accelerations and angular velocities rotated to base_link.
-   */
-  sensor_msgs::msg::Imu convertToBaseFrame(const sensor_msgs::msg::Imu & imu_msg);
+  /// @brief Gravity-aligned orientation, gyro bias and stationarity from the warmup samples.
+  void finishWarmup();
+
+  /// @brief Whether the IMU saw no rotation in the window before t (gyro below the threshold).
+  bool stationaryBefore(double t, double window) const;
+
+  /// @brief Integrate the buffered samples in (from, to] into pim; drops samples up to `to` if drain.
+  void integrate(gtsam::PreintegratedCombinedMeasurements & pim, double from, double to, bool drain);
+
+  /// @brief Re-integrate the live odometry from the newest graph state over the buffered samples.
+  void resetOdometry();
+
+  /// @brief Publish the live odometry (pose, body velocity, angular rate in base_link).
+  void publishOdometry(const gtsam::NavState & state, const Eigen::Vector3d & gyr_imu, double t);
 
   // ---- Subscriptions + publishers ----
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 
   // ---- Preintegration ----
-  boost::shared_ptr<gtsam::PreintegrationParams> preint_params_;
-  std::unique_ptr<gtsam::PreintegratedImuMeasurements> integrator_;  ///< For latchFactor (graph)
-  std::unique_ptr<gtsam::PreintegratedImuMeasurements> odom_integrator_;  ///< For live odom output
-  gtsam::NavState reference_state_;
-  gtsam::imuBias::ConstantBias reference_bias_;
-  gtsam::imuBias::ConstantBias current_bias_;
+  ParamsPtr params_;
+  gtsam::imuBias::ConstantBias initial_bias_;  ///< from the warmup: gyro mean at rest, zero accel
 
-  // ---- Tracking ----
+  // ---- Graph state (SLAM thread) ----
+  bool has_last_key_ = false;
   gtsam::Key last_key_{0};
   double last_key_time_ = 0.0;
-  bool has_last_key_ = false;
+  gtsam::NavState last_state_;  ///< newest state: optimized, or predicted until it is
+  gtsam::imuBias::ConstantBias last_bias_;
+  gtsam::Pose3 tracking_start_;
 
-  // ---- IMU buffer for latching ----
-  std::deque<sensor_msgs::msg::Imu> imu_buffer_;
-  std::mutex imu_mtx_;
-  double last_imu_time_ = 0.0;
+  // ---- IMU samples and live odometry (guarded by imu_mtx_) ----
+  mutable std::mutex imu_mtx_;
+  std::deque<Sample> buffer_;
+  std::unique_ptr<gtsam::PreintegratedCombinedMeasurements> odom_pim_;
+  gtsam::NavState odom_start_;
+  gtsam::imuBias::ConstantBias odom_bias_;
+  double odom_last_time_ = 0.0;
+  bool odom_ready_ = false;
 
   // ---- Extrinsics ----
-  Eigen::Matrix3d R_base_imu_ = Eigen::Matrix3d::Identity();
-  Eigen::Vector3d t_base_imu_ = Eigen::Vector3d::Zero();
+  gtsam::Rot3 imu_R_msg_;  ///< from the message's axes to imu_frame (axes_rotation_rpy)
+  gtsam::Pose3 base_T_imu_;
   bool has_imu_tf_ = false;
 
   // ---- Warmup ----
-  bool warmup_complete_ = false;
-  int warmup_count_ = 0;
-  int warmup_samples_ = 200;
-  double stationary_gyr_threshold_ = 0.005;
-  Eigen::Vector4d warmup_quat_sum_{0, 0, 0, 0};
-  bool warmup_quat_hemisphere_set_ = false;
-  Eigen::Quaterniond warmup_quat_reference_;
-  gtsam::Rot3 initial_gravity_orientation_;
+  std::atomic<bool> warmup_complete_{false};
+  std::vector<Sample> warmup_;
+  std::vector<Eigen::Quaterniond> warmup_orientations_;
+  gtsam::Rot3 gravity_rotation_;  ///< roll and pitch of base_link at rest, yaw 0
 
   // ---- Parameters ----
   std::string imu_topic_;
@@ -150,12 +181,21 @@ private:
   std::vector<double> acc_cov_;
   std::vector<double> gyr_cov_;
   std::vector<double> integration_cov_;
+  std::vector<double> acc_bias_cov_;
+  std::vector<double> gyr_bias_cov_;
+  std::vector<double> axes_rotation_rpy_;
   double gravity_ = 9.80511;
-  double default_imu_dt_ = 0.002;
-  bool active_ = false;
-  bool add_factors_ = true;
+  int warmup_samples_ = 200;
+  double stationary_gyr_threshold_ = 0.005;
+  double velocity_sigma_stationary_ = 0.05;
+  double velocity_sigma_moving_ = 10.0;
+  double acc_bias_sigma_ = 0.1;
+  double gyr_bias_sigma_ = 0.002;
+  std::atomic<bool> active_{false};
+  std::atomic<bool> add_factors_{true};
 
   static constexpr size_t kMaxImuBuffer = 5000;
+  static constexpr double kMaxImuDt = 0.1;
 };
 
 }  // namespace eidos

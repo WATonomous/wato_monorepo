@@ -57,7 +57,6 @@
       acc_cov: [6.9e-7, 6.9e-7, 6.9e-7]        # Accelerometer noise covariance
       gyr_cov: [8.5e-10, 8.5e-10, 8.5e-10]     # Gyroscope noise covariance
       integration_cov: [1.0e-8, 1.0e-8, 1.0e-8]  # Integration uncertainty covariance
-      default_imu_dt: 0.002                     # Default dt for first IMU message (s)
 
     # GPS Factor (loads utm_to_map offset from prior map, no factors injected)
     gps_factor:
