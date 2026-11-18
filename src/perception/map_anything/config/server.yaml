@@ -1,0 +1,46 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# MapAnything service node (pose between two camera frame sets, place descriptors) for eidos.
+/**:
+  ros__parameters:
+    # facebook/map-anything-apache (Apache 2.0) or facebook/map-anything (CC-BY-NC 4.0, about half
+    # the translation error in our tests). Downloaded on first use into cache_dir.
+    checkpoint: "facebook/map-anything-apache"
+    device: "cuda"
+    cache_dir: "/opt/watonomous/models/map_anything"
+
+    # Calibration is looked up by each image's frame_id: CameraInfo.P on this topic, extrinsics
+    # from TF (rig frame <- camera frame).
+    camera_info_topic: "/{camera}/camera_info"
+    # Cameras to subscribe to at start-up; others are subscribed to on first use (their first
+    # request then fails with "no CameraInfo yet").
+    cameras: ["camera_pano_nn", "camera_pano_ne", "camera_pano_ee", "camera_pano_se",
+              "camera_pano_ss", "camera_pano_sw", "camera_pano_ww", "camera_pano_nw"]
+    # Self-calibrated camera rotations from visual_odometry (calibrate_pairs), relative to that
+    # package's config directory. "" = TF only.
+    extrinsics_file: ""
+    extrinsics_rig_frame: "base_link"   # frame extrinsics_file is expressed in
+
+    # Rows at the bottom of every image that show the car's own roof rack. Images are always
+    # cropped so that the principal point is centred (MapAnything's poses assume it is).
+    crop_bottom: 110
+
+    # per_camera: average each camera's own motion (cameras must be the same at both instants;
+    #             needs the vehicle to face roughly the same way at both).
+    # joint:      average the rig pose of each instant over its cameras, then difference
+    #             (needs cameras that overlap, or a surround rig, at each instant).
+    fit: "per_camera"
+
+    place_recognition: true           # also serve MegaLoc descriptors
