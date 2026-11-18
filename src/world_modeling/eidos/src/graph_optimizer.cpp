@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 
+#include "eidos/utils/types.hpp"
+
 namespace eidos
 {
 
@@ -67,7 +69,7 @@ void GraphOptimizer::reset()
 
 gtsam::Key GraphOptimizer::createState(double timestamp, const std::string & owner)
 {
-  gtsam::Key key = gtsam::Symbol('x', next_state_index_++);
+  gtsam::Key key = stateKey(next_state_index_++);
   last_state_key_ = key;
   last_state_timestamp_ = timestamp;
   last_state_owner_ = owner;

@@ -80,6 +80,7 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
   declare_parameter("topics.status", std::string("slam/status"));
   declare_parameter("topics.odom", std::string("slam/odometry"));
   declare_parameter("topics.pose", std::string("slam/pose"));
+  declare_parameter("topics.initial_pose", std::string("slam/initial_pose"));
   declare_parameter("topics.save_map_service", std::string("slam/save_map"));
   declare_parameter("topics.load_map_service", std::string("slam/load_map"));
 
@@ -126,14 +127,17 @@ EidosNode::CallbackReturn EidosNode::on_configure(const rclcpp_lifecycle::State 
     });
 
   // Publishers
-  std::string status_topic, odom_topic, pose_topic;
+  std::string status_topic, odom_topic, pose_topic, initial_pose_topic;
   get_parameter("topics.status", status_topic);
   get_parameter("topics.odom", odom_topic);
   get_parameter("topics.pose", pose_topic);
+  get_parameter("topics.initial_pose", initial_pose_topic);
 
   status_pub_ = create_publisher<eidos_msgs::msg::SlamStatus>(status_topic, 10);
   odom_pub_ = create_publisher<nav_msgs::msg::Odometry>(odom_topic, 10);
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(pose_topic, 10);
+  initial_pose_pub_ =
+    create_publisher<geometry_msgs::msg::PoseStamped>(initial_pose_topic, rclcpp::QoS(1).transient_local());
 
   // Services
   std::string save_svc, load_svc;
@@ -166,6 +170,7 @@ EidosNode::CallbackReturn EidosNode::on_activate(const rclcpp_lifecycle::State &
   // Activate publishers
   status_pub_->on_activate();
   pose_pub_->on_activate();
+  initial_pose_pub_->on_activate();
   odom_pub_->on_activate();
 
   // Activate all plugins
@@ -190,6 +195,7 @@ EidosNode::CallbackReturn EidosNode::on_deactivate(const rclcpp_lifecycle::State
 
   status_pub_->on_deactivate();
   pose_pub_->on_deactivate();
+  initial_pose_pub_->on_deactivate();
   odom_pub_->on_deactivate();
 
   RCLCPP_INFO(get_logger(), "\033[36m[DEACTIVATED]\033[0m");
@@ -246,6 +252,19 @@ void EidosNode::beginTracking(const gtsam::Pose3 & initial_pose)
     initial_pose.rotation().pitch() * 180.0 / M_PI,
     initial_pose.rotation().yaw() * 180.0 / M_PI);
 
+  geometry_msgs::msg::PoseStamped initial;
+  initial.header.stamp = now();
+  initial.header.frame_id = map_frame_;
+  const auto q = initial_pose.rotation().toQuaternion();
+  initial.pose.position.x = initial_pose.x();
+  initial.pose.position.y = initial_pose.y();
+  initial.pose.position.z = initial_pose.z();
+  initial.pose.orientation.w = q.w();
+  initial.pose.orientation.x = q.x();
+  initial.pose.orientation.y = q.y();
+  initial.pose.orientation.z = q.z();
+  initial_pose_pub_->publish(initial);
+
   graph_optimizer_.reset();
   state_.store(SlamState::TRACKING, std::memory_order_release);
 
@@ -272,7 +291,7 @@ void EidosNode::handleTracking(double timestamp)
   // with a timestamp, a new state is created. Factors without a timestamp are
   // added directly (standalone factors between existing keys).
   for (auto & plugin : registry_.factor_plugins) {
-    gtsam::Key next_key = gtsam::Symbol('x', graph_optimizer_.getNextStateIndex());
+    gtsam::Key next_key = stateKey(graph_optimizer_.getNextStateIndex());
     auto result = plugin->produceFactor(next_key, timestamp);
     if (result.factors.empty() && !result.timestamp.has_value()) continue;
 
@@ -307,41 +326,16 @@ void EidosNode::handleTracking(double timestamp)
   auto current_pose = graph_optimizer_.getOptimizedPose().load().value_or(gtsam::Pose3::Identity());
 
   for (auto & ns : new_states) {
-    // Initial value for this state
-    if (ns.result.values.exists(ns.key)) {
-      new_values.insert(ns.key, ns.result.values.at<gtsam::Pose3>(ns.key));
-    } else {
-      new_values.insert(ns.key, current_pose);
-    }
-
     // Factors from the state creator
     for (auto & f : ns.result.factors) {
       new_factors.add(f);
       new_factor_owners.push_back(ns.owner);
     }
 
-    // Additional values (bias keys, etc.)
-    for (const auto & kv : ns.result.values) {
-      if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
-    }
-
-    // First state ever: add PriorFactor
-    if (graph_optimizer_.getNextStateIndex() == 1) {
-      gtsam::Pose3 anchor = ns.result.values.exists(ns.key) ? ns.result.values.at<gtsam::Pose3>(ns.key) : current_pose;
-      auto & cov = graph_optimizer_.getPriorPoseCov();
-      if (cov.size() >= 6) {
-        auto noise = gtsam::noiseModel::Diagonal::Variances(
-          (gtsam::Vector(6) << cov[3], cov[4], cov[5], cov[0], cov[1], cov[2]).finished());
-        new_factors.addPrior(ns.key, anchor, noise);
-        new_factor_owners.push_back("prior");
-      }
-    }
-
     // Let all plugins latch onto this new state (e.g. GPS, IMU, MotionModel).
+    std::optional<gtsam::Pose3> latched_value;
     for (auto & plugin : registry_.factor_plugins) {
       auto latch = plugin->latchFactor(ns.key, ns.ts);
-      if (latch.factors.empty()) continue;
-
       for (auto & f : latch.factors) {
         new_factors.add(f);
         new_factor_owners.push_back(plugin->getName());
@@ -351,7 +345,35 @@ void EidosNode::handleTracking(double timestamp)
       if (latch.loop_closure) loop_closure_detected = true;
       if (latch.correction) correction_detected = true;
       for (const auto & kv : latch.values) {
-        if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
+        if (kv.key == ns.key) {
+          // A prediction of the new state itself (e.g. IMU); the first one offered is used.
+          if (!latched_value) latched_value = latch.values.at<gtsam::Pose3>(kv.key);
+        } else if (!new_values.exists(kv.key)) {
+          new_values.insert(kv.key, kv.value);
+        }
+      }
+    }
+
+    // Initial value of the state: the creator's, else a latching plugin's prediction, else the
+    // latest optimized pose.
+    const gtsam::Pose3 initial = ns.result.values.exists(ns.key) ? ns.result.values.at<gtsam::Pose3>(ns.key)
+                                 : latched_value                 ? *latched_value
+                                                                 : current_pose;
+    new_values.insert(ns.key, initial);
+
+    // Additional values from the creator (bias keys, etc.)
+    for (const auto & kv : ns.result.values) {
+      if (!new_values.exists(kv.key)) new_values.insert(kv.key, kv.value);
+    }
+
+    // First state ever: add PriorFactor
+    if (graph_optimizer_.getNextStateIndex() == 1) {
+      auto & cov = graph_optimizer_.getPriorPoseCov();
+      if (cov.size() >= 6) {
+        auto noise = gtsam::noiseModel::Diagonal::Variances(
+          (gtsam::Vector(6) << cov[3], cov[4], cov[5], cov[0], cov[1], cov[2]).finished());
+        new_factors.addPrior(ns.key, initial, noise);
+        new_factor_owners.push_back("prior");
       }
     }
   }

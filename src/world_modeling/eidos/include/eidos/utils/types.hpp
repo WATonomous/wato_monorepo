@@ -16,12 +16,14 @@
 
 #include <pcl/kdtree/kdtree_flann.h>
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 #define PCL_NO_PRECOMPILE
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Key.h>
+#include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/nonlinear/Values.h>
 #include <pcl/common/transforms.h>
@@ -31,6 +33,22 @@
 
 namespace eidos
 {
+
+/// Character of the graph keys of keyframe states: gtsam::Symbol('x', i). Other variables in the
+/// graph (e.g. ImuFactor's velocity 'v' and bias 'b' of state i) use other characters.
+inline constexpr unsigned char kStateKeyChar = 'x';
+
+/// @brief Key of state i.
+inline gtsam::Key stateKey(std::uint64_t index)
+{
+  return gtsam::Symbol(kStateKeyChar, index);
+}
+
+/// @brief Whether a graph key is a keyframe state (not an auxiliary variable such as a velocity).
+inline bool isStateKey(gtsam::Key key)
+{
+  return gtsam::Symbol(key).chr() == kStateKeyChar;
+}
 
 /// Primary point type used for keyframe 3D positions and KD-tree queries.
 using PointType = pcl::PointXYZI;

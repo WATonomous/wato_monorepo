@@ -206,6 +206,8 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::SlamStatus>::SharedPtr status_pub_;
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
+  /// Pose tracking began from (identity, or what relocalization returned), stamped when it began.
+  rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::PoseStamped>::SharedPtr initial_pose_pub_;
 
   // ---- Services ----
   rclcpp::Service<eidos_msgs::srv::SaveMap>::SharedPtr save_map_srv_;

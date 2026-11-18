@@ -186,7 +186,11 @@ void MapManager::addEdges(
   for (size_t i = 0; i < new_factors.size(); i++) {
     auto factor = new_factors[i];
     if (!factor) continue;
-    auto keys = factor->keys();
+    // Edges join keyframe states; auxiliary variables (e.g. IMU velocity and bias) are not states.
+    gtsam::KeyVector keys;
+    for (const auto k : factor->keys()) {
+      if (isStateKey(k)) keys.push_back(k);
+    }
     std::string owner = (i < factor_owners.size()) ? factor_owners[i] : "";
     for (size_t a = 0; a < keys.size(); a++) {
       for (size_t b = a + 1; b < keys.size(); b++) {
