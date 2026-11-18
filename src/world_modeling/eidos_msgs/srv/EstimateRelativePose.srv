@@ -1,0 +1,25 @@
+# Relative pose of a camera rig between two instants, estimated from the images alone
+# (e.g. by perception's map_anything server).
+#
+# header.frame_id of every image is its camera's optical frame; the server looks up that camera's
+# intrinsics and its pose on the rig by it. Send the same cameras in the same order for both
+# instants so the server can also compare each camera with itself.
+
+sensor_msgs/CompressedImage[] images_a
+sensor_msgs/CompressedImage[] images_b
+string rig_frame                    # frame whose motion is wanted, e.g. base_footprint
+sensor_msgs/PointCloud2[] depth_a   # optional metric depth per image of a, same order (e.g. lidar):
+sensor_msgs/PointCloud2[] depth_b   #   x, y, z float32 in that image's camera frame at its time; empty = none
+bool return_cloud                   # also return the dense geometry of instant b (slower)
+float32 cloud_voxel                 # m, one point per voxel of this size (0 = every pixel)
+float32 cloud_max_range             # m from its camera, farther points are dropped (0 = no limit)
+---
+bool success
+string message                      # why not, when success is false
+geometry_msgs/Pose relative_pose    # T_rig(a)^-1 * T_rig(b), each at its images' stamps
+float64 trans_spread                # m, disagreement between the per-camera estimates (RMS)
+float64 rot_spread                  # rad
+float32 confidence                  # mean per-pixel confidence of the model
+uint32 cameras                      # cameras the estimate is averaged over
+float32 inference_ms
+sensor_msgs/PointCloud2 cloud       # if return_cloud: instant b's points in rig_frame at b (x, y, z, rgb)

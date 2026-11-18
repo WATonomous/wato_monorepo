@@ -1,0 +1,9 @@
+# Place-recognition descriptors of camera images (e.g. by perception's map_anything server).
+# Descriptors are L2-normalised, so the similarity of two images is the dot product.
+
+sensor_msgs/CompressedImage[] images
+---
+bool success
+string message                      # why not, when success is false
+uint32 dim                          # length of one descriptor
+float32[] descriptors               # one per image, concatenated in request order
