@@ -16,6 +16,11 @@ launch:
       description: Boreas topics, frames and IMU warmup, applied over config_file
 
   - arg:
+      name: overrides_file
+      default: $(find-pkg-share slam_benchmark)/config/boreas_eidos.yaml
+      description: Experiment overrides applied last (boreas_benchmark.sh writes one from EIDOS_PARAMS); defaults to a no-op reload of the Boreas config
+
+  - arg:
       name: use_sim_time
       default: "true"
       description: Use simulation time from /clock topic
@@ -29,6 +34,7 @@ launch:
       param:
         - from: $(var config_file)
         - from: $(var boreas_config_file)
+        - from: $(var overrides_file)
         - name: use_sim_time
           value: $(var use_sim_time)
 

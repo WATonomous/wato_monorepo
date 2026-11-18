@@ -31,7 +31,7 @@
 #   cd ~ && RUNS=1 sbatch ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
 # Optional settings, passed through to the benchmark script:
 #   ringroad: BAG PREFIX OSM RUNS RATE EVAL_ONLY
-#   boreas:   BAG SEQUENCE DATASET RUNS RATE METHODS EVAL_ONLY
+#   boreas:   BAG SEQUENCE DATASET RUNS RATE DURATION EIDOS_PARAMS METHODS EVAL_ONLY
 # Boreas data, inside ~/wato_monorepo/bags (the only bag folder the container sees, as /ws/bags):
 #   bags/boreas-2020-11-26-13-58-lidar-imu/                      the bag
 #   bags/boreas-2020-11-26-13-58/applanix/gps_post_process.csv   the ground truth
@@ -45,6 +45,15 @@
 # boreas tasks:   1-2 = test 1 (Eidos no GPS, RTAB-Map), 3-4 = test 2, 5-6 = test 3.
 # A full Boreas run replays an 18-minute bag at RATE 0.5 (about 40 min per test), so give each
 # Boreas task at least --time=01:30:00 and --mem=32G (Eidos holds its ~10 GB map in RAM).
+# At RATE 0.1 a full test takes about 3 h of replay; allow --time=04:00:00 per task.
+#
+# Short Boreas checks (does Eidos keep up?): replay the first DURATION seconds only. Each
+# combination gets its own results folder (boreas_rate0.1_120s here), and summary.md ends with
+# a tracking-health table (GICP failures, share of the drive each trajectory covers):
+#   cd ~ && BENCH=boreas RATE=0.1 DURATION=120 RUNS=1 METHODS=eidos_nogps sbatch --time=01:00:00 ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
+# Same check with Eidos settings changed (name the experiment with DATASET):
+#   cd ~ && BENCH=boreas DURATION=120 RUNS=1 METHODS=eidos_nogps DATASET=boreas_ds1_120s \
+#     EIDOS_PARAMS="liso_factor.scan_ds_resolution=1.0" sbatch --time=01:00:00 ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
 
 MONO=$HOME/wato_monorepo
 IMAGES=/mnt/wato-drive2/$USER/images/wato_rtabmap.tar
@@ -63,7 +72,7 @@ case $BENCH in
   boreas)
     SCRIPT=$SCRIPTS/boreas/boreas_benchmark.sh
     TESTS=(eidos_nogps rtabmap)
-    PASS=(BAG SEQUENCE DATASET RUNS RATE METHODS EVAL_ONLY ONLY)
+    PASS=(BAG SEQUENCE DATASET RUNS RATE DURATION EIDOS_PARAMS METHODS EVAL_ONLY ONLY)
     ;;
   *)
     say "Unknown BENCH=$BENCH; use ringroad or boreas"

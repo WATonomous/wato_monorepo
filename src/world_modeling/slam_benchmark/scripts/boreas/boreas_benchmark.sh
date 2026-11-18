@@ -29,26 +29,49 @@
 #   test2/ test3/        same as test1
 #   reference/           gnss.tum (the Applanix ground truth scored against) + gnss.log
 #   logs/                build and Python setup logs
-#   summary.md           mean +- spread over all tests
+#   summary.md           mean +- spread over all tests, then a tracking-health table
+#                        (GICP failures, and how much of the drive each trajectory covers)
 #
 # Settings (environment variables, all optional):
-#   DATASET    output folder name             (default boreas; PREFIX is accepted too)
-#   BAG        bag directory to replay        (default /ws/bags/boreas-2020-11-26-13-58-lidar-imu)
-#   SEQUENCE   Boreas sequence with applanix/ (default /ws/bags/boreas-2020-11-26-13-58)
-#   RUNS       tests per method               (default 3)
-#   RATE       bag playback rate              (default 0.5)
-#   METHODS    methods to run                 (default "eidos_nogps rtabmap")
-#   EVAL_ONLY  set to 1 to skip the runs and only evaluate
-#   ONLY       do just one test, e.g. test2/rtabmap, and skip evaluation (parallel job array)
+#   DATASET      output folder name             (default boreas, plus _rate<RATE> and _<DURATION>s
+#                                                when those differ from a full run; PREFIX is accepted too)
+#   BAG          bag directory to replay        (default /ws/bags/boreas-2020-11-26-13-58-lidar-imu)
+#   SEQUENCE     Boreas sequence with applanix/ (default /ws/bags/boreas-2020-11-26-13-58)
+#   RUNS         tests per method               (default 3)
+#   RATE         bag playback rate              (default 0.5)
+#   DURATION     replay only the first N seconds of the bag (default: all of it)
+#   EIDOS_PARAMS Eidos parameter overrides for an experiment, e.g.
+#                "liso_factor.scan_ds_resolution=1.0 liso_factor.max_correspondence_distance=4.0"
+#                (write floats with a decimal point; needs DATASET to name the experiment)
+#   METHODS      methods to run                 (default "eidos_nogps rtabmap")
+#   EVAL_ONLY    set to 1 to skip the runs and only evaluate
+#   ONLY         do just one test, e.g. test2/rtabmap, and skip evaluation (parallel job array)
+#
+# Quick check of whether Eidos keeps up, e.g. the first 120 s at a tenth of real time:
+#   RATE=0.1 DURATION=120 RUNS=1 METHODS=eidos_nogps   -> results/boreas_rate0.1_120s/
 
-SB_DATASET=${DATASET:-${PREFIX:-boreas}}
 SB_BAG=${BAG:-/ws/bags/boreas-2020-11-26-13-58-lidar-imu}
 SB_SEQUENCE=${SEQUENCE:-/ws/bags/boreas-2020-11-26-13-58}
 SB_RUNS=${RUNS:-3}
 SB_RATE=${RATE:-0.5}
+SB_DURATION=${DURATION:-}
+SB_EIDOS_PARAMS=${EIDOS_PARAMS:-}
 SB_METHODS=${METHODS:-eidos_nogps rtabmap}
 SB_EVAL_ONLY=${EVAL_ONLY:-0}
 SB_ONLY=${ONLY:-}
+
+# Short or slowed-down runs get their own folder, so they never mix with (or, through the
+# skip-if-done check, stand in for) a full run
+if [ -n "${DATASET:-${PREFIX:-}}" ]; then
+  SB_DATASET=${DATASET:-$PREFIX}
+elif [ -n "$SB_EIDOS_PARAMS" ]; then
+  echo "EIDOS_PARAMS is set: also set DATASET to name this experiment (e.g. DATASET=boreas_ds1)"
+  exit 1
+else
+  SB_DATASET=boreas
+  [ "$SB_RATE" != 0.5 ] && SB_DATASET+="_rate$SB_RATE"
+  [ -n "$SB_DURATION" ] && SB_DATASET+="_${SB_DURATION}s"
+fi
 
 SB_DS=/opt/watonomous/maps/bench/results/$SB_DATASET
 SB_REFDIR=$SB_DS/reference
@@ -102,8 +125,27 @@ stop_launch() {
 }
 
 play_bag() {  # $1 = method folder
+  local limit=()
+  [ -n "$SB_DURATION" ] && limit=(--playback-duration "$SB_DURATION")
   ros2 bag play "$SB_BAG" --clock --rate "$SB_RATE" --disable-keyboard-controls \
-    --topics "${SB_TOPICS[@]}" > "$1/play.log" 2>&1 < /dev/null
+    "${limit[@]}" --topics "${SB_TOPICS[@]}" > "$1/play.log" 2>&1 < /dev/null
+}
+
+# Turn EIDOS_PARAMS ("a.b=1.0 c=2", spaces or commas) into a parameter file loaded last
+write_overrides() {  # $1 = output file
+  local kv
+  {
+    echo "# EIDOS_PARAMS for this run: $SB_EIDOS_PARAMS"
+    echo "/**/eidos_node:"
+    echo "  ros__parameters:"
+    for kv in ${SB_EIDOS_PARAMS//,/ }; do
+      if [[ $kv != *=* ]]; then
+        say "EIDOS_PARAMS entry '$kv' is not name=value"
+        return 1
+      fi
+      echo "    ${kv%%=*}: ${kv#*=}"
+    done
+  } > "$1"
 }
 
 eidos_run() {  # $1 = test number
@@ -114,8 +156,13 @@ eidos_run() {  # $1 = test number
     return
   fi
   mkdir -p "$dir"
-  say "$name: starting Eidos (LiDAR-inertial)"
-  ros2 launch slam_benchmark boreas_eidos_bench.launch.yaml \
+  local overrides=()
+  if [ -n "$SB_EIDOS_PARAMS" ]; then
+    write_overrides "$dir/params_override.yaml" || return
+    overrides=(overrides_file:="$dir/params_override.yaml")
+  fi
+  say "$name: starting Eidos (LiDAR-inertial)${SB_EIDOS_PARAMS:+ with $SB_EIDOS_PARAMS}"
+  ros2 launch slam_benchmark boreas_eidos_bench.launch.yaml "${overrides[@]}" \
     > "$dir/launch.log" 2>&1 < /dev/null &
   local lpid=$!
   if ! wait_for "Eidos save_map service" \
@@ -130,11 +177,13 @@ eidos_run() {  # $1 = test number
     > "$dir/status.log" 2>&1 < /dev/null &
   local epid=$!
 
-  say "$name: playing bag at rate $SB_RATE"
+  say "$name: playing bag at rate $SB_RATE${SB_DURATION:+ for the first $SB_DURATION s}"
   play_bag "$dir"
   sleep 15
   kill "$epid" 2> /dev/null
   say "$name: SLAM states seen, count then state (3 = TRACKING): $(grep -E '^[0-9]+$' "$dir/status.log" | sort | uniq -c | tr -s ' \n' ' ')"
+  # TRACKING alone doesn't mean it kept up: every failed scan match is logged
+  say "$name: GICP failed $(grep -a -c 'GICP failed' "$dir/launch.log") times"
 
   timeout 300 ros2 service call /world_modeling/slam/save_map eidos_msgs/srv/SaveMap \
     "{filepath: '$dir/eidos.map'}" > "$dir/save.log" 2>&1
@@ -175,7 +224,7 @@ rtabmap_run() {  # $1 = test number
   fi
   sleep 10
 
-  say "$name: playing bag at rate $SB_RATE"
+  say "$name: playing bag at rate $SB_RATE${SB_DURATION:+ for the first $SB_DURATION s}"
   play_bag "$dir"
   sleep 15
   stop_launch "$lpid"  # RTAB-Map writes its database on shutdown
@@ -264,6 +313,11 @@ for method, rs in rows.items():
             cells.append(f"{st.mean(v):.3f} ± {st.stdev(v):.3f}")
     print(f"| {method} | {len(rs)} | " + " | ".join(cells) + " |")
 EOF
+
+  # Did each run keep up? ATE alone can look fine for a trajectory that stopped early
+  local health_args=(--ref "$ref" --bag "$SB_BAG")
+  [ -n "$SB_DURATION" ] && health_args+=(--duration "$SB_DURATION")
+  "$py" "$SB_SCRIPTS/boreas/tracking_health.py" "$SB_DS" "${health_args[@]}" 2>&1 | tee -a "$SB_DS/summary.md"
 }
 
 # ------------------------------------------------------------------ main
@@ -280,7 +334,7 @@ want() { [[ " $SB_METHODS " == *" $1 "* ]]; }
 # $1 = method, $2 = test number
 run_this() { want "$1" && { [ -z "$SB_ONLY" ] || [ "$SB_ONLY" = "test$2/$1" ]; }; }
 
-say "Dataset: $SB_DATASET | bag: $SB_BAG | tests per method: $SB_RUNS | rate: $SB_RATE | methods: $SB_METHODS${SB_ONLY:+ | only: $SB_ONLY}"
+say "Dataset: $SB_DATASET | bag: $SB_BAG | tests per method: $SB_RUNS | rate: $SB_RATE${SB_DURATION:+ | first $SB_DURATION s} | methods: $SB_METHODS${SB_ONLY:+ | only: $SB_ONLY}${SB_EIDOS_PARAMS:+ | Eidos: $SB_EIDOS_PARAMS}"
 # Eidos maps keep every keyframe's 128-beam cloud: about 10 GB per test of the full 2020-11-26 drive
 free_gb=$(df -P -BG "$SB_DS" | awk 'NR == 2 {print int($4)}')
 if [ "$SB_EVAL_ONLY" != 1 ] && want eidos_nogps && [ "$free_gb" -lt $((10 * SB_RUNS)) ]; then
