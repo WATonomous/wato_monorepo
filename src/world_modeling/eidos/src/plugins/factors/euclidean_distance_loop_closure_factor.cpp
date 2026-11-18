@@ -51,6 +51,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
 {
   std::string prefix = name_;
 
+  node_->declare_parameter(prefix + ".add_factors", add_factors_);
   node_->declare_parameter(prefix + ".search_radius", search_radius_);
   node_->declare_parameter(prefix + ".search_time_diff", search_time_diff_);
   node_->declare_parameter(prefix + ".search_num", search_num_);
@@ -67,6 +68,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
   // Legacy parameter — no longer used but declared to avoid YAML errors
   node_->declare_parameter(prefix + ".frequency", 1.0);
 
+  node_->get_parameter(prefix + ".add_factors", add_factors_);
   node_->get_parameter(prefix + ".search_radius", search_radius_);
   node_->get_parameter(prefix + ".search_time_diff", search_time_diff_);
   node_->get_parameter(prefix + ".search_num", search_num_);
@@ -81,10 +83,14 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
   node_->get_parameter(prefix + ".pointcloud_from", pointcloud_from_);
   node_->get_parameter(prefix + ".gicp_pointcloud_from", gicp_pointcloud_from_);
 
+  measurement_pub_ =
+    node_->create_publisher<eidos_msgs::msg::LoopClosureMeasurement>(name_ + "/measurement", rclcpp::QoS(100));
+
   RCLCPP_INFO(
     node_->get_logger(),
-    "[%s] initialized (latching, pointcloud_from=%s, gicp=%s)",
+    "[%s] initialized (latching, add_factors=%d, pointcloud_from=%s, gicp=%s)",
     name_.c_str(),
+    add_factors_,
     pointcloud_from_.c_str(),
     gicp_pointcloud_from_.c_str());
 }
@@ -92,6 +98,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
 void EuclideanDistanceLoopClosureFactor::activate()
 {
   active_ = true;
+  measurement_pub_->on_activate();
   RCLCPP_INFO(node_->get_logger(), "[%s] activated (latching mode)", name_.c_str());
 }
 
@@ -101,6 +108,7 @@ void EuclideanDistanceLoopClosureFactor::deactivate()
   if (gicp_thread_.joinable()) {
     gicp_thread_.join();
   }
+  measurement_pub_->on_deactivate();
   RCLCPP_INFO(node_->get_logger(), "[%s] deactivated", name_.c_str());
 }
 
@@ -339,7 +347,41 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
 
   // Quality check
   double inlier_ratio = static_cast<double>(result.num_inliers) / source_submap->size();
-  if (inlier_ratio < min_inlier_ratio_) {
+  const bool accepted = inlier_ratio >= min_inlier_ratio_;
+  {
+    // T_target_source maps source_body -> candidate_body, so source.between(candidate) is its inverse.
+    const gtsam::Pose3 aligned(
+      gtsam::Rot3(result.T_target_source.rotation()), gtsam::Point3(result.T_target_source.translation()));
+    auto to_msg = [](const gtsam::Pose3 & pose) {
+      geometry_msgs::msg::Pose msg;
+      const auto q = pose.rotation().toQuaternion();
+      msg.position.x = pose.x();
+      msg.position.y = pose.y();
+      msg.position.z = pose.z();
+      msg.orientation.w = q.w();
+      msg.orientation.x = q.x();
+      msg.orientation.y = q.y();
+      msg.orientation.z = q.z();
+      return msg;
+    };
+    eidos_msgs::msg::LoopClosureMeasurement msg;
+    msg.header.stamp = rclcpp::Time(static_cast<int64_t>(key_poses_6d->points[source_idx].time * 1e9), RCL_ROS_TIME);
+    msg.source = name_;
+    msg.candidate_source = "distance";
+    msg.from_index = src_sym.index();
+    msg.to_index = cand_sym.index();
+    msg.from_stamp = key_poses_6d->points[source_idx].time;
+    msg.to_stamp = key_poses_6d->points[candidate_idx].time;
+    msg.measured = to_msg(aligned.inverse());
+    msg.graph = to_msg(relative_estimate.inverse());
+    msg.accepted = accepted;
+    msg.added = accepted && add_factors_;
+    msg.reject_reason = accepted ? "" : "too few inliers";
+    msg.inlier_ratio = inlier_ratio;
+    msg.duration = t_gicp * 1e-3;
+    measurement_pub_->publish(msg);
+  }
+  if (!accepted) {
     RCLCPP_INFO(
       node_->get_logger(),
       "[%s] rejected: (%c,%lu)->(%c,%lu) inliers=%zu/%zu (%.1f%% < %.1f%%)",
@@ -381,12 +423,13 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
   auto meas_rpy = measured.rotation().rpy();
   RCLCPP_INFO(
     node_->get_logger(),
-    "\033[31m[%s] LOOP CLOSURE: (%c,%lu)->(%c,%lu) inliers=%zu/%zu (%.1f%%) "
+    "\033[31m[%s] %s: (%c,%lu)->(%c,%lu) inliers=%zu/%zu (%.1f%%) "
     "measured t=(%.2f,%.2f,%.2f) rpy=(%.1f,%.1f,%.1f) | "
     "gicp_correction: d_pos=%.3fm d_rot=%.2f° | "
     "scan=%zu pts, cand=%zu states/%zu pts | "
     "src=%.0f bfs=%.0f cand=%.0f gicp=%.0fms total=%.0fms\033[0m",
     name_.c_str(),
+    add_factors_ ? "LOOP CLOSURE" : "loop closure (shadow)",
     src_sym.chr(),
     src_sym.index(),
     cand_sym.chr(),
@@ -411,7 +454,7 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
     t_gicp - t_cand,
     t_gicp);
 
-  {
+  if (add_factors_) {
     std::lock_guard<std::mutex> lock(result_mtx_);
     pending_result_ = LoopConstraint{source_key, candidate_key, measured, noise};
   }

@@ -10,6 +10,7 @@ Detects loop closures by searching for spatially close but temporally distant ke
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
+| `add_factors` | bool | `true` | `false` = shadow mode: align and publish `<name>/measurement`, but add no factors. |
 | `search_radius` | double | `15.0` | KD-tree radius for finding loop closure candidates (meters). |
 | `search_time_diff` | double | `30.0` | Minimum time difference (seconds) between source and candidate keyframes. |
 | `search_num` | int | `25` | Maximum number of keyframe states to collect for the candidate submap. |
@@ -35,3 +36,9 @@ Detects loop closures by searching for spatially close but temporally distant ke
 ## Mapping vs Localization
 
 This plugin is **only loaded in mapping mode**. It is not listed in the localization config's `factor_plugins` list. In localization mode, no new factors are added to the graph, so loop closure detection is not needed.
+
+## Topics
+
+| Topic | Type | Description |
+|---|---|---|
+| `<name>/measurement` (pub) | `eidos_msgs/LoopClosureMeasurement` | Every converged alignment, accepted or not: the measured relative pose, the graph's relative pose it started from, and the inlier ratio. Used to score loop closure plugins against each other (`tools/eidos_visual_eval.py`). |

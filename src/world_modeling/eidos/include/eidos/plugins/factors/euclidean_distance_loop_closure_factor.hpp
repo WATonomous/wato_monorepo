@@ -24,7 +24,9 @@
 #include <utility>
 #include <vector>
 
+#include <eidos_msgs/msg/loop_closure_measurement.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <small_gicp/ann/kdtree.hpp>
 #include <small_gicp/points/point_cloud.hpp>
 
@@ -125,12 +127,16 @@ private:
   // Keys already used as loop closure source (avoid re-checking)
   std::set<gtsam::Key> processed_source_keys_;
 
+  /// Every converged alignment, accepted or not, for scoring (see LoopClosureMeasurement.msg).
+  rclcpp_lifecycle::LifecyclePublisher<eidos_msgs::msg::LoopClosureMeasurement>::SharedPtr measurement_pub_;
+
   // Background GICP thread
   std::atomic<bool> gicp_in_progress_{false};
   std::thread gicp_thread_;
   bool active_ = false;
 
   // Parameters
+  bool add_factors_ = true;  ///< false = shadow mode: measure and publish, but add nothing to the graph
   double search_radius_ = 15.0;
   double search_time_diff_ = 30.0;
   int search_num_ = 25;
