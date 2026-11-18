@@ -81,7 +81,9 @@ fi
 
 # When playing, the container sees the host BAG_DIRECTORY as /bags. If the user passed
 # a path under BAG_DIRECTORY, rewrite it to /bags/... so it exists inside the container.
-if [[ $# -gt 0 && "$1" == "play" && -n "${2:-}" ]]; then
+# Options (e.g. `-i <bag> -i <bag>` for several bags) are passed through; -w /bags makes
+# relative -i paths resolve against BAG_DIRECTORY.
+if [[ $# -gt 0 && "$1" == "play" && -n "${2:-}" && "$2" != -* ]]; then
   play_path="$2"
   if [[ "$play_path" == "$BAG_DIRECTORY"/* ]]; then
     ros2_bag_args=("play" "/bags/${play_path#"$BAG_DIRECTORY"/}" "${@:3}")
