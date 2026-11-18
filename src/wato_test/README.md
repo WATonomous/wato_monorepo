@@ -45,14 +45,8 @@ TEST_CASE_METHOD(wato::test::TestExecutorFixture, "My ROS Test", "[ros]") {
 }
 ```
 
-For timer-driven outputs, use `expect_message(predicate)` to ignore messages
-already in flight that do not match the expected result. Register expectations
-before publishing inputs, and check `future.wait_for(timeout)` before `get()`.
-Predicates run in the subscription callback and must not block or call back into
-the subscriber test node.
-
-Fixtures cancel and join executors before deactivating nodes and shutting ROS
-down. Callbacks must use bounded service and future waits so teardown can finish.
+Register expectations before publishing; use `expect_message(predicate)` to filter
+outputs. Use timeouts on future and service waits so tests and teardown can finish.
 
 ## Package.xml Usage
 
