@@ -50,6 +50,8 @@ FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install TensorRT dependencies for deep_ros (TRT 10) and bevfusion (TRT 11)
+# The TRT 11 runtime and header packages are pinned too: the -dev packages need them at the same
+# version, and unpinned apt picks the newest release, which fails the install.
 ARG TRT10_VERSION=10.16.1.11-1+cuda12.9
 ARG TRT11_VERSION=11.4.0.106-1+cuda13.4
 RUN apt-get update && \
@@ -60,6 +62,12 @@ RUN apt-get update && \
     libnvinfer-dev=${TRT11_VERSION} \
     libnvinfer-plugin-dev=${TRT11_VERSION} \
     libnvonnxparsers-dev=${TRT11_VERSION} \
+    libnvinfer11=${TRT11_VERSION} \
+    libnvinfer-plugin11=${TRT11_VERSION} \
+    libnvonnxparsers11=${TRT11_VERSION} \
+    libnvinfer-headers-dev=${TRT11_VERSION} \
+    libnvinfer-headers-plugin-dev=${TRT11_VERSION} \
+    libnvinfer-safe-headers-dev=${TRT11_VERSION} \
     protobuf-compiler \
     libprotobuf-dev && \
     rm -rf /var/lib/apt/lists/*
