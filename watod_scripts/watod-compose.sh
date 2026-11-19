@@ -107,6 +107,28 @@ else
   ALL_COMPOSE_FILES=("${DEFAULT_ALL_COMPOSE_FILES[@]}")
 fi
 
+# In CI, layer each compose file's <name>.ci-cache.yaml override (if present) on
+# top of it. Those overrides add buildkit `cache_to` registry exports, which the
+# default local 'docker' buildx driver does not support.
+add_ci_cache_overrides() {
+  local -n files_ref=$1
+  local -a result=()
+  local f override
+  for f in "${files_ref[@]}"; do
+    result+=("$f")
+    if [[ "$f" == *.yaml ]]; then
+      override="${f%.yaml}.ci-cache.yaml"
+      [[ -f "$override" ]] && result+=("-f" "$override")
+    fi
+  done
+  files_ref=("${result[@]}")
+}
+
+if [[ -n ${CI:-} || -n ${GITHUB_ACTIONS:-} ]]; then
+  add_ci_cache_overrides PRE_COMPOSE_FILES
+  add_ci_cache_overrides ALL_COMPOSE_FILES
+fi
+
 # If build, pull base images for active modules to ensure they're tagged locally
 if [[ "${COMPOSE_CMD[0]}" == "build" ]]; then
   echo "Pulling base images for active modules..."

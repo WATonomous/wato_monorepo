@@ -1,4 +1,3 @@
-
 // Copyright (c) 2025-present WATonomous. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Copyright (c) 2025-present WATonomous. All rights reserved.
-
 #include <chrono>
+#include <future>
 #include <memory>
 
-#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <lifecycle_msgs/msg/transition.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -67,32 +64,38 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Arming Feature", "[joystick_armi
   auto joy_pub = std::make_shared<PublisherTestNode<Joy>>("/joy", "joy_pub");
   add_node(joy_pub);
 
-  // Input: is_armed mock
-  auto is_armed_pub = std::make_shared<PublisherTestNode<Bool>>("/oscc_interfacing/is_armed", "is_armed_pub");
-  add_node(is_armed_pub);
+  // Input: is_armed mock. Confirm reliable delivery before processing its callback.
+  auto mock_service_node = std::make_shared<rclcpp::Node>("mock_service_node");
+  auto is_armed_pub =
+    mock_service_node->create_publisher<Bool>("/oscc_interfacing/is_armed", rclcpp::QoS(10).reliable());
 
   // Output: Feedback
   auto feedback_sub = std::make_shared<SubscriberTestNode<JoyFeedback>>("/joy/set_feedback", "feedback_sub");
   add_node(feedback_sub);
 
   // Service Mock: /oscc_interfacing/arm
-  auto mock_service_node = std::make_shared<rclcpp::Node>("mock_service_node");
-  bool service_called = false;
-  bool requested_state = false;
+  auto request_promise = std::make_shared<std::promise<bool>>();
+  auto request_future = request_promise->get_future();
   auto service_server = mock_service_node->create_service<std_srvs::srv::SetBool>(
     "/oscc_interfacing/arm",
-    [&](
+    [request_promise](
       const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
       std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
-      service_called = true;
-      requested_state = request->data;
       response->success = true;
       response->message = "Mock Success";
+      request_promise->set_value(request->data);
     });
   add_node(mock_service_node);
 
-  start_spinning();
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  REQUIRE(joy_pub->wait_for_subscribers());
+  REQUIRE(feedback_sub->wait_for_publishers());
+  auto service_probe = joy_node->create_client<std_srvs::srv::SetBool>("/oscc_interfacing/arm");
+  REQUIRE(service_probe->wait_for_service(std::chrono::seconds(5)));
+  const auto discovery_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (is_armed_pub->get_subscription_count() == 0 && std::chrono::steady_clock::now() < discovery_deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  REQUIRE(is_armed_pub->get_subscription_count() > 0);
 
   auto send_joy_arm = [&](bool press) {
     Joy msg;
@@ -111,27 +114,25 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Arming Feature", "[joystick_armi
       Bool msg;
       msg.data = false;
       is_armed_pub->publish(msg);
-      // Allow callback to process
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // Delivery acknowledgment is not callback completion. Process the queued
+      // state before starting the background executor and sending the button.
+      REQUIRE(is_armed_pub->wait_for_all_acked(std::chrono::seconds(5)));
+      executor_.spin_some();
     }
+
+    start_spinning();
 
     // 2. Press Arm button
     auto feedback_future = feedback_sub->expect_next_message();  // Expect vibrate start
     send_joy_arm(true);
 
     // 3. Verify Service Call
-    // Wait a bit for service to handle
-    int retries = 0;
-    while (!service_called && retries < 10) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      retries++;
-    }
+    REQUIRE(request_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    REQUIRE(request_future.get() == true);  // Requesting ARM (true)
 
-    REQUIRE(service_called == true);
-    REQUIRE(requested_state == true);  // Requesting ARM (true)
-
-    // 4. Verify Feedback (Double Vibrate)
-    // First pulse ON
+    // 4. Verify the first vibration pulse. Teardown must safely stop any
+    // remaining vibration callbacks; the test does not need to wait for them.
+    REQUIRE(feedback_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     auto fb_msg_1 = feedback_future.get();
     REQUIRE(fb_msg_1.type == JoyFeedback::TYPE_RUMBLE);
     REQUIRE(fb_msg_1.intensity > 0.1f);
@@ -147,23 +148,18 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Arming Feature", "[joystick_armi
       Bool msg;
       msg.data = true;
       is_armed_pub->publish(msg);
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      REQUIRE(is_armed_pub->wait_for_all_acked(std::chrono::seconds(5)));
+      executor_.spin_some();
     }
 
-    service_called = false;
+    start_spinning();
 
     // 2. Press Arm button
     send_joy_arm(true);
 
     // 3. Verify Service Call
-    int retries = 0;
-    while (!service_called && retries < 10) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      retries++;
-    }
-
-    REQUIRE(service_called == true);
-    REQUIRE(requested_state == false);  // Requesting DISARM (false)
+    REQUIRE(request_future.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    REQUIRE(request_future.get() == false);  // Requesting DISARM (false)
 
     // Release button
     send_joy_arm(false);

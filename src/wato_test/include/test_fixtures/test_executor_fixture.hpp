@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <future>
 #include <memory>
 #include <thread>
 #include <type_traits>
@@ -96,6 +97,7 @@ public:
 protected:
   rclcpp::executors::SingleThreadedExecutor executor_;
   std::thread spin_thread_;
+  std::future<void> spin_done_;  // Ready when spin() returns; holds any exception it threw.
   std::vector<rclcpp::node_interfaces::NodeBaseInterface::SharedPtr> nodes_;
   std::vector<std::shared_ptr<void>> managed_nodes_;
   std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;
@@ -154,6 +156,7 @@ public:
 protected:
   rclcpp::executors::MultiThreadedExecutor executor_;
   std::thread spin_thread_;
+  std::future<void> spin_done_;  // Ready when spin() returns; holds any exception it threw.
   std::vector<rclcpp::node_interfaces::NodeBaseInterface::SharedPtr> nodes_;
   std::vector<std::shared_ptr<void>> managed_nodes_;
   std::vector<std::shared_ptr<rclcpp_lifecycle::LifecycleNode>> lifecycle_nodes_;

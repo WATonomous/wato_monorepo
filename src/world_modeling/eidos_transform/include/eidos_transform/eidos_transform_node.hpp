@@ -36,6 +36,7 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <rclcpp_lifecycle/lifecycle_publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <tf2_ros/static_transform_broadcaster.hpp>
 
 #include "eidos_msgs/srv/predict_relative_transform.hpp"
 #include "eidos_transform/ekf_model_plugin.hpp"
@@ -202,6 +203,7 @@ private:
 
   // ---- TF ----
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  std::unique_ptr<tf2_ros::StaticTransformBroadcaster> utm_tf_broadcaster_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
   bool has_map_source_data_ = false;  ///< True once any map source has been received
@@ -220,10 +222,6 @@ private:
 
   // ---- Service ----
   rclcpp::Service<eidos_msgs::srv::PredictRelativeTransform>::SharedPtr predict_srv_;
-
-  // ---- Cached static transforms ----
-  geometry_msgs::msg::TransformStamped cached_utm_to_map_;
-  bool has_utm_to_map_ = false;
 
   // ---- Parameters ----
   double tick_rate_;

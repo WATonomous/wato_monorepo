@@ -65,9 +65,19 @@ Access is mediated through wrapper classes:
 
 ### Lanelet Handler
 
-`LaneletHandler` wraps Lanelet2 for HD map queries. It supports two projector types:
-- **`utm`** (production): UTM projector with GPS-derived origin offset from TF
-- **`local_cartesian`** (CARLA/simulation): local Cartesian with zero offset
+`LaneletHandler` wraps Lanelet2 for HD map queries. `MapProjector` composes
+geographic projection with optional rigid alignment before OSM points enter
+Lanelet2's geometry, spatial indices, or routing graph:
+
+- `utm` with `fixed`: UTM minus the configured geographic origin and altitude.
+- `utm` with `tf`: absolute UTM transformed from `projected_frame` into `map_frame`.
+- `local_cartesian`: ENU relative to the configured geographic origin, optionally
+  transformed from a matching ENU `projected_frame` into `map_frame`.
+
+The projector's reverse operation inverts the same alignment before converting
+back to latitude/longitude. `MapConfig` validation runs during node configure.
+The handler replaces its map only after projection, parsing, and routing all
+succeed; a partial failed map never becomes available to readers.
 
 Key query capabilities:
 - **Lane finding**: `findCurrentLaneletId()` uses route priority, BFS from previous lanelet, and heading alignment for stable frame-to-frame tracking
@@ -75,7 +85,10 @@ Key query capabilities:
 - **Traffic light matching**: `findNearestTrafficLightMatch()` returns way_id + reg_elem_id
 - **Routing**: `setActiveRoute()`, `getShortestRoute()`, `getRouteAhead()`
 
-The map loads asynchronously after activation via a wall timer that waits for the utm-to-map TF transform.
+The map loads asynchronously after activation via a wall timer. Fixed mode
+loads immediately; TF mode retries until the required transform is available.
+The transform is sampled once for the map load. Later TF changes require a
+lifecycle cleanup and reconfiguration to rebuild aligned map geometry.
 
 ## Interface System
 

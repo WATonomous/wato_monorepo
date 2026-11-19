@@ -29,7 +29,9 @@ watod --help
 - **ROS bag management**: Record and play ROS2 bags with automatic mounting (`watod bag <command>`)
 - **VSCode Setup**: Configure local VSCode IntelliSense by extracting headers from containers (`watod -s`)
 
-To begin using `watod`, edit the [`watod-config.sh`](./watod-config.sh) or create a copy called `watod-config.local.sh` to configure important settings for `watod` like $ACTIVE_MODULES which defines which docker services to start.
+To configure `watod`, create a `watod-config.local.sh` file next to [`watod-config.sh`](./watod-config.sh). The local file is untracked and overrides the tracked configuration; `watod-config.sh` itself is protected by CI and should not be modified. Set `ACTIVE_MODULES` in `watod-config.local.sh` to choose which docker services to start.
+
+On NVIDIA machines, also set `CUDASM` in `watod-config.local.sh` to match your GPU's compute capability. For example, use `export CUDASM=86` if you have a RTX 30 series or older. Run `nvidia-smi --query-gpu=compute_cap --format=csv,noheader` to check your GPU, and remove the decimal point (`8.6` becomes `86`). After changing `CUDASM`, rebuild with `./watod build`; `watod up --build` does not rebuild the source and dependency pre-build stages.
 
 ## Base Images and Docker Registry
 
@@ -49,6 +51,16 @@ ALL WATONOMOUS BASE IMAGES ARE BUILT USING THE WATO_MONOREPO. It is configured [
 ### How are the wato_monorepo base images created?
 
 All wato_monorepo base images are created using [GitHub Workflows](https://docs.github.com/en/actions/using-workflows/about-workflows). GitHub Workflows are automated procedures defined in a GitHub repository that can be triggered by various GitHub events, such as a push or a pull request, to perform tasks like building, testing, and deploying code.
+
+### Module Build Caching in CI
+
+CI (`Build and Test Monorepo`) builds each changed module in isolation with `watod build`/`watod test`. To keep PR runs fast, buildkit's registry cache is exported to GHCR (`cache_to` in the CI-only `modules/docker-compose*.ci-cache.yaml` overrides, which `watod_scripts/watod-compose.sh` adds only when `$CI`/`$GITHUB_ACTIONS` is set; refs like `<module image>:ci_cache_source` / `:ci_cache_deps` / `:ci_cache_bringup` / `:ci_cache_test`) and imported back (`cache_from`) on later runs:
+
+- Regular `docker compose push` of the images is NOT enough for caching: images loaded through the docker image store lose buildkit's cache metadata, so `cache_from` on pushed image tags finds no layers. The `ci_cache_*` cache manifests are exported directly by buildkit (`cache_to`), and that is what makes the imports hit.
+- `source`/`deps` stages (apt TensorRT / Isaac ROS installs, upstream git clones) re-execute only when their inputs change — i.e. on base image or Dockerfile changes — not on every branch or commit.
+- Perception's `deps` stage also compiles the pinned Isaac ROS fork stack, the most expensive layer in the module. Its `source` stage builds on top of `deps`, so a `deps` cache miss also re-runs the clones, copies, and everything after them.
+- `docker/template.Dockerfile`'s `rosdep_scan` stage scans only `package.xml` files, so adding a dependency re-runs it, but source-code edits alone don't.
+- `colcon build`/`colcon test` layers are content-keyed by the copied source, so they still re-run on every commit (that's the remaining non-cacheable core of perception CI).
 
 ## DevContainers
 The WATonomous monorepo allows for quick, isolated development using docker containers. This means that you can write and test code without any explicit installations on your own machine except for docker.

@@ -12,6 +12,7 @@ ssh_config/
 
 watod-config.local.sh
 watod-config.sh
+watod_scripts/tools/osm_to_xodr/config.local.sh
 
 bags/
 build/
