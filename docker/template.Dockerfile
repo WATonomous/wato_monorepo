@@ -8,9 +8,17 @@ ARG MODULE_SOURCE
 ARG MODULE_DEPS
 
 # Scan for rosdeps from the source stage
+# Only package.xml files are scanned, so this layer stays cacheable across
+# source-code changes as long as the package manifests don't change.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get -qq update && \
-    rosdep install --from-paths . --ignore-src -r -s > /tmp/rosdep_output && \
+RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
+    if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then \
+      . "${ISAAC_ROS_INSTALL}/local_setup.sh"; \
+    fi && \
+    mkdir -p /tmp/pkgery && \
+    find "${AMENT_WS}/src" -name package.xml -type f -exec cp --parents {} /tmp/pkgery \; && \
+    apt-get -qq update && \
+    rosdep install --from-paths /tmp/pkgery --ignore-src -r -s > /tmp/rosdep_output && \
     (grep 'apt-get install' /tmp/rosdep_output || true) \
         | awk '{print $3}' \
         | sort > /tmp/colcon_install_list && \
@@ -57,10 +65,17 @@ ENTRYPOINT ["/opt/watonomous/wato_entrypoint.sh"]
 ################################ Build ################################
 FROM rosdep_install AS build
 
+# CUDA compute capability used by CUDA-enabled vendored packages.
+# Defaults to the vehicle/CI target; override with e.g. CUDASM=86 for Ampere.
+ARG CUDASM=89
+
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
 RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
-    colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then \
+      . "${ISAAC_ROS_INSTALL}/local_setup.sh"; \
+    fi && \
+    CUDASM="${CUDASM}" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 ################################ Deploy ################################

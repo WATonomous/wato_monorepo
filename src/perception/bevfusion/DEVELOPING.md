@@ -119,7 +119,7 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `input_multi_image_compressed_topic` | `/multi_camera_sync/multi_image_compressed` | Compressed camera input topic |
 | `input_multi_image_raw_topic` | `/multi_camera_sync/multi_image_raw` | Raw camera input topic |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic (same remap caveat as above) |
-| `model_dir` | `/opt/watonomous/models/bevfusion/resnet50int8_trt11` | Directory with `.onnx` files and the LiDAR backbone |
+| `model_dir` | `/opt/watonomous/models/bevfusion/resnet50_trt11_int8` | Directory with `.onnx` files and the LiDAR backbone |
 | `build_dir` | `<model_dir>/build` | Directory where compiled `.plan` TensorRT engines are read from/written to |
 | `precision` | `"int8"` | Model precision — `"fp16"` or `"int8"` |
 | `camera_names` | 6 `camera_pano_*` frame IDs | Frame IDs of the cameras to use, in nuScenes order; also determines `num_cameras` |
@@ -164,6 +164,33 @@ colcon build --packages-select cuda_bevfusion_vendor bevfusion
 `bevfusion` itself builds two libraries plus an executable: `bevfusion_wato_core` (the ROS-free `BEVFusionCore` GPU/TensorRT wrapper), `bevfusion_node` (the ROS 2 lifecycle node, registered as a component via `rclcpp_components_register_node`), and the `bevfusion_node` executable (`main.cpp`, for standalone/non-composed runs).
 
 Dependencies: `rclcpp`, `rclcpp_lifecycle`, `rclcpp_components`, `message_filters`, `vision_msgs`, `visualization_msgs`, `deep_msgs`, `sensor_msgs`, `geometry_msgs`, `tf2_ros`, `tf2_geometry_msgs`, `tf2_eigen`, `eigen3_cmake_module`, `diagnostic_updater`, `OpenCV`, CUDA Toolkit (`nvinfer`, `nvinfer_plugin`, `nvonnxparser`), `cuda_bevfusion_vendor`.
+
+### TensorRT and spconv versions
+
+The perception image installs two TensorRT major versions, pinned via the `TRT10_VERSION` and `TRT11_VERSION` build args in `docker/perception.Dockerfile`:
+
+- **TensorRT 10** runtime libraries (`libnvinfer10`, `libnvinfer-plugin10`, `libnvonnxparsers10`) for `deep_ros`.
+- **TensorRT 11** development packages (`libnvinfer-dev`, `libnvinfer-plugin-dev`, `libnvonnxparsers-dev`) for BEVFusion. These are `+cuda13.4` builds, while the base image is CUDA 12.8.1; the CUDA 13 toolkit they build against comes from `ros-jazzy-isaac-ros-common`.
+
+`cuda_bevfusion_vendor` defaults `SPCONV_CUDA_VERSION` to `13.0` to match. Change the TRT 11 pin and `SPCONV_CUDA_VERSION` together, and rebuild engines (`.plan` files) after a TensorRT upgrade, since serialized engines are tied to the TensorRT version that built them.
+
+### CUDA architecture (`CUDASM`)
+
+`cuda_bevfusion_vendor` compiles CUDA kernels for a single GPU compute capability. It defaults to `CUDASM=89`, which targets Ada GPUs such as the RTX 40-series. Building for one architecture does not produce binaries that run on an older one: `89` code cannot run on an 8.6 GPU, and attempting it fails with `cudaErrorNoKernelImageForDevice` in `create_frustum_kernel`.
+
+Check your GPU's compute capability with:
+
+```bash
+nvidia-smi --query-gpu=compute_cap --format=csv,noheader
+```
+
+Remove the decimal point and set the result in `watod-config.local.sh` before building. For example, compute capability `8.6` (Ampere / RTX 30-series) becomes:
+
+```bash
+export CUDASM=86
+```
+
+Then rebuild with `./watod build`. `watod up --build` does not rebuild the source and dependency pre-build stages, so it will keep the previous architecture. PTX is forward-compatible but not backward-compatible: an image built with `CUDASM=86` can run on 8.6 and newer GPUs, while an image built with `CUDASM=89` cannot run on 8.6.
 
 ### Testing
 

@@ -137,9 +137,9 @@ class BBoxPublisherNode(LifecycleNode):
         self._uuid_cache = {}
         self._uuid_counter = 0
 
-        # TF2 for frame transforms
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # TF resources belong to the configured scenario.
+        self.tf_buffer = None
+        self.tf_listener = None
 
         self.get_logger().info(f"{node_name} initialized")
 
@@ -175,6 +175,10 @@ class BBoxPublisherNode(LifecycleNode):
         except Exception as e:
             self.get_logger().error(f"Failed to find ego vehicle: {e}")
             return TransitionCallbackReturn.FAILURE
+
+        # Follow simulation time so world reloads clear the previous TF history.
+        self.tf_buffer = Buffer(node=self)
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Create publishers
         self.detections_2d_publisher = self.create_lifecycle_publisher(
@@ -238,6 +242,15 @@ class BBoxPublisherNode(LifecycleNode):
         self.ego_vehicle = None
         self.world = None
         self.carla_client = None
+
+        # Subscriptions retain listeners until explicitly unregistered.
+        if self.tf_listener is not None:
+            self.tf_listener.unregister()
+            self.tf_listener = None
+        if self.tf_buffer is not None:
+            self.tf_buffer.jump_handle.unregister()
+            self.destroy_service(self.tf_buffer.srv)
+            self.tf_buffer = None
 
         self.get_logger().info("Cleanup complete")
         return TransitionCallbackReturn.SUCCESS
