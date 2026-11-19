@@ -139,7 +139,7 @@ RUN apt-get update && \
 # Add COLCON_IGNORE to prevent the upstream package.xml from being discovered
 # as a duplicate of our own bevfusion package.
 RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
-    git -C deep_ros checkout 23bb3018c6f785a6601c7b6624cb543555759771 && \
+    git -C deep_ros checkout 29dea45ae2d3e2c7aa8c43fcdb9dbfbe65c3299e && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
     git -C camera_aravis2_nitros checkout 3b625b3100b962ee06342b36369116a6da486f77 && \
     git clone https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \

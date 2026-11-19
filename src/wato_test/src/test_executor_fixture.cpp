@@ -14,10 +14,60 @@
 
 #include "test_fixtures/test_executor_fixture.hpp"
 
+#include <chrono>
+#include <exception>
+#include <future>
+#include <stdexcept>
+#include <thread>
+#include <utility>
+
 #include <lifecycle_msgs/msg/state.hpp>
 
 namespace wato::test
 {
+
+namespace
+{
+
+// Starts executor.spin() on a background thread and returns once it is
+// spinning, so a later cancel() cannot be lost. Throws if spin() exits first.
+template <typename ExecutorT>
+void launch_spin_thread(ExecutorT & executor, std::thread & thread, std::future<void> & done)
+{
+  std::packaged_task<void()> task([&executor]() { executor.spin(); });
+  done = task.get_future();
+  thread = std::thread(std::move(task));
+
+  while (!executor.is_spinning()) {
+    if (done.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+      done.get();  // Rethrows the exception from spin(), if any.
+      throw std::runtime_error("Executor stopped before it started spinning (is the ROS context shut down?)");
+    }
+    std::this_thread::yield();
+  }
+}
+
+// Cancels the executor and joins its thread while the context is still valid.
+// Blocking callbacks must use bounded waits so cancellation can finish.
+template <typename ExecutorT>
+void stop_spin_thread(ExecutorT & executor, std::thread & thread, std::future<void> & done, const char * logger)
+{
+  executor.cancel();
+  if (!thread.joinable()) {
+    return;
+  }
+  thread.join();
+
+  if (done.valid()) {
+    try {
+      done.get();
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR(rclcpp::get_logger(logger), "Executor threw while spinning: %s", e.what());
+    }
+  }
+}
+
+}  // namespace
 
 ROS2Initializer::ROS2Initializer()
 {
@@ -39,12 +89,7 @@ TestExecutorFixture::~TestExecutorFixture()
 {
   // Keep the context valid until in-flight callbacks finish. In particular,
   // callbacks may still publish or create timers after the test body returns.
-  // Blocking callbacks must use bounded waits so cancellation can finish.
-  executor_.cancel();
-
-  if (spin_thread_.joinable()) {
-    spin_thread_.join();
-  }
+  stop_spin_thread(executor_, spin_thread_, spin_done_, "TestExecutorFixture");
 
   for (auto & node_base : nodes_) {
     if (node_base) {
@@ -71,11 +116,7 @@ TestExecutorFixture::~TestExecutorFixture()
 void TestExecutorFixture::start_spinning()
 {
   if (!spin_thread_.joinable()) {
-    spin_thread_ = std::thread([this]() { executor_.spin(); });
-    // cancel() must not race with spin() setting its spinning flag on startup.
-    while (!executor_.is_spinning()) {
-      std::this_thread::yield();
-    }
+    launch_spin_thread(executor_, spin_thread_, spin_done_);
   }
 }
 
@@ -86,12 +127,7 @@ MultiThreadedTestFixture::MultiThreadedTestFixture()
 MultiThreadedTestFixture::~MultiThreadedTestFixture()
 {
   // Join all callback threads before ROS2Initializer shuts down the context.
-  // Blocking callbacks must use bounded waits so cancellation can finish.
-  executor_.cancel();
-
-  if (spin_thread_.joinable()) {
-    spin_thread_.join();
-  }
+  stop_spin_thread(executor_, spin_thread_, spin_done_, "MultiThreadedTestFixture");
 
   for (auto & node_base : nodes_) {
     if (node_base) {
@@ -118,10 +154,7 @@ MultiThreadedTestFixture::~MultiThreadedTestFixture()
 void MultiThreadedTestFixture::start_spinning()
 {
   if (!spin_thread_.joinable()) {
-    spin_thread_ = std::thread([this]() { executor_.spin(); });
-    while (!executor_.is_spinning()) {
-      std::this_thread::yield();
-    }
+    launch_spin_thread(executor_, spin_thread_, spin_done_);
   }
 }
 
