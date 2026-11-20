@@ -23,6 +23,7 @@ The world model aggregates data from multiple sources (perception, prediction, H
 | `origin_lat` | double | 0.0 | Geographic origin; in UTM TF mode, selects the UTM zone only |
 | `origin_lon` | double | 0.0 | Geographic origin; in UTM TF mode, selects the UTM zone only |
 | `origin_alt` | double | 0.0 | Origin altitude in metres; subtracted in fixed mode, not in UTM TF mode |
+| `osm_ele_offset` | double | 0.0 | Metres added to every OSM `ele` before alignment; use when the OSM stores map-relative heights but the alignment expects absolute altitude |
 | `entity_history_duration_sec` | double | 5.0 | How long to keep entity history |
 | `entity_prune_timeout_sec` | double | 2.0 | Prune entities not seen for this long |
 | `traffic_light_timeout_sec` | double | 1.0 | Traffic light prune timeout |

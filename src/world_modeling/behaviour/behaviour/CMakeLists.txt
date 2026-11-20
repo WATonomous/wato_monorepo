@@ -138,13 +138,11 @@ endif()
 # ══════════════════════════════════════════════════════════════════════
 
 if(BUILD_TESTING)
-  # TODO(wato): add behaviour unit testing
-  # find_package(wato_test REQUIRED)
-  # add_wato_test(test_behaviour
-  #   test/test_behaviour.cpp
-  #   LIBRARIES
-  #     ${PROJECT_NAME}_lib
-  # )
+  find_package(wato_test REQUIRED)
+  add_wato_test(test_ego_stopped_condition test/test_ego_stopped_condition.cpp
+    LIBRARIES behaviortree_ros2::behaviortree_ros2 ${nav_msgs_TARGETS}
+  )
+  target_include_directories(test_ego_stopped_condition PRIVATE include)
 endif()
 
 ament_package()
