@@ -4,20 +4,10 @@
 # fake_planner_node (maneuver replay + execute_behaviour heartbeat + trajectory_markers), the
 # controller under test (pure pursuit or MPC, via controller:=), and a lifecycle manager for both.
 #
-# Prefer launching one of the environment wrappers beside it, which pin every topic/clock/safety
-# arg explicitly and forward everything below:
-#     fake_planner_sim.launch.yaml       CARLA
-#     fake_planner_vehicle.launch.yaml   the real car
-#
-# Nothing drives on bringup: start_on_activate is false, so the rig comes up activated but silent
-# with the controller in standby. Markers publish while held, so the path can be inspected first.
-#
-#   ros2 launch fake_planner fake_planner_sim.launch.yaml
-#   ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
-#   ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
-#
-# maneuver:=oval_track needs the oval scenario loaded in CARLA (scenario:= on the simulation
-# launch). See README.md for the full set of recipes and the /stop_trajectory + /reset services.
+# The simulation wrapper pins CARLA topics and clock. Manual deployments may use this shared
+# launch with explicit odom/command/config arguments. The runner selects controller:=mpc.
+# Nothing drives on activation: inspect /sim/reference_path, then call
+# /action/fake_planner/start_trajectory. Stop/reset services share that namespace.
 
 launch:
   - arg:
@@ -51,13 +41,16 @@ launch:
       default: "pure_pursuit"
       description: "Controller under test: pure_pursuit or mpc"
 
-  # Pure pursuit's tuning differs a lot between the two files (lookahead 5 m vs 30 m, gain 0.5 vs
-  # 2.0), so which is loaded decides what the run measures. The package's own params are the
-  # CARLA-tuned set; the vehicle launch swaps in action.yaml. MPC reads action.yaml in both.
+  # Controller tuning is explicit so the simulation wrapper can select action_sim.yaml.
   - arg:
       name: pure_pursuit_config
       default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
-      description: Pure pursuit parameter file. The vehicle launch overrides this with action_bringup's action.yaml.
+      description: Pure pursuit parameter file for manual controller work
+
+  - arg:
+      name: mpc_config
+      default: "$(find-pkg-share action_bringup)/config/action.yaml"
+      description: MPC parameters for the selected environment
 
   - arg:
       name: maneuver
@@ -149,6 +142,14 @@ launch:
         - name: "use_sim_time"
           value: "$(var use_sim_time)"
       remap:
+        - from: "~/start_trajectory"
+          to: "/action/fake_planner/start_trajectory"
+        - from: "~/stop_trajectory"
+          to: "/action/fake_planner/stop_trajectory"
+        - from: "~/reset"
+          to: "/action/fake_planner/reset"
+        - from: "~/status"
+          to: "/action/fake_planner/status"
         - from: "trajectory"
           to: "$(var trajectory_topic)"
         - from: "execute_behaviour"
@@ -189,7 +190,7 @@ launch:
       namespace: "action"
       output: "screen"
       param:
-        - from: "$(find-pkg-share action_bringup)/config/action.yaml"
+        - from: "$(var mpc_config)"
         - name: "standby_speed"
           value: "$(var standby_speed)"
         - name: "use_sim_time"

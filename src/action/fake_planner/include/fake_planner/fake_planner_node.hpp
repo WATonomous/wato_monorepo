@@ -21,8 +21,10 @@
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "fake_planner/fake_planner_core.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
@@ -55,6 +57,9 @@ private:
   // Releases the car: seeds the ramp clock so publishing starts from zero speed. Idempotent while
   // already running, so a repeated start service call doesn't restart the ramp.
   void releaseTrajectory();
+  // Latched operator evidence: ready requires an anchored preview, finished requires driven completion.
+  void publishState(const std::string & state);
+  void publishReference();
   // Fraction of the authored speed to publish right now, 0 -> 1 over release_ramp_s after release.
   double releaseRampScale();
   void timerCallback();
@@ -86,7 +91,7 @@ private:
   // absolute "start" is published verbatim, anything else is laid out from the vehicle's pose.
   std::string anchoring_{"auto"};
   bool anchor_to_first_pose_{true};
-  bool start_on_activate_{true};
+  bool start_on_activate_{false};
   std::string maneuver_file_;
   std::string marker_topic_;
   double horizon_m_{35.0};
@@ -100,12 +105,13 @@ private:
 
   // Gates publishing: when false the node stays silent so the controller holds in standby.
   // Toggled by the start/stop services; seeded from start_on_activate on activation.
-  bool trajectory_started_{true};
+  bool trajectory_started_{false};
 
   // Latched when the vehicle reaches the end of an open maneuver, so the controller times out into
   // standby and the car stays put rather than creeping or silently starting over. Cleared only by
   // an explicit reset (or a respawn, which is the sim's reset).
   bool finished_{false};
+  bool explicitly_stopped_{false};
 
   // Set once the vehicle has actually been seen moving. The finish check needs it, because
   // "within finish_distance_m of the stop line and slower than finish_speed_mps" is also true of a
@@ -130,6 +136,8 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr status_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr reference_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_srv_;

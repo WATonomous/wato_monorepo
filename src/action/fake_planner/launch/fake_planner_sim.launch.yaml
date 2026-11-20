@@ -10,7 +10,7 @@
 # Nothing moves on launch -- see the rig's header for the hold/release protocol. A respawned ego
 # re-arms the hold, so "respawn ego" in Foxglove re-anchors and waits for start_trajectory again.
 #
-# For the real car use fake_planner_vehicle.launch.yaml rather than overriding topics here.
+# Manual deployments can use fake_planner.launch.yaml with explicit environment arguments.
 
 launch:
   # -- Simulation plumbing. These are what make this the sim launch.
@@ -44,7 +44,7 @@ launch:
   # -- Everything else is environment-neutral and just forwarded to the rig.
   - arg:
       name: trajectory_topic
-      default: "/action/fake_planner/trajectory"
+      default: "/action/trajectory_planning/trajectory"
       description: Trajectory topic, from the fake planner to the controller
 
   - arg:
@@ -62,12 +62,16 @@ launch:
       default: "pure_pursuit"
       description: "Controller under test: pure_pursuit or mpc"
 
-  # The package's own params are the tuning the sim is set up against; the vehicle launch points
-  # this at action.yaml instead.
+  # Pure pursuit remains available for manual experiments; the runner selects MPC explicitly.
   - arg:
       name: pure_pursuit_config
       default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
       description: Pure pursuit parameter file
+
+  - arg:
+      name: mpc_config
+      default: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+      description: MPC parameters for the selected environment
 
   - arg:
       name: maneuver
@@ -126,6 +130,8 @@ launch:
           value: "$(var controller)"
         - name: pure_pursuit_config
           value: "$(var pure_pursuit_config)"
+        - name: mpc_config
+          value: "$(var mpc_config)"
         - name: maneuver
           value: "$(var maneuver)"
         - name: maneuver_file

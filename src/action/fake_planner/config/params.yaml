@@ -24,7 +24,7 @@
 
     # Publish as soon as the node activates. Every launch passes false, so nothing drives on
     # bringup and the start_trajectory service is what releases the car.
-    start_on_activate: true
+    start_on_activate: false
 
     # Whether the waypoints are laid out from the vehicle's pose at launch (from the first odom) or
     # published in the file's own coordinates. "auto" lets the maneuver decide: a file carrying an
