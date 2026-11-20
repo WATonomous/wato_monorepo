@@ -1,0 +1,159 @@
+# Developing prediction_ml
+
+## Status
+
+The package provides the MTR contracts, null and TensorRT-gated inference backends, scene builder,
+asynchronous latest-frame runtime with a per-object TTL cache, validated output conversion,
+lifecycle node, and constant-velocity fallback.
+
+Masks (`obj_trajs_mask`, `map_polylines_mask`) are `uint8`; `center_type_ids` and
+`track_index_to_predict` are `int64` engine bindings (`TYPE_VEHICLE=0`, `TYPE_PEDESTRIAN=1`,
+`TYPE_CYCLIST=2`). Ego dimensions come from configuration, and body-frame odometry twist is rotated
+into the map frame by the scene builder before target-relative packing.
+
+### TensorRT sign-off
+
+The static ONNX graph and a TensorRT 10.13.2.6 engine were built on a development RTX 3060 Ti.
+`engine_build.yaml` is strict FP32 with TensorFloat-32 disabled: it matched PyTorch on all 9 fixture
+targets (below 1e-3 m minFDE delta), while TF32 and FP16 builds did not.
+Engines are machine-local: copy `mtr.onnx` and `engine_build.yaml` to the vehicle and rebuild natively, then
+measure latency and memory there.
+
+## Runtime Smoke Check
+
+After building and sourcing the workspace:
+
+```bash
+ros2 launch prediction_ml prediction_ml.launch.yaml
+ros2 lifecycle set /world_modeling/prediction_ml_node configure
+ros2 lifecycle set /world_modeling/prediction_ml_node activate
+ros2 topic hz /world_modeling/world_object_seeds
+```
+
+The node publishes only after detections arrive. With `mtr.mode: "disabled"`, output should contain
+constant-velocity fallback predictions.
+
+Quality-harness replays set `mtr.pinned_target_ids` before configuration and record both
+`/world_modeling/mtr_predictions` and `/world_modeling/world_object_seeds`. The former is a
+one-shot diagnostic stream containing all accepted pinned MTR targets, including `__ego__`; the
+latter retains production detection-list filtering and fallback takeover. Never connect the
+diagnostic topic to a production world-model consumer. Pinned mode also exact-joins the four input
+messages by source stamp, so DDS callback order cannot mix current tracks with stale auxiliary state.
+
+## Architecture
+
+```text
+tracks_3d ─────────┐
+ego_pose/odometry ─┼─▶ SceneBuilder ──MtrInputTensors──▶ MtrRuntime ──▶ IMtrInferenceEngine
+lanelet ───────────┘                      + sidecar                         │
+                                                                    ▼
+                                                            MtrOutputTensors
+                                                                    │
+                                                                    ▼
+                                                            OutputConverter
+                                                                    │
+                                      selectOutput(fallback, cached_mtr, now)
+                                                                    │
+                                                                    ▼
+                                                        world_object_seeds
+```
+
+The lifecycle node always creates a synchronous constant-velocity fallback. `SceneBuilder`
+prepares MTR inputs, `MtrRuntime` owns asynchronous inference and its result cache, and
+`OutputConverter` converts valid model output into ROS predictions.
+
+## Build
+
+```bash
+colcon build --packages-select prediction_ml
+```
+
+`PREDICTION_ML_ENABLE_TENSORRT` defaults to `AUTO`: the TensorRT translation unit is compiled in
+when TensorRT headers, `libnvinfer`, and the CUDA runtime are found, and left out otherwise (the
+configure log says which). `ON` makes a missing dependency a configure error; `OFF` never builds it.
+A full CUDA toolkit is used when present, but no `nvcc` is required.
+
+The world modeling image installs the eval project's `engine` extra dependencies
+in `/opt/watonomous/mtr-engine-venv`. They include ONNX, TensorRT 10.13.2.6, CUDA
+Python, and the CUDA 12 runtime, separate from ROS Python and without PyTorch.
+The image also adds the matching TensorRT C++ headers under
+`/opt/watonomous/mtr-engine-venv/tensorrt/include`, so in the dev and deploy images the plain
+`colcon build` above includes the TensorRT backend. The node's RPATH points at the venv's
+libraries, so no `LD_LIBRARY_PATH` is needed.
+Changes to `eval/pyproject.toml` take effect when rebuilding the image.
+
+Rebuild and recreate the dev container from the repository root on the host:
+
+```bash
+./watod -m world_modeling:dev build
+./watod -m world_modeling:dev up -d --no-deps world_modeling_bringup_dev
+```
+
+Inside the dev container, activate the engine environment and build the mounted model:
+
+```bash
+source /opt/watonomous/mtr-engine-venv/bin/activate
+python3 /ws/src/world_modeling/prediction_ml/eval/wato_mtr_eval/build_engine.py \
+  --onnx /ws/models/prediction/mtr_av2_r2.onnx \
+  --config /ws/src/world_modeling/prediction_ml/config/engine_build.yaml \
+  --out /ws/models/prediction/mtr_av2_r2.engine
+```
+
+The dev service requests an NVIDIA GPU. The engine is written back to the host's
+`models/prediction` directory. The default `python3` outside this environment
+continues to use the ROS Python packages.
+
+For an existing model venv outside Docker, install the engine extra from `eval/`:
+
+```bash
+python -m pip install '.[engine]'
+```
+
+Outside the image, the C++ build needs matching TensorRT headers and
+`libnvinfer.so.10` (for example NVIDIA's `tensorrt-dev` Debian package) plus the CUDA runtime.
+A source-header checkout can be used explicitly:
+
+```bash
+colcon build --packages-select prediction_ml --cmake-args \
+  -DPREDICTION_ML_ENABLE_TENSORRT=ON \
+  -DTENSORRT_INCLUDE_DIR="$HOME/TensorRT-10.13/include" \
+  -DTENSORRT_NVINFER_LIBRARY="/path/to/libnvinfer.so.10"
+```
+
+A build directory configured before `AUTO` existed keeps its cached value; reconfigure it with
+`colcon build --packages-select prediction_ml --cmake-clean-cache`.
+
+Runtime selection is separate from compile-time inclusion. `mtr.mode: "tensorrt"` requests the
+TensorRT engine only in a build that includes it; otherwise the factory returns the null engine and
+the node publishes CV fallback output.
+
+Launch the compiled TensorRT backend with:
+
+```bash
+ros2 launch prediction_ml prediction_ml.launch.yaml \
+  mtr_mode:=tensorrt \
+  engine_path:=/absolute/path/to/mtr.engine \
+  metadata_path:=/absolute/path/to/contract_8_target.yaml
+ros2 lifecycle set /world_modeling/prediction_ml_node configure
+```
+
+## Testing
+
+```bash
+colcon test --packages-select prediction_ml
+colcon test-result --verbose
+```
+
+The Gate B parity test needs the Waymo-derived replay fixtures, which are not
+committed (WOD terms). They skip until you build them with `eval/regenerate_fixtures.sh <shard>`.
+
+The package test targets cover shared contracts, inference backend selection, scene building,
+runtime selection and TTL behavior, output conversion, and the fallback's tracker velocity.
+
+When a real engine is available, enable the optional binding gate:
+
+```bash
+MTR_ENGINE_PATH=/absolute/path/to/mtr.engine \
+MTR_METADATA_PATH=/absolute/path/to/contract_8_target.yaml \
+colcon test --packages-select prediction_ml --ctest-args -R test_backend
+```

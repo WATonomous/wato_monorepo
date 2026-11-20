@@ -82,11 +82,22 @@ services:
         USER_GID: "${SETGID}"
         CLAUDE_CODE: "${CLAUDE_CODE}"
     image: "${WORLD_MODELING_IMAGE:?}:dep_${TAG}"
+    runtime: nvidia
     command: sleep infinity
     volumes:
       - ${MONO_DIR}/maps:/opt/watonomous/maps
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
       - ${BAG_DIRECTORY}:/ws/bags
+      - ${MONO_DIR}/models:/ws/models
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
 
   #################### ACTION SERVICE ####################
   action_bringup_dev:
