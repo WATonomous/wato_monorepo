@@ -1,0 +1,150 @@
+# fake_planner_sim.launch.yaml
+#
+# The controller test rig in CARLA. Thin wrapper over fake_planner.launch.yaml (which holds the
+# actual nodes) pinning the simulation-side plumbing: the bridge's odom, its ackermann command
+# topic, and sim time off /clock. Every other arg is forwarded untouched.
+#
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
+#
+# Nothing moves on launch -- see the rig's header for the hold/release protocol. A respawned ego
+# re-arms the hold, so "respawn ego" in Foxglove re-anchors and waits for start_trajectory again.
+#
+# For the real car use fake_planner_vehicle.launch.yaml rather than overriding topics here.
+
+launch:
+  # -- Simulation plumbing. These are what make this the sim launch.
+  - arg:
+      name: odom_topic
+      default: "/ego/odom"
+      description: Odometry from the CARLA bridge (controller speed + trajectory anchoring)
+
+  - arg:
+      name: ackermann_topic
+      default: "/carla/ackermann_control/command"
+      description: The CARLA bridge's ackermann control input
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
+
+  # Re-anchoring on a respawn is what makes "respawn ego" a one-click reset. The vehicle launch
+  # turns it off.
+  - arg:
+      name: respawn_jump_m
+      default: "5.0"
+      description: Odom jump (m) treated as an ego respawn, after which the maneuver re-anchors. 0 disables.
+
+  - arg:
+      name: start_on_activate
+      default: "false"
+      description: Hold in standby until the start_trajectory service is called. True drives on activate.
+
+  # -- Everything else is environment-neutral and just forwarded to the rig.
+  - arg:
+      name: trajectory_topic
+      default: "/action/fake_planner/trajectory"
+      description: Trajectory topic, from the fake planner to the controller
+
+  - arg:
+      name: behaviour_topic
+      default: "/action/fake_planner/execute_behaviour"
+      description: Behaviour heartbeat topic, from the fake planner to the controller
+
+  - arg:
+      name: frame_id
+      default: "odom"
+      description: Frame the trajectory is published in (must be TF-connected to rear_axle)
+
+  - arg:
+      name: controller
+      default: "pure_pursuit"
+      description: "Controller under test: pure_pursuit or mpc"
+
+  # The package's own params are the tuning the sim is set up against; the vehicle launch points
+  # this at action.yaml instead.
+  - arg:
+      name: pure_pursuit_config
+      default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+      description: Pure pursuit parameter file
+
+  - arg:
+      name: maneuver
+      default: "steady_state_slalom"
+      description: Maneuver to replay, by name under the package's maneuvers/ folder (without .json)
+
+  - arg:
+      name: maneuver_file
+      default: "$(find-pkg-share fake_planner)/maneuvers/$(var maneuver).json"
+      description: Full path to the maneuver JSON; overrides `maneuver` when set explicitly
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate managed nodes
+
+  - arg:
+      name: anchoring
+      default: "auto"
+      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (e.g. oval_track) where they were drawn.
+
+  - arg:
+      name: standby_speed
+      default: "0.0"
+      description: Controller speed in standby. 0.0 holds still; the controllers' own -0.5 default reverses.
+
+  - arg:
+      name: transition_timeout_s
+      default: "10.0"
+      description: How long the lifecycle manager waits for each configure/activate transition
+
+  - arg:
+      name: bond_timeout_s
+      default: "4.0"
+      description: Bond heartbeat timeout, used only when bond_enabled is true
+
+  - arg:
+      name: bond_enabled
+      default: "false"
+      description: Enable bond-based crash detection for the managed nodes
+
+  - include:
+      file: "$(find-pkg-share fake_planner)/launch/fake_planner.launch.yaml"
+      arg:
+        - name: odom_topic
+          value: "$(var odom_topic)"
+        - name: ackermann_topic
+          value: "$(var ackermann_topic)"
+        - name: trajectory_topic
+          value: "$(var trajectory_topic)"
+        - name: behaviour_topic
+          value: "$(var behaviour_topic)"
+        - name: frame_id
+          value: "$(var frame_id)"
+        - name: controller
+          value: "$(var controller)"
+        - name: pure_pursuit_config
+          value: "$(var pure_pursuit_config)"
+        - name: maneuver
+          value: "$(var maneuver)"
+        - name: maneuver_file
+          value: "$(var maneuver_file)"
+        - name: use_sim_time
+          value: "$(var use_sim_time)"
+        - name: autostart
+          value: "$(var autostart)"
+        - name: start_on_activate
+          value: "$(var start_on_activate)"
+        - name: anchoring
+          value: "$(var anchoring)"
+        - name: standby_speed
+          value: "$(var standby_speed)"
+        - name: respawn_jump_m
+          value: "$(var respawn_jump_m)"
+        - name: transition_timeout_s
+          value: "$(var transition_timeout_s)"
+        - name: bond_timeout_s
+          value: "$(var bond_timeout_s)"
+        - name: bond_enabled
+          value: "$(var bond_enabled)"
