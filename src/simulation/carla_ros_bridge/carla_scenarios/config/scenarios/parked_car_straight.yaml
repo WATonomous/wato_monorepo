@@ -1,0 +1,26 @@
+---
+version: 1
+id: parked_car_straight
+playground: parked_car_straight
+stack: autonomy
+events:
+  - when: play
+    do: begin_evaluation
+completion: stopped_behind_actor
+deadlines:
+  readiness_s: 90.0
+  execution_s: 90.0
+  stalled_clock_s: 15.0
+  first_output_s: 3.0
+  data_freshness_s: 2.0
+thresholds:
+  min_progress_m: 15.0
+  min_clearance_m: 2.0
+  max_clearance_m: 8.0
+  stopped_speed_mps: 0.15
+  stopped_duration_s: 3.0
+  min_samples: 30
+  max_lateral_offset_m: 1.5
+# 40 m center separation minus measured vehicle footprints leaves room to move
+# at least 15 m before entering this stop window. Calibrate on the target host.
+metrics: [closest_clearance_m, final_clearance_m, distance_progressed_m, stopped_duration_s]

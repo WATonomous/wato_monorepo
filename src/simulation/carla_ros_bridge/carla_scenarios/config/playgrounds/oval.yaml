@@ -1,0 +1,12 @@
+---
+version: 1
+id: oval
+map:
+  xodr: oval.xodr
+seed: 42
+ego_blueprint: vehicle.mini.cooper
+spawn:
+  straight_start: true
+  s_margin_m: 10.0
+required_straight_m: 0.0
+goal_distance_m: 0.0

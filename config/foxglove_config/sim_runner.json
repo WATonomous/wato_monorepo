@@ -1,0 +1,181 @@
+{
+  "configById": {
+    "3D!runner": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 98.08401423513503,
+        "phi": 29.173790769491045,
+        "thetaOffset": -56.41459753083616,
+        "targetOffset": [
+          -8.47765315526343,
+          4.918154813294437,
+          -1.753351368110654
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "enableStats": false,
+        "transforms": {
+          "labelSize": 0.04
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/carla/bbox_markers": {
+          "visible": true
+        },
+        "/sim/reference_path": {
+          "visible": true,
+          "color": "#f7df71",
+          "lineWidth": 0.15
+        },
+        "/sim/actual_path": {
+          "visible": true,
+          "color": "#4e98e2",
+          "lineWidth": 0.15
+        },
+        "/robot_description_viz": {
+          "visible": true
+        }
+      },
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {},
+      "followTf": "base_footprint",
+      "title": "Ego, parked car, reference and actual path"
+    },
+    "CallService!play": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 180,
+      "serviceName": "/sim/play",
+      "title": "Play"
+    },
+    "CallService!pause": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 180,
+      "serviceName": "/sim/pause",
+      "title": "Pause"
+    },
+    "CallService!resume": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 180,
+      "serviceName": "/sim/resume",
+      "title": "Resume"
+    },
+    "CallService!stop": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 180,
+      "serviceName": "/sim/stop",
+      "title": "Stop run"
+    },
+    "CallService!reset": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 180,
+      "serviceName": "/sim/reset",
+      "title": "Reset"
+    },
+    "CallService!status": {
+      "requestPayload": "{}",
+      "layout": "vertical",
+      "timeoutSeconds": 180,
+      "serviceName": "/sim/status",
+      "title": "Status"
+    },
+    "RawMessages!state": {
+      "topicPath": "/sim/status",
+      "fontSize": 12,
+      "title": "Run state and heartbeat",
+      "diffEnabled": false
+    },
+    "Plot!speed": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/sim/speed_mps.data",
+          "enabled": true,
+          "label": "Ground speed (m/s)",
+          "color": "#4e98e2"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "title": "Ego speed (m/s)"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "CallService!play",
+      "second": {
+        "first": "CallService!pause",
+        "second": {
+          "first": "CallService!resume",
+          "second": {
+            "first": "CallService!stop",
+            "second": {
+              "first": "CallService!reset",
+              "second": "CallService!status",
+              "direction": "column",
+              "splitPercentage": 50.0
+            },
+            "direction": "column",
+            "splitPercentage": 33.333333333333336
+          },
+          "direction": "column",
+          "splitPercentage": 25.0
+        },
+        "direction": "column",
+        "splitPercentage": 20.0
+      },
+      "direction": "column",
+      "splitPercentage": 16.666666666666668
+    },
+    "second": {
+      "first": "3D!runner",
+      "second": {
+        "first": "RawMessages!state",
+        "second": "Plot!speed",
+        "direction": "row",
+        "splitPercentage": 60
+      },
+      "direction": "column",
+      "splitPercentage": 75
+    },
+    "direction": "row",
+    "splitPercentage": 23
+  }
+}
