@@ -56,6 +56,14 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("footprint_y_min", -1.2);
   declare_parameter("footprint_x_max", 3.5);
   declare_parameter("footprint_y_max", 1.2);
+
+  // Deterministic costmap-only lateral obstacle avoidance.
+  declare_parameter("elastic_band_enabled", true);
+  declare_parameter("eb_max_deviation", 0.8);
+  declare_parameter("eb_lateral_search_step", 0.1);
+  declare_parameter("eb_clearance_margin", 0.3);
+  declare_parameter("eb_transition_distance", 5.0);
+  declare_parameter("eb_preferred_side", std::string("left"));
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -89,6 +97,18 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
   // aligned with path pose orientation at runtime
   std::string footprint_frame = get_parameter("footprint_frame").as_string();
   (void)footprint_frame;  // used as configuration documentation; TF lookup deferred
+
+  config.elastic_band_enabled = get_parameter("elastic_band_enabled").as_bool();
+  config.eb_max_deviation = get_parameter("eb_max_deviation").as_double();
+  config.eb_lateral_search_step = get_parameter("eb_lateral_search_step").as_double();
+  config.eb_clearance_margin = get_parameter("eb_clearance_margin").as_double();
+  config.eb_transition_distance = get_parameter("eb_transition_distance").as_double();
+  const std::string preferred_side = get_parameter("eb_preferred_side").as_string();
+  if (preferred_side != "left" && preferred_side != "right") {
+    RCLCPP_ERROR(get_logger(), "eb_preferred_side must be either 'left' or 'right'");
+    return CallbackReturn::FAILURE;
+  }
+  config.eb_preferred_side_sign = preferred_side == "left" ? 1.0 : -1.0;
 
   core_ = std::make_unique<TrajectoryCore>(config);
 
@@ -196,8 +216,12 @@ void TrajectoryPlannerNode::update_trajectory()
     return;
   }
 
-  // Transform path to costmap frame if the frames differ
+  // Transform path to costmap frame if the frames differ. Remember the path->costmap transform
+  // (and whether one was needed) so the computed trajectory — which may have been laterally
+  // deformed by the elastic band in the costmap frame — can be transformed back afterwards.
   nav_msgs::msg::Path transformed_path = *latest_path_;
+  bool frames_differ = false;
+  geometry_msgs::msg::TransformStamped path_to_costmap_transform;
   if (latest_path_->header.frame_id != latest_costmap_->header.frame_id) {
     try {
       // Check if transform is available before attempting lookup
@@ -218,12 +242,13 @@ void TrajectoryPlannerNode::update_trajectory()
       transformed_path.header.frame_id = latest_costmap_->header.frame_id;
       transformed_path.poses.clear();
 
-      geometry_msgs::msg::TransformStamped transform = tf_buffer_->lookupTransform(
+      path_to_costmap_transform = tf_buffer_->lookupTransform(
         latest_costmap_->header.frame_id, latest_path_->header.frame_id, tf2::TimePointZero);
+      frames_differ = true;
 
       for (const auto & pose : latest_path_->poses) {
         geometry_msgs::msg::PoseStamped transformed_pose;
-        tf2::doTransform(pose, transformed_pose, transform);
+        tf2::doTransform(pose, transformed_pose, path_to_costmap_transform);
         transformed_path.poses.push_back(transformed_pose);
       }
     } catch (const tf2::TransformException & ex) {
@@ -237,10 +262,28 @@ void TrajectoryPlannerNode::update_trajectory()
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
-  // Publish trajectory in the original path frame (map) so it doesn't drift with the ego frame
+  // Publish trajectory in the original path frame (e.g. map) so it doesn't drift with the ego
+  // frame. The trajectory was computed in the costmap frame (and may have been laterally
+  // deformed there by the elastic band), so when the frames differ we must transform the
+  // computed poses back with the inverse of the path->costmap transform rather than discarding
+  // them in favour of the original path poses — otherwise any deformation would be lost.
   traj.header.frame_id = latest_path_->header.frame_id;
-  for (size_t i = 0; i < traj.points.size() && i < latest_path_->poses.size(); ++i) {
-    traj.points[i].pose = latest_path_->poses[i].pose;
+  if (frames_differ) {
+    tf2::Transform tf2_path_to_costmap;
+    tf2::fromMsg(path_to_costmap_transform.transform, tf2_path_to_costmap);
+
+    geometry_msgs::msg::TransformStamped costmap_to_path_transform;
+    costmap_to_path_transform.header.frame_id = latest_path_->header.frame_id;
+    costmap_to_path_transform.child_frame_id = latest_costmap_->header.frame_id;
+    costmap_to_path_transform.transform = tf2::toMsg(tf2_path_to_costmap.inverse());
+
+    for (auto & point : traj.points) {
+      geometry_msgs::msg::PoseStamped in_pose;
+      in_pose.pose = point.pose;
+      geometry_msgs::msg::PoseStamped out_pose;
+      tf2::doTransform(in_pose, out_pose, costmap_to_path_transform);
+      point.pose = out_pose.pose;
+    }
   }
 
   // Publish trajectory
@@ -255,6 +298,27 @@ void TrajectoryPlannerNode::update_trajectory()
     delete_marker.action = visualization_msgs::msg::Marker::DELETEALL;
     markers.markers.push_back(delete_marker);
 
+    // Elastic band deformed path geometry, rendered as a green line strip so the deviation from
+    // the original (undeformed) path is visible in RViz. LINE_STRIP requires >= 2 points.
+    if (traj.points.size() >= 2) {
+      visualization_msgs::msg::Marker band_line;
+      band_line.header = traj.header;
+      band_line.ns = "elastic_band_path";
+      band_line.id = 0;
+      band_line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+      band_line.action = visualization_msgs::msg::Marker::ADD;
+      band_line.pose.orientation.w = 1.0;
+      band_line.scale.x = 0.1;
+      band_line.color.r = 0.0f;
+      band_line.color.g = 1.0f;
+      band_line.color.b = 0.0f;
+      band_line.color.a = 0.8f;
+      for (const auto & point : traj.points) {
+        band_line.points.push_back(point.pose.position);
+      }
+      markers.markers.push_back(band_line);
+    }
+
     // Create a sphere marker for each point
     int id = 0;
     for (const auto & point : traj.points) {
@@ -268,7 +332,7 @@ void TrajectoryPlannerNode::update_trajectory()
 
       // Size correlates with speed
       // Base size 0.1m, scales up to 0.5m at max speed
-      double speed_ratio = std::max(0.0, std::min(1.0, point.max_speed / limit_speed));
+      double speed_ratio = limit_speed > 0.0 ? std::clamp(point.max_speed / limit_speed, 0.0, 1.0) : 0.0;
       double diameter = 0.1 + (0.4 * speed_ratio);
 
       // Only add labels for every 4th point to avoid clutter
