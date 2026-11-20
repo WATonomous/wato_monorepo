@@ -232,3 +232,50 @@ ros2 lifecycle list /carla/lidar_publisher
 ```
 
 All nodes should be in the `active` state. If stuck in `inactive`, check the scenario_server connection to CARLA.
+
+## WATOD simulation v1 integration contract
+
+The session reuses the existing simulation, action and world modeling images; it
+has one experiment at a time. `watod sim` owns only containers it starts. The
+existing scenario server is the sole CARLA tick and `/clock` authority. Manual
+launch paths retain their defaults. Live acceptance is performed by the operator.
+
+- States: IDLE -> PREPARING -> READY -> RUNNING <-> PAUSED -> FINISHED.
+  `close` returns to IDLE; `reset` creates a new attempt and returns to READY.
+  Open/test require setup and IDLE. Invalid transitions name the state and recovery.
+- `/sim/open` uses `carla_msgs/srv/SwitchScenario`, with `scenario/NAME` or
+  `playground/NAME` in `scenario_name`. World preparation precedes stack startup;
+  the host then calls `/sim/ready` (`std_srvs/srv/Trigger`).
+- `/sim/{play,pause,resume,stop,reset,close,status,ready}` use
+  `std_srvs/srv/Trigger`. `success=false` means the operation failed;
+  status returns JSON in `message`. `/sim/status` topic is a transient-local
+  `std_msgs/msg/String` snapshot with a wall-clock heartbeat, including while paused.
+- World services: `/carla/scenario_server/prepare_experiment` uses
+  `SwitchScenario` with an installed playground name; `/carla/pause` uses
+  `SetBool`; `/carla/scenario_server/{hold,release,close_experiment}` use Trigger.
+  Preparation selects the reviewed YAML world definition, holds the ego during
+  readiness ticks and resets seeds. Pause settles the in-flight tick before reply.
+- Scenario definitions live in `carla_scenarios/config/scenarios`, playgrounds in
+  `config/playgrounds`. Version 1 YAML has `id`, `playground`, `stack`, `events`
+  (an ordered sequence of `when` / `do` mappings), `deadlines`, `completion` and
+  `thresholds`. Events use `play` or `{elapsed_s: N}` triggers and reviewed action
+  names. Simulation time drives events/scoring; monotonic time bounds readiness
+  and stalls. Events are consumed once per attempt.
+- `controller_mpc` owns one fake planner and one MPC; `autonomy` owns real
+  behavior, lattice, trajectory planning and MPC. Only the CARLA Ackermann node
+  actuates during runner experiments; teleop is excluded. Fake planner services
+  are `/action/fake_planner/{start_trajectory,stop_trajectory,reset}` and its
+  transient-local String state is `/action/fake_planner/status` (`ready`,
+  `running`, `finished`, `stopped`). Reference Path is `/sim/reference_path`.
+- Common inputs: `/ego/odom` (map frame), `/carla/detections_3d`,
+  `/world_modeling/costmap`, `/world_modeling/lanelet/route_ahead`;
+  `/goal_point` is geometry_msgs/PointStamped. Actual Path is `/sim/actual_path`.
+- Attempt IDs combine UTC time and a UUID. Results under the session result root
+  contain `configuration.yaml`, `events.json`, and `result.json` with run ID,
+  UTC timestamps, simulated duration, outcome, reasons and metrics with units.
+  Outcomes/CLI test exit codes: pass/0, assertion_failure/1, data_error/2,
+  interrupted/3; usage or session errors use 2. Missing evidence cannot pass.
+- Reset discards old samples/events, resets world actors and lifecycle state,
+  resets the fake planner anchor and preserves prior results. Evaluation reloads
+  the world within the same CARLA process. Thresholds are provisional until the
+  operator records a measured baseline and completes live acceptance.
