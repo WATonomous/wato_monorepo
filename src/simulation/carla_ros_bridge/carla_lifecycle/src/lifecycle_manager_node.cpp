@@ -134,6 +134,13 @@ void LifecycleManagerNode::startupTimerCallback()
 
 void LifecycleManagerNode::scenarioStatusCallback(const carla_msgs::msg::ScenarioStatus::SharedPtr msg)
 {
+  // An idle session has no ego. Defer all ego-dependent lifecycle transitions
+  // until a prepared world is publishing its running scene status.
+  if (msg->scenario_name.empty() || msg->state != "running") {
+    current_scenario_.clear();
+    last_scenario_state_ = msg->state;
+    return;
+  }
   bool scenario_changed = msg->scenario_name != current_scenario_;
   bool state_changed_to_running = (msg->state == "running" && last_scenario_state_ != "running");
 

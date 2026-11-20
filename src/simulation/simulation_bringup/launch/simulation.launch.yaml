@@ -13,6 +13,11 @@ launch:
       default: "5000"
       description: "Port for the pygame HUD web server"
 
+  - arg:
+      name: session_mode
+      default: "false"
+      description: "Keep CARLA warm and let the experiment runner own controls"
+
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
@@ -29,3 +34,16 @@ launch:
           value: $(var pygame_hud_enabled)
         - name: pygame_web_port
           value: $(var pygame_web_port)
+        - name: session_mode
+          value: $(var session_mode)
+
+  # The runner owns experiment state; the existing scenario server owns physics.
+  - node:
+      if: $(var session_mode)
+      pkg: carla_scenarios
+      exec: simulation_runner
+      name: simulation_runner
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false

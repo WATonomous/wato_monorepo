@@ -64,18 +64,15 @@ class CustomScenario(ScenarioBase):
             actor = self.world.try_spawn_actor(blueprint, transform)
             if actor is not None:
                 self.traffic_entities.append(actor)
+                self.owned_actors.append(actor)
                 spawned += 1
 
         self._log(f"Spawned {spawned} traffic entities")
         return spawned
 
     def cleanup(self) -> None:
-        """Destroy only the static traffic props created by this scenario."""
-        for actor in self.traffic_entities:
-            try:
-                actor.destroy()
-            except Exception:
-                pass
+        """Release the plugin's traffic props, vehicles and walker controllers."""
+        super().cleanup()
         self.traffic_entities = []
 
     def setup(self) -> bool:
