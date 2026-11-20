@@ -57,6 +57,24 @@ Eve has 12 cameras total — 8 panoramic and 4 lower. BEVFusion uses **6 of the 
 
 `camera_pano_ee` (pure right) and `camera_pano_ww` (pure left) are excluded — they have no equivalent in the nuScenes layout the model was trained on. The 4 lower cameras are also excluded as they point downward and are not useful for 3D object detection.
 
+### Using all 8 panoramic cameras
+
+The camera count is not learned: every view goes through the same encoder weights, and each camera's position enters only through its calibration, when its features are pooled into the shared BEV grid. The six-camera count lives only in `camera.backbone.onnx`'s shapes, so `bevfusion/scripts/export_cameras.py` writes an N-camera copy of the model with the weights and int8 scales unchanged (no retraining). The model never saw more than six nuScenes views, though, so accuracy with eight is unmeasured.
+
+```bash
+pip install onnx==1.17.0
+python3 src/perception/bevfusion/bevfusion/scripts/export_cameras.py \
+  --model-dir /opt/watonomous/models/bevfusion/resnet50_trt11_int8 \
+  --output-dir /opt/watonomous/models/bevfusion/resnet50_trt11_int8_8cam \
+  --num-cameras 8
+```
+
+Then change these together. The node takes `num_cameras` from `camera_names` and does not check it against the engine, so a mismatch fails silently:
+
+- `model_dir` → the new directory (keep `int8` in its name: `precision` is inferred from it). Its TensorRT plans are built under `<model_dir>/build` on first activation.
+- `camera_names` → add `camera_pano_ee` and `camera_pano_ww` (order only has to be consistent: views are pooled, not position-coded).
+- `multi_camera_sync`'s `camera_names` in `perception_bringup.yaml` → uncomment `camera_pano_ee` / `camera_pano_ww`, or the synced message never carries them and every frame is skipped. Other nodes read that topic too.
+
 ### LiDAR
 
 Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre-merged by a `lidar_aggregator` node into `/lidar/all/points_merged`. **BEVFusion currently defaults to the single `lidar_cc` sensor** (`/lidar_cc/velodyne_points`, set via `input_lidar_topic`), not the merged cloud. `lidar_frame_id` (default `lidar_cc`) must match whichever LiDAR topic is actually configured, since it's used as the TF target for camera extrinsics.
