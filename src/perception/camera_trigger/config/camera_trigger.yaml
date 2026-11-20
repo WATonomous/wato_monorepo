@@ -1,0 +1,43 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Parameters for camera_trigger_node. Open items are marked TODO(open_items <id>),
+# see docs/open_items.md.
+---
+/**/camera_trigger:
+  ros__parameters:
+    # Where the trigger board sends its reports (one UDP datagram per pulse).
+    # On the car, bind to the sensor network: 10.8.0.1 (br0). Set by the car launch file.
+    udp_bind_address: "0.0.0.0"
+    udp_port: 5800  # must match the firmware's destination port
+    # Accept reports only from this IPv4 address. "" accepts any sender.
+    # TODO(open_items A2): the trigger board's static IP
+    udp_source_ip: ""
+
+    pulses_per_second: 20
+    # Typical delay between a pulse and its report arriving, in seconds.
+    # TODO(open_items A7): replace with the median measured on the car
+    expected_latency: 0.010
+    # A report arriving later than this after its pulse (or before it) means the system clock
+    # isn't synced to GPS, or a stale report: its stamp is marked time_valid=false.
+    max_latency: 0.100
+    stale_timeout: 0.3  # seconds without a pulse report before the diagnostics show ERROR
+    reconnect_period: 1.0  # first retry delay when the socket can't be opened (doubles up to 10 s)
+
+    # Report a camera after this many pulses in a row without its strobe.
+    strobe_miss_warn_count: 20
+    # Strobe inputs with a camera wired to them (0 = STB1 ... 11 = STB12). Unwired inputs never
+    # strobe, so leave them out to avoid permanent warnings.
+    # TODO(open_items A5): camera <-> STB wiring
+    expected_strobe_bits: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
