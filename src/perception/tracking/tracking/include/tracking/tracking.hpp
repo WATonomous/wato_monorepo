@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <rclcpp/rclcpp.hpp>
@@ -180,6 +181,10 @@ private:
   // Per-track state: Kalman filters and centroid history
   std::unordered_map<int, TrackKalmanFilter> track_filters_;
   std::unordered_map<int, std::deque<geometry_msgs::msg::PoseStamped>> track_centroids_;
+  /** Last published heading and its stamp (s) per track; unlike track_centroids_, kept across missed frames. */
+  std::unordered_map<int, std::pair<double, double>> track_headings_;
+  /** Stamp of the last ByteTrack update, for its Kalman dt. */
+  rclcpp::Time last_tracker_stamp_{0, 0, RCL_ROS_TIME};
 
   static rclcpp::Logger static_logger_;
 };
