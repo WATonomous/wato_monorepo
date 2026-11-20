@@ -279,3 +279,132 @@ launch paths retain their defaults. Live acceptance is performed by the operator
   resets the fake planner anchor and preserves prior results. Evaluation reloads
   the world within the same CARLA process. Thresholds are provisional until the
   operator records a measured baseline and completes live acceptance.
+
+## Runner v1 operator guide
+
+Use prepared module images containing this branch. `watod sim` never builds or
+pulls images. The action image discovers `fake_planner` through its existing
+`COPY src/action` and colcon build. The simulation image additionally installs
+message definitions needed to inspect the real stack. No runner Dockerfile is
+needed. Existing `watod up` and manual ROS launch commands remain available.
+
+From the repository root, the installed `watod` symlink and `./watod` support the
+same commands:
+
+```bash
+./watod sim list
+./watod sim setup
+./watod sim open playground oval
+./watod sim close
+./watod sim open scenario controller_snake
+./watod sim play
+./watod sim pause
+./watod sim resume
+./watod sim status
+./watod sim reset
+./watod sim play
+./watod sim close
+./watod sim test parked_car_straight
+./watod sim stop
+```
+
+`setup` starts an idle session and prints the configured Foxglove WebSocket
+address. Repeating it preserves a healthy session, including an open experiment.
+`open` requires setup and an idle session. `open scenario` waits for active stack
+nodes, fresh odometry and the reference preview or accepted route and obstacle in
+the planner costmap. Setup ticks hold the ego stationary and are excluded from
+scoring. `play` releases the ego. `close` releases the experiment; `stop` removes
+only recorded session containers and preserves maps, caches and results. The
+playground path lets developers launch their own ROS modules before `play`.
+
+Import [the runner layout](../../config/foxglove_config/sim_runner.json) into
+Foxglove and connect to the address printed by setup. The Play, Pause, Resume,
+Stop run, Reset and Status service controls use the same `/sim/*` handlers as the
+CLI. **Stop run** saves an interrupted attempt and leaves CARLA available;
+`watod sim stop` tears down the session. The layout displays the reference,
+driven path, detections, odometry and state. Set the 3D panel's fixed frame to
+`map`. Paused time freezes physics, event dispatch and scoring; the status
+heartbeat continues on wall time.
+
+Maps must be readable inside both consuming images. These presets use
+`maps/xodr/oval.xodr`; autonomy also uses `maps/osm/oval.osm` and the current oval
+map alignment overlay. Convert the source with the existing
+`watod_scripts/tools/osm_to_xodr/osm_to_xodr.sh` workflow before setup/open. The
+converter records source and output SHA256 digests, its pinned revision and
+settings in `oval.xodr.metadata.json`. Unchanged inputs/settings reuse the
+conversion; changed or unrecorded output requires an explicit `--force`.
+World preflight checks available provenance before replacing the world.
+The parked-car preset requires this provenance, including the matching OSM source.
+
+The snake selects the shipped `steady_state_slalom` JSON with one fake planner
+and one MPC controller. The world chooses a deterministic straight lane with at
+least 100 m available and records its position, heading and geometry. The parked
+car starts 40 m ahead, with a goal 80 m ahead on that lane. Its preset uses the
+real behavior, lattice planner, trajectory planner and MPC, CARLA ground-truth
+localization and tracked detections feeding prediction, enriched world objects
+and the costmap. Overtaking is disabled; the runner never issues a stop command
+to produce a passing score. The autonomy preset caps speed at 3 m/s and uses a
+2 m planner stop margin.
+
+All metric thresholds are provisional until measured on the team's host. The
+parked test requires at least 15 m forward progress, bumper clearance from 2 to
+8 m, speed at most 0.15 m/s and 3 continuous simulated seconds stopped in that
+window. A stationary ego at spawn cannot pass. Missing detections, absent
+obstacle occupancy in the planner input, collision, passing or timeout prevent
+success. The snake requires explicit planner completion, sufficient driven
+progress and samples, lateral RMSE at most 0.6 m and maximum error at most 1.5 m.
+The manifests record deadlines, thresholds and seeds; result configuration
+records applied world settings and vehicle footprints.
+
+Results live in `.cache/watod-sim/results/<UTC>_<unique-id>/`:
+
+- `configuration.yaml`: resolved definition, world geometry/settings and revision.
+- `events.json`: ordered delivery records and timestamps.
+- `result.json`: outcome, failure reasons and metrics with units.
+
+The adjacent `session.json` records owned container IDs and runtime configuration;
+`compose.json` captures effective Compose settings. Never edit ownership records
+while a session is running. Fix a named missing dependency, then `close` and
+reopen, or `reset` a prepared experiment. A failed base setup cleans up its
+partial containers. If session configuration changes, stop using the original
+configuration before setting up a replacement. `WATOD_SIM_FOXGLOVE_HOST` changes
+the printed host for remote/forwarded connections. Setup and readiness wall
+limits can be adjusted with `WATOD_SIM_SETUP_TIMEOUT_S` and
+`WATOD_SIM_READY_TIMEOUT_S`.
+
+`watod sim test NAME` uses the interactive runner, saves its terminal result,
+closes the experiment and keeps the session warm. Exit codes are 0 for pass,
+1 for assertion failure, 2 for setup/data/usage error and 3 for interruption.
+Required completion and observation evidence must be present to pass.
+
+### Delivery evidence and pending live acceptance
+
+Implementation baseline: main `6f921aadb506a993c767a6ce0665264d58b06693`.
+Selected PR 487 head: `f19fbad28cba3eb9bb5c6053046831c3a33f84fa`
+(Brian Zheng); only its fake planner package is integrated. Current main's oval
+world and world-model alignment are retained. Configured CARLA server/client are
+0.10.0, with a local CPython 3.12 wheel; the applied versions are checked on
+connection. Physics is 60 Hz with ten substeps of up to 2 ms, covering the
+16.67 ms world step. Runtime settings are saved per attempt.
+
+Per the implementation request, container builds and runtime tests are left to
+the operator. No simulated pass, timings, or baseline calibration is claimed.
+The target map files are absent from this checkout, and no prepared ROS/CARLA
+session was launched. Formatting, parsing and Compose rendering can establish
+source consistency; compilation and live acceptance remain pending.
+
+Completed static checks: Ruff 0.11.5 formatting/lint, clang-format 19.1.7,
+cpplint, CMake lint, ShellCheck and Bash syntax, Python AST, YAML/JSON/XML
+parsing, whitespace checks, and Compose rendering for Linux host and WatCloud
+networking. YAML lint retains existing document-start/comment-indent warnings.
+
+On the team's prepared Linux host, record the revision, effective image IDs,
+map provenance, thresholds and seed. Measure cold/cached setup, both opens and
+reset separately from image preparation. Exercise missing setup, invalid play,
+a missing map, delayed odometry and an unavailable service, then recover. Run
+the snake twice through Foxglove controls, check that pause freezes actors and
+commands, and verify old samples do not cross reset. Close and open the parked
+car test while checking that the CARLA container/process ID stays the same.
+Capture its stopped result and a no-progress or missing-obstacle failure.
+The final review must include those results, timings and `git log` for this
+branch before calling the Linux live acceptance complete.

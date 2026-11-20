@@ -69,6 +69,9 @@ Commands
                               If nothing specified, runs tests in all modules
   bag <ros2-bag-args>...      Run ros2 bag commands (record/play/info/etc)
                               Runs in ./bags directory with auto-mounting
+  sim <command>              Manage a reusable CARLA simulation session
+                              list, setup, open, play, pause, resume, status,
+                              reset, close, test, stop
 
 Examples
   watod up                              # docker compose up
@@ -289,6 +292,11 @@ while [[ $# -gt 0 ]]; do
       # Pass all remaining arguments to watod-bag.sh
       BAG_ARGS=( "$@" )
       break ;;
+    sim)
+      RUN_SIM=1
+      shift
+      SIM_ARGS=( "$@" )
+      break ;;
     down)
       RUN_DOWN=1
       shift
@@ -312,6 +320,19 @@ COMPOSE_CMD=( "$@" )
 # Config files (local overrides main)
 [[ -f "$MONO_DIR/watod-config.sh"       ]] && source "$MONO_DIR/watod-config.sh"
 [[ -f "$MONO_DIR/watod-config.local.sh" ]] && source "$MONO_DIR/watod-config.local.sh"
+
+# Simulation manages its own profiles and must also work without ACTIVE_MODULES.
+# Listing definitions requires neither Docker nor a generated environment file.
+if [[ -n ${RUN_SIM:-} ]]; then
+  if [[ ${SIM_ARGS[0]:-help} != "list" && ${SIM_ARGS[0]:-help} != "help" && ${SIM_ARGS[0]:-help} != "--help" && ${SIM_ARGS[0]:-help} != "-h" ]]; then
+    cd "$MONO_DIR"
+    set -a
+    source "$MONO_DIR/watod_scripts/watod-setup-env.sh"
+    set +a
+  fi
+  export MONO_DIR MODULES_DIR
+  exec python3 "$MONO_DIR/watod_scripts/watod-sim.py" "${SIM_ARGS[@]}"
+fi
 
 # Export WATCLOUD_MODE so watod-compose.sh and watod-test.sh can use it
 export WATCLOUD_MODE="${WATCLOUD_MODE:-false}"

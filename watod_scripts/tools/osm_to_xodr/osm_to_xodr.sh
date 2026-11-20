@@ -152,8 +152,38 @@ for argument in "${CONFIG_OVERRIDES[@]}"; do
 done
 OVERRIDES+=("${CLI_OVERRIDES[@]}")
 
+command -v python3 >/dev/null || { echo "Error: Python 3 is required for map provenance" >&2; exit 1; }
+# Include every converter option and the pinned upstream revision in the cache
+# identity. A changed source or settings must never silently reuse an old map.
+CACHE_KEY=$(python3 - "$INPUT" "$UPSTREAM" "${OVERRIDES[@]}" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+source = hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest()
+identity = json.dumps([source, *sys.argv[2:]], separators=(',', ':'))
+print(hashlib.sha256(identity.encode()).hexdigest())
+PY
+)
 if [[ -e "$OUTPUT" && "$FORCE" == false ]]; then
-  echo "Error: $OUTPUT already exists; use --force to overwrite" >&2
+  if python3 - "$OUTPUT" "$CACHE_KEY" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+output = Path(sys.argv[1])
+try:
+    metadata = json.loads(Path(str(output) + '.metadata.json').read_text())
+    matches = metadata['cache_key'] == sys.argv[2] and metadata['xodr_sha256'] == hashlib.sha256(output.read_bytes()).hexdigest()
+except (OSError, ValueError, KeyError):
+    matches = False
+sys.exit(0 if matches else 1)
+PY
+  then
+    echo "Reusing converted map: $OUTPUT (source and converter settings match)"
+    exit 0
+  fi
+  echo "Error: $OUTPUT exists with missing or different provenance; use --force to convert this source and settings" >&2
   exit 1
 fi
 command -v docker >/dev/null || { echo "Error: Docker is required" >&2; exit 1; }
@@ -175,9 +205,25 @@ fi
 OUTPUT_VALUE="${OUTPUT_NAME//\\/\\\\}"
 OUTPUT_VALUE="${OUTPUT_VALUE//\"/\\\"}"
 docker build --platform linux/amd64 --target convert --tag "$IMAGE" "$UPSTREAM"
-exec docker run --rm --platform linux/amd64 "${DOCKER_USER[@]}" \
+docker run --rm --platform linux/amd64 "${DOCKER_USER[@]}" \
   --network none --workdir /tmp --env MPLCONFIGDIR=/tmp/matplotlib \
   --volume "$INPUT_DIR/$INPUT_NAME:/input/map.osm:ro" \
   --volume "$OUTPUT_DIR:/output" \
   "$IMAGE" "${OVERRIDES[@]}" target=carla \
   input_map_path=/input/map.osm "output_map_path=\"/output/$OUTPUT_VALUE\""
+
+python3 - "$INPUT" "$OUTPUT" "$CACHE_KEY" "$UPSTREAM" "${OVERRIDES[@]}" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+source, output = map(Path, sys.argv[1:3])
+metadata = {
+    'cache_key': sys.argv[3],
+    'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+    'xodr_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
+    'converter': sys.argv[4],
+    'options': sys.argv[5:],
+}
+Path(str(output) + '.metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
+PY

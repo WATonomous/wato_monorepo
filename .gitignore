@@ -9,6 +9,7 @@ code_server_config/*/start_code_server.sh
 !.claude/CLAUDE.md
 ssh_config/
 .ruff_cache/
+.cache/watod-sim/
 
 watod-config.local.sh
 watod-config.sh

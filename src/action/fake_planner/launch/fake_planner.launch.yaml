@@ -81,7 +81,7 @@ launch:
   - arg:
       name: anchoring
       default: "auto"
-      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (those with a "start", e.g. oval_track) where they were drawn.
+      description: auto|relative|absolute. auto anchors relative maneuvers at launch and preserves coordinates for maneuvers with an explicit start.
 
   - arg:
       name: standby_speed
@@ -89,7 +89,7 @@ launch:
       description: Controller speed in standby. 0.0 holds still; the controllers' own -0.5 default reverses.
 
   # Makes "respawn ego" a one-click reset in sim. On the real car a jump this size is a
-  # localization correction to keep driving through, so the vehicle launch sets 0.
+  # localization correction to keep driving through, so manual launches can set 0.
   - arg:
       name: respawn_jump_m
       default: "5.0"
