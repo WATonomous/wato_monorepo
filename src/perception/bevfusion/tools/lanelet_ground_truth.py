@@ -19,7 +19,9 @@ Output masks follow the same grid as BEVFusion's SegMap (see bevfusion_core.hpp)
   - row indexes x (forward), col indexes y (left), in the LiDAR frame
   - values: 0 = absent, 1 = present, IGNORE = class not available from the map
 
-Poses are (x, y, yaw) of the LiDAR in map coordinates, using the map's local_x / local_y node tags.
+Poses are (x, y, yaw) of the LiDAR in map coordinates. Map coordinates come from the nodes'
+local_x / local_y tags, or for maps with only lat/lon, from a UTM projection minus --origin (the same
+projection world_model uses with projector_type 'utm', alignment_mode 'fixed').
 
 Usage:
   # Sample poses on lanelet centerlines and write masks + preview images
@@ -27,6 +29,10 @@ Usage:
 
   # Explicit pose (meters, meters, degrees)
   python lanelet_ground_truth.py --osm test_track.osm --pose 120.0 85.0 90 --out gt_out
+
+  # Lat/lon-only map: pass the origin from world_modeling_bringup/config/map_configs/<map>.yaml
+  python lanelet_ground_truth.py --osm ring_road.osm --origin 43.470649301705 -80.54326355965 \\
+      --sample-poses 5 --out gt_out
 """
 
 import argparse
@@ -49,8 +55,10 @@ CLASS_NAMES = [
     "divider",
 ]
 DRIVABLE, PED_CROSSING, WALKWAY, STOP_LINE, CARPARK, DIVIDER = range(len(CLASS_NAMES))
-# Classes the test track map has no data for; marked IGNORE so training/eval skip them.
-UNLABELED_CLASSES = [PED_CROSSING, WALKWAY, CARPARK]
+# Classes our maps have no data for; marked IGNORE so training/eval skip them.
+# PED_CROSSING is also ignored for maps without crosswalk lanelets (see rasterize).
+UNLABELED_CLASSES = [WALKWAY, CARPARK]
+CROSSWALK_SUBTYPE = "crosswalk"
 IGNORE = 255
 
 GRID_SIZE = 200
@@ -66,7 +74,13 @@ class LaneletMap:
     )  # way id -> {"nodes": [ids], "type": str, "subtype": str}
     lanelets: list = field(
         default_factory=list
-    )  # [{"id": id, "left": way id, "right": way id}]
+    )  # [{"id": id, "left": way id, "right": way id, "subtype": str}]
+
+    def road_lanelets(self):
+        return [ll for ll in self.lanelets if ll["subtype"] != CROSSWALK_SUBTYPE]
+
+    def crosswalk_lanelets(self):
+        return [ll for ll in self.lanelets if ll["subtype"] == CROSSWALK_SUBTYPE]
 
     def way_points(self, way_id):
         return np.array(
@@ -84,15 +98,47 @@ class LaneletMap:
         return left, right
 
 
-def load_osm(path):
-    """Parse a Lanelet2 .osm file using local_x / local_y node tags as map coordinates."""
+def utm_projector(origin_lat, origin_lon):
+    """Return f(lat, lon) -> (x, y) meters: UTM easting/northing minus the origin's.
+
+    Matches Lanelet2's UtmProjector with the origin offset on, as world_model uses for
+    projector_type 'utm' with alignment_mode 'fixed'. The UTM zone is taken from the origin.
+    """
+    from pyproj import Transformer
+
+    zone = int((origin_lon + 180.0) // 6) + 1
+    epsg = (32600 if origin_lat >= 0 else 32700) + zone
+    to_utm = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True)
+    x0, y0 = to_utm.transform(origin_lon, origin_lat)
+
+    def project(lat, lon):
+        x, y = to_utm.transform(lon, lat)
+        return x - x0, y - y0
+
+    return project
+
+
+def load_osm(path, origin=None):
+    """Parse a Lanelet2 .osm file into map coordinates.
+
+    Nodes with local_x / local_y tags use them directly. Otherwise origin=(lat, lon) is required
+    and lat/lon are projected with utm_projector.
+    """
     root = ET.parse(path).getroot()
     lmap = LaneletMap()
+    project = utm_projector(*origin) if origin else None
     for node in root.iter("node"):
         tags = {t.get("k"): t.get("v") for t in node.iter("tag")}
-        if "local_x" not in tags or "local_y" not in tags:
-            raise ValueError(f"node {node.get('id')} has no local_x/local_y tags")
-        lmap.nodes[node.get("id")] = (float(tags["local_x"]), float(tags["local_y"]))
+        if "local_x" in tags and "local_y" in tags:
+            xy = (float(tags["local_x"]), float(tags["local_y"]))
+        elif project is not None:
+            xy = project(float(node.get("lat")), float(node.get("lon")))
+        else:
+            raise ValueError(
+                f"node {node.get('id')} has no local_x/local_y tags; pass the map origin "
+                "(--origin LAT LON) to project lat/lon instead"
+            )
+        lmap.nodes[node.get("id")] = xy
     for way in root.iter("way"):
         tags = {t.get("k"): t.get("v") for t in way.iter("tag")}
         lmap.ways[way.get("id")] = {
@@ -111,7 +157,12 @@ def load_osm(path):
         }
         if "left" in roles and "right" in roles:
             lmap.lanelets.append(
-                {"id": rel.get("id"), "left": roles["left"], "right": roles["right"]}
+                {
+                    "id": rel.get("id"),
+                    "left": roles["left"],
+                    "right": roles["right"],
+                    "subtype": tags.get("subtype", ""),
+                }
             )
     return lmap
 
@@ -121,10 +172,11 @@ def divider_way_ids(lmap):
 
     Nearly every boundary in the map is tagged line_thin/solid, including road edges, so tags alone
     can't separate dividers from edges. A way bounding two or more lanelets sits between lanes; a way
-    bounding only one lanelet is a road edge. Dashed lines are always dividers.
+    bounding only one lanelet is a road edge. Dashed lines are always dividers. Crosswalk lanelets
+    don't count, since their edges cross the road rather than separating lanes.
     """
     usage = Counter()
-    for ll in lmap.lanelets:
+    for ll in lmap.road_lanelets():
         usage[ll["left"]] += 1
         usage[ll["right"]] += 1
     return {
@@ -155,10 +207,15 @@ def rasterize(lmap, pose, line_thickness_px=1):
     """Return uint8 masks (num_classes, GRID_SIZE, GRID_SIZE) around the pose."""
     masks = np.zeros((len(CLASS_NAMES), GRID_SIZE, GRID_SIZE), dtype=np.uint8)
 
-    for ll in lmap.lanelets:
+    for ll in lmap.road_lanelets():
         left, right = lmap.bounds(ll)
         polygon = np.vstack([left, right[::-1]])
         cv2.fillPoly(masks[DRIVABLE], [_cv_points(polygon, pose)], 1)
+
+    for ll in lmap.crosswalk_lanelets():
+        left, right = lmap.bounds(ll)
+        polygon = np.vstack([left, right[::-1]])
+        cv2.fillPoly(masks[PED_CROSSING], [_cv_points(polygon, pose)], 1)
 
     for way_id in divider_way_ids(lmap):
         cv2.polylines(
@@ -179,16 +236,24 @@ def rasterize(lmap, pose, line_thickness_px=1):
                 line_thickness_px,
             )
 
-    for cls in UNLABELED_CLASSES:
+    for cls in unlabeled_classes(lmap):
         masks[cls] = IGNORE
     return masks
+
+
+def unlabeled_classes(lmap):
+    """Classes the map has no data for."""
+    if lmap.crosswalk_lanelets():
+        return UNLABELED_CLASSES
+    return [PED_CROSSING] + UNLABELED_CLASSES
 
 
 def sample_lanelet_poses(lmap, n, seed=0):
     """Poses at random points on lanelet centerlines, heading along the lane."""
     rng = random.Random(seed)
     poses = []
-    for ll in rng.sample(lmap.lanelets, min(n, len(lmap.lanelets))):
+    lanelets = lmap.road_lanelets()
+    for ll in rng.sample(lanelets, min(n, len(lanelets))):
         left, right = lmap.bounds(ll)
         if len(left) < 2 or len(right) < 2:
             continue
@@ -213,6 +278,7 @@ def preview(masks):
     """Color image with forward up and left on the left (grid rows/cols flipped for display)."""
     img = np.full((GRID_SIZE, GRID_SIZE, 3), 40, dtype=np.uint8)
     img[masks[DRIVABLE] == 1] = (90, 90, 90)
+    img[masks[PED_CROSSING] == 1] = (200, 200, 200)
     img[masks[DIVIDER] == 1] = (0, 220, 255)
     img[masks[STOP_LINE] == 1] = (0, 0, 255)
     img = img[::-1, ::-1]
@@ -245,12 +311,20 @@ def main():
         default=0,
         help="Sample N poses on lanelet centerlines",
     )
+    parser.add_argument(
+        "--origin",
+        nargs=2,
+        type=float,
+        metavar=("LAT", "LON"),
+        help="Map origin for lat/lon-only maps (from the world_modeling map config)",
+    )
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    lmap = load_osm(args.osm)
+    lmap = load_osm(args.osm, args.origin)
     print(
-        f"Loaded {len(lmap.nodes)} nodes, {len(lmap.ways)} ways, {len(lmap.lanelets)} lanelets"
+        f"Loaded {len(lmap.nodes)} nodes, {len(lmap.ways)} ways, {len(lmap.lanelets)} lanelets "
+        f"({len(lmap.crosswalk_lanelets())} crosswalks)"
     )
     print(f"Divider ways: {len(divider_way_ids(lmap))}")
 
@@ -271,7 +345,7 @@ def main():
         cv2.imwrite(stem + ".png", preview(masks))
         counts = ", ".join(
             f"{CLASS_NAMES[c]}={int((masks[c] == 1).sum())}"
-            for c in (DRIVABLE, DIVIDER, STOP_LINE)
+            for c in (DRIVABLE, PED_CROSSING, DIVIDER, STOP_LINE)
         )
         print(
             f"{stem}: pose=({pose[0]:.1f}, {pose[1]:.1f}, {math.degrees(pose[2]):.0f} deg) {counts}"

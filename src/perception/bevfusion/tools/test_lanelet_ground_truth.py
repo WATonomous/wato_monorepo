@@ -114,7 +114,9 @@ def test_stop_line(two_lane_map):
 
 def test_unlabeled_classes_are_ignored(two_lane_map):
     masks = gt.rasterize(two_lane_map, (5.0, 2.0, 0.0))
-    for cls in gt.UNLABELED_CLASSES:
+    # No crosswalks in this map, so ped_crossing is unlabeled too.
+    assert gt.PED_CROSSING in gt.unlabeled_classes(two_lane_map)
+    for cls in gt.unlabeled_classes(two_lane_map):
         assert np.all(masks[cls] == gt.IGNORE)
     assert masks.shape == (len(gt.CLASS_NAMES), gt.GRID_SIZE, gt.GRID_SIZE)
 
@@ -123,3 +125,69 @@ def test_sampled_pose_heads_along_lane(two_lane_map):
     for x, y, yaw in gt.sample_lanelet_poses(two_lane_map, 2):
         assert 10 < x < 30 and 0 < y < 8  # mid-lane, not at an end
         assert abs(math.sin(yaw)) < 1e-6  # both lanes run along x
+
+
+# The two-lane map plus a crosswalk lanelet across both lanes from x=20 to x=23.
+CROSSWALK_OSM = TWO_LANE_OSM.replace(
+    "  <relation id=\"100\">",
+    """  <node id="20"><tag k="local_x" v="20"/><tag k="local_y" v="0"/></node>
+  <node id="21"><tag k="local_x" v="20"/><tag k="local_y" v="8"/></node>
+  <node id="22"><tag k="local_x" v="23"/><tag k="local_y" v="0"/></node>
+  <node id="23"><tag k="local_x" v="23"/><tag k="local_y" v="8"/></node>
+  <way id="20"><nd ref="20"/><nd ref="21"/></way>
+  <way id="21"><nd ref="22"/><nd ref="23"/></way>
+  <relation id="102">
+    <member type="way" ref="20" role="left"/><member type="way" ref="21" role="right"/>
+    <tag k="type" v="lanelet"/><tag k="subtype" v="crosswalk"/>
+  </relation>
+  <relation id="100">""",
+)
+
+
+@pytest.fixture
+def crosswalk_map(tmp_path):
+    path = tmp_path / "crosswalk.osm"
+    path.write_text(CROSSWALK_OSM)
+    return gt.load_osm(str(path))
+
+
+def test_crosswalk_is_ped_crossing_not_a_lane(crosswalk_map):
+    masks = gt.rasterize(crosswalk_map, (5.0, 2.0, 0.0))
+    assert masks[gt.PED_CROSSING][cell(16.5, 0)] == 1  # crosswalk 15-18 m ahead
+    assert masks[gt.PED_CROSSING][cell(10, 0)] == 0
+    assert gt.PED_CROSSING not in gt.unlabeled_classes(crosswalk_map)
+    # Crosswalk edges are not lane dividers, and poses are never sampled on a crosswalk.
+    assert gt.divider_way_ids(crosswalk_map) == {"11"}
+    for x, y, yaw in gt.sample_lanelet_poses(crosswalk_map, 3):
+        assert abs(math.sin(yaw)) < 1e-6
+
+
+# Origin node plus one node ~100 m north and one ~100 m east of it, lat/lon only.
+ORIGIN_LAT, ORIGIN_LON = 43.470649301705, -80.54326355965
+LATLON_OSM = f"""<?xml version="1.0"?>
+<osm>
+  <node id="1" lat="{ORIGIN_LAT}" lon="{ORIGIN_LON}"/>
+  <node id="2" lat="{ORIGIN_LAT + 100 / 111_120}" lon="{ORIGIN_LON}"/>
+  <node id="3" lat="{ORIGIN_LAT}" lon="{ORIGIN_LON + 100 / (111_120 * math.cos(math.radians(ORIGIN_LAT)))}"/>
+</osm>
+"""
+
+
+def test_latlon_map_projects_relative_to_origin(tmp_path):
+    path = tmp_path / "latlon.osm"
+    path.write_text(LATLON_OSM)
+    lmap = gt.load_osm(str(path), (ORIGIN_LAT, ORIGIN_LON))
+    assert lmap.nodes["1"] == pytest.approx((0.0, 0.0), abs=1e-6)
+    # UTM grid north is ~1 deg off true north here, and the scale factor is ~0.9996-1.0004,
+    # so allow ~2 m of sideways offset and 1 m of length.
+    north_x, north_y = lmap.nodes["2"]
+    assert north_y == pytest.approx(100.0, abs=1.0) and abs(north_x) < 2.0
+    east_x, east_y = lmap.nodes["3"]
+    assert east_x == pytest.approx(100.0, abs=1.0) and abs(east_y) < 2.0
+
+
+def test_latlon_map_without_origin_errors(tmp_path):
+    path = tmp_path / "latlon.osm"
+    path.write_text(LATLON_OSM)
+    with pytest.raises(ValueError, match="--origin"):
+        gt.load_osm(str(path))
