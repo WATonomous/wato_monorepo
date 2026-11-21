@@ -167,8 +167,13 @@ class Session:
             raise SessionError(f"Could not execute {arguments[0]}: {error}") from error
         if check and result.returncode:
             detail = (result.stderr or result.stdout or "").strip()
+            command = " ".join(arguments[:5])
+            if arguments[: len(self.compose)] == self.compose:
+                # Include the actual Compose operation rather than truncating
+                # the diagnostic before the subcommand and its flags.
+                command = "docker compose " + " ".join(arguments[len(self.compose) :])
             raise SessionError(
-                f"Command failed ({result.returncode}): {' '.join(arguments[:5])}\n{detail}"
+                f"Command failed ({result.returncode}): {command}\n{detail}"
             )
         return result
 
@@ -248,9 +253,11 @@ class Session:
                 else "WATOD_SIM_WORLD_COMMAND"
             )
             self.environment[variable] = command
-        # Record container IDs before starting them so partial startup is always
-        # recoverable by ownership, including a failed CARLA connection.
-        self.dc("create", "--no-build", "--pull", "never", "--no-deps", service)
+        # `create` does not support --no-deps. `up --no-start` accepts that
+        # flag while still letting us record ownership before starting anything.
+        self.dc(
+            "up", "--no-start", "--no-build", "--pull", "never", "--no-deps", service
+        )
         container = self.dc("ps", "--all", "--quiet", service).stdout.strip()
         if not container or "\n" in container:
             raise SessionError(
