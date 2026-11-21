@@ -1,0 +1,110 @@
+# Eidos subsystem: SLAM/localization, TF/EKF fusion, and lifecycle management.
+#
+#   Mapping:      ros2 launch world_modeling_bringup eidos.launch.yaml mapping:=true
+#   Localization: ros2 launch world_modeling_bringup eidos.launch.yaml mapping:=false eidos_map_path:=/path/to/boreas.map
+---
+launch:
+  - arg:
+      name: mapping
+      default: "false"
+      description: Build a new map when true; localize against a prior map when false
+
+  - arg:
+      name: eidos_slam_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_boreas_slam.yaml
+      description: Eidos and Eidos Transform parameters for mapping
+
+  - arg:
+      name: eidos_localization_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_boreas_localization.yaml
+      description: Eidos and Eidos Transform parameters for localization
+
+  - let:
+      if: "$(var mapping)"
+      name: selected_eidos_config_file
+      value: $(var eidos_slam_config_file)
+
+  - let:
+      unless: "$(var mapping)"
+      name: selected_eidos_config_file
+      value: $(var eidos_localization_config_file)
+
+  - arg:
+      name: eidos_config_file
+      default: $(var selected_eidos_config_file)
+      description: Optional override of the configuration selected by mapping
+
+  - arg:
+      name: eidos_map_path
+      default: "/opt/watonomous/maps/boreas-2021-04-08-12-44.map"
+      description: Prior .map file for localization; ignored when mapping is true
+
+  - let:
+      if: "$(var mapping)"
+      name: selected_eidos_map_path
+      value: ""
+
+  - let:
+      unless: "$(var mapping)"
+      name: selected_eidos_map_path
+      value: $(var eidos_map_path)
+
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use /clock from bag playback or simulation
+
+  - arg:
+      name: autostart
+      default: "true"
+      description: Automatically configure and activate the subsystem
+
+  - arg:
+      name: manage_lifecycle
+      default: "true"
+      description: Start a lifecycle manager; disable when the parent launch manages these nodes
+
+  - node:
+      pkg: eidos_transform
+      exec: eidos_transform_node
+      name: eidos_transform_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+
+  - node:
+      pkg: eidos
+      exec: eidos_node
+      name: eidos_node
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - from: $(var eidos_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: map.load_path
+          value: $(var selected_eidos_map_path)
+
+  - node:
+      if: "$(var manage_lifecycle)"
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: eidos_lifecycle_manager
+      namespace: "world_modeling"
+      output: screen
+      param:
+        - name: node_names
+          value:
+            - /world_modeling/eidos_transform_node
+            - /world_modeling/eidos_node
+        - name: autostart
+          value: $(var autostart)
+        - name: transition_timeout_s
+          value: 10.0
+        - name: bond_timeout_s
+          value: 4.0
+        - name: bond_enabled
+          value: false

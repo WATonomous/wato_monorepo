@@ -86,7 +86,7 @@ services:
     volumes:
       - ${MONO_DIR}/maps:/opt/watonomous/maps
       - ${MONO_DIR}/src/world_modeling:/ws/src/world_modeling
-      - ${MONO_DIR}/bags:/ws/bags
+      - ${BAG_DIRECTORY:-${MONO_DIR}/bags}:/ws/bags
 
   #################### ACTION SERVICE ####################
   action_bringup_dev:
