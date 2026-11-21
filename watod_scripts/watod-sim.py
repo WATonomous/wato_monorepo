@@ -95,9 +95,9 @@ finally:
 """
 
 PRESETS = {
-    "controller_mpc": {
+    "controller_pure_pursuit": {
         "sim_action": "ros2 launch fake_planner fake_planner_sim.launch.yaml "
-        "controller:=mpc frame_id:=map start_on_activate:=false",
+        "frame_id:=map start_on_activate:=false",
     },
     "autonomy": {
         "sim_action": "ros2 launch action_bringup action_sim.launch.yaml "
@@ -494,14 +494,14 @@ print(json.dumps({"stack": definition["stack"]}))
             for service in PRESETS[stack]:
                 self.start(service, command="sleep infinity")
                 packages = (
-                    ["fake_planner", "mpc_controller"]
-                    if stack == "controller_mpc"
+                    ["fake_planner", "ackermann_pure_pursuit"]
+                    if stack == "controller_pure_pursuit"
                     else (
                         [
                             "action_bringup",
                             "lattice_planning",
                             "trajectory_planner",
-                            "mpc_controller",
+                            "ackermann_pure_pursuit",
                         ]
                         if service == "sim_action"
                         else [
@@ -518,7 +518,7 @@ print(json.dumps({"stack": definition["stack"]}))
                 )
                 if service == "sim_world":
                     checks += " && test -r /opt/watonomous/maps/osm/oval.osm"
-                if stack == "controller_mpc":
+                if stack == "controller_pure_pursuit":
                     checks += ' && test -r "$(ros2 pkg prefix --share fake_planner)/maneuvers/steady_state_slalom.json"'
                 container = self.state["containers"][service]
                 result = self.run(

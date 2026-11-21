@@ -2,7 +2,7 @@
 version: 1
 id: controller_snake
 playground: snake_straight
-stack: controller_mpc
+stack: controller_pure_pursuit
 maneuver: steady_state_slalom
 events:
   - when: play
@@ -19,5 +19,5 @@ thresholds:
   max_lateral_error_m: 1.5
   min_progress_m: 65.0
   min_samples: 30
-# Provisional limits require the operator's measured MPC baseline.
+# Provisional limits require the operator's measured adaptive pure pursuit baseline.
 metrics: [lateral_tracking_rmse_m, max_lateral_error_m, completed]

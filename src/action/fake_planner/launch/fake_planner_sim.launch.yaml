@@ -5,7 +5,7 @@
 # topic, and sim time off /clock. Every other arg is forwarded untouched.
 #
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve
 #
 # Nothing moves on launch -- see the rig's header for the hold/release protocol. A respawned ego
 # re-arms the hold, so "respawn ego" in Foxglove re-anchors and waits for start_trajectory again.
@@ -56,21 +56,11 @@ launch:
       default: "odom"
       description: Frame the trajectory is published in (must be TF-connected to rear_axle)
 
-  - arg:
-      name: controller
-      default: "pure_pursuit"
-      description: "Controller under test: pure_pursuit or mpc"
-
-  # Pure pursuit remains available for manual experiments; the runner selects MPC explicitly.
+  # Use simulation steering, adaptive lookahead and stationary standby overrides.
   - arg:
       name: pure_pursuit_config
-      default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
-      description: Pure pursuit parameter file
-
-  - arg:
-      name: mpc_config
       default: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
-      description: MPC parameters for the selected environment
+      description: Pure pursuit parameter file
 
   - arg:
       name: maneuver
@@ -125,12 +115,8 @@ launch:
           value: "$(var behaviour_topic)"
         - name: frame_id
           value: "$(var frame_id)"
-        - name: controller
-          value: "$(var controller)"
         - name: pure_pursuit_config
           value: "$(var pure_pursuit_config)"
-        - name: mpc_config
-          value: "$(var mpc_config)"
         - name: maneuver
           value: "$(var maneuver)"
         - name: maneuver_file

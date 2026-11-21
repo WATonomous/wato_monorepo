@@ -15,7 +15,6 @@
 #include "mpc_controller/mpc_controller_node.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -23,7 +22,6 @@
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "rclcpp/create_timer.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -169,12 +167,8 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_activate(const rclcpp_li
   predicted_path_pub_->on_activate();
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
-  // Use the same clock as trajectory freshness, so paused physics cannot refresh stale commands.
-  control_timer_ = rclcpp::create_timer(
-    get_node_base_interface(),
-    get_node_timers_interface(),
-    get_clock(),
-    rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
+  control_timer_ = create_wall_timer(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(period),
     std::bind(&MpcControllerNode::control_callback, this));
 
   RCLCPP_INFO(get_logger(), "Activated");
@@ -203,11 +197,6 @@ MpcControllerNode::CallbackReturn MpcControllerNode::on_cleanup(const rclcpp_lif
   tf_listener_.reset();
   tf_buffer_.reset();
   latest_trajectory_.reset();
-  bt_requested_behaviour_.clear();
-  last_trajectory_time_ = now();
-  current_speed_ = 0.0;
-  prev_steering_ = 0.0;
-  prev_accel_ = 0.0;
   core_.reset();
 
   RCLCPP_INFO(get_logger(), "Cleaned up");
@@ -238,8 +227,7 @@ void MpcControllerNode::trajectory_callback(const wato_trajectory_msgs::msg::Tra
 
 void MpcControllerNode::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg)
 {
-  // CARLA ground-truth twist is expressed in odom axes, independent of spawn heading.
-  current_speed_ = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
+  current_speed_ = msg->twist.twist.linear.x;
 }
 
 void MpcControllerNode::bt_callback(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)

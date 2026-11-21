@@ -8,14 +8,14 @@ colcon build; it needs no separate image or Dockerfile.
 
 ## Simulation usage
 
-The runner's `controller_mpc` preset uses the following command. The launch owns
-one fake planner, one MPC controller and one lifecycle manager. Do not launch the
-full action stack beside it, since that would add a second trajectory source and
-controller.
+The runner's `controller_pure_pursuit` preset uses the following command. The
+launch owns one fake planner, one adaptive pure pursuit controller and one
+lifecycle manager. Do not launch the full action stack beside it, since that
+would add a second trajectory source and controller.
 
 ```bash
 ros2 launch fake_planner fake_planner_sim.launch.yaml \
-  controller:=mpc frame_id:=map start_on_activate:=false
+  frame_id:=map start_on_activate:=false
 ```
 
 The planner configures and activates without sending trajectory or behavior
@@ -43,11 +43,11 @@ therefore freezes trajectory and behavior publication instead of refreshing stal
 commands on a wall timer. The CARLA world authority also brakes/holds the ego
 while the session is paused or preparing.
 
-The simulation wrapper selects `action_sim.yaml` for MPC, `/ego/odom`,
-`/action/trajectory_planning/trajectory` and
-`/carla/ackermann_control/command`. `mpc_config`, `maneuver`, `maneuver_file` and
-`anchoring` are launch arguments. The shared wrapper supports the original pure
-pursuit controller for manual use; the runner selects MPC explicitly.
+The simulation wrapper selects the adaptive pure pursuit settings from
+`action_sim.yaml`, `/ego/odom`, `/action/trajectory_planning/trajectory` and
+`/carla/ackermann_control/command`. `pure_pursuit_config`, `maneuver`,
+`maneuver_file` and `anchoring` are launch arguments. Both fake planner launch
+files use adaptive pure pursuit as their only controller.
 
 ## Maneuver format
 
@@ -57,6 +57,10 @@ wavelength, then 6 metres of braking straight at an authored cruise speed of
 3 m/s. The world definition requires at least 100 metres of verified straight
 runout. The original `brake_in_curve` and `sine_with_dwell` assets remain available
 for manual controller work.
+
+The slalom uses the ROS-time release ramp and controller slew limits for startup.
+Its spatial launch ramp is disabled because a zero-speed initial waypoint ahead
+of the rear axle would keep adaptive pure pursuit stationary.
 
 JSON defines `sample_spacing_m`, `default_speed` and an ordered `segments` list.
 The core expands straight, arc, slalom, shift and dwell segments, applies launch

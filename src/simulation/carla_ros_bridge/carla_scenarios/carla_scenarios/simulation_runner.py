@@ -52,9 +52,9 @@ from wato_trajectory_msgs.msg import Trajectory
 
 OUTCOME_CODES = {"pass": 0, "assertion_failure": 1, "data_error": 2, "interrupted": 3}
 STACK_NODES = {
-    "controller_mpc": [
+    "controller_pure_pursuit": [
         "/action/fake_planner/fake_planner_node",
-        "/action/mpc_controller_node",
+        "/action/pure_pursuit_node",
     ],
     "autonomy": [
         "/world_modeling/prediction_node",
@@ -62,7 +62,7 @@ STACK_NODES = {
         "/world_modeling/costmap_node",
         "/action/lattice_planning/lattice_planning_node",
         "/action/trajectory_planning/trajectory_planner_node",
-        "/action/mpc_controller_node",
+        "/action/pure_pursuit_node",
     ],
 }
 
@@ -100,12 +100,12 @@ def load_definition(directory, category, name):
         stack = definition.get("stack")
         completion = definition.get("completion")
         if (stack, completion) not in {
-            ("controller_mpc", "maneuver_finished"),
+            ("controller_pure_pursuit", "maneuver_finished"),
             ("autonomy", "stopped_behind_actor"),
         }:
             raise ValueError(f"Unsupported stack/completion in {path}")
         if (
-            stack == "controller_mpc"
+            stack == "controller_pure_pursuit"
             and definition.get("maneuver") != "steady_state_slalom"
         ):
             raise ValueError(
@@ -138,8 +138,8 @@ def load_definition(directory, category, name):
             previous = at
             if event["do"] not in {"start_maneuver", "begin_evaluation"}:
                 raise ValueError(f"Unsupported reviewed action: {event['do']}")
-            if event["do"] == "start_maneuver" and stack != "controller_mpc":
-                raise ValueError("start_maneuver requires controller_mpc")
+            if event["do"] == "start_maneuver" and stack != "controller_pure_pursuit":
+                raise ValueError("start_maneuver requires controller_pure_pursuit")
         for section in ("deadlines", "thresholds"):
             values = definition.get(section)
             if not isinstance(values, dict) or not values:
@@ -159,7 +159,7 @@ def load_definition(directory, category, name):
         required_thresholds = {"min_progress_m", "min_samples"}
         required_thresholds |= (
             {"lateral_tracking_rmse_m", "max_lateral_error_m"}
-            if stack == "controller_mpc"
+            if stack == "controller_pure_pursuit"
             else {
                 "min_clearance_m",
                 "max_clearance_m",
@@ -764,7 +764,7 @@ class SimulationRunner(Node):
             )
         if self.count_publishers("/carla/ackermann_control/command") != 1:
             return "expected exactly one /carla/ackermann_control/command publisher"
-        if self.definition["stack"] == "controller_mpc":
+        if self.definition["stack"] == "controller_pure_pursuit":
             if self.planner_status != "ready" or not self.reference:
                 return "/action/fake_planner/status ready and /sim/reference_path preview required"
             return None
@@ -878,7 +878,7 @@ class SimulationRunner(Node):
             if self._node_state(node) == State.PRIMARY_STATE_UNCONFIGURED:
                 self._transition(node, Transition.TRANSITION_CONFIGURE)
             self._transition(node, Transition.TRANSITION_ACTIVATE)
-        if self.definition.get("stack") == "controller_mpc":
+        if self.definition.get("stack") == "controller_pure_pursuit":
             self._call(Trigger, "/action/fake_planner/reset")
         self._do_ready()
 
@@ -1046,7 +1046,7 @@ class SimulationRunner(Node):
         self.actual_path.header.stamp = message.header.stamp
         self.actual_path.poses.append(pose)
         self.path_pub.publish(self.actual_path)
-        if self.definition["stack"] == "controller_mpc":
+        if self.definition["stack"] == "controller_pure_pursuit":
             error = self._lateral_error(x, y)
             if not math.isfinite(error):
                 raise ValueError("Reference path is missing or invalid")
@@ -1156,7 +1156,7 @@ class SimulationRunner(Node):
             self._evaluate_sample()
             limits = self.definition["thresholds"]
             if (
-                self.definition["stack"] == "controller_mpc"
+                self.definition["stack"] == "controller_pure_pursuit"
                 and self.planner_status == "finished"
             ):
                 reasons = []
@@ -1220,7 +1220,7 @@ class SimulationRunner(Node):
             },
             "completed": {
                 "value": self.maneuver_finished_observed
-                if self.definition.get("stack") == "controller_mpc"
+                if self.definition.get("stack") == "controller_pure_pursuit"
                 else self.outcome == "pass",
                 "unit": "bool",
             },
@@ -1239,7 +1239,7 @@ class SimulationRunner(Node):
         try:
             self._pause_world(True)
             self._hold()
-            if self.definition.get("stack") == "controller_mpc":
+            if self.definition.get("stack") == "controller_pure_pursuit":
                 self._call(Trigger, "/action/fake_planner/stop_trajectory", timeout=3.0)
         except Exception as error:
             self.reasons.append(f"Finalization: {error}")

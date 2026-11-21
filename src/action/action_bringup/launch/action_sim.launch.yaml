@@ -1,5 +1,5 @@
 # action_sim.launch.yaml
-# Simulation-specific action stack: Lattice Planner + Trajectory Planner + MPC Controller
+# Simulation-specific action stack: Lattice Planner + Trajectory Planner + Adaptive Pure Pursuit Controller
 # Remaps topics to CARLA simulation sources instead of world_modeling.
 
 launch:
@@ -93,11 +93,11 @@ launch:
         - from: "available_paths"
           to: "/action/lattice_planning/available_paths"
 
-  # MPC Controller
+  # Adaptive Pure Pursuit Controller
   - node:
-      pkg: mpc_controller
-      exec: mpc_controller_node
-      name: mpc_controller_node
+      pkg: ackermann_pure_pursuit
+      exec: pure_pursuit_node
+      name: pure_pursuit_node
       namespace: "action"
       output: screen
       param:
@@ -117,8 +117,8 @@ launch:
         # Publishers
         - from: "ackermann"
           to: "/carla/ackermann_control/command"
-        - from: "predicted_path"
-          to: "/action/mpc/predicted_path"
+        - from: "controller_status"
+          to: "/action/controller_status"
 
   # Lifecycle Manager
   - node:
@@ -131,7 +131,7 @@ launch:
           value:
             - /action/lattice_planning/lattice_planning_node
             - /action/trajectory_planning/trajectory_planner_node
-            - /action/mpc_controller_node
+            - /action/pure_pursuit_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

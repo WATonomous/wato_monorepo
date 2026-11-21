@@ -261,9 +261,10 @@ launch paths retain their defaults. Live acceptance is performed by the operator
   `thresholds`. Events use `play` or `{elapsed_s: N}` triggers and reviewed action
   names. Simulation time drives events/scoring; monotonic time bounds readiness
   and stalls. Events are consumed once per attempt.
-- `controller_mpc` owns one fake planner and one MPC; `autonomy` owns real
-  behavior, lattice, trajectory planning and MPC. Only the CARLA Ackermann node
-  actuates during runner experiments; teleop is excluded. Fake planner services
+- `controller_pure_pursuit` owns one fake planner and one adaptive pure pursuit
+  controller; `autonomy` owns real behavior, lattice, trajectory planning and
+  adaptive pure pursuit. Only the CARLA Ackermann node actuates during runner
+  experiments; teleop is excluded. Fake planner services
   are `/action/fake_planner/{start_trajectory,stop_trajectory,reset}` and its
   transient-local String state is `/action/fake_planner/status` (`ready`,
   `running`, `finished`, `stopped`). Reference Path is `/sim/reference_path`.
@@ -337,12 +338,13 @@ World preflight checks available provenance before replacing the world.
 The parked-car preset requires this provenance, including the matching OSM source.
 
 The snake selects the shipped `steady_state_slalom` JSON with one fake planner
-and one MPC controller. The world chooses a deterministic straight lane with at
-least 100 m available and records its position, heading and geometry. The parked
-car starts 40 m ahead, with a goal 80 m ahead on that lane. Its preset uses the
-real behavior, lattice planner, trajectory planner and MPC, CARLA ground-truth
-localization and tracked detections feeding prediction, enriched world objects
-and the costmap. Overtaking is disabled; the runner never issues a stop command
+and one adaptive pure pursuit controller. The world chooses a deterministic
+straight lane with at least 100 m available and records its position, heading
+and geometry. The parked car starts 40 m ahead, with a goal 80 m ahead on that
+lane. Its preset uses the real behavior, lattice planner, trajectory planner and
+adaptive pure pursuit, CARLA ground-truth localization and tracked detections
+feeding prediction, enriched world objects and the costmap. Overtaking is
+disabled; the runner never issues a stop command
 to produce a passing score. The autonomy preset caps speed at 3 m/s and uses a
 2 m planner stop margin.
 

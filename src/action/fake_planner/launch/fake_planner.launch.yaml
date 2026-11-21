@@ -2,10 +2,10 @@
 #
 # The controller test rig, shared by every environment and controller. Brings up the
 # fake_planner_node (maneuver replay + execute_behaviour heartbeat + trajectory_markers), the
-# controller under test (pure pursuit or MPC, via controller:=), and a lifecycle manager for both.
+# adaptive pure pursuit controller and a lifecycle manager for both.
 #
 # The simulation wrapper pins CARLA topics and clock. Manual deployments may use this shared
-# launch with explicit odom/command/config arguments. The runner selects controller:=mpc.
+# launch with explicit odom/command/config arguments.
 # Nothing drives on activation: inspect /sim/reference_path, then call
 # /action/fake_planner/start_trajectory. Stop/reset services share that namespace.
 
@@ -35,22 +35,11 @@ launch:
       default: "odom"
       description: Frame the trajectory is published in (must be TF-connected to rear_axle)
 
-  # -- What to run
-  - arg:
-      name: controller
-      default: "pure_pursuit"
-      description: "Controller under test: pure_pursuit or mpc"
-
   # Controller tuning is explicit so the simulation wrapper can select action_sim.yaml.
   - arg:
       name: pure_pursuit_config
       default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
       description: Pure pursuit parameter file for manual controller work
-
-  - arg:
-      name: mpc_config
-      default: "$(find-pkg-share action_bringup)/config/action.yaml"
-      description: MPC parameters for the selected environment
 
   - arg:
       name: maneuver
@@ -114,12 +103,6 @@ launch:
       default: "false"
       description: Enable bond-based crash detection for the managed nodes
 
-  # Everything controller-specific keys off this one flag, so the node that runs and the node the
-  # lifecycle manager waits for can't drift apart.
-  - let:
-      name: is_mpc
-      value: "$(equals $(var controller) mpc)"
-
   # Fake Planner
   - node:
       pkg: "fake_planner"
@@ -157,9 +140,8 @@ launch:
         - from: "odom"
           to: "$(var odom_topic)"
 
-  # Pure Pursuit Controller (under test, default)
+  # Adaptive pure pursuit is the single controller for this rig.
   - node:
-      unless: "$(var is_mpc)"
       pkg: "ackermann_pure_pursuit"
       exec: "pure_pursuit_node"
       name: "pure_pursuit_node"
@@ -181,33 +163,7 @@ launch:
         - from: "ackermann"
           to: "$(var ackermann_topic)"
 
-  # MPC Controller (under test, controller:=mpc)
-  - node:
-      if: "$(var is_mpc)"
-      pkg: "mpc_controller"
-      exec: "mpc_controller_node"
-      name: "mpc_controller_node"
-      namespace: "action"
-      output: "screen"
-      param:
-        - from: "$(var mpc_config)"
-        - name: "standby_speed"
-          value: "$(var standby_speed)"
-        - name: "use_sim_time"
-          value: "$(var use_sim_time)"
-      remap:
-        - from: "trajectory"
-          to: "$(var trajectory_topic)"
-        - from: "execute_behaviour"
-          to: "$(var behaviour_topic)"
-        - from: "odom"
-          to: "$(var odom_topic)"
-        - from: "ackermann"
-          to: "$(var ackermann_topic)"
-        - from: "predicted_path"
-          to: "/action/mpc/predicted_path"
-
-  # Lifecycle Manager. Names the controller explicitly, so it follows controller:=.
+  # One lifecycle manager owns the fake planner and adaptive pure pursuit.
   - node:
       pkg: "wato_lifecycle_manager"
       exec: "wato_lifecycle_manager_node"
@@ -217,7 +173,7 @@ launch:
         - name: "node_names"
           value:
             - "/action/fake_planner/fake_planner_node"
-            - "$(if $(var is_mpc) /action/mpc_controller_node /action/pure_pursuit_node)"
+            - "/action/pure_pursuit_node"
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s
