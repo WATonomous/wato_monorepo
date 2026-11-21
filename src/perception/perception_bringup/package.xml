@@ -28,4 +28,5 @@
   <export>
     <build_type>ament_cmake</build_type>
   </export>
+  <exec_depend>bevfusion</exec_depend>
 </package>
