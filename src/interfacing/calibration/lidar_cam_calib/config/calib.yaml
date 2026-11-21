@@ -1,0 +1,87 @@
+---
+# lidar_cam_calib settings. Relative paths are relative to the monorepo root
+# (/ws inside the calibration container).
+
+lidar:
+  topic: /lidar_cc/velodyne_points
+  frame: lidar_cc
+  # Scan duration for rebuilding a missing per-point time field (VLP-32C at 1200 rpm)
+  scan_period: 0.05
+
+# The 6 pano cameras perception uses (all_cameras_composed.yaml, multi_camera_sync,
+# bevfusion camera_names). pano_ee/ww and the lower cameras are disabled on the car.
+cameras:
+  - camera_pano_nn
+  - camera_pano_ne
+  - camera_pano_nw
+  - camera_pano_se
+  - camera_pano_ss
+  - camera_pano_sw
+
+# Recorded images are rectified, so the toolbox gets P from these files with zero distortion
+camera_image_topic: "/{camera}/image_rect_compressed"
+camera_info_topic: "/{camera}/camera_info"
+intrinsics_dir: src/interfacing/calibration/camera_calib/config
+
+# Initial guess: the current URDF (xacro is expanded with the `xacro` tool)
+urdf: src/interfacing/eve_description/urdf/eve_kia_soul_ev.xacro
+
+# Copied into each cut bag besides the LiDAR and the cameras
+extra_topics:
+  - /tf_static
+
+motion:
+  gicp:
+    stride: 5               # register scan k against scan k - stride (0.25 s at 20 Hz)
+    voxel: 0.25             # m, downsampling before GICP
+    max_correspondence: 1.0  # m
+    min_range: 2.0          # m, drops the car's own body and people next to it
+    max_range: 80.0         # m
+    min_points: 500
+    min_inlier_ratio: 0.5
+    threads: 4
+  rest_speed: 0.05          # m/s
+  rest_rot_rate_deg: 0.5    # deg/s
+  imu:
+    topic: /novatel/oem7/imu/data
+    window: 0.5             # s
+    gyro_still: 0.02        # rad/s, mean gyro norm
+    accel_std_still: 0.08   # m/s^2, std of the accel norm
+  can_speed_topic: /interfacing/can_state_estimator/body_velocity
+  tf_odom:
+    parent: odom
+    child: base_footprint
+
+segments:
+  min_rest: 3.0             # s of rest before a segment can start
+  pre_rest: 3.0             # s of rest kept at the start of a creep segment
+  creep_max_speed: 1.5      # m/s
+  creep_max_distance: 5.0   # m
+  creep_min_distance: 1.0   # m
+  creep_max_duration: 20.0  # s after the car starts moving
+  creep_stop_time: 1.0      # s of rest that ends a creep
+  static_duration: 15.0     # s
+  static_min_duration: 8.0  # s
+  static_margin: 0.5        # s trimmed from each end of a rest run
+
+calibration:
+  docker_image: lidar_cam_calib:latest
+  # Extra arguments for the toolbox tools. --auto_quit closes calibrate's viewer when it
+  # finishes, so batch jobs don't hang.
+  preprocess_args: []
+  calibrate_args: [--auto_quit, --background]
+  timeout_s: 3600           # per calibrate run
+  # Repeated trials per camera
+  leave_one_out: true       # one trial per segment, leaving it out (needs >= 3 segments)
+  perturbed: 3              # trials starting from a randomly perturbed initial guess
+  perturb_translation: 0.03  # m, std per axis
+  perturb_rotation_deg: 1.0  # deg, std per axis
+  seed: 0
+  # Run GUI-capable tools under xvfb-run when there is no DISPLAY
+  headless: auto
+
+summary:
+  good_translation_m: 0.02
+  good_rotation_deg: 0.2
+  redo_translation_m: 0.05
+  redo_rotation_deg: 0.5

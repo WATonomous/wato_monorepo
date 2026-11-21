@@ -39,6 +39,7 @@ lattice_planning
 lattice_planning_markers
 lattice_planning_msgs
 lidar_aggregator
+lidar_cam_calib
 lidar_imu_calib
 lidar_lidar_calib
 lidar_localization

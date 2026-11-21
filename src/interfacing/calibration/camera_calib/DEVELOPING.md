@@ -66,4 +66,4 @@ If reprojection error is high:
 
 ## Extrinsic Calibration
 
-Camera-to-vehicle extrinsics (position and orientation relative to `base_link`) are stored in `eve_description/urdf/eve_roof_mount.xacro`. After measuring or calibrating camera positions, update the `<origin xyz=... rpy=.../>` blocks there. See [eve_description/DEVELOPING.md](../../eve_description/DEVELOPING.md) for details.
+Camera-to-vehicle extrinsics (position and orientation relative to `base_link`) are stored in `eve_description/urdf/eve_roof_mount.xacro`. After measuring or calibrating camera positions, update the `<origin xyz=... rpy=.../>` blocks there. To calibrate them against the roof LiDAR from recorded bags, without a target, use [lidar_cam_calib](../lidar_cam_calib/README.md); it uses the intrinsics in this package as input. See [eve_description/DEVELOPING.md](../../eve_description/DEVELOPING.md) for details.

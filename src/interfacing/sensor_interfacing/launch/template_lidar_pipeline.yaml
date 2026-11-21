@@ -32,6 +32,10 @@ launch:
       name: "calibration_file"
       description: "Calibration file name (e.g., VeloView-VLP-32C.yaml or VLP16db.yaml)"
 
+  - arg:
+      name: "model"
+      description: "Velodyne model for the transform node (32C or VLP16); sets the per-point time field"
+
   - node_container:
       pkg: rclcpp_components
       exec: component_container
@@ -64,10 +68,15 @@ launch:
               to: "$(var lidar_name)/velodyne_packets"
             - from: "velodyne_points"
               to: "$(var lidar_name)/velodyne_points"
+          # The vendor file below is keyed `velodyne_transform_node:`, which doesn't match
+          # this node's name, so ROS ignores it. Without an explicit model the node falls
+          # back to 64E, has no firing timings, and writes time = 0 for every point.
           param:
             - from: "$(find-pkg-share velodyne_pointcloud)/config/$(var pointcloud_config)-velodyne_transform_node-params.yaml"
             - name: calibration
               value: "$(find-pkg-share velodyne_pointcloud)/params/$(var calibration_file)"
+            - name: model
+              value: "$(var model)"
 
         - pkg: velodyne_laserscan
           plugin: velodyne_laserscan::VelodyneLaserScan

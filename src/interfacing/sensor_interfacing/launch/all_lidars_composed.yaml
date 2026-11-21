@@ -33,6 +33,8 @@ launch:
           value: "VLP32C"
         - name: "calibration_file"
           value: "VeloView-VLP-32C.yaml"
+        - name: "model"
+          value: "32C"
 
   # Northeast Lidar (VLP-16)
   - include:
@@ -46,6 +48,8 @@ launch:
           value: "VLP16"
         - name: "calibration_file"
           value: "VLP16db.yaml"
+        - name: "model"
+          value: "VLP16"
 
   # Northwest Lidar (VLP-16)
   - include:
@@ -59,3 +63,5 @@ launch:
           value: "VLP16"
         - name: "calibration_file"
           value: "VLP16db.yaml"
+        - name: "model"
+          value: "VLP16"
