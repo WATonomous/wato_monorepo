@@ -22,6 +22,7 @@
   <exec_depend>camera_sync</exec_depend>
   <exec_depend>deep_object_detection</exec_depend>
   <exec_depend>tracking</exec_depend>
+  <exec_depend>bevfusion</exec_depend>
   <exec_depend>spatial_association</exec_depend>
 
   <export>

@@ -14,6 +14,7 @@
 
 #include <tf2_ros/buffer.h>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -39,6 +40,7 @@
 using wato::perception::bevfusion::BEVFusionNode;
 using wato::perception::bevfusion::BoundingBox;
 using wato::perception::bevfusion::Position;
+using wato::perception::bevfusion::SegMap;
 using wato::perception::bevfusion::Size;
 using wato::perception::bevfusion::Velocity;
 
@@ -1134,6 +1136,99 @@ TEST_CASE("computeCalibrationMatrices: aborts on TF lookup failure", "[calibrati
 
   node->computeCalibrationMatrices();
   REQUIRE_FALSE(node->calibration_initialized_.load());
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: SegMap → OccupancyGrid layout
+// WHY: SegMap stores rows along x and cols along y, but OccupancyGrid stores
+//      data[y * width + x]. A missed transpose silently mirrors the map across
+//      the diagonal (road ahead would appear on the left), so check one
+//      off-diagonal cell in each direction on a non-square grid.
+// =============================================================================
+TEST_CASE("createOccupancyGrid: transposes SegMap into OccupancyGrid layout", "[conversion][seg][fast]")
+{
+  auto node = make_configured_node();
+
+  // 2 classes, 3 rows (x) x 2 cols (y)
+  SegMap seg;
+  seg.num_classes = 2;
+  seg.height = 3;
+  seg.width = 2;
+  seg.resolution = 0.5f;
+  seg.origin_x = -1.0f;
+  seg.origin_y = -0.5f;
+  seg.masks.assign(2 * 3 * 2, 0);
+  seg.masks[0 * 6 + 2 * 2 + 0] = 1;  // class 0: row 2 (x far ahead), col 0 (y right)
+  seg.masks[1 * 6 + 0 * 2 + 1] = 1;  // class 1: row 0 (x behind),    col 1 (y left)
+
+  builtin_interfaces::msg::Time stamp;
+  stamp.sec = 42;
+
+  const auto grid0 = node->createOccupancyGrid(seg, 0, stamp);
+  REQUIRE(grid0.header.frame_id == node->lidar_frame_id_);
+  REQUIRE(grid0.header.stamp.sec == 42);
+  REQUIRE(grid0.info.resolution == Catch::Approx(0.5f));
+  REQUIRE(grid0.info.width == 3);  // cells along x
+  REQUIRE(grid0.info.height == 2);  // cells along y
+  REQUIRE(grid0.info.origin.position.x == Catch::Approx(-1.0));
+  REQUIRE(grid0.info.origin.position.y == Catch::Approx(-0.5));
+  REQUIRE(grid0.info.origin.orientation.w == Catch::Approx(1.0));
+  REQUIRE(grid0.data.size() == 6);
+  // OccupancyGrid index = y * width + x
+  REQUIRE(grid0.data[0 * 3 + 2] == 100);
+  REQUIRE(std::count(grid0.data.begin(), grid0.data.end(), 100) == 1);
+
+  const auto grid1 = node->createOccupancyGrid(seg, 1, stamp);
+  REQUIRE(grid1.data[1 * 3 + 0] == 100);
+  REQUIRE(std::count(grid1.data.begin(), grid1.data.end(), 100) == 1);
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: createOccupancyGrid rejects out-of-range class indices and short masks
+// WHY: A class-count mismatch between the model and seg_class_names, or a
+//      malformed SegMap, must not read past the end of the mask buffer.
+// =============================================================================
+TEST_CASE("createOccupancyGrid: invalid class index or short mask returns empty grid", "[conversion][seg][fast]")
+{
+  auto node = make_configured_node();
+
+  SegMap seg;
+  seg.num_classes = 1;
+  seg.height = 2;
+  seg.width = 2;
+  seg.resolution = 1.0f;
+  seg.masks.assign(4, 1);
+
+  builtin_interfaces::msg::Time stamp;
+  REQUIRE(node->createOccupancyGrid(seg, -1, stamp).data.empty());
+  REQUIRE(node->createOccupancyGrid(seg, 1, stamp).data.empty());
+
+  // masks shorter than num_classes * height * width
+  seg.num_classes = 2;
+  REQUIRE(node->createOccupancyGrid(seg, 1, stamp).data.empty());
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: seg parameters default to disabled with nuScenes classes
+// WHY: Seg must be opt-in so detection-only deployments are unaffected.
+// =============================================================================
+TEST_CASE("declareParameters: seg defaults", "[params][seg][fast]")
+{
+  auto node = make_configured_node();
+
+  REQUIRE_FALSE(node->seg_enabled_);
+  REQUIRE_FALSE(node->config_.seg_enabled);
+  REQUIRE(node->seg_class_names_.size() == 6);
+  REQUIRE(node->seg_class_names_.front() == "drivable_area");
+  REQUIRE(node->seg_class_names_.back() == "divider");
+  REQUIRE(node->config_.seg_num_classes == 6);
+  REQUIRE(node->seg_topic_prefix_ == "/perception/bev_seg");
 
   rclcpp::shutdown();
 }
