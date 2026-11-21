@@ -135,7 +135,7 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `lidar_frame_id` | `"lidar_cc"` | Frame TF extrinsics are resolved against (camera→this frame) |
 | `target_frame` | `"base_link"` | Frame ID stamped on output `Detection3DArray` / `MarkerArray` messages |
 | `camera_input` | `"compressed"` | `"compressed"`: per-camera JPEGs on `/<camera_name>/image_rect_compressed` (bags); `"nitros"`: per-camera GPU images on `/<camera_name>/image_rect` (the car) |
-| `intrinsics_source` | `"camera_matrix"` | Camera matrix from `CameraInfo` `K` (`"camera_matrix"`) or the rectified `P` (`"projection"`) |
+| `intrinsics_source` | `"projection"` | Camera matrix from `CameraInfo` `P` (`"projection"`), the matrix of the rectified images BEVFusion receives, or `K` (`"camera_matrix"`), the raw distorted camera's. On Eve's cameras K and P differ by about 2% in focal length, which moves projected points up to 14-22 px at the image corners (8-12 px in the 704x256 network input) |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic |
 | `model_dir` | `/opt/watonomous/models/bevfusion/resnet50_trt11_int8` | Directory with `.onnx` files and the LiDAR backbone |
 | *(derived)* `build_dir` | `<model_dir>/build` | Not a parameter: where compiled `.plan` TensorRT engines are read from/written to, always `<model_dir>/build` |

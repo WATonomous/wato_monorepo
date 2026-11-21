@@ -261,17 +261,17 @@ TEST_CASE("declareParameters: camera_input and intrinsics_source are validated",
     auto node = std::make_shared<BEVFusionNode>(rclcpp::NodeOptions{});
     node->declareParameters();
     REQUIRE(node->camera_input_ == BEVFusionNode::CameraInput::kCompressed);
-    REQUIRE(node->intrinsics_source_ == BEVFusionNode::IntrinsicsSource::kCameraMatrix);
+    REQUIRE(node->intrinsics_source_ == BEVFusionNode::IntrinsicsSource::kProjection);
   }
-  SECTION("nitros and projection")
+  SECTION("nitros and camera_matrix")
   {
     rclcpp::NodeOptions options;
     options.append_parameter_override("camera_input", "nitros");
-    options.append_parameter_override("intrinsics_source", "projection");
+    options.append_parameter_override("intrinsics_source", "camera_matrix");
     auto node = std::make_shared<BEVFusionNode>(options);
     node->declareParameters();
     REQUIRE(node->camera_input_ == BEVFusionNode::CameraInput::kNitros);
-    REQUIRE(node->intrinsics_source_ == BEVFusionNode::IntrinsicsSource::kProjection);
+    REQUIRE(node->intrinsics_source_ == BEVFusionNode::IntrinsicsSource::kCameraMatrix);
   }
   SECTION("unknown values throw")
   {

@@ -407,7 +407,7 @@ private:
   // Cameras
   std::vector<std::string> camera_names_;
   CameraInput camera_input_{CameraInput::kCompressed};
-  IntrinsicsSource intrinsics_source_{IntrinsicsSource::kCameraMatrix};
+  IntrinsicsSource intrinsics_source_{IntrinsicsSource::kProjection};
 
   // Camera info, one per camera in camera_names_ order
   std::vector<rclcpp::Subscription<CameraInfoMsg>::SharedPtr> camera_info_subs_;

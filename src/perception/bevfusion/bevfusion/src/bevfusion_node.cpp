@@ -91,8 +91,9 @@ void BEVFusionNode::declareParameters()
   // "/<camera_name>/image_rect" (NITROS GPU images, the car), with "/<camera_name>/camera_info".
   declareIfMissing<std::string>("camera_input", "compressed");
   declareIfMissing<std::string>("input_lidar_topic", kLidarTopic);
-  // Intrinsics from CameraInfo K ("camera_matrix") or P ("projection")
-  declareIfMissing<std::string>("intrinsics_source", "camera_matrix");
+  // Intrinsics from CameraInfo P ("projection": the camera matrix of the rectified images the node
+  // receives) or K ("camera_matrix": the raw, distorted camera)
+  declareIfMissing<std::string>("intrinsics_source", "projection");
 
   // Directory containing all .plan and .onnx engine files for the model
   declareIfMissing<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50_trt11_int8");

@@ -469,7 +469,7 @@ multi_camera_sync:
     # perception.launch.yaml overrides this from live_cameras: nitros by default, compressed with live_cameras:=false.
     camera_input: "compressed"
     input_lidar_topic: "/lidar_cc/velodyne_points"  # LiDAR point cloud (sensor_msgs/msg/PointCloud2): one Velodyne sweep, points in firing order
-    intrinsics_source: "camera_matrix"  # Camera matrix from CameraInfo K ("camera_matrix") or the rectified P ("projection")
+    intrinsics_source: "projection"  # Camera matrix of the rectified images: CameraInfo P ("projection"), or K ("camera_matrix")
 
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50_trt11_int8"

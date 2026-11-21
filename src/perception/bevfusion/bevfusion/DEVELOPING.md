@@ -181,7 +181,7 @@ This is the hardest part unique to the codebase. CUDA-BEVFusion's `Core::update(
 | Matrix | What it is | Where we get it |
 |---|---|---|
 | `camera2lidar` | 4×4 transform from each camera frame to lidar frame | As implemented: `tf_buffer_->lookupTransform(lidar_frame_id_, camera_info.header.frame_id, tf2::TimePointZero)` directly (no inversion needed since we look up straight from lidar frame to camera frame). The camera's optical axis (third column) also gives its azimuth for the sweep targets. |
-| `camera_intrinsics` | 3×3 camera matrix, padded to 4×4 | From each camera's `CameraInfo`: `k` (`intrinsics_source: camera_matrix`) or the left 3×3 of `p`, the camera matrix of the rectified image (`intrinsics_source: projection`). Pad to 4×4 with identity bottom-right. |
+| `camera_intrinsics` | 3×3 camera matrix, padded to 4×4 | From each camera's `CameraInfo`: the left 3×3 of `p`, the camera matrix of the rectified images the node receives (`intrinsics_source: projection`, the default), or `k`, the raw distorted camera's (`intrinsics_source: camera_matrix`). Pad to 4×4 with identity bottom-right. |
 | `lidar2image` | 4×4 projection from lidar to each camera's image plane | `lidar2image = camera_intrinsics @ extrinsic_lidar2camera`. Compute from the above two. |
 | `img_aug_matrix` | 4×4 augmentation matrix (resize + crop applied to images) | Depends on the image preprocessing. For the standard BEVFusion resize (resize_lim=0.48 on a 900→256 image), this is a scale+translate matrix. If we feed full-resolution images (1600×900), compute it from the resize parameters. |
 
