@@ -19,34 +19,31 @@
 // C++ system headers
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
-#include <unordered_map>
+#include <thread>
 #include <vector>
 // Other
-#include <deep_msgs/msg/multi_camera_info.hpp>
-#include <deep_msgs/msg/multi_detection2_d_array.hpp>
-#include <deep_msgs/msg/multi_image.hpp>
-#include <deep_msgs/msg/multi_image_compressed.hpp>
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <diagnostic_updater/publisher.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include <isaac_ros_managed_nitros/managed_nitros_subscriber.hpp>
+#include <isaac_ros_nitros_image_type/nitros_image_view.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
-#include <sensor_msgs/msg/image.hpp>
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/approximate_time.h>
-#include <message_filters/synchronizer.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <vision_msgs/msg/detection3_d_array.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include "bevfusion/bevfusion_core.hpp"
+#include "bevfusion/camera_matcher.hpp"
 // clang-format on
 
 namespace wato::perception::bevfusion
@@ -54,6 +51,10 @@ namespace wato::perception::bevfusion
 
 /**
  * @brief ROS 2 lifecycle composable node for BEVFusion
+ *
+ * Each camera is subscribed on its own topic: GPU (NITROS) images on the car, JPEGs from bags. For
+ * every LiDAR scan the node picks, per camera, the frame nearest the moment the LiDAR swept that
+ * camera's direction (CameraMatcher), then runs inference on a worker thread.
  */
 class BEVFusionNode : public rclcpp_lifecycle::LifecycleNode
 {
@@ -66,11 +67,15 @@ public:
    */
   explicit BEVFusionNode(const rclcpp::NodeOptions & options);
 
+  /// Stops the worker thread if the node is destroyed without a cleanup/shutdown transition.
+  ~BEVFusionNode() override;
+
   // Default topic names (matches the remap "from" names in the launch file)
-  static constexpr auto kCameraInfoTopic = "camera_info";
   static constexpr auto kLidarTopic = "/lidar_cc/velodyne_points";
-  static constexpr auto kMultiImageCompressedTopic = "/multi_camera_sync/multi_image_compressed";
-  static constexpr auto kMultiImageRawTopic = "/multi_camera_sync/multi_image_raw";
+  // Per-camera topics, subscribed as "/<camera_name>/<suffix>"
+  static constexpr auto kCompressedImageTopicSuffix = "image_rect_compressed";
+  static constexpr auto kNitrosImageTopicSuffix = "image_rect";
+  static constexpr auto kCameraInfoTopicSuffix = "camera_info";
   static constexpr auto kOutputDetectionsTopic = "output_detections";
   static constexpr auto kOutputMarkersTopic = "output_markers";
 
@@ -83,7 +88,7 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
   /**
-   * @brief Lifecycle: create sub/pub, activate publisher, start diagnostics.
+   * @brief Lifecycle: create pubs/subs, the camera matcher and the inference worker.
    * @param previous_state Previous lifecycle state
    * @return SUCCESS on activation
    */
@@ -91,7 +96,7 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
   /**
-   * @brief Lifecycle: deactivate publisher and stop processing.
+   * @brief Lifecycle: stop inputs and the worker, release held frames, deactivate publishers.
    * @param previous_state Previous lifecycle state
    * @return SUCCESS
    */
@@ -115,52 +120,186 @@ public:
     const rclcpp_lifecycle::State & previous_state) override;
 
 private:
+  // Aliases
+  using CompressedImageMsg = sensor_msgs::msg::CompressedImage;
+  using CameraInfoMsg = sensor_msgs::msg::CameraInfo;
+  using PointCloud2Msg = sensor_msgs::msg::PointCloud2;
+  using NitrosImageView = nvidia::isaac_ros::nitros::NitrosImageView;
+  using NitrosImageMsg = NitrosImageView::BaseType;
+  using NitrosImageSub = nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<NitrosImageView>;
+
+  /// Where camera images come from
+  enum class CameraInput
+  {
+    kCompressed,  ///< Per-camera JPEG topics (bag replay); decoded on the CPU
+    kNitros  ///< Per-camera NITROS images in GPU memory (the car); passed to the model without a copy
+  };
+
+  /// What each camera's frame is matched to
+  enum class SyncTarget
+  {
+    kSweep,  ///< When the LiDAR beam swept that camera's viewing direction
+    kScanStamp  ///< The scan stamp, for every camera
+  };
+
+  /// Which camera matrix is used for the intrinsics
+  enum class IntrinsicsSource
+  {
+    kCameraMatrix,  ///< CameraInfo K (the raw, distorted camera)
+    kProjection  ///< CameraInfo P (the camera after rectification)
+  };
+
+  /// One camera frame as held by the matcher; exactly one pointer is set
+  struct CameraFrame
+  {
+    CompressedImageMsg::ConstSharedPtr jpeg;
+    std::shared_ptr<const NitrosImageMsg> gpu;
+  };
+
+  using Matcher = CameraMatcher<CameraFrame, PointCloud2Msg::ConstSharedPtr>;
+  using MatchedSet = Matcher::MatchedSet;
+
   /**
    * @brief Declare and populate core parameters from the parameter server.
    */
   void declareParameters();
 
-  /**
-   * @brief Main processing callback for synced compressed camera and LiDAR data.
-   * @param multi_image_msg MultiImageCompressed containing compressed images from multiple cameras
-   * @param lidar_msg PointCloud2 containing point cloud data
-   */
-  void syncedCompressedCallback(
-    const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+  /// Declare a parameter unless it already is (a configure after cleanup keeps the values)
+  template <typename T>
+  void declareIfMissing(const std::string & name, const T & default_value)
+  {
+    if (!this->has_parameter(name)) {
+      this->declare_parameter<T>(name, default_value);
+    }
+  }
 
   /**
-   * @brief Main processing callback for batched raw MultiImage + LiDAR.
-   * @param multi_image_msg MultiImage containing raw images from multiple cameras
-   * @param lidar_msg PointCloud2 containing point cloud data
+   * @brief Declare and validate the camera input and matching parameters.
+   * @throws std::invalid_argument for an unknown or out-of-range value
    */
-  void syncedRawCallback(
-    const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg);
+  void declareSyncParameters();
 
   /**
-   * @brief Synced callback helper for processing a frame of 6 RGB images and LiDAR cloud.
-   * @param rgb_images Vector of RGB images (6 cameras)
-   * @param lidar_msg PointCloud2 containing point cloud data
-   * @param header Header for timestamp synchronization
-   * @param t_start Start time of callback processing
+   * @brief Store a JPEG frame from one camera in the matcher.
+   * @param camera_idx Index of the camera in camera_names
+   * @param msg Compressed image
    */
-  void processFrame(
-    std::vector<cv::Mat> & rgb_images,
-    const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
-    const std_msgs::msg::Header & header,
-    std::chrono::steady_clock::time_point t_start);
+  void compressedImageCallback(size_t camera_idx, const CompressedImageMsg::ConstSharedPtr & msg);
 
   /**
-   * @brief Camera info callback to initialize calibration.
-   * @param multi_camera_info_msg MultiCameraInfo containing camera calibration data
+   * @brief Store a NITROS (GPU) frame from one camera in the matcher.
+   * @param camera_idx Index of the camera in camera_names
+   * @param image_view View of the received NITROS image
    */
-  void multiCameraInfoCallback(const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg);
+  void nitrosImageCallback(size_t camera_idx, const NitrosImageView & image_view);
+
+  /**
+   * @brief Add a LiDAR scan to the matcher, with one target time per camera.
+   * @param lidar_msg PointCloud2 containing point cloud data
+   */
+  void lidarCallback(const PointCloud2Msg::ConstSharedPtr & lidar_msg);
+
+  /**
+   * @brief Cache one camera's info; computes calibration once every camera has reported.
+   * @param camera_idx Index of the camera in camera_names
+   * @param msg CameraInfo for that camera
+   */
+  void cameraInfoCallback(size_t camera_idx, const CameraInfoMsg::ConstSharedPtr & msg);
+
+  /**
+   * @brief Target time per camera for a scan: when the LiDAR swept each camera's direction.
+   * @param lidar_msg Scan in firing order, stamped with its last packet
+   * @return One target per camera, or an empty vector to use the scan stamp for every camera
+   */
+  std::vector<int64_t> scanTargets(const PointCloud2Msg & lidar_msg);
+
+  /**
+   * @brief Hand completed sets to the worker (the newest replaces one still waiting).
+   * @param sets Sets completed by the matcher
+   * @param epoch Matcher epoch the sets belong to (see matcher_epoch_)
+   */
+  void dispatchSets(std::vector<MatchedSet> & sets, uint64_t epoch);
+
+  /**
+   * @brief Count a matcher reset (a bag restarting) as a new epoch. Caller holds matcher_mutex_.
+   * @return The current epoch
+   */
+  uint64_t currentEpoch();
+
+  /**
+   * @brief Warn (throttled) when a camera has not delivered any frame, which drops every scan.
+   *        Caller holds matcher_mutex_.
+   */
+  void warnAboutSilentCameras();
+
+  /// Remove the output topic's frequency diagnostic from the updater and destroy it
+  void removeTopicDiagnostic();
+
+  /**
+   * @brief Arm the timer for the matcher's next deadline. Caller holds matcher_mutex_.
+   * @param now_ns Current steady-clock time
+   */
+  void armDeadlineTimer(int64_t now_ns);
+
+  /**
+   * @brief Timer callback: let the matcher decide scans whose wait ran out.
+   */
+  void deadlineTimerCallback();
+
+  /**
+   * @brief Inference worker: waits for sets and processes them one at a time.
+   */
+  void workerLoop();
+
+  /**
+   * @brief Start the inference worker thread.
+   */
+  void startWorker();
+
+  /**
+   * @brief Stop and join the inference worker thread; drops a set still waiting.
+   */
+  void stopWorker();
+
+  /**
+   * @brief Destroy subscriptions and the deadline timer, then release every frame the matcher holds.
+   */
+  void stopInputs();
+
+  /**
+   * @brief Prepare camera images and run inference for one matched set (worker thread).
+   * @param set Scan and the frame chosen for each camera
+   */
+  void processSet(const MatchedSet & set);
+
+  /**
+   * @brief Decode the set's JPEGs (in parallel) to RGB images at the configured size.
+   * @param set Matched set with JPEG frames
+   * @param rgb_images Output RGB images, one per camera
+   * @return True if every image decoded and validated
+   */
+  bool decodeJpegImages(const MatchedSet & set, std::vector<cv::Mat> & rgb_images);
+
+  /**
+   * @brief Shared second half of frame processing: LiDAR prep, inference, publishing and statistics.
+   * @param camera_images One pointer per camera to packed RGB8 pixels, in CPU or GPU memory
+   * @param lidar_msg PointCloud2 containing point cloud data
+   * @param stamp Stamp for the published detections (the scan stamp)
+   * @param t_start Start time of processing this set
+   * @param match_wait_ms Time from the scan's arrival until its set was complete
+   */
+  void runInference(
+    const std::vector<const unsigned char *> & camera_images,
+    const PointCloud2Msg::ConstSharedPtr & lidar_msg,
+    const builtin_interfaces::msg::Time & stamp,
+    std::chrono::steady_clock::time_point t_start,
+    double match_wait_ms);
 
   /**
    * @brief Computes calibration matrices from camera info and TF extrinsics, then updates the core CUDA pipeline.
-   * @details Called during node activation (`on_activate()`) if camera info exists and can also be invoked by
-   *         `multiCameraInfoCallback()`.
+   * @details Called during node activation (`on_activate()`) if every camera's info is cached, and by
+   *         `cameraInfoCallback()` once every camera has reported. Also computes each camera's azimuth
+   *         in the LiDAR frame for sweep targets.
    */
   void computeCalibrationMatrices();
 
@@ -199,28 +338,11 @@ private:
   void updateStatistics(double time_taken);
 
   /**
-   * @brief Tick topic diagnostics and refresh updater.
+   * @brief Tick topic diagnostics.
    * @param timestamp Timestamp from the processed detection array
    */
   void updateDiagnostics(const std_msgs::msg::Header::_stamp_type & timestamp);
 
-  // Aliases
-  using MultiImageCompressedMsg = deep_msgs::msg::MultiImageCompressed;
-  using MultiImageRawMsg = deep_msgs::msg::MultiImage;
-  using MultiCameraInfoMsg = deep_msgs::msg::MultiCameraInfo;
-  using PointCloud2Msg = sensor_msgs::msg::PointCloud2;
-
-  using MultiImageCompressedSub = message_filters::Subscriber<MultiImageCompressedMsg, rclcpp_lifecycle::LifecycleNode>;
-  using MultiImageRawSub = message_filters::Subscriber<MultiImageRawMsg, rclcpp_lifecycle::LifecycleNode>;
-  using LidarSub = message_filters::Subscriber<PointCloud2Msg, rclcpp_lifecycle::LifecycleNode>;
-
-  using MultiImageCompressedSyncPolicy = message_filters::sync_policies::
-    ApproximateTime<deep_msgs::msg::MultiImageCompressed, sensor_msgs::msg::PointCloud2>;
-  using MultiImageCompressedSynchronizer = message_filters::Synchronizer<MultiImageCompressedSyncPolicy>;
-
-  using MultiImageRawSyncPolicy =
-    message_filters::sync_policies::ApproximateTime<deep_msgs::msg::MultiImage, sensor_msgs::msg::PointCloud2>;
-  using MultiImageRawSynchronizer = message_filters::Synchronizer<MultiImageRawSyncPolicy>;
   /**
    * @brief Decompress a CompressedImage to cv::Mat in BGR format.
    * @param compressed_img The compressed image message
@@ -267,9 +389,13 @@ private:
    */
   visualization_msgs::msg::MarkerArray createMarkers(const vision_msgs::msg::Detection3DArray & detections_3d) const;
 
-  // Core logic
+  /// Steady-clock time in nanoseconds (arrival and deadline times for the matcher)
+  static int64_t steadyNowNs();
+
+  // Core logic; core_mutex_ serializes inference (worker) and calibration updates (callbacks)
   std::unique_ptr<BEVFusionCore> core_;
   BEVFusionInputConfig config_;
+  std::mutex core_mutex_;
 
   // TF
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -278,18 +404,21 @@ private:
   // Frame IDs
   std::string lidar_frame_id_;
 
-  // Camera info
-  rclcpp::Subscription<MultiCameraInfoMsg>::SharedPtr multi_camera_info_sub_;
-  MultiCameraInfoMsg::ConstSharedPtr cached_multi_camera_info_;
+  // Cameras
   std::vector<std::string> camera_names_;
+  CameraInput camera_input_{CameraInput::kCompressed};
+  IntrinsicsSource intrinsics_source_{IntrinsicsSource::kCameraMatrix};
+
+  // Camera info, one per camera in camera_names_ order
+  std::vector<rclcpp::Subscription<CameraInfoMsg>::SharedPtr> camera_info_subs_;
+  std::vector<CameraInfoMsg::ConstSharedPtr> cached_camera_infos_;
+  std::vector<double> camera_azimuths_deg_;  // viewing direction of each camera in the LiDAR frame
+  std::mutex camera_info_mutex_;
 
   // Calibration
   std::atomic<bool> calibration_initialized_{false};
 
-  // Subscription topics for approximate time sync
-  bool use_raw_images_{false};
-  std::string multi_image_raw_topic_;
-  std::string multi_image_compressed_topic_;
+  // Input topics
   std::string lidar_topic_;
 
   // 3D detection: TF target frame
@@ -302,22 +431,34 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
-  // Subscribers
-  std::shared_ptr<LidarSub> lidar_sub_;
-  std::shared_ptr<MultiImageCompressedSub> multi_image_compressed_sub_;
-  std::shared_ptr<MultiImageRawSub> multi_image_raw_sub_;
+  // Subscribers (only the ones for camera_input_ are created)
+  rclcpp::Subscription<PointCloud2Msg>::SharedPtr lidar_sub_;
+  std::vector<rclcpp::Subscription<CompressedImageMsg>::SharedPtr> compressed_image_subs_;
+  std::vector<std::shared_ptr<NitrosImageSub>> nitros_image_subs_;
 
   // QoS profiles
   rclcpp::QoS subscriber_qos_;
   rclcpp::QoS publisher_qos_;
 
-  // Synchronization
-  std::shared_ptr<MultiImageCompressedSynchronizer> compressed_sync_;
-  std::shared_ptr<MultiImageRawSynchronizer> raw_sync_;
-  int sync_queue_size_{10};
-  double sync_max_time_diff_ms_{200.0};
-  double sync_max_time_diff_sec_;
-  std::mutex camera_info_mutex_;
+  // Camera matching (see camera_matcher.hpp); matcher_mutex_ guards the matcher and its deadline timer
+  CameraMatcherConfig matcher_config_;
+  SyncTarget sync_target_{SyncTarget::kSweep};
+  double lidar_rotation_period_ms_{50.0};
+  std::unique_ptr<Matcher> matcher_;
+  rclcpp::TimerBase::SharedPtr deadline_timer_;
+  int64_t armed_deadline_ns_{-1};
+  // A matcher reset (backward time jump) starts a new epoch: sets are ordered by (epoch, scan stamp)
+  uint64_t matcher_epoch_{0};
+  uint64_t matcher_resets_seen_{0};
+  std::mutex matcher_mutex_;
+
+  // Inference worker: a single-slot mailbox, so a newer set replaces one the worker has not started
+  std::thread worker_;
+  std::mutex mailbox_mutex_;
+  std::condition_variable mailbox_cv_;
+  std::optional<MatchedSet> mailbox_;
+  uint64_t mailbox_epoch_{0};
+  bool stop_worker_{false};
 
   // Statistics
   std::atomic<uint64_t> total_processed_{0};
@@ -327,9 +468,12 @@ private:
   static constexpr std::chrono::seconds kStatsLogInterval{30};
 
   // Statistics
-  std::atomic<uint64_t> multi_image_msg_count_{0};
+  std::atomic<uint64_t> image_msg_count_{0};
   std::atomic<uint64_t> lidar_msg_count_{0};
-  std::atomic<uint64_t> synced_msg_count_{0};
+  std::atomic<uint64_t> matched_set_count_{0};
+  std::atomic<uint64_t> superseded_set_count_{0};
+  std::atomic<uint64_t> sweep_fallback_count_{0};
+  std::atomic<double> last_max_gap_ms_{0.0};
 
   // Diagnostics
   std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_;

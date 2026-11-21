@@ -36,8 +36,6 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(message_filters REQUIRED)
-find_package(deep_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_eigen REQUIRED)
@@ -46,6 +44,8 @@ find_package(OpenCV REQUIRED)
 enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
 find_package(cuda_bevfusion_vendor REQUIRED)
+find_package(isaac_ros_managed_nitros REQUIRED)
+find_package(isaac_ros_nitros_image_type REQUIRED)
 
 # ---- Core library ----
 add_library(${PROJECT_NAME}_wato_core SHARED
@@ -85,13 +85,11 @@ target_link_libraries(${PROJECT_NAME}_node
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     diagnostic_updater::diagnostic_updater
-    message_filters::message_filters
     ${sensor_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${std_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${visualization_msgs_TARGETS}
-    ${deep_msgs_TARGETS}
     tf2_ros::tf2_ros
     ${tf2_geometry_msgs_TARGETS}
     ${PROJECT_NAME}_wato_core
@@ -100,6 +98,11 @@ target_link_libraries(${PROJECT_NAME}_node
     ${diagnostic_msgs_TARGETS}
     tf2_eigen::tf2_eigen
     Eigen3::Eigen
+)
+
+ament_target_dependencies(${PROJECT_NAME}_node PUBLIC
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
 )
 
 # ---- Register component ----
@@ -172,11 +175,12 @@ ament_export_dependencies(
   sensor_msgs
   geometry_msgs
   visualization_msgs
-  message_filters
-  deep_msgs
   tf2_ros
   tf2_geometry_msgs
   OpenCV
+  cuda_bevfusion_vendor
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
 )
 
 if(BUILD_TESTING)

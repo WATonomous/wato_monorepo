@@ -196,6 +196,13 @@ public:
    */
   bool hasCalibration() const;
 
+  /**
+   * @brief CUDA stream the pipeline runs on (valid after initialize()).
+   * @note GPU camera images passed to infer() must be ready on this stream, e.g. through a NITROS read
+   *       handle taken for it, so their producer's writes are ordered before the copy into the pipeline.
+   */
+  cudaStream_t stream() const;
+
 private:
   /**
    * @brief Check if all model files exist
