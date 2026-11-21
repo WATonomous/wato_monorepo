@@ -65,7 +65,7 @@ Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre
 
 ### Subscribed — Camera Images
 
-BEVFusion subscribes to the pre-batched, pre-synced multi-camera topic used by other perception nodes (`attribute_assigner`, `spatial_association`), rather than 6 individual per-camera topics:
+BEVFusion has two camera inputs and picks between them per frame. While the cameras are running it uses their NITROS images straight from GPU memory (see the next section). Otherwise, e.g. during bag replay where only compressed images exist, it uses the pre-batched, pre-synced multi-camera topic used by other perception nodes (`attribute_assigner`, `spatial_association`):
 
 | Topic (param) | Type | Description |
 |---|---|---|
@@ -73,11 +73,27 @@ BEVFusion subscribes to the pre-batched, pre-synced multi-camera topic used by o
 
 Each callback filters the incoming image list to the frame IDs in `camera_names`, puts them in that order, then decompresses each image with `cv::imdecode` and converts BGR to RGB before calling `BEVFusionCore::infer()`.
 
-*Note: an earlier design considered subscribing to per-camera Nitros GPU-memory topics (`/camera_pano_*/image_rect/nitros`) for a zero-copy path. This was not implemented — the current node exclusively uses the compressed-image path above, with a CPU JPEG decode + color conversion per frame.*
-
 **Time synchronization:** The node uses `message_filters::ApproximateTimeSynchronizer` to match the multi-image message and the LiDAR point cloud by timestamp — ensuring each inference call receives a synchronized camera+LiDAR frame. The queue depth is `sync_queue_size` and the maximum allowed time difference is `sync_max_time_diff_ms`.
 
 **Important — message_filters and remapping:** `input_multi_image_topic` and `input_lidar_topic` are read directly from `params.yaml` at parameter-declaration time and passed to the `message_filters::Subscriber` constructors, because ROS 2 topic remapping does not reliably apply to `message_filters` subscribers created this way. Change these two topics via the params file, not via launch-time `remap`.
+
+### Subscribed — NITROS (GPU) Camera Images
+
+When `use_nitros_images` is `true` (the default), the node also subscribes to each camera's rectified NITROS image, which is already in GPU memory:
+
+| Topic | Type | Description |
+|---|---|---|
+| `/<camera_name>/image_rect`, one per entry in `camera_names` | `NitrosImage` (RGB8) | Rectified image published by that camera's `RectifyNode` |
+
+- The number of cameras follows `camera_names`. There is no separate camera-count or topic-list parameter.
+- Per-camera topics are used because there is no batched message type for GPU images.
+- The images are RGB8, which is what the model expects, so no color conversion is done. Images with any other encoding are dropped.
+- There is no batched message to synchronize, so each LiDAR scan is matched with the newest image from every camera. The frame is skipped unless all of them are within `sync_max_time_diff_ms` of the scan.
+- The GPU buffers are passed to `BEVFusionCore::infer()` as they are, with no JPEG decode and no copy through CPU memory.
+
+**Choosing the input:** nothing has to be switched by hand. These topics only carry data while the cameras are running. While frames arrive this way, the batched callbacks do nothing; when they stop for more than a second, or never start, the batched topic is used. The node logs `Camera input: ...` whenever the input in use changes, so a fall back from GPU images is visible. Set `use_nitros_images` to `false` to always use the batched topic.
+
+**Requirement:** CUDA-BEVFusion must accept GPU pointers for its camera images, i.e. copy them with `cudaMemcpyDefault` in `camera-normalization.cu`. Perception images built from an older `wato-cuda-bevfusion` assume host memory and have to be rebuilt.
 
 ### Subscribed — Other
 
@@ -118,6 +134,7 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `target_frame` | `"base_link"` | Frame ID stamped on output `Detection3DArray` / `MarkerArray` messages |
 | `input_multi_image_compressed_topic` | `/multi_camera_sync/multi_image_compressed` | Compressed camera input topic |
 | `input_multi_image_raw_topic` | `/multi_camera_sync/multi_image_raw` | Raw camera input topic |
+| `use_nitros_images` | `true` | Use per-camera NITROS (GPU) images from `/<camera_name>/image_rect` whenever they are published; the batched topics are used otherwise |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic (same remap caveat as above) |
 | `model_dir` | `/opt/watonomous/models/bevfusion/resnet50_trt11_int8` | Directory with `.onnx` files and the LiDAR backbone |
 | `build_dir` | `<model_dir>/build` | Directory where compiled `.plan` TensorRT engines are read from/written to |

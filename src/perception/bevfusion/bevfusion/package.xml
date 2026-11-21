@@ -27,6 +27,8 @@
   <depend>tf2_eigen</depend>
   <depend>eigen3_cmake_module</depend>
   <depend>cuda_bevfusion_vendor</depend>
+  <depend>isaac_ros_managed_nitros</depend>
+  <depend>isaac_ros_nitros_image_type</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
