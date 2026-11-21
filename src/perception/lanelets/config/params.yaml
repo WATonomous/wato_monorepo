@@ -1,0 +1,4 @@
+lanelets_node:
+  ros__parameters:
+    # true: input_image is sensor_msgs/CompressedImage, false: sensor_msgs/Image
+    use_compressed_images: true
