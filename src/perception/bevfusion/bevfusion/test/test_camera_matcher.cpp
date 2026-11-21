@@ -45,10 +45,13 @@ CameraMatcherConfig config(size_t cameras, int64_t max_wait_ms = 60, int64_t tol
   return c;
 }
 
-// Feeds frames of one camera at a fixed 50 ms period so the matcher learns the interval.
+// Feeds frames of one camera at a fixed 50 ms period, from first_ms on, after 20 earlier warm-up frames so
+// the matcher has learned the interval (the early rule needs 20 intervals).
+constexpr int64_t kWarmUpFrames = 20;
+
 void feedHistory(Matcher & m, size_t camera, int64_t first_ms, int64_t count, Sets & out)
 {
-  for (int64_t k = 0; k < count; ++k) {
+  for (int64_t k = -kWarmUpFrames; k < count; ++k) {
     const int64_t stamp = (first_ms + 50 * k) * kMs;
     m.addFrame(camera, stamp, stamp, stamp + 30 * kMs, out);
   }
@@ -91,7 +94,7 @@ TEST_CASE("CameraMatcher: keeps the previous frame when it is nearer than the ne
   Matcher m(config(1));
   Sets out;
   feedHistory(m, 0, 900, 3, out);
-  // 26 ms after 1000: not early (threshold 0.5 x 0.9 x 50 = 22.5 ms); deadline 1087 ms
+  // 26 ms after 1000: not early (threshold 20 ms: half of 950 + 2 x 0.9 x 50 = 1040 ms, less 1000); deadline 1087 ms
   m.addScan(1026 * kMs, 0, {}, 1027 * kMs, out);
   REQUIRE(out.empty());
   m.addFrame(0, 1060 * kMs, 1060 * kMs, 1080 * kMs, out);  // next is 34 ms away, arrives before the deadline
@@ -296,6 +299,67 @@ TEST_CASE("CameraMatcher: the early rule changes when a choice is made, never th
   CHECK(total_saved > 0);
 }
 
+TEST_CASE("CameraMatcher: no early decision on a frame stamped late", "[matcher][fast]")
+{
+  Matcher m(config(1));
+  Sets out;
+  feedHistory(m, 0, 1900, 2, out);  // ... 1900, 1950
+  m.addFrame(0, 2021 * kMs, 0, 2051 * kMs, out);  // stamped 21 ms late; the next frame keeps the 50 ms grid
+  // 17 ms after 2021, within half of 0.9 x 50 ms; but the next frame (2050) can come only 29 ms later
+  m.addScan(2038 * kMs, 0, {}, 2052 * kMs, out);
+  REQUIRE(out.empty());
+  m.addFrame(0, 2050 * kMs, 0, 2080 * kMs, out);
+  REQUIRE(out.size() == 1);
+  CHECK(out[0].frames[0].stamp_ns == 2050 * kMs);  // 12 ms away beats 17 ms
+}
+
+TEST_CASE("CameraMatcher: no early decision before 20 intervals are known", "[matcher][fast]")
+{
+  Matcher m(config(1));
+  Sets out;
+  // Two dropped frames in a row right after start: intervals of 100 and 100 ms confirm each other
+  m.addFrame(0, 1000 * kMs, 0, 1030 * kMs, out);
+  m.addFrame(0, 1100 * kMs, 0, 1130 * kMs, out);
+  m.addFrame(0, 1200 * kMs, 0, 1230 * kMs, out);
+  m.addScan(1240 * kMs, 0, {}, 1241 * kMs, out);  // 40 ms after 1200: early if 100 ms were the frame interval
+  REQUIRE(out.empty());
+  m.addFrame(0, 1250 * kMs, 0, 1280 * kMs, out);
+  REQUIRE(out.size() == 1);
+  CHECK(out[0].frames[0].stamp_ns == 1250 * kMs);
+}
+
+TEST_CASE("CameraMatcher: a reset forgets the learned frame interval", "[matcher][fast]")
+{
+  Matcher m(config(1));
+  Sets out;
+  for (int64_t k = 0; k < 25; ++k) {  // 10 Hz: 100 ms intervals
+    m.addFrame(0, (100'000 + 100 * k) * kMs, 0, (100'030 + 100 * k) * kMs, out);
+  }
+  m.addFrame(0, 5'000 * kMs, 0, 5'030 * kMs, out);  // bag restarted
+  REQUIRE(m.counters().resets == 1);
+  m.addScan(5'040 * kMs, 0, {}, 5'041 * kMs, out);  // 40 ms later: early only with the old 100 ms interval
+  CHECK(out.empty());
+  CHECK(m.pendingScans() == 1);
+}
+
+TEST_CASE("CameraMatcher: the learned interval follows a camera that slows down", "[matcher][fast]")
+{
+  Matcher m(config(1, -1));
+  Sets out;
+  int64_t t = 0;
+  for (int64_t k = 0; k < 25; ++k, t += 50) {
+    m.addFrame(0, t * kMs, 0, (t + 30) * kMs, out);
+  }
+  for (int64_t k = 0; k < 205; ++k) {  // more than the 200-interval window at 100 ms
+    t += 100;
+    m.addFrame(0, t * kMs, 0, (t + 30) * kMs, out);
+  }
+  // 35 ms after the newest frame: within half of min(0.9 x 100, 2 x 0.9 x 100 - 100) = 80 ms
+  m.addScan((t + 35) * kMs, 0, {}, (t + 36) * kMs, out);
+  REQUIRE(out.size() == 1);
+  CHECK(out[0].frames[0].stamp_ns == t * kMs);
+}
+
 TEST_CASE("CameraMatcher: no early decision on an interval that spans a dropped frame", "[matcher][fast]")
 {
   Matcher m(config(1));
@@ -330,7 +394,8 @@ TEST_CASE("CameraMatcher: the early threshold is inclusive and ties pick the ear
     Matcher m(config(1));
     Sets out;
     feedHistory(m, 0, 900, 3, out);
-    m.addScan(1022 * kMs + 500'000, 0, {}, 1023 * kMs, out);  // 22.5 ms = 0.5 x 0.9 x 50 ms
+    // Next frame no earlier than min(1000 + 45, 950 + 2 x 45) = 1040 ms: threshold half of 40 ms
+    m.addScan(1020 * kMs, 0, {}, 1023 * kMs, out);
     REQUIRE(out.size() == 1);
     CHECK(out[0].frames[0].stamp_ns == 1000 * kMs);
   }
@@ -532,7 +597,7 @@ TEST_CASE("CameraMatcher: a move-only scan payload is moved into the set", "[mat
 {
   CameraMatcher<int64_t, std::unique_ptr<int>> m(config(1));
   std::vector<CameraMatcher<int64_t, std::unique_ptr<int>>::MatchedSet> out;
-  for (int64_t k = 0; k < 3; ++k) {
+  for (int64_t k = -kWarmUpFrames; k < 3; ++k) {
     m.addFrame(0, (900 + 50 * k) * kMs, 0, (930 + 50 * k) * kMs, out);
   }
   m.addScan(1000 * kMs, std::make_unique<int>(5), {}, 1031 * kMs, out);

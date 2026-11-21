@@ -511,8 +511,8 @@ multi_camera_sync:
     sync_target: "sweep"  # "sweep": each camera's frame nearest when the LiDAR swept its direction; "scan_stamp": nearest the scan stamp
     sync_max_wait_ms: 60.0  # Longest wait after a scan arrives for each camera's best frame (< 0: wait until certain)
     sync_tolerance_ms: 450.0  # Largest gap between a camera frame and its target that can still be used
-    sync_early_fraction: 0.5  # Decide early on the frame before the target when within this fraction of the frame interval, less 10% for jitter (0 to 0.5)
-    sync_frames_per_camera: 6  # Frames kept per camera; on the car each holds one of the rectifier's GPU buffers
+    sync_early_fraction: 0.5  # Decide early on the frame before the target when within this fraction of the time to the camera's next frame (0 to 0.5)
+    sync_frames_per_camera: 6  # Frames kept per camera (2 to 16); on the car each holds one of the rectifier's GPU buffers
     sync_max_pending_scans: 4  # Scans that can wait at the same time; beyond this the oldest is decided with the frames it has
     lidar_rotation_period_ms: 50.0  # One LiDAR rotation (60 s / RPM; 1200 RPM on Eve)
 

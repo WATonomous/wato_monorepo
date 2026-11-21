@@ -15,6 +15,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -40,12 +41,15 @@ struct CameraMatcherConfig
   /// Largest |frame stamp - target| a frame may have and still be used. A scan with a camera outside
   /// this is skipped.
   int64_t tolerance_ns = 450'000'000;
-  /// Decide early when the newest frame before the target is within early_fraction x (1 - interval_jitter)
-  /// x the camera's shortest frame interval among its recent frames. Values up to 0.5 never change which
-  /// frame is picked, as long as no frame interval is more than interval_jitter shorter than that minimum.
+  /// Decide early on the newest frame before the target when it is within early_fraction of the time to
+  /// the earliest moment the camera's next frame can be stamped. That moment is bounded from the newest two
+  /// frames and the camera's shortest frame interval (less interval_jitter), learned from its last 200
+  /// intervals once at least 20 are known. Values up to 0.5 never change which frame is picked, unless a
+  /// frame interval is more than interval_jitter shorter than that minimum for two frames in a row (e.g. two
+  /// consecutive frames stamped late), or a camera's frame rate rises after it ran slower for its whole window.
   double early_fraction = 0.5;
   /// How much shorter than its recent minimum a camera's frame interval may be (stamp jitter) while the
-  /// early rule stays exact. Frame intervals in the recorded bags stay within 8% of their minimum.
+  /// early rule stays exact. In the drive bag single intervals range from 45.9 to 53.9 ms (minimum about 49 ms).
   double interval_jitter = 0.1;
   /// Frames kept per camera. On the NITROS path each kept frame holds one GPU buffer of the producer's pool.
   size_t frames_per_camera = 6;
@@ -264,6 +268,8 @@ private:
   static constexpr int64_t kMaxIntervalNs = 1'000'000'000;
   /// Intervals remembered per camera for the early rule (10 s at 20 Hz)
   static constexpr size_t kIntervalWindow = 200;
+  /// Intervals a camera must have shown (since start or a reset) before the early rule is used
+  static constexpr size_t kMinIntervalsForEarly = 20;
 
   struct Camera
   {
@@ -323,13 +329,13 @@ private:
   }
 
   /**
-   * @brief Shortest recent frame interval, if it can be trusted: it must be confirmed by a second interval
-   *        within interval_jitter of it, so a single interval spanning a dropped frame (e.g. right after
-   *        start or a reset) is never taken as the frame interval.
+   * @brief Shortest recent frame interval, if it can be trusted: at least kMinIntervalsForEarly intervals must
+   *        be known, and the shortest must be confirmed by a second within interval_jitter of it, so a single
+   *        interval spanning a dropped frame is never taken as the frame interval.
    */
   std::optional<int64_t> confirmedMinInterval(const Camera & cam) const
   {
-    if (cam.intervals.size() < 2) {
+    if (cam.intervals.size() < kMinIntervalsForEarly) {
       return std::nullopt;
     }
     int64_t first = std::numeric_limits<int64_t>::max();
@@ -358,8 +364,11 @@ private:
   {
     const Frame * prev = nullptr;
     const Frame * next = nullptr;
-    for (const auto & f : cam.frames) {
+    const Frame * before_prev = nullptr;
+    for (size_t i = 0; i < cam.frames.size(); ++i) {
+      const auto & f = cam.frames[i];
       if (f.stamp_ns <= target_ns) {
+        before_prev = prev;
         prev = &f;
       } else {
         next = &f;
@@ -370,13 +379,23 @@ private:
       pick = (prev && target_ns - prev->stamp_ns <= next->stamp_ns - target_ns) ? prev : next;
       return true;
     }
-    if (prev) {
-      // The next frame comes at least (1 - jitter) x min interval after prev, so it is no nearer than prev
-      // when prev is within half of that
-      const auto min_interval = confirmedMinInterval(cam);
+    const auto min_interval = prev ? confirmedMinInterval(cam) : std::nullopt;
+    if (min_interval) {
+      // The next frame is stamped at least one (jitter-reduced) minimum interval after prev, and one more
+      // interval after the frame before it than there are between that frame and prev; the second bound keeps
+      // this exact when prev itself was stamped late. Prev is no farther from the target than the next frame
+      // when it is within half of the time to the earlier bound.
+      const double step = (1.0 - config_.interval_jitter) * static_cast<double>(*min_interval);
+      const double prev_ns = static_cast<double>(prev->stamp_ns);
+      double earliest_next = prev_ns + step;
+      if (before_prev) {
+        const double between = static_cast<double>(prev->stamp_ns - before_prev->stamp_ns);
+        const double intervals = std::max(1.0, std::round(between / static_cast<double>(*min_interval)));
+        earliest_next = std::min(earliest_next, static_cast<double>(before_prev->stamp_ns) + (intervals + 1.0) * step);
+      }
       if (
-        min_interval && static_cast<double>(target_ns - prev->stamp_ns) <=
-                          config_.early_fraction * (1.0 - config_.interval_jitter) * static_cast<double>(*min_interval))
+        static_cast<double>(target_ns - prev->stamp_ns) <=
+        config_.early_fraction * std::max(0.0, earliest_next - prev_ns))
       {
         pick = prev;
         return true;

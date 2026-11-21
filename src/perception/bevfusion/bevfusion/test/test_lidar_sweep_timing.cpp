@@ -248,6 +248,42 @@ TEST_CASE("sweepTargets: a camera with an unknown direction gets the scan stamp"
   CHECK(std::llabs((*t)[0] - expectedTarget(0.0, -360.0, -90.0, 20000)) < 100'000);
 }
 
+TEST_CASE("sweepTargets: each acceptance rule on its own", "[sweep][fast]")
+{
+  // Clouds built from sweep segments in firing order, each rejected by exactly one rule
+  const auto join = [](std::initializer_list<std::vector<uint8_t>> parts) {
+    std::vector<uint8_t> cloud;
+    for (const auto & part : parts) {
+      cloud.insert(cloud.end(), part.begin(), part.end());
+    }
+    return cloud;
+  };
+  const auto accepted = [](const std::vector<uint8_t> & cloud) {
+    return sweepTargets(cloud.data(), cloud.size() / kStep, kStep, 0, 4, kStamp, kCameras, kPeriodNs).has_value();
+  };
+  SECTION("a 160 deg blind sector (step rule), otherwise one clockwise turn")
+  {
+    CHECK_FALSE(accepted(join({makeSweep(5000, 0.0, -100.0), makeSweep(5000, -260.0, -100.0)})));
+    CHECK(accepted(join({makeSweep(5000, 0.0, -100.0), makeSweep(5000, -160.0, -200.0)})));  // 60 deg sector: fine
+  }
+  SECTION("net rotation outside 300 to 420 deg")
+  {
+    CHECK_FALSE(accepted(makeSweep(10000, 0.0, -250.0)));
+    CHECK_FALSE(accepted(makeSweep(10000, 0.0, -540.0)));
+    CHECK(accepted(makeSweep(10000, 0.0, -310.0)));
+    CHECK(accepted(makeSweep(10000, 0.0, -410.0)));
+  }
+  SECTION("turning back 40 deg (fall-back rule) within a net turn of 400 deg")
+  {
+    const auto cloud =
+      join({makeSweep(5000, 0.0, -200.0), makeSweep(1000, -200.0, 40.0), makeSweep(6000, -160.0, -240.0)});
+    CHECK_FALSE(accepted(cloud));
+    // Turning back 10 deg is per-laser noise and is accepted
+    CHECK(
+      accepted(join({makeSweep(5000, 0.0, -200.0), makeSweep(300, -200.0, 10.0), makeSweep(6000, -190.0, -170.0)})));
+  }
+}
+
 TEST_CASE("cameraAzimuthDeg: azimuth of the optical axis in the LiDAR frame", "[sweep][fast]")
 {
   for (const double deg : {0.0, 90.0, -135.0, 174.0}) {

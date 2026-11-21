@@ -286,8 +286,10 @@ void BEVFusionNode::declareSyncParameters()
     throw std::invalid_argument(
       "sync_early_fraction must be in [0, 0.5]; larger values can change which frame is used");
   }
-  if (frames < 2 || frames > 64 || pending < 1 || pending > 64) {
-    throw std::invalid_argument("sync_frames_per_camera must be in [2, 64] and sync_max_pending_scans in [1, 64]");
+  // On the NITROS path every kept frame holds one of the camera rectifier's GPU buffers (40 per camera by
+  // default, shared with the encoders), so the number kept stays well below that
+  if (frames < 2 || frames > 16 || pending < 1 || pending > 16) {
+    throw std::invalid_argument("sync_frames_per_camera must be in [2, 16] and sync_max_pending_scans in [1, 16]");
   }
   if (!(lidar_rotation_period_ms_ > 0.0 && lidar_rotation_period_ms_ <= 1000.0)) {
     throw std::invalid_argument("lidar_rotation_period_ms must be in (0, 1000]");
@@ -312,7 +314,10 @@ void BEVFusionNode::compressedImageCallback(size_t camera_idx, const CompressedI
       return;
     }
     matcher_->addFrame(camera_idx, rclcpp::Time(msg->header.stamp).nanoseconds(), CameraFrame{msg, nullptr}, now, sets);
-    epoch = currentEpoch();
+    if (camera_idx < last_frame_arrival_ns_.size()) {
+      last_frame_arrival_ns_[camera_idx] = now;
+    }
+    epoch = currentEpoch(now);
     armDeadlineTimer(now);
   }
   dispatchSets(sets, epoch);
@@ -346,7 +351,10 @@ void BEVFusionNode::nitrosImageCallback(size_t camera_idx, const NitrosImageView
       return;
     }
     matcher_->addFrame(camera_idx, stamp, CameraFrame{nullptr, std::move(image)}, now, sets);
-    epoch = currentEpoch();
+    if (camera_idx < last_frame_arrival_ns_.size()) {
+      last_frame_arrival_ns_[camera_idx] = now;
+    }
+    epoch = currentEpoch(now);
     armDeadlineTimer(now);
   }
   dispatchSets(sets, epoch);
@@ -365,8 +373,8 @@ void BEVFusionNode::lidarCallback(const PointCloud2Msg::ConstSharedPtr & lidar_m
       return;
     }
     matcher_->addScan(rclcpp::Time(lidar_msg->header.stamp).nanoseconds(), lidar_msg, std::move(targets), now, sets);
-    epoch = currentEpoch();
-    warnAboutSilentCameras();
+    epoch = currentEpoch(now);
+    warnAboutSilentCameras(now);
     armDeadlineTimer(now);
   }
   dispatchSets(sets, epoch);
@@ -457,25 +465,28 @@ void BEVFusionNode::dispatchSets(std::vector<MatchedSet> & sets, uint64_t epoch)
   mailbox_cv_.notify_one();
 }
 
-uint64_t BEVFusionNode::currentEpoch()
+uint64_t BEVFusionNode::currentEpoch(int64_t now_ns)
 {
   const uint64_t resets = matcher_->counters().resets;
   if (resets != matcher_resets_seen_) {
     matcher_resets_seen_ = resets;
     ++matcher_epoch_;
+    matching_started_ns_ = now_ns;
     RCLCPP_WARN(this->get_logger(), "Camera or LiDAR stamps jumped back (bag restarted?); matching starts over");
   }
   return matcher_epoch_;
 }
 
-void BEVFusionNode::warnAboutSilentCameras()
+void BEVFusionNode::warnAboutSilentCameras(int64_t now_ns)
 {
-  if (lidar_msg_count_ < 40) {
-    return;  // give the cameras about two seconds after the first scans
+  constexpr int64_t kGraceNs = 2'000'000'000;  // after activation or a reset
+  constexpr int64_t kSilentNs = 1'000'000'000;
+  if (now_ns - matching_started_ns_ < kGraceNs) {
+    return;
   }
   std::string silent;
-  for (size_t i = 0; i < camera_names_.size(); ++i) {
-    if (matcher_->framesHeld(i) == 0) {
+  for (size_t i = 0; i < camera_names_.size() && i < last_frame_arrival_ns_.size(); ++i) {
+    if (last_frame_arrival_ns_[i] < 0 || now_ns - last_frame_arrival_ns_[i] > kSilentNs) {
       silent += (silent.empty() ? "" : ", ") + camera_names_[i];
     }
   }
@@ -487,7 +498,7 @@ void BEVFusionNode::warnAboutSilentCameras()
     this->get_logger(),
     *this->get_clock(),
     10000,
-    "No frames from %s on /<camera>/%s (camera_input: %s); every scan is dropped.%s",
+    "No frames for over a second from %s on /<camera>/%s (camera_input: %s); scans cannot be matched.%s",
     silent.c_str(),
     nitros ? kNitrosImageTopicSuffix : kCompressedImageTopicSuffix,
     nitros ? "nitros" : "compressed",
@@ -531,7 +542,7 @@ void BEVFusionNode::deadlineTimerCallback()
       return;
     }
     matcher_->tick(now, sets);
-    epoch = currentEpoch();
+    epoch = currentEpoch(now);
     armDeadlineTimer(now);
   }
   dispatchSets(sets, epoch);
@@ -998,6 +1009,7 @@ void BEVFusionNode::computeCalibrationMatrices()
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
     camera_azimuths_deg_ = camera_azimuths;
+    calibration_intrinsics_ = camera_intrinsics;
     calibration_initialized_ = true;
   }
   std::ostringstream azimuths;
@@ -1494,6 +1506,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     }
 
     if (diagnostic_updater_ && detection_pub_) {
+      removeTopicDiagnostic();  // the updater must never keep a pointer to a destroyed task
       pub_diagnostic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
         kOutputDetectionsTopic,
         *diagnostic_updater_,
@@ -1510,6 +1523,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       armed_deadline_ns_ = -1;
       matcher_resets_seen_ = 0;  // a new matcher counts its resets from zero
       matcher_epoch_ = 0;
+      last_frame_arrival_ns_.assign(camera_names_.size(), -1);
+      matching_started_ns_ = steadyNowNs();
     }
     startWorker();
 
@@ -1582,6 +1597,16 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "Activation failed: %s", e.what());
+    // Undo what was set up, so the node is cleanly inactive again
+    stopInputs();
+    stopWorker();
+    removeTopicDiagnostic();
+    if (detection_pub_) {
+      detection_pub_->on_deactivate();
+    }
+    if (marker_pub_) {
+      marker_pub_->on_deactivate();
+    }
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
   }
 }

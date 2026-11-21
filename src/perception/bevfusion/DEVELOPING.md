@@ -80,7 +80,7 @@ Each camera in `camera_names` is subscribed on its own topic. `camera_input` sel
 | `nitros` | `/<camera_name>/image_rect` | NITROS image (RGB8, GPU memory) | On the car: the rectified image from that camera's `RectifyNode`, handed over in the same process without a copy |
 | `compressed` (default) | `/<camera_name>/image_rect_compressed` | `sensor_msgs/CompressedImage` (JPEG) | Bag replay: the bags only hold the JPEG copy of each camera |
 
-`perception.launch.yaml` sets `camera_input` from its `live_cameras` argument (this overrides the value in `perception_bringup.yaml`), so bag replay with `live_cameras:=false`, as [camera_bringup.md](../perception_bringup/docs/camera_bringup.md) describes, uses `compressed`. There is no automatic switching at runtime: if a camera delivers no frames, every scan is dropped and the node warns which cameras and topic, with this hint.
+`perception.launch.yaml` sets `camera_input` from its `live_cameras` argument (this overrides the value in `perception_bringup.yaml`), so bag replay with `live_cameras:=false`, as [camera_bringup.md](../perception_bringup/docs/camera_bringup.md) describes, uses `compressed`. There is no automatic switching at runtime: if a camera sends no frames for over a second, its scans cannot be matched, and the node warns which cameras and topic, with this hint.
 
 - On the NITROS path, images must be `image_width x image_height` packed RGB8, which is what the camera driver and `RectifyNode` produce; anything else is dropped with an error. The node takes a read handle for each image on the inference CUDA stream, so the stream waits for the camera's write on the GPU, and passes the device pointers to `BEVFusionCore::infer()`. CUDA-BEVFusion copies camera images with `cudaMemcpyDefault`, which needs `wato-cuda-bevfusion` at `4da4989` or later (pinned in `docker/perception.Dockerfile`).
 - On the JPEG path, only the frames chosen for a matched set are decoded, in parallel (`cv::imdecode`), then converted BGR→RGB.
@@ -90,7 +90,7 @@ Each camera in `camera_names` is subscribed on its own topic. `camera_input` sel
 
 The cameras run freely at 20 Hz, so their frames are never taken at the same moment, and an image reaches the node about 30 ms after it was taken while a LiDAR scan arrives almost at once. For every LiDAR scan the node therefore keeps the last few frames of each camera and picks, per camera, the frame nearest **the moment the LiDAR swept that camera's viewing direction** (`sync_target: sweep`; `scan_stamp` uses the scan stamp for every camera). This matches how the nuScenes training data was recorded, where each camera fired as the LiDAR passed it.
 
-- A camera is decided as soon as its choice is certain: a frame after the target has arrived, or the newest frame before the target is so close (`sync_early_fraction` ≤ 0.5 of the camera's frame interval, less 10% for stamp jitter) that the next one cannot be nearer. A camera's choice is final once made.
+- A camera is decided as soon as its choice is certain: a frame after the target has arrived, or the newest frame before the target is so close that the camera's next frame cannot be nearer (bounded from its last two frames and its learned frame interval, with room for stamp jitter). A camera's choice is final once made.
 - Otherwise the node waits, but no longer than `sync_max_wait_ms` after the scan arrived, then uses the newest frame before the target if it is within `sync_tolerance_ms`. A scan whose best frame for some camera is further off is skipped.
 - Matching never holds up the LiDAR: inference runs on a worker thread, and if a newer set is ready before the worker is free, it replaces the older one.
 - Detections are stamped with the LiDAR scan's stamp.
@@ -154,9 +154,9 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `sync_target` | `"sweep"` | Match each camera to when the LiDAR swept its direction (`"sweep"`), or to the scan stamp (`"scan_stamp"`) |
 | `sync_max_wait_ms` | `60.0` | Longest wait after a scan arrives for each camera's best frame; `< 0` waits until certain (1 s limit) |
 | `sync_tolerance_ms` | `450.0` | Largest gap between a camera frame and its target that can still be used |
-| `sync_early_fraction` | `0.5` | Decide early on the frame before the target when it is within this fraction of the camera's frame interval, less 10% for stamp jitter (`0` to `0.5`; up to `0.5` never changes which frame is used) |
-| `sync_frames_per_camera` | `6` | Frames kept per camera (`2` to `64`) |
-| `sync_max_pending_scans` | `4` | Scans that can wait for their frames at the same time; beyond this the oldest is decided with what it has (`1` to `64`) |
+| `sync_early_fraction` | `0.5` | Decide early on the frame before the target when it is within this fraction of the time until the camera's next frame can come at the earliest (`0` to `0.5`; up to `0.5` only decides sooner, see [Camera matching](bevfusion/DEVELOPING.md#2-camera-matching-cameramatcher-sweeptargets) for the exceptions) |
+| `sync_frames_per_camera` | `6` | Frames kept per camera (`2` to `16`; on the NITROS path each holds one of the camera rectifier's 40 GPU buffers) |
+| `sync_max_pending_scans` | `4` | Scans that can wait for their frames at the same time; beyond this the oldest is decided with what it has (`1` to `16`) |
 | `lidar_rotation_period_ms` | `50.0` | One LiDAR rotation (60 s / RPM) |
 | `qos_subscriber_reliability` / `qos_subscriber_depth` | `"best_effort"` / `2` | Subscriber QoS (each camera's image and `camera_info` topic, and the LiDAR) |
 | `qos_publisher_reliability` / `qos_publisher_durability` / `qos_publisher_depth` | `"reliable"` / `"transient_local"` / `5` | Publisher QoS |

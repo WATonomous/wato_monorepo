@@ -222,15 +222,18 @@ private:
 
   /**
    * @brief Count a matcher reset (a bag restarting) as a new epoch. Caller holds matcher_mutex_.
+   * @param now_ns Current steady-clock time
    * @return The current epoch
    */
-  uint64_t currentEpoch();
+  uint64_t currentEpoch(int64_t now_ns);
 
   /**
-   * @brief Warn (throttled) when a camera has not delivered any frame, which drops every scan.
+   * @brief Warn (throttled) about cameras that have sent no frame for over a second, which makes every
+   *        scan wait out its cap and be skipped. Silent for two seconds after activation or a reset.
    *        Caller holds matcher_mutex_.
+   * @param now_ns Current steady-clock time
    */
-  void warnAboutSilentCameras();
+  void warnAboutSilentCameras(int64_t now_ns);
 
   /// Remove the output topic's frequency diagnostic from the updater and destroy it
   void removeTopicDiagnostic();
@@ -450,6 +453,11 @@ private:
   // A matcher reset (backward time jump) starts a new epoch: sets are ordered by (epoch, scan stamp)
   uint64_t matcher_epoch_{0};
   uint64_t matcher_resets_seen_{0};
+  // Steady-clock arrival of each camera's newest frame (-1: none yet) and when matching (re)started
+  std::vector<int64_t> last_frame_arrival_ns_;
+  int64_t matching_started_ns_{0};
+  // Camera intrinsics (N x 4 x 4) last sent to the core, for diagnostics and tests; camera_info_mutex_
+  std::vector<float> calibration_intrinsics_;
   std::mutex matcher_mutex_;
 
   // Inference worker: a single-slot mailbox, so a newer set replaces one the worker has not started

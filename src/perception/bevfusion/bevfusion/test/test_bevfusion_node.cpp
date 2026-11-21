@@ -14,10 +14,14 @@
 
 #include <tf2_ros/buffer.h>
 
+#include <chrono>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
+#include <thread>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -326,6 +330,7 @@ TEST_CASE("declareSyncParameters: defaults and validation", "[params][fast]")
            {"sync_early_fraction", rclcpp::ParameterValue(0.6)},
            {"sync_tolerance_ms", rclcpp::ParameterValue(0.0)},
            {"sync_frames_per_camera", rclcpp::ParameterValue(0)},
+           {"sync_frames_per_camera", rclcpp::ParameterValue(17)},  // would starve the rectifier's GPU buffers
            {"sync_target", rclcpp::ParameterValue(std::string("nearest"))},
            {"lidar_rotation_period_ms", rclcpp::ParameterValue(0.0)}})
     {
@@ -355,9 +360,10 @@ TEST_CASE("BEVFusionNode: callbacks match frames to a scan and hand the set to t
     node->on_activate(node->get_current_state()) ==
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
 
-  for (int k = 0; k < 3; ++k) {
+  // 23 frames, 50 ms apart, up to 11.00 s: enough for the early rule (it needs 20 intervals)
+  for (int64_t k = 0; k < 23; ++k) {
     auto image = std::make_shared<sensor_msgs::msg::CompressedImage>();
-    image->header.stamp = rclcpp::Time(10, 900'000'000 + 50'000'000 * k);  // 10.90, 10.95, 11.00 s
+    image->header.stamp = rclcpp::Time(9'900'000'000LL + 50'000'000LL * k);
     node->compressedImageCallback(0, image);
   }
   auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
@@ -382,6 +388,75 @@ TEST_CASE("BEVFusionNode: callbacks match frames to a scan and hand the set to t
 // WHY: When inference is slower than the LiDAR, only the newest set is processed
 //      and an older set never replaces a newer one.
 // =============================================================================
+TEST_CASE("computeCalibrationMatrices: intrinsics come from P or K", "[calibration][fast]")
+{
+  for (const auto & [source, fx, cx] : std::vector<std::tuple<std::string, float, float>>{
+         {"projection", 480.0f, 330.0f}, {"camera_matrix", 500.0f, 320.0f}})
+  {
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, nullptr);
+    }
+    rclcpp::NodeOptions options;
+    options.append_parameter_override("camera_names", std::vector<std::string>{"cam0"});
+    options.append_parameter_override("intrinsics_source", source);
+    auto node = std::make_shared<BEVFusionNode>(options);
+    node->declareParameters();
+    {
+      std::lock_guard<std::mutex> lock(node->camera_info_mutex_);
+      node->cached_camera_infos_ = {make_camera_info("cam0")};  // K fx 500 cx 320, P fx 480 cx 330
+    }
+    set_camera_to_lidar_tf(*node, "cam0");
+    node->computeCalibrationMatrices();
+    INFO(source);
+    REQUIRE(node->calibration_intrinsics_.size() == 16);
+    CHECK(node->calibration_intrinsics_[0] == Catch::Approx(fx));
+    CHECK(node->calibration_intrinsics_[2] == Catch::Approx(cx));
+    CHECK(node->calibration_intrinsics_[15] == Catch::Approx(1.0f));
+    rclcpp::shutdown();
+  }
+}
+
+// =============================================================================
+// TEST: the worker processes sets in (epoch, scan stamp) order
+// WHY: Never publish an older scan after a newer one, but start over after a bag restart (new epoch).
+// =============================================================================
+TEST_CASE("BEVFusionNode: the worker never goes back in time within an epoch", "[node][activation][fast]")
+{
+  auto node = make_single_camera_node();
+  node->declareSyncParameters();
+  node->subscriber_qos_ = node->createSubscriberQoS("best_effort", 10);
+  node->publisher_qos_ = node->createPublisherQoS("reliable", "transient_local", 10);
+  REQUIRE(
+    node->on_activate(node->get_current_state()) ==
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  // processSet records the set's largest gap before it skips the set (no model loaded): it shows which set
+  // the worker took
+  const auto wait_for = [](const std::function<bool()> & done) {
+    for (int i = 0; i < 200 && !done(); ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return done();
+  };
+  const auto dispatch = [&](int64_t stamp, int64_t gap_ms, uint64_t epoch) {
+    std::vector<BEVFusionNode::MatchedSet> sets(1);
+    sets[0].scan_stamp_ns = stamp;
+    sets[0].max_gap_ns = gap_ms * 1'000'000;
+    node->dispatchSets(sets, epoch);
+  };
+  dispatch(300, 3, 0);
+  REQUIRE(wait_for([&]() { return node->last_max_gap_ms_.load() == Catch::Approx(3.0); }));
+  const uint64_t superseded = node->superseded_set_count_.load();
+  dispatch(200, 2, 0);  // older, same epoch: skipped
+  REQUIRE(wait_for([&]() { return node->superseded_set_count_.load() == superseded + 1; }));
+  CHECK(node->last_max_gap_ms_.load() == Catch::Approx(3.0));
+  dispatch(100, 1, 1);  // older stamp but a new epoch (bag restarted): processed
+  REQUIRE(wait_for([&]() { return node->last_max_gap_ms_.load() == Catch::Approx(1.0); }));
+  REQUIRE(
+    node->on_deactivate(node->get_current_state()) ==
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  rclcpp::shutdown();
+}
+
 TEST_CASE("BEVFusionNode: dispatchSets keeps the newest set", "[node][fast]")
 {
   auto node = make_configured_node();
