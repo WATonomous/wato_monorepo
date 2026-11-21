@@ -376,7 +376,19 @@ bool BEVFusionCore::compileTrtModel(
 
   // Create empty network to load the model into
   // TRT10+: explicit batch is the only mode, no creation flag needed/available.
-  std::unique_ptr<nvinfer1::INetworkDefinition> network(builder->createNetworkV2(0U));
+  //
+  // TRT 11 removed the kFP16/kINT8 builder flags: a network is now either weakly
+  // typed (everything upcast to FP32) or strongly typed (precision comes from the
+  // ONNX graph's own tensor types). The CUDA-BEVFusion kernels assert HALF
+  // bindings, so a weakly typed network aborts with
+  //   engine_->dtype(BindingOutput) == TensorRT::DType::HALF
+  // The graphs are FP16 end to end (qat/ + to_fp16_onnx.py), so ask for strong
+  // typing and the bindings come out HALF as the kernels expect.
+  uint32_t network_flags = 0U;
+#if NV_TENSORRT_MAJOR >= 11
+  network_flags = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kSTRONGLY_TYPED);
+#endif
+  std::unique_ptr<nvinfer1::INetworkDefinition> network(builder->createNetworkV2(network_flags));
 
   // Parse the ONNX model file
   std::unique_ptr<nvonnxparser::IParser> parser(nvonnxparser::createParser(*network, g_trt_logger));
@@ -401,13 +413,17 @@ bool BEVFusionCore::compileTrtModel(
   }
 #endif
 
-  // Force allowed tensor formats on inputs and outputs
+  // Force allowed tensor formats on inputs and outputs.
+  // Tensor formats only exist for weakly typed networks; TRT 11 strong typing
+  // keeps the graph's own FP16 types and rejects setAllowedFormats.
+#if NV_TENSORRT_MAJOR < 11
   for (int i = 0; i < network->getNbInputs(); ++i) {
     network->getInput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
   }
   for (int i = 0; i < network->getNbOutputs(); ++i) {
     network->getOutput(i)->setAllowedFormats(1U << static_cast<int>(nvinfer1::TensorFormat::kLINEAR));
   }
+#endif
 
   // Build serialized engine plan
   std::unique_ptr<nvinfer1::IHostMemory> serialized(builder->buildSerializedNetwork(*network, *config));
