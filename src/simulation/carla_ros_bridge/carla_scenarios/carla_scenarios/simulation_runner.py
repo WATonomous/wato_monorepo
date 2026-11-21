@@ -263,9 +263,9 @@ class SimulationRunner(Node):
         self.speed_pub = self.create_publisher(Float64, "/sim/speed_mps", 10)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.clients = {}
+        self._service_clients = {}
         self.create_subscription(
-            Clock, "/clock", self._clock, 10, callback_group=self.io_group
+            Clock, "/clock", self._clock_callback, 10, callback_group=self.io_group
         )
         for key, topic, message_type in (
             ("odom", "/ego/odom", Odometry),
@@ -327,7 +327,7 @@ class SimulationRunner(Node):
         self.create_timer(0.1, self._update, callback_group=self.control_group)
         self.get_logger().info("Simulation runner IDLE; use watod sim open")
 
-    def _clock(self, message):
+    def _clock_callback(self, message):
         current = seconds(message.clock)
         if self.sim_time is None or current != self.sim_time:
             self.last_clock_wall = time.monotonic()
@@ -398,11 +398,11 @@ class SimulationRunner(Node):
         self.collision = self.collision or message.data
 
     def _client(self, service_type, endpoint):
-        if endpoint not in self.clients:
-            self.clients[endpoint] = self.create_client(
+        if endpoint not in self._service_clients:
+            self._service_clients[endpoint] = self.create_client(
                 service_type, endpoint, callback_group=self.io_group
             )
-        return self.clients[endpoint]
+        return self._service_clients[endpoint]
 
     def _call(self, service_type, endpoint, request=None, timeout=15.0):
         """Wait on a separate executor group, bounded by monotonic wall time."""
