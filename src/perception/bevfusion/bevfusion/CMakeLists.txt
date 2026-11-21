@@ -191,6 +191,15 @@ if(BUILD_TESTING)
     LIBRARIES
       ${PROJECT_NAME}_node
   )
+  # Header-only, ROS-free camera matching and LiDAR sweep timing
+  add_wato_test(test_camera_matcher
+    test/test_camera_matcher.cpp
+  )
+  target_include_directories(test_camera_matcher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  add_wato_test(test_lidar_sweep_timing
+    test/test_lidar_sweep_timing.cpp
+  )
+  target_include_directories(test_lidar_sweep_timing PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 endif()
 
 ament_package()
