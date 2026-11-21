@@ -65,7 +65,7 @@ Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre
 
 ### Subscribed — Camera Images
 
-BEVFusion subscribes to the pre-batched, pre-synced multi-camera topic used by other perception nodes (`attribute_assigner`, `spatial_association`), rather than 6 individual per-camera topics:
+BEVFusion has two camera inputs and picks between them per frame. While the cameras are running it uses their NITROS images straight from GPU memory (see the next section). Otherwise, e.g. during bag replay where only compressed images exist, it uses the pre-batched, pre-synced multi-camera topic used by other perception nodes (`attribute_assigner`, `spatial_association`):
 
 | Topic (param) | Type | Description |
 |---|---|---|
@@ -73,11 +73,27 @@ BEVFusion subscribes to the pre-batched, pre-synced multi-camera topic used by o
 
 Each callback filters the incoming image list to the frame IDs in `camera_names`, puts them in that order, then decompresses each image with `cv::imdecode` and converts BGR to RGB before calling `BEVFusionCore::infer()`.
 
-*Note: an earlier design considered subscribing to per-camera Nitros GPU-memory topics (`/camera_pano_*/image_rect/nitros`) for a zero-copy path. This was not implemented — the current node exclusively uses the compressed-image path above, with a CPU JPEG decode + color conversion per frame.*
-
 **Time synchronization:** The node uses `message_filters::ApproximateTimeSynchronizer` to match the multi-image message and the LiDAR point cloud by timestamp — ensuring each inference call receives a synchronized camera+LiDAR frame. The queue depth is `sync_queue_size` and the maximum allowed time difference is `sync_max_time_diff_ms`.
 
 **Important — message_filters and remapping:** `input_multi_image_topic` and `input_lidar_topic` are read directly from `params.yaml` at parameter-declaration time and passed to the `message_filters::Subscriber` constructors, because ROS 2 topic remapping does not reliably apply to `message_filters` subscribers created this way. Change these two topics via the params file, not via launch-time `remap`.
+
+### Subscribed — NITROS (GPU) Camera Images
+
+When `use_nitros_images` is `true` (the default), the node also subscribes to each camera's rectified NITROS image, which is already in GPU memory:
+
+| Topic | Type | Description |
+|---|---|---|
+| `/<camera_name>/image_rect`, one per entry in `camera_names` | `NitrosImage` (RGB8) | Rectified image published by that camera's `RectifyNode` |
+
+- The number of cameras follows `camera_names`. There is no separate camera-count or topic-list parameter.
+- Per-camera topics are used because there is no batched message type for GPU images.
+- The images are RGB8, which is what the model expects, so no color conversion is done. Images with any other encoding are dropped.
+- There is no batched message to synchronize, so each LiDAR scan is matched with the newest image from every camera. The frame is skipped unless all of them are within `sync_max_time_diff_ms` of the scan.
+- The GPU buffers are passed to `BEVFusionCore::infer()` as they are, with no JPEG decode and no copy through CPU memory.
+
+**Choosing the input:** nothing has to be switched by hand. These topics only carry data while the cameras are running. While frames arrive this way, the batched callbacks do nothing; when they stop for more than a second, or never start, the batched topic is used. The node logs `Camera input: ...` whenever the input in use changes, so a fall back from GPU images is visible. Set `use_nitros_images` to `false` to always use the batched topic.
+
+**Requirement:** CUDA-BEVFusion must accept GPU pointers for its camera images, i.e. copy them with `cudaMemcpyDefault` in `camera-normalization.cu`. Perception images built from an older `wato-cuda-bevfusion` assume host memory and have to be rebuilt.
 
 ### Subscribed — Other
 
@@ -118,6 +134,7 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `target_frame` | `"base_link"` | Frame ID stamped on output `Detection3DArray` / `MarkerArray` messages |
 | `input_multi_image_compressed_topic` | `/multi_camera_sync/multi_image_compressed` | Compressed camera input topic |
 | `input_multi_image_raw_topic` | `/multi_camera_sync/multi_image_raw` | Raw camera input topic |
+| `use_nitros_images` | `true` | Use per-camera NITROS (GPU) images from `/<camera_name>/image_rect` whenever they are published; the batched topics are used otherwise |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic (same remap caveat as above) |
 | `model_dir` | `/opt/watonomous/models/bevfusion/resnet50_trt11_int8` | Directory with `.onnx` files and the LiDAR backbone |
 | `build_dir` | `<model_dir>/build` | Directory where compiled `.plan` TensorRT engines are read from/written to |
@@ -205,3 +222,98 @@ Tests live under `bevfusion/test/` and use `wato_test`/Catch2. The core tests mo
 ### Launch
 
 `bevfusion.launch.yaml` in this package can run the node standalone. In practice, it's loaded as a composable node into the shared `perception_container` from `perception_bringup/launch/perception.launch.yaml`, with `camera_info`, `output_detections`, and `output_markers` remapped to `/multi_camera_sync/multi_camera_info`, `/perception/detections_3d_bev`, and `/perception/bev_detection_markers` respectively, and parameters sourced from `perception_bringup/config/perception_bringup.yaml`. It's also listed in the `perception_lifecycle_manager`'s `node_names` for autostart. Recall that `input_multi_image_topic` and `input_lidar_topic` must be changed via params, not launch-time `remap` (see the message_filters note above).
+
+## GPU lidar preprocessing
+
+`lidar_processing_backend` selects `auto` (default), `cuda`, or `cpu`.
+During configuration, `auto` initializes the CUDA preprocessing workspace and
+selects CPU preprocessing if that initialization fails. Subscription initialization
+can also select the CPU route before activation completes. `cuda` requires both
+steps to succeed; `cpu` uses the original PointCloud2 subscription and preprocessing.
+The selected backend and initialization fallback reason appear in node diagnostics.
+Backend selection is fixed while active: malformed frames and runtime CUDA errors
+are reported without switching backends. The inference model always requires a GPU.
+
+The driver continues publishing `/lidar_cc/velodyne_points` as standard PointCloud2,
+so other consumers keep their CPU messages. The adapted NITROS subscription uploads
+the point array once; an in-process NITROS GPU producer can supply a shared device
+buffer instead. Field metadata and timestamp matching remain on the CPU.
+
+The CUDA backend supports scalar FLOAT32 x/y/z/intensity fields with arbitrary valid
+offsets, point/row padding, and either byte order. It stably removes points with
+nonfinite features, truncates to `max_points` (also bounded by the vendor's 300000-point
+capacity), and packs FP16 `[x,y,z,intensity,0]` features on the GPU. The fifth feature
+is zero sweep time lag, not ring. `lidar_max_input_points` (default 1000000) bounds
+preallocated filtering workspace; larger raw input clouds are rejected, not silently
+cropped before invalid-point removal. Only the resulting scalar point count is
+returned to the CPU. Device-input inference bypasses host staging and lidar upload.
+
+PR #599's latest-image matching and batched-image fallback are retained. Both camera
+paths use the same selected lidar backend. A lightweight message-filter envelope
+retains the source cloud and timestamp without downloading GPU points. NITROS read
+handles coordinate buffer lifetime with the core's nondefault CUDA stream.
+
+### Building the three repositories together
+
+The perception image must include matching versions of the NITROS point-cloud
+package and the vendor's `lidar-preprocess.hpp` / `forward_device_lidar` interface.
+Rebuild the image after changing its pinned dependency commits; rebuild consumers
+together after changing the point-cloud type's ABI. Dependency commits must be
+available in their origin repositories before a clean Docker clone can fetch them.
+
+For local development before publishing dependency commits, build the checked-out
+NITROS point-cloud package against the perception underlay, source that overlay,
+and build the application with
+`-DCUDA_BEVFUSION_SOURCE_DIR=/path/to/wato-cuda-bevfusion`. The vendor directory must
+be writable for protobuf generation. The package environment hook adds the GXF serialization/compositor runtime paths
+needed by the existing NITROS camera libraries. Legacy point-cloud GXF conversion
+is disabled by default to avoid its bundled-protobuf conflict with BEVFusion.
+
+### Validation and performance comparison
+
+1. Verify PointCloud2 to NITROS round-trips preserve field metadata, intensity,
+   organized row padding, headers, and payload bytes. Check empty/malformed inputs,
+   shared ownership, and rejection of XYZI by legacy XYZ/XYZRGB-only GXF.
+2. Build the vendor with `-DBUILD_LIDAR_PREPROCESS_TESTS=ON` and run
+   `ctest -R lidar_preprocess --output-on-failure`. This model-independent GPU test
+   compares FP16 bytes against a CPU reference and exercises truncation, invalid
+   values, unaligned offsets, padded rows, both byte orders, and capacity errors.
+3. Run the monorepo's BEVFusion tests. Backend selection tests inject an initialization
+   failure: `auto` selects CPU and records the reason, while `cuda` throws. Additional
+   checks cover CPU subscription cleanup and timestamp matching for both envelopes.
+4. On deployment hardware, replay the same bag with identical models, calibration,
+   camera settings, QoS, and sync tolerance. Compare `cpu` and `cuda`, warming up first
+   and alternating repeated trials. Hold PR #599's camera configuration constant.
+   Compare prepared features and detections for identical sensor timestamp pairs;
+   use the CPU baseline's repeatability to establish detection tolerances.
+5. Record p50/p95/p99 processing and receipt-to-publication latency, CPU utilization,
+   GPU memory, output rate, and unmatched/dropped scans at normal and increased replay
+   rates. Capture a short Nsight Systems CUDA/NVTX trace to inspect copies and kernels;
+   collect final throughput without tracing overhead. There should be one raw-cloud
+   upload from a CPU publisher, scalar count downloads, and no full-cloud download or
+   second upload before inference. The existing callback profiler excludes receipt
+   and sync wait; add receive/publish tracepoints for end-to-end measurements.
+6. Exercise configure/activate/deactivate/cleanup/reactivation with CPU and CUDA lidar,
+   each with NITROS cameras and batched cameras. Check `auto` failure selection before
+   activation using an intentionally oversized workspace on a test deployment.
+
+A lower lidar preparation time is not by itself proof of higher whole-pipeline FPS:
+GPU contention, raw upload size, camera processing, and model inference may dominate.
+
+### Local implementation validation (2026-11-17)
+
+- CUDA 13 / SM 89 vendor library and ROS 2 Jazzy BEVFusion package builds passed.
+- All 58 BEVFusion core/node test cases passed with the package's sourced runtime setup.
+- All six point-cloud regression cases passed, including a real CPU PointCloud2
+  publisher to Managed NITROS subscriber and GPU payload round-trip.
+- The standalone CUDA preprocessing test passed on the available GTX 1080 using
+  CUDA 12.8 / SM 61. Production CUDA 13 does not compile for this older GPU.
+- An actual incompatible CUDA 13 / SM 89 binary verified initialization fallback:
+  `auto` selected CPU and strict `cuda` rejected initialization.
+- The optional legacy point-cloud GXF configuration compiled separately.
+
+Full-model detection equivalence and end-to-end latency/FPS remain unmeasured:
+this checkout has neither BEVFusion model assets nor a representative recorded bag,
+and the available GPU is older than the production architecture. The checks above
+establish transport/preprocessing correctness and build integration, not a measured
+whole-pipeline performance gain.

@@ -15,11 +15,12 @@ RUN apt-get update && \
 # callbacks and cannot be mixed with the fork's NitrosNodeInterfaces callbacks.
 RUN R=/tmp/isaac_ros_nitros && \
     git clone https://github.com/WATonomous/isaac_ros_nitros.git $R && \
-    git -C $R checkout a60cda942d21172b28a09e4be7ca959d7515e8e1 && \
+    git -C $R checkout 4770e806e59ec18d91d99de68b77224beb43ec7b && \
     git -C $R lfs install && \
     git -C $R lfs pull --include="isaac_ros_nitros/lib/**" && \
     mv $R/isaac_ros_nitros $R/isaac_ros_managed_nitros . && \
     mv $R/isaac_ros_nitros_type/isaac_ros_nitros_image_type \
+       $R/isaac_ros_nitros_type/isaac_ros_nitros_point_cloud_type \
        $R/isaac_ros_nitros_type/isaac_ros_nitros_camera_info_type \
        $R/isaac_ros_nitros_type/isaac_ros_nitros_tensor_list_type \
        $R/isaac_ros_nitros_type/isaac_ros_nitros_compressed_image_type . && \
@@ -97,6 +98,8 @@ RUN apt-get update && \
       ros-jazzy-gxf-isaac-atlas \
       ros-jazzy-gxf-isaac-gxf-helpers \
       ros-jazzy-gxf-isaac-message-compositor \
+      ros-jazzy-gxf-isaac-messages \
+      ros-jazzy-gxf-isaac-ros-messages \
       ros-jazzy-gxf-isaac-optimizer \
       ros-jazzy-gxf-isaac-sight \
       ros-jazzy-negotiated \
@@ -143,7 +146,7 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
     git -C camera_aravis2_nitros checkout 3b625b3100b962ee06342b36369116a6da486f77 && \
     git clone https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
-    git -C wato-cuda-bevfusion checkout 08ec4db80ec768e9410c11e032e2a26dd24ded52 && \
+    git -C wato-cuda-bevfusion checkout d88652aafecef902ab4fbf238b4f0178bd83b08b && \
     git -C wato-cuda-bevfusion submodule update --init --recursive && \
     touch wato-cuda-bevfusion/COLCON_IGNORE && \
     git -C wato-cuda-bevfusion lfs install && \

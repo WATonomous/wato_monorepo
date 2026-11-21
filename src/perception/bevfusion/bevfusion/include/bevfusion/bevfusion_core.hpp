@@ -25,6 +25,8 @@
 #include <bevfusion/bevfusion.hpp>
 #include <opencv2/core/mat.hpp>
 
+#include <bevfusion/lidar-preprocess.hpp>
+
 namespace wato::perception::bevfusion
 {
 
@@ -168,6 +170,20 @@ public:
   std::vector<BoundingBox> infer(
     const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
 
+  // GPU preprocessing is initialized separately so auto mode can retain the CPU implementation.
+  void initializeLidarPreprocessor(int max_input_points);
+  void releaseLidarPreprocessor();
+
+  cudaStream_t stream() const
+  {
+    return stream_;
+  }
+
+  ::bevfusion::lidar::PreparedLidar preprocessLidar(
+    const void * device_points, const ::bevfusion::lidar::PointCloudLayout & layout);
+  std::vector<BoundingBox> inferDeviceLidar(
+    const std::vector<const unsigned char *> & camera_images, const ::bevfusion::lidar::PreparedLidar & lidar);
+
   /**
    * @brief Update the tansformation matrices mapping cameras to LiDARs
    * @param camera_to_lidar 4x4 camera to LiDAR transformation matrix
@@ -219,6 +235,10 @@ private:
   bool compileTrtModel(
     const std::string & name, const std::filesystem::path & onnx_file, const std::filesystem::path & plan_file) const;
 
+  std::vector<BoundingBox> convertDetections(
+    const std::vector<::bevfusion::head::transbbox::BoundingBox> & detections) const;
+
+  std::shared_ptr<::bevfusion::lidar::Preprocessor> lidar_preprocessor_;
   BEVFusionInputConfig config_;
   bool initialized_ = false;
   bool has_calibration_ = false;
