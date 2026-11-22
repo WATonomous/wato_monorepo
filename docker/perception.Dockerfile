@@ -143,9 +143,11 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
     git -C camera_aravis2_nitros checkout 3b625b3100b962ee06342b36369116a6da486f77 && \
     # TODO(lane seg): switch back to WATonomous/wato-cuda-bevfusion once its PR #4 (seg head) merges.
+    # The fork's CUDA-BEVFusion/bevfusion submodule (PyTorch training/export code, unused by the C++ build)
+    # points at an unpushed commit, so only the submodules the C++ build needs are fetched.
     git clone https://github.com/GabrielNakamoto/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
     git -C wato-cuda-bevfusion checkout 6c1a600a86ee853c5260a530b1d5b137daa63e55 && \
-    git -C wato-cuda-bevfusion submodule update --init --recursive && \
+    git -C wato-cuda-bevfusion submodule update --init --recursive dependencies libraries/cuPCL && \
     touch wato-cuda-bevfusion/COLCON_IGNORE && \
     git -C wato-cuda-bevfusion lfs install && \
     git -C wato-cuda-bevfusion lfs pull
