@@ -8,7 +8,8 @@ World pause/resume and close remain available.
 Scenarios are repeatable tests. They select a playground, setup overrides,
 application inputs, stack, ordered events, deadlines, completion criteria and
 thresholds. The runner prepares the complete stack, controls execution and
-writes evaluation results. Both shipped scenarios use adaptive pure pursuit.
+writes evaluation results through the [simulation manager](../../simulation_manager/README.md).
+Both shipped scenarios use adaptive pure pursuit.
 
 ```text
 config/playgrounds/     Public manual worlds, including traffic variants
