@@ -26,6 +26,8 @@
 #include "bevfusion/lidar_sweep_timing.hpp"
 
 using wato::perception::bevfusion::cameraAzimuthDeg;
+using wato::perception::bevfusion::RotationPeriodEstimator;
+using wato::perception::bevfusion::StampPosition;
 using wato::perception::bevfusion::sweepTargets;
 using wato::perception::bevfusion::wrapDeg;
 
@@ -318,4 +320,63 @@ TEST_CASE("wrapDeg: wraps into (-180, 180]", "[sweep][fast]")
   CHECK(wrapDeg(190.0) == Catch::Approx(-170.0));
   CHECK(wrapDeg(-370.0) == Catch::Approx(-10.0));
   CHECK(wrapDeg(725.0) == Catch::Approx(5.0));
+}
+
+TEST_CASE("sweepTargets: a scan stamped at its first point is timed from the start of the sweep", "[sweep][fast]")
+{
+  // The same physical sweep as an end-stamped one, but its stamp is the time of the first point
+  const double start = 100.0;
+  const double sweep = -360.0;
+  const auto cloud = makeSweep(36000, start, sweep);
+  const int64_t first_point_stamp = kStamp - static_cast<int64_t>(kPeriodNs);
+  const auto t =
+    sweepTargets(cloud.data(), 36000, kStep, 0, 4, first_point_stamp, kCameras, kPeriodNs, StampPosition::kStart);
+  REQUIRE(t.has_value());
+  for (size_t i = 0; i < kCameras.size(); ++i) {
+    INFO("camera " << i << " at " << kCameras[i] << " deg");
+    CHECK(std::llabs((*t)[i] - expectedTarget(start, sweep, kCameras[i], 36000)) < 100'000);  // 0.1 ms
+    CHECK((*t)[i] >= first_point_stamp);
+  }
+  // Read as end-stamped, every target would come out one turn early
+  const auto wrong = sweepTargets(cloud.data(), 36000, kStep, 0, 4, first_point_stamp, kCameras, kPeriodNs);
+  REQUIRE(wrong.has_value());
+  CHECK(std::llabs((*t)[0] - (*wrong)[0] - static_cast<int64_t>(kPeriodNs)) < 100'000);
+}
+
+TEST_CASE("sweepTargets: a start-stamped Velodyne-like sweep", "[sweep][fast]")
+{
+  constexpr size_t kColumns = 912;
+  const double start = -137.0;
+  const double sweep = -360.0 * static_cast<double>(kColumns - 1) / static_cast<double>(kColumns);
+  const auto cloud = makeVelodyneSweep(kColumns, start, sweep, 400.0, 0.0);
+  const double sweep_ns = std::fabs(sweep) / 360.0 * kPeriodNs;
+  const int64_t first_point_stamp = kStamp - static_cast<int64_t>(std::llround(sweep_ns));
+  const auto t = sweepTargets(
+    cloud.data(), kColumns * kLasers, kStep, 0, 4, first_point_stamp, kCameras, kPeriodNs, StampPosition::kStart);
+  REQUIRE(t.has_value());
+  for (size_t i = 0; i < kCameras.size(); ++i) {
+    INFO("camera " << i << " at " << kCameras[i] << " deg");
+    CHECK(std::llabs((*t)[i] - expectedColumnTarget(start, sweep, kCameras[i], kColumns)) < 500'000);  // 0.5 ms
+  }
+}
+
+TEST_CASE("RotationPeriodEstimator: learns the turn time from the scan stamps", "[sweep][period][fast]")
+{
+  RotationPeriodEstimator e;
+  constexpr int64_t kTurn = 100'000'000;  // 600 RPM, e.g. a VLS-128
+  int64_t stamp = 1'000'000'000;
+  for (int k = 0; k < 4; ++k) {
+    e.addStamp(stamp += kTurn);
+  }
+  CHECK_FALSE(e.periodNs().has_value());  // 3 steps
+  e.addStamp(stamp += 2 * kTurn);  // a dropped scan
+  e.addStamp(stamp += kTurn);
+  e.addStamp(stamp += 5'000'000'000);  // a 5 s pause is not a step
+  e.addStamp(stamp += kTurn);
+  REQUIRE(e.periodNs().has_value());
+  CHECK(*e.periodNs() == Catch::Approx(static_cast<double>(kTurn)));
+  e.addStamp(stamp - 60'000'000'000);  // a bag starting over
+  CHECK_FALSE(e.periodNs().has_value());
+  e.reset();
+  CHECK_FALSE(e.periodNs().has_value());
 }
