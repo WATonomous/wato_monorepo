@@ -180,7 +180,8 @@ bool BEVFusionCore::initialize()
   ::bevfusion::head::segmap::SegHeadParameters segmap;
   segmap.model = config_.head_seg_plan;
   segmap.enabled = config_.seg_enabled;
-  segmap.confidence_threshold = 0.5;
+  segmap.confidence_threshold = config_.seg_confidence_threshold;
+  segmap.confidence_thresholds = config_.seg_confidence_thresholds;
 
   // Deserialize all TensorRT engines and allocate GPU buffers for the full pipeline
   ::bevfusion::CoreParameter param;

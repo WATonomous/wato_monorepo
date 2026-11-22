@@ -138,6 +138,9 @@ void BEVFusionNode::declareParameters()
     std::vector<std::string>{"drivable_area", "ped_crossing", "walkway", "stop_line", "carpark_area", "divider"});
   this->declare_parameter<int>("seg_num_classes", 6);
   this->declare_parameter<std::string>("seg_topic_prefix", "/perception/bev_seg");
+  // Seg probability a cell must exceed to be marked as the class; per-class values (model class order) override it
+  this->declare_parameter<double>("seg_confidence_threshold", 0.3);
+  this->declare_parameter<std::vector<double>>("seg_confidence_thresholds", std::vector<double>{});
 
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
   target_frame_ = this->get_parameter("target_frame").as_string();
@@ -238,6 +241,8 @@ BEVFusionInputConfig BEVFusionNode::buildInputConfig()
   config.det_enabled = det_enabled_;
   config.seg_enabled = seg_enabled_;
   config.seg_num_classes = this->get_parameter("seg_num_classes").as_int();
+  config.seg_confidence_threshold = static_cast<float>(this->get_parameter("seg_confidence_threshold").as_double());
+  config.seg_confidence_thresholds = to_float_vec("seg_confidence_thresholds");
 
   return config;
 }

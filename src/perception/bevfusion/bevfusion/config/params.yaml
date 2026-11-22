@@ -49,11 +49,14 @@ bevfusion_node:
     sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
 
     # --- BEV Map Segmentation ---
-    # Currently publishes a placeholder map (road ahead, divider on the left) until the CUDA seg head is ready
     det_enabled: true
     seg_enabled: false  # true: publish one nav_msgs/OccupancyGrid per class
     seg_num_classes: 6 # nuscenes classes
     seg_topic_prefix: "/perception/bev_seg"  # Topics are <prefix>/<class name>
+    seg_confidence_threshold: 0.3  # Probability a cell must exceed to be marked as the class
+    # Optional per-class overrides, one per seg_class_names entry, e.g.
+    #   seg_confidence_thresholds: [0.3, 0.3, 0.3, 0.2, 0.3, 0.2]
+    # Left unset here: ROS can't type an empty YAML list. Unset = use seg_confidence_threshold for every class.
     seg_class_names:  # Must match the seg model's class order
       - "drivable_area"
       - "ped_crossing"

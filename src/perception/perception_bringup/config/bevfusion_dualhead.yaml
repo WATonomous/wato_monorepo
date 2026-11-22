@@ -5,6 +5,8 @@
     det_enabled: true
     seg_enabled: true
     seg_num_classes: 6
+    # 0.3 = least-bad setting for dualhead_finetuned (0.5 leaves the map nearly empty); see the model's README
+    seg_confidence_threshold: 0.3
     xbound: [-54.0, 54.0, 0.3]
     ybound: [-54.0, 54.0, 0.3]
     zbound: [-10.0, 10.0, 20.0]

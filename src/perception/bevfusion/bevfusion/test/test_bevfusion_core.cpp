@@ -24,7 +24,6 @@
 
 using wato::perception::bevfusion::BEVFusionCore;
 using wato::perception::bevfusion::BEVFusionInputConfig;
-using wato::perception::bevfusion::makePlaceholderSegMap;
 using wato::perception::bevfusion::SegMap;
 
 class MockCore : public ::bevfusion::Core  // Create a fake version of cuda-bevfusion

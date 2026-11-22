@@ -1231,3 +1231,40 @@ TEST_CASE("declareParameters: seg defaults", "[params][seg][fast]")
 
   rclcpp::shutdown();
 }
+
+// =============================================================================
+// TEST: seg confidence thresholds reach the core config
+// WHY: The seg head thresholds on the GPU using these values. A hardcoded or
+//      dropped threshold silently floods or empties the published map.
+// =============================================================================
+TEST_CASE("buildInputConfig: seg confidence thresholds", "[params][seg][fast]")
+{
+  SECTION("defaults to a single 0.3 threshold")
+  {
+    auto node = make_configured_node();
+    auto config = node->buildInputConfig();
+    REQUIRE_THAT(config.seg_confidence_threshold, Catch::Matchers::WithinRel(0.3f));
+    REQUIRE(config.seg_confidence_thresholds.empty());
+    rclcpp::shutdown();
+  }
+
+  SECTION("overrides are passed through")
+  {
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, nullptr);
+    }
+    rclcpp::NodeOptions options;
+    options.append_parameter_override("seg_confidence_threshold", 0.2);
+    options.append_parameter_override(
+      "seg_confidence_thresholds", std::vector<double>{0.3, 0.3, 0.3, 0.1, 0.3, 0.15});
+    auto node = std::make_shared<BEVFusionNode>(options);
+    node->declareParameters();
+
+    auto config = node->buildInputConfig();
+    REQUIRE_THAT(config.seg_confidence_threshold, Catch::Matchers::WithinRel(0.2f));
+    REQUIRE(config.seg_confidence_thresholds.size() == 6);
+    REQUIRE_THAT(config.seg_confidence_thresholds[3], Catch::Matchers::WithinRel(0.1f));
+    REQUIRE_THAT(config.seg_confidence_thresholds[5], Catch::Matchers::WithinRel(0.15f));
+    rclcpp::shutdown();
+  }
+}

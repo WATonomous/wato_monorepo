@@ -91,6 +91,8 @@ struct BEVFusionInputConfig
   bool det_enabled = true;  // True to run/publish the 3D object detection head
   bool seg_enabled = false;  // True to produce a BEV segmentation map alongside detections
   int seg_num_classes = 6;  // Number of map classes (6 for the nuScenes map classes)
+  float seg_confidence_threshold = 0.3f;  // Seg probability a cell must exceed to be marked as the class
+  std::vector<float> seg_confidence_thresholds;  // Optional per-class thresholds (model class order); empty = use the single value
 };
 
 /**
@@ -112,17 +114,6 @@ struct SegMap
   float origin_y = 0.0f;  // LiDAR-frame y of the min corner of pixel (0, 0), meters
   std::vector<uint8_t> masks;
 };
-
-/**
- * @brief Build a placeholder SegMap with a known asymmetric pattern, used until the CUDA seg head is available.
- *
- * Uses the expected nuScenes map grid (200x200, 0.5 m, centered on the LiDAR). Class 0 (drivable_area) is a
- * corridor only in front of the vehicle, and the last class (divider) is a line only on its left side, so a
- * flipped or rotated map is obvious in Foxglove.
- * @param num_classes Number of class masks to allocate
- * @return Placeholder segmentation map
- */
-SegMap makePlaceholderSegMap(int num_classes);
 
 /**
  * @brief 3D position of the bounding box
