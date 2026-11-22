@@ -1141,17 +1141,17 @@ TEST_CASE("computeCalibrationMatrices: aborts on TF lookup failure", "[calibrati
 }
 
 // =============================================================================
-// TEST: SegMap → OccupancyGrid layout
-// WHY: SegMap stores rows along x and cols along y, but OccupancyGrid stores
-//      data[y * width + x]. A missed transpose silently mirrors the map across
-//      the diagonal (road ahead would appear on the left), so check one
-//      off-diagonal cell in each direction on a non-square grid.
+// TEST: SegMap → OccupancyGrid copies the class plane as-is
+// WHY: The CUDA seg head already writes 100/0 values in OccupancyGrid order
+//      (data[y * width + x]; transpose folded into the ONNX export). The node
+//      must copy the requested class plane unchanged: re-transposing or
+//      rescaling here would mirror the map or break the 0-100 occupancy range.
 // =============================================================================
-TEST_CASE("createOccupancyGrid: transposes SegMap into OccupancyGrid layout", "[conversion][seg][fast]")
+TEST_CASE("createOccupancyGrid: copies the SegMap class plane unchanged", "[conversion][seg][fast]")
 {
   auto node = make_configured_node();
 
-  // 2 classes, 3 rows (x) x 2 cols (y)
+  // 2 classes, 3 cells along x by 2 cells along y, already in OccupancyGrid order
   SegMap seg;
   seg.num_classes = 2;
   seg.height = 3;
@@ -1160,8 +1160,8 @@ TEST_CASE("createOccupancyGrid: transposes SegMap into OccupancyGrid layout", "[
   seg.origin_x = -1.0f;
   seg.origin_y = -0.5f;
   seg.masks.assign(2 * 3 * 2, 0);
-  seg.masks[0 * 6 + 2 * 2 + 0] = 1;  // class 0: row 2 (x far ahead), col 0 (y right)
-  seg.masks[1 * 6 + 0 * 2 + 1] = 1;  // class 1: row 0 (x behind),    col 1 (y left)
+  seg.masks[0 * 6 + 0 * 3 + 2] = 100;  // class 0: y=0, x=2 (ahead, right)
+  seg.masks[1 * 6 + 1 * 3 + 0] = 100;  // class 1: y=1, x=0 (behind, left)
 
   builtin_interfaces::msg::Time stamp;
   stamp.sec = 42;
@@ -1175,14 +1175,12 @@ TEST_CASE("createOccupancyGrid: transposes SegMap into OccupancyGrid layout", "[
   REQUIRE(grid0.info.origin.position.x == Catch::Approx(-1.0));
   REQUIRE(grid0.info.origin.position.y == Catch::Approx(-0.5));
   REQUIRE(grid0.info.origin.orientation.w == Catch::Approx(1.0));
-  REQUIRE(grid0.data.size() == 6);
-  // OccupancyGrid index = y * width + x
+  REQUIRE(grid0.data == std::vector<int8_t>(seg.masks.begin(), seg.masks.begin() + 6));
   REQUIRE(grid0.data[0 * 3 + 2] == 100);
-  REQUIRE(std::count(grid0.data.begin(), grid0.data.end(), 100) == 1);
 
   const auto grid1 = node->createOccupancyGrid(seg, 1, stamp);
+  REQUIRE(grid1.data == std::vector<int8_t>(seg.masks.begin() + 6, seg.masks.end()));
   REQUIRE(grid1.data[1 * 3 + 0] == 100);
-  REQUIRE(std::count(grid1.data.begin(), grid1.data.end(), 100) == 1);
 
   rclcpp::shutdown();
 }

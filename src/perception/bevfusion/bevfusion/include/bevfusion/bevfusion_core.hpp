@@ -98,17 +98,17 @@ struct BEVFusionInputConfig
 /**
  * @brief Top-down segmentation map around the LiDAR, one binary mask per class.
  *
- * Grid convention (LiDAR frame, x forward, y left):
- *   - row indexes x, col indexes y
- *   - pixel (row, col) covers x in [origin_x + row * resolution, origin_x + (row + 1) * resolution),
- *     and likewise for y with col
- *   - masks[c * height * width + row * width + col] is 1 if class c is present, else 0
+ * Grid convention (LiDAR frame, x forward, y left), already in nav_msgs/OccupancyGrid order:
+ *   - cell (x_idx, y_idx) covers x in [origin_x + x_idx * resolution, origin_x + (x_idx + 1) * resolution),
+ *     and likewise for y with y_idx
+ *   - masks[c * height * width + y_idx * height + x_idx] is 100 if class c is present, else 0
+ *     (the CUDA seg head thresholds, scales and transposes on the GPU; the node copies planes as-is)
  */
 struct SegMap
 {
   int num_classes = 0;
-  int height = 0;  // rows (x direction)
-  int width = 0;  // cols (y direction)
+  int height = 0;  // cells along x (OccupancyGrid width)
+  int width = 0;  // cells along y (OccupancyGrid height)
   float resolution = 0.0f;  // meters per pixel
   float origin_x = 0.0f;  // LiDAR-frame x of the min corner of pixel (0, 0), meters
   float origin_y = 0.0f;  // LiDAR-frame y of the min corner of pixel (0, 0), meters
