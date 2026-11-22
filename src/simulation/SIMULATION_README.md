@@ -249,3 +249,5 @@ CARLA ports.
 
 See the [manager guide](simulation_manager/README.md) for essential commands,
 image prerequisites, saved results and catalog locations.
+Use the [authoring guide](carla_ros_bridge/carla_scenarios/AUTHORING.md) to add
+playgrounds or scenarios, choose supported options and extend test behavior.

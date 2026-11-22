@@ -45,6 +45,10 @@ Image builds and runtime acceptance are operator tasks.
 
 ## Add a definition
 
+See the [authoring guide](AUTHORING.md) for copyable playground/scenario
+templates, supported fields and defaults, spawn selection, events, deadlines,
+scoring, installation and extension points.
+
 Add a version-1 YAML file with an `id` matching its filename. A playground
 selects `map.town` or `map.xodr`, an ego blueprint, spawn settings, weather, seed
 and traffic. Town traffic variants share one implementation; oval and ring road
