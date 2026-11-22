@@ -118,7 +118,7 @@ _watod_completions() {
   fi
 
   # Top-level commands and options
-  local commands="up down ps logs build pull install test bag run -m -t -v -s -h"
+  local commands="up down ps logs build pull install test bag sim run -m -t -v -s -h"
   local options="-v --verbose -m --module -t --terminal -s --setup-dev-env -h --help"
 
   # 1. Handle Options contexts regardless of where we are

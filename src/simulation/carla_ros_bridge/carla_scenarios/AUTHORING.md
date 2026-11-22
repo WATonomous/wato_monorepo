@@ -178,7 +178,7 @@ node name or arbitrary launch description.
 There are no implemented `controller`, `trajectory_planner` or `nodes` selectors
 in scenario YAML. Extra names do not discover or launch packages automatically.
 The presets, launch argument wiring and image/package checks are defined in the
-host helper in the following CLI layer; required lifecycle nodes
+[host helper](../../../../watod_scripts/watod-sim.py); required lifecycle nodes
 and observations are defined in the
 [manager](../../simulation_manager/simulation_manager/simulation_runner.py).
 All scored scenarios currently use adaptive pure pursuit. A playground allows
@@ -432,7 +432,7 @@ After preparing the necessary images/assets, follow the
 | Reusable world/actor operation | [ConfiguredWorld](carla_scenarios/worlds/configured_world.py) and [ScenarioBase](carla_scenarios/scenario_base.py) |
 | New allowed fields, event actions, test family or completion pair | [Definition validation](carla_scenarios/definitions.py) |
 | Readiness, event delivery, new metrics or completion checks | [Simulation manager](../../simulation_manager/simulation_manager/simulation_runner.py) |
-| New reviewed application stack or input-to-launch wiring | Host helper in the following CLI layer, including preflight |
+| New reviewed application stack or input-to-launch wiring | [Host helper](../../../../watod_scripts/watod-sim.py), including preflight |
 | Another fake-planner maneuver in scored tests | Definition validation, host preflight and installed [fake-planner assets](../../../action/fake_planner) |
 | Another autonomy map preset | Matching converted maps and installed [world-modeling configuration](../../../world_modeling/world_modeling_bringup/config/map_configs) |
 
