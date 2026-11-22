@@ -47,7 +47,7 @@ Executes 'docker compose COMMAND' in the monorepo with the correct
 compose files and environment variables.
 
 Options
-  -v, --verbose               Print env setup output
+  -v, --verbose               Print env setup output and simulation diagnostics
   -m, --module MODULE         Add a specific module (can be used multiple times)
                               Use "all" for all modules
                               Append :dev for dev mode (e.g., -m perception:dev)
@@ -324,13 +324,21 @@ COMPOSE_CMD=( "$@" )
 # Simulation manages its own profiles and must also work without ACTIVE_MODULES.
 # Listing definitions requires neither Docker nor a generated environment file.
 if [[ -n ${RUN_SIM:-} ]]; then
-  if [[ ${SIM_ARGS[0]:-help} != "list" && ${SIM_ARGS[0]:-help} != "help" && ${SIM_ARGS[0]:-help} != "--help" && ${SIM_ARGS[0]:-help} != "-h" ]]; then
+  SIM_COMMAND=help
+  for SIM_ARGUMENT in "${SIM_ARGS[@]}"; do
+    if [[ "$SIM_ARGUMENT" != "-v" && "$SIM_ARGUMENT" != "--verbose" ]]; then
+      SIM_COMMAND="$SIM_ARGUMENT"
+      break
+    fi
+  done
+  if [[ "$SIM_COMMAND" != "list" && "$SIM_COMMAND" != "help" && "$SIM_COMMAND" != "--help" && "$SIM_COMMAND" != "-h" ]]; then
     cd "$MONO_DIR"
     set -a
     source "$MONO_DIR/watod_scripts/watod-setup-env.sh"
     set +a
   fi
   export MONO_DIR MODULES_DIR
+  export WATOD_SIM_VERBOSE="${VERBOSE:-0}"
   exec python3 "$MONO_DIR/watod_scripts/watod-sim.py" "${SIM_ARGS[@]}"
 fi
 

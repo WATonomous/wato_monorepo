@@ -26,6 +26,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import socket
 import subprocess
@@ -113,7 +114,8 @@ class SessionError(RuntimeError):
 
 
 class Session:
-    def __init__(self):
+    def __init__(self, *, verbose=False):
+        self.verbose = verbose or os.environ.get("WATOD_SIM_VERBOSE") == "1"
         self.root = Path(os.environ["MONO_DIR"]).resolve()
         self.directory = self.root / ".cache/watod-sim"
         self.metadata = self.directory / "session.json"
@@ -153,7 +155,20 @@ class Session:
             else "carla_sim_no_gpu"
         )
 
+    def progress(self, message):
+        if self.verbose:
+            print(f"[watod sim] {message}", file=sys.stderr, flush=True)
+
     def run(self, arguments, *, timeout=60, capture=True, check=True):
+        if arguments[: len(self.compose)] == self.compose:
+            command = shlex.join(["docker", "compose", *arguments[len(self.compose) :]])
+        elif arguments[:2] == ["docker", "exec"]:
+            # Embedded ROS clients and preflight scripts can be many lines long.
+            # Their endpoint and timeout are reported separately by rpc().
+            command = shlex.join(arguments[:3]) + " <container command>"
+        else:
+            command = shlex.join(arguments)
+        self.progress(f"$ {command} (timeout {timeout:g}s)")
         try:
             result = subprocess.run(
                 arguments,
@@ -257,8 +272,16 @@ class Session:
             self.environment[variable] = command
         # `create` does not support --no-deps. `up --no-start` accepts that
         # flag while still letting us record ownership before starting anything.
+        self.progress(f"Creating {service} from its installed image")
         self.dc(
-            "up", "--no-start", "--no-build", "--pull", "never", "--no-deps", service
+            "up",
+            "--no-start",
+            "--no-build",
+            "--pull",
+            "never",
+            "--no-deps",
+            service,
+            capture=not self.verbose,
         )
         container = self.dc("ps", "--all", "--quiet", service).stdout.strip()
         if not container or "\n" in container:
@@ -267,7 +290,8 @@ class Session:
             )
         self.state["containers"][service] = container
         self.save()
-        self.dc("start", service)
+        self.progress(f"Starting {service} ({container[:12]})")
+        self.dc("start", service, capture=not self.verbose)
 
     def remove(self, services):
         for service in services:
@@ -275,8 +299,13 @@ class Session:
             if container is None:
                 continue
             if self.owned(container):
-                self.run(["docker", "stop", "--time", "15", container], timeout=25)
-                self.run(["docker", "rm", container])
+                self.progress(f"Stopping and removing {service} ({container[:12]})")
+                self.run(
+                    ["docker", "stop", "--time", "15", container],
+                    timeout=25,
+                    capture=not self.verbose,
+                )
+                self.run(["docker", "rm", container], capture=not self.verbose)
             del self.state["containers"][service]
             self.save()
 
@@ -290,6 +319,7 @@ class Session:
             else "/sim/" + action
         )
         started = time.monotonic()
+        self.progress(f"Waiting for {endpoint} and its response (up to {timeout:.1f}s)")
         result = self.run(
             [
                 "docker",
@@ -320,6 +350,10 @@ class Session:
                 f"{result.stderr.strip()}"
             )
         response = json.loads(responses[-1])
+        self.progress(
+            f"{endpoint} replied after {time.monotonic() - started:.1f}s "
+            f"(success={response['success']})"
+        )
         if not response["success"] and check:
             raise SessionError(response["message"])
         try:
@@ -334,13 +368,45 @@ class Session:
         config = json.loads(self.dc("config", "--format", "json").stdout)
         for service in services:
             image = config["services"][service]["image"]
+            self.progress(f"Checking image for {service}: {image}")
             if self.run(["docker", "image", "inspect", image], check=False).returncode:
                 raise SessionError(
                     f"Missing prepared image {image} for {service}. Prepare the module image, then rerun watod sim setup."
                 )
         return config
 
+    def save_startup_diagnostics(self, error):
+        """Keep bounded evidence before failed-startup cleanup removes containers."""
+        directory = self.directory / "startup-failures" / self.state["session_id"]
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "failure.json").write_text(
+            json.dumps(
+                {"error": f"{type(error).__name__}: {error}", "session": self.state},
+                indent=2,
+            )
+            + "\n"
+        )
+        shutil.copyfile(self.directory / "compose.json", directory / "compose.json")
+        for service, container in self.state["containers"].items():
+            for suffix, command in (
+                ("log", ["logs", "--timestamps", "--tail", "500"]),
+                (
+                    "state.log",
+                    ["inspect", "--format", "{{.Image}} {{json .State}}"],
+                ),
+            ):
+                try:
+                    result = self.run(
+                        ["docker", *command, container], timeout=5, check=False
+                    )
+                    output = result.stdout + result.stderr
+                except SessionError as capture_error:
+                    output = str(capture_error) + "\n"
+                (directory / f"{service}.{suffix}").write_text(output)
+        print(f"Startup diagnostics saved in {directory}", file=sys.stderr)
+
     def setup(self):
+        self.progress(f"Compose project: {self.project}")
         if self.metadata.exists():
             self.load()
             snapshot = self.rpc("status", timeout=15)
@@ -361,6 +427,7 @@ class Session:
         if self.environment.get("WATCLOUD_MODE") == "true":
             base.insert(0, "network_namespace")
         config = self.check_images(base)
+        self.progress("Checking configured ports")
         # A dedicated Compose project isolates stop from unrelated watod modules.
         # Refuse occupied ports rather than attaching to somebody else's server.
         held_ports = []
@@ -424,12 +491,16 @@ class Session:
                 )
                 if snapshot.get("session_ready"):
                     break
+                self.progress(
+                    f"Runner state={snapshot.get('state')}; waiting for CARLA world readiness"
+                )
                 if time.monotonic() >= setup_deadline:
                     raise SessionError(
                         "CARLA world services did not become ready before the setup deadline. Inspect sim_session logs, then rerun watod sim setup."
                     )
                 time.sleep(0.5)
             port = int(self.environment["FOXGLOVE_BRIDGE_PORT"])
+            self.progress(f"Waiting for Foxglove on 127.0.0.1:{port}")
             deadline = time.monotonic() + 30
             while True:
                 try:
@@ -441,7 +512,19 @@ class Session:
                             f"Foxglove port {port} did not become ready after 30s. Run watod sim setup after fixing infrastructure."
                         )
                     time.sleep(0.5)
-        except BaseException:
+        except BaseException as error:
+            self.progress(
+                f"Setup failed: {error}; collecting diagnostics before cleanup"
+            )
+            try:
+                self.save_startup_diagnostics(error)
+            except Exception as capture_error:
+                # Diagnostic failures must not replace the startup error or
+                # prevent cleanup of the containers recorded by this session.
+                print(
+                    f"Could not save startup diagnostics: {capture_error}",
+                    file=sys.stderr,
+                )
             self.remove(reversed(list(self.state["containers"])))
             self.metadata.unlink(missing_ok=True)
             raise
@@ -620,6 +703,7 @@ print(json.dumps({"stack": definition["stack"]}))
         return code
 
     def stop(self):
+        self.progress(f"Stopping recorded session in Compose project {self.project}")
         self.load(require_running=False)
         container = self.state["containers"].get("sim_session")
         info = self.owned(container) if container else None
@@ -634,6 +718,12 @@ print(json.dumps({"stack": definition["stack"]}))
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show command and readiness diagnostics",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="List definitions without starting Docker")
     sub.add_parser("setup", help="Start or reuse the base session; never builds images")
@@ -644,10 +734,17 @@ def main():
     testing.add_argument("name")
     for command in ("play", "pause", "resume", "status", "reset", "close", "stop"):
         sub.add_parser(command)
-    arguments = parser.parse_args(
-        ["--help"] if sys.argv[1:] == ["help"] or not sys.argv[1:] else None
-    )
-    session = Session()
+    for command_parser in sub.choices.values():
+        command_parser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="Show command and readiness diagnostics",
+        )
+    words = [word for word in sys.argv[1:] if word not in ("-v", "--verbose")]
+    arguments = parser.parse_args(["--help"] if words in ([], ["help"]) else None)
+    session = Session(verbose=arguments.verbose)
     if arguments.command == "list":
         base = session.root / "src/simulation/carla_ros_bridge/carla_scenarios/config"
         for label, folder in (
