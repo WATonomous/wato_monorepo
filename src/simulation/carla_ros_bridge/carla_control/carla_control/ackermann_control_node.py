@@ -15,18 +15,17 @@
 
 import time
 from typing import Optional
-import rclpy
-from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rclpy.time import Time
-from rcl_interfaces.msg import ParameterDescriptor
-from ackermann_msgs.msg import AckermannDriveStamped
-from std_msgs.msg import Bool
-from std_srvs.srv import SetBool
-from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
-
-from carla_common import connect_carla, find_ego_vehicle
 
 import carla
+import rclpy
+from ackermann_msgs.msg import AckermannDriveStamped
+from carla_common import connect_carla, find_ego_vehicle
+from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time
+from std_msgs.msg import Bool
+from std_srvs.srv import SetBool
 
 
 class AckermannControlNode(LifecycleNode):
@@ -266,9 +265,11 @@ class AckermannControlNode(LifecycleNode):
         try:
             cmd = self.last_command
 
-            # Use CARLA's Ackermann control - direct mapping
+            # ROS Ackermann steering is left-positive; CARLA is right-positive.
+            # Convert at the bridge boundary so ROS controllers keep their
+            # standard convention. Steering velocity is an unsigned rate limit.
             ackermann = carla.VehicleAckermannControl()
-            ackermann.steer = cmd.steering_angle
+            ackermann.steer = -cmd.steering_angle
             ackermann.steer_speed = cmd.steering_angle_velocity
             ackermann.speed = cmd.speed
             ackermann.acceleration = cmd.acceleration

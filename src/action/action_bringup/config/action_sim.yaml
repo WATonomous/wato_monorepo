@@ -1,3 +1,4 @@
+---
 # Simulation-specific action configuration
 # Uses CARLA odometry directly, tuned for simulation dynamics
 
@@ -151,5 +152,6 @@
     control_rate_hz: 20.0
     wheelbase_fallback: 2.5667
     idle_timeout_sec: 2.0
+    # Emit ROS left-positive steering; carla_control converts to CARLA's sign.
     invert_steering: false
     disable_standby: true
