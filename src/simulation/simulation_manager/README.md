@@ -68,8 +68,12 @@ See [map and world options](../carla_ros_bridge/carla_scenarios/AUTHORING.md#wor
 and [autonomy map prerequisites](../carla_ros_bridge/carla_scenarios/AUTHORING.md#parked-vehicle-template)
 for assets, matching map pairs and provenance requirements.
 
-The following visualization layer adds the Foxglove layout and simulation-time
-propagation into infrastructure and robot TF.
+Connect Foxglove to the WebSocket address printed by setup and import
+[`sim_runner.json`](../../../config/foxglove_config/sim_runner.json). Use the `map`
+display frame. Reference and actual paths appear alongside a URDF following TF.
+Robot/joint TF and the bridge use simulation time, including reset clock jumps;
+reimport changed layouts. The Lanelet2 marker topic is
+`/world_modeling/lanelet/map_viz_markers` when world modeling is running.
 
 ## Shutdown
 
