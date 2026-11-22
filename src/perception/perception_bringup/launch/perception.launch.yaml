@@ -136,12 +136,6 @@ launch:
           param:
             - from: $(var config_file)
           remap:
-            - from: camera_info
-              to: /multi_camera_sync/multi_camera_info
-            # - from: multi_image
-            #   to: /multi_camera_sync/multi_image_compressed
-            # - from: lidar
-            #   to: /lidar/all/points_merged
             - from: output_detections
               to: /perception/detections_3d_bev
             - from: output_markers

@@ -36,8 +36,6 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
-find_package(message_filters REQUIRED)
-find_package(deep_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_eigen REQUIRED)
@@ -87,13 +85,11 @@ target_link_libraries(${PROJECT_NAME}_node
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     diagnostic_updater::diagnostic_updater
-    message_filters::message_filters
     ${sensor_msgs_TARGETS}
     ${vision_msgs_TARGETS}
     ${std_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${visualization_msgs_TARGETS}
-    ${deep_msgs_TARGETS}
     tf2_ros::tf2_ros
     ${tf2_geometry_msgs_TARGETS}
     ${PROJECT_NAME}_wato_core
@@ -179,11 +175,12 @@ ament_export_dependencies(
   sensor_msgs
   geometry_msgs
   visualization_msgs
-  message_filters
-  deep_msgs
   tf2_ros
   tf2_geometry_msgs
   OpenCV
+  cuda_bevfusion_vendor
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
 )
 
 if(BUILD_TESTING)
@@ -198,6 +195,15 @@ if(BUILD_TESTING)
     LIBRARIES
       ${PROJECT_NAME}_node
   )
+  # Header-only, ROS-free camera matching and LiDAR sweep timing
+  add_wato_test(test_camera_matcher
+    test/test_camera_matcher.cpp
+  )
+  target_include_directories(test_camera_matcher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  add_wato_test(test_lidar_sweep_timing
+    test/test_lidar_sweep_timing.cpp
+  )
+  target_include_directories(test_lidar_sweep_timing PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 endif()
 
 ament_package()

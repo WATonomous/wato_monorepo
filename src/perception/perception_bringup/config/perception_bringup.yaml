@@ -463,12 +463,12 @@ multi_camera_sync:
     lidar_frame_id: "lidar_cc"
     target_frame: "base_link"  # Target coordinate frame for 3D detections
 
-    # Input topics for message filters (remapping does not work for message_filters)
-    use_raw_images: false  # true: subscribe to /multi_camera_sync/multi_image_raw; false: subscribe to /multi_camera_sync/multi_image_compressed
-    input_multi_image_raw_topic: "/multi_camera_sync/multi_image_raw"  # Batched raw images (deep_msgs/msg/MultiImage)
-    use_nitros_images: true  # Use per-camera NITROS (GPU) images on /<camera_name>/image_rect whenever they are published; the batched topics are used otherwise (e.g. bag replay)
-    input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
-    input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
+    # Camera input: "auto" listens to both per-camera topics and uses, for each camera, its GPU (NITROS) images on
+    # /<camera_name>/image_rect when they arrive (the car), else its JPEGs on /<camera_name>/image_rect_compressed
+    # (a bag). "nitros" or "compressed" listens to one only. Intrinsics come from /<camera_name>/camera_info.
+    camera_input: "auto"
+    input_lidar_topic: "/lidar_cc/velodyne_points"  # LiDAR point cloud (sensor_msgs/msg/PointCloud2): one Velodyne sweep, points in firing order
+    intrinsics_source: "projection"  # Camera matrix of the rectified images: CameraInfo P ("projection"), or K ("camera_matrix")
 
     # Directory containing all TensorRT .plan and .onnx engine files
     model_dir: "/opt/watonomous/models/bevfusion/resnet50_trt11_int8"
@@ -506,9 +506,15 @@ multi_camera_sync:
     post_center_range_end: [61.2, 61.2, 10.0]  # BBox center filter upper boundary [X, Y, Z] (discard boxes whose centers are outside this volume)
     sorted_bboxes: true  # True to sort bounding boxes descending by confidence score
 
-    # ApproximateTime synchronization
-    sync_queue_size: 5
-    sync_max_time_diff_ms: 200.0
+    # Camera matching, done in this node and anchored on the LiDAR scan (see DEVELOPING.md)
+    sync_target: "sweep"  # "sweep": each camera's frame nearest when the LiDAR swept its direction; "scan_stamp": nearest the scan stamp
+    sync_max_wait_ms: 60.0  # Longest wait after a scan arrives for each camera's best frame (< 0: wait until certain)
+    sync_tolerance_ms: 450.0  # Largest gap between a camera frame and its target that can still be used
+    sync_early_fraction: 0.5  # Decide early on the frame before the target when within this fraction of the time to the camera's next frame (0 to 0.5)
+    sync_frames_per_camera: 6  # Frames kept per camera (2 to 16); on the car each holds one of the rectifier's GPU buffers
+    sync_max_pending_scans: 4  # Scans that can wait at the same time; beyond this the oldest is decided with the frames it has
+    lidar_rotation_period_ms: 50.0  # One LiDAR rotation (60 s / RPM; 1200 RPM on Eve): the starting value until it is measured from the scan stamps
+    lidar_stamp_position: "end"  # Scan stamp is the time of the sweep's "end" (Velodyne timestamp_first_packet: false) or "start" (true)
 
     # QoS
     qos_subscriber_reliability: "best_effort"

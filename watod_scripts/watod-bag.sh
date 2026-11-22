@@ -112,10 +112,16 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${infra_container}$"; then
   exit 1
 fi
 
+# Share the services' network namespace so localhost reaches the Zenoh router.
+network="host"
+if [[ "${WATCLOUD_MODE:-false}" == "true" ]]; then
+  network="container:watod_network_namespace"
+fi
+
 docker run --rm \
   --ulimit memlock=-1 \
   --ipc host \
-  --network host \
+  --network "$network" \
   --name "${COMPOSE_PROJECT_NAME}-bag_recorder" \
   -v "$BAG_DIRECTORY:/bags" \
   -w /bags \

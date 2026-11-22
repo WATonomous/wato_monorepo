@@ -12,63 +12,121 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
-# Common camera settings
+# camera_aravis2 only reads a fixed set of keys in AcquisitionControl and AnalogControl
+# (ExposureAuto, ExposureTime, AcquisitionFrameRate*, GainAuto, Gain, BlackLevel*,
+# BalanceWhiteAuto, BalanceRatio). Every other GenICam feature must go under BEGIN
+# (applied before those keys) or END (applied after them), where the driver applies it
+# in alphabetical order. A feature placed anywhere else is silently ignored.
+
+# Settings shared by every camera
 x-common-settings: &common_settings
   verbose: false
-  transport_layer_packet_size: 9156
-
-  # Auto-exposure and gain settings
+  # Jumbo packets cut the packets per frame ~6x, but every hop (NIC, switch) must pass
+  # 9000-byte frames. Test on their own before enabling.
+  # TransportLayerControl:
+  #   GevSCPSPacketSize: 8192              # bytes, must be <= the interface MTU (9000)
   AcquisitionControl:
     ExposureAuto: "Continuous"
-    AutoExposureTimeLowerLimit: 100        # microseconds
-    AutoExposureTimeUpperLimit: 15000      # microseconds             ` - limit for motion blur
-    GainShutPrior: "Shut"                  # Prioritize shutter speed over gain
     AcquisitionFrameRateEnable: true
     AcquisitionFrameRate: 20.0 # Limited to Lidar publish rate (30 may be possible in the future)
+    END:
+      AutoExposureTimeLowerLimit: 31       # microseconds, camera minimum; a higher floor overexposes in bright sun
+      AutoExposureTimeUpperLimit: 15000    # microseconds - limit for motion blur
+
+# AnalogControl keys the driver applies itself
+x-analog-control: &analog_control
+  GainAuto: "Continuous"
+  BalanceWhiteAuto: "Continuous"
+
+x-analog-begin: &analog_begin
+  GammaEnable: true
+  GammaSelector: "sRGB"                    # standard photo tone curve; without it the output is linear and looks dark
+
+x-analog-end: &analog_end
+  AutoFunctionAOIUsageIntensity: true      # meter exposure/gain on the AOI set per camera group below
+  AutoGainLowerLimit: 0.0                  # dB
+  AutoGainUpperLimit: 15.0                 # dB - limit noise in dark conditions
+  Brightness: 100                          # auto-exposure target brightness (0-255)
+
+# Pano cameras: meter on rows 0-831 so the roof rail and hood at the bottom don't skew exposure
+x-pano-settings: &pano_settings
+  <<: *common_settings
   AnalogControl:
-    GainAuto: "Continuous"
-    AutoGainLowerLimit: 0.0                # dB
-    AutoGainUpperLimit: 15.0               # dB - limit noise in dark conditions
-    BalanceWhiteAuto: "Continuous"
-    Gamma: 0.75
+    <<: *analog_control
+    BEGIN:
+      <<: *analog_begin
+      AutoFunctionAOIHeight: 832
+      AutoFunctionAOIWidth: 1280
+    END:
+      <<: *analog_end
+      AutoFunctionAOIOffsetX: 0
+      AutoFunctionAOIOffsetY: 0
+
+# Lower cameras with the ego-vehicle wedge on the right: meter on x 0-847
+x-lower-right-wedge-settings: &lower_right_wedge_settings
+  <<: *common_settings
+  AnalogControl:
+    <<: *analog_control
+    BEGIN:
+      <<: *analog_begin
+      AutoFunctionAOIHeight: 1024
+      AutoFunctionAOIWidth: 848
+    END:
+      <<: *analog_end
+      AutoFunctionAOIOffsetX: 0
+      AutoFunctionAOIOffsetY: 0
+
+# Lower cameras with the ego-vehicle wedge on the left: meter on x 432-1279
+x-lower-left-wedge-settings: &lower_left_wedge_settings
+  <<: *common_settings
+  AnalogControl:
+    <<: *analog_control
+    BEGIN:
+      <<: *analog_begin
+      AutoFunctionAOIHeight: 1024
+      AutoFunctionAOIWidth: 848
+    END:
+      <<: *analog_end
+      AutoFunctionAOIOffsetX: 432
+      AutoFunctionAOIOffsetY: 0
 
 # Panorama cameras
 camera_pano_nn:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_ne:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_ee:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_se:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_ss:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_sw:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_ww:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 camera_pano_nw:
   ros__parameters:
-    <<: *common_settings
+    <<: *pano_settings
 
 # Lower cameras
 camera_lower_ne:
   ros__parameters:
-    <<: *common_settings
+    <<: *lower_right_wedge_settings
     # Mask the ego-vehicle wedge. Format: "stream_name:x,y,width,height"
     # (multiple regions joined by ';'). Steep triangle anchored to the RIGHT edge
     # (x = 1280 - width): tapers from a point at the top to 1/3-width (427px) at
@@ -78,21 +136,21 @@ camera_lower_ne:
 
 camera_lower_se:
   ros__parameters:
-    <<: *common_settings
+    <<: *lower_left_wedge_settings
     # LEFT-anchored steep triangle (1/3-width, 16 x 64px strips).
     mask_regions: "stream0:0,0,27,64;stream0:0,64,53,64;stream0:0,128,80,64;stream0:0,192,107,64;stream0:0,256,133,64;stream0:0,320,160,64;stream0:0,384,187,64;stream0:0,448,213,64;\
       stream0:0,512,240,64;stream0:0,576,267,64;stream0:0,640,293,64;stream0:0,704,320,64;stream0:0,768,347,64;stream0:0,832,373,64;stream0:0,896,400,64;stream0:0,960,427,64"
 
 camera_lower_sw:
   ros__parameters:
-    <<: *common_settings
+    <<: *lower_right_wedge_settings
     # RIGHT-anchored steep triangle (x = 1280 - width, 1/3-width, 16 x 64px strips).
     mask_regions: "stream0:1253,0,27,64;stream0:1227,64,53,64;stream0:1200,128,80,64;stream0:1173,192,107,64;stream0:1147,256,133,64;stream0:1120,320,160,64;stream0:1093,384,187,64;stream0:1067,448,213,64;\
       stream0:1040,512,240,64;stream0:1013,576,267,64;stream0:987,640,293,64;stream0:960,704,320,64;stream0:933,768,347,64;stream0:907,832,373,64;stream0:880,896,400,64;stream0:853,960,427,64"
 
 camera_lower_nw:
   ros__parameters:
-    <<: *common_settings
+    <<: *lower_left_wedge_settings
     # LEFT-anchored steep triangle (same as se; 1/3-width, 16 x 64px strips).
     mask_regions: "stream0:0,0,27,64;stream0:0,64,53,64;stream0:0,128,80,64;stream0:0,192,107,64;stream0:0,256,133,64;stream0:0,320,160,64;stream0:0,384,187,64;stream0:0,448,213,64;\
       stream0:0,512,240,64;stream0:0,576,267,64;stream0:0,640,293,64;stream0:0,704,320,64;stream0:0,768,347,64;stream0:0,832,373,64;stream0:0,896,400,64;stream0:0,960,427,64"
