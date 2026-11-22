@@ -1,0 +1,23 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+/**/world_model:
+  ros__parameters:
+    osm_map_path: "/opt/watonomous/maps/test_track_map/lanelet/test_track_050426_utm.osm"
+
+    # Projection:
+    # - 'local_cartesian' for CARLA-synthesized OSM maps
+    # - 'utm' for geographically referenced OSM maps
+    projector_type: "utm"
+
+    # Alignment:
+    # - 'fixed' when projected coordinates already use the map frame
+    # - 'tf' to apply projected_frame -> map before loading the map
+    alignment_mode: "tf"
+
+    # Geographic origin used by the projector. With UTM + TF alignment,
+    # latitude and longitude select the UTM zone; TF provides map alignment.
+    origin_lat: 43.4352586520
+    origin_lon: -80.5801880023
+    origin_alt: 0.0
+
+    # Source frame used by alignment_mode='tf'.
+    projected_frame: "utm"

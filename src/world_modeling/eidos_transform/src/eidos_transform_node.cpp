@@ -218,6 +218,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_configure(const rclcpp
 
   // UTM to map subscriber
   if (!utm_to_map_topic_.empty()) {
+    utm_tf_broadcaster_ = std::make_unique<tf2_ros::StaticTransformBroadcaster>(*this);
     utm_to_map_sub_ = create_subscription<geometry_msgs::msg::TransformStamped>(
       utm_to_map_topic_,
       rclcpp::QoS(1).transient_local(),
@@ -287,6 +288,7 @@ EidosTransformNode::CallbackReturn EidosTransformNode::on_cleanup(const rclcpp_l
   utm_to_map_sub_.reset();
   predict_srv_.reset();
   tf_broadcaster_.reset();
+  utm_tf_broadcaster_.reset();
   tf_buffer_.reset();
   tf_listener_.reset();
   return CallbackReturn::SUCCESS;
@@ -719,12 +721,11 @@ void EidosTransformNode::publishOdometry(const rclcpp::Time & stamp)
 
 void EidosTransformNode::utmToMapCallback(const geometry_msgs::msg::TransformStamped::SharedPtr msg)
 {
-  cached_utm_to_map_ = *msg;
-  cached_utm_to_map_.header.frame_id = utm_frame_;
-  cached_utm_to_map_.child_frame_id = map_frame_;
-  has_utm_to_map_ = true;
-
-  tf_broadcaster_->sendTransform(cached_utm_to_map_);
+  auto transform = *msg;
+  transform.header.frame_id = utm_frame_;
+  transform.child_frame_id = map_frame_;
+  // /tf_static replays the alignment to world models started after localization.
+  utm_tf_broadcaster_->sendTransform(transform);
   RCLCPP_INFO(get_logger(), "\033[34m[Transform]\033[0m Published static utm->map transform.");
 }
 

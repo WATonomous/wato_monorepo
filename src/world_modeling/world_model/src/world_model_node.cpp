@@ -16,11 +16,10 @@
 
 #include <chrono>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 // Publishers
 #include "world_model/interfaces/publishers/area_occupancy_publisher.hpp"
@@ -49,10 +48,12 @@ WorldModelNode::WorldModelNode(const rclcpp::NodeOptions & options)
   this->declare_parameter<std::string>("osm_map_path", "");
   this->declare_parameter<std::string>("map_frame", "map");
   this->declare_parameter<std::string>("base_frame", "base_footprint");
-  this->declare_parameter<std::string>("utm_frame", "utm");
   this->declare_parameter<std::string>("projector_type", "utm");
+  this->declare_parameter<std::string>("alignment_mode", "fixed");
+  this->declare_parameter<std::string>("projected_frame", "utm");
   this->declare_parameter<double>("origin_lat", 0.0);
   this->declare_parameter<double>("origin_lon", 0.0);
+  this->declare_parameter<double>("origin_alt", 0.0);
 
   RCLCPP_INFO(this->get_logger(), "WorldModelNode created (unconfigured)");
 }
@@ -65,10 +66,24 @@ WorldModelNode::CallbackReturn WorldModelNode::on_configure(const rclcpp_lifecyc
   osm_map_path_ = this->get_parameter("osm_map_path").as_string();
   map_frame_ = this->get_parameter("map_frame").as_string();
   base_frame_ = this->get_parameter("base_frame").as_string();
-  utm_frame_ = this->get_parameter("utm_frame").as_string();
-  projector_type_ = this->get_parameter("projector_type").as_string();
-  origin_lat_ = this->get_parameter("origin_lat").as_double();
-  origin_lon_ = this->get_parameter("origin_lon").as_double();
+  map_config_.projector_type = this->get_parameter("projector_type").as_string();
+  map_config_.alignment_mode = this->get_parameter("alignment_mode").as_string();
+  map_config_.projected_frame = this->get_parameter("projected_frame").as_string();
+  map_config_.origin_lat = this->get_parameter("origin_lat").as_double();
+  map_config_.origin_lon = this->get_parameter("origin_lon").as_double();
+  map_config_.origin_alt = this->get_parameter("origin_alt").as_double();
+  try {
+    validateMapConfig(map_config_);
+    if (map_frame_.empty() || base_frame_.empty()) {
+      throw std::invalid_argument("map_frame and base_frame must be nonempty");
+    }
+    if (map_config_.alignment_mode == "tf" && map_config_.projected_frame == map_frame_) {
+      throw std::invalid_argument("TF alignment requires different projected_frame and map_frame values");
+    }
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(this->get_logger(), "Invalid map configuration: %s", error.what());
+    return CallbackReturn::FAILURE;
+  }
 
   // Initialize TF
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -134,8 +149,15 @@ WorldModelNode::CallbackReturn WorldModelNode::on_activate(const rclcpp_lifecycl
 
   // Start map loading timer
   if (!osm_map_path_.empty()) {
-    RCLCPP_INFO(
-      this->get_logger(), "Waiting for %s -> %s transform to load map...", utm_frame_.c_str(), map_frame_.c_str());
+    if (map_config_.alignment_mode == "tf") {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Waiting for %s -> %s transform to align map...",
+        map_config_.projected_frame.c_str(),
+        map_frame_.c_str());
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Loading map with configured projection; no UTM transform required");
+    }
     map_init_timer_ = this->create_wall_timer(std::chrono::seconds(1), std::bind(&WorldModelNode::tryLoadMap, this));
   } else {
     RCLCPP_WARN(this->get_logger(), "No map path provided, services will return errors");
@@ -214,29 +236,18 @@ void WorldModelNode::tryLoadMap()
     return;
   }
 
-  double utm_origin_x = 0.0;
-  double utm_origin_y = 0.0;
-
-  // For local_cartesian projector (CARLA/simulation), use (0,0) offset directly
-  // For utm projector (real-world), wait for TF to determine the offset
-  if (projector_type_ == "local_cartesian") {
-    RCLCPP_INFO(this->get_logger(), "Using local_cartesian projector with origin offset: (0.0, 0.0)");
-  } else {
+  std::optional<geometry_msgs::msg::Transform> projected_to_map;
+  if (map_config_.alignment_mode == "tf") {
     try {
-      auto transform = tf_buffer_->lookupTransform(map_frame_, utm_frame_, tf2::TimePointZero);
-
-      // The translation represents where utm(0,0,0) is in the map frame
-      // We want the inverse: where map(0,0,0) is in utm frame
-      utm_origin_x = -transform.transform.translation.x;
-      utm_origin_y = -transform.transform.translation.y;
-
+      // TF's target/source order returns the complete projected-frame-to-map
+      // operation. Apply it to every OSM point during projection.
+      const auto transform = tf_buffer_->lookupTransform(map_frame_, map_config_.projected_frame, tf2::TimePointZero);
+      projected_to_map = transform.transform;
       RCLCPP_INFO(
         this->get_logger(),
-        "Got %s -> %s transform. UTM origin offset: (%.2f, %.2f)",
-        utm_frame_.c_str(),
-        map_frame_.c_str(),
-        utm_origin_x,
-        utm_origin_y);
+        "Applying %s -> %s alignment to OSM points",
+        map_config_.projected_frame.c_str(),
+        map_frame_.c_str());
     } catch (const tf2::TransformException &) {
       // Transform not available yet, will retry
       RCLCPP_DEBUG_THROTTLE(
@@ -244,15 +255,19 @@ void WorldModelNode::tryLoadMap()
         *this->get_clock(),
         5000,
         "Waiting for %s -> %s transform...",
-        utm_frame_.c_str(),
+        map_config_.projected_frame.c_str(),
         map_frame_.c_str());
       return;
     }
   }
 
   RCLCPP_INFO(
-    this->get_logger(), "Loading map from: %s (projector: %s)", osm_map_path_.c_str(), projector_type_.c_str());
-  if (lanelet_handler_->loadMap(osm_map_path_, utm_origin_x, utm_origin_y, origin_lat_, origin_lon_, projector_type_)) {
+    this->get_logger(),
+    "Loading map from: %s (projector: %s, alignment: %s)",
+    osm_map_path_.c_str(),
+    map_config_.projector_type.c_str(),
+    map_config_.alignment_mode.c_str());
+  if (lanelet_handler_->loadMap(osm_map_path_, map_config_, projected_to_map)) {
     RCLCPP_INFO(this->get_logger(), "Map loaded successfully");
     map_init_timer_->cancel();
   } else {
