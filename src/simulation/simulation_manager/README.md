@@ -82,5 +82,19 @@ Verbose mode shows orchestration and readiness stages. Follow ROS node output
 with `docker logs --follow <sim_session-container>`. Never edit ownership files
 while a session is active. Close before switching between worlds or scenarios.
 
+## Session recovery
+
+`watod down` controls the standard module project. Use `watod sim stop --verbose`
+to stop the separate simulation session; `watod sim close` only closes its active
+playground or scenario.
+
+If `.cache/watod-sim/session.json` is missing while session containers remain,
+`stop` verifies their Compose project, workspace, services and results mount
+before recovering ownership for cleanup. It preserves a shared network namespace
+referenced by other containers. Expired SLURM jobs can leave Docker reporting
+containers as running after their cgroups disappear; failed graceful stops fall
+back to removal of the verified container IDs. Run `watod sim setup` yourself
+after cleanup, using prepared images in a valid allocation.
+
 See [the catalog guide](../carla_ros_bridge/carla_scenarios/README.md) for the
 configuration layout, legacy aliases and how to add a world or scored scenario.
