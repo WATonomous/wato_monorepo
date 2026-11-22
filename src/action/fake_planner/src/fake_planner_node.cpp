@@ -319,6 +319,7 @@ void FakePlannerNode::publishTrajectory()
   for (auto & point : trajectory.points) {
     point.max_speed *= scale;
   }
+  publishState("running");
   trajectory_pub_->publish(trajectory);
   publishMarkers(trajectory);
   if (behaviour_pub_) {
