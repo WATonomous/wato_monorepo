@@ -620,3 +620,154 @@ TEST_CASE("CameraMatcher: out-of-order, duplicate and unknown-camera frames are 
   REQUIRE(out.size() == 1);
   CHECK(out[0].frames[0].data == 2);
 }
+
+TEST_CASE("CameraMatcher: the stream rate is 1 live and follows a bag's playback rate", "[matcher][rate][fast]")
+{
+  SECTION("live: arrival jitter keeps the rate at exactly 1")
+  {
+    Matcher m(config(1));
+    Sets out;
+    const int64_t jitter_us[] = {0, 900, -700, 400, -1000, 600, 0, -300, 800, -900};
+    for (int64_t k = 0; k < 10; ++k) {
+      m.addScan((1000 + 50 * k) * kMs, 0, {}, (1001 + 50 * k) * kMs + jitter_us[k] * 1000, out);
+    }
+    CHECK(m.streamRate() == 1.0);
+    CHECK(m.arrivalDuration(60 * kMs) == 60 * kMs);
+  }
+  SECTION("2x: scans stamped 50 ms apart arrive every 25 ms, so a 60 ms cap waits 30 ms")
+  {
+    Matcher m(config(1));
+    Sets out;
+    for (int64_t k = 0; k < 6; ++k) {
+      m.addScan((1000 + 50 * k) * kMs, 0, {}, (5000 + 25 * k) * kMs, out);
+    }
+    CHECK(m.streamRate() == Catch::Approx(2.0));
+    CHECK(m.arrivalDuration(60 * kMs) == 30 * kMs);
+    m.tick(10'000 * kMs, out);  // decide (drop) the scans still waiting
+    REQUIRE(m.pendingScans() == 0);
+    // A new scan waits 60 ms of stream time: 30 ms of arrival time
+    m.addScan(1300 * kMs, 0, {}, 10'100 * kMs, out);
+    CHECK(m.nextDeadline() == 10'130 * kMs);
+  }
+  SECTION("too few scans: real time until 5 steps are known")
+  {
+    Matcher m(config(1));
+    Sets out;
+    for (int64_t k = 0; k < 5; ++k) {
+      m.addScan((1000 + 50 * k) * kMs, 0, {}, (5000 + 25 * k) * kMs, out);
+    }
+    CHECK(m.streamRate() == 1.0);  // 4 steps
+  }
+  SECTION("a pause in playback and a bag restart keep the rate")
+  {
+    Matcher m(config(1));
+    Sets out;
+    int64_t at = 5000;
+    for (int64_t k = 0; k < 12; ++k) {
+      at += k == 6 ? 4000 : 100;  // paused for 4 s before scan 6
+      m.addScan((1000 + 50 * k) * kMs, 0, {}, at * kMs, out);
+    }
+    CHECK(m.streamRate() == Catch::Approx(0.5));
+    m.addScan(500 * kMs, 0, {}, (at + 100) * kMs, out);  // the bag starts over
+    CHECK(m.counters().resets == 1);
+    CHECK(m.streamRate() == Catch::Approx(0.5));
+  }
+}
+
+// Replays one stream of frames and scans at several playback rates (arrival times compressed or stretched,
+// as ros2 bag play --rate does) and checks that every scan after the first few gets the same frames.
+TEST_CASE("CameraMatcher: picks are the same at any playback rate", "[matcher][rate][fast]")
+{
+  struct Event
+  {
+    int64_t at_us;  // arrival at 1x, in microseconds (exactly divisible for every rate below)
+    int camera;  // -1: a scan
+    int64_t stamp_ns;
+  };
+
+  std::mt19937 rng(7);
+  std::uniform_int_distribution<int> latency_ms(25, 48);
+  std::uniform_int_distribution<int> jitter_us(-1500, 1500);
+  std::uniform_int_distribution<int> drop(0, 19);
+  std::vector<Event> events;
+  const int64_t phase_ms[3] = {3, 21, 38};
+  const int64_t offset_ms[3] = {8, 27, 44};
+  int64_t pause_us = 0;
+  for (int64_t loop = 0; loop < 2; ++loop) {  // the bag plays twice (loop restart)
+    const int64_t base_us = loop * 30'000'000;
+    for (int64_t k = 0; k < 400; ++k) {
+      if (loop == 0 && k == 200) {
+        pause_us = 3'000'000;  // playback paused for 3 s
+      }
+      for (int cam = 0; cam < 3; ++cam) {
+        if (drop(rng) == 0) {
+          continue;
+        }
+        const int64_t stamp_us = 10'000'000 + phase_ms[cam] * 1000 + 50'000 * k + jitter_us(rng);
+        events.push_back({base_us + pause_us + stamp_us + latency_ms(rng) * 1000, cam, stamp_us * 1000});
+      }
+      const int64_t scan_us = 10'000'000 + 50'000 * k;
+      events.push_back({base_us + pause_us + scan_us + 1500, -1, scan_us * 1000});
+    }
+  }
+  std::stable_sort(events.begin(), events.end(), [](const Event & a, const Event & b) { return a.at_us < b.at_us; });
+
+  const auto replay = [&](int64_t numerator, int64_t denominator) {
+    // Arrival times divided by the rate numerator / denominator
+    CameraMatcherConfig c = config(3);
+    c.max_pending_scans = 64;
+    Matcher m(c);
+    Sets out;
+    std::map<std::pair<uint64_t, int64_t>, std::vector<int64_t>> picks;  // (reset count, scan stamp) -> frames
+    const auto collect = [&]() {
+      for (const auto & s : out) {
+        std::vector<int64_t> f;
+        for (const auto & frame : s.frames) {
+          f.push_back(frame.stamp_ns);
+        }
+        picks[{m.counters().resets, s.scan_stamp_ns}] = f;
+      }
+      out.clear();
+    };
+    for (const auto & e : events) {
+      const int64_t at = e.at_us * 1000 * denominator / numerator;
+      while (const auto d = m.nextDeadline()) {
+        if (*d > at) {
+          break;
+        }
+        m.tick(*d, out);
+        collect();
+      }
+      if (e.camera >= 0) {
+        m.addFrame(static_cast<size_t>(e.camera), e.stamp_ns, e.stamp_ns, at, out);
+      } else {
+        std::vector<int64_t> targets;
+        for (const int64_t o : offset_ms) {
+          targets.push_back(e.stamp_ns - o * kMs);
+        }
+        m.addScan(e.stamp_ns, 0, targets, at, out);
+      }
+      collect();
+    }
+    return picks;
+  };
+
+  const auto reference = replay(1, 1);
+  REQUIRE(reference.size() > 700);
+  for (const auto & [num, den] : std::vector<std::pair<int64_t, int64_t>>{{1, 4}, {1, 2}, {2, 1}, {4, 1}}) {
+    const auto picks = replay(num, den);
+    INFO("rate " << num << "/" << den);
+    size_t compared = 0;
+    for (const auto & [key, frames] : reference) {
+      // Before the rate is learned (the first 5 scans) waits are in real time
+      if (key.first == 0 && key.second < 10'000'000'000LL + 6 * 50 * kMs) {
+        continue;
+      }
+      const auto it = picks.find(key);
+      REQUIRE(it != picks.end());
+      CHECK(it->second == frames);
+      ++compared;
+    }
+    CHECK(compared + 6 >= reference.size());
+  }
+}

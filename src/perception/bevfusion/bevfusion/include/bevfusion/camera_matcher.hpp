@@ -35,8 +35,10 @@ namespace wato::perception::bevfusion
 struct CameraMatcherConfig
 {
   size_t num_cameras = 6;
-  /// Longest wait after a scan arrives before using the best frame already received. < 0 waits until
-  /// the choice is certain, with a 1 s safety limit (and at most max_pending_scans scans waiting).
+  /// Longest wait after a scan arrives before using the best frame already received, in stream time (the
+  /// time of the stamps: the same as real time on the car, scaled by the playback rate for a bag; see
+  /// CameraMatcher::streamRate()). < 0 waits until the choice is certain, with a 1 s safety limit (and at
+  /// most max_pending_scans scans waiting).
   int64_t max_wait_ns = 60'000'000;
   /// Largest |frame stamp - target| a frame may have and still be used. A scan with a camera outside
   /// this is skipped.
@@ -90,6 +92,10 @@ struct CameraMatcherCounters
  * Frames older than the frames_per_camera kept are gone: a scan whose target falls before them uses
  * the oldest kept frame (if within the tolerance). This only happens when a scan arrives far later than
  * the camera frames around its targets.
+ *
+ * Waits are measured in stream time, so a bag gives the same matches at any playback rate: the matcher
+ * learns how fast scan stamps advance against their arrival times (streamRate(), exactly 1 live) and
+ * scales each scan's wait cap to arrival time by it.
  *
  * All times are passed in, so the same code runs live and in tests. Not thread-safe: call it from one
  * thread or under one lock. Frames and scans are held by value; use shared pointers so that dropping
@@ -190,6 +196,7 @@ public:
       clear();
       ++counters_.resets;
     }
+    learnRate(stamp_ns, now_ns);
     last_scan_stamp_ns_ = stamp_ns;
     ++counters_.scans;
     if (targets_ns.size() != cameras_.size()) {
@@ -198,6 +205,7 @@ public:
     Pending p;
     p.stamp_ns = stamp_ns;
     p.arrival_ns = now_ns;
+    p.wait_ns = arrivalDuration(config_.max_wait_ns >= 0 ? config_.max_wait_ns : kUnlimitedWaitLimitNs);
     p.scan = std::move(scan);
     p.targets_ns = std::move(targets_ns);
     p.chosen.resize(cameras_.size());
@@ -222,8 +230,8 @@ public:
   }
 
   /**
-   * @brief Earliest deadline of the waiting scans: the time at which one can complete or be dropped
-   *        without new messages. May be at or before the current time if tick() is overdue.
+   * @brief Earliest deadline of the waiting scans (arrival time): the time at which one can complete or be
+   *        dropped without new messages. May be at or before the current time if tick() is overdue.
    */
   std::optional<int64_t> nextDeadline() const
   {
@@ -235,6 +243,23 @@ public:
       }
     }
     return best;
+  }
+
+  /**
+   * @brief How fast stamps advance per unit of arrival time: 1 live, 2 for a bag played at twice its speed.
+   * @details The median of (stamp step / arrival step) over the last 20 scans, once 5 are known, and exactly
+   *          1 when within 5% of it (arrival jitter), so live matching never changes. A pause in playback
+   *          is one outlier step and does not move the median.
+   */
+  double streamRate() const
+  {
+    return rate_;
+  }
+
+  /// A duration of stream time (stamps) expressed in arrival time, at the current stream rate
+  int64_t arrivalDuration(int64_t stream_ns) const
+  {
+    return static_cast<int64_t>(std::llround(static_cast<double>(stream_ns) / rate_));
   }
 
   /// Number of scans waiting for frames
@@ -250,7 +275,8 @@ public:
   }
 
   /**
-   * @brief Drop all frames and waiting scans (releases their payloads). Counters are kept.
+   * @brief Drop all frames and waiting scans (releases their payloads). Counters and the learned stream
+   *        rate are kept (a bag restarting plays at the same rate).
    */
   void clear()
   {
@@ -260,6 +286,7 @@ public:
     }
     pending_.clear();
     last_scan_stamp_ns_.reset();
+    last_scan_arrival_ns_.reset();
   }
 
 private:
@@ -270,6 +297,13 @@ private:
   static constexpr size_t kIntervalWindow = 200;
   /// Intervals a camera must have shown (since start or a reset) before the early rule is used
   static constexpr size_t kMinIntervalsForEarly = 20;
+  /// Scan steps remembered, and needed, to learn the stream rate
+  static constexpr size_t kRateWindow = 20;
+  static constexpr size_t kMinRateSamples = 5;
+  /// Rates within this of 1 are taken as exactly 1 (arrival jitter, live input)
+  static constexpr double kRateSnap = 0.05;
+  static constexpr double kMinRate = 0.05;
+  static constexpr double kMaxRate = 20.0;
 
   struct Camera
   {
@@ -289,6 +323,7 @@ private:
   {
     int64_t stamp_ns = 0;
     int64_t arrival_ns = 0;
+    int64_t wait_ns = 0;  // the wait cap in arrival time, at the stream rate when the scan arrived
     ScanT scan{};
     std::vector<int64_t> targets_ns;
     std::vector<std::optional<Frame>> chosen;  // per camera, final once set
@@ -301,9 +336,31 @@ private:
 
   int64_t deadline(const Pending & p) const
   {
-    const int64_t wait = config_.max_wait_ns >= 0 ? config_.max_wait_ns : kUnlimitedWaitLimitNs;
-    return p.arrival_ns > std::numeric_limits<int64_t>::max() - wait ? std::numeric_limits<int64_t>::max()
-                                                                     : p.arrival_ns + wait;
+    return p.arrival_ns > std::numeric_limits<int64_t>::max() - p.wait_ns ? std::numeric_limits<int64_t>::max()
+                                                                          : p.arrival_ns + p.wait_ns;
+  }
+
+  /// Learn the stream rate from consecutive scans (stamp step over arrival step)
+  void learnRate(int64_t stamp_ns, int64_t now_ns)
+  {
+    if (last_scan_arrival_ns_ && last_scan_stamp_ns_) {
+      const int64_t stamp_step = stamp_ns - *last_scan_stamp_ns_;
+      const int64_t arrival_step = now_ns - *last_scan_arrival_ns_;
+      if (stamp_step > 0 && stamp_step < kMaxIntervalNs && arrival_step > 0) {
+        rate_samples_.push_back(static_cast<double>(stamp_step) / static_cast<double>(arrival_step));
+        if (rate_samples_.size() > kRateWindow) {
+          rate_samples_.pop_front();
+        }
+      }
+    }
+    last_scan_arrival_ns_ = now_ns;
+    if (rate_samples_.size() < kMinRateSamples) {
+      return;
+    }
+    std::vector<double> sorted(rate_samples_.begin(), rate_samples_.end());
+    std::nth_element(sorted.begin(), sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2), sorted.end());
+    const double median = sorted[sorted.size() / 2];
+    rate_ = std::fabs(median - 1.0) <= kRateSnap ? 1.0 : std::clamp(median, kMinRate, kMaxRate);
   }
 
   static void recordInterval(Camera & cam, int64_t dt)
@@ -477,6 +534,9 @@ private:
   std::vector<Camera> cameras_;
   std::deque<Pending> pending_;
   std::optional<int64_t> last_scan_stamp_ns_;
+  std::optional<int64_t> last_scan_arrival_ns_;
+  std::deque<double> rate_samples_;  // recent (scan stamp step) / (scan arrival step)
+  double rate_ = 1.0;
   CameraMatcherCounters counters_;
 };
 
