@@ -29,9 +29,9 @@ velodyne_driver_node_lidar_ne:
     port: 2369
     timestamp_first_packet: false
 
-velodyne_driver_node_lidar_nw:
+velodyne_driver_node_lidar_nw:  # VLS-128 (replaced the VLP-16 on the NW mount)
   ros__parameters:
-    device_ip: 10.8.0.90
+    device_ip: 10.8.0.91
     gps_time: false
     time_offset: 0.0
     enabled: true
@@ -39,7 +39,7 @@ velodyne_driver_node_lidar_nw:
     read_fast: false
     repeat_delay: 0.0
     frame_id: lidar_nw
-    model: VLP16
-    rpm: 1200.0
-    port: 2370
+    model: VLS128
+    rpm: 600.0
+    port: 2371
     timestamp_first_packet: false
