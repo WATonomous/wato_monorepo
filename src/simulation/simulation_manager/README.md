@@ -82,11 +82,37 @@ Verbose mode shows orchestration and readiness stages. Follow ROS node output
 with `docker logs --follow <sim_session-container>`. Never edit ownership files
 while a session is active. Close before switching between worlds or scenarios.
 
+## Shutdown
+
+| Command | Scope |
+|---------|-------|
+| `watod sim close` | Close the current playground/scenario; keep the session containers available |
+| `watod sim stop --verbose` | Stop/remove the recorded session containers; keep maps, results and logs |
+| `watod down all` | Stop the standard module project's services across profiles |
+
+To shut down both workflows from this checkout:
+
+```bash
+watod sim stop --verbose
+watod down all
+docker ps
+```
+
+`docker ps` also lists unrelated Docker projects. A shared network namespace is
+preserved by `sim stop` while another container still references it.
+
 ## Session recovery
 
 `watod down` controls the standard module project. Use `watod sim stop --verbose`
 to stop the separate simulation session; `watod sim close` only closes its active
 playground or scenario.
+
+`.cache/watod-sim/` is automatically generated local state for this checkout,
+not an online cache. `session.json` records container ownership and identity;
+`compose.json` records the effective configuration. Docker images and maps are
+stored separately. Results and diagnostic logs also live below this directory
+and accumulate across attempts. Stop the session before deleting this folder;
+deleting the whole folder also deletes saved results and logs.
 
 If `.cache/watod-sim/session.json` is missing while session containers remain,
 `stop` verifies their Compose project, workspace, services and results mount
@@ -96,5 +122,6 @@ containers as running after their cgroups disappear; failed graceful stops fall
 back to removal of the verified container IDs. Run `watod sim setup` yourself
 after cleanup, using prepared images in a valid allocation.
 
-See [the catalog guide](../carla_ros_bridge/carla_scenarios/README.md) for the
-configuration layout, legacy aliases and how to add a world or scored scenario.
+See [the catalog overview](../carla_ros_bridge/carla_scenarios/README.md) for the
+layout and legacy aliases, and the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md)
+for templates, supported options, scoring and how to extend a world or scenario.
