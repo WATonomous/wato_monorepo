@@ -20,6 +20,8 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -44,6 +46,7 @@
 
 #include "bevfusion/bevfusion_core.hpp"
 #include "bevfusion/camera_matcher.hpp"
+#include "bevfusion/lidar_sweep_timing.hpp"
 // clang-format on
 
 namespace wato::perception::bevfusion
@@ -131,8 +134,17 @@ private:
   /// Where camera images come from
   enum class CameraInput
   {
-    kCompressed,  ///< Per-camera JPEG topics (bag replay); decoded on the CPU
-    kNitros  ///< Per-camera NITROS images in GPU memory (the car); passed to the model without a copy
+    kAuto,  ///< Both, per camera: NITROS images when they arrive (the car), else JPEG (a bag)
+    kCompressed,  ///< Per-camera JPEG topics only; decoded on the CPU
+    kNitros  ///< Per-camera NITROS images in GPU memory only; passed to the model without a copy
+  };
+
+  /// Where one camera's frames are currently taken from (camera_input auto), for logs and diagnostics
+  enum class FrameSource : uint8_t
+  {
+    kNone,
+    kJpeg,
+    kNitros
   };
 
   /// What each camera's frame is matched to
@@ -180,11 +192,35 @@ private:
   void declareSyncParameters();
 
   /**
-   * @brief Store a JPEG frame from one camera in the matcher.
+   * @brief Store a JPEG frame from one camera in the matcher (with camera_input auto, only while that
+   *        camera sends no NITROS images).
    * @param camera_idx Index of the camera in camera_names
    * @param msg Compressed image
    */
   void compressedImageCallback(size_t camera_idx, const CompressedImageMsg::ConstSharedPtr & msg);
+
+  /**
+   * @brief With camera_input auto, whether a JPEG frame from this camera is used: only while the camera has
+   *        sent no NITROS image for kPreferNitrosNs. Logs when a camera's source changes. Caller holds
+   *        matcher_mutex_.
+   * @param camera_idx Index of the camera in camera_names
+   * @param now_ns Current steady-clock time
+   */
+  bool acceptJpegFrame(size_t camera_idx, int64_t now_ns);
+
+  /**
+   * @brief Record that a NITROS frame from this camera is used, so its JPEG frames stand down. Logs when the
+   *        camera's source changes. Caller holds matcher_mutex_.
+   * @param camera_idx Index of the camera in camera_names
+   * @param now_ns Current steady-clock time
+   */
+  void noteNitrosFrame(size_t camera_idx, int64_t now_ns);
+
+  /**
+   * @brief Timer (camera_input auto): once every camera has sent NITROS images for two checks in a row,
+   *        stop listening to the JPEG topics, so the car does no per-frame JPEG work.
+   */
+  void monitorInputs();
 
   /**
    * @brief Store a NITROS (GPU) frame from one camera in the matcher.
@@ -207,11 +243,21 @@ private:
   void cameraInfoCallback(size_t camera_idx, const CameraInfoMsg::ConstSharedPtr & msg);
 
   /**
-   * @brief Target time per camera for a scan: when the LiDAR swept each camera's direction.
-   * @param lidar_msg Scan in firing order, stamped with its last packet
+   * @brief Target time per camera for a scan: when the LiDAR swept each camera's direction. Learns the
+   *        rotation period from the scan stamps, and checks the stamp position on live input.
+   * @param lidar_msg Scan in firing order, stamped with its last (or first, lidar_stamp_position) packet
    * @return One target per camera, or an empty vector to use the scan stamp for every camera
    */
   std::vector<int64_t> scanTargets(const PointCloud2Msg & lidar_msg);
+
+  /**
+   * @brief Live input only: warn once if scans arrive about a turn after their stamp while lidar_stamp_position
+   *        is "end" (the stamp then looks like the start of the turn), or the reverse. Caller holds
+   *        lidar_timing_mutex_.
+   * @param stamp_ns Scan stamp
+   * @param period_ns Rotation period in use
+   */
+  void checkLidarStampPosition(int64_t stamp_ns, double period_ns);
 
   /**
    * @brief Hand completed sets to the worker (the newest replaces one still waiting).
@@ -395,6 +441,12 @@ private:
   /// Steady-clock time in nanoseconds (arrival and deadline times for the matcher)
   static int64_t steadyNowNs();
 
+  /// Name of the camera at an index, for log messages
+  const char * cameraName(size_t camera_idx) const
+  {
+    return camera_idx < camera_names_.size() ? camera_names_[camera_idx].c_str() : "an unknown camera";
+  }
+
   // Core logic; core_mutex_ serializes inference (worker) and calibration updates (callbacks)
   std::unique_ptr<BEVFusionCore> core_;
   BEVFusionInputConfig config_;
@@ -409,7 +461,7 @@ private:
 
   // Cameras
   std::vector<std::string> camera_names_;
-  CameraInput camera_input_{CameraInput::kCompressed};
+  CameraInput camera_input_{CameraInput::kAuto};
   IntrinsicsSource intrinsics_source_{IntrinsicsSource::kProjection};
 
   // Camera info, one per camera in camera_names_ order
@@ -434,10 +486,19 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
-  // Subscribers (only the ones for camera_input_ are created)
+  // Subscribers (only the ones for camera_input_ are created); inputs_mutex_ guards the JPEG subscriptions,
+  // which monitorInputs() can drop
   rclcpp::Subscription<PointCloud2Msg>::SharedPtr lidar_sub_;
   std::vector<rclcpp::Subscription<CompressedImageMsg>::SharedPtr> compressed_image_subs_;
   std::vector<std::shared_ptr<NitrosImageSub>> nitros_image_subs_;
+  rclcpp::TimerBase::SharedPtr input_monitor_timer_;
+  std::mutex inputs_mutex_;
+  // camera_input auto: a camera's JPEG frames stand down for this long after its last NITROS frame
+  static constexpr int64_t kPreferNitrosNs = 1'000'000'000;
+  // Per camera (matcher_mutex_): steady-clock arrival of the newest used NITROS frame (-1: none) and source
+  std::vector<int64_t> last_nitros_arrival_ns_;
+  std::vector<FrameSource> camera_source_;
+  int nitros_checks_passed_{0};  // monitorInputs(): consecutive checks with NITROS from every camera
 
   // QoS profiles
   rclcpp::QoS subscriber_qos_;
@@ -446,7 +507,15 @@ private:
   // Camera matching (see camera_matcher.hpp); matcher_mutex_ guards the matcher and its deadline timer
   CameraMatcherConfig matcher_config_;
   SyncTarget sync_target_{SyncTarget::kSweep};
-  double lidar_rotation_period_ms_{50.0};
+  double lidar_rotation_period_ms_{50.0};  // starting value; the period is learned from the scan stamps
+  StampPosition lidar_stamp_position_{StampPosition::kEnd};
+  // LiDAR timing (lidar_timing_mutex_): learned period, live stamp-position check
+  std::mutex lidar_timing_mutex_;
+  RotationPeriodEstimator period_estimator_;
+  bool period_mismatch_warned_{false};
+  std::deque<int64_t> live_stamp_ages_ns_;  // ROS time at arrival minus scan stamp, live input only
+  bool stamp_position_warned_{false};
+  std::atomic<double> rotation_period_used_ms_{0.0};
   std::unique_ptr<Matcher> matcher_;
   rclcpp::TimerBase::SharedPtr deadline_timer_;
   int64_t armed_deadline_ns_{-1};

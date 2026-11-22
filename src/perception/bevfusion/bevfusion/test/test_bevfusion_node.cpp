@@ -47,6 +47,7 @@ using wato::perception::bevfusion::BEVFusionNode;
 using wato::perception::bevfusion::BoundingBox;
 using wato::perception::bevfusion::Position;
 using wato::perception::bevfusion::Size;
+using wato::perception::bevfusion::StampPosition;
 using wato::perception::bevfusion::Velocity;
 
 // =============================================================================
@@ -72,6 +73,8 @@ static std::shared_ptr<BEVFusionNode> make_single_camera_node(const std::string 
   }
   rclcpp::NodeOptions options;
   options.append_parameter_override("camera_names", std::vector<std::string>{camera});
+  // JPEG input only: NITROS subscribers need the GPU runtime, which unit tests (and CI) do not have
+  options.append_parameter_override("camera_input", "compressed");
   auto node = std::make_shared<BEVFusionNode>(options);
   node->declareParameters();
   return node;
@@ -264,8 +267,16 @@ TEST_CASE("declareParameters: camera_input and intrinsics_source are validated",
   {
     auto node = std::make_shared<BEVFusionNode>(rclcpp::NodeOptions{});
     node->declareParameters();
-    REQUIRE(node->camera_input_ == BEVFusionNode::CameraInput::kCompressed);
+    REQUIRE(node->camera_input_ == BEVFusionNode::CameraInput::kAuto);
     REQUIRE(node->intrinsics_source_ == BEVFusionNode::IntrinsicsSource::kProjection);
+  }
+  SECTION("compressed")
+  {
+    rclcpp::NodeOptions options;
+    options.append_parameter_override("camera_input", "compressed");
+    auto node = std::make_shared<BEVFusionNode>(options);
+    node->declareParameters();
+    REQUIRE(node->camera_input_ == BEVFusionNode::CameraInput::kCompressed);
   }
   SECTION("nitros and camera_matrix")
   {
@@ -310,6 +321,7 @@ TEST_CASE("declareSyncParameters: defaults and validation", "[params][fast]")
     REQUIRE(node->matcher_config_.frames_per_camera == 6);
     REQUIRE(node->matcher_config_.max_pending_scans == 4);
     REQUIRE(node->lidar_rotation_period_ms_ == Catch::Approx(50.0));
+    REQUIRE(node->lidar_stamp_position_ == StampPosition::kEnd);
     // A second declaration (configure after cleanup) keeps the values
     REQUIRE_NOTHROW(node->declareSyncParameters());
   }
@@ -324,6 +336,15 @@ TEST_CASE("declareSyncParameters: defaults and validation", "[params][fast]")
     REQUIRE(node->matcher_config_.max_wait_ns < 0);
     REQUIRE(node->sync_target_ == BEVFusionNode::SyncTarget::kScanStamp);
   }
+  SECTION("a LiDAR stamped at the start of each turn")
+  {
+    rclcpp::NodeOptions options;
+    options.append_parameter_override("lidar_stamp_position", "start");
+    auto node = std::make_shared<BEVFusionNode>(options);
+    node->declareParameters();
+    node->declareSyncParameters();
+    REQUIRE(node->lidar_stamp_position_ == StampPosition::kStart);
+  }
   SECTION("out-of-range values throw")
   {
     for (const auto & [name, value] : std::vector<std::pair<std::string, rclcpp::ParameterValue>>{
@@ -332,7 +353,8 @@ TEST_CASE("declareSyncParameters: defaults and validation", "[params][fast]")
            {"sync_frames_per_camera", rclcpp::ParameterValue(0)},
            {"sync_frames_per_camera", rclcpp::ParameterValue(17)},  // would starve the rectifier's GPU buffers
            {"sync_target", rclcpp::ParameterValue(std::string("nearest"))},
-           {"lidar_rotation_period_ms", rclcpp::ParameterValue(0.0)}})
+           {"lidar_rotation_period_ms", rclcpp::ParameterValue(0.0)},
+           {"lidar_stamp_position", rclcpp::ParameterValue(std::string("middle"))}})
     {
       rclcpp::NodeOptions options;
       options.append_parameter_override(name, value);
@@ -380,6 +402,100 @@ TEST_CASE("BEVFusionNode: callbacks match frames to a scan and hand the set to t
   REQUIRE(
     node->on_cleanup(node->get_current_state()) ==
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: camera_input auto uses each camera's NITROS images when they arrive, else its JPEGs
+// WHY: A bag has only JPEG topics and the car has both; nobody should have to change a setting
+//      to replay a bag, and on the car the GPU images must win without a CPU decode.
+// =============================================================================
+TEST_CASE("BEVFusionNode: camera_input auto prefers NITROS per camera and falls back to JPEG", "[node][input][fast]")
+{
+  auto node = make_single_camera_node();
+  node->declareSyncParameters();
+  node->subscriber_qos_ = node->createSubscriberQoS("best_effort", 10);
+  node->publisher_qos_ = node->createPublisherQoS("reliable", "transient_local", 10);
+  REQUIRE(
+    node->on_activate(node->get_current_state()) ==
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  node->camera_input_ = BEVFusionNode::CameraInput::kAuto;  // activated with JPEG subscriptions only (no GPU here)
+  {
+    std::lock_guard<std::mutex> lock(node->matcher_mutex_);
+    constexpr int64_t kS = 1'000'000'000;
+    // A bag: only JPEGs, which are used
+    REQUIRE(node->acceptJpegFrame(0, 0));
+    REQUIRE(node->camera_source_[0] == BEVFusionNode::FrameSource::kJpeg);
+    // The car: NITROS images arrive, and the camera's JPEGs stand down
+    node->noteNitrosFrame(0, 1 * kS);
+    REQUIRE(node->camera_source_[0] == BEVFusionNode::FrameSource::kNitros);
+    REQUIRE_FALSE(node->acceptJpegFrame(0, 1 * kS + 500'000'000));
+    // NITROS images stopped for over a second: back to JPEG
+    REQUIRE(node->acceptJpegFrame(0, 2 * kS + 100'000'000));
+    REQUIRE(node->camera_source_[0] == BEVFusionNode::FrameSource::kJpeg);
+    // Unknown camera index
+    REQUIRE_FALSE(node->acceptJpegFrame(5, 0));
+  }
+  // Once every camera sends NITROS images for two checks in a row, the JPEG subscriptions are dropped
+  REQUIRE(node->compressed_image_subs_.size() == 1);
+  {
+    std::lock_guard<std::mutex> lock(node->matcher_mutex_);
+    node->noteNitrosFrame(0, BEVFusionNode::steadyNowNs());
+  }
+  node->monitorInputs();
+  REQUIRE(node->compressed_image_subs_.size() == 1);
+  node->monitorInputs();
+  REQUIRE(node->compressed_image_subs_.empty());
+  REQUIRE(
+    node->on_deactivate(node->get_current_state()) ==
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: the LiDAR rotation period is learned from the scan stamps
+// WHY: A LiDAR at another speed (e.g. a VLS-128 at 600 RPM) must not need lidar_rotation_period_ms changed
+//      for its sweep times to be right.
+// =============================================================================
+TEST_CASE("BEVFusionNode: scanTargets learns the rotation period from the scan stamps", "[node][sweep][fast]")
+{
+  auto node = make_single_camera_node();
+  node->declareSyncParameters();
+  {
+    std::lock_guard<std::mutex> lock(node->camera_info_mutex_);
+    node->camera_azimuths_deg_ = {-90.0};
+  }
+  sensor_msgs::msg::PointCloud2 cloud;
+  cloud.height = 1;
+  cloud.width = 9000;
+  cloud.point_step = 12;
+  cloud.row_step = cloud.width * cloud.point_step;
+  for (const auto & [name, offset] : std::vector<std::pair<std::string, uint32_t>>{{"x", 0}, {"y", 4}, {"z", 8}}) {
+    sensor_msgs::msg::PointField f;
+    f.name = name;
+    f.offset = offset;
+    f.datatype = sensor_msgs::msg::PointField::FLOAT32;
+    f.count = 1;
+    cloud.fields.push_back(f);
+  }
+  cloud.data.resize(cloud.row_step);
+  for (uint32_t i = 0; i < cloud.width; ++i) {
+    const double a = (-360.0 * i / (cloud.width - 1)) * M_PI / 180.0;
+    const float p[3] = {static_cast<float>(10.0 * std::cos(a)), static_cast<float>(10.0 * std::sin(a)), 0.0f};
+    std::memcpy(cloud.data.data() + i * cloud.point_step, p, sizeof(p));
+  }
+  // Scans 100 ms apart (600 RPM) while lidar_rotation_period_ms is still 50
+  std::vector<int64_t> targets;
+  int64_t stamp = 0;
+  for (int k = 0; k < 7; ++k) {
+    stamp = rclcpp::Time(20, 0).nanoseconds() + 100'000'000LL * k;
+    cloud.header.stamp = rclcpp::Time(stamp);
+    targets = node->scanTargets(cloud);
+  }
+  REQUIRE(targets.size() == 1);
+  REQUIRE(node->rotation_period_used_ms_.load() == Catch::Approx(100.0));
+  // A quarter turn after the start: 270 deg, 75 ms at 600 RPM, before the stamp
+  REQUIRE(std::llabs((stamp - targets[0]) - 75'000'000) < 400'000);
   rclcpp::shutdown();
 }
 

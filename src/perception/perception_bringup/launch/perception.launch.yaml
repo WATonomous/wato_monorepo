@@ -135,10 +135,6 @@ launch:
               value: "true"
           param:
             - from: $(var config_file)
-            # Cameras are read per camera: GPU (NITROS) images from the live cameras, JPEGs from a bag
-            # (live_cameras:=false). Accepts the same true values as the camera include's if: above.
-            - name: camera_input
-              value: "$(eval \"'nitros' if '$(var live_cameras)'.lower() in ('true', '1') else 'compressed'\")"
           remap:
             - from: output_detections
               to: /perception/detections_3d_bev

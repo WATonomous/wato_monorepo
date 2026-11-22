@@ -5,8 +5,8 @@
 launch:
   - arg:
       name: camera_input
-      default: compressed
-      description: "Camera images: 'compressed' (per-camera JPEG topics, bags) or 'nitros' (per-camera GPU images, the car)"
+      default: auto
+      description: "Camera images: 'auto' (per camera, GPU images when published, else JPEG), 'nitros' (GPU only) or 'compressed' (JPEG only)"
   - arg:
       name: output_detections_topic
       default: /perception/detections_3d_bev
