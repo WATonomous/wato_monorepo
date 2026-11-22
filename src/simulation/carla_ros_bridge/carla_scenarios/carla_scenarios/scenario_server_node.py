@@ -40,6 +40,54 @@ from carla_common import connect_carla
 from carla_scenarios.scenario_base import ManifestScenario, ScenarioBase
 
 
+def load_map_provenance(map_path, *, required=False):
+    """Verify the map pair against wrapper metadata or an original converter record."""
+    metadata_path = Path(str(map_path) + ".metadata.json")
+    mapping_path = map_path.with_suffix(".mapping.json")
+    if metadata_path.is_file():
+        record_path = metadata_path
+    elif mapping_path.is_file():
+        record_path = mapping_path
+    elif required:
+        raise ValueError(
+            f"Missing converted-map provenance: expected {metadata_path} or "
+            f"{mapping_path}; provide the original conversion record for this map pair"
+        )
+    else:
+        return None
+
+    record = json.loads(record_path.read_text())
+    if not isinstance(record, dict):
+        raise ValueError(f"Expected map provenance mapping: {record_path}")
+    if record_path == mapping_path:
+        # The converter's existing record uses osm_sha256. Preserve its identity
+        # without inventing the wrapper's converter revision, options or cache key.
+        provenance = {
+            "record_type": "converter_mapping",
+            "record_path": str(record_path),
+            "record_sha256": hashlib.sha256(record_path.read_bytes()).hexdigest(),
+            "source_sha256": record.get("osm_sha256"),
+            "xodr_sha256": record.get("xodr_sha256"),
+        }
+    else:
+        provenance = record
+
+    source_path = map_path.parent.parent / "osm" / (map_path.stem + ".osm")
+    if (
+        provenance.get("xodr_sha256")
+        != hashlib.sha256(map_path.read_bytes()).hexdigest()
+    ):
+        raise ValueError(f"Converted map digest mismatch: {record_path}")
+    if not source_path.is_file():
+        raise ValueError(f"Missing Lanelet2 source map: {source_path}")
+    if (
+        provenance.get("source_sha256")
+        != hashlib.sha256(source_path.read_bytes()).hexdigest()
+    ):
+        raise ValueError(f"Lanelet2/OpenDRIVE map versions differ: {record_path}")
+    return provenance
+
+
 class ScenarioServerNode(LifecycleNode):
     """Lifecycle node for managing CARLA scenarios."""
 
@@ -605,30 +653,9 @@ class ScenarioServerNode(LifecycleNode):
         for blueprint in blueprints:
             if not library.filter(blueprint):
                 raise ValueError(f"CARLA blueprint unavailable: {blueprint}")
-        metadata_path = Path(str(map_path) + ".metadata.json")
-        provenance = None
-        if metadata_path.is_file():
-            provenance = json.loads(metadata_path.read_text())
-            actual_digest = hashlib.sha256(map_path.read_bytes()).hexdigest()
-            source_path = map_path.parent.parent / "osm" / (map_path.stem + ".osm")
-            if provenance.get("xodr_sha256") != actual_digest:
-                raise ValueError(
-                    f"Converted map digest mismatch: {metadata_path}; reconvert {source_path}"
-                )
-            if not source_path.is_file():
-                raise ValueError(f"Missing Lanelet2 source map: {source_path}")
-            if (
-                provenance.get("source_sha256")
-                != hashlib.sha256(source_path.read_bytes()).hexdigest()
-            ):
-                raise ValueError(
-                    f"Lanelet2/OpenDRIVE map versions differ: {source_path}; reconvert the map"
-                )
-        if definition.get("require_map_provenance", False) and provenance is None:
-            raise ValueError(
-                f"Missing converted-map provenance: {metadata_path}; reconvert the matching "
-                "Lanelet2 map before opening this playground"
-            )
+        provenance = load_map_provenance(
+            map_path, required=definition.get("require_map_provenance", False)
+        )
         scenario = ManifestScenario(definition, map_path.resolve())
         scenario.provenance = provenance
         scenario.logger = self.get_logger()
