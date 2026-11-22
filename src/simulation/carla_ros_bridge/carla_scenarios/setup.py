@@ -43,7 +43,6 @@ setup(
     entry_points={
         "console_scripts": [
             "scenario_server = carla_scenarios.scenario_server_node:main",
-            "simulation_runner = carla_scenarios.simulation_runner:main",
         ],
     },
 )

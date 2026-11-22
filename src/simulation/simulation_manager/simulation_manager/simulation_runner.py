@@ -31,6 +31,7 @@ import rclpy
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from carla_msgs.srv import SwitchScenario
+from carla_scenarios.definitions import load_definition
 from geometry_msgs.msg import PointStamped, PoseStamped
 from lanelet_msgs.msg import RouteAhead
 from lifecycle_msgs.msg import State, Transition
@@ -48,8 +49,6 @@ from std_srvs.srv import SetBool, Trigger
 from tf2_ros import Buffer, TransformException, TransformListener
 from vision_msgs.msg import Detection3DArray
 from wato_trajectory_msgs.msg import Trajectory
-
-from carla_scenarios.definitions import load_definition
 
 OUTCOME_CODES = {"pass": 0, "assertion_failure": 1, "data_error": 2, "interrupted": 3}
 STACK_NODES = {

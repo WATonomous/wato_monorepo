@@ -17,7 +17,7 @@ launch:
   - arg:
       name: session_mode
       default: "false"
-      description: "Keep CARLA warm and let the experiment runner own controls"
+      description: "Keep CARLA warm and let the simulation manager own controls"
 
   # Eve Robot Description
   - include:
@@ -41,10 +41,10 @@ launch:
         - name: session_mode
           value: $(var session_mode)
 
-  # The runner owns experiment state; the existing scenario server owns physics.
+  # The manager owns experiment state; the scenario server owns physics.
   - node:
       if: $(var session_mode)
-      pkg: carla_scenarios
+      pkg: simulation_manager
       exec: simulation_runner
       name: simulation_runner
       output: screen
