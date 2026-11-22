@@ -1,192 +1,84 @@
 # Fake planner
 
-This lifecycle node replays reviewed maneuver JSON without the real planner stack.
-It builds on Brian Zheng's fake planner in PR 487, commit
-`f19fbad28cba3eb9bb5c6053046831c3a33f84fa`, with simulation session controls added.
-The action image discovers the package through its existing `COPY src/action` and
-colcon build; it needs no separate image or Dockerfile.
+Loads a maneuver JSON and replays its trajectory for controller testing.
+It uses Brian Zheng's fake planner from #487.
 
-## Simulation usage
+The lifecycle node configures the path, activates its publishers, and waits for
+release. Start, stop, and reset work without reloading the file.
 
-The runner's `controller_pure_pursuit` preset uses the following command. The
-launch owns one fake planner, one adaptive pure pursuit controller and one
-lifecycle manager. Do not launch the full action stack beside it, since that
-would add a second trajectory source and controller.
+## Usage
 
-```bash
-ros2 launch fake_planner fake_planner_sim.launch.yaml \
-  frame_id:=map start_on_activate:=false
-```
-
-The planner configures and activates without sending trajectory or behavior
-commands. Once odometry anchors the reference, `/sim/reference_path`
-(`nav_msgs/msg/Path`, reliable and transient local) contains the entire maneuver.
-The rolling preview markers remain on
-`/action/fake_planner/trajectory_markers`.
+Start the simulation or vehicle environment first. Choose a spawn with enough
+room for the maneuver. The existing simulation maps are documented in the
+[manual simulation guide](../../simulation/SIMULATION_README.md).
 
 ```bash
-ros2 service call /action/fake_planner/start_trajectory std_srvs/srv/Trigger
-ros2 service call /action/fake_planner/stop_trajectory std_srvs/srv/Trigger
-ros2 service call /action/fake_planner/reset std_srvs/srv/Trigger
+# CARLA
+ros2 launch fake_planner fake_planner_sim.launch.yaml
+
+# Vehicle
+ros2 launch fake_planner fake_planner_vehicle.launch.yaml
 ```
 
-`/action/fake_planner/status` is a reliable transient-local String with `ready`,
-`running`, `finished` or `stopped`. Ready requires an odometry-anchored reference.
-Finished requires actual movement, arrival near the end of the open maneuver and
-speed below the configured threshold. A successful start service is insufficient
-to establish completion. Reset clears the anchor and movement/completion latches;
-the next odometry sample anchors a fresh reference. The runner also cycles the
-controller lifecycle so its prior trajectory and control history are discarded.
+Both wrappers wait for the start service. The vehicle wrapper keeps its deployed
+controller tuning and disables automatic reset after an odometry jump.
 
-Publication and release ramp timing follow the ROS clock. Freezing CARLA `/clock`
-therefore freezes trajectory and behavior publication instead of refreshing stale
-commands on a wall timer. The CARLA world authority also brakes/holds the ego
-while the session is paused or preparing.
+```bash
+ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
+ros2 service call /action/fake_planner/fake_planner_node/stop_trajectory std_srvs/srv/Trigger
+ros2 service call /action/fake_planner/fake_planner_node/reset std_srvs/srv/Trigger
+```
 
-The simulation wrapper selects the adaptive pure pursuit settings from
-`action_sim.yaml`, `/ego/odom`, `/action/trajectory_planning/trajectory` and
-`/carla/ackermann_control/command`. `pure_pursuit_config`, `maneuver`,
-`maneuver_file` and `anchoring` are launch arguments. The simulation wrapper pins adaptive pure pursuit. The shared rig and vehicle
-wrapper retain upstream manual controller selection (`controller:=pure_pursuit`
-or `controller:=mpc`); automated scenarios always use adaptive pure pursuit.
+Reset clears completion state. Relative maneuvers anchor at the next odometry
+pose. Absolute maneuvers keep their authored geometry and restart path matching.
+The vehicle must return to the start to repeat an absolute open maneuver.
 
-## Maneuver format
+## Launch arguments
 
-`maneuvers/steady_state_slalom.json` is the shipped controller experiment:
-6 metres straight, five sinusoidal cycles with 1 metre amplitude and 12 metre
-wavelength, then 6 metres of braking straight at an authored cruise speed of
-3 m/s. The world definition requires at least 82 metres of verified straight
-runout. The original `brake_in_curve` and `sine_with_dwell` assets remain available
-for manual controller work.
+| Argument | Purpose |
+|----------|---------|
+| `maneuver` | Select `steady_state_slalom`, `sine_with_dwell`, or `brake_in_curve` |
+| `maneuver_file` | Load another JSON file |
+| `controller` | Manual shared/vehicle rig: `pure_pursuit` or `mpc` |
+| `pure_pursuit_config` | Controller tuning file |
+| `anchoring` | `auto`, `relative`, or `absolute` |
+| `start_on_activate` | Release immediately when true; wrappers default to false |
+| `odom_topic` | Vehicle pose and velocity input |
+| `trajectory_topic` | Controller trajectory output |
+| `behaviour_topic` | Controller engagement heartbeat |
+| `marker_topic` | Trajectory preview markers |
 
-The slalom uses the ROS-time release ramp and controller slew limits for startup.
-Its spatial launch ramp is disabled because a zero-speed initial waypoint ahead
-of the rear axle would keep adaptive pure pursuit stationary.
+Topic names belong in launch arguments and ROS remappings. `config/params.yaml`
+contains behavior and geometry settings.
 
-JSON defines `sample_spacing_m`, `default_speed` and an ordered `segments` list.
-The core expands straight, arc, slalom, shift and dwell segments, applies launch
-and braking ramps, and publishes a rolling horizon around the vehicle. Relative
-maneuvers anchor at the first odometry pose; an absolute `start` preserves authored
-coordinates. `anchoring:=relative` or `anchoring:=absolute` overrides that choice.
-Core parsing and geometry tests from the original contribution are retained in
-`test/test_fake_planner_core.cpp`; live and build validation are operator work.
+## Maneuver JSON
 
-## Upstream manual compatibility
+JSON contains an ordered `segments` list. Supported segments are `straight`,
+`dwell`, `shift`, `slalom`, and `arc`. The helper samples these into a path once
+when the node configures.
 
-The vehicle wrapper remains available with its original topics, wall clock,
-standby and respawn defaults. Its private services remain at
-`/action/fake_planner/fake_planner_node/{start_trajectory,stop_trajectory,reset}`;
-the shorter session service names above call the same handlers.
+An optional `start` pose gives absolute coordinates. Otherwise `anchoring:=auto`
+uses the first odometry pose. Open paths brake into a stop pad. Closed paths
+wrap around for repeated laps.
 
-The generated `oval_track` maneuver, generator and developer guide remain
-available. Its world uses `maps/osm/oval_track_4_lane.xodr` and
-`maps/osm/oval_track_spawn.json`, paired with the Lanelet2 map at
-`maps/osm/oval_track_4_lane.osm`. Select the legacy
-`carla_scenarios.scenarios.oval_track_scenario` world and the world-model preset
-`map:=generated_oval map_only:=true`. Main's `map:=oval` continues to select its
-standard converted-map overlay. The legacy `map:=town` aliases `town10hd`.
-Map artifacts are not moved or generated by this integration.
+The controller receives a rolling window around the vehicle. A release ramp
+limits initial speed. A completed open maneuver stops publishing commands;
+preview markers remain visible.
 
-## Maneuvers
+See [DEVELOPING.md](DEVELOPING.md) for the code structure and test commands.
 
-A maneuver is a JSON file — not yaml like the rest of the package's configuration, because a
-maneuver is an ordered list of heterogeneous, nested segment objects, which ROS parameters cannot
-represent — with a few top-level settings and a `segments` list. Each segment is authored in the local frame where the previous one ended (`u` forward along the current heading, `v` positive to the left), so segments simply chain. The whole path is sampled finely, resampled to `sample_spacing_m`, and — for open maneuvers — capped with a braked stop.
+## Managed simulation
 
-**Top-level fields:**
+Automated scenarios use adaptive pure pursuit. The simulation wrapper selects
+`action_sim.yaml` and publishes to `/action/trajectory_planning/trajectory`.
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `name`, `description` | — | Informational only |
-| `sample_spacing_m` | `1.0` | Uniform waypoint spacing (m). Match the map centreline (see note in `fake_planner_core.cpp`) |
-| `default_speed` | `2.0` | Cruise speed (m/s), carried until a segment overrides it. All shipped maneuvers use `3.0` |
-| `ramp_up_accel` | `1.0` | Acceleration (m/s²) of the launch ramp: an open maneuver starts at zero speed and builds to `default_speed` over `v²/2a` (4.5 m at the defaults), so the car pulls away gently instead of being commanded to full speed from the first waypoint. Keep the opening `straight` at least that long so the ramp finishes before any curvature. `0` disables it; ignored on closed maneuvers |
-| `brake_decel` | `1.0` | Deceleration (m/s²) the stop pad brakes at, the mirror of `ramp_up_accel`. Matches `trajectory_planner`'s `max_tangential_accel`. Ignored on closed maneuvers |
-| `stop_pad_m` | `10.0` | Length (m) of zero-speed path laid past the stop line, so pure pursuit still has points ahead of it after the car stops. `0` omits the pad *and* the braking pass. Ignored on closed maneuvers |
-| `closed` | `false` | Lap forever (the window wraps); no stop pad or launch ramp. Use `release_ramp_s` to pull away gently instead |
-| `start` | — | Absolute `{x, y, yaw}` start pose. Marks the maneuver as fixed geometry: under `anchoring:=auto` it publishes verbatim instead of being laid out from the vehicle |
-| `segments` | *(required)* | Ordered list of `{type: {params}}`, one type per entry |
+The original private services above remain available. The manager uses the
+aliases `/action/fake_planner/{start_trajectory,stop_trajectory,reset}`.
 
-**Segment types** — each also takes optional `speed` and `end_speed`, which ramp linearly across the segment; speed carries into the next segment. Lengths, radii, wavelengths and cycle counts must be positive and speeds non-negative; a zero or negative value is rejected at load with the offending segment named, because every primitive divides by one of them and would otherwise emit `NaN` speeds:
+`/action/fake_planner/status` publishes `ready`, `running`, `stopped`, or `finished`.
+Ready requires fresh odometry. Finished requires driven completion and a stop.
+`/sim/reference_path` publishes the full anchored path for preview and scoring.
+Both snapshots are reliable and transient local.
 
-| Type | Params | Description |
-|------|--------|-------------|
-| `straight` / `dwell` | `length` | Advance along the heading. `dwell` is the same primitive, named to signal a hold |
-| `shift` | `lateral`, `length` | Smooth raised-cosine lateral move, tangent to the heading at both ends |
-| `slalom` | `amplitude`, `wavelength`, `cycles` | Sinusoidal weave, tapered onto/off the centreline |
-| `arc` | `radius`, `angle` (deg), `dir` (`left`/`right`) | Constant-radius turn; also rotates the heading |
-
-**Shipped maneuvers:**
-
-| File | Description |
-|------|-------------|
-| `steady_state_slalom` | *(default)* Sustained constant-speed weave — lateral frequency response |
-| `sine_with_dwell` | Swerve out, hold at the far offset, return — lateral transient and recovery |
-| `brake_in_curve` | Brake through a constant-radius arc — steer-and-decelerate stability |
-| `oval_track` | Closed 420.9 m lap in absolute oval coords; needs the CARLA oval world. Generated by `tools/generate_oval_track.py` — do not hand-edit |
-
-See [DEVELOPING.md](DEVELOPING.md) to add a maneuver or a new segment type.
-
-## ROS Interface
-
-### Subscribed
-
-| Topic | Type | Description |
-|-------|------|-------------|
-| `odom` | `nav_msgs/Odometry` | Vehicle pose and speed: anchors the path, slides the window, and detects respawns |
-
-### Published
-
-| Topic | Type | Description |
-|-------|------|-------------|
-| `trajectory` | `wato_trajectory_msgs/Trajectory` | Rolling window of the maneuver |
-| `execute_behaviour` | `behaviour_msgs/ExecuteBehaviour` | Heartbeat that keeps the controller out of standby (omitted when `publish_behaviour` is false) |
-| `trajectory_markers` | `visualization_msgs/MarkerArray` | Speed-sized purple spheres and labels; published only while subscribed |
-
-### Services
-
-All `std_srvs/Trigger`, under the node's private namespace:
-
-| Service | Action |
-|---------|--------|
-| `~/start_trajectory` | Begin or resume publishing, ramping speeds up over `release_ramp_s`. Refused once a maneuver has finished — use `~/reset` |
-| `~/stop_trajectory` | Stop publishing; the controller falls back to standby |
-| `~/reset` | Rewind and re-run from the current pose (re-anchors when anchoring), clearing the finished latch |
-
-Reaching the end of an open maneuver **latches finished**: the node stops publishing entirely, so
-the controller times out into standby and the car holds where it stopped instead of creeping off
-the end. Markers keep publishing so the driven path stays visible. `~/reset` is the only way back.
-A maneuver with an absolute `start` that is not `closed` cannot be reset in place — its geometry
-stays where it was drawn while the car is parked at its end — and the node warns about that pairing
-at configure time.
-
-## Configuration
-
-Loaded from `config/params.yaml`. Topics, clock, and respawn are usually set by the launch wrapper; the rest live here.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `trajectory_topic` | string | `trajectory` | Trajectory output (before launch remaps) |
-| `behaviour_topic` | string | `execute_behaviour` | Heartbeat output |
-| `odom_topic` | string | `odom` | Odometry source |
-| `frame_id` | string | `odom` | Frame the trajectory is published in; must be TF-connected to the controller's `rear_axle` (`map`/`odom` both work) |
-| `publish_rate_hz` | double | `10.0` | Republish rate; keep well under the controller's `idle_timeout_sec` (2.0 s) |
-| `publish_behaviour` | bool | `true` | Publish the heartbeat. False to use a real behaviour source |
-| `behaviour` | string | `lane_follow` | Heartbeat behaviour string (must not be the controller's standby string) |
-| `anchoring` | string | `auto` | `auto` \| `relative` \| `absolute`. `auto` reads it off the maneuver: a file with an absolute `start` publishes verbatim, everything else is laid out from the launch pose |
-| `start_on_activate` | bool | `true` | Publish on activate. False holds until `start_trajectory` — which is what every launch passes, so nothing drives on bringup unless you set `start_on_activate:=true` |
-| `maneuver_file` | string | *(required)* | Path to the maneuver JSON; set by the launch from `maneuver:=` |
-| `marker_pub_topic` | string | `trajectory_markers` | Marker output |
-| `horizon_m` | double | `35.0` | Window length ahead of the vehicle (m) |
-| `trail_m` | double | `2.0` | Window length behind the vehicle (m) |
-| `search_ahead_m` | double | `400.0` | How far along the path to look for the vehicle, from the last match. Bounded so a self-crossing maneuver or a closed lap can't snap back to a point already passed; in metres, so it means the same at any `sample_spacing_m` |
-| `max_path_deviation_m` | double | `5.0` | Distance from the path at which to start warning that the vehicle has strayed. Warning only |
-| `release_ramp_s` | double | `3.0` | Seconds over which published speeds scale from 0 to the maneuver's own after release, so the car pulls away gently. The only ramp a `closed` maneuver gets; composes with `ramp_up_accel` on open ones. 0 disables |
-| `respawn_jump_m` | double | `5.0` | Odom jump treated as a respawn, after which the maneuver re-anchors. 0 disables |
-| `finish_distance_m` | double | `3.0` | How close to the stop line (along the path) counts as finished |
-| `finish_speed_mps` | double | `0.25` | And how slow. Both must hold, and the vehicle must have been seen moving first, before the finished latch arms |
-
-## License
-
-Copyright (c) 2025-present WATonomous. All rights reserved.
-Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+The controller snake fixture requires 82 metres of straight runout. Its spatial
+launch ramp is disabled; the ROS-time release ramp handles startup.
