@@ -1,0 +1,19 @@
+docker/perception.Dockerfile
+  s_960dd3aaafb1d9::t_f04e82c877b7cd 146-147,150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "c6d5e54cd96437f54dbab5933ee6f67f9ad6bae0",
+  "prompts": {},
+  "sessions": {
+    "s_960dd3aaafb1d9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1dd7c4a3-87bd-4b35-8286-b4678d079384",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "archangelinux <mthrange@gmail.com>"
+    }
+  }
+}
