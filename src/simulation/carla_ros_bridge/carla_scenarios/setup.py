@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from setuptools import setup, find_packages
+from glob import glob
+
+from setuptools import find_packages, setup
 
 package_name = "carla_scenarios"
 
@@ -22,13 +24,21 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
+        (
+            "share/" + package_name + "/config/scenarios",
+            glob("config/scenarios/*.yaml"),
+        ),
+        (
+            "share/" + package_name + "/config/playgrounds",
+            glob("config/playgrounds/*.yaml"),
+        ),
     ],
     install_requires=["setuptools"],
     tests_require=["pytest"],
     zip_safe=True,
     maintainer="WATonomous",
     maintainer_email="hello@watonomous.ca",
-    description="Scenario plugin system and scenario server node",
+    description="YAML playgrounds, reusable CARLA worlds and scored simulation scenarios",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

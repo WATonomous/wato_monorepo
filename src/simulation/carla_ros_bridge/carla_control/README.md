@@ -6,7 +6,7 @@ Vehicle control nodes for CARLA simulation.
 
 ### ackermann_control
 
-Receives `AckermannDriveStamped` commands and applies them to the ego vehicle in CARLA using CARLA's native Ackermann control API. The node finds the ego vehicle by its `role_name` attribute and applies speed, acceleration, jerk, and steering commands directly.
+Receives `AckermannDriveStamped` commands and applies them to the ego vehicle in CARLA using CARLA's native Ackermann control API. The node finds the ego vehicle by its `role_name` attribute. It negates the ROS left-positive steering angle for CARLA's right-positive convention; steering rate limits, speed, acceleration, and jerk retain their values. ROS controllers using this bridge should emit standard left-positive commands.
 
 If no command is received within the `command_timeout`, the vehicle automatically brakes to a stop. This prevents runaway vehicles when the control source disconnects.
 

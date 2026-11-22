@@ -24,6 +24,11 @@ launch:
         is git-ignored and only exists after `python3 tools/generate_oval_track.py`. docker-compose
         does not pass scenario:=, so this default is what watod runs.
 
+  - arg:
+      name: session_mode
+      default: "false"
+      description: "Idle world server controlled by a managed session"
+
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
@@ -40,5 +45,7 @@ launch:
           value: $(var pygame_hud_enabled)
         - name: pygame_web_port
           value: $(var pygame_web_port)
+        - name: session_mode
+          value: $(var session_mode)
         - name: scenario
           value: $(var scenario)

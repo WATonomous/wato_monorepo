@@ -2,7 +2,7 @@
 <package format="3">
   <name>carla_scenarios</name>
   <version>1.0.0</version>
-  <description>Scenario plugin system and scenario server node</description>
+  <description>YAML playgrounds, reusable CARLA worlds and scored simulation scenarios</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache-2.0</license>
 
@@ -13,6 +13,12 @@
   <depend>lifecycle_msgs</depend>
 
   <exec_depend>python3-carla</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
 
   <test_depend>python3-pytest</test_depend>
 

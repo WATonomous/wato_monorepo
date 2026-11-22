@@ -16,12 +16,16 @@ launch:
       name: pygame_web_port
       default: "5000"
       description: "Port for the pygame HUD web server"
+
   - arg:
       name: scenario
       default: "carla_scenarios.scenarios.light_traffic_scenario"
-      description: >-
-        Scenario module the scenario_server loads on startup (overrides initial_scenario in
-        the config file). Set carla_scenarios.scenarios.oval_track_scenario for the oval track.
+      description: "Initial manual playground or legacy generated-track selector"
+
+  - arg:
+      name: session_mode
+      default: "false"
+      description: "Idle, runner-controlled session with one actuation owner"
 
   # Scenario Server Node
   # Note: scenario_server uses wall time since it's the /clock source
@@ -39,10 +43,13 @@ launch:
           value: $(var carla_port)
         - name: initial_scenario
           value: $(var scenario)
+        - name: session_mode
+          value: $(var session_mode)
 
   # Lifecycle Manager - waits for scenario_server to connect to CARLA, then brings up all nodes
   # Note: lifecycle_manager uses wall time since it orchestrates before /clock is available
   - node:
+      unless: $(var session_mode)
       pkg: carla_lifecycle
       exec: lifecycle_manager
       name: carla_lifecycle_manager
@@ -66,6 +73,31 @@ launch:
         - name: startup_retry_interval
           value: 5.0
 
+  # Lifecycle Manager - waits for scenario_server to connect to CARLA, then brings up all nodes
+  # Note: lifecycle_manager uses wall time since it orchestrates before /clock is available
+  - node:
+      if: $(var session_mode)
+      pkg: carla_lifecycle
+      exec: lifecycle_manager
+      name: carla_lifecycle_manager
+      namespace: carla
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false
+        - name: scenario_server_name
+          value: /carla/scenario_server
+        - name: node_names
+          value:
+            - /carla/carla_localization
+            - /carla/ackermann_control
+            - /carla/lidar_publisher
+            - /carla/bbox_publisher
+        - name: service_timeout
+          value: 10.0
+        - name: startup_retry_interval
+          value: 5.0
+
   # Localization Node (publishes TF: map -> odom -> base_link)
   - node:
       pkg: carla_localization
@@ -82,6 +114,7 @@ launch:
 
   # Teleop Node
   - node:
+      unless: $(var session_mode)
       pkg: carla_teleop
       exec: teleop
       name: carla_teleop
@@ -107,6 +140,8 @@ launch:
         - from: $(var config_file)
         - name: carla_port
           value: $(var carla_port)
+        - name: require_control_gate
+          value: $(var session_mode)
 
   # LiDAR Publisher Node
   - node:

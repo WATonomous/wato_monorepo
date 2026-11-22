@@ -13,16 +13,19 @@
 # limitations under the License.
 """Ackermann control lifecycle node for CARLA vehicles."""
 
+import time
 from typing import Optional
-import rclpy
-from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rclpy.time import Time
-from rcl_interfaces.msg import ParameterDescriptor
-from ackermann_msgs.msg import AckermannDriveStamped
-
-from carla_common import connect_carla, find_ego_vehicle
 
 import carla
+import rclpy
+from ackermann_msgs.msg import AckermannDriveStamped
+from carla_common import connect_carla, find_ego_vehicle
+from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time
+from std_msgs.msg import Bool
+from std_srvs.srv import SetBool
 
 
 class AckermannControlNode(LifecycleNode):
@@ -64,6 +67,13 @@ class AckermannControlNode(LifecycleNode):
             50.0,
             ParameterDescriptor(description="Control loop frequency in Hz"),
         )
+
+        self.declare_parameter("require_control_gate", False)
+        self.control_enabled = not self.get_parameter("require_control_gate").value
+        self.control_gate_subscription = None
+        self.control_gate_service = None
+        self.last_command_wall = None
+        self.command_epoch_ns = 0
 
         # State
         self.carla_client: Optional["carla.Client"] = None
@@ -110,6 +120,19 @@ class AckermannControlNode(LifecycleNode):
         self.command_subscription = self.create_subscription(
             AckermannDriveStamped, "~/command", self.command_callback, 10
         )
+
+        if self.get_parameter("require_control_gate").value:
+            qos = QoSProfile(
+                depth=1,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                reliability=ReliabilityPolicy.RELIABLE,
+            )
+            self.control_gate_subscription = self.create_subscription(
+                Bool, "/carla/control_enabled", self.control_gate_callback, qos
+            )
+            self.control_gate_service = self.create_service(
+                SetBool, "~/set_enabled", self.control_gate_service_callback
+            )
 
         self.get_logger().info("Configuration complete")
         return TransitionCallbackReturn.SUCCESS
@@ -159,6 +182,16 @@ class AckermannControlNode(LifecycleNode):
             self.destroy_subscription(self.command_subscription)
             self.command_subscription = None
 
+        if self.control_gate_service:
+            self.destroy_service(self.control_gate_service)
+            self.control_gate_service = None
+        if self.control_gate_subscription:
+            self.destroy_subscription(self.control_gate_subscription)
+            self.control_gate_subscription = None
+        self.control_enabled = not self.get_parameter("require_control_gate").value
+        self.last_command = None
+        self.last_command_time = None
+        self.last_command_wall = None
         self.ego_vehicle = None
         self.carla_client = None
 
@@ -170,14 +203,44 @@ class AckermannControlNode(LifecycleNode):
         self.get_logger().info("Shutting down...")
         return TransitionCallbackReturn.SUCCESS
 
+    def control_gate_callback(self, msg: Bool):
+        """Fence queued commands at every pause, hold and attempt boundary."""
+        self.control_enabled = msg.data
+        if msg.data:
+            self.command_epoch_ns = self.get_clock().now().nanoseconds
+        self.last_command = None
+        self.last_command_time = None
+        self.last_command_wall = None
+
+    def control_gate_service_callback(self, request, response):
+        """Acknowledge command fencing before the world resumes ticking."""
+        self.control_gate_callback(Bool(data=request.data))
+        if not request.data and self.ego_vehicle:
+            self._apply_stop_control()
+        response.success = True
+        response.message = "control enabled" if request.data else "commands cleared"
+        return response
+
     def command_callback(self, msg: AckermannDriveStamped):
         """Handle incoming Ackermann drive commands."""
-        self.last_command_time = self.get_clock().now()
+        if not self.control_enabled:
+            return
+        now = self.get_clock().now()
+        stamp = Time.from_msg(msg.header.stamp, clock_type=now.clock_type)
+        age = (now - stamp).nanoseconds / 1e9
+        if self.get_parameter("require_control_gate").value and (
+            stamp.nanoseconds <= self.command_epoch_ns
+            or age < -0.001
+            or age > self.get_parameter("command_timeout").value
+        ):
+            return
+        self.last_command_time = now
+        self.last_command_wall = time.monotonic()
         self.last_command = msg.drive
 
     def control_timer_callback(self):
         """Apply control to vehicle."""
-        if not self.ego_vehicle:
+        if not self.ego_vehicle or not self.control_enabled:
             return
 
         timeout = self.get_parameter("command_timeout").value
@@ -188,16 +251,25 @@ class AckermannControlNode(LifecycleNode):
         time_since_command = (
             self.get_clock().now() - self.last_command_time
         ).nanoseconds / 1e9
-        if time_since_command > timeout:
+        if (
+            time_since_command < 0.0
+            or time_since_command > timeout
+            or (
+                self.last_command_wall is None
+                or time.monotonic() - self.last_command_wall > timeout
+            )
+        ):
             self._apply_stop_control()
             return
 
         try:
             cmd = self.last_command
 
-            # Use CARLA's Ackermann control - direct mapping
+            # ROS Ackermann steering is left-positive; CARLA is right-positive.
+            # Convert at the bridge boundary so ROS controllers keep their
+            # standard convention. Steering velocity is an unsigned rate limit.
             ackermann = carla.VehicleAckermannControl()
-            ackermann.steer = cmd.steering_angle
+            ackermann.steer = -cmd.steering_angle
             ackermann.steer_speed = cmd.steering_angle_velocity
             ackermann.speed = cmd.speed
             ackermann.acceleration = cmd.acceleration
