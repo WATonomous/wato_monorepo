@@ -93,7 +93,9 @@ Once the bridge is running, all nodes start automatically and connect to CARLA. 
 
 ### Switching Manual Playgrounds
 
-The legacy ROS services below switch manual worlds without scoring. Use `watod sim open scenario NAME` for an automated test with readiness, evaluation and results.
+The legacy ROS services below switch manual worlds without scoring. For
+automated tests with readiness, evaluation and results, see the
+[manager command reference](../simulation_manager/README.md#commands).
 
 ```bash
 # List manual worlds (legacy service name retained)

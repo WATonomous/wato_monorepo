@@ -1,14 +1,9 @@
 # Authoring playgrounds and scenarios
 
-Use playgrounds for manual development and scenarios for automated tests. Both
-catalogs live in this package and use the shared Python world implementation.
-The [simulation manager](../../simulation_manager/README.md) handles scenario
-execution and results; the CARLA scenario server owns world loading and ticking.
-
-| Definition | Opening it does | Application nodes | Scored results |
-|------------|-----------------|-------------------|----------------|
-| Playground | Loads map, ego, traffic, weather and bridge; physics runs immediately | Launch yourself | None |
-| Scenario | Applies world overrides, starts its reviewed stack and waits for readiness | Started by `watod sim` | One directory per attempt |
+This guide describes the implemented YAML options and where to extend behavior.
+See the [catalog overview](README.md) for responsibilities and layout, and the
+[manager command reference](../../simulation_manager/README.md#commands) for
+running definitions. Examples below belong in this package's `config/` tree.
 
 ## Choose a starting point
 
@@ -53,19 +48,8 @@ traffic:
 
 The filename stem and `id` must match. Names must match `[a-z][a-z0-9_]*`, and
 `version` must be `1`. No Python registration is needed for a new definition.
-After preparing an updated simulation image, use:
-
-```bash
-watod sim list
-watod sim setup --verbose
-watod sim open playground town10hd_practice
-# Launch your own action/world-modeling nodes as needed.
-watod sim pause
-watod sim resume
-watod sim close
-```
-
-No `play` is needed, and opening the playground creates no scored attempt.
+After preparing an updated simulation image, use `town10hd_practice` as the
+playground name in the manager command reference.
 
 For an existing converted map, a minimal definition is
 `config/playgrounds/oval_practice.yaml`:
@@ -401,9 +385,8 @@ file or control evaluation. The runner writes its full built-in metric set:
 Removing a metric from YAML does not disable a check; adding a name does not
 implement a new metric.
 
-Each attempt saves configuration, delivered events, outcome/reasons and metrics
-under `.cache/watod-sim/results/<run-id>/`. Reset creates a fresh attempt and
-keeps previous results. See the manager guide for [shutdown and recovery](../../simulation_manager/README.md#session-recovery).
+Storage paths, result files and exit codes are documented under
+[results and diagnostics](../../simulation_manager/README.md#results-and-diagnostics).
 
 ## Validate, install and run
 
@@ -429,33 +412,17 @@ readiness are checked during preparation and need operator runtime validation.
 Unrecognized fields are not uniformly rejected; only documented settings have
 implemented behavior.
 
-`watod sim list` reads the host checkout. Runtime loading reads the installed
-catalogs under `share/carla_scenarios/config/` inside the image. Seeing a new name
+The catalog-listing command reads the host checkout. Runtime loading reads the
+installed catalogs under `share/carla_scenarios/config/` inside the image. Seeing a new name
 in `list` does not prove it is installed. `setup.py` installs both YAML catalogs
 using globs, so no file-by-file registration is needed. Prepare an updated
 simulation image for catalog/world changes, an action image for changed action
 assets, and a world-modeling image for changed map presets. Pulling Git alone
 does not update an existing image or container.
 
-After preparing the necessary images and assets, run these commands yourself:
-
-```bash
-watod sim stop --verbose
-watod sim setup --verbose
-watod sim open scenario controller_snake_practice
-watod sim status
-watod sim play
-watod sim pause
-watod sim resume
-watod sim reset
-watod sim close
-watod sim test parked_car_practice
-watod sim stop --verbose
-```
-
-`open scenario` prepares the complete stack and leaves the attempt ready for
-`play`. `test` opens, runs, evaluates, saves and closes a scenario while keeping
-the base session available. Results contain no rosbag or video by default.
+After preparing the necessary images/assets, follow the
+[manager command reference](../../simulation_manager/README.md#commands), using
+`controller_snake_practice` or `parked_car_practice` as the scenario name.
 
 ## Extending behavior
 
