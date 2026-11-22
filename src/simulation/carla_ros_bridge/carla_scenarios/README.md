@@ -36,16 +36,6 @@ weather and spawn settings are preserved; the old Python catalog is removed.
 The server accepts both `playground/NAME` and `scenario/NAME` through
 `prepare_experiment`; a bare legacy selector remains a manual world request.
 
-PR #487's `carla_scenarios.scenarios.oval_track_scenario` and its short form remain
-manual selectors backed by the installed original plugin. Use the manual
-launch argument or `switch_scenario` service; managed `prepare_experiment`
-rejects this plugin before changing a world. They read
-`/opt/watonomous/maps/osm/oval_track_4_lane.xodr` and `oval_track_spawn.json`
-from that directory, preserving lane snapping and readiness polling. Pair with
-world modeling's `map:=generated_oval`, optionally `map_only:=true`, and the
-`oval_track` maneuver. Main's `oval` playground and world-model preset still use
-the standard converted-map paths. No artifacts are moved or regenerated.
-
-The original `/carla/scenario_server/reset_ego` service remains available for
-manual sessions, serialized with world ticks. Managed sessions use `/sim/reset`
-so actor, application and evaluator state reset together.
+The manual `/carla/scenario_server/reset_ego` service remains available and is
+serialized with world ticks. Managed sessions use `/sim/reset` so world,
+application and evaluator state reset together.

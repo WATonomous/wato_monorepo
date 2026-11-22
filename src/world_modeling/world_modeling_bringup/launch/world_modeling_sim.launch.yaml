@@ -1,7 +1,6 @@
 # Copyright (c) 2025-present WATonomous. All rights reserved.
 #
 # Usage:
-#   Generated oval from PR #487: map:=generated_oval (pair with scenario:=carla_scenarios.scenarios.oval_track_scenario)
 #   Map and markers only: map_only:=true
 #   Oval:
 #     ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml use_eidos:=false map:=oval
@@ -15,22 +14,14 @@
 ---
 launch:
   - arg:
-      name: map
-      default: "oval"
-      description: Named map preset (oval, ring_road, town10hd, test_track, generated_oval; town aliases town10hd)
-
-  - let:
-      name: default_config
-      value: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
-  - let:
-      if: $(eval "'$(var map)' == 'generated_oval'")
-      name: default_config
-      value: $(find-pkg-share world_modeling_bringup)/config/world_model_oval.yaml
+      name: config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/world_model_sim.yaml
+      description: Path to the world_model configuration file
 
   - arg:
-      name: config_file
-      default: $(var default_config)
-      description: Path to the world_model configuration file
+      name: map
+      default: "oval"
+      description: Named map preset (oval, ring_road, town10hd, test_track; town aliases town10hd)
 
   - let:
       name: map_config_id
@@ -39,17 +30,10 @@ launch:
       if: $(eval "'$(var map)' == 'town'")
       name: map_config_id
       value: town10hd
-  - let:
-      name: default_map_config
-      value: $(find-pkg-share world_modeling_bringup)/config/map_configs/$(var map_config_id).yaml
-  - let:
-      if: $(eval "'$(var map)' == 'generated_oval'")
-      name: default_map_config
-      value: $(var config_file)
 
   - arg:
       name: map_config_file
-      default: $(var default_map_config)
+      default: $(find-pkg-share world_modeling_bringup)/config/map_configs/$(var map_config_id).yaml
       description: Map projection and alignment overlay (overrides config_file)
 
   - arg:

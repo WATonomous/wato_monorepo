@@ -16,8 +16,6 @@
 #   ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
 #   ros2 launch fake_planner fake_planner_vehicle.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
-# maneuver:=oval_track needs the oval scenario loaded in CARLA (scenario:= on the simulation
-# launch). See README.md for the full set of recipes and the /stop_trajectory + /reset services.
 
 launch:
   - arg:
@@ -34,6 +32,11 @@ launch:
       name: trajectory_topic
       default: "/action/fake_planner/trajectory"
       description: Trajectory topic, from the fake planner to the controller
+
+  - arg:
+      name: marker_topic
+      default: "/action/fake_planner/trajectory_markers"
+      description: Trajectory preview markers
 
   - arg:
       name: behaviour_topic
@@ -88,7 +91,7 @@ launch:
   - arg:
       name: anchoring
       default: "auto"
-      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (those with a "start", e.g. oval_track) where they were drawn.
+      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (those with a "start") where they were drawn.
 
   - arg:
       name: standby_speed
@@ -151,6 +154,10 @@ launch:
       remap:
         - from: "~/status"
           to: "/action/fake_planner/status"
+        - from: "reference_path"
+          to: "/sim/reference_path"
+        - from: "trajectory_markers"
+          to: "$(var marker_topic)"
         - from: "trajectory"
           to: "$(var trajectory_topic)"
         - from: "execute_behaviour"

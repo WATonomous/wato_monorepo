@@ -84,6 +84,12 @@ install(DIRECTORY config launch maneuvers
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
 
+  add_wato_test(test_fake_planner_node
+    test/test_fake_planner_node.cpp
+    LIBRARIES
+      ${PROJECT_NAME}_nodes
+  )
+
   add_wato_test(test_fake_planner_core
     test/test_fake_planner_core.cpp
     LIBRARIES

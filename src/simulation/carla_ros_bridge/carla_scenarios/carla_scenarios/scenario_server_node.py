@@ -40,14 +40,7 @@ from carla_scenarios.definitions import (
     world_definition,
 )
 from carla_scenarios.scenario_base import ScenarioBase
-from carla_scenarios.scenarios.oval_track_scenario import OvalTrackScenario
 from carla_scenarios.worlds.configured_world import ConfiguredWorld
-
-
-GENERATED_OVAL_SELECTORS = {
-    "oval_track_scenario",
-    "carla_scenarios.scenarios.oval_track_scenario",
-}
 
 
 def load_map_provenance(map_path, *, required=False):
@@ -604,21 +597,6 @@ class ScenarioServerNode(LifecycleNode):
     def _read_playground(self, name, *, kind="playground"):
         """Preflight installed configuration and assets before changing the world."""
         directory = Path(get_package_share_directory("carla_scenarios")) / "config"
-        # PR #487's generated track has its own XODR and spawn-sidecar paths.
-        # Preserve that manual plugin; it is not a standard converted-map alias.
-        if kind == "playground" and name in GENERATED_OVAL_SELECTORS:
-            world = OvalTrackScenario()
-            world.logger = self.get_logger()
-            source = Path(world.XODR_PATH).read_text(encoding="utf-8")
-            document = ET.fromstring(source)
-            if document.tag != "OpenDRIVE" or not document.findall("road"):
-                raise ValueError(f"Invalid OpenDRIVE document: {world.XODR_PATH}")
-            if world._read_spawn_pose() is None:
-                raise ValueError(
-                    f"Missing or invalid generated spawn: {world.SPAWN_PATH}"
-                )
-            world.definition = {"seed": 42}
-            return world
         definition = world_definition(directory, kind, name)
         map_path = None
         source = None
@@ -681,12 +659,6 @@ class ScenarioServerNode(LifecycleNode):
                     if "/" in selector
                     else ("playground", selector)
                 )
-                if name in GENERATED_OVAL_SELECTORS:
-                    raise ValueError(
-                        "Generated oval uses the manual simulation launch with "
-                        "scenario:=carla_scenarios.scenarios.oval_track_scenario "
-                        "or the switch_scenario service."
-                    )
                 scenario = self._read_playground(name, kind=kind)
             self._cleanup_bridge()
             with self.world_lock:
@@ -916,9 +888,6 @@ class ScenarioServerNode(LifecycleNode):
             )
             for path in sorted((directory / "playgrounds").glob("*.yaml"))
         }
-        self.available_scenarios["carla_scenarios.scenarios.oval_track_scenario"] = (
-            "Generated Oval Track (PR #487; maps/osm XODR and spawn sidecar)"
-        )
         for legacy, name in LEGACY_PLAYGROUNDS.items():
             self.available_scenarios[legacy] = self.available_scenarios[name]
         self.get_logger().info(
