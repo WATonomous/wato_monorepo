@@ -36,6 +36,7 @@ VelDrivenFeedforwardPidNode::VelDrivenFeedforwardPidNode(const rclcpp::NodeOptio
   this->declare_parameter<double>("velocity.output.throttle_scale", 1.0);
   this->declare_parameter<double>("velocity.output.brake_scale", 1.0);
   this->declare_parameter<double>("velocity.output.deadband", 0.0);
+  this->declare_parameter<bool>("hold_when_disarmed", true);
 
   RCLCPP_INFO(this->get_logger(), "VelDrivenFeedforwardPidNode created (unconfigured)");
 }
@@ -54,6 +55,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
   throttle_scale_ = this->get_parameter("velocity.output.throttle_scale").as_double();
   brake_scale_ = this->get_parameter("velocity.output.brake_scale").as_double();
   velocity_deadband_ = this->get_parameter("velocity.output.deadband").as_double();
+  hold_when_disarmed_ = this->get_parameter("hold_when_disarmed").as_bool();
 
   // Initialize Steering PID
   steering_pid_ros_ = std::make_shared<control_toolbox::PidROS>(
@@ -97,6 +99,11 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_conf
     "odom_feedback",
     rclcpp::QoS(10),
     std::bind(&VelDrivenFeedforwardPidNode::odom_feedback_callback, this, std::placeholders::_1));
+
+  is_armed_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "oscc_interfacing/is_armed",
+    rclcpp::QoS(1),
+    std::bind(&VelDrivenFeedforwardPidNode::is_armed_callback, this, std::placeholders::_1));
 
   // Publishers
   roscco_pub_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(10));
@@ -164,6 +171,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_clea
   steering_meas_sub_.reset();
   velocity_meas_sub_.reset();
   odom_meas_sub_.reset();
+  is_armed_sub_.reset();
   roscco_pub_.reset();
   feedforward_pub_.reset();
   velocity_derived_pub_.reset();
@@ -171,6 +179,8 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_clea
   velocity_pid_ros_.reset();
   param_callback_handle_.reset();
 
+  vehicle_armed_ = false;
+  is_armed_received_ = false;
   steering_setpoint_ = 0.0;
   steering_meas_ = 0.0;
   velocity_setpoint_ = 0.0;
@@ -203,6 +213,7 @@ VelDrivenFeedforwardPidNode::CallbackReturn VelDrivenFeedforwardPidNode::on_shut
   steering_meas_sub_.reset();
   velocity_meas_sub_.reset();
   odom_meas_sub_.reset();
+  is_armed_sub_.reset();
   roscco_pub_.reset();
   feedforward_pub_.reset();
   velocity_derived_pub_.reset();
@@ -228,13 +239,12 @@ void VelDrivenFeedforwardPidNode::steering_feedback_callback(const roscco_msg::m
 
 void VelDrivenFeedforwardPidNode::velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg)
 {
-  if (velocity_source_ == VelocitySource::ODOM) {
-    return;  // Locked to odometry source
-  }
-
-  if (velocity_source_ == VelocitySource::NONE) {
+  // CAN is always authoritative: (re)claim the source on every CAN message,
+  // even if odom_feedback_callback() won a startup race and claimed it first.
+  // Once CAN has published, odom_feedback_callback() permanently ignores odometry.
+  if (velocity_source_ != VelocitySource::CAN) {
     velocity_source_ = VelocitySource::CAN;
-    RCLCPP_INFO(this->get_logger(), "Velocity source locked to CAN (Float64)");
+    RCLCPP_INFO(this->get_logger(), "Velocity source (re)locked to CAN (Float64)");
   }
 
   velocity_meas_ = msg->data;
@@ -244,13 +254,15 @@ void VelDrivenFeedforwardPidNode::velocity_feedback_callback(const std_msgs::msg
 
 void VelDrivenFeedforwardPidNode::odom_feedback_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
+  // Odometry is a bootstrap fallback only, used before the first CAN sample
+  // arrives. Once CAN has ever published, permanently ignore odometry.
   if (velocity_source_ == VelocitySource::CAN) {
-    return;  // Locked to CAN source
+    return;
   }
 
   if (velocity_source_ == VelocitySource::NONE) {
     velocity_source_ = VelocitySource::ODOM;
-    RCLCPP_INFO(this->get_logger(), "Velocity source locked to Odometry");
+    RCLCPP_INFO(this->get_logger(), "Velocity source locked to Odometry (CAN not yet available)");
   }
 
   double vx = msg->twist.twist.linear.x;
@@ -265,6 +277,26 @@ void VelDrivenFeedforwardPidNode::odom_feedback_callback(const nav_msgs::msg::Od
   std_msgs::msg::Float64 speed_msg;
   speed_msg.data = speed;
   velocity_derived_pub_->publish(speed_msg);
+}
+
+void VelDrivenFeedforwardPidNode::is_armed_callback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  const bool armed = msg->data;
+
+  if (!is_armed_received_) {
+    is_armed_received_ = true;
+    RCLCPP_INFO(this->get_logger(), "Arm state available; holding PID output while disarmed");
+  }
+
+  if (armed && !vehicle_armed_) {
+    // Rising edge: start from a clean integrator so the first armed command is
+    // pure P (+ feedforward) rather than whatever accumulated while disarmed.
+    steering_pid_ros_->reset();
+    velocity_pid_ros_->reset();
+    RCLCPP_INFO(this->get_logger(), "Vehicle armed - PID resumed from reset integrators");
+  }
+
+  vehicle_armed_ = armed;
 }
 
 double VelDrivenFeedforwardPidNode::compute_feedforward(double velocity, double steering_setpoint) const
@@ -295,6 +327,24 @@ void VelDrivenFeedforwardPidNode::control_loop()
 
   if (!ackermann_received_) {
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for ackermann setpoint...");
+    return;
+  }
+
+  // Disarmed: keep the integrators pinned at zero and publish neutral. Commands
+  // are discarded downstream anyway, and integrating against the vehicle's idle
+  // creep would otherwise saturate the brake term before the operator ever arms.
+  if (hold_when_disarmed_ && is_armed_received_ && !vehicle_armed_) {
+    steering_pid_ros_->reset();
+    velocity_pid_ros_->reset();
+    steering_meas_prev_valid_ = false;
+
+    roscco_msg::msg::Roscco neutral;
+    neutral.header.stamp = now;
+    neutral.steering = 0.0F;
+    neutral.forward = 0.0F;
+    roscco_pub_->publish(neutral);
+
+    RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Disarmed - holding PID output at zero");
     return;
   }
 

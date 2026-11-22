@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Oval track config: world_model_town.yaml with the oval map. Selected with
-#   ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=oval
+#   ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=generated_oval
 # Kept complete (costmap + all markers) so it serves both the full stack and map_only:=true.
 
 # =============================================================================

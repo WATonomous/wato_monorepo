@@ -127,6 +127,9 @@ if(BUILD_TESTING)
   add_wato_test(pid_control_node_test test/pid_control_node_test.cpp
     LIBRARIES pid_control_component
   )
+  add_wato_test(vel_driven_feedforward_pid_node_test test/vel_driven_feedforward_pid_node_test.cpp
+    LIBRARIES vel_driven_feedforward_pid_component
+  )
 endif()
 
 ament_package()

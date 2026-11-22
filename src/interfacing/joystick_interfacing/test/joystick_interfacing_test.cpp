@@ -58,7 +58,11 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
      {"roscco_max_speed", 2.0},
      {"roscco_max_steering_angle", 0.5},
      {"invert_steering", false},
-     {"invert_throttle", false}});
+     {"invert_throttle", false},
+     // Deadman steering ramp is exercised by its own dedicated test below;
+     // disable it here so these general-operation assertions see the
+     // pre-ramp instant on/off semantics.
+     {"enable_deadman_ramp", false}});
 
   auto joy_node = std::make_shared<joystick_node::JoystickNode>(options);
   add_node(joy_node);
@@ -258,5 +262,104 @@ TEST_CASE_METHOD(TestExecutorFixture, "Joystick Interfacing Operation", "[joysti
       auto ack_msg = ack_future.get();
       REQUIRE(ack_msg.drive.speed == Catch::Approx(0.2));  // 0.1 * 2.0
     }
+  }
+}
+
+TEST_CASE_METHOD(TestExecutorFixture, "Joystick Deadman Steering Ramp", "[joystick_interfacing]")
+{
+  // System Under Test (SUT) — short ramp windows to keep the test fast.
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(
+    {{"enable_axis", 4},
+     {"steering_axis", 0},
+     {"throttle_axis", 1},
+     {"toggle_button", 0},
+     {"arming_button", 5},
+     {"ackermann_max_speed", 2.0},
+     {"ackermann_max_steering_angle", 0.5},
+     {"invert_steering", false},
+     {"invert_throttle", false},
+     {"enable_deadman_ramp", true},
+     {"deadman_engage_ramp_ms", 200.0},
+     {"deadman_disengage_ramp_ms", 200.0},
+     {"ramp_timer_hz", 100.0}});
+
+  auto joy_node = std::make_shared<joystick_node::JoystickNode>(options);
+  add_node(joy_node);
+
+  joy_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  joy_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+
+  auto joy_pub = std::make_shared<PublisherTestNode<Joy>>("/joy", "joy_pub");
+  add_node(joy_pub);
+
+  auto ack_sub = std::make_shared<SubscriberTestNode<AckermannDriveStamped>>("/joystick/ackermann", "ack_sub");
+  add_node(ack_sub);
+
+  start_spinning();
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+  auto send_joy = [&](float enable, float steer, float throttle) {
+    Joy msg;
+    msg.buttons.resize(6, 0);
+    msg.axes.resize(6, 0.0);
+    msg.axes[4] = enable;
+    msg.axes[0] = steer;
+    msg.axes[1] = throttle;
+    joy_pub->publish(msg);
+  };
+
+  SECTION("Steering ramps up smoothly on deadman press; throttle is instant")
+  {
+    auto press_future = ack_sub->expect_next_message();
+    send_joy(-1.0, 1.0, 1.0);
+    auto press_msg = press_future.get();
+    REQUIRE(press_msg.drive.speed == Catch::Approx(2.0));  // throttle: instant, full
+    REQUIRE(press_msg.drive.steering_angle < 0.5);  // steering: ramp just started, not yet full
+
+    // Wait past the full engage ramp window
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    auto settled_future = ack_sub->expect_next_message();
+    send_joy(-1.0, 1.0, 1.0);
+    auto settled_msg = settled_future.get();
+    REQUIRE(settled_msg.drive.steering_angle == Catch::Approx(0.5));
+    REQUIRE(settled_msg.drive.speed == Catch::Approx(2.0));
+  }
+
+  SECTION("Steering ramps down smoothly on deadman release; throttle cuts instantly")
+  {
+    // Fully engage first
+    auto engage_future = ack_sub->expect_next_message();
+    send_joy(-1.0, 1.0, 1.0);
+    engage_future.get();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    auto confirm_future = ack_sub->expect_next_message();
+    send_joy(-1.0, 1.0, 1.0);
+    auto confirm_msg = confirm_future.get();
+    REQUIRE(confirm_msg.drive.steering_angle == Catch::Approx(0.5));
+
+    // Release the deadman
+    auto release_future = ack_sub->expect_next_message();
+    send_joy(0.0, 1.0, 1.0);
+    auto release_msg = release_future.get();
+    REQUIRE(release_msg.drive.speed == Catch::Approx(0.0));  // throttle: instant cutoff
+
+    // Mid-ramp: steering should be decaying, not yet zero
+    auto mid_future = ack_sub->expect_next_message();
+    auto mid_msg = mid_future.get();
+    REQUIRE(mid_msg.drive.speed == Catch::Approx(0.0));
+    REQUIRE(mid_msg.drive.steering_angle < 0.5);
+    REQUIRE(mid_msg.drive.steering_angle > 0.0);
+
+    // Wait past the full disengage ramp window
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    auto settled_future = ack_sub->expect_next_message();
+    send_joy(0.0, 1.0, 1.0);
+    auto settled_msg = settled_future.get();
+    REQUIRE(settled_msg.drive.steering_angle == Catch::Approx(0.0));
+    REQUIRE(settled_msg.drive.speed == Catch::Approx(0.0));
   }
 }

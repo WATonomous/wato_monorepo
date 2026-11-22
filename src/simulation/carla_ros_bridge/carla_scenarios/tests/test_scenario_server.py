@@ -22,7 +22,7 @@ class TestScenarioServerParameters:
         defaults = {
             "carla_host": "localhost",
             "carla_port": 2000,
-            "carla_timeout": 10.0,
+            "carla_timeout": 60.0,
             "initial_scenario": "carla_scenarios.scenarios.default_scenario",
             "carla_fps": 60.0,
             "synchronous_mode": False,

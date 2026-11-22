@@ -17,7 +17,12 @@ set -e
 # setup WATonomous packages and ROS2 environment
 # shellcheck disable=SC1090,SC1091
 source /opt/ros/"${ROS_DISTRO}"/setup.bash
-[ -f /opt/watonomous/setup.bash ] && source /opt/watonomous/setup.bash
+if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then
+  source "${ISAAC_ROS_INSTALL}/local_setup.bash"
+fi
+if [ -f /opt/watonomous/local_setup.bash ]; then
+  source /opt/watonomous/local_setup.bash
+fi
 
 # exec replaces this shell so signals from tini (init: true) go
 # directly to the child process. No manual trapping needed.

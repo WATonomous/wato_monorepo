@@ -27,6 +27,7 @@
 #include <roscco_msg/msg/roscco.hpp>
 #include <roscco_msg/msg/steering_angle.hpp>
 #include <roscco_msg/msg/steering_torque.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float64.hpp>
 
 namespace pid_control
@@ -58,6 +59,7 @@ private:
   void steering_feedback_callback(const roscco_msg::msg::SteeringAngle::SharedPtr msg);
   void velocity_feedback_callback(const std_msgs::msg::Float64::SharedPtr msg);
   void odom_feedback_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void is_armed_callback(const std_msgs::msg::Bool::SharedPtr msg);
   void control_loop();
   double compute_feedforward(double velocity, double steering_setpoint) const;
 
@@ -66,6 +68,7 @@ private:
   rclcpp::Subscription<roscco_msg::msg::SteeringAngle>::SharedPtr steering_meas_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr velocity_meas_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_meas_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr is_armed_sub_;
 
   // Publishers
   rclcpp::Publisher<roscco_msg::msg::Roscco>::SharedPtr roscco_pub_;
@@ -92,6 +95,16 @@ private:
   bool ackermann_received_{false};
   bool steering_meas_received_{false};
   bool velocity_meas_received_{false};
+
+  // Arm gating. While the vehicle is disarmed, oscc_interfacing discards
+  // everything this node publishes, so integrating over that window is pure
+  // wind-up: the accumulated term is dumped onto the actuators the instant the
+  // operator arms. Hold the controllers reset until arming instead.
+  // is_armed_received_ keeps the gate inert until oscc_interfacing is actually
+  // present, so bench/sim runs without it still produce commands.
+  bool hold_when_disarmed_{true};
+  bool vehicle_armed_{false};
+  bool is_armed_received_{false};
 
   rclcpp::Time last_time_;
 

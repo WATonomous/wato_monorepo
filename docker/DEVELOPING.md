@@ -3,8 +3,9 @@
 Implementation details for the monorepo's Docker build system.
 
 If you are not familiar with docker and docker compose, please consult their documentation:
-- https://docs.docker.com/get-started/
-- https://docs.docker.com/compose/
+
+- <https://docs.docker.com/get-started/>
+- <https://docs.docker.com/compose/>
 
 That being said, you do not need to know the entirety of docker to make sense of what is going on. Generally what docker does is allow you to setup isolated, reproducible environments in a declarative way. Docker Compose lets you orchestrate and configure how these environments build and start up.
 
@@ -19,6 +20,7 @@ That being said, you do not need to know the entirety of docker to make sense of
 ## Two-Tier Multi-Stage Build System
 
 ### Tier 1: Module Dockerfiles
+
 Each module Dockerfile (e.g., `perception.Dockerfile`, `interfacing.Dockerfile`) defines:
 
 **`source` stage**:
@@ -30,7 +32,19 @@ Each module Dockerfile (e.g., `perception.Dockerfile`, `interfacing.Dockerfile`)
 - Installs non-rosdep dependencies
 - Used as fallback when packages not available via rosdep
 
+Perception also has an **`isaac_ros_source` stage** containing pinned sources
+for the NITROS lifecycle fork and its ABI-dependent camera pipeline. Its
+`dependencies` stage builds these packages in `/opt/isaac_ros_ws`, installs
+them into `/opt/watonomous/isaac_ros`, and removes the temporary workspace.
+The perception `source` stage inherits that dependency image before adding
+application sources. Application edits therefore do not invalidate the
+Isaac ROS compilation layer. Every template target sources this install
+between base ROS and the application workspace, so `colcon build` in `/ws`
+never rebuilds it; changing the fork means bumping its pinned commit and
+rebuilding the image.
+
 ### Tier 2: Template Dockerfile
+
 `template.Dockerfile` consumes module images and creates a standard pipeline:
 
 ```dockerfile
@@ -38,7 +52,7 @@ ARG MODULE_SOURCE=<module>:source
 ARG MODULE_DEPS=<module>:deps
 ```
 
-Four sequential stages:
+The template scans rosdeps, then branches into build and development targets:
 
 1. **`rosdep_install`**: Scans source, installs rosdep dependencies, merges custom deps
 2. **`build`**: Runs `colcon build`, installs to `${WATONOMOUS_INSTALL}`

@@ -1,0 +1,10 @@
+# CI-only: export buildkit registry cache to GHCR. Added by
+# watod_scripts/watod-compose.sh only when $CI / $GITHUB_ACTIONS is set,
+# since the default local 'docker' buildx driver cannot export cache and
+# developers generally lack GHCR push access.
+---
+services:
+  perception_bringup_test:
+    build:
+      cache_to:
+        - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_test,mode=max

@@ -89,6 +89,25 @@ protected:
 
 private:
   /**
+   * @brief Local smoothing state for the deadman (enable-axis) press/release
+   * transition, applied to steering torque only — independent of the OSCC
+   * arm/disarm ramp in oscc_interfacing. Mirrors that node's DisengageState.
+   *
+   * ENGAGED:     deadman held past the ramp window; steering authority is 1.0.
+   * ENGAGING:    deadman freshly pressed; steering authority ramping 0 -> 1.
+   * DISENGAGING: deadman freshly released; steering authority ramping toward 0.
+   * DISABLED:    deadman released and the ramp-down has completed; steering
+   *              authority is 0.0 and idle/mask topics report idle.
+   */
+  enum class DeadmanState : int8_t
+  {
+    ENGAGED = 0,
+    ENGAGING = 1,
+    DISENGAGING = 2,
+    DISABLED = 3
+  };
+
+  /**
    * @brief Main hot-loop: process joystick, publish ackermann
    */
   void joy_callback(const sensor_msgs::msg::Joy::ConstSharedPtr msg);
@@ -100,9 +119,53 @@ private:
   bool get_button(const sensor_msgs::msg::Joy & msg, int button_index) const;
 
   /**
-   * @brief Publishes both the idle state and a zero-velocity command.
+   * @brief Starts a steering-authority ramp-up from the current authority
+   * (handles rapid re-press mid ramp-down instead of double-jerking through zero).
    */
-  void publish_neutral_state(bool is_idle);
+  void begin_engage();
+
+  /**
+   * @brief Starts a steering-authority ramp-down from the current authority.
+   */
+  void begin_disengage();
+
+  /**
+   * @brief Advances an in-progress ramp-up; transitions ENGAGING -> ENGAGED on completion.
+   */
+  void tick_engage();
+
+  /**
+   * @brief Advances an in-progress ramp-down; transitions DISENGAGING -> DISABLED on completion.
+   */
+  void tick_disengage();
+
+  /**
+   * @brief Current steering authority scale in [0, 1]. 1.0 when ENGAGED, 0.0 when
+   * DISABLED, linearly ramping during ENGAGING/DISENGAGING.
+   */
+  float engage_authority_scale() const;
+
+  /**
+   * @brief True once the deadman ramp has fully settled at zero (DISABLED).
+   * Drives the idle/mask topics independently of the raw enable-axis reading.
+   */
+  bool is_deadman_idle() const;
+
+  /**
+   * @brief Scales steering by engage_authority_scale() (ramped) and throttle by
+   * whether the deadman is currently held (instant, no ramp — throttle must cut
+   * immediately for safety), then publishes to whichever output topic is selected.
+   * @param steer_raw Live steering axis value, pre-clamp, post-invert.
+   * @param throttle_raw Live throttle axis value, pre-clamp, post-invert.
+   * @param enable_held Whether the deadman axis is currently held.
+   */
+  void publish_scaled_command(double steer_raw, double throttle_raw, bool enable_held);
+
+  /**
+   * @brief Periodic tick, independent of joy message arrival, that animates the
+   * steering ramp between joystick messages. No-op outside ENGAGING/DISENGAGING.
+   */
+  void ramp_timer_callback();
 
   /**
    * @brief Publish is idle state if no new input to joystick for a certain time
@@ -158,6 +221,9 @@ private:
   // Vibration timer
   rclcpp::TimerBase::SharedPtr vibration_timer_;
 
+  // Deadman steering ramp timer — animates the ramp independent of joy message arrival
+  rclcpp::TimerBase::SharedPtr ramp_timer_;
+
   int enable_axis_;  // index of enable axis (shoulder button)
   int toggle_button_;  // index of toggle button
   int arming_button_;  // index of arming button
@@ -180,6 +246,23 @@ private:
   // Arming state
   bool is_armed_{false};
   bool prev_arming_button_pressed_{false};
+
+  // Deadman steering ramp state (steering only — throttle is gated instantly, no ramp)
+  DeadmanState deadman_state_{DeadmanState::DISABLED};
+  float steering_authority_{0.0f};
+  float engage_initial_scale_{0.0f};
+  float disengage_initial_scale_{0.0f};
+  rclcpp::Time engage_start_time_;
+  rclcpp::Time disengage_start_time_;
+  bool prev_enable_pressed_{false};
+  double last_steer_raw_{0.0};
+  double last_throttle_raw_{0.0};
+
+  // Deadman steering ramp parameters
+  bool enable_deadman_ramp_{true};
+  double deadman_engage_ramp_ms_{600.0};
+  double deadman_disengage_ramp_ms_{600.0};
+  double ramp_timer_hz_{50.0};
 
   // Vibration parameters
   double toggle_vibration_intensity_;

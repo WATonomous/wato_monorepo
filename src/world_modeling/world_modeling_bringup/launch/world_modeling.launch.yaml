@@ -1,9 +1,9 @@
 # Full world modeling stack with eidos SLAM/localization.
 #
 # Usage:
-#   Localization on Test track (live):   ros2 launch world_modeling_bringup world_model.launch.yaml
-#   Localization (bag):  ros2 launch world_modeling_bringup world_model.launch.yaml use_sim_time:=true
-#   Mapping (bag):       ros2 launch world_modeling_bringup world_model.launch.yaml mapping:=true use_sim_time:=true
+#   Localization: ros2 launch world_modeling_bringup world_modeling.launch.yaml map:=test_track
+#   Bag playback: ros2 launch world_modeling_bringup world_modeling.launch.yaml use_sim_time:=true
+#   Mapping: ros2 launch world_modeling_bringup world_modeling.launch.yaml mapping:=true use_sim_time:=true
 ---
 launch:
   - arg:
@@ -17,9 +17,26 @@ launch:
       description: Path to the world_model configuration file
 
   - arg:
+      name: map
+      default: "test_track"
+      description: Named map preset (oval, town10hd, test_track)
+
+  - arg:
+      name: map_config_file
+      default: $(find-pkg-share world_modeling_bringup)/config/map_configs/$(var map).yaml
+      description: Map projection and alignment overlay (overrides config_file)
+
+  - arg:
       name: eidos_map_path
       default: "/opt/watonomous/maps/test_track_map/eidos_map/wrestrc.map"
       description: Path to the .map file for localization. Empty string skips loading.
+
+  - arg:
+      name: eidos_config
+      default: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+      description: >-
+        Eidos params for the full stack. eidos_slam.yaml (with eidos_map_path:="") runs SLAM from
+        the start pose instead of localizing on a prior map, for driving off the mapped area.
 
   - arg:
       name: use_sim_time
@@ -70,6 +87,9 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - from: $(var map_config_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "world_objects"
           to: "world_objects_enriched"
@@ -324,7 +344,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - from: $(var eidos_config)
         - name: use_sim_time
           value: $(var use_sim_time)
 
@@ -336,7 +356,7 @@ launch:
       namespace: "world_modeling"
       output: screen
       param:
-        - from: $(find-pkg-share world_modeling_bringup)/config/eidos_localization.yaml
+        - from: $(var eidos_config)
         - name: use_sim_time
           value: $(var use_sim_time)
         - name: map.load_path

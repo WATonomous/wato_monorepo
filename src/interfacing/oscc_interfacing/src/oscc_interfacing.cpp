@@ -143,6 +143,7 @@ void OsccInterfacingNode::configure()
   this->declare_parameter<double>("disarm_ramp_ms", 600.0);
   this->declare_parameter<bool>("enable_graceful_arm", true);
   this->declare_parameter<double>("arm_ramp_ms", 600.0);
+  this->declare_parameter<double>("brake_ramp_ms", 1000.0);
 
   // Read parameters
   is_armed_ = false;
@@ -161,6 +162,7 @@ void OsccInterfacingNode::configure()
   disarm_ramp_ms_ = this->get_parameter("disarm_ramp_ms").as_double();
   enable_graceful_arm_ = this->get_parameter("enable_graceful_arm").as_bool();
   arm_ramp_ms_ = this->get_parameter("arm_ramp_ms").as_double();
+  brake_ramp_ms_ = this->get_parameter("brake_ramp_ms").as_double();
 
   if (disarm_ramp_ms_ <= 0.0) {
     RCLCPP_WARN(this->get_logger(), "disarm_ramp_ms must be > 0, disabling graceful disarm");
@@ -170,6 +172,23 @@ void OsccInterfacingNode::configure()
   if (arm_ramp_ms_ <= 0.0) {
     RCLCPP_WARN(this->get_logger(), "arm_ramp_ms must be > 0, disabling graceful arm");
     enable_graceful_arm_ = false;
+  }
+
+  if (brake_ramp_ms_ < 0.0) {
+    RCLCPP_WARN(this->get_logger(), "brake_ramp_ms must be >= 0, applying brake at full authority on engage");
+    brake_ramp_ms_ = 0.0;
+  }
+
+  // The brake ramp lives inside the ENGAGING window. If it were longer than the
+  // arm ramp, brake authority would step to 1.0 the moment the state leaves
+  // ENGAGING — exactly the jerk this is meant to remove.
+  if (brake_ramp_ms_ > arm_ramp_ms_) {
+    RCLCPP_WARN(
+      this->get_logger(),
+      "brake_ramp_ms (%.0f) exceeds arm_ramp_ms (%.0f), clamping to arm_ramp_ms",
+      brake_ramp_ms_,
+      arm_ramp_ms_);
+    brake_ramp_ms_ = arm_ramp_ms_;
   }
 
   if (steering_scaling_ > 1.0 || steering_scaling_ <= 0.0) {
@@ -303,9 +322,16 @@ void OsccInterfacingNode::roscco_callback(const roscco_msg::msg::Roscco::ConstSh
   }
 
   // During a graceful engage, fade throttle in with the authority ramp so the
-  // vehicle launches gently. Brake is left at full authority so the planner can
-  // always command full stopping power, even mid-handover.
+  // vehicle launches gently.
   throttle *= authority;
+
+  // Brake gets its own, shorter ramp. Engaging while the vehicle is rolling
+  // (idle creep, coasting) means the very first planner command is usually a
+  // large brake request, and applying that at full authority slams the vehicle
+  // to a stop the instant the operator arms. Fading it in over brake_ramp_ms_
+  // decelerates smoothly, while the shorter window returns full stopping power
+  // well before the (much longer) steering/throttle authority ramp completes.
+  brake *= brake_authority_scale();
 
   // Smooth transition ordering between throttle and brake
   if (forward > 0.0 && last_forward_ < 0.0) {
@@ -487,6 +513,16 @@ float OsccInterfacingNode::engage_authority_scale() const
   }
   const double elapsed_ms = (this->now() - engage_start_time_).seconds() * 1000.0;
   const double frac = elapsed_ms / arm_ramp_ms_;
+  return static_cast<float>(std::clamp(frac, 0.0, 1.0));
+}
+
+float OsccInterfacingNode::brake_authority_scale() const
+{
+  if (disengage_state_.load() != DisengageState::ENGAGING || brake_ramp_ms_ <= 0.0) {
+    return 1.0f;
+  }
+  const double elapsed_ms = (this->now() - engage_start_time_).seconds() * 1000.0;
+  const double frac = elapsed_ms / brake_ramp_ms_;
   return static_cast<float>(std::clamp(frac, 0.0, 1.0));
 }
 

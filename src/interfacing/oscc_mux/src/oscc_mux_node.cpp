@@ -14,6 +14,7 @@
 
 #include "oscc_mux/oscc_mux_node.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <limits>
@@ -47,6 +48,16 @@ OsccMuxNode::CallbackReturn OsccMuxNode::on_configure(const rclcpp_lifecycle::St
   this->get_parameter_or("emergency.steering", emergency_.steering, 0.0f);
   this->get_parameter_or("emergency.forward", emergency_.forward, 0.0f);
 
+  this->get_parameter_or("enable_handover_ramp", enable_handover_ramp_, true);
+  this->get_parameter_or("handover_ramp_ms", handover_ramp_ms_, 600.0);
+  if (handover_ramp_ms_ <= 0.0) {
+    RCLCPP_WARN(this->get_logger(), "handover_ramp_ms must be > 0, disabling handover ramp");
+    enable_handover_ramp_ = false;
+  }
+  last_published_ = emergency_;
+  previous_winner_.reset();
+  in_handover_ = false;
+
   pub_out_ = this->create_publisher<roscco_msg::msg::Roscco>("roscco", rclcpp::QoS(rclcpp::KeepLast(1)));
 
   build_inputs_from_params();
@@ -58,11 +69,14 @@ OsccMuxNode::CallbackReturn OsccMuxNode::on_configure(const rclcpp_lifecycle::St
 
   RCLCPP_INFO(
     this->get_logger(),
-    "Configured: safety_threshold=%.3fs publish_rate=%.1fHz emergency(forward=%.3f, steering=%.3f) inputs=%zu",
+    "Configured: safety_threshold=%.3fs publish_rate=%.1fHz emergency(forward=%.3f, steering=%.3f) "
+    "handover_ramp=%s (%.0fms) inputs=%zu",
     safety_threshold_,
     publish_rate_hz_,
     emergency_.forward,
     emergency_.steering,
+    enable_handover_ramp_ ? "enabled" : "disabled",
+    handover_ramp_ms_,
     inputs_.size());
 
   return CallbackReturn::SUCCESS;
@@ -101,6 +115,10 @@ OsccMuxNode::CallbackReturn OsccMuxNode::on_cleanup(const rclcpp_lifecycle::Stat
   pub_out_.reset();
   inputs_.clear();
 
+  previous_winner_.reset();
+  in_handover_ = false;
+  last_published_ = roscco_msg::msg::Roscco{};
+
   return CallbackReturn::SUCCESS;
 }
 
@@ -115,6 +133,10 @@ OsccMuxNode::CallbackReturn OsccMuxNode::on_shutdown(const rclcpp_lifecycle::Sta
 
   pub_out_.reset();
   inputs_.clear();
+
+  previous_winner_.reset();
+  in_handover_ = false;
+  last_published_ = roscco_msg::msg::Roscco{};
 
   return CallbackReturn::SUCCESS;
 }
@@ -173,12 +195,17 @@ void OsccMuxNode::mux_callback()
 {
   const auto now = this->now();
 
-  // Safety override
+  // Safety override — bypass the handover ramp, must take effect instantly.
+  // Reset previous_winner_ so a later return to normal operation starts a
+  // fresh handover from this emergency baseline rather than a stale value.
   for (const auto & h : inputs_) {
     if (h->safety_trip(now, safety_threshold_)) {
       auto e = emergency_;
       e.header.stamp = now;
       pub_out_->publish(e);
+      last_published_ = e;
+      previous_winner_.reset();
+      in_handover_ = false;
       return;
     }
   }
@@ -198,18 +225,66 @@ void OsccMuxNode::mux_callback()
     }
   }
 
-  // No eligible inputs: publish emergency.
+  // No eligible inputs: publish emergency, bypassing the ramp for the same reason as above.
   if (!winner) {
     auto e = emergency_;
     e.header.stamp = now;
     pub_out_->publish(e);
+    last_published_ = e;
+    previous_winner_.reset();
+    in_handover_ = false;
     return;
   }
 
-  // Publish the latest command from the winning input, stamped as "now".
-  auto out = winner->last_cmd();
+  // Winner changed since the last tick: start a handover ramp from the last
+  // published command toward this winner's live command.
+  if (enable_handover_ramp_ && winner != previous_winner_ && previous_winner_ != nullptr) {
+    begin_handover();
+  }
+  previous_winner_ = winner;
+
+  const auto target = winner->last_cmd();
+  roscco_msg::msg::Roscco out;
+  if (in_handover_) {
+    const float a = handover_authority_scale();
+    out.forward = handover_start_cmd_.forward + (target.forward - handover_start_cmd_.forward) * a;
+    out.steering = handover_start_cmd_.steering + (target.steering - handover_start_cmd_.steering) * a;
+    tick_handover();
+  } else {
+    out.forward = target.forward;
+    out.steering = target.steering;
+  }
   out.header.stamp = now;
   pub_out_->publish(out);
+  last_published_ = out;
+}
+
+void OsccMuxNode::begin_handover()
+{
+  handover_start_cmd_ = last_published_;
+  handover_start_time_ = this->now();
+  in_handover_ = true;
+}
+
+float OsccMuxNode::handover_authority_scale() const
+{
+  if (!in_handover_) {
+    return 1.0f;
+  }
+  const double elapsed_ms = (this->now() - handover_start_time_).seconds() * 1000.0;
+  const double frac = elapsed_ms / handover_ramp_ms_;
+  return static_cast<float>(std::clamp(frac, 0.0, 1.0));
+}
+
+void OsccMuxNode::tick_handover()
+{
+  if (!in_handover_) {
+    return;
+  }
+  const double elapsed_ms = (this->now() - handover_start_time_).seconds() * 1000.0;
+  if (elapsed_ms >= handover_ramp_ms_) {
+    in_handover_ = false;
+  }
 }
 
 }  // namespace oscc_mux
