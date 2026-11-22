@@ -235,9 +235,124 @@ class Session:
             )
         return info
 
+    def recover_for_stop(self):
+        """Recover cleanup ownership from Docker labels, never a reusable session."""
+        result = self.run(
+            [
+                "docker",
+                "ps",
+                "--all",
+                "--quiet",
+                "--filter",
+                f"label=com.docker.compose.project={self.project}",
+            ]
+        )
+        containers = {}
+        images = {}
+        session_environment = {}
+        services = (
+            "network_namespace",
+            "carla_sim",
+            "carla_sim_no_gpu",
+            "infrastructure_bringup",
+            "sim_session",
+            "sim_action",
+            "sim_world",
+        )
+        required_files = {
+            self.root / "modules/docker-compose.yaml",
+            self.root / "modules/docker-compose.dep.yaml",
+        }
+        allowed_files = required_files | {
+            self.root / "modules/docker-compose.watcloud.yaml"
+        }
+        for container in result.stdout.split():
+            info = self.owned(container)
+            if info is None:
+                continue
+            labels = info["Config"].get("Labels") or {}
+            service = labels.get("com.docker.compose.service")
+            working_directory = labels.get("com.docker.compose.project.working_dir")
+            config_files = {
+                Path(name).resolve()
+                for name in labels.get(
+                    "com.docker.compose.project.config_files", ""
+                ).split(",")
+                if name
+            }
+            if (
+                service not in services
+                or service in containers
+                or not working_directory
+                or Path(working_directory).resolve() != self.root / "modules"
+                or not required_files <= config_files <= allowed_files
+                or labels.get("com.docker.compose.oneoff") != "False"
+            ):
+                raise SessionError(
+                    f"Cannot verify orphan ownership for {container}; "
+                    "inspect its Compose labels before removing it."
+                )
+            if service == "sim_session":
+                if not any(
+                    mount.get("Type") == "bind"
+                    and mount.get("Destination") == "/opt/watonomous/sim_results"
+                    and Path(mount["Source"]).resolve() == self.results
+                    for mount in info.get("Mounts", [])
+                ):
+                    raise SessionError(
+                        f"Results mount does not belong to this workspace: {container}"
+                    )
+                session_environment = dict(
+                    item.split("=", 1)
+                    for item in info["Config"].get("Env", [])
+                    if "=" in item
+                )
+            containers[service] = info["Id"]
+            images[service] = info["Config"]["Image"]
+        if not containers:
+            return False
+        self.state = {
+            "workspace": str(self.root),
+            "project": self.project,
+            "session_id": session_environment.get("WATOD_SIM_SESSION_ID")
+            or str(uuid.uuid4()),
+            "revision": session_environment.get("WATOD_SIM_REVISION", "unknown"),
+            "containers": {
+                service: containers[service]
+                for service in services
+                if service in containers
+            },
+            "images": images,
+            "recovered_for_stop": True,
+        }
+        # Persist verified IDs before cleanup so an interrupted stop can be retried.
+        self.save()
+        print(
+            f"Recovered {len(containers)} verified containers for cleanup "
+            f"in {self.project}.",
+            file=sys.stderr,
+        )
+        return True
+
+    def namespace_users(self, info):
+        """Keep a shared namespace while any other container still references it."""
+        targets = {info["Id"], info["Name"].lstrip("/")}
+        users = []
+        result = self.run(["docker", "ps", "--all", "--quiet"])
+        for container in result.stdout.split():
+            other = self.inspect(container)
+            if other and other["HostConfig"]["NetworkMode"] in {
+                "container:" + target for target in targets
+            }:
+                users.append(other["Name"].lstrip("/"))
+        return users
+
     def load(self, *, require_running=True):
         if not self.metadata.exists():
-            raise SessionError("Run watod sim setup first.")
+            raise SessionError(
+                "No recorded simulation session. Run watod sim setup; "
+                "if leftover containers block setup, run watod sim stop --verbose first."
+            )
         try:
             self.state = json.loads(self.metadata.read_text())
         except (ValueError, OSError) as error:
@@ -248,6 +363,11 @@ class Session:
         ):
             raise SessionError(
                 "Session configuration changed. Restore the original config and run watod sim stop first."
+            )
+        if require_running and self.state.get("recovered_for_stop"):
+            raise SessionError(
+                "Session ownership was recovered for cleanup only. "
+                "Run watod sim stop, then watod sim setup."
             )
         self.environment["WATOD_SIM_SESSION_ID"] = self.state["session_id"]
         self.environment["WATOD_SIM_REVISION"] = self.state["revision"]
@@ -312,14 +432,40 @@ class Session:
             container = self.state["containers"].get(service)
             if container is None:
                 continue
-            if self.owned(container):
-                self.progress(f"Stopping and removing {service} ({container[:12]})")
-                self.run(
-                    ["docker", "stop", "--time", "15", container],
-                    timeout=25,
-                    capture=not self.verbose,
+            info = self.owned(container)
+            if info:
+                users = (
+                    self.namespace_users(info) if service == "network_namespace" else []
                 )
-                self.run(["docker", "rm", container], capture=not self.verbose)
+                if users:
+                    print(
+                        f"Preserving shared network namespace {container[:12]}; "
+                        f"referenced by {', '.join(users)}.",
+                        file=sys.stderr,
+                    )
+                else:
+                    self.progress(f"Stopping and removing {service} ({container[:12]})")
+                    try:
+                        stopped = self.run(
+                            ["docker", "stop", "--time", "15", container],
+                            timeout=25,
+                            capture=not self.verbose,
+                            check=False,
+                        )
+                        force = stopped.returncode != 0
+                    except SessionError as error:
+                        self.progress(f"Graceful stop failed: {error}")
+                        force = True
+                    if force:
+                        # Expired SLURM cgroups can leave Docker's running state stale.
+                        self.progress(
+                            f"Graceful stop failed; forcing removal of verified {service}"
+                        )
+                        self.owned(container)
+                    self.run(
+                        ["docker", "rm", *(["--force"] if force else []), container],
+                        capture=not self.verbose,
+                    )
             del self.state["containers"][service]
             self.save()
 
@@ -435,7 +581,9 @@ class Session:
             )
         if self.dc("ps", "--all", "--quiet").stdout.strip():
             raise SessionError(
-                f"Unrecorded containers already use Compose project {self.project}; inspect their ownership before setup."
+                f"Unrecorded containers already use Compose project {self.project}. "
+                "Run watod sim stop --verbose to clean verified leftovers, "
+                "then retry watod sim setup."
             )
         base = [self.car_service, "infrastructure_bringup", "sim_session"]
         if self.environment.get("WATCLOUD_MODE") == "true":
@@ -718,7 +866,11 @@ print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
 
     def stop(self):
         self.progress(f"Stopping recorded session in Compose project {self.project}")
-        self.load(require_running=False)
+        if self.metadata.exists():
+            self.load(require_running=False)
+        elif not self.recover_for_stop():
+            print(f"No simulation session containers found for {self.project}.")
+            return
         container = self.state["containers"].get("sim_session")
         info = self.owned(container) if container else None
         if info and info["State"]["Running"]:
