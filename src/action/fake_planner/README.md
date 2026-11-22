@@ -76,7 +76,7 @@ The original private services above remain available. The manager uses the
 aliases `/action/fake_planner/{start_trajectory,stop_trajectory,reset}`.
 
 `/action/fake_planner/status` publishes `ready`, `running`, `stopped`, or `finished`.
-Ready requires fresh odometry. Finished requires driven completion and a stop.
+Ready requires odometry received since reset. Finished requires driven completion and a stop.
 `/sim/reference_path` publishes the full anchored path for preview and scoring.
 Both snapshots are reliable and transient local.
 
