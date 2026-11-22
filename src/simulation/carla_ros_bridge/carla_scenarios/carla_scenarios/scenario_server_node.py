@@ -13,31 +13,34 @@
 # limitations under the License.
 
 import hashlib
-import importlib
 import json
 import math
 import random
-import re
 import threading
 import xml.etree.ElementTree as ET
-
-import yaml
-from ament_index_python.packages import get_package_share_directory
 from pathlib import Path
-from typing import Optional, Dict
-import rclpy
-from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rcl_interfaces.msg import ParameterDescriptor
-from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
-from carla_msgs.msg import ScenarioStatus
-from std_msgs.msg import Bool, Header
-from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
-from std_srvs.srv import SetBool, Trigger
-from rosgraph_msgs.msg import Clock
+from typing import Dict, Optional
 
 import carla
+import rclpy
+from ament_index_python.packages import get_package_share_directory
 from carla_common import connect_carla
-from carla_scenarios.scenario_base import ManifestScenario, ScenarioBase
+from carla_msgs.msg import ScenarioStatus
+from carla_msgs.srv import GetAvailableScenarios, SwitchScenario
+from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rosgraph_msgs.msg import Clock
+from std_msgs.msg import Bool, Header
+from std_srvs.srv import SetBool, Trigger
+
+from carla_scenarios.definitions import (
+    LEGACY_PLAYGROUNDS,
+    load_definition,
+    world_definition,
+)
+from carla_scenarios.scenario_base import ScenarioBase
+from carla_scenarios.worlds.configured_world import ConfiguredWorld
 
 
 def load_map_provenance(map_path, *, required=False):
@@ -483,7 +486,7 @@ class ScenarioServerNode(LifecycleNode):
 
     def _tick_locked(self):
         self._publish_scenario_status()
-        if self.current_scenario and self.collision_publisher:
+        if self.collision_sensor and self.collision_publisher:
             self.collision_publisher.publish(Bool(data=self.collided))
         if self.paused:
             return
@@ -530,7 +533,7 @@ class ScenarioServerNode(LifecycleNode):
                         return response
                 self.paused = request.data
                 held = (
-                    isinstance(self.current_scenario, ManifestScenario)
+                    isinstance(self.current_scenario, ConfiguredWorld)
                     and self.current_scenario.held
                 )
                 self._publish_control_enabled(not self.paused and not held)
@@ -585,64 +588,28 @@ class ScenarioServerNode(LifecycleNode):
         if result is None or not result.success:
             raise RuntimeError("Bridge cleanup failed before world switch")
 
-    def _read_playground(self, name):
-        """Preflight definition, map XML, blueprint and geometry before mutation."""
-        if re.fullmatch(r"[a-z][a-z0-9_]*", name) is None:
-            raise ValueError(f"Invalid playground name: {name}")
-        path = (
-            Path(get_package_share_directory("carla_scenarios"))
-            / "config"
-            / "playgrounds"
-            / f"{name}.yaml"
-        )
-        if not path.is_file():
-            raise ValueError(f"Missing playground definition: {path}")
-        definition = yaml.safe_load(path.read_text())
-        if (
-            not isinstance(definition, dict)
-            or definition.get("version") != 1
-            or definition.get("id") != name
-        ):
-            raise ValueError(f"Invalid version/id in {path}")
-        seed = definition.get("seed", 42)
-        if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
-            raise ValueError(f"seed must be a nonnegative integer in {path}")
-        spawn = definition.get("spawn", {})
-        if not isinstance(spawn, dict):
-            raise ValueError(f"spawn must be a YAML mapping in {path}")
-        for key in ("s_margin_m", "z_offset_m"):
-            value = float(spawn.get(key, 10.0 if key == "s_margin_m" else 0.4))
-            if not math.isfinite(value) or value < 0.0:
-                raise ValueError(
-                    f"spawn.{key} must be finite and nonnegative in {path}"
-                )
-        map_name = definition.get("map", {}).get("xodr")
-        if (
-            not isinstance(map_name, str)
-            or Path(map_name).name != map_name
-            or not map_name.endswith(".xodr")
-        ):
-            raise ValueError(f"Expected map.xodr filename in {path}")
-        map_path = Path(self.get_parameter("xodr_map_directory").value) / map_name
-        try:
+    def _read_playground(self, name, *, kind="playground"):
+        """Preflight installed configuration and assets before changing the world."""
+        directory = Path(get_package_share_directory("carla_scenarios")) / "config"
+        definition = world_definition(directory, kind, name)
+        map_path = None
+        source = None
+        provenance = None
+        if "xodr" in definition["map"]:
+            map_path = (
+                Path(self.get_parameter("xodr_map_directory").value)
+                / definition["map"]["xodr"]
+            )
             source = map_path.read_text(encoding="utf-8")
-        except OSError as error:
-            raise ValueError(
-                f"Map unreadable: {map_path}; provide the converted map and retry open"
-            ) from error
-        document = ET.fromstring(source)
-        if document.tag != "OpenDRIVE" or not document.findall("road"):
-            raise ValueError(f"Invalid OpenDRIVE document: {map_path}")
-        for key in ("required_straight_m", "goal_distance_m"):
-            value = float(definition.get(key, 0.0))
-            if not math.isfinite(value) or value < 0.0:
-                raise ValueError(f"{key} must be finite and nonnegative in {path}")
-        if definition.get("parked"):
-            parked_distance = float(definition["parked"]["distance_m"])
-            if not math.isfinite(parked_distance) or parked_distance <= 0.0:
-                raise ValueError(
-                    f"parked.distance_m must be finite and positive in {path}"
-                )
+            document = ET.fromstring(source)
+            if document.tag != "OpenDRIVE" or not document.findall("road"):
+                raise ValueError(f"Invalid OpenDRIVE document: {map_path}")
+            provenance = load_map_provenance(
+                map_path, required=definition.get("require_map_provenance", False)
+            )
+        weather = definition.get("weather", "ClearNoon")
+        if not hasattr(carla.WeatherParameters, weather):
+            raise ValueError(f"Unknown CARLA weather preset: {weather}")
         self.carla_world = self.carla_client.get_world()
         library = self.carla_world.get_blueprint_library()
         blueprints = [definition.get("ego_blueprint", "vehicle.mini.cooper")]
@@ -653,32 +620,40 @@ class ScenarioServerNode(LifecycleNode):
         for blueprint in blueprints:
             if not library.filter(blueprint):
                 raise ValueError(f"CARLA blueprint unavailable: {blueprint}")
-        provenance = load_map_provenance(
-            map_path, required=definition.get("require_map_provenance", False)
+        world = ConfiguredWorld(
+            definition,
+            map_path.resolve() if map_path else None,
+            held=kind == "scenario",
         )
-        scenario = ManifestScenario(definition, map_path.resolve())
-        scenario.provenance = provenance
-        scenario.logger = self.get_logger()
-        scenario.xodr_map_directory = map_path.parent
-        # Client-side OpenDRIVE parsing proves the selected continuous stretch
-        # without loading a new CARLA world or disturbing the old experiment.
-        waypoint = scenario._spawn_waypoint(carla.Map(name, source))
-        distances = [float(definition.get("goal_distance_m", 0.0))]
-        if definition.get("parked"):
-            distances.append(float(definition["parked"]["distance_m"]))
-        for distance in distances:
-            if distance > 0.0 and len(waypoint.next(distance)) != 1:
-                raise ValueError(
-                    f"Actor or goal at {distance} m leaves the continuous lane in {path}"
-                )
-        return scenario
+        world.provenance = provenance
+        world.logger = self.get_logger()
+        world.xodr_map_directory = Path(self.get_parameter("xodr_map_directory").value)
+        # Validate fixture geometry offline before unloading the current world.
+        if source and definition.get("spawn", {}).get("straight_start"):
+            waypoint = world._spawn_waypoint(carla.Map(name, source))
+            distances = [
+                definition.get("goal_distance_m", 0.0),
+                definition.get("parked", {}).get("distance_m", 0.0),
+            ]
+            for distance in distances:
+                if distance > 0.0 and len(waypoint.next(float(distance))) != 1:
+                    raise ValueError(
+                        f"Actor or goal at {distance} m leaves the continuous lane"
+                    )
+        return world
 
     def prepare_experiment_callback(self, request, response):
         """Load a reviewed playground while holding the ego for ROS readiness."""
         response.previous_scenario = self.current_scenario_name
         try:
             with self.world_lock:
-                scenario = self._read_playground(request.scenario_name)
+                selector = request.scenario_name
+                kind, name = (
+                    selector.split("/", 1)
+                    if "/" in selector
+                    else ("playground", selector)
+                )
+                scenario = self._read_playground(name, kind=kind)
             self._cleanup_bridge()
             with self.world_lock:
                 self._publish_control_enabled(False)
@@ -689,7 +664,8 @@ class ScenarioServerNode(LifecycleNode):
                 seed = int(scenario.definition.get("seed", 42))
                 random.seed(seed)
                 scenario.advance_world = self._advance_world
-                scenario.initialize(self.carla_client)
+                if not scenario.initialize(self.carla_client):
+                    raise RuntimeError("World initialization failed")
                 # Register ownership before setup so partial failures are cleanable.
                 self.current_scenario = scenario
                 if not scenario.setup():
@@ -697,19 +673,20 @@ class ScenarioServerNode(LifecycleNode):
                 self.carla_world = self.carla_client.get_world()
                 self._apply_simulation_settings()
                 self.current_scenario_name = request.scenario_name
-                sensor_bp = self.carla_world.get_blueprint_library().find(
-                    "sensor.other.collision"
-                )
-                self.collision_sensor = self.carla_world.spawn_actor(
-                    sensor_bp, carla.Transform(), attach_to=scenario.ego_vehicle
-                )
-                scenario.owned_actors.append(self.collision_sensor)
-                self.collided = False
-                self.collision_publisher.publish(Bool(data=False))
-                sensor_id = self.collision_sensor.id
-                self.collision_sensor.listen(
-                    lambda event: self._record_collision(sensor_id)
-                )
+                if kind == "scenario":
+                    sensor_bp = self.carla_world.get_blueprint_library().find(
+                        "sensor.other.collision"
+                    )
+                    self.collision_sensor = self.carla_world.spawn_actor(
+                        sensor_bp, carla.Transform(), attach_to=scenario.ego_vehicle
+                    )
+                    scenario.owned_actors.append(self.collision_sensor)
+                    self.collided = False
+                    self.collision_publisher.publish(Bool(data=False))
+                    sensor_id = self.collision_sensor.id
+                    self.collision_sensor.listen(
+                        lambda event: self._record_collision(sensor_id)
+                    )
                 settings = self.carla_world.get_settings()
                 scenario.geometry["settings"] = {
                     "synchronous_mode": settings.synchronous_mode,
@@ -736,6 +713,8 @@ class ScenarioServerNode(LifecycleNode):
                 self.experiment_geometry = scenario.geometry
                 # Ego physics is held; ticks may now populate TF, odometry/sensors.
                 self.paused = False
+                if kind == "playground":
+                    self._publish_control_enabled(True)
                 response.success = True
                 response.message = json.dumps(self.experiment_geometry)
         except Exception as error:
@@ -755,7 +734,7 @@ class ScenarioServerNode(LifecycleNode):
     def hold_callback(self, request, response):
         try:
             with self.world_lock:
-                if not isinstance(self.current_scenario, ManifestScenario):
+                if not isinstance(self.current_scenario, ConfiguredWorld):
                     response.success = False
                     response.message = "No prepared experiment"
                     return response
@@ -772,7 +751,7 @@ class ScenarioServerNode(LifecycleNode):
     def release_callback(self, request, response):
         try:
             with self.world_lock:
-                if not isinstance(self.current_scenario, ManifestScenario):
+                if not isinstance(self.current_scenario, ConfiguredWorld):
                     response.success = False
                     response.message = "No prepared experiment"
                     return response
@@ -804,48 +783,19 @@ class ScenarioServerNode(LifecycleNode):
         return response
 
     def switch_scenario_callback(self, request, response):
-        """Handle switch scenario service request."""
-        self.get_logger().info(
-            f"Received switch_scenario request: {request.scenario_name}"
-        )
-
+        """Keep the legacy service and selectors as aliases for manual worlds."""
         previous = self.current_scenario_name
-
-        # Request lifecycle manager to cleanup managed nodes first
-        if self.prepare_switch_client and self.current_scenario:
-            if self.prepare_switch_client.service_is_ready():
-                self.get_logger().info(
-                    "Requesting lifecycle manager to cleanup nodes..."
-                )
-                try:
-                    result = self.prepare_switch_client.call(Trigger.Request())
-                    if result.success:
-                        self.get_logger().info("Lifecycle manager cleanup complete")
-                    else:
-                        self.get_logger().warn(
-                            f"Lifecycle manager cleanup failed: {result.message}"
-                        )
-                except Exception as e:
-                    self.get_logger().warn(f"Error calling lifecycle manager: {e}")
-            else:
-                self.get_logger().warn(
-                    "Lifecycle manager service not ready, proceeding anyway"
-                )
-        else:
-            self.get_logger().info("No current scenario, skipping lifecycle cleanup")
-
-        self.get_logger().info("Proceeding with scenario load...")
-
-        success = self._load_scenario(request.scenario_name)
-
-        response.success = success
+        try:
+            world = self._read_playground(request.scenario_name)
+            self._cleanup_bridge()
+            with self.world_lock:
+                response.success = self._install_world(world, request.scenario_name)
+        except Exception as error:
+            response.success = False
+            response.message = str(error)
         response.previous_scenario = previous
-        response.message = (
-            f"Switched to {request.scenario_name}"
-            if success
-            else "Failed to switch scenario"
-        )
-
+        if response.success:
+            response.message = f"Switched to {request.scenario_name}"
         return response
 
     def get_scenarios_callback(self, request, response):
@@ -855,19 +805,18 @@ class ScenarioServerNode(LifecycleNode):
         return response
 
     def _discover_scenarios(self):
-        """Discover available scenarios."""
-        builtin_scenarios = {
-            "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
-            "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
-            "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
-            "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
-            "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
-            "carla_scenarios.scenarios.oval_scenario": "Oval OpenDRIVE Map",
-            "carla_scenarios.scenarios.ring_road_scenario": "Ring Road OpenDRIVE Map",
+        directory = Path(get_package_share_directory("carla_scenarios")) / "config"
+        self.available_scenarios = {
+            path.stem: load_definition(directory, "playgrounds", path.stem).get(
+                "description", path.stem
+            )
+            for path in sorted((directory / "playgrounds").glob("*.yaml"))
         }
-        self.available_scenarios.update(builtin_scenarios)
-
-        self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
+        for legacy, name in LEGACY_PLAYGROUNDS.items():
+            self.available_scenarios[legacy] = self.available_scenarios[name]
+        self.get_logger().info(
+            f"Discovered {len(self.available_scenarios)} playground selectors"
+        )
 
     def _unload_scenario(self):
         """Release plugin-owned actors; never sweep unrelated CARLA actors."""
@@ -876,6 +825,7 @@ class ScenarioServerNode(LifecycleNode):
                 self.current_scenario.cleanup()
             self.current_scenario = None
             self.collision_sensor = None
+            self.collided = False
 
     def _load_scenario(self, scenario_module_path: str) -> bool:
         """Serialize manual plugin setup with the world's tick authority."""
@@ -883,65 +833,32 @@ class ScenarioServerNode(LifecycleNode):
             return self._load_scenario_locked(scenario_module_path)
 
     def _load_scenario_locked(self, scenario_module_path: str) -> bool:
-        """Load and initialize a scenario."""
-        # Unload any existing scenario first
-        self._unload_scenario()
-
+        """Resolve old selectors through the same YAML-backed world implementation."""
         try:
-            # Import scenario module
-            # scenario_module_path: e.g. 'carla_scenarios.scenarios.default_scenario'
-            # class_name derived from last part: 'default_scenario' -> 'DefaultScenario'
-            parts = scenario_module_path.rsplit(".", 1)
-            if len(parts) != 2:
-                self.get_logger().error(
-                    f"Invalid scenario path: {scenario_module_path}"
-                )
-                return False
-
-            class_name = parts[1]
-            # Convert module name to class name (e.g., default_scenario -> DefaultScenario)
-            if not class_name[0].isupper():
-                class_name = "".join(
-                    word.capitalize() for word in class_name.split("_")
-                )
-
-            module = importlib.import_module(scenario_module_path)
-            scenario_class = getattr(module, class_name)
-
-            # Instantiate and initialize scenario
-            scenario = scenario_class()
-            scenario.advance_world = self._advance_world
-            scenario.logger = self.get_logger()
-            scenario.xodr_map_directory = Path(
-                self.get_parameter("xodr_map_directory").value
-            )
-            if not scenario.initialize(self.carla_client):
-                self.get_logger().error(
-                    f"Failed to initialize scenario: {scenario_module_path}"
-                )
-                return False
-
-            self.current_scenario = scenario
-            if not scenario.setup():
-                self.get_logger().error(
-                    f"Failed to setup scenario: {scenario_module_path}"
-                )
-                return False
-
-            # Refresh world reference and reapply settings (load_world resets to defaults)
-            self.carla_world = self.carla_client.get_world()
-            self._apply_simulation_settings()
-
-            self.current_scenario = scenario
-            self.current_scenario_name = scenario_module_path
-            self.get_logger().info(f"Loaded scenario: {scenario.get_name()}")
-            return True
-
-        except Exception as e:
+            world = self._read_playground(scenario_module_path)
+            return self._install_world(world, scenario_module_path)
+        except Exception as error:
             self.get_logger().error(
-                f"Error loading scenario {scenario_module_path}: {e}"
+                f"Error loading playground {scenario_module_path}: {error}"
             )
             return False
+
+    def _install_world(self, world, selector):
+        self._publish_control_enabled(False)
+        self.paused = True
+        self._unload_scenario()
+        self.current_scenario_name = ""
+        random.seed(world.definition.get("seed", 42))
+        world.advance_world = self._advance_world
+        self.current_scenario = world
+        if not world.initialize(self.carla_client) or not world.setup():
+            raise RuntimeError(f"Failed to set up playground {selector}")
+        self.carla_world = self.carla_client.get_world()
+        self._apply_simulation_settings()
+        self.current_scenario_name = selector
+        self.paused = False
+        self._publish_control_enabled(True)
+        return True
 
 
 def main(args=None):

@@ -25,7 +25,6 @@ import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path
 import shlex
 import shutil
 import socket
@@ -33,7 +32,7 @@ import subprocess
 import sys
 import time
 import uuid
-
+from pathlib import Path
 
 # A fresh, short-lived ROS client avoids relying on a host ROS installation or
 # parsing ros2 CLI repr output. Arguments are passed separately, never via eval.
@@ -101,12 +100,27 @@ PRESETS = {
         "frame_id:=map start_on_activate:=false",
     },
     "autonomy": {
-        "sim_action": "ros2 launch action_bringup action_sim.launch.yaml "
-        "stop_distance:=2.0 max_speed:=3.0",
+        "sim_action": "ros2 launch action_bringup action_sim.launch.yaml",
         "sim_world": "ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml "
-        "use_eidos:=false map:=oval enable_overtaking:=false",
+        "use_eidos:=false enable_overtaking:=false",
     },
 }
+
+
+def preset_commands(definition):
+    """Launch only the reviewed stack, with inputs from the installed scenario."""
+    stack = definition["stack"]
+    inputs = definition["inputs"]
+    commands = dict(PRESETS[stack])
+    if stack == "controller_pure_pursuit":
+        commands["sim_action"] += " maneuver:=" + shlex.quote(inputs["maneuver"])
+    else:
+        commands["sim_action"] += (
+            f" stop_distance:={float(inputs['stop_distance_m'])}"
+            f" max_speed:={float(inputs['max_speed_mps'])}"
+        )
+        commands["sim_world"] += " map:=" + shlex.quote(inputs["map"])
+    return commands
 
 
 class SessionError(RuntimeError):
@@ -558,12 +572,11 @@ class Session:
         script = """
 import json, sys
 from pathlib import Path
-import yaml
 from ament_index_python.packages import get_package_share_directory
+from carla_scenarios.definitions import load_definition
 
 base = Path(get_package_share_directory("carla_scenarios")) / "config"
-definition = yaml.safe_load((base / "scenarios" / (sys.argv[1] + ".yaml")).read_text())
-print(json.dumps({"stack": definition["stack"]}))
+print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
 """
         result = self.run(
             [
@@ -578,7 +591,8 @@ print(json.dumps({"stack": definition["stack"]}))
                 name,
             ]
         )
-        stack = json.loads(result.stdout)["stack"]
+        definition = json.loads(result.stdout)
+        stack = definition["stack"]
         if stack not in PRESETS:
             raise SessionError(f"Unsupported stack preset {stack!r} in {path}.")
         self.check_images(list(PRESETS[stack]))
@@ -631,7 +645,7 @@ print(json.dumps({"stack": definition["stack"]}))
         except BaseException:
             self.remove(["sim_action", "sim_world"])
             raise
-        return stack
+        return definition
 
     def open(self, kind, name):
         snapshot = self.rpc("status", timeout=15)
@@ -640,7 +654,7 @@ print(json.dumps({"stack": definition["stack"]}))
                 f"State is {snapshot.get('state')}. Run watod sim close first."
             )
         started = time.monotonic()
-        stack = self.preflight(kind, name)
+        definition = self.preflight(kind, name)
         try:
             effective_images = {}
             for service, container in self.state["containers"].items():
@@ -654,11 +668,11 @@ print(json.dumps({"stack": definition["stack"]}))
             snapshot = self.rpc("open", f"{kind}/{name}", timeout=150)
             self.remove(["sim_action", "sim_world"])
             if kind == "scenario":
-                if snapshot.get("stack") != stack:
+                if snapshot.get("stack") != definition["stack"]:
                     raise SessionError(
                         "Installed definition changed during open; close and retry."
                     )
-                for service, command in PRESETS[stack].items():
+                for service, command in preset_commands(definition).items():
                     self.start(service, command=command)
             snapshot = self.rpc(
                 "ready",

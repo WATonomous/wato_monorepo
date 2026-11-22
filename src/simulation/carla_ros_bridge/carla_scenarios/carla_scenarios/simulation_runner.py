@@ -22,7 +22,6 @@ import copy
 import json
 import math
 import os
-import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -36,7 +35,8 @@ from geometry_msgs.msg import PointStamped, PoseStamped
 from lanelet_msgs.msg import RouteAhead
 from lifecycle_msgs.msg import State, Transition
 from lifecycle_msgs.srv import ChangeState, GetState
-from nav_msgs.msg import OccupancyGrid, Odometry, Path as RosPath
+from nav_msgs.msg import OccupancyGrid, Odometry
+from nav_msgs.msg import Path as RosPath
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -49,6 +49,7 @@ from tf2_ros import Buffer, TransformException, TransformListener
 from vision_msgs.msg import Detection3DArray
 from wato_trajectory_msgs.msg import Trajectory
 
+from carla_scenarios.definitions import load_definition
 
 OUTCOME_CODES = {"pass": 0, "assertion_failure": 1, "data_error": 2, "interrupted": 3}
 STACK_NODES = {
@@ -81,106 +82,6 @@ def yaw(rotation):
         2.0 * (rotation.w * rotation.z + rotation.x * rotation.y),
         1.0 - 2.0 * (rotation.y * rotation.y + rotation.z * rotation.z),
     )
-
-
-def load_definition(directory, category, name):
-    """Resolve only installed, named definitions; reject malformed manifests early."""
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
-        raise ValueError(f"Invalid {category} name {name!r}; use watod sim list.")
-    path = directory / category / f"{name}.yaml"
-    if not path.is_file():
-        raise ValueError(f"Missing {category} definition: {path}; use watod sim list.")
-    with path.open(encoding="utf-8") as stream:
-        definition = yaml.safe_load(stream)
-    if not isinstance(definition, dict):
-        raise ValueError(f"Expected a YAML mapping in {path}")
-    if definition.get("version") != 1 or definition.get("id") != name:
-        raise ValueError(f"Expected version: 1 and id: {name} in {path}")
-    if category == "scenarios":
-        stack = definition.get("stack")
-        completion = definition.get("completion")
-        if (stack, completion) not in {
-            ("controller_pure_pursuit", "maneuver_finished"),
-            ("autonomy", "stopped_behind_actor"),
-        }:
-            raise ValueError(f"Unsupported stack/completion in {path}")
-        if (
-            stack == "controller_pure_pursuit"
-            and definition.get("maneuver") != "steady_state_slalom"
-        ):
-            raise ValueError(
-                "V1 controller preset requires shipped steady_state_slalom"
-            )
-        events = definition.get("events")
-        if not isinstance(events, list) or not events:
-            raise ValueError(f"events must be a nonempty ordered YAML sequence: {path}")
-        previous = -1.0
-        for event in events:
-            if not isinstance(event, dict) or set(event) != {"when", "do"}:
-                raise ValueError(f"Each event needs exactly when/do: {path}")
-            trigger = event["when"]
-            if trigger == "play":
-                at = 0.0
-            elif isinstance(trigger, dict) and set(trigger) == {"elapsed_s"}:
-                at = trigger["elapsed_s"]
-            else:
-                raise ValueError(f"Unsupported event trigger: {trigger}")
-            if (
-                isinstance(at, bool)
-                or not isinstance(at, (int, float))
-                or not math.isfinite(at)
-                or at < 0.0
-                or at < previous
-            ):
-                raise ValueError(
-                    "Event timestamps must be finite, nonnegative and ordered"
-                )
-            previous = at
-            if event["do"] not in {"start_maneuver", "begin_evaluation"}:
-                raise ValueError(f"Unsupported reviewed action: {event['do']}")
-            if event["do"] == "start_maneuver" and stack != "controller_pure_pursuit":
-                raise ValueError("start_maneuver requires controller_pure_pursuit")
-        for section in ("deadlines", "thresholds"):
-            values = definition.get(section)
-            if not isinstance(values, dict) or not values:
-                raise ValueError(f"Missing {section}: {path}")
-            for key, value in values.items():
-                if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    raise ValueError(f"{section}.{key} must be numeric")
-                if not math.isfinite(value) or value <= 0:
-                    raise ValueError(f"{section}.{key} must be finite and positive")
-        required_deadlines = {
-            "readiness_s",
-            "execution_s",
-            "stalled_clock_s",
-            "first_output_s",
-            "data_freshness_s",
-        }
-        required_thresholds = {"min_progress_m", "min_samples"}
-        required_thresholds |= (
-            {"lateral_tracking_rmse_m", "max_lateral_error_m"}
-            if stack == "controller_pure_pursuit"
-            else {
-                "min_clearance_m",
-                "max_clearance_m",
-                "stopped_speed_mps",
-                "stopped_duration_s",
-            }
-        )
-        if not required_deadlines <= definition["deadlines"].keys():
-            raise ValueError(f"Missing deadline fields in {path}")
-        if not required_thresholds <= definition["thresholds"].keys():
-            raise ValueError(f"Missing metric thresholds in {path}")
-        if previous > definition["deadlines"]["execution_s"]:
-            raise ValueError("An event falls after the execution deadline")
-        if (
-            stack == "autonomy"
-            and definition["thresholds"]["min_clearance_m"]
-            >= definition["thresholds"]["max_clearance_m"]
-        ):
-            raise ValueError("min_clearance_m must be below max_clearance_m")
-        load_definition(directory, "playgrounds", definition.get("playground", ""))
-    return definition
 
 
 class InvalidTransition(ValueError):
@@ -262,6 +163,7 @@ class SimulationRunner(Node):
         self.goal_pub = self.create_publisher(PointStamped, "/goal_point", 10)
         self.speed_pub = self.create_publisher(Float64, "/sim/speed_mps", 10)
         self.tf_buffer = Buffer()
+        # Retain the listener so its TF subscriptions stay alive for the session.
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self._service_clients = {}
         self.create_subscription(
@@ -334,7 +236,7 @@ class SimulationRunner(Node):
         self.sim_time = current
 
     def _sample(self, key, message):
-        if not self.accepting_samples:
+        if not self.accepting_samples or (self.kind == "playground" and key != "odom"):
             return
         stamp = seconds(message.header.stamp)
         # Reject retained pre-reset samples and observations from another clock epoch.
@@ -360,7 +262,8 @@ class SimulationRunner(Node):
                 )
             ):
                 return
-            self.speed_pub.publish(Float64(data=math.hypot(velocity.x, velocity.y)))
+            if self.kind == "scenario":
+                self.speed_pub.publish(Float64(data=math.hypot(velocity.x, velocity.y)))
         self.samples[key] = (message, time.monotonic(), stamp)
         if key == "trajectory" and message.points:
             if (
@@ -375,7 +278,7 @@ class SimulationRunner(Node):
                     self.command_while_paused = True
 
     def _reference(self, message):
-        if not self.accepting_samples:
+        if self.kind != "scenario" or not self.accepting_samples:
             return
         if message.header.frame_id == "map" and len(message.poses) >= 2:
             reference = [
@@ -385,14 +288,14 @@ class SimulationRunner(Node):
                 self.reference = reference
 
     def _planner_status(self, message):
-        if not self.accepting_samples:
+        if self.kind != "scenario" or not self.accepting_samples:
             return
         self.planner_status = message.data
         if message.data == "finished" and self.state == "RUNNING":
             self.maneuver_finished_observed = True
 
     def _collision(self, message):
-        if not self.accepting_samples:
+        if self.kind != "scenario" or not self.accepting_samples:
             return
         self.samples["collision"] = (message, time.monotonic(), self.sim_time)
         self.collision = self.collision or message.data
@@ -492,11 +395,12 @@ class SimulationRunner(Node):
             if self.result_directory
             else None,
             "reasons": self.reasons,
-            "test_timeout_s": self.definition.get("deadlines", {}).get(
-                "execution_s", 90.0
-            )
-            * 5
-            + 180.0,
+            "test_timeout_s": (
+                self.definition.get("deadlines", {}).get("execution_s", 90.0) * 5
+                + 180.0
+                if self.kind == "scenario"
+                else None
+            ),
             "wall_heartbeat_utc": utc_now(),
         }
 
@@ -524,7 +428,7 @@ class SimulationRunner(Node):
             )
 
     def _open(self, request, response):
-        opened_attempt = False
+        preparing_world = False
         try:
             self._require("open", {"IDLE"})
             if not self.server_active or not self._world_endpoints_ready():
@@ -542,19 +446,26 @@ class SimulationRunner(Node):
             )
             # Validate everything local before creating an attempt or mutating the world.
             self.kind, self.experiment, self.definition = kind, name, definition
-            self._new_attempt()
-            opened_attempt = True
+            if kind == "scenario":
+                self._new_attempt()
+            else:
+                self._clear_attempt_state()
+            preparing_world = True
             self._prepare_world()
             return self._reply(response)
         except Exception as error:
-            if opened_attempt and self.state == "PREPARING":
+            if (
+                preparing_world
+                and self.kind == "scenario"
+                and self.state == "PREPARING"
+            ):
                 self._finish("data_error", [str(error)])
             response.success = False
             response.message = str(error)
             return response
 
     def _new_attempt(self):
-        self.accepting_samples = False
+        self._clear_attempt_state()
         run_id = (
             datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
             + "_"
@@ -563,8 +474,16 @@ class SimulationRunner(Node):
         result_directory = Path(self.get_parameter("results_directory").value) / run_id
         result_directory.mkdir(parents=True, exist_ok=False)
         self.run_id, self.result_directory = run_id, result_directory
-        self.state = "PREPARING"
         self.started_utc = utc_now()
+        self._write_configuration()
+
+    def _clear_attempt_state(self):
+        # Fence callbacks before clearing observations from the previous world.
+        self.accepting_samples = False
+        self.state = "PREPARING"
+        self.run_id = ""
+        self.result_directory = None
+        self.started_utc = ""
         self.outcome, self.reasons = None, []
         self.events, self.next_event = [], 0
         self.started_sim, self.elapsed_s = None, 0.0
@@ -581,19 +500,13 @@ class SimulationRunner(Node):
         self.samples.clear()
         self.world = {}
         self.tf_buffer.clear()
-        self._write_configuration()
         self.actual_path = RosPath()
         self.actual_path.header.frame_id = "map"
         self.path_pub.publish(self.actual_path)
 
     def _prepare_world(self):
-        name = (
-            self.definition["playground"]
-            if self.kind == "scenario"
-            else self.experiment
-        )
         request = SwitchScenario.Request()
-        request.scenario_name = name
+        request.scenario_name = f"{self.kind}/{self.experiment}"
         result = self._call(
             SwitchScenario,
             "/carla/scenario_server/prepare_experiment",
@@ -610,11 +523,14 @@ class SimulationRunner(Node):
         self.samples.clear()
         self.collision = False
         self.accepting_samples = True
-        self._hold()
-        self._pause_world(False)
-        self._write_configuration()
+        if self.kind == "scenario":
+            self._hold()
+            self._pause_world(False)
+            self._write_configuration()
 
     def _write_configuration(self):
+        if self.kind != "scenario" or self.result_directory is None:
+            return
         configuration = {
             "run_id": self.run_id,
             "session_id": self.get_parameter("session_id").value,
@@ -642,7 +558,7 @@ class SimulationRunner(Node):
             getattr(self, f"_do_{command}")()
             return self._reply(response)
         except Exception as error:
-            if isinstance(error, InvalidTransition):
+            if isinstance(error, InvalidTransition) or self.kind != "scenario":
                 pass
             elif command in {"ready", "reset"} and self.state == "PREPARING":
                 self._finish("data_error", [str(error)])
@@ -684,6 +600,12 @@ class SimulationRunner(Node):
                     self._publish_goal()
                     goal_sent = True
             if pending is None:
+                if self.kind == "playground":
+                    # Manual worlds keep ticking; only scored scenarios wait for play.
+                    self.accepting_samples = False
+                    self.samples.clear()
+                    self.state = "RUNNING"
+                    return
                 self._pause_world(True)
                 # No scenario time has elapsed yet; setup ticks are excluded.
                 self.state = "READY"
@@ -723,17 +645,6 @@ class SimulationRunner(Node):
             return "/clock is missing or stalled"
         if not self._fresh("odom"):
             return "fresh /ego/odom is missing"
-        try:
-            odometry = self.samples["odom"][0]
-            x, y, _ = self._ego_pose(odometry)
-            velocity = odometry.twist.twist.linear
-            if math.hypot(velocity.x, velocity.y) > 0.1:
-                return "ego must be stationary during preparation"
-            initial = self.world.get("ego", {})
-            if math.hypot(x - initial.get("x", x), y - initial.get("y", y)) > 0.5:
-                return "ego moved away from its initial spawn during preparation"
-        except (TransformException, ValueError) as error:
-            return f"map-frame ego transform: {error}"
         # Freeze only after all ego-dependent bridge nodes have completed their
         # configure-time sensor ticks. Localization becoming active is not enough.
         for node in (
@@ -749,6 +660,17 @@ class SimulationRunner(Node):
                 return str(error)
         if self.kind == "playground":
             return None
+        try:
+            odometry = self.samples["odom"][0]
+            x, y, _ = self._ego_pose(odometry)
+            velocity = odometry.twist.twist.linear
+            if math.hypot(velocity.x, velocity.y) > 0.1:
+                return "ego must be stationary during preparation"
+            initial = self.world.get("ego", {})
+            if math.hypot(x - initial.get("x", x), y - initial.get("y", y)) > 0.5:
+                return "ego moved away from its initial spawn during preparation"
+        except (TransformException, ValueError) as error:
+            return f"map-frame ego transform: {error}"
         for node in STACK_NODES[self.definition["stack"]]:
             try:
                 if self._node_state(node) != State.PRIMARY_STATE_ACTIVE:
@@ -799,13 +721,12 @@ class SimulationRunner(Node):
         )
 
     def _do_play(self):
-        self._require("play", {"READY"})
-        if self.kind != "scenario":
-            # Playgrounds remain available for independently launched modules.
-            self._call(Trigger, "/carla/scenario_server/release")
-            self._pause_world(False)
-            self.state = "RUNNING"
+        if self.kind == "playground":
+            self._require("play", {"RUNNING", "PAUSED"})
+            if self.state == "PAUSED":
+                self._do_resume()
             return
+        self._require("play", {"READY"})
         self.started_sim = self.sim_time
         self.started_wall = time.monotonic()
         self.last_clock_wall = self.started_wall
@@ -820,6 +741,8 @@ class SimulationRunner(Node):
         self._require("pause", {"RUNNING"})
         self._pause_world(True)
         self.state = "PAUSED"
+        if self.kind == "playground":
+            return
         self.pause_started_wall = time.monotonic()
         self.command_while_paused = False
         self.events.append(
@@ -828,6 +751,10 @@ class SimulationRunner(Node):
 
     def _do_resume(self):
         self._require("resume", {"PAUSED"})
+        if self.kind == "playground":
+            self._pause_world(False)
+            self.state = "RUNNING"
+            return
         if self.command_while_paused:
             raise RuntimeError(
                 "Trajectory commands were published while physics was paused; run watod sim reset."
@@ -842,15 +769,22 @@ class SimulationRunner(Node):
 
     def _do_stop(self):
         self._require("stop", {"READY", "RUNNING", "PAUSED", "PREPARING"})
+        if self.kind == "playground":
+            self._pause_world(True)
+            self.state = "PAUSED"
+            return
         self._finish("interrupted", ["Stopped by operator"])
 
     def _do_close(self):
         if self.state == "IDLE":
             return
-        if self.outcome is None:
+        if self.kind == "scenario" and self.outcome is None:
             self._finish("interrupted", ["Experiment closed by operator"])
         self._call(Trigger, "/carla/scenario_server/close_experiment")
         self.state = "IDLE"
+        self.run_id = ""
+        self.result_directory = None
+        self.outcome = None
         self.kind = self.experiment = ""
         self.definition = {}
         self.accepting_samples = False
@@ -858,6 +792,11 @@ class SimulationRunner(Node):
 
     def _do_reset(self):
         self._require("reset", {"READY", "RUNNING", "PAUSED", "FINISHED"})
+        if self.kind == "playground":
+            self._clear_attempt_state()
+            self._prepare_world()
+            self._do_ready()
+            return
         if self.outcome is None:
             self._finish("interrupted", ["Reset by operator"])
         # Deactivate and clean before reloading actors: no queued command may reach
@@ -1233,7 +1172,7 @@ class SimulationRunner(Node):
 
     def _finish(self, outcome, reasons):
         """Always save an outcome, including setup errors and operator interruption."""
-        if self.outcome is not None:
+        if self.kind != "scenario" or self.outcome is not None:
             return
         self.outcome, self.reasons, self.state = outcome, list(reasons), "FINISHED"
         try:
@@ -1280,7 +1219,7 @@ def main(args=None):
     try:
         executor.spin()
     except KeyboardInterrupt:
-        if node.state != "IDLE" and node.outcome is None:
+        if node.kind == "scenario" and node.state != "IDLE" and node.outcome is None:
             node._finish("interrupted", ["Runner shutdown"])
     finally:
         executor.shutdown()

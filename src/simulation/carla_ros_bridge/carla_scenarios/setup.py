@@ -13,7 +13,7 @@
 # limitations under the License.
 from glob import glob
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 package_name = "carla_scenarios"
 
@@ -38,7 +38,7 @@ setup(
     zip_safe=True,
     maintainer="WATonomous",
     maintainer_email="hello@watonomous.ca",
-    description="Scenario plugin system and scenario server node",
+    description="YAML playgrounds, reusable CARLA worlds and scored simulation scenarios",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

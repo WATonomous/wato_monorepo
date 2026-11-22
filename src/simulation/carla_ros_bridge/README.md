@@ -53,7 +53,7 @@ See [carla_bringup](carla_bringup/README.md) for configuration options.
 | Package | Description |
 |---------|-------------|
 | [carla_bringup](carla_bringup/README.md) | Launch files and centralized configuration |
-| [carla_scenarios](carla_scenarios/README.md) | Scenario server and built-in scenarios (traffic, weather, ego spawn) |
+| [carla_scenarios](carla_scenarios/README.md) | YAML playgrounds, shared world setup and scored scenarios |
 | [carla_lifecycle](carla_lifecycle/README.md) | Lifecycle manager for coordinated node startup/shutdown |
 | [carla_perception](carla_perception/README.md) | Sensor publishers (camera, LiDAR, bounding boxes) |
 | [carla_localization](carla_localization/README.md) | Ground truth TF from CARLA (map → odom → base_link) |
@@ -66,7 +66,7 @@ See [carla_bringup](carla_bringup/README.md) for configuration options.
 
 ## Architecture
 
-```
+```text
 ┌─────────────────┐     subscribes to      ┌──────────────────┐
 │ scenario_server │◄─────────────────────── │ lifecycle_manager │
 │  (loads maps,   │     scenario_status    │  (coordinates     │
@@ -91,12 +91,12 @@ The `scenario_server` owns the CARLA connection and coordinates with `lifecycle_
 
 Once the bridge is running, all nodes start automatically and connect to CARLA. Use ROS2 services to control the simulation at runtime.
 
-### Switching Scenarios
+### Switching Manual Playgrounds
 
-Change maps, traffic density, or weather without restarting:
+The legacy ROS services below switch manual worlds without scoring. Use `watod sim open scenario NAME` for an automated test with readiness, evaluation and results.
 
 ```bash
-# List available scenarios
+# List manual worlds (legacy service name retained)
 ros2 service call /carla/scenario_server/get_available_scenarios carla_msgs/srv/GetAvailableScenarios
 
 # Switch to heavy traffic

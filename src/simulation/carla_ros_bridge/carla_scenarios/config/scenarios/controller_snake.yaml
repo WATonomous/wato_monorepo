@@ -1,9 +1,8 @@
 ---
 version: 1
 id: controller_snake
-playground: snake_straight
+playground: oval
 stack: controller_pure_pursuit
-maneuver: steady_state_slalom
 events:
   - when: play
     do: start_maneuver
@@ -19,5 +18,18 @@ thresholds:
   max_lateral_error_m: 1.5
   min_progress_m: 65.0
   min_samples: 30
-# Provisional limits require the operator's measured adaptive pure pursuit baseline.
-metrics: [lateral_tracking_rmse_m, max_lateral_error_m, completed]
+metrics:
+  - lateral_tracking_rmse_m
+  - max_lateral_error_m
+  - completed
+setup:
+  seed: 42
+  ego_blueprint: vehicle.mini.cooper
+  spawn:
+    straight_start: true
+    s_margin_m: 10.0
+    z_offset_m: 0.4
+  required_straight_m: 82.0
+  goal_distance_m: 80.0
+inputs:
+  maneuver: steady_state_slalom

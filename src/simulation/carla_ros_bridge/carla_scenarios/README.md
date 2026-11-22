@@ -1,56 +1,72 @@
-# carla_scenarios
+# CARLA playgrounds and scenarios
 
-Scenario management for CARLA simulation.
+Playgrounds are manual development worlds. Opening one loads its map, ego,
+traffic, weather and bridge, and leaves physics running. Launch application
+nodes yourself. No stack, scored attempt, evaluator or result recorder starts.
+World pause/resume and close remain available.
 
-The `scenario_server` is the central coordinator for the CARLA simulation. It connects to the CARLA server, configures simulation timing settings, and loads scenarios that define the world state - which map to use, where to spawn the ego vehicle, and what traffic to generate.
+Scenarios are repeatable tests. They select a playground, setup overrides,
+application inputs, stack, ordered events, deadlines, completion criteria and
+thresholds. The runner prepares the complete stack, controls execution and
+writes evaluation results. Both shipped scenarios use adaptive pure pursuit.
 
-When a scenario is switched via the `switch_scenario` service, the server first notifies the `lifecycle_manager` to clean up all managed nodes, then unloads the current scenario (destroying all actors), and finally loads the new scenario. This triggers the lifecycle manager to bring nodes back up with the new world state.
-
-The server also publishes `/clock` from CARLA's simulation time.
-
-## Nodes
-
-### scenario_server
-
-```bash
-ros2 run carla_scenarios scenario_server
+```text
+config/playgrounds/     Public manual worlds, including traffic variants
+config/scenarios/       controller_snake and parked_car_straight
+carla_scenarios/worlds/  Shared CARLA world setup
+carla_scenarios/definitions.py  YAML loading and legacy selector aliases
 ```
 
-**Publications:** `scenario_status` (`carla_msgs/ScenarioStatus`), `/clock` (`rosgraph_msgs/Clock`)
+## Commands
 
-**Services:** `switch_scenario` (`carla_msgs/SwitchScenario`), `get_available_scenarios` (`carla_msgs/GetAvailableScenarios`)
-
-**Parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `carla_host` | string | `localhost` | CARLA server hostname |
-| `carla_port` | int | `2000` | CARLA server port |
-| `carla_timeout` | double | `60.0` | Connection timeout in seconds; allows OpenDRIVE world generation to finish |
-| `initial_scenario` | string | `carla_scenarios.scenarios.default_scenario` | Scenario module path to load on startup |
-| `xodr_map_directory` | string | `/opt/watonomous/maps/xodr` | Directory containing OpenDRIVE maps used by scenarios |
-| `carla_fps` | double | `60.0` | Simulation FPS (sets `fixed_delta_seconds`) |
-| `synchronous_mode` | bool | `false` | Server waits for client tick (requires `world.tick()` calls) |
-| `no_rendering_mode` | bool | `false` | Disable rendering for faster simulation |
-| `substepping` | bool | `true` | Enable physics substepping |
-| `max_substep_delta_time` | double | `0.01` | Max physics substep time in seconds |
-| `max_substeps` | int | `10` | Max physics substeps per frame |
-| `lifecycle_manager_name` | string | `carla_lifecycle_manager` | Name of the lifecycle manager node |
-
-See [CARLA synchrony and time-step docs](https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/) for details on timing parameters.
-
-## Built-in Scenarios
-
-- `carla_scenarios.scenarios.empty_scenario` - Ego vehicle only, no NPCs
-- `carla_scenarios.scenarios.default_scenario` - Ego + 20 vehicles + 40 pedestrians
-- `carla_scenarios.scenarios.light_traffic_scenario` - Ego + 5 vehicles + 10 pedestrians
-- `carla_scenarios.scenarios.heavy_traffic_scenario` - Ego + 50 vehicles + 100 pedestrians
-- `carla_scenarios.scenarios.oval_scenario` - Loads `oval.xodr` from `xodr_map_directory` and spawns the ego vehicle
-
-After converting `maps/osm/oval.osm` to `maps/xodr/oval.xodr`, switch to
-the oval scenario with:
+Run on the host with prepared module images:
 
 ```bash
-ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
-  "{scenario_name: 'carla_scenarios.scenarios.oval_scenario'}"
+watod sim list
+watod sim setup --verbose
+watod sim open playground town10hd_default
+# Launch your own ROS application nodes; no sim play is required.
+watod sim pause
+watod sim resume
+watod sim close
+watod sim open scenario controller_snake
+watod sim play
+watod sim reset
+watod sim close
+watod sim test parked_car_straight
+watod sim stop --verbose
 ```
+
+Results are created only for scenarios under `.cache/watod-sim/results/`.
+`test` saves its outcome and closes the experiment while keeping the session.
+`stop` removes recorded session containers and preserves maps, caches and results.
+Image builds and runtime acceptance are operator tasks.
+
+## Add a definition
+
+Add a version-1 YAML file with an `id` matching its filename. A playground
+selects `map.town` or `map.xodr`, an ego blueprint, spawn settings, weather, seed
+and traffic. Town traffic variants share one implementation; oval and ring road
+share OpenDRIVE loading. Custom traffic props are configured under `traffic.props`.
+
+A scenario references `playground`, puts test-only spawn/actor settings under
+`setup`, selects a reviewed `stack` and its `inputs`, and declares `events`,
+`deadlines`, `completion`, `thresholds` and `metrics`. Keep fixtures out of the
+public playground catalog. Add reusable CARLA operations under `worlds/` only
+when the existing primitives cannot express the world.
+
+`setup.py` installs both catalogs under the package share directory and includes
+`worlds` in the Python package. Rebuild the affected module images after edits.
+Only `scenario_server` ticks CARLA and publishes `/clock`; worlds request setup
+ticks through it. Cleanup releases owned actors, never a global actor sweep.
+
+## Compatibility
+
+The `scenario_server`, `simulation_runner`, existing ROS service names and
+`initial_scenario` launch parameter remain. The seven historical selectors
+`carla_scenarios.scenarios.{default,light_traffic,heavy_traffic,empty,custom,oval,ring_road}_scenario`
+and their short forms resolve explicitly to the YAML playgrounds. Their traffic,
+weather and spawn settings are preserved; the old Python catalog is removed.
+
+The server accepts both `playground/NAME` and `scenario/NAME` through
+`prepare_experiment`; a bare legacy selector remains a manual world request.

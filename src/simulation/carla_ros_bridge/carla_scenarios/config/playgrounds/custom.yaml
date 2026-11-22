@@ -1,0 +1,20 @@
+---
+version: 1
+id: custom
+map:
+  town: Town10HD_Opt
+seed: 42
+ego_blueprint: vehicle.mini.cooper
+spawn:
+  index: 10
+weather: ClearNoon
+traffic:
+  vehicles: 10
+  pedestrians: 20
+  pedestrian_crossing_factor: 0.1
+  props:
+    count: 8
+    blueprints:
+      - static.prop.trafficcone*
+      - static.prop.streetbarrier*
+description: Custom Scenario

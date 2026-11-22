@@ -11,15 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Base class for CARLA scenario plugins."""
+"""Reusable CARLA world primitives and scoped actor ownership."""
 
-import hashlib
-import math
 import random
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 try:
     import carla
@@ -28,7 +26,7 @@ except ImportError:
 
 
 class ScenarioBase(ABC):
-    """Abstract base class for scenario plugins."""
+    """Shared interface for CARLA world implementations."""
 
     def __init__(self):
         self.client: Optional["carla.Client"] = None
@@ -420,35 +418,22 @@ class ScenarioBase(ABC):
 
     @abstractmethod
     def get_name(self) -> str:
-        """Return scenario name."""
+        """Return the world identifier."""
         pass
 
     @abstractmethod
     def get_description(self) -> str:
-        """Return scenario description."""
+        """Return the world description."""
         pass
 
     @abstractmethod
     def initialize(self, client: "carla.Client") -> bool:
-        """
-        Initialize scenario with CARLA client.
-
-        Args:
-            client: CARLA client instance
-
-        Returns:
-            True if initialization successful, False otherwise
-        """
+        """Connect this world to the supplied CARLA client."""
         pass
 
     @abstractmethod
     def setup(self) -> bool:
-        """
-        Set up CARLA world for this scenario.
-
-        Returns:
-            True if setup successful, False otherwise
-        """
+        """Load world content and register every spawned actor for cleanup."""
         pass
 
     def execute(self) -> None:
@@ -477,178 +462,3 @@ class ScenarioBase(ABC):
             raise RuntimeError(
                 f"Failed to destroy {len(remaining)} owned actors; retry close"
             )
-
-
-class ManifestScenario(ScenarioBase):
-    """Reviewed YAML playground primitive, using the same converted map as ROS.
-
-    Geometry returned to the runner is always in the ROS map frame. CARLA uses
-    left-handed coordinates, so both y and heading change sign at this boundary.
-    """
-
-    def __init__(self, definition, xodr_path):
-        super().__init__()
-        self.definition = definition
-        self.xodr_path = xodr_path
-        self.ego_vehicle = None
-        self.parked_vehicle = None
-        self.geometry = {}
-        self.held = True
-
-    def get_name(self):
-        return self.definition["id"]
-
-    def get_description(self):
-        return f"YAML playground {self.get_name()}"
-
-    def initialize(self, client):
-        return self._initialize_carla(client)
-
-    @staticmethod
-    def _actor_geometry(actor):
-        transform = actor.get_transform()
-        bounds = actor.bounding_box
-        # A blueprint's bounding box need not be centered at the actor origin.
-        return {
-            "x": transform.location.x,
-            "y": -transform.location.y,
-            "z": transform.location.z,
-            "yaw": -math.radians(transform.rotation.yaw),
-            "length_m": 2.0 * bounds.extent.x,
-            "width_m": 2.0 * bounds.extent.y,
-            "center_offset_x_m": bounds.location.x,
-            "center_offset_y_m": -bounds.location.y,
-            "actor_id": actor.id,
-            "blueprint": actor.type_id,
-        }
-
-    def _spawn_waypoint(self, carla_map=None):
-        spawn = self.definition.get("spawn", {})
-        carla_map = carla_map or self.world.get_map()
-        required = float(self.definition.get("required_straight_m", 0.0))
-        margin = float(spawn.get("s_margin_m", 10.0))
-        if spawn.get("straight_start"):
-            # Fixed map content gives the same ordered candidates on every run.
-            # Verify a continuous lane rather than assuming a road ID or heading.
-            candidates = sorted(
-                carla_map.generate_waypoints(2.0),
-                key=lambda wp: (wp.road_id, wp.lane_id, wp.s),
-            )
-            for candidate in candidates:
-                if candidate.is_junction:
-                    continue
-                advanced = candidate.next(margin)
-                if len(advanced) != 1:
-                    continue
-                waypoint = advanced[0]
-                heading = math.radians(waypoint.transform.rotation.yaw)
-                valid = True
-                for distance in range(2, int(math.ceil(required)) + 2, 2):
-                    ahead = waypoint.next(float(distance))
-                    if len(ahead) != 1 or ahead[0].is_junction:
-                        valid = False
-                        break
-                    transform = ahead[0].transform
-                    angle = math.radians(transform.rotation.yaw) - heading
-                    angle = math.atan2(math.sin(angle), math.cos(angle))
-                    lateral = -(
-                        transform.location.x - waypoint.transform.location.x
-                    ) * math.sin(heading) + (
-                        transform.location.y - waypoint.transform.location.y
-                    ) * math.cos(heading)
-                    if abs(angle) > math.radians(1.0) or abs(lateral) > 0.25:
-                        valid = False
-                        break
-                if valid:
-                    return waypoint
-            raise ValueError(
-                f"{self.xodr_path}: no continuous straight driving lane with "
-                f"{required} m runout; adjust the playground geometry/map"
-            )
-        if {"road_id", "lane_id", "s"}.issubset(spawn):
-            waypoint = carla_map.get_waypoint_xodr(
-                int(spawn["road_id"]), int(spawn["lane_id"]), float(spawn["s"])
-            )
-            if waypoint is None:
-                raise ValueError(f"Spawn road/lane/s does not exist: {spawn}")
-            return waypoint
-        candidates = sorted(
-            carla_map.generate_waypoints(2.0),
-            key=lambda wp: (wp.road_id, wp.lane_id, wp.s),
-        )
-        if not candidates:
-            raise ValueError(f"{self.xodr_path}: no driving-lane waypoint")
-        return candidates[0]
-
-    def setup(self):
-        self._load_xodr_map(str(self.xodr_path))
-        waypoint = self._spawn_waypoint()
-        spawn = waypoint.transform
-        spawn.location.z += float(
-            self.definition.get("spawn", {}).get("z_offset_m", 0.4)
-        )
-        self.ego_vehicle = self.spawn_ego_vehicle(
-            spawn, self.definition.get("ego_blueprint", "vehicle.mini.cooper")
-        )
-        self.set_held(True)
-        parked = self.definition.get("parked")
-        if parked:
-            ahead = waypoint.next(float(parked["distance_m"]))
-            if len(ahead) != 1:
-                raise ValueError(
-                    "Parked vehicle distance leaves the selected continuous lane"
-                )
-            parked_spawn = ahead[0].transform
-            parked_spawn.location.z += 0.4
-            self.parked_vehicle = self.spawn_ego_vehicle(
-                parked_spawn,
-                parked.get("blueprint", "vehicle.mini.cooper"),
-                "parked_car",
-            )
-            self.parked_vehicle.set_simulate_physics(False)
-            self.parked_vehicle.apply_control(
-                carla.VehicleControl(brake=1.0, hand_brake=True)
-            )
-        goal_distance = float(self.definition.get("goal_distance_m", 0.0))
-        goal_waypoints = (
-            waypoint.next(goal_distance) if goal_distance > 0.0 else [waypoint]
-        )
-        if len(goal_waypoints) != 1:
-            raise ValueError("Goal leaves the selected continuous lane")
-        goal = goal_waypoints[0].transform.location
-        heading = math.radians(spawn.rotation.yaw)
-        self.world.set_weather(carla.WeatherParameters.ClearNoon)
-        self.geometry = {
-            "frame_id": "map",
-            "ego": self._actor_geometry(self.ego_vehicle),
-            "parked": self._actor_geometry(self.parked_vehicle)
-            if self.parked_vehicle
-            else None,
-            "lane": {
-                "x": spawn.location.x,
-                "y": -spawn.location.y,
-                "dx": math.cos(heading),
-                "dy": -math.sin(heading),
-            },
-            "goal": {"x": goal.x, "y": -goal.y, "z": 0.0},
-            "spawn": {
-                "road_id": waypoint.road_id,
-                "lane_id": waypoint.lane_id,
-                "s": waypoint.s,
-                "yaw_deg": spawn.rotation.yaw,
-            },
-            "map": {
-                "path": str(self.xodr_path),
-                "sha256": hashlib.sha256(self.xodr_path.read_bytes()).hexdigest(),
-            },
-            "seed": self.definition.get("seed", 42),
-            "reset_policy": "reload_world",
-        }
-        return True
-
-    def set_held(self, held):
-        """Hold initialization stationary while bridge nodes collect fresh samples."""
-        self.held = held
-        if self.ego_vehicle:
-            self.ego_vehicle.set_simulate_physics(not held)
-            self.ego_vehicle.apply_control(carla.VehicleControl(brake=1.0))

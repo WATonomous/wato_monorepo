@@ -1,7 +1,7 @@
 ---
 version: 1
 id: parked_car_straight
-playground: parked_car_straight
+playground: oval
 stack: autonomy
 events:
   - when: play
@@ -21,6 +21,25 @@ thresholds:
   stopped_duration_s: 3.0
   min_samples: 30
   max_lateral_offset_m: 1.5
-# 40 m center separation minus measured vehicle footprints leaves room to move
-# at least 15 m before entering this stop window. Calibrate on the target host.
-metrics: [closest_clearance_m, final_clearance_m, distance_progressed_m, stopped_duration_s]
+metrics:
+  - closest_clearance_m
+  - final_clearance_m
+  - distance_progressed_m
+  - stopped_duration_s
+setup:
+  require_map_provenance: true
+  seed: 42
+  ego_blueprint: vehicle.mini.cooper
+  spawn:
+    straight_start: true
+    s_margin_m: 10.0
+    z_offset_m: 0.4
+  required_straight_m: 80.0
+  parked:
+    distance_m: 40.0
+    blueprint: vehicle.mini.cooper
+  goal_distance_m: 80.0
+inputs:
+  map: oval
+  stop_distance_m: 2.0
+  max_speed_mps: 3.0
