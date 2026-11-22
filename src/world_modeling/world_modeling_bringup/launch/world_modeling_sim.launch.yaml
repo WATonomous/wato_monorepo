@@ -92,6 +92,11 @@ launch:
       default: "true"
       description: Start Eidos SLAM; false uses CARLA ground-truth TF and odometry
 
+  - arg:
+      name: enable_overtaking
+      default: "true"
+      description: Disable for experiments that must stop behind a lead vehicle
+
   # Select behaviour odometry to match the localization source.
   - let:
       name: ego_odom_topic
@@ -332,6 +337,8 @@ launch:
         - name: use_sim_time
           value: $(var use_sim_time)
         - from: $(find-pkg-share behaviour)/config/params.yaml
+        - name: enable_overtaking
+          value: $(var enable_overtaking)
       ros_args: "--log-level world_modeling.behaviour_node:=$(var log_bt)"
       remap:
         - from: execute_behaviour
@@ -350,7 +357,7 @@ launch:
         - from: lane_context
           to: lanelet/lane_context
         - from: world_objects
-          to: world_objects
+          to: world_objects_enriched
         - from: area_occupancy
           to: area_occupancy
         - from: goal_point

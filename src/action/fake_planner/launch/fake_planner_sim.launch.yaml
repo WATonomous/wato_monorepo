@@ -5,12 +5,12 @@
 # topic, and sim time off /clock. Every other arg is forwarded untouched.
 #
 #     ros2 launch fake_planner fake_planner_sim.launch.yaml
-#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
+#     ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve
 #
 # Nothing moves on launch -- see the rig's header for the hold/release protocol. A respawned ego
 # re-arms the hold, so "respawn ego" in Foxglove re-anchors and waits for start_trajectory again.
 #
-# For the real car use fake_planner_vehicle.launch.yaml rather than overriding topics here.
+# Manual deployments can use fake_planner.launch.yaml with explicit environment arguments.
 
 launch:
   # -- Simulation plumbing. These are what make this the sim launch.
@@ -29,8 +29,7 @@ launch:
       default: "true"
       description: Use /clock. Required in CARLA, else the controller can't transform the trajectory.
 
-  # Re-anchoring on a respawn is what makes "respawn ego" a one-click reset. The vehicle launch
-  # turns it off.
+  # Re-anchor when odometry jumps to a respawned ego pose.
   - arg:
       name: respawn_jump_m
       default: "5.0"
@@ -44,7 +43,7 @@ launch:
   # -- Everything else is environment-neutral and just forwarded to the rig.
   - arg:
       name: trajectory_topic
-      default: "/action/fake_planner/trajectory"
+      default: "/action/trajectory_planning/trajectory"
       description: Trajectory topic, from the fake planner to the controller
 
   - arg:
@@ -57,16 +56,10 @@ launch:
       default: "odom"
       description: Frame the trajectory is published in (must be TF-connected to rear_axle)
 
-  - arg:
-      name: controller
-      default: "pure_pursuit"
-      description: "Controller under test: pure_pursuit or mpc"
-
-  # The package's own params are the tuning the sim is set up against; the vehicle launch points
-  # this at action.yaml instead.
+  # Use simulation steering, adaptive lookahead and stationary standby overrides.
   - arg:
       name: pure_pursuit_config
-      default: "$(find-pkg-share ackermann_pure_pursuit)/config/params.yaml"
+      default: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
       description: Pure pursuit parameter file
 
   - arg:
@@ -87,7 +80,7 @@ launch:
   - arg:
       name: anchoring
       default: "auto"
-      description: auto|relative|absolute. auto lays relative maneuvers from the launch pose and publishes absolute ones (e.g. oval_track) where they were drawn.
+      description: auto|relative|absolute. auto anchors relative maneuvers at launch and preserves coordinates for maneuvers with an explicit start.
 
   - arg:
       name: standby_speed
@@ -123,7 +116,7 @@ launch:
         - name: frame_id
           value: "$(var frame_id)"
         - name: controller
-          value: "$(var controller)"
+          value: "pure_pursuit"
         - name: pure_pursuit_config
           value: "$(var pure_pursuit_config)"
         - name: maneuver

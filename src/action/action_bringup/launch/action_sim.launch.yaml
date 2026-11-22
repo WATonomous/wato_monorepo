@@ -1,8 +1,23 @@
 # action_sim.launch.yaml
-# Simulation-specific action stack: Lattice Planner + Trajectory Planner + MPC Controller
+# Simulation-specific action stack: Lattice Planner + Trajectory Planner + Adaptive Pure Pursuit Controller
 # Remaps topics to CARLA simulation sources instead of world_modeling.
 
 launch:
+  - arg:
+      name: use_sim_time
+      default: "true"
+      description: Use the CARLA clock for planning, control and command freshness
+
+  - arg:
+      name: stop_distance
+      default: "0.3"
+      description: Clearance before the predicted footprint collision point in metres
+
+  - arg:
+      name: max_speed
+      default: "10.0"
+      description: Maximum planned and controlled speed in metres per second
+
   - arg:
       name: autostart
       default: "true"
@@ -22,6 +37,8 @@ launch:
       output: "screen"
       param:
         - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "lanelet_ahead"
           to: "/world_modeling/lanelet/lanelet_ahead"
@@ -39,6 +56,12 @@ launch:
       output: "screen"
       param:
         - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: stop_distance
+          value: $(var stop_distance)
+        - name: max_speed
+          value: $(var max_speed)
       remap:
         - from: "input_path"
           to: "/action/lattice_planning/path"
@@ -62,21 +85,27 @@ launch:
       output: "screen"
       param:
         - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: "path"
           to: "/action/lattice_planning/path"
         - from: "available_paths"
           to: "/action/lattice_planning/available_paths"
 
-  # MPC Controller
+  # Adaptive Pure Pursuit Controller
   - node:
-      pkg: mpc_controller
-      exec: mpc_controller_node
-      name: mpc_controller_node
+      pkg: ackermann_pure_pursuit
+      exec: pure_pursuit_node
+      name: pure_pursuit_node
       namespace: "action"
       output: screen
       param:
         - from: "$(find-pkg-share action_bringup)/config/action_sim.yaml"
+        - name: use_sim_time
+          value: $(var use_sim_time)
+        - name: max_speed
+          value: $(var max_speed)
       remap:
         # Subscribers
         - from: "trajectory"
@@ -88,8 +117,8 @@ launch:
         # Publishers
         - from: "ackermann"
           to: "/carla/ackermann_control/command"
-        - from: "predicted_path"
-          to: "/action/mpc/predicted_path"
+        - from: "controller_status"
+          to: "/action/controller_status"
 
   # Lifecycle Manager
   - node:
@@ -102,7 +131,7 @@ launch:
           value:
             - /action/lattice_planning/lattice_planning_node
             - /action/trajectory_planning/trajectory_planner_node
-            - /action/mpc_controller_node
+            - /action/pure_pursuit_node
         - name: autostart
           value: $(var autostart)
         - name: transition_timeout_s

@@ -65,6 +65,12 @@ public:
     return window_;
   }
 
+  // Full anchored reference for preview and tracking metrics; never sent to the controller.
+  const wato_trajectory_msgs::msg::Trajectory & reference() const
+  {
+    return full_traj_;
+  }
+
   // < 2 means the file did not describe a usable path.
   std::size_t waypointCount() const
   {

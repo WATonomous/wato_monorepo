@@ -94,7 +94,7 @@ colcon test --packages-select fake_planner && colcon test-result --verbose
 ros2 lifecycle get /action/fake_planner/fake_planner_node        # expect: active
 
 # Trajectory publishing at publish_rate_hz
-ros2 topic hz /action/fake_planner/trajectory                    # expect: ~10 Hz
+ros2 topic hz /action/trajectory_planning/trajectory                    # expect: ~10 Hz
 ```
 
 Watch the path in Foxglove on `/action/fake_planner/trajectory_markers` — it publishes even while held in standby, so the maneuver can be inspected before release.
@@ -106,7 +106,7 @@ If the node logs `Waiting for first odom on '<topic>' to anchor trajectory...` a
 | Check | Expected |
 |-------|----------|
 | Lifecycle state | `active` |
-| `/action/fake_planner/trajectory` rate | ≈ `publish_rate_hz` (10 Hz) |
+| `/action/trajectory_planning/trajectory` rate | ≈ `publish_rate_hz` (10 Hz) |
 | Markers in Foxglove | A window of purple spheres around the car, sliding as it drives |
 | Open maneuver end | Car brakes smoothly to a stop at the last waypoint, no drift off the path |
 | Closed maneuver | Car laps continuously through the seam |

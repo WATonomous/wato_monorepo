@@ -1,60 +1,91 @@
-# fake_planner
+# Fake planner
 
-Replays a predefined maneuver as a trajectory so a controller can be exercised without the real planner stack. The same node runs in the CARLA sim and on the vehicle — only the topics, clock, and respawn handling differ, and those are set by the launch wrapper you pick.
+This lifecycle node replays reviewed maneuver JSON without the real planner stack.
+It builds on Brian Zheng's fake planner in PR 487, commit
+`f19fbad28cba3eb9bb5c6053046831c3a33f84fa`, with simulation session controls added.
+The action image discovers the package through its existing `COPY src/action` and
+colcon build; it needs no separate image or Dockerfile.
 
-## Overview
+## Simulation usage
 
-The node loads a maneuver (a JSON segment list under `maneuvers/`), expands it into a smooth, uniformly-spaced path, and publishes a rolling window of it as a `wato_trajectory_msgs/Trajectory` at a fixed rate — the same shape a real planner emits: a ~35 m horizon around the vehicle, re-sliced as it drives, not the whole route at once. Alongside the trajectory it publishes an `execute_behaviour` heartbeat so the controller leaves standby without the `world_modeling` behaviour stack, and a `trajectory_markers` MarkerArray mirroring `trajectory_planner`'s visualization.
-
-An open maneuver ends in a braked stop; a `"closed": true` maneuver laps forever. The maneuver is laid out from the vehicle's pose at launch (**anchoring**), so the same file works wherever the car starts — unless it carries an absolute `start` pose (e.g. the oval), in which case anchoring is turned off and it publishes in fixed coordinates.
-
-## Usage
-
-Launch one of the two environment wrappers — not the rig directly — so the filename decides where the commands go.
-
-```bash
-# CARLA sim
-ros2 launch fake_planner fake_planner_sim.launch.yaml
-
-# Real vehicle (read the launch header before driving)
-ros2 launch fake_planner fake_planner_vehicle.launch.yaml
-```
-
-Neither one drives on bringup: `start_on_activate` is false in both, so the stack comes up configured and activated but silent, with the controller held in standby, and a person releases it with the `start_trajectory` service below. The markers publish while held, so the path can be checked in Foxglove first. Pass `start_on_activate:=true` in sim to go back to driving straight off bringup. In sim a respawned ego re-arms the hold — after "respawn ego" the maneuver re-anchors at the new pose and waits to be released again.
-
-Anchoring happens on the *first odom after launch*, not on release, so a vehicle that moves while held leaves the maneuver behind at the old pose and releasing it steers back there. Call `reset` before `start_trajectory` to re-anchor at where the vehicle actually is and republish the markers for a second look. It re-arms the hold rather than clearing it, so it is safe to make a habit of.
-
-Pick the maneuver and controller with args:
+The runner's `controller_pure_pursuit` preset uses the following command. The
+launch owns one fake planner, one adaptive pure pursuit controller and one
+lifecycle manager. Do not launch the full action stack beside it, since that
+would add a second trajectory source and controller.
 
 ```bash
-ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
+ros2 launch fake_planner fake_planner_sim.launch.yaml \
+  frame_id:=map start_on_activate:=false
 ```
 
-The controller's tuning follows the environment, so a hardware run measures the controller the car actually deploys: MPC reads `action_bringup`'s `action.yaml` everywhere, and pure pursuit reads its own package params in sim but that same `action.yaml` on the vehicle. Point it somewhere else with `pure_pursuit_config:=`.
-
-Oval-track laps need the CARLA oval world, which is generated rather than shipped: `maps/` is
-git-ignored, so the track's `.xodr`, `.osm` and ego spawn pose only exist once the generator has
-been run. The oval is opt-in on both the simulation and world_modeling launches for that reason:
+The planner configures and activates without sending trajectory or behavior
+commands. Once odometry anchors the reference, `/sim/reference_path`
+(`nav_msgs/msg/Path`, reliable and transient local) contains the entire maneuver.
+The rolling preview markers remain on
+`/action/fake_planner/trajectory_markers`.
 
 ```bash
-python3 tools/generate_oval_track.py     # once, and after any change to the track definition
-
-ros2 launch simulation_bringup simulation.launch.yaml \
-    scenario:=carla_scenarios.scenarios.oval_track_scenario
-ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml map:=oval map_only:=true
-ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=oval_track
+ros2 service call /action/fake_planner/start_trajectory std_srvs/srv/Trigger
+ros2 service call /action/fake_planner/stop_trajectory std_srvs/srv/Trigger
+ros2 service call /action/fake_planner/reset std_srvs/srv/Trigger
 ```
 
-Nothing else changes for the rig itself — the maneuver is in absolute track coordinates and turns
-anchoring off for itself.
+`/action/fake_planner/status` is a reliable transient-local String with `ready`,
+`running`, `finished` or `stopped`. Ready requires an odometry-anchored reference.
+Finished requires actual movement, arrival near the end of the open maneuver and
+speed below the configured threshold. A successful start service is insufficient
+to establish completion. Reset clears the anchor and movement/completion latches;
+the next odometry sample anchors a fresh reference. The runner also cycles the
+controller lifecycle so its prior trajectory and control history are discarded.
 
-Control a run through the node's services (fully-qualified name `/action/fake_planner/fake_planner_node`):
+Publication and release ramp timing follow the ROS clock. Freezing CARLA `/clock`
+therefore freezes trajectory and behavior publication instead of refreshing stale
+commands on a wall timer. The CARLA world authority also brakes/holds the ego
+while the session is paused or preparing.
 
-```bash
-ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger  # release
-ros2 service call /action/fake_planner/fake_planner_node/stop_trajectory  std_srvs/srv/Trigger  # back to standby
-ros2 service call /action/fake_planner/fake_planner_node/reset            std_srvs/srv/Trigger  # re-run from the current pose
-```
+The simulation wrapper selects the adaptive pure pursuit settings from
+`action_sim.yaml`, `/ego/odom`, `/action/trajectory_planning/trajectory` and
+`/carla/ackermann_control/command`. `pure_pursuit_config`, `maneuver`,
+`maneuver_file` and `anchoring` are launch arguments. The simulation wrapper pins adaptive pure pursuit. The shared rig and vehicle
+wrapper retain upstream manual controller selection (`controller:=pure_pursuit`
+or `controller:=mpc`); automated scenarios always use adaptive pure pursuit.
+
+## Maneuver format
+
+`maneuvers/steady_state_slalom.json` is the shipped controller experiment:
+6 metres straight, five sinusoidal cycles with 1 metre amplitude and 12 metre
+wavelength, then 6 metres of braking straight at an authored cruise speed of
+3 m/s. The world definition requires at least 82 metres of verified straight
+runout. The original `brake_in_curve` and `sine_with_dwell` assets remain available
+for manual controller work.
+
+The slalom uses the ROS-time release ramp and controller slew limits for startup.
+Its spatial launch ramp is disabled because a zero-speed initial waypoint ahead
+of the rear axle would keep adaptive pure pursuit stationary.
+
+JSON defines `sample_spacing_m`, `default_speed` and an ordered `segments` list.
+The core expands straight, arc, slalom, shift and dwell segments, applies launch
+and braking ramps, and publishes a rolling horizon around the vehicle. Relative
+maneuvers anchor at the first odometry pose; an absolute `start` preserves authored
+coordinates. `anchoring:=relative` or `anchoring:=absolute` overrides that choice.
+Core parsing and geometry tests from the original contribution are retained in
+`test/test_fake_planner_core.cpp`; live and build validation are operator work.
+
+## Upstream manual compatibility
+
+The vehicle wrapper remains available with its original topics, wall clock,
+standby and respawn defaults. Its private services remain at
+`/action/fake_planner/fake_planner_node/{start_trajectory,stop_trajectory,reset}`;
+the shorter session service names above call the same handlers.
+
+The generated `oval_track` maneuver, generator and developer guide remain
+available. Its world uses `maps/osm/oval_track_4_lane.xodr` and
+`maps/osm/oval_track_spawn.json`, paired with the Lanelet2 map at
+`maps/osm/oval_track_4_lane.osm`. Select the legacy
+`carla_scenarios.scenarios.oval_track_scenario` world and the world-model preset
+`map:=generated_oval map_only:=true`. Main's `map:=oval` continues to select its
+standard converted-map overlay. The legacy `map:=town` aliases `town10hd`.
+Map artifacts are not moved or generated by this integration.
 
 ## Maneuvers
 

@@ -15,6 +15,7 @@
 #include "ackermann_pure_pursuit/pure_pursuit_node.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -23,6 +24,7 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include "rclcpp/create_timer.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -112,7 +114,8 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_configure(const rclcpp_lifec
   std::string odom_topic = get_parameter("odom_topic").as_string();
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     odom_topic, rclcpp::QoS(10), [this](const nav_msgs::msg::Odometry::ConstSharedPtr & msg) {
-      current_speed_ = msg->twist.twist.linear.x;
+      // CARLA ground-truth twist uses odometry axes, independent of the spawn heading.
+      current_speed_ = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
     });
 
   RCLCPP_INFO(
@@ -178,8 +181,13 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_activate(const rclcpp_lifecy
   status_pub_->on_activate();
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
-  control_timer_ = create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&PurePursuitNode::controlCallback, this));
+  // Freeze command publication with the same clock used for trajectory freshness and slew limits.
+  control_timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
+    std::bind(&PurePursuitNode::controlCallback, this));
 
   RCLCPP_INFO(get_logger(), "Activated");
   return CallbackReturn::SUCCESS;
@@ -198,22 +206,6 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_deactivate(const rclcpp_life
 
 PurePursuitNode::CallbackReturn PurePursuitNode::on_cleanup(const rclcpp_lifecycle::State & /*state*/)
 {
-  ackermann_pub_.reset();
-  idle_pub_.reset();
-  status_pub_.reset();
-  trajectory_sub_.reset();
-  bt_sub_.reset();
-  tf_listener_.reset();
-  tf_buffer_.reset();
-  latest_trajectory_.reset();
-  wheelbase_cached_ = 0.0;
-
-  RCLCPP_INFO(get_logger(), "Cleaned up");
-  return CallbackReturn::SUCCESS;
-}
-
-PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(const rclcpp_lifecycle::State & /*state*/)
-{
   control_timer_.reset();
   ackermann_pub_.reset();
   idle_pub_.reset();
@@ -222,9 +214,29 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(const rclcpp_lifecy
   bt_sub_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
+  odom_sub_.reset();
+  // Every attempt starts with fresh inputs, command shaping and disengage evidence.
+  latest_trajectory_.reset();
+  bt_requested_behaviour_.clear();
+  current_speed_ = 0.0;
+  last_trajectory_time_ = now();
+  prev_speed_cmd_ = 0.0;
+  prev_steering_cmd_ = 0.0;
+  last_control_time_ = now();
+  have_last_control_ = false;
+  over_threshold_since_ = now();
+  over_threshold_active_ = false;
+  disengaged_latched_ = false;
+  disengage_reason_.clear();
+  wheelbase_cached_ = 0.0;
 
-  RCLCPP_INFO(get_logger(), "Shut down");
+  RCLCPP_INFO(get_logger(), "Cleaned up");
   return CallbackReturn::SUCCESS;
+}
+
+PurePursuitNode::CallbackReturn PurePursuitNode::on_shutdown(const rclcpp_lifecycle::State & state)
+{
+  return on_cleanup(state);
 }
 
 void PurePursuitNode::trajectoryCallback(const wato_trajectory_msgs::msg::Trajectory::SharedPtr msg)

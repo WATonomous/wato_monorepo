@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <string>
@@ -25,6 +26,7 @@
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
+#include <rclcpp/create_timer.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 #include <tf2/utils.hpp>
@@ -102,7 +104,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
-  publish_timer_ = this->create_wall_timer(period, std::bind(&LatticePlanningNode::plan_and_publish_path, this));
+  // Match the world clock so pause cannot advance planner state or refresh commands.
+  publish_timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
+    std::bind(&LatticePlanningNode::plan_and_publish_path, this));
   publish_timer_->cancel();
 
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
@@ -144,6 +152,15 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
   publish_timer_.reset();
+  odom_sub_.reset();
+  car_pose.reset();
+  car_frenet_point.reset();
+  car_tang_velocity.reset();
+  preferred_lanelets.clear();
+  corridor_terminals.clear();
+  ego_centrelines_.clear();
+  path_pub_.reset();
+  available_paths_pub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -182,7 +199,7 @@ void LatticePlanningNode::update_vehicle_odom(const nav_msgs::msg::Odometry::Con
   }
   car_pose = ps;
   car_frenet_point = fp;
-  car_tang_velocity = fabs(msg->twist.twist.linear.x);
+  car_tang_velocity = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
 }
 
 void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
@@ -195,6 +212,10 @@ void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::Execute
 
 void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg)
 {
+  // Lane context can arrive before delayed odometry, especially after a world reset.
+  if (!car_pose || !core_) {
+    return;
+  }
   std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> lanelets;
 
   const int64_t curr_id = msg->current_lanelet_id;

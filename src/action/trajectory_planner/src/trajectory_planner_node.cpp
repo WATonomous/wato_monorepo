@@ -148,6 +148,13 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_cleanup(const rc
   lane_context_sub_.reset();
   odom_sub_.reset();
   bt_sub_.reset();
+  // Old paths, obstacle grids and behavior latches belong to the previous attempt.
+  latest_path_.reset();
+  latest_costmap_.reset();
+  bt_requested_behaviour.clear();
+  current_speed_mps = -1.0;
+  current_speed_limit_mps_ = 0.0;
+  has_speed_limit_ = false;
   core_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
@@ -232,8 +239,9 @@ void TrajectoryPlannerNode::update_trajectory()
     }
   }
 
-  // Use lane speed limit if available, otherwise fall back to config max_speed
-  double limit_speed = has_speed_limit_ ? current_speed_limit_mps_ : get_parameter("max_speed").as_double();
+  // A map speed limit can lower the configured experiment cap, never raise it.
+  double limit_speed = get_parameter("max_speed").as_double();
+  if (has_speed_limit_) limit_speed = std::min(limit_speed, current_speed_limit_mps_);
   if (bt_requested_behaviour == "standby") limit_speed = 0.0;
   auto traj = core_->compute_trajectory(transformed_path, *latest_costmap_, limit_speed, current_speed_mps);
 
