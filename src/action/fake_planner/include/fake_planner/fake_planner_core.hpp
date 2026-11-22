@@ -24,120 +24,116 @@
 namespace fake_planner
 {
 
+/** @brief Geometry and frame settings for the published trajectory window. */
 struct FakePlannerConfig
 {
-  // Rolling window geometry. The real planner publishes a ~30 m horizon starting just behind the
-  // vehicle, replanned as it drives, so the core slides the same window along its maneuver.
-  double horizon_m{35.0};
-  double trail_m{2.0};
-  // How far along the path nearestIndex looks ahead of the last match. A distance rather than a
-  // point count so its meaning does not change with the maneuver's sample_spacing_m.
-  double search_ahead_m{400.0};
-  std::string frame_id{"odom"};
+  double horizon_m{35.0};  ///< Path distance ahead of the vehicle, in metres.
+  double trail_m{2.0};  ///< Path distance behind the vehicle, in metres.
+  double search_ahead_m{400.0};  ///< Maximum forward search distance, in metres.
+  std::string frame_id{"odom"};  ///< Frame shared by odometry and the trajectory.
 };
 
-// Maneuver expansion and rolling-window slicing for the fake planner: parses the segment list,
-// expands it into a uniformly-spaced path, lays that out from an anchor pose, and slices the
-// published horizon out of it. Holds no ROS state.
+/** @brief Expands maneuver JSON and selects a rolling trajectory window. */
 class FakePlannerCore
 {
 public:
+  /**
+   * @brief Construct the trajectory helper.
+   * @param config Window geometry and output frame.
+   */
   explicit FakePlannerCore(const FakePlannerConfig & config);
 
-  // Returns false and sets `error` on any I/O, JSON, or schema failure.
+  /**
+   * @brief Load a maneuver from a JSON file.
+   * @param path Path to the maneuver file.
+   * @param error Receives the reason when loading fails.
+   * @return True when the maneuver was loaded.
+   */
   bool loadManeuver(const std::string & path, std::string & error);
+
+  /**
+   * @brief Load a maneuver from JSON text.
+   * @param json_text Maneuver definition with an ordered segment list.
+   * @param error Receives the reason when parsing or validation fails.
+   * @return True when the maneuver was loaded.
+   */
   bool loadManeuverJson(const std::string & json_text, std::string & error);
 
-  // Lays the loaded waypoints out from an SE(2) pose in frame_id, building the full trajectory.
+  /**
+   * @brief Transform loaded waypoints into the output frame.
+   * @param x Anchor position along the frame's x axis, in metres.
+   * @param y Anchor position along the frame's y axis, in metres.
+   * @param yaw Anchor heading, in radians.
+   */
   void anchor(double x, double y, double yaw);
 
-  // Slices the rolling window around the vehicle. No-op until anchor() has run.
+  /**
+   * @brief Select the window around the vehicle after anchoring.
+   * @param veh_x Vehicle x position in the output frame, in metres.
+   * @param veh_y Vehicle y position in the output frame, in metres.
+   */
   void updateWindow(double veh_x, double veh_y);
 
-  // Rewinds the window to the start of the maneuver, keeping the built trajectory.
+  /** @brief Restart window matching while keeping the anchored geometry. */
   void rewind();
 
-  // Drops the built trajectory (the loaded waypoints are kept) so the next anchor() re-lays it.
+  /** @brief Clear the anchor while keeping the loaded maneuver for another run. */
   void clear();
 
-  const wato_trajectory_msgs::msg::Trajectory & window() const
-  {
-    return window_;
-  }
+  /** @brief Get the current controller window. @return Selected trajectory. */
+  const wato_trajectory_msgs::msg::Trajectory & window() const;
 
-  // Full anchored reference for preview and tracking metrics; never sent to the controller.
-  const wato_trajectory_msgs::msg::Trajectory & reference() const
-  {
-    return full_traj_;
-  }
+  /** @brief Get the full anchored path. @return Reference used for preview and scoring. */
+  const wato_trajectory_msgs::msg::Trajectory & reference() const;
 
-  // < 2 means the file did not describe a usable path.
-  std::size_t waypointCount() const
-  {
-    return wp_x_.size();
-  }
+  /** @brief Count loaded waypoints. @return Number of uniformly sampled points. */
+  std::size_t waypointCount() const;
 
-  // From the maneuver's "closed" flag: a closed circuit laps forever (the window wraps past the
-  // end), an open maneuver ends in a stop.
-  bool closed() const
-  {
-    return closed_;
-  }
+  /** @brief Check whether the maneuver loops. @return True for a closed path. */
+  bool closed() const;
 
-  // Set when the maneuver carried a "start" pose: its waypoints are authored on fixed geometry in
-  // absolute frame_id coordinates, so anchoring one to the launch pose slides it off the road it
-  // was drawn for. The node's `anchoring` parameter defaults off this.
-  bool hasAbsoluteStart() const
-  {
-    return has_absolute_start_;
-  }
+  /** @brief Check for an authored start pose. @return True for absolute geometry. */
+  bool hasAbsoluteStart() const;
 
-  // Path distance from the vehicle to the stop line (the last authored waypoint, where the braking
-  // profile reaches zero). 0 once at or past it; infinity on a closed circuit and before anchoring.
+  /**
+   * @brief Measure remaining path distance to the stop line.
+   * @return Metres remaining, or infinity before anchoring and on closed paths.
+   */
   double distanceToEnd() const;
 
-  // Total arc length of the maneuver, stop pad included. 0 before a maneuver is loaded.
-  double pathLength() const
-  {
-    return cum_s_.empty() ? 0.0 : cum_s_.back();
-  }
+  /** @brief Measure the full path. @return Arc length including the stop pad, in metres. */
+  double pathLength() const;
 
-  // Straight-line distance from the last updateWindow() pose to the path point it matched, so the
-  // node can tell that the vehicle has wandered off the maneuver. Infinity before the first slice.
-  double distanceToPath() const
-  {
-    return match_distance_;
-  }
+  /** @brief Measure tracking deviation. @return Distance to the matched point, in metres. */
+  double distanceToPath() const;
 
-  bool ready() const
-  {
-    return ready_;
-  }
+  /** @brief Check whether the path is anchored. @return True when a trajectory is available. */
+  bool ready() const;
 
 private:
-  // Index of the full-path point closest to (veh_x, veh_y), searched forward from the last match
-  // so a self-intersecting maneuver doesn't snap back to an earlier lap. Writes the matched
-  // distance to `match_distance`.
+  /**
+   * @brief Find the nearest point within the forward search distance.
+   * @param veh_x Vehicle x position, in metres.
+   * @param veh_y Vehicle y position, in metres.
+   * @param match_distance Receives distance to the selected point, in metres.
+   * @return Index into the anchored trajectory.
+   */
   std::size_t nearestIndex(double veh_x, double veh_y, double & match_distance) const;
 
+  // Configuration
   FakePlannerConfig config_;
-
   bool closed_{false};
   bool has_absolute_start_{false};
+  double spacing_{1.0};
 
-  // Waypoints expanded from the maneuver segments (parallel arrays; relative to the anchor pose).
+  // Loaded geometry and speed profile
   std::vector<double> wp_x_;
   std::vector<double> wp_y_;
   std::vector<double> wp_speed_;
-
-  // Arc length at each waypoint and the index of the stop line, both computed once at load:
-  // anchoring is a rigid SE(2) transform, so it doesn't change distances along the path.
   std::vector<double> cum_s_;
   std::size_t stop_index_{0};
 
-  // The maneuver's sample_spacing_m, kept so search_ahead_m can be turned into a point count.
-  double spacing_{1.0};
-
+  // Anchored trajectory and current match
   wato_trajectory_msgs::msg::Trajectory full_traj_;
   wato_trajectory_msgs::msg::Trajectory window_;
   bool ready_{false};

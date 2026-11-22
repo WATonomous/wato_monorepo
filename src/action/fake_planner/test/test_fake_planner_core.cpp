@@ -94,6 +94,17 @@ TEST_CASE("Malformed documents are rejected with a reason", "[fake_planner_core]
   CHECK_THAT(loadError(R"({"segments": {}})"), Catch::Matchers::ContainsSubstring("segments"));
 }
 
+TEST_CASE("Wrong JSON field types return a loading error", "[fake_planner_core][schema]")
+{
+  const std::string segment = R"({"straight": {"length": 10.0}})";
+  for (const auto & fields :
+       {R"("sample_spacing_m": "fast")", R"("default_speed": null)", R"("closed": "yes")", R"("start": {"x": "left"})"})
+  {
+    CHECK_FALSE(loadError(maneuver(fields, segment)).empty());
+  }
+  CHECK_FALSE(loadError(maneuver(plainFields(), R"({"straight": {"length": 10.0, "speed": "fast"}})")).empty());
+}
+
 TEST_CASE("Top-level numeric fields are validated", "[fake_planner_core][schema]")
 {
   const std::string seg = R"({"straight": {"length": 10.0}})";
