@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(lanelets)
 
 if(NOT CMAKE_CXX_STANDARD)
@@ -27,10 +27,19 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(deep_msgs REQUIRED)
+find_package(lanelet2_core REQUIRED)
+find_package(lanelet_msgs REQUIRED)
+find_package(message_filters REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED COMPONENTS core imgcodecs)
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs imgproc)
+find_package(semvecnet REQUIRED CONFIG)
 
 add_library(${PROJECT_NAME}_node SHARED
+  src/lanelets_core.cpp
   src/lanelets_node.cpp
 )
 
@@ -44,11 +53,20 @@ target_link_libraries(${PROJECT_NAME}_node
   PUBLIC
     rclcpp::rclcpp
     ${sensor_msgs_TARGETS}
-    cv_bridge::cv_bridge
+    ${geometry_msgs_TARGETS}
+    ${deep_msgs_TARGETS}
+    lanelet2_core::lanelet2_core
+    ${lanelet_msgs_TARGETS}
+    message_filters::message_filters
+    tf2_ros::tf2_ros
     ${OpenCV_LIBS}
   PRIVATE
+    cv_bridge::cv_bridge
     rclcpp_components::component
+    tf2_eigen::tf2_eigen
+    semvecnet::semvecnet_core
 )
+set_target_properties(${PROJECT_NAME}_node PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 rclcpp_components_register_nodes(${PROJECT_NAME}_node
   "wato::perception::lanelets::LaneletsNode"
@@ -91,6 +109,16 @@ install(
 )
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
-ament_export_dependencies(rclcpp rclcpp_components sensor_msgs cv_bridge OpenCV)
+ament_export_dependencies(
+  rclcpp sensor_msgs geometry_msgs deep_msgs lanelet2_core lanelet_msgs message_filters tf2_ros OpenCV
+)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_lanelets_core test/test_lanelets_core.cpp)
+  if(TARGET test_lanelets_core)
+    target_link_libraries(test_lanelets_core ${PROJECT_NAME}_node)
+  endif()
+endif()
 
 ament_package()

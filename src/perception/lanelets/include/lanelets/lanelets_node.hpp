@@ -14,53 +14,79 @@
 
 #pragma once
 
-#include <mutex>
+#include <array>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include <opencv2/core.hpp>
+#include <deep_msgs/msg/multi_camera_info.hpp>
+#include <deep_msgs/msg/multi_image.hpp>
+#include <deep_msgs/msg/multi_image_compressed.hpp>
+#include <lanelet2_core/primitives/Lanelet.h>
+#include <lanelet_msgs/msg/map_visualization.hpp>
+#include <message_filters/subscriber.hpp>
+#include <message_filters/sync_policies/approximate_time.hpp>
+#include <message_filters/synchronizer.hpp>
+#include <opencv2/core/mat.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/camera_info.hpp>
-#include <sensor_msgs/msg/compressed_image.hpp>
-#include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <tf2_ros/buffer.hpp>
+#include <tf2_ros/transform_listener.hpp>
+
+namespace semvecnet
+{
+class SemVecNet;
+namespace postprocessing
+{
+struct Polyline;
+}  // namespace postprocessing
+}  // namespace semvecnet
 
 namespace wato::perception::lanelets
 {
 
-/**
- * @brief Skeleton node that receives camera and LiDAR data for lanelet generation.
- *
- * Subscriptions (remap in the launch file):
- *   input_image        sensor_msgs/CompressedImage (use_compressed_images: true) or sensor_msgs/Image
- *   input_camera_info  sensor_msgs/CameraInfo
- *   input_cloud        sensor_msgs/PointCloud2
- */
+class LaneletsCore;
+
+/// Synchronizes rectified multi-camera frames and LiDAR for SemVecNet.
 class LaneletsNode : public rclcpp::Node
 {
 public:
   explicit LaneletsNode(const rclcpp::NodeOptions & options);
-
-  static constexpr auto kImageTopic = "input_image";
-  static constexpr auto kCameraInfoTopic = "input_camera_info";
-  static constexpr auto kCloudTopic = "input_cloud";
+  ~LaneletsNode() override;
 
 private:
-  void onCompressedImage(const sensor_msgs::msg::CompressedImage::ConstSharedPtr & msg);
-  void onRawImage(const sensor_msgs::msg::Image::ConstSharedPtr & msg);
-  void onCameraInfo(const sensor_msgs::msg::CameraInfo::ConstSharedPtr & msg);
-  void onCloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & msg);
+  using MultiImage = deep_msgs::msg::MultiImage;
+  using MultiImageCompressed = deep_msgs::msg::MultiImageCompressed;
+  using MultiCameraInfo = deep_msgs::msg::MultiCameraInfo;
+  using PointCloud = sensor_msgs::msg::PointCloud2;
+  using RawSyncPolicy = message_filters::sync_policies::ApproximateTime<MultiImage, PointCloud>;
+  using CompressedSyncPolicy = message_filters::sync_policies::ApproximateTime<MultiImageCompressed, PointCloud>;
 
-  /// Stores the decoded image so the LiDAR callback can pair it with the cloud.
-  void storeImage(const std_msgs::msg::Header & header, const cv::Mat & bgr);
+  void syncedRawCallback(const MultiImage::ConstSharedPtr & images, const PointCloud::ConstSharedPtr & cloud);
+  void syncedCompressedCallback(
+    const MultiImageCompressed::ConstSharedPtr & images, const PointCloud::ConstSharedPtr & cloud);
+  void processFrame(std::vector<cv::Mat> & rgb_images, const PointCloud & cloud);
+  // std::vector<Polyline> is semvecnet::Polylines. Return geometry in map_frame_.
+  lanelet::Lanelets generateLanelets(
+    const std::vector<semvecnet::postprocessing::Polyline> & polylines, const std::array<float, 16> & ego_to_map);
+  void publishLanelets(const lanelet::Lanelets & lanelets, const rclcpp::Time & stamp);
 
-  rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_image_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr raw_image_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
-
-  std::mutex mutex_;
-  cv::Mat latest_image_;  ///< BGR8
-  std_msgs::msg::Header latest_image_header_;
-  sensor_msgs::msg::CameraInfo::ConstSharedPtr latest_camera_info_;
+  std::unique_ptr<LaneletsCore> core_;
+  std::unique_ptr<semvecnet::SemVecNet> semvecnet_;
+  std::vector<std::string> camera_names_;
+  std::string map_frame_;
+  std::string ego_frame_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
+  // All sensor callbacks use the default mutually exclusive callback group.
+  MultiCameraInfo::ConstSharedPtr cached_camera_info_;
+  rclcpp::Subscription<MultiCameraInfo>::SharedPtr camera_info_sub_;
+  rclcpp::Publisher<lanelet_msgs::msg::MapVisualization>::SharedPtr lanelets_pub_;
+  message_filters::Subscriber<PointCloud> lidar_sub_;
+  message_filters::Subscriber<MultiImage> raw_sub_;
+  message_filters::Subscriber<MultiImageCompressed> compressed_sub_;
+  std::unique_ptr<message_filters::Synchronizer<RawSyncPolicy>> raw_sync_;
+  std::unique_ptr<message_filters::Synchronizer<CompressedSyncPolicy>> compressed_sync_;
 };
 
 }  // namespace wato::perception::lanelets

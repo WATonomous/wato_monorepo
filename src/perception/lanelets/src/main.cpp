@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <exception>
 #include <memory>
 
 #include <rclcpp/rclcpp.hpp>
@@ -21,7 +22,13 @@
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<wato::perception::lanelets::LaneletsNode>(rclcpp::NodeOptions()));
+  try {
+    rclcpp::spin(std::make_shared<wato::perception::lanelets::LaneletsNode>(rclcpp::NodeOptions()));
+  } catch (const std::exception & e) {
+    RCLCPP_FATAL(rclcpp::get_logger("lanelets_node"), "%s", e.what());
+    rclcpp::shutdown();
+    return 1;
+  }
   rclcpp::shutdown();
   return 0;
 }

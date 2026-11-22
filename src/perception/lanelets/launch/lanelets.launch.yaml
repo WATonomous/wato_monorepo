@@ -4,14 +4,23 @@
 ---
 launch:
   - arg:
-      name: image_topic
-      default: /camera_pano_nn/image_rect_compressed
+      name: compressed_image_topic
+      default: /multi_camera_sync/multi_image_compressed
+  - arg:
+      name: raw_image_topic
+      default: /multi_camera_sync/multi_image_raw
   - arg:
       name: camera_info_topic
-      default: /camera_pano_nn/camera_info
+      default: /multi_camera_sync/multi_camera_info
   - arg:
       name: cloud_topic
-      default: /lidar/all/points_merged
+      default: /lidar_cc/velodyne_points
+  - arg:
+      name: output_topic
+      default: /perception/detected_lanelets
+  - arg:
+      name: params_file
+      default: $(find-pkg-share lanelets)/config/params.yaml
 
   - node:
       pkg: lanelets
@@ -19,11 +28,15 @@ launch:
       name: lanelets_node
       output: screen
       param:
-        - from: $(find-pkg-share lanelets)/config/params.yaml
+        - from: $(var params_file)
       remap:
-        - from: input_image
-          to: $(var image_topic)
-        - from: input_camera_info
+        - from: input_multi_image_compressed
+          to: $(var compressed_image_topic)
+        - from: input_multi_image_raw
+          to: $(var raw_image_topic)
+        - from: input_multi_camera_info
           to: $(var camera_info_topic)
         - from: input_cloud
           to: $(var cloud_topic)
+        - from: output_lanelets
+          to: $(var output_topic)
