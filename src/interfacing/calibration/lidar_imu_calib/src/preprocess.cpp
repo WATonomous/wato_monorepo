@@ -94,11 +94,10 @@ void Preprocess::process_cut_frame_pcl2(
   float yaw_last[MAX_LINE_NUM] = {0.0};  // yaw of last scan point
   float time_last[MAX_LINE_NUM] = {0.0};  // last offset time
 
-  if (pl_orig.points[plsize - 1].time > 0) {
-    given_offset_time = true;
-  } else {
+  given_offset_time = std::any_of(
+    pl_orig.points.begin(), pl_orig.points.end(), [](const velodyne_ros::Point & p) { return p.time != 0.0f; });
+  if (!given_offset_time) {
     cout << "Compute offset time using constant rotation model." << endl;
-    given_offset_time = false;
     memset(is_first, true, sizeof(is_first));
   }
 
@@ -147,8 +146,12 @@ void Preprocess::process_cut_frame_pcl2(
 
   sort(pl_surf.points.begin(), pl_surf.points.end(), time_list_cut_frame);
 
-  // ms
+  // ms. Sub-frames are timed from the scan's earliest point. With offsets relative to the
+  // end-of-scan stamp (negative), starting at the stamp would make sub-frame times run backwards.
   double last_frame_end_time = get_time_sec(msg.header.stamp) * 1000;
+  if (given_offset_time && !pl_surf.empty()) {
+    last_frame_end_time += std::min(0.0, static_cast<double>(pl_surf[0].curvature));
+  }
   uint valid_num = 0;
   uint cut_num = 0;
   uint valid_pcl_size = pl_surf.points.size();

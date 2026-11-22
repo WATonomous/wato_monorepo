@@ -1,5 +1,8 @@
 ---
-velodyne_driver_node_lidar_cc:  # VLS-128 (replaced the VLP-32C on the center roof mount)
+# Per-lidar params for template_lidar_pipeline.yaml, keyed by node name.
+# Transform values follow velodyne_pointcloud's config/<model>-velodyne_transform_node-params.yaml;
+# the calibration file is passed by all_lidars_composed.yaml.
+velodyne_driver_node_lidar_cc:
   ros__parameters:
     device_ip: 10.8.0.91
     gps_time: false
@@ -14,6 +17,14 @@ velodyne_driver_node_lidar_cc:  # VLS-128 (replaced the VLP-32C on the center ro
     port: 2371
     timestamp_first_packet: false
 
+velodyne_transform_node_lidar_cc:
+  ros__parameters:
+    model: VLS128
+    min_range: 0.4
+    max_range: 300.0
+    organize_cloud: true
+
+# lidar_ne: VLP-16
 velodyne_driver_node_lidar_ne:
   ros__parameters:
     device_ip: 10.8.0.89
@@ -29,6 +40,14 @@ velodyne_driver_node_lidar_ne:
     port: 2369
     timestamp_first_packet: false
 
+velodyne_transform_node_lidar_ne:
+  ros__parameters:
+    model: VLP16
+    min_range: 0.9
+    max_range: 130.0
+    organize_cloud: true
+
+# lidar_nw: VLP-16
 velodyne_driver_node_lidar_nw:
   ros__parameters:
     device_ip: 10.8.0.90
@@ -43,3 +62,10 @@ velodyne_driver_node_lidar_nw:
     rpm: 1200.0
     port: 2370
     timestamp_first_packet: false
+
+velodyne_transform_node_lidar_nw:
+  ros__parameters:
+    model: VLP16
+    min_range: 0.9
+    max_range: 130.0
+    organize_cloud: true

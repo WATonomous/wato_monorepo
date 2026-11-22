@@ -29,8 +29,6 @@ launch:
           value: "lidar_cc"
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-        - name: "pointcloud_config"
-          value: "VLS128"
         - name: "calibration_file"
           value: "VLS128.yaml"
 
@@ -42,8 +40,6 @@ launch:
           value: "lidar_ne"
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-        - name: "pointcloud_config"
-          value: "VLP16"
         - name: "calibration_file"
           value: "VLP16db.yaml"
 
@@ -55,7 +51,5 @@ launch:
           value: "lidar_nw"
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-        - name: "pointcloud_config"
-          value: "VLP16"
         - name: "calibration_file"
           value: "VLP16db.yaml"
