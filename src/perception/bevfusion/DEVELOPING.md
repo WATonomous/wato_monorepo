@@ -18,8 +18,8 @@ For each LiDAR scan, the node picks one image per camera (the one taken closest 
 ```
 Sensor Inputs (one camera topic per entry in camera_names)
 ──────────────────────────────────────────────────────────
-/<camera_name>/image_rect            NITROS, GPU memory (car, camera_input: nitros)        ──┐
-  or /<camera_name>/image_rect_compressed   JPEG (bag replay, camera_input: compressed)     │
+/<camera_name>/image_rect            NITROS, GPU memory (the car)                          ──┐
+  or /<camera_name>/image_rect_compressed   JPEG (a bag); auto picks per camera             │
 /<camera_name>/camera_info           intrinsics                                              ├──► BEVFusionNode (lifecycle composable)
 /lidar_cc/velodyne_points            one Velodyne sweep (input_lidar_topic)                ──┘          │
                                                                                                         ▼
@@ -69,18 +69,30 @@ Eve has 3 Velodyne LiDARs (`lidar_cc`, `lidar_ne`, `lidar_nw`), which can be pre
 
 `lidar_cc` spins at 1200 RPM (one sweep every 50 ms). The driver stamps each sweep with its last packet (`timestamp_first_packet: false`) and stores points in firing order, and because `cut_angle` is not set, the direction a sweep starts from drifts from scan to scan. So the laser passes a given camera's direction anywhere from 0 to 50 ms before the scan's stamp. The node accounts for this when matching (see [Camera matching](#camera-matching)). The per-point `time` field is all zeros in the recorded bags, so the timing is worked out from the point order and the rotation period instead.
 
+Neither the speed nor the stamp convention is fixed in the code, so a spinning LiDAR at another speed, or one stamped at the start of its turn, needs no code change:
+
+- **Rotation period:** measured from the scan stamps (one scan is one turn: the median of the last 20 stamp steps, once 5 are known). `lidar_rotation_period_ms` is only the starting value, and the node warns once if the measured period differs from it by more than 10%. A LiDAR at 600 RPM is timed correctly after its first few scans.
+- **Stamp position:** `lidar_stamp_position` says whether the stamp is the end of the turn (`"end"`, the Velodyne driver's `timestamp_first_packet: false`, Eve's setting) or its start (`"start"`). A bag cannot tell the two apart, so this is a parameter. On live input the node compares it with how long after their stamp the scans arrive (about 0 for an end stamp, about one turn for a start stamp) and warns once if it looks wrong.
+
 ## Topics
 
 ### Subscribed — Camera Images
 
-Each camera in `camera_names` is subscribed on its own topic. `camera_input` selects which:
+Each camera in `camera_names` has two image topics:
 
-| `camera_input` | Topic | Type | When |
-|---|---|---|---|
-| `nitros` | `/<camera_name>/image_rect` | NITROS image (RGB8, GPU memory) | On the car: the rectified image from that camera's `RectifyNode`, handed over in the same process without a copy |
-| `compressed` (default) | `/<camera_name>/image_rect_compressed` | `sensor_msgs/CompressedImage` (JPEG) | Bag replay: the bags only hold the JPEG copy of each camera |
+| Topic | Type | Where it comes from |
+|---|---|---|
+| `/<camera_name>/image_rect` | NITROS image (RGB8, GPU memory) | On the car: the rectified image from that camera's `RectifyNode`, handed over in the same process without a copy |
+| `/<camera_name>/image_rect_compressed` | `sensor_msgs/CompressedImage` (JPEG) | The car's JPEG copy, and the only image a bag holds |
 
-`perception.launch.yaml` sets `camera_input` from its `live_cameras` argument (this overrides the value in `perception_bringup.yaml`), so bag replay with `live_cameras:=false`, as [camera_bringup.md](../perception_bringup/docs/camera_bringup.md) describes, uses `compressed`. There is no automatic switching at runtime: if a camera sends no frames for over a second, its scans cannot be matched, and the node warns which cameras and topic, with this hint.
+With `camera_input: auto` (the default) the node listens to both and chooses **per camera**:
+
+- A camera's NITROS images are used whenever they arrive; its JPEGs are ignored while it has sent a NITROS image within the last second, and are used otherwise. Until the JPEG topics are dropped (next point), a camera whose NITROS stream stops falls back to JPEG on its own. The node logs each camera's source when it changes.
+- On the car every camera sends NITROS, so after two checks a second apart the node stops listening to the JPEG topics and decodes nothing on the CPU. They are only subscribed again when the node is re-activated.
+- From a bag no camera sends NITROS, so every camera uses JPEG. Nothing needs to be set for bag replay (see [Replaying a bag](#replaying-a-bag)).
+- A matched set can mix the two, for example while cameras switch over.
+
+`camera_input: nitros` or `compressed` listens to that one topic only. If a camera sends no frames for over a second, its scans cannot be matched, and the node warns which cameras and topics.
 
 - On the NITROS path, images must be `image_width x image_height` packed RGB8, which is what the camera driver and `RectifyNode` produce; anything else is dropped with an error. The node takes a read handle for each image on the inference CUDA stream, so the stream waits for the camera's write on the GPU, and passes the device pointers to `BEVFusionCore::infer()`. CUDA-BEVFusion copies camera images with `cudaMemcpyDefault`, which needs `wato-cuda-bevfusion` at `4da4989` or later (pinned in `docker/perception.Dockerfile`).
 - On the JPEG path, only the frames chosen for a matched set are decoded, in parallel (`cv::imdecode`), then converted BGR→RGB.
@@ -92,10 +104,25 @@ The cameras run freely at 20 Hz, so their frames are never taken at the same mom
 
 - A camera is decided as soon as its choice is certain: a frame after the target has arrived, or the newest frame before the target is so close that the camera's next frame cannot be nearer (bounded from its last two frames and its learned frame interval, with room for stamp jitter). A camera's choice is final once made.
 - Otherwise the node waits, but no longer than `sync_max_wait_ms` after the scan arrived, then uses the newest frame before the target if it is within `sync_tolerance_ms`. A scan whose best frame for some camera is further off is skipped.
+- Waits are in stream time (the time of the stamps), not wall-clock time, so a bag gives the same matches at any playback rate. The node learns how fast scan stamps advance against their arrival (exactly 1 live, 2 for a bag played at `--rate 2`) and scales each scan's wait by it. Replaying the drive bag's recorded stamps and arrival times through the matcher offline at 0.25×, 0.5×, 2× and 4× changed 0 of 60,996 camera picks compared with 1×.
 - Matching never holds up the LiDAR: inference runs on a worker thread, and if a newer set is ready before the worker is free, it replaces the older one.
 - Detections are stamped with the LiDAR scan's stamp.
 
 The rules are in [bevfusion/DEVELOPING.md](bevfusion/DEVELOPING.md#2-camera-matching-cameramatcher-sweeptargets); the ROS-free code is `camera_matcher.hpp` and `lidar_sweep_timing.hpp`.
+
+### Replaying a bag
+
+No parameter or code changes are needed. Start the perception launch as usual and play a bag at any rate (extra options go to `ros2 bag play`):
+
+```sh
+./watod bag play <bag_folder>/<file>.mcap
+./watod bag play <bag_folder>/<file>.mcap --rate 2
+```
+
+- **Cameras:** every camera uses its JPEGs, since a bag holds no NITROS images. `live_cameras:=false` ([camera_bringup.md](../perception_bringup/docs/camera_bringup.md)) only stops the camera drivers from starting; BEVFusion does not depend on it.
+- **Timing:** waits follow the stamps and the rotation period is measured from them, so the matches are the same at any rate. The first few scans after the node starts wait in wall-clock time while the rate is learned. A bag that restarts or loops (stamps jump back more than 200 ms) starts the matching over and keeps the learned rate.
+- **Above 1×:** scans arrive faster than inference runs (about 40 ms per set from JPEGs on an RTX 4070, against 25 ms between scans at 2×). The worker then skips sets: each set it does run is matched exactly as at 1×, but fewer are published.
+- **Diagnostics** (`/diagnostics`, `BEVFusion Status`): `Stream rate` (the learned playback rate, 1 live), `LiDAR rotation period in use (ms)`, `Cameras on NITROS images` / `Cameras on JPEG images`, and `Sets replaced before inference` (sets skipped because a newer one was ready).
 
 ### Subscribed — Other
 
@@ -134,7 +161,7 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 |---|---|---|
 | `lidar_frame_id` | `"lidar_cc"` | Frame TF extrinsics are resolved against (camera→this frame) |
 | `target_frame` | `"base_link"` | Frame ID stamped on output `Detection3DArray` / `MarkerArray` messages |
-| `camera_input` | `"compressed"` | `"compressed"`: per-camera JPEGs on `/<camera_name>/image_rect_compressed` (bags); `"nitros"`: per-camera GPU images on `/<camera_name>/image_rect` (the car) |
+| `camera_input` | `"auto"` | `"auto"`: per camera, GPU images on `/<camera_name>/image_rect` when they arrive (the car), else JPEGs on `/<camera_name>/image_rect_compressed` (a bag); `"nitros"` or `"compressed"`: that topic only |
 | `intrinsics_source` | `"projection"` | Camera matrix from `CameraInfo` `P` (`"projection"`), the matrix of the rectified images BEVFusion receives, or `K` (`"camera_matrix"`), the raw distorted camera's. On Eve's cameras K and P differ by about 2% in focal length, which moves projected points up to 14-22 px at the image corners (8-12 px in the 704x256 network input) |
 | `input_lidar_topic` | `/lidar_cc/velodyne_points` | LiDAR input topic |
 | `model_dir` | `/opt/watonomous/models/bevfusion/resnet50_trt11_int8` | Directory with `.onnx` files and the LiDAR backbone |
@@ -152,12 +179,13 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `xbound` / `ybound` / `zbound` / `dbound` | see `params.yaml` | BEV grid bounds `[min, max, step]` used for camera-to-BEV projection |
 | `post_center_range_start` / `post_center_range_end` | `[-61.2,-61.2,-10]` / `[61.2,61.2,10]` | Discards detections whose center falls outside this volume |
 | `sync_target` | `"sweep"` | Match each camera to when the LiDAR swept its direction (`"sweep"`), or to the scan stamp (`"scan_stamp"`) |
-| `sync_max_wait_ms` | `60.0` | Longest wait after a scan arrives for each camera's best frame; `< 0` waits until certain (1 s limit) |
+| `sync_max_wait_ms` | `60.0` | Longest wait after a scan arrives for each camera's best frame, in stream time (the same at any bag playback rate); `< 0` waits until certain (1 s limit) |
 | `sync_tolerance_ms` | `450.0` | Largest gap between a camera frame and its target that can still be used |
 | `sync_early_fraction` | `0.5` | Decide early on the frame before the target when it is within this fraction of the time until the camera's next frame can come at the earliest (`0` to `0.5`; up to `0.5` only decides sooner, see [Camera matching](bevfusion/DEVELOPING.md#2-camera-matching-cameramatcher-sweeptargets) for the exceptions) |
 | `sync_frames_per_camera` | `6` | Frames kept per camera (`2` to `16`; on the NITROS path each holds one of the camera rectifier's 40 GPU buffers) |
 | `sync_max_pending_scans` | `4` | Scans that can wait for their frames at the same time; beyond this the oldest is decided with what it has (`1` to `16`) |
-| `lidar_rotation_period_ms` | `50.0` | One LiDAR rotation (60 s / RPM) |
+| `lidar_rotation_period_ms` | `50.0` | One LiDAR rotation (60 s / RPM): only the starting value, until the period is measured from the scan stamps (after 5 scans) |
+| `lidar_stamp_position` | `"end"` | Whether a scan's stamp is the time of the end (`"end"`, Velodyne `timestamp_first_packet: false`) or the start (`"start"`) of its turn; checked against live arrival times, with a warning |
 | `qos_subscriber_reliability` / `qos_subscriber_depth` | `"best_effort"` / `2` | Subscriber QoS (each camera's image and `camera_info` topic, and the LiDAR) |
 | `qos_publisher_reliability` / `qos_publisher_durability` / `qos_publisher_depth` | `"reliable"` / `"transient_local"` / `5` | Publisher QoS |
 
@@ -227,4 +255,4 @@ Tests live under `bevfusion/test/` and use `wato_test`/Catch2. The core tests mo
 
 ### Launch
 
-`bevfusion.launch.yaml` in this package can run the node standalone (`camera_input:=nitros` or `compressed`). In practice, it's loaded as a composable node into the shared `perception_container` from `perception_bringup/launch/perception.launch.yaml`, in the same process as the cameras, with `output_detections` and `output_markers` remapped to `/perception/detections_3d_bev` and `/perception/bev_detection_markers`, `camera_input` set from `live_cameras`, and parameters sourced from `perception_bringup/config/perception_bringup.yaml`. It's also listed in the `detection_lifecycle_manager`'s `node_names` for autostart. BEVFusion no longer uses `multi_camera_sync`; that node stays in the launch file for `spatial_association`.
+`bevfusion.launch.yaml` in this package can run the node standalone (`camera_input:=auto`, the default, `nitros` or `compressed`). In practice, it's loaded as a composable node into the shared `perception_container` from `perception_bringup/launch/perception.launch.yaml`, in the same process as the cameras, with `output_detections` and `output_markers` remapped to `/perception/detections_3d_bev` and `/perception/bev_detection_markers`, and parameters sourced from `perception_bringup/config/perception_bringup.yaml`. It's also listed in the `detection_lifecycle_manager`'s `node_names` for autostart. BEVFusion no longer uses `multi_camera_sync`; that node stays in the launch file for `spatial_association`.
