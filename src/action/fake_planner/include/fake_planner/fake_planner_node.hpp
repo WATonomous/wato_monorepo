@@ -30,107 +30,146 @@
 namespace fake_planner
 {
 
-// Replays a predefined trajectory (expanded from a maneuver JSON segment list) at a fixed rate so a
-// controller can be exercised without the real planner stack, plus an execute_behaviour heartbeat
-// so the controller leaves standby. The same node works in sim and on the vehicle; only the
-// odom/command topics differ, set via remaps in the launch file.
+/**
+ * @brief Lifecycle node that loads and replays a maneuver for controller testing.
+ *
+ * Configure loads the JSON and creates ROS interfaces. Activate starts publishing.
+ * Start/stop services control release; reset prepares the loaded maneuver again.
+ * Topic routing belongs in the launch files.
+ */
 class FakePlannerNode : public rclcpp_lifecycle::LifecycleNode
 {
 public:
   using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
+  /**
+   * @brief Declare parameters for the fake planner.
+   * @param options ROS node options and parameter overrides.
+   */
   explicit FakePlannerNode(const rclcpp::NodeOptions & options);
 
+  /**
+   * @brief Load the trajectory and create publishers, subscribers and services.
+   * @param state Previous lifecycle state.
+   * @return Success when the configuration and maneuver are valid.
+   */
   CallbackReturn on_configure(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Activate publishers and start the publication timer.
+   * @param state Previous lifecycle state.
+   * @return Success after activation.
+   */
   CallbackReturn on_activate(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Stop the timer and deactivate publishers.
+   * @param state Previous lifecycle state.
+   * @return Success after deactivation.
+   */
   CallbackReturn on_deactivate(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Release the loaded trajectory and ROS interfaces.
+   * @param state Previous lifecycle state.
+   * @return Success after cleanup.
+   */
   CallbackReturn on_cleanup(const rclcpp_lifecycle::State & state) override;
+
+  /**
+   * @brief Clean up before shutdown.
+   * @param state Previous lifecycle state.
+   * @return Result of cleanup.
+   */
   CallbackReturn on_shutdown(const rclcpp_lifecycle::State & state) override;
 
 private:
-  // Publishes `trajectory` on `trajectory_markers`, only when someone is subscribed. Takes the
-  // trajectory rather than reading the core so the markers show the speeds actually published,
-  // release ramp included.
-  void publishMarkers(const wato_trajectory_msgs::msg::Trajectory & trajectory);
-  // Releases the car: seeds the ramp clock so publishing starts from zero speed. Idempotent while
-  // already running, so a repeated start service call doesn't restart the ramp.
+  /** @brief Validate parameters and load the JSON. @return True when ready to configure. */
+  bool loadTrajectory();
+
+  /** @brief Reset matching, anchoring and completion state for the loaded maneuver. */
+  void resetTrajectory();
+
+  /** @brief Publish the current window and behavior heartbeat while released. */
+  void publishTrajectory();
+
+  /** @brief Release the trajectory and start its speed ramp. */
   void releaseTrajectory();
-  // Fraction of the authored speed to publish right now, 0 -> 1 over release_ramp_s after release.
+
+  /** @brief Calculate release ramp progress. @return Speed multiplier between zero and one. */
   double releaseRampScale();
-  void timerCallback();
+
+  /**
+   * @brief Publish the trajectory preview and speed labels.
+   * @param trajectory Window with the speeds currently being published.
+   */
+  void publishMarkers(const wato_trajectory_msgs::msg::Trajectory & trajectory);
+
+  /**
+   * @brief Anchor the maneuver and update the window from odometry.
+   * @param msg Vehicle pose and velocity in the trajectory frame.
+   */
   void odomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr & msg);
-  void startTrajectory(
-    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
-  void stopTrajectory(
-    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
-  // Re-runs the maneuver from wherever the car currently sits, without a relaunch.
-  void resetTrajectory(
+
+  /**
+   * @brief Handle the start service.
+   * @param request Unused Trigger request.
+   * @param response Reports whether publication was started.
+   */
+  void startTrajectoryCallback(
     const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
 
+  /**
+   * @brief Handle the stop service.
+   * @param request Unused Trigger request.
+   * @param response Reports that the controller will return to standby.
+   */
+  void stopTrajectoryCallback(
+    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
+
+  /**
+   * @brief Handle the reset service without reloading the JSON file.
+   * @param request Unused Trigger request.
+   * @param response Reports whether the loaded maneuver was reset.
+   */
+  void resetTrajectoryCallback(
+    const std_srvs::srv::Trigger::Request::SharedPtr request, std_srvs::srv::Trigger::Response::SharedPtr response);
+
+  // Trajectory helper
   std::unique_ptr<FakePlannerCore> core_;
-
-  // The node's own executable is single-threaded and its callbacks share one mutually-exclusive
-  // group, but it is also registered as a component, so loading it into a multi-threaded container
-  // would run odomCallback (which mutates the core) against timerCallback (which reads it).
   std::mutex core_mutex_;
 
   // Parameters
-  std::string trajectory_topic_;
-  std::string behaviour_topic_;
-  std::string odom_topic_;
-  std::string frame_id_;
   double publish_rate_hz_{10.0};
   bool publish_behaviour_{true};
   std::string behaviour_{"lane_follow"};
-  // "auto" | "relative" | "absolute". Under "auto" the file decides: a maneuver carrying an
-  // absolute "start" is published verbatim, anything else is laid out from the vehicle's pose.
-  std::string anchoring_{"auto"};
   bool anchor_to_first_pose_{true};
   bool start_on_activate_{true};
-  std::string maneuver_file_;
-  std::string marker_topic_;
-  double horizon_m_{35.0};
-  double trail_m_{2.0};
-  double search_ahead_m_{400.0};
   double respawn_jump_m_{5.0};
   double finish_distance_m_{3.0};
   double finish_speed_mps_{0.25};
   double max_path_deviation_m_{5.0};
   double release_ramp_s_{3.0};
 
-  // Gates publishing: when false the node stays silent so the controller holds in standby.
-  // Toggled by the start/stop services; seeded from start_on_activate on activation.
-  bool trajectory_started_{true};
-
-  // Latched when the vehicle reaches the end of an open maneuver, so the controller times out into
-  // standby and the car stays put rather than creeping or silently starting over. Cleared only by
-  // an explicit reset (or a respawn, which is the sim's reset).
+  // Playback state
+  bool trajectory_started_{false};
   bool finished_{false};
-
-  // Set once the vehicle has actually been seen moving. The finish check needs it, because
-  // "within finish_distance_m of the stop line and slower than finish_speed_mps" is also true of a
-  // car sitting still before it has been released: on a maneuver shorter than finish_distance_m
-  // that is true from the very first tick, and after a reset it is true of a car parked on the
-  // stop line. Either way the run would latch finished without ever moving.
   bool moved_{false};
-
-  // When the current release ramp began. Not valid unless trajectory_started_.
   rclcpp::Time release_time_;
-
   bool anchored_{false};
-
-  // Latest vehicle position in frame_id_, used to slide the window, and its speed magnitude, which
-  // decides whether it has actually come to rest at the end of the maneuver.
   bool have_pose_{false};
   double veh_x_{0.0};
   double veh_y_{0.0};
   double veh_speed_{0.0};
 
-  rclcpp::TimerBase::SharedPtr timer_;
+  // Publishers
   rclcpp_lifecycle::LifecyclePublisher<wato_trajectory_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
   rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+
+  // Subscriber, timer and services
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;

@@ -19,9 +19,7 @@ launch:
   - arg:
       name: scenario
       default: "carla_scenarios.scenarios.light_traffic_scenario"
-      description: >-
-        Scenario module the scenario_server loads on startup (overrides initial_scenario in
-        the config file). Set carla_scenarios.scenarios.oval_track_scenario for the oval track.
+      description: "Initial manual CARLA world selector"
 
   # Scenario Server Node
   # Note: scenario_server uses wall time since it's the /clock source
