@@ -1,0 +1,34 @@
+src/perception/bevfusion/bevfusion/src/bevfusion_core.cpp
+  s_960dd3aaafb1d9::t_d5473442de84ba 183-184
+src/perception/bevfusion/bevfusion/src/bevfusion_node.cpp
+  s_960dd3aaafb1d9::t_c740fc7fd9ecb4 244
+  s_960dd3aaafb1d9::t_7c882c91f328db 141-143
+  s_960dd3aaafb1d9::t_f5291d61f05cea 245
+docker/perception.Dockerfile
+  s_960dd3aaafb1d9::t_1006298eac55de 145-147
+src/perception/bevfusion/bevfusion/config/params.yaml
+  s_960dd3aaafb1d9::t_5ce43339b1c872 56
+  s_960dd3aaafb1d9::t_99320f010c5942 57-59
+src/perception/perception_bringup/config/bevfusion_dualhead.yaml
+  s_960dd3aaafb1d9::t_4ebd09fc79481e 8-9
+src/perception/bevfusion/bevfusion/test/test_bevfusion_node.cpp
+  s_960dd3aaafb1d9::t_fa3e83d42fb7dc 1234-1270
+src/perception/bevfusion/bevfusion/include/bevfusion/bevfusion_core.hpp
+  s_960dd3aaafb1d9::t_7751f244440924 94-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.6",
+  "base_commit_sha": "293d71ca4fab600e2140b71d7071cfd39d2f0ad3",
+  "prompts": {},
+  "sessions": {
+    "s_960dd3aaafb1d9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1dd7c4a3-87bd-4b35-8286-b4678d079384",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "archangelinux <mthrange@gmail.com>"
+    }
+  }
+}
