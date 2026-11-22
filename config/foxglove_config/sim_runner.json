@@ -47,12 +47,30 @@
           "visible": true,
           "color": "#4e98e2",
           "lineWidth": 0.15
-        },
-        "/robot_description_viz": {
-          "visible": true
         }
       },
-      "layers": {},
+      "layers": {
+        "eb6e5ddc-7d87-4aba-8aaa-eccf476cb45c": {
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": true,
+          "opacity": 1,
+          "visible": true,
+          "frameLocked": true,
+          "instanceId": "eb6e5ddc-7d87-4aba-8aaa-eccf476cb45c",
+          "label": "Ego vehicle",
+          "layerId": "foxglove.Urdf",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/robot_description_viz",
+          "framePrefix": "",
+          "order": 1
+        }
+      },
       "publish": {
         "type": "point",
         "poseTopic": "/move_base_simple/goal",

@@ -38,7 +38,7 @@ services:
         - type=registry,ref=${INFRASTRUCTURE_IMAGE:?}:ci_cache_bringup
       target: deploy
     image: "${INFRASTRUCTURE_IMAGE:?}:${TAG}"
-    command: /bin/bash -c "ros2 launch infrastructure_bringup infrastructure.launch.yaml foxglove_port:=${FOXGLOVE_BRIDGE_PORT:?}"
+    command: /bin/bash -c "ros2 launch infrastructure_bringup infrastructure.launch.yaml foxglove_port:=${FOXGLOVE_BRIDGE_PORT:?} use_sim_time:=${WATOD_SIM_USE_SIM_TIME:-false}"
     environment:
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}

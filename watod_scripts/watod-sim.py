@@ -125,6 +125,8 @@ class Session:
         self.environment = dict(os.environ)
         self.environment["COMPOSE_PROJECT_NAME"] = self.project
         self.environment["WATOD_SIM_RESULTS_DIRECTORY"] = str(self.results)
+        # Send /clock time broadcasts to Foxglove, including world-reset jumps.
+        self.environment["WATOD_SIM_USE_SIM_TIME"] = "true"
         self.state = None
         self.compose = [
             "docker",
