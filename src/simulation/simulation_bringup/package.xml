@@ -14,6 +14,7 @@
   <depend>rclcpp</depend>
   <depend>carla_bringup</depend>
   <depend>eve_description</depend>
+  <exec_depend>simulation_manager</exec_depend>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
