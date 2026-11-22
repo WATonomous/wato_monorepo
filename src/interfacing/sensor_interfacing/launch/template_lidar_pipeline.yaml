@@ -26,11 +26,11 @@ launch:
 
   - arg:
       name: "pointcloud_config"
-      description: "Pointcloud transform config file name (e.g., VLP32C or VLP16)"
+      description: "Pointcloud transform config file name (e.g., VLS128 or VLP16)"
 
   - arg:
       name: "calibration_file"
-      description: "Calibration file name (e.g., VeloView-VLP-32C.yaml or VLP16db.yaml)"
+      description: "Calibration file name (e.g., VLS128.yaml or VLP16db.yaml)"
 
   - node_container:
       pkg: rclcpp_components

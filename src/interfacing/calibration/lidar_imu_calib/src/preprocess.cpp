@@ -90,7 +90,7 @@ void Preprocess::process_cut_frame_pcl2(
 
   bool is_first[MAX_LINE_NUM];
   double yaw_fp[MAX_LINE_NUM] = {0};  // yaw of first scan point
-  double omega_l = 7.2;  // scan angular velocity (deg/ms) for 20Hz VLP-32C
+  double omega_l = 3.6;  // scan angular velocity (deg/ms) for 10Hz (600 rpm) VLS-128
   float yaw_last[MAX_LINE_NUM] = {0.0};  // yaw of last scan point
   float time_last[MAX_LINE_NUM] = {0.0};  // last offset time
 
