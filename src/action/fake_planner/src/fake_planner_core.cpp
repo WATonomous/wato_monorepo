@@ -295,183 +295,188 @@ bool FakePlannerCore::loadManeuver(const std::string & path, std::string & error
 
 bool FakePlannerCore::loadManeuverJson(const std::string & json_text, std::string & error)
 {
-  nlohmann::json doc;
   try {
-    doc = nlohmann::json::parse(json_text);
-  } catch (const std::exception & e) {
-    error = std::string("invalid JSON: ") + e.what();
-    return false;
-  }
-  if (!doc.is_object()) {
-    error = "top-level JSON must be an object";
-    return false;
-  }
-
-  const double spacing = doc.value("sample_spacing_m", 1.0);
-  const double default_speed = doc.value("default_speed", 2.0);
-  const double ramp_up_accel = doc.value("ramp_up_accel", kDefaultRampUpAccel);
-  const double brake_decel = doc.value("brake_decel", kDefaultBrakeDecel);
-  const double stop_pad_m = doc.value("stop_pad_m", kDefaultStopPadM);
-  closed_ = doc.value("closed", false);
-  has_absolute_start_ = false;
-  if (!(spacing > 0.0) || !std::isfinite(spacing)) {
-    error = "sample_spacing_m must be a finite value > 0";
-    return false;
-  }
-  if (!(default_speed >= 0.0) || !std::isfinite(default_speed)) {
-    error = "default_speed must be finite and >= 0";
-    return false;
-  }
-  if (!(ramp_up_accel >= 0.0) || !std::isfinite(ramp_up_accel)) {
-    error = "ramp_up_accel must be finite and >= 0 (0 disables the launch ramp)";
-    return false;
-  }
-  if (!(brake_decel > 0.0) || !std::isfinite(brake_decel)) {
-    error = "brake_decel must be a finite value > 0";
-    return false;
-  }
-  if (!(stop_pad_m >= 0.0) || !std::isfinite(stop_pad_m)) {
-    error = "stop_pad_m must be finite and >= 0";
-    return false;
-  }
-  spacing_ = spacing;
-  if (!doc.contains("segments") || !doc["segments"].is_array() || doc["segments"].empty()) {
-    error = "missing or empty 'segments' array";
-    return false;
-  }
-
-  // Walk the segments as a moving frame, sampling each finely, then resample to uniform spacing.
-  const double fine = std::min(0.05, spacing);
-  Path fine_path;
-  Cursor cursor;
-
-  // Optional absolute start pose, which also marks the maneuver as fixed geometry.
-  if (doc.contains("start")) {
-    const nlohmann::json & start = doc["start"];
-    if (!start.is_object()) {
-      error = "'start' must be an object with x/y/yaw";
-      return false;
-    }
-    cursor.x = start.value("x", 0.0);
-    cursor.y = start.value("y", 0.0);
-    cursor.theta = start.value("yaw", 0.0);
-    has_absolute_start_ = true;
-  }
-
-  double current_speed = default_speed;  // carried between segments for speed continuity
-
-  std::size_t idx = 0;
-  for (const auto & seg : doc["segments"]) {
-    ++idx;
-    if (!seg.is_object() || seg.size() != 1) {
-      error = "segment " + std::to_string(idx) + ": expected a single {type: {...}} object";
-      return false;
-    }
-    const auto it = seg.begin();
-    const std::string type = it.key();
-    const nlohmann::json & p = it.value();
-    if (!p.is_object()) {
-      error = "segment " + std::to_string(idx) + " (" + type + "): parameters must be an object";
-      return false;
-    }
-
-    const std::string where = "segment " + std::to_string(idx) + " (" + type + ")";
-
-    const double s0 = p.value("speed", current_speed);
-    const double s1 = p.value("end_speed", s0);
-    if (!(s0 >= 0.0) || !(s1 >= 0.0) || !std::isfinite(s0) || !std::isfinite(s1)) {
-      error = where + ": 'speed' and 'end_speed' must be finite and >= 0";
-      return false;
-    }
-
-    // Seed the very first path point at the start pose and speed.
-    if (fine_path.x.empty()) {
-      appendLocal(fine_path, cursor, 0.0, 0.0, s0);
-    }
-
+    nlohmann::json doc;
     try {
-      if (type == "straight" || type == "dwell") {
-        if (!requirePositive(p, "length", where, error)) {
-          return false;
-        }
-        buildStraight(fine_path, cursor, p.at("length").get<double>(), s0, s1, fine);
-      } else if (type == "shift") {
-        if (!requirePositive(p, "length", where, error) || !requireFinite(p, "lateral", where, error)) {
-          return false;
-        }
-        buildShift(fine_path, cursor, p.at("lateral").get<double>(), p.at("length").get<double>(), s0, s1, fine);
-      } else if (type == "slalom") {
-        if (
-          !requireFinite(p, "amplitude", where, error) || !requirePositive(p, "wavelength", where, error) ||
-          !requirePositive(p, "cycles", where, error))
-        {
-          return false;
-        }
-        buildSlalom(
-          fine_path,
-          cursor,
-          p.at("amplitude").get<double>(),
-          p.at("wavelength").get<double>(),
-          p.at("cycles").get<double>(),
-          s0,
-          s1,
-          fine);
-      } else if (type == "arc") {
-        const std::string dir = p.value("dir", std::string("left"));
-        if (dir != "left" && dir != "right") {
-          error = where + ": dir must be 'left' or 'right'";
-          return false;
-        }
-        if (!requirePositive(p, "radius", where, error) || !requireFiniteNonZero(p, "angle", where, error)) {
-          return false;
-        }
-        const double dir_sign = (dir == "left") ? 1.0 : -1.0;
-        buildArc(
-          fine_path,
-          cursor,
-          p.at("radius").get<double>(),
-          p.at("angle").get<double>() * kPi / 180.0,
-          dir_sign,
-          s0,
-          s1,
-          fine);
-      } else {
-        error = "segment " + std::to_string(idx) + ": unknown type '" + type + "'";
+      doc = nlohmann::json::parse(json_text);
+    } catch (const std::exception & e) {
+      error = std::string("invalid JSON: ") + e.what();
+      return false;
+    }
+    if (!doc.is_object()) {
+      error = "top-level JSON must be an object";
+      return false;
+    }
+
+    const double spacing = doc.value("sample_spacing_m", 1.0);
+    const double default_speed = doc.value("default_speed", 2.0);
+    const double ramp_up_accel = doc.value("ramp_up_accel", kDefaultRampUpAccel);
+    const double brake_decel = doc.value("brake_decel", kDefaultBrakeDecel);
+    const double stop_pad_m = doc.value("stop_pad_m", kDefaultStopPadM);
+    closed_ = doc.value("closed", false);
+    has_absolute_start_ = false;
+    if (!(spacing > 0.0) || !std::isfinite(spacing)) {
+      error = "sample_spacing_m must be a finite value > 0";
+      return false;
+    }
+    if (!(default_speed >= 0.0) || !std::isfinite(default_speed)) {
+      error = "default_speed must be finite and >= 0";
+      return false;
+    }
+    if (!(ramp_up_accel >= 0.0) || !std::isfinite(ramp_up_accel)) {
+      error = "ramp_up_accel must be finite and >= 0 (0 disables the launch ramp)";
+      return false;
+    }
+    if (!(brake_decel > 0.0) || !std::isfinite(brake_decel)) {
+      error = "brake_decel must be a finite value > 0";
+      return false;
+    }
+    if (!(stop_pad_m >= 0.0) || !std::isfinite(stop_pad_m)) {
+      error = "stop_pad_m must be finite and >= 0";
+      return false;
+    }
+    spacing_ = spacing;
+    if (!doc.contains("segments") || !doc["segments"].is_array() || doc["segments"].empty()) {
+      error = "missing or empty 'segments' array";
+      return false;
+    }
+
+    // Walk the segments as a moving frame, sampling each finely, then resample to uniform spacing.
+    const double fine = std::min(0.05, spacing);
+    Path fine_path;
+    Cursor cursor;
+
+    // Optional absolute start pose, which also marks the maneuver as fixed geometry.
+    if (doc.contains("start")) {
+      const nlohmann::json & start = doc["start"];
+      if (!start.is_object()) {
+        error = "'start' must be an object with x/y/yaw";
         return false;
       }
-    } catch (const std::exception & e) {
-      error = where + ": " + e.what();
-      return false;
+      cursor.x = start.value("x", 0.0);
+      cursor.y = start.value("y", 0.0);
+      cursor.theta = start.value("yaw", 0.0);
+      has_absolute_start_ = true;
     }
 
-    current_speed = s1;
-  }
+    double current_speed = default_speed;  // carried between segments for speed continuity
 
-  Path resampled = resampleUniform(std::move(fine_path), spacing);
-  // A closed circuit has no end to stop at and no start to pull away from -- the window wraps at
-  // the seam, so a ramp there would make the car brake to a crawl once a lap.
-  if (!closed_) {
-    applyLaunchRamp(resampled, ramp_up_accel);
-    appendStopPad(resampled, spacing, stop_pad_m, brake_decel);
-  }
-  wp_x_ = resampled.x;
-  wp_y_ = resampled.y;
-  wp_speed_ = resampled.speed;
+    std::size_t idx = 0;
+    for (const auto & seg : doc["segments"]) {
+      ++idx;
+      if (!seg.is_object() || seg.size() != 1) {
+        error = "segment " + std::to_string(idx) + ": expected a single {type: {...}} object";
+        return false;
+      }
+      const auto it = seg.begin();
+      const std::string type = it.key();
+      const nlohmann::json & p = it.value();
+      if (!p.is_object()) {
+        error = "segment " + std::to_string(idx) + " (" + type + "): parameters must be an object";
+        return false;
+      }
 
-  // The stop line is one past the last waypoint that still asks for speed. Found from the profile
-  // rather than from stop_pad_m so it stays right whatever the pad does.
-  cum_s_.assign(wp_x_.size(), 0.0);
-  for (std::size_t i = 1; i < wp_x_.size(); ++i) {
-    cum_s_[i] = cum_s_[i - 1] + std::hypot(wp_x_[i] - wp_x_[i - 1], wp_y_[i] - wp_y_[i - 1]);
-  }
-  stop_index_ = wp_x_.empty() ? 0 : wp_x_.size() - 1;
-  for (std::size_t i = wp_speed_.size(); i-- > 0;) {
-    if (wp_speed_[i] > 0.0) {
-      stop_index_ = std::min(i + 1, wp_x_.size() - 1);
-      break;
+      const std::string where = "segment " + std::to_string(idx) + " (" + type + ")";
+
+      const double s0 = p.value("speed", current_speed);
+      const double s1 = p.value("end_speed", s0);
+      if (!(s0 >= 0.0) || !(s1 >= 0.0) || !std::isfinite(s0) || !std::isfinite(s1)) {
+        error = where + ": 'speed' and 'end_speed' must be finite and >= 0";
+        return false;
+      }
+
+      // Seed the very first path point at the start pose and speed.
+      if (fine_path.x.empty()) {
+        appendLocal(fine_path, cursor, 0.0, 0.0, s0);
+      }
+
+      try {
+        if (type == "straight" || type == "dwell") {
+          if (!requirePositive(p, "length", where, error)) {
+            return false;
+          }
+          buildStraight(fine_path, cursor, p.at("length").get<double>(), s0, s1, fine);
+        } else if (type == "shift") {
+          if (!requirePositive(p, "length", where, error) || !requireFinite(p, "lateral", where, error)) {
+            return false;
+          }
+          buildShift(fine_path, cursor, p.at("lateral").get<double>(), p.at("length").get<double>(), s0, s1, fine);
+        } else if (type == "slalom") {
+          if (
+            !requireFinite(p, "amplitude", where, error) || !requirePositive(p, "wavelength", where, error) ||
+            !requirePositive(p, "cycles", where, error))
+          {
+            return false;
+          }
+          buildSlalom(
+            fine_path,
+            cursor,
+            p.at("amplitude").get<double>(),
+            p.at("wavelength").get<double>(),
+            p.at("cycles").get<double>(),
+            s0,
+            s1,
+            fine);
+        } else if (type == "arc") {
+          const std::string dir = p.value("dir", std::string("left"));
+          if (dir != "left" && dir != "right") {
+            error = where + ": dir must be 'left' or 'right'";
+            return false;
+          }
+          if (!requirePositive(p, "radius", where, error) || !requireFiniteNonZero(p, "angle", where, error)) {
+            return false;
+          }
+          const double dir_sign = (dir == "left") ? 1.0 : -1.0;
+          buildArc(
+            fine_path,
+            cursor,
+            p.at("radius").get<double>(),
+            p.at("angle").get<double>() * kPi / 180.0,
+            dir_sign,
+            s0,
+            s1,
+            fine);
+        } else {
+          error = "segment " + std::to_string(idx) + ": unknown type '" + type + "'";
+          return false;
+        }
+      } catch (const std::exception & e) {
+        error = where + ": " + e.what();
+        return false;
+      }
+
+      current_speed = s1;
     }
+
+    Path resampled = resampleUniform(std::move(fine_path), spacing);
+    // A closed circuit has no end to stop at and no start to pull away from -- the window wraps at
+    // the seam, so a ramp there would make the car brake to a crawl once a lap.
+    if (!closed_) {
+      applyLaunchRamp(resampled, ramp_up_accel);
+      appendStopPad(resampled, spacing, stop_pad_m, brake_decel);
+    }
+    wp_x_ = resampled.x;
+    wp_y_ = resampled.y;
+    wp_speed_ = resampled.speed;
+
+    // The stop line is one past the last waypoint that still asks for speed. Found from the profile
+    // rather than from stop_pad_m so it stays right whatever the pad does.
+    cum_s_.assign(wp_x_.size(), 0.0);
+    for (std::size_t i = 1; i < wp_x_.size(); ++i) {
+      cum_s_[i] = cum_s_[i - 1] + std::hypot(wp_x_[i] - wp_x_[i - 1], wp_y_[i] - wp_y_[i - 1]);
+    }
+    stop_index_ = wp_x_.empty() ? 0 : wp_x_.size() - 1;
+    for (std::size_t i = wp_speed_.size(); i-- > 0;) {
+      if (wp_speed_[i] > 0.0) {
+        stop_index_ = std::min(i + 1, wp_x_.size() - 1);
+        break;
+      }
+    }
+    return true;
+  } catch (const nlohmann::json::exception & exception) {
+    error = std::string("invalid maneuver: ") + exception.what();
+    return false;
   }
-  return true;
 }
 
 double FakePlannerCore::distanceToEnd() const
@@ -618,6 +623,46 @@ void FakePlannerCore::updateWindow(double veh_x, double veh_y)
   }
 
   window_ = window;
+}
+
+const wato_trajectory_msgs::msg::Trajectory & FakePlannerCore::window() const
+{
+  return window_;
+}
+
+std::size_t FakePlannerCore::waypointCount() const
+{
+  return wp_x_.size();
+}
+
+bool FakePlannerCore::closed() const
+{
+  return closed_;
+}
+
+bool FakePlannerCore::hasAbsoluteStart() const
+{
+  return has_absolute_start_;
+}
+
+double FakePlannerCore::pathLength() const
+{
+  return cum_s_.empty() ? 0.0 : cum_s_.back();
+}
+
+double FakePlannerCore::distanceToPath() const
+{
+  return match_distance_;
+}
+
+bool FakePlannerCore::ready() const
+{
+  return ready_;
+}
+
+const wato_trajectory_msgs::msg::Trajectory & FakePlannerCore::reference() const
+{
+  return full_traj_;
 }
 
 }  // namespace fake_planner
