@@ -22,15 +22,11 @@ launch:
 
   - arg:
       name: "lidar_config_file"
-      description: "Path to lidar driver configuration file"
-
-  - arg:
-      name: "pointcloud_config"
-      description: "Pointcloud transform config file name (e.g., VLP32C or VLP16)"
+      description: "Path to the lidar config file: driver and transform params, keyed by node name (e.g., velodyne_lidar_config.yaml with velodyne_driver_node_lidar_cc)"
 
   - arg:
       name: "calibration_file"
-      description: "Calibration file name (e.g., VeloView-VLP-32C.yaml or VLP16db.yaml)"
+      description: "Calibration file name (e.g., VLS128.yaml or VLP16db.yaml)"
 
   - node_container:
       pkg: rclcpp_components
@@ -53,6 +49,11 @@ launch:
           param:
             - from: "$(var lidar_config_file)"
 
+        # Model and range limits come from lidar_config_file under
+        # velodyne_transform_node_<lidar_name>. velodyne_pointcloud's own
+        # config/*-params.yaml files are keyed velodyne_transform_node, so they
+        # never match these node names and the node would fall back to its
+        # 64E defaults (no per-point time, 130 m max range).
         - pkg: velodyne_pointcloud
           plugin: velodyne_pointcloud::Transform
           name: velodyne_transform_node_$(var lidar_name)
@@ -65,7 +66,7 @@ launch:
             - from: "velodyne_points"
               to: "$(var lidar_name)/velodyne_points"
           param:
-            - from: "$(find-pkg-share velodyne_pointcloud)/config/$(var pointcloud_config)-velodyne_transform_node-params.yaml"
+            - from: "$(var lidar_config_file)"
             - name: calibration
               value: "$(find-pkg-share velodyne_pointcloud)/params/$(var calibration_file)"
 

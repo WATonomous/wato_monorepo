@@ -15,7 +15,7 @@ This package does not contain any custom ROS nodes. It holds launch files, drive
 | Sensor | Driver | Interface |
 |--------|--------|-----------|
 | Novatel OEM7 (GPS + IMU) | `novatel_oem7_driver` | Ethernet |
-| Velodyne VLP32C / VLP16 (×3 LiDARs) | `velodyne` | Ethernet |
+| Velodyne VLS-128 / VLP-16 (×3 LiDARs) | `velodyne` | Ethernet |
 
 ## Bringup Guides
 

@@ -7,13 +7,13 @@ laser_mapping:
 
     preprocess:
       lidar_type: 2  # Velodyne LiDAR
-      scan_line: 32  # VLP-32C
+      scan_line: 128  # VLS-128; points with ring >= scan_line are dropped
       blind: 2.0
       feature_extract_en: false
 
     initialization:
       cut_frame_num: 3  # must be positive integer
-      orig_odom_freq: 20
+      orig_odom_freq: 10  # lidar_cc scan rate (VLS-128 at 600 rpm)
       mean_acc_norm: 9.81  # 1: for livox built-in IMU
       online_refine_time: 60.0
       data_accum_length: 60.0

@@ -73,7 +73,7 @@ dhcp-host=34:BD:20:79:38:CA,10.8.0.39    # 9: camera_low_SE
 dhcp-host=34:BD:20:79:C4:2D,10.8.0.40    # 10: camera_low_SW
 dhcp-host=34:BD:20:79:C4:3A,10.8.0.41    # 11: camera_low_NW
 
-dhcp-host=60:76:88:34:30:94,10.8.0.88   # VLP32 Top Lidar
+dhcp-host=60:76:88:38:73:3e,10.8.0.91   # VLS128 Top Lidar (also set statically on the lidar)
 dhcp-host=60:76:88:10:31:60,10.8.0.89   # VLP16 Side Lidar
 dhcp-host=60:76:88:10:52:17,10.8.0.90   # VLP16 Side Lidar
 ```

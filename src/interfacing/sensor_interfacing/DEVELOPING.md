@@ -41,7 +41,7 @@ ros2 topic hz /novatel/oem7/imu/data
 
 | Sensor | Topic | Expected rate |
 |--------|-------|--------------|
-| Velodyne VLP32C / VLP16 | `/lidar_*/velodyne_points` | 10 Hz |
+| Velodyne VLS-128 (cc) / VLP-16 (ne, nw) | `/lidar_*/velodyne_points` | 10 Hz (cc, 600 rpm) / 20 Hz (ne, nw, 1200 rpm) |
 | Novatel OEM7 GPS | `/novatel/oem7/bestpos` | 5 Hz |
 | Novatel OEM7 IMU | `/novatel/oem7/imu/data` | 100 Hz |
 
