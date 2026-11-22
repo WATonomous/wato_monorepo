@@ -47,6 +47,11 @@ launch:
       description: Trajectory topic, from the fake planner to the controller
 
   - arg:
+      name: marker_topic
+      default: "/action/fake_planner/trajectory_markers"
+      description: Trajectory preview markers
+
+  - arg:
       name: behaviour_topic
       default: "/action/fake_planner/execute_behaviour"
       description: Behaviour heartbeat topic, from the fake planner to the controller
@@ -111,6 +116,8 @@ launch:
           value: "$(var ackermann_topic)"
         - name: trajectory_topic
           value: "$(var trajectory_topic)"
+        - name: marker_topic
+          value: "$(var marker_topic)"
         - name: behaviour_topic
           value: "$(var behaviour_topic)"
         - name: frame_id

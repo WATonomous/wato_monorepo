@@ -20,7 +20,7 @@ launch:
   - arg:
       name: scenario
       default: "carla_scenarios.scenarios.light_traffic_scenario"
-      description: "Initial manual playground or legacy generated-track selector"
+      description: "Initial manual CARLA world selector"
 
   - arg:
       name: session_mode

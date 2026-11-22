@@ -40,7 +40,7 @@ The tradeoff is multiple TCP connections to CARLA, but this hasn't been a bottle
 
 ### YAML Playgrounds and Scored Scenarios
 
-Manual playgrounds and scored scenarios are installed YAML catalogs. Shared Python worlds perform CARLA operations; the runner activates scoring only for scenarios. The seven historical module-style world selectors remain explicit aliases, rather than dynamically imported plugins. The generated oval plugin from PR #487 remains an explicit manual compatibility exception. See [the catalog guide](carla_scenarios/README.md) for definitions and extension points.
+Manual playgrounds and scored scenarios are installed YAML catalogs. Shared Python worlds perform CARLA operations; the runner activates scoring only for scenarios. The seven historical module-style world selectors remain explicit aliases, rather than dynamically imported plugins. See [the catalog guide](carla_scenarios/README.md) for definitions and extension points.
 
 ## Package Structure
 
