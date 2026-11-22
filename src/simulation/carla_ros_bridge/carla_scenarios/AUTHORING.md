@@ -181,6 +181,33 @@ playground to change maps.
 | `thresholds` | Required scoring limits for the selected test family |
 | `metrics` | Declared metric names; see [Scoring and outputs](#scoring-and-outputs) |
 
+### Stack selection and component choices
+
+`stack` selects a reviewed preset in the host helper; it is not a ROS package,
+node name or arbitrary launch description.
+
+| `stack` | Application components | Accepted `inputs` | `completion` |
+|---------|------------------------|-------------------|--------------|
+| `controller_pure_pursuit` | Fake planner and adaptive pure pursuit | `maneuver: steady_state_slalom` only | `maneuver_finished` |
+| `autonomy` | World modeling, behavior, lattice/trajectory planning and adaptive pure pursuit | Named `map`, positive `stop_distance_m` and `max_speed_mps` | `stopped_behind_actor` |
+
+There are no implemented `controller`, `trajectory_planner` or `nodes` selectors
+in scenario YAML. Extra names do not discover or launch packages automatically.
+The presets, launch argument wiring and image/package checks are defined in the
+[host helper](../../../../watod_scripts/watod-sim.py); required lifecycle nodes
+and observations are defined in the
+[manager](../../simulation_manager/simulation_manager/simulation_runner.py).
+All scored scenarios currently use adaptive pure pursuit. A playground allows
+manual application launches without choosing a scored preset.
+
+Selectable planners or component combinations are a future extension, not an
+existing feature. Such support would need reviewed component choices, allowed
+parameters, installed-package checks, compatible topic/remap wiring and
+lifecycle/readiness rules. Each allowed combination must retain exactly one
+trajectory publisher and one vehicle-command owner, and preserve the current
+adaptive pure pursuit requirement. Selecting individual nodes also requires
+specifying their dependencies; a node name alone is insufficient.
+
 ### Controller tracking template
 
 Create `config/scenarios/controller_snake_practice.yaml`. This varies weather
@@ -225,9 +252,8 @@ metrics:
   - completed
 ```
 
-This preset launches the fake planner with adaptive pure pursuit. V1 accepts
-only `inputs.maneuver: steady_state_slalom`; the fake planner's other manual
-maneuvers are not automatically available as scored scenarios.
+The fake planner's other manual maneuvers need additional validation/preflight
+support before they can be used as scored scenarios.
 
 ### Parked-vehicle template
 
@@ -282,10 +308,9 @@ metrics:
   - stopped_duration_s
 ```
 
-`autonomy` launches world modeling and action planning with adaptive pure
-pursuit; overtaking and Eidos are disabled by the reviewed host preset.
-`stop_distance_m` and `max_speed_mps` configure the action launch and must be
-positive. They do not replace the evaluator's clearance and stopped-speed limits.
+The autonomy preset disables overtaking and Eidos. Its stop-distance and speed
+inputs configure the action launch; they do not replace the evaluator's
+clearance and stopped-speed limits.
 
 `inputs.map` selects a world-modeling map preset, not an XODR filename. The
 shipped end-to-end baseline is `oval`; current host preflight explicitly checks
@@ -302,9 +327,8 @@ playground does not provide this converted-map provenance.
 
 ### Events and completion
 
-The accepted pairs are `controller_pure_pursuit` with `maneuver_finished`, and
-`autonomy` with `stopped_behind_actor`. Completion labels select these reviewed
-test families; they are not arbitrary expressions or ROS topic conditions.
+Completion labels in the stack table select implemented test families; they
+are not arbitrary expressions or ROS topic conditions.
 
 Each event has exactly `when` and `do`:
 
