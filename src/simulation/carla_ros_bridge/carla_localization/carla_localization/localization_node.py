@@ -25,6 +25,7 @@ from carla_common import (
     connect_carla,
     find_ego_vehicle,
     euler_to_quaternion,
+    world_to_body_vector,
     carla_to_ros_position,
     carla_to_ros_rotation,
 )
@@ -242,8 +243,11 @@ class LocalizationNode(LifecycleNode):
             # Publish Odometry
             carla_vel = self.ego_vehicle.get_velocity()  # carla.Vector3D (m/s)
 
-            # Convert CARLA axes to ROS axes:
-            vx, vy, vz = carla_to_ros_position(carla_vel.x, carla_vel.y, carla_vel.z)
+            # Odometry twist is expressed in child_frame_id, not the world frame.
+            world_velocity = carla_to_ros_position(
+                carla_vel.x, carla_vel.y, carla_vel.z
+            )
+            vx, vy, vz = world_to_body_vector(world_velocity, (qx, qy, qz, qw))
 
             odom = Odometry()
             odom.header.stamp = now

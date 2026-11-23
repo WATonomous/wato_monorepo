@@ -14,7 +14,12 @@ Coordinates are converted from CARLA's left-handed system (X-forward, Y-right, Z
 ros2 run carla_localization localization
 ```
 
-**Publications:** `/tf` (`tf2_msgs/TFMessage`)
+**Publications:** `/tf` (`tf2_msgs/TFMessage`), `/ego/odom` (`nav_msgs/Odometry`).
+
+Odometry pose uses `odom_frame`. Linear twist uses `base_frame`, as named by
+`child_frame_id`. The bridge converts CARLA axes and rotates world velocity into
+that body frame. Forward speed is positive and reverse speed is negative,
+regardless of spawn heading, pitch or roll.
 
 **Parameters:**
 

@@ -18,6 +18,7 @@ from carla_common.transforms import (
     quaternion_to_euler,
     carla_to_ros_position,
     carla_to_ros_rotation,
+    world_to_body_vector,
 )
 from carla_common.carla_utils import (
     connect_carla,
@@ -29,6 +30,7 @@ __all__ = [
     "quaternion_to_euler",
     "carla_to_ros_position",
     "carla_to_ros_rotation",
+    "world_to_body_vector",
     "connect_carla",
     "find_ego_vehicle",
 ]

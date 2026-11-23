@@ -26,10 +26,7 @@
           topic_name="execute_behaviour" />
       </Sequence>
       <!-- overtake if we overtake is valid -->
-      <Sequence name="Optional Overtaking">
-        <ScriptCondition code="overtaking_enabled" />
-        <SubTree ID="OvertakeSubTree" _autoremap="true" />
-      </Sequence>
+      <SubTree ID="OvertakeSubTree" _autoremap="true" />
 
       <!-- else follow nominal route -->
       <Sequence name="Follow Nominal Route">

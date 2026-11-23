@@ -42,7 +42,6 @@ BehaviourNode::BehaviourNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("map_frame", "map");
   this->declare_parameter("base_frame", "base_link");
   this->declare_parameter("enable_console_logging", false);
-  this->declare_parameter("enable_overtaking", true);
   this->declare_parameter("traffic_light_state_hypothesis_index", 1);
   this->declare_parameter("world_objects_hypothesis_index", 0);
   this->declare_parameter("bt.left_lane_change_areas", std::vector<std::string>{"left_lane_change_corridor"});
@@ -77,7 +76,7 @@ void BehaviourNode::init()
 
   auto tick_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / rate_hz_));
   // timer to tick the behaviour tree
-  // Pause the tree together with physics, including maneuver state and goal processing.
+  // Schedule behavior updates with the node clock.
   tick_tree_timer_ = rclcpp::create_timer(
     get_node_base_interface(),
     get_node_timers_interface(),
@@ -153,7 +152,6 @@ void BehaviourNode::rebuild_tree()
   tree_->updateBlackboard("world_objects_hypothesis_index", world_objects_hypothesis_index_);
   tree_->updateBlackboard("traffic_light_state_hypothesis_index", traffic_light_state_hypothesis_index_);
   tree_->updateBlackboard("overtake.stage", types::OvertakeStage::IDLE);
-  tree_->updateBlackboard("overtaking_enabled", this->get_parameter("enable_overtaking").as_bool());
   tree_->updateBlackboard("bt.left_lane_change_areas", left_lane_change_areas_);
   tree_->updateBlackboard("bt.right_lane_change_areas", right_lane_change_areas_);
   tree_->updateBlackboard("bt.intersection_wall_of_doom_width", stop_line_wall_width_);
