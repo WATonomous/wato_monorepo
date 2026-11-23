@@ -15,6 +15,9 @@
 
 import importlib.util
 import json
+import os
+import sys
+import types
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -314,3 +317,36 @@ class TestRuntimeHandoff(unittest.TestCase):
         checks = node.run.call_args.args[0][-1]
         self.assertIn("ros2 pkg prefix reviewed_package", checks)
         self.assertIn("wato_lifecycle_manager/application_runtime", checks)
+
+
+class TestInstalledMapPreflight(unittest.TestCase):
+    def test_uses_configured_osm_path_for_each_supported_map(self):
+        share = (
+            Path(__file__).resolve().parents[2]
+            / "src/world_modeling/world_modeling_bringup"
+        )
+        package = types.ModuleType("ament_index_python.packages")
+        package.get_package_share_directory = Mock(return_value=str(share))
+        for name, expected in (
+            ("oval", "/opt/watonomous/maps/osm/oval.osm"),
+            ("town10hd", "/opt/watonomous/maps/osm/Town10HD.osm"),
+            (
+                "test_track",
+                "/opt/watonomous/maps/test_track_map/lanelet/test_track_050426_utm.osm",
+            ),
+        ):
+            with (
+                self.subTest(name=name),
+                patch.dict(
+                    sys.modules,
+                    {
+                        "ament_index_python": types.ModuleType("ament_index_python"),
+                        "ament_index_python.packages": package,
+                    },
+                ),
+                patch.object(sys, "argv", ["preflight", name]),
+                patch.object(Path, "is_file", return_value=True),
+                patch.object(os, "access", return_value=True) as access,
+            ):
+                exec(HELPER.MAP_PREFLIGHT, {})
+                access.assert_called_once_with(Path(expected), os.R_OK)

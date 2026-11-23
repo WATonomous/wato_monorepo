@@ -14,6 +14,7 @@
 """Coordinate reviewed application launches through their owning runtimes."""
 
 import json
+import time
 
 from carla_msgs.srv import BindControl
 from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
@@ -33,22 +34,38 @@ class SimulationStackAdapter:
         self.command_topic = None
         self.prepared = False
 
-    def _runtime(self, role, operation, request=None, timeout=15.0):
+    def _call(self, *args, timeout=15.0, deadline=None):
+        if deadline is not None:
+            timeout = min(timeout, deadline - time.monotonic())
+            if timeout <= 0:
+                raise RuntimeError("Application stack readiness deadline expired")
+        return self.call(*args, timeout=timeout)
+
+    def _runtime(self, role, operation, request=None, timeout=15.0, deadline=None):
         endpoint = f"/sim/runtime/{role}"
-        status = self.call(Trigger, endpoint + "/status", timeout=3.0)
+        status = self._call(
+            Trigger, endpoint + "/status", timeout=3.0, deadline=deadline
+        )
         identity = json.loads(status.message)
         if identity["session_id"] != self.session_id or identity["role"] != role:
             raise RuntimeError(f"Runtime ownership mismatch for {role}")
         if operation == "status":
             return identity
-        return self.call(Trigger, endpoint + "/" + operation, request, timeout=timeout)
+        return self._call(
+            Trigger,
+            endpoint + "/" + operation,
+            request,
+            timeout=timeout,
+            deadline=deadline,
+        )
 
-    def prepare(self, definition, attempt_id):
+    def prepare(self, definition, attempt_id, timeout_s=60.0):
         """Start the world-model group before action, then use their lifecycle owners."""
         if self.roles:
             raise RuntimeError(
                 "Stop the existing application stack before preparing another"
             )
+        deadline = time.monotonic() + timeout_s
         preset = definition["stack"]
         configuration = {
             "session_id": self.session_id,
@@ -61,14 +78,15 @@ class SimulationStackAdapter:
             launch_command(role, configuration)
         self.preset = preset
         self.command_topic = command_topic(attempt_id)
-        self.call(
+        self._call(
             BindControl,
             "/carla/ackermann_control/bind_control",
             BindControl.Request(command_topic=self.command_topic),
+            deadline=deadline,
         )
         try:
             for role, group in PRESETS[preset].items():
-                status = self._runtime(role, "status")
+                status = self._runtime(role, "status", deadline=deadline)
                 if status["process"] != "stopped":
                     raise RuntimeError(
                         f"Runtime {role} already owns a launch group; close the experiment first"
@@ -84,17 +102,23 @@ class SimulationStackAdapter:
                         ),
                     ]
                 )
-                result = self.call(
+                result = self._call(
                     SetParametersAtomically,
                     f"/sim/runtime/{role}/application_runtime/set_parameters_atomically",
                     request,
+                    deadline=deadline,
                 )
                 if not result.result.successful:
                     raise RuntimeError(f"Runtime {role}: {result.result.reason}")
                 # Track ownership before a start response can time out.
                 self.roles.append(role)
-                self._runtime(role, "start")
-                self.call(Trigger, group["manager"] + "/startup", timeout=60.0)
+                self._runtime(role, "start", deadline=deadline)
+                self._call(
+                    Trigger,
+                    group["manager"] + "/startup",
+                    timeout=60.0,
+                    deadline=deadline,
+                )
             self.prepared = True
         except Exception as start_error:
             try:

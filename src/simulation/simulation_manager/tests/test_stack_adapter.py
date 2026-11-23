@@ -16,7 +16,7 @@
 import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from simulation_manager.stack_adapter import SimulationStackAdapter
 
@@ -110,3 +110,12 @@ class TestStackAdapter(unittest.TestCase):
         )
         adapter.stop()
         self.assertEqual(adapter.roles, [])
+
+    def test_expired_readiness_does_not_start_applications(self):
+        adapter, calls = self.make_adapter()
+        with patch(
+            "simulation_manager.stack_adapter.time.monotonic", side_effect=[0, 2]
+        ):
+            with self.assertRaisesRegex(RuntimeError, "deadline expired"):
+                adapter.prepare(self.definition(), "attempt_1", timeout_s=1)
+        self.assertEqual(calls, [])
