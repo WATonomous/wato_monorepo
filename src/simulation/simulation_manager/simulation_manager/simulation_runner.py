@@ -322,10 +322,10 @@ class SimulationRunner(Node):
             )
         return result
 
-    def _pause_world(self, paused):
+    def _pause_world(self, paused, timeout=15.0):
         request = SetBool.Request()
         request.data = paused
-        self._call(SetBool, "/carla/pause", request)
+        self._call(SetBool, "/carla/pause", request, timeout=timeout)
 
     def _hold(self):
         self._call(Trigger, "/carla/scenario_server/hold")
@@ -562,24 +562,30 @@ class SimulationRunner(Node):
             response.message = str(error)
             return response
 
-    def _node_state(self, name):
-        return self._call(GetState, f"{name}/get_state", timeout=3.0).current_state.id
+    def _node_state(self, name, deadline=None):
+        timeout = 3.0 if deadline is None else min(3.0, deadline - time.monotonic())
+        if timeout <= 0:
+            raise RuntimeError("Bridge readiness deadline expired")
+        return self._call(
+            GetState, f"{name}/get_state", timeout=timeout
+        ).current_state.id
 
     def _do_ready(self):
         self._require("ready", {"PREPARING"})
         timeout = self.definition.get("deadlines", {}).get("readiness_s", 60.0)
         start = time.monotonic()
+        deadline = start + timeout
         pending = "waiting for /clock and /ego/odom"
         goal_sent = False
         while time.monotonic() - start < timeout:
-            pending = self._bridge_readiness()
+            pending = self._bridge_readiness(deadline=deadline)
             if pending is None and self.kind == "scenario" and not self.stack.prepared:
                 self.stack.prepare(
                     self.definition,
                     self.run_id,
                     timeout_s=timeout - (time.monotonic() - start),
                 )
-            pending = pending or self._readiness()
+            pending = pending or self._readiness(deadline=deadline)
             if (
                 self.definition.get("stack") == "autonomy"
                 and self._fresh("odom")
@@ -587,20 +593,25 @@ class SimulationRunner(Node):
             ):
                 if (
                     self.goal_pub.get_subscription_count() > 0
-                    and self._all_nodes_active()
+                    and self._all_nodes_active(deadline=deadline)
                 ):
                     self._publish_goal()
                     goal_sent = True
             if pending is None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self._pause_world(self.kind == "scenario", timeout=min(15.0, remaining))
+                if time.monotonic() > deadline:
+                    raise RuntimeError(
+                        "Readiness deadline expired while acknowledging the tick boundary"
+                    )
                 if self.kind == "playground":
                     # Manual worlds keep ticking; only scored scenarios wait for play.
                     self.accepting_samples = False
                     self.samples.clear()
-                    # The bridge gate may have joined after world preparation.
-                    self._pause_world(False)
                     self.state = "RUNNING"
                     return
-                self._pause_world(True)
                 # No scenario time has elapsed yet; setup ticks are excluded.
                 self.state = "READY"
                 self.elapsed_s = 0.0
@@ -618,8 +629,8 @@ class SimulationRunner(Node):
             f"Readiness timed out after {time.monotonic() - start:.1f}s: {pending}. Fix the named input and run watod sim reset."
         )
 
-    def _all_nodes_active(self):
-        return self.stack.pending() is None
+    def _all_nodes_active(self, deadline=None):
+        return self.stack.pending(deadline=deadline) is None
 
     def _fresh(self, key):
         sample = self.samples.get(key)
@@ -628,7 +639,7 @@ class SimulationRunner(Node):
         maximum = self.definition.get("deadlines", {}).get("data_freshness_s", 2.0)
         return 0.0 <= self.sim_time - sample[2] <= maximum
 
-    def _bridge_readiness(self):
+    def _bridge_readiness(self, deadline=None):
         if self.sim_time is None or time.monotonic() - self.last_clock_wall > 5.0:
             return "/clock is missing or stalled"
         if not self._fresh("odom"):
@@ -642,14 +653,17 @@ class SimulationRunner(Node):
             "bbox_publisher",
         ):
             try:
-                if self._node_state(f"/carla/{node}") != State.PRIMARY_STATE_ACTIVE:
+                if (
+                    self._node_state(f"/carla/{node}", deadline=deadline)
+                    != State.PRIMARY_STATE_ACTIVE
+                ):
                     return f"bridge lifecycle node /carla/{node} must be active"
             except RuntimeError as error:
                 return str(error)
         return None
 
-    def _readiness(self):
-        pending = self._bridge_readiness()
+    def _readiness(self, deadline=None):
+        pending = self._bridge_readiness(deadline=deadline)
         if pending is not None:
             return pending
         if self.kind == "playground":
@@ -665,7 +679,7 @@ class SimulationRunner(Node):
                 return "ego moved away from its initial spawn during preparation"
         except (TransformException, ValueError) as error:
             return f"map-frame ego transform: {error}"
-        pending = self.stack.pending()
+        pending = self.stack.pending(deadline=deadline)
         if pending is not None:
             return pending
         if not self._fresh("collision"):
