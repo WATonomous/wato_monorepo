@@ -14,7 +14,7 @@
 """Reviewed YAML experiments, shared by the host CLI and Foxglove services.
 
 The runner never ticks CARLA or starts a second controller. The scenario server
-owns physics; the host starts the declared stack between ``open`` and ``ready``.
+owns physics; application runtimes own launches coordinated by the stack adapter.
 A wall-clock executor keeps service replies and status alive while /clock stops.
 """
 
@@ -34,8 +34,8 @@ from carla_msgs.srv import SwitchScenario
 from carla_scenarios.definitions import load_definition
 from geometry_msgs.msg import PointStamped, PoseStamped
 from lanelet_msgs.msg import RouteAhead
-from lifecycle_msgs.msg import State, Transition
-from lifecycle_msgs.srv import ChangeState, GetState
+from lifecycle_msgs.msg import State
+from lifecycle_msgs.srv import GetState
 from nav_msgs.msg import OccupancyGrid, Odometry
 from nav_msgs.msg import Path as RosPath
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
@@ -50,21 +50,9 @@ from tf2_ros import Buffer, TransformException, TransformListener
 from vision_msgs.msg import Detection3DArray
 from wato_trajectory_msgs.msg import Trajectory
 
+from simulation_manager.stack_adapter import SimulationStackAdapter
+
 OUTCOME_CODES = {"pass": 0, "assertion_failure": 1, "data_error": 2, "interrupted": 3}
-STACK_NODES = {
-    "controller_pure_pursuit": [
-        "/action/fake_planner/fake_planner_node",
-        "/action/pure_pursuit_node",
-    ],
-    "autonomy": [
-        "/world_modeling/prediction_node",
-        "/world_modeling/world_model",
-        "/world_modeling/costmap_node",
-        "/action/lattice_planning/lattice_planning_node",
-        "/action/trajectory_planning/trajectory_planner_node",
-        "/action/pure_pursuit_node",
-    ],
-}
 
 
 def utc_now():
@@ -165,6 +153,9 @@ class SimulationRunner(Node):
         # Retain the listener so its TF subscriptions stay alive for the session.
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self._service_clients = {}
+        self.stack = SimulationStackAdapter(
+            self._call, self.get_parameter("session_id").value
+        )
         self.create_subscription(
             Clock, "/clock", self._clock_callback, 10, callback_group=self.io_group
         )
@@ -574,11 +565,6 @@ class SimulationRunner(Node):
     def _node_state(self, name):
         return self._call(GetState, f"{name}/get_state", timeout=3.0).current_state.id
 
-    def _transition(self, name, transition):
-        request = ChangeState.Request()
-        request.transition.id = transition
-        self._call(ChangeState, f"{name}/change_state", request)
-
     def _do_ready(self):
         self._require("ready", {"PREPARING"})
         timeout = self.definition.get("deadlines", {}).get("readiness_s", 60.0)
@@ -586,7 +572,10 @@ class SimulationRunner(Node):
         pending = "waiting for /clock and /ego/odom"
         goal_sent = False
         while time.monotonic() - start < timeout:
-            pending = self._readiness()
+            pending = self._bridge_readiness()
+            if pending is None and self.kind == "scenario" and not self.stack.prepared:
+                self.stack.prepare(self.definition, self.run_id)
+            pending = pending or self._readiness()
             if (
                 self.definition.get("stack") == "autonomy"
                 and self._fresh("odom")
@@ -603,6 +592,8 @@ class SimulationRunner(Node):
                     # Manual worlds keep ticking; only scored scenarios wait for play.
                     self.accepting_samples = False
                     self.samples.clear()
+                    # The bridge gate may have joined after world preparation.
+                    self._pause_world(False)
                     self.state = "RUNNING"
                     return
                 self._pause_world(True)
@@ -624,13 +615,7 @@ class SimulationRunner(Node):
         )
 
     def _all_nodes_active(self):
-        try:
-            return all(
-                self._node_state(node) == State.PRIMARY_STATE_ACTIVE
-                for node in STACK_NODES.get(self.definition.get("stack"), [])
-            )
-        except RuntimeError:
-            return False
+        return self.stack.pending() is None
 
     def _fresh(self, key):
         sample = self.samples.get(key)
@@ -639,7 +624,7 @@ class SimulationRunner(Node):
         maximum = self.definition.get("deadlines", {}).get("data_freshness_s", 2.0)
         return 0.0 <= self.sim_time - sample[2] <= maximum
 
-    def _readiness(self):
+    def _bridge_readiness(self):
         if self.sim_time is None or time.monotonic() - self.last_clock_wall > 5.0:
             return "/clock is missing or stalled"
         if not self._fresh("odom"):
@@ -657,6 +642,12 @@ class SimulationRunner(Node):
                     return f"bridge lifecycle node /carla/{node} must be active"
             except RuntimeError as error:
                 return str(error)
+        return None
+
+    def _readiness(self):
+        pending = self._bridge_readiness()
+        if pending is not None:
+            return pending
         if self.kind == "playground":
             return None
         try:
@@ -670,12 +661,9 @@ class SimulationRunner(Node):
                 return "ego moved away from its initial spawn during preparation"
         except (TransformException, ValueError) as error:
             return f"map-frame ego transform: {error}"
-        for node in STACK_NODES[self.definition["stack"]]:
-            try:
-                if self._node_state(node) != State.PRIMARY_STATE_ACTIVE:
-                    return f"lifecycle node {node} must be active"
-            except RuntimeError as error:
-                return str(error)
+        pending = self.stack.pending()
+        if pending is not None:
+            return pending
         if not self._fresh("collision"):
             return "/carla/experiment_collision observation missing"
         # Both presets must have exactly one trajectory publisher and one command owner.
@@ -683,8 +671,10 @@ class SimulationRunner(Node):
             return (
                 "expected exactly one /action/trajectory_planning/trajectory publisher"
             )
-        if self.count_publishers("/carla/ackermann_control/command") != 1:
-            return "expected exactly one /carla/ackermann_control/command publisher"
+        if self.count_publishers(self.stack.command_topic) != 1:
+            return f"expected exactly one {self.stack.command_topic} publisher"
+        if self.count_publishers("/carla/ackermann_control/command") != 0:
+            return "an unmanaged controller is publishing to the manual command topic"
         if self.definition["stack"] == "controller_pure_pursuit":
             if self.planner_status != "ready" or not self.reference:
                 return "/action/fake_planner/status ready and /sim/reference_path preview required"
@@ -779,6 +769,8 @@ class SimulationRunner(Node):
             return
         if self.kind == "scenario" and self.outcome is None:
             self._finish("interrupted", ["Experiment closed by operator"])
+        if self.kind == "scenario":
+            self.stack.stop()
         self._call(Trigger, "/carla/scenario_server/close_experiment")
         self.state = "IDLE"
         self.run_id = ""
@@ -798,26 +790,10 @@ class SimulationRunner(Node):
             return
         if self.outcome is None:
             self._finish("interrupted", ["Reset by operator"])
-        # Deactivate and clean before reloading actors: no queued command may reach
-        # a new ego, and controller/behavior history must not cross attempt IDs.
-        nodes = STACK_NODES.get(self.definition.get("stack"), [])
-        for node in reversed(nodes):
-            state = self._node_state(node)
-            if state == State.PRIMARY_STATE_ACTIVE:
-                self._transition(node, Transition.TRANSITION_DEACTIVATE)
-                state = State.PRIMARY_STATE_INACTIVE
-            if state == State.PRIMARY_STATE_INACTIVE:
-                self._transition(node, Transition.TRANSITION_CLEANUP)
-        if self.definition.get("stack") == "autonomy":
-            self._call(Trigger, "/world_modeling/reset_bt")
+        self._hold()
+        self.stack.stop()
         self._new_attempt()
         self._prepare_world()
-        for node in nodes:
-            if self._node_state(node) == State.PRIMARY_STATE_UNCONFIGURED:
-                self._transition(node, Transition.TRANSITION_CONFIGURE)
-            self._transition(node, Transition.TRANSITION_ACTIVATE)
-        if self.definition.get("stack") == "controller_pure_pursuit":
-            self._call(Trigger, "/action/fake_planner/reset")
         self._do_ready()
 
     def _fire_events(self, elapsed):
@@ -1177,8 +1153,6 @@ class SimulationRunner(Node):
         try:
             self._pause_world(True)
             self._hold()
-            if self.definition.get("stack") == "controller_pure_pursuit":
-                self._call(Trigger, "/action/fake_planner/stop_trajectory", timeout=3.0)
         except Exception as error:
             self.reasons.append(f"Finalization: {error}")
             if self.outcome == "pass":

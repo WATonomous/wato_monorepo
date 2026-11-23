@@ -19,6 +19,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
@@ -52,6 +53,8 @@ target_link_libraries(${PROJECT_NAME}_node
 )
 
 # Install
+ament_python_install_package(${PROJECT_NAME})
+install(PROGRAMS scripts/application_runtime DESTINATION lib/${PROJECT_NAME})
 install(TARGETS ${PROJECT_NAME}_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -72,6 +75,8 @@ install(DIRECTORY launch/
 
 if(BUILD_TESTING)
   find_package(wato_test REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_application_runtime test/test_application_runtime.py)
 
   add_wato_test(test_lifecycle_manager
     test/test_lifecycle_manager.cpp

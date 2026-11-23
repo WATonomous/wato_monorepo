@@ -241,6 +241,10 @@ support before they can be used as scored scenarios.
 
 ### Parked-vehicle template
 
+This evaluates the production planner's behavior. The simulation adapter does
+not disable overtaking or override the planner's speed-limit policy. Overtaking
+or stopping outside the configured clearance produces an assertion failure.
+
 Create `config/scenarios/parked_car_practice.yaml`. This retains the shipped
 parked-car scoring requirements and moves the parked actor to 45 m:
 
@@ -432,7 +436,7 @@ After preparing the necessary images/assets, follow the
 | Reusable world/actor operation | [ConfiguredWorld](carla_scenarios/worlds/configured_world.py) and [ScenarioBase](carla_scenarios/scenario_base.py) |
 | New allowed fields, event actions, test family or completion pair | [Definition validation](carla_scenarios/definitions.py) |
 | Readiness, event delivery, new metrics or completion checks | [Simulation manager](../../simulation_manager/simulation_manager/simulation_runner.py) |
-| New reviewed application stack or input-to-launch wiring | Host helper in the following CLI layer, including preflight |
+| New reviewed application stack or input-to-launch wiring | [Reviewed presets](../../../infrastructure/wato_lifecycle_manager/wato_lifecycle_manager/sim_presets.py) and [stack adapter](../../simulation_manager/simulation_manager/stack_adapter.py), including preflight |
 | Another fake-planner maneuver in scored tests | Definition validation, host preflight and installed [fake-planner assets](../../../action/fake_planner) |
 | Another autonomy map preset | Matching converted maps and installed [world-modeling configuration](../../../world_modeling/world_modeling_bringup/config/map_configs) |
 

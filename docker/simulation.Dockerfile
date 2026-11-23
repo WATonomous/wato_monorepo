@@ -10,6 +10,7 @@ WORKDIR ${AMENT_WS}/src
 
 COPY src/simulation simulation
 COPY src/infrastructure/vision_msgs_markers vision_msgs_markers
+COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
 COPY src/interfacing/eve_description eve_description
 COPY src/world_modeling/lanelet_msgs lanelet_msgs
 COPY src/action/wato_trajectory_msgs wato_trajectory_msgs
