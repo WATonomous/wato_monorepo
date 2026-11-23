@@ -13,6 +13,7 @@
 # limitations under the License.
 """Ackermann control lifecycle node for CARLA vehicles."""
 
+import re
 import time
 from typing import Optional
 
@@ -20,9 +21,9 @@ import carla
 import rclpy
 from ackermann_msgs.msg import AckermannDriveStamped
 from carla_common import connect_carla, find_ego_vehicle
+from carla_msgs.srv import BindControl
 from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
 from std_msgs.msg import Bool
 from std_srvs.srv import SetBool
@@ -70,7 +71,9 @@ class AckermannControlNode(LifecycleNode):
 
         self.declare_parameter("require_control_gate", False)
         self.control_enabled = not self.get_parameter("require_control_gate").value
-        self.control_gate_subscription = None
+        self.bind_control_service = None
+        self.command_generation = 0
+        self.command_topic = "~/command"
         self.control_gate_service = None
         self.last_command_wall = None
         self.command_epoch_ns = 0
@@ -117,18 +120,11 @@ class AckermannControlNode(LifecycleNode):
             self.get_logger().error(f"Failed to find ego vehicle: {e}")
             return TransitionCallbackReturn.FAILURE
 
-        self.command_subscription = self.create_subscription(
-            AckermannDriveStamped, "~/command", self.command_callback, 10
-        )
+        self._subscribe_commands("~/command")
 
         if self.get_parameter("require_control_gate").value:
-            qos = QoSProfile(
-                depth=1,
-                durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                reliability=ReliabilityPolicy.RELIABLE,
-            )
-            self.control_gate_subscription = self.create_subscription(
-                Bool, "/carla/control_enabled", self.control_gate_callback, qos
+            self.bind_control_service = self.create_service(
+                BindControl, "~/bind_control", self.bind_control_callback
             )
             self.control_gate_service = self.create_service(
                 SetBool, "~/set_enabled", self.control_gate_service_callback
@@ -178,6 +174,7 @@ class AckermannControlNode(LifecycleNode):
         """Cleanup lifecycle callback."""
         self.get_logger().info("Cleaning up...")
 
+        self.command_generation += 1
         if self.command_subscription:
             self.destroy_subscription(self.command_subscription)
             self.command_subscription = None
@@ -185,9 +182,9 @@ class AckermannControlNode(LifecycleNode):
         if self.control_gate_service:
             self.destroy_service(self.control_gate_service)
             self.control_gate_service = None
-        if self.control_gate_subscription:
-            self.destroy_subscription(self.control_gate_subscription)
-            self.control_gate_subscription = None
+        if self.bind_control_service:
+            self.destroy_service(self.bind_control_service)
+            self.bind_control_service = None
         self.control_enabled = not self.get_parameter("require_control_gate").value
         self.last_command = None
         self.last_command_time = None
@@ -202,6 +199,42 @@ class AckermannControlNode(LifecycleNode):
         """Shutdown lifecycle callback."""
         self.get_logger().info("Shutting down...")
         return TransitionCallbackReturn.SUCCESS
+
+    def _subscribe_commands(self, topic):
+        """Replace the source and invalidate callbacks queued by its predecessor."""
+        self.command_generation += 1
+        generation = self.command_generation
+        if self.command_subscription:
+            self.destroy_subscription(self.command_subscription)
+        self.command_subscription = self.create_subscription(
+            AckermannDriveStamped,
+            topic,
+            lambda msg: self._command_for_generation(msg, generation),
+            10,
+        )
+        self.command_topic = topic
+        self.last_command = self.last_command_time = self.last_command_wall = None
+
+    def _command_for_generation(self, message, generation):
+        if generation == self.command_generation:
+            self.command_callback(message)
+
+    def bind_control_callback(self, request, response):
+        """Bind a unique attempt topic only after the gate has been closed."""
+        if self.control_enabled:
+            response.success = False
+            response.message = "Block commands before binding an attempt."
+            return response
+        if not re.fullmatch(
+            r"/sim/attempts/[A-Za-z0-9_]+/command", request.command_topic
+        ):
+            response.success = False
+            response.message = "Expected /sim/attempts/ATTEMPT_ID/command."
+            return response
+        self._subscribe_commands(request.command_topic)
+        response.success = True
+        response.message = self.command_topic
+        return response
 
     def control_gate_callback(self, msg: Bool):
         """Fence queued commands at every pause, hold and attempt boundary."""
