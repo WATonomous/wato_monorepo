@@ -95,6 +95,21 @@ finally:
 """
 
 
+MAP_PREFLIGHT = """
+import os, sys
+from pathlib import Path
+import yaml
+from ament_index_python.packages import get_package_share_directory
+
+share = Path(get_package_share_directory("world_modeling_bringup"))
+configuration = share / "config" / "map_configs" / (sys.argv[1] + ".yaml")
+parameters = yaml.safe_load(configuration.read_text())["/**/world_model"]["ros__parameters"]
+osm = Path(parameters["osm_map_path"])
+if not osm.is_file() or not os.access(osm, os.R_OK):
+    raise RuntimeError("Missing readable OSM map from " + str(configuration) + ": " + str(osm))
+"""
+
+
 class SessionError(RuntimeError):
     """An actionable, user-facing session or dependency error."""
 
@@ -729,12 +744,6 @@ print(json.dumps({"definition": definition, "groups": groups}))
                     "ros2 pkg prefix " + shlex.quote(package) for package in packages
                 )
                 checks += ' && test -x "$(ros2 pkg prefix wato_lifecycle_manager)/lib/wato_lifecycle_manager/application_runtime"'
-                if service == "sim_world":
-                    checks += " && test -r " + shlex.quote(
-                        "/opt/watonomous/maps/osm/"
-                        + definition["inputs"]["map"]
-                        + ".osm"
-                    )
                 if stack == "controller_pure_pursuit":
                     checks += ' && test -r "$(ros2 pkg prefix --share fake_planner)/maneuvers/steady_state_slalom.json"'
                 container = self.state["containers"][service]
@@ -751,7 +760,21 @@ print(json.dumps({"definition": definition, "groups": groups}))
                 )
                 if result.returncode:
                     raise SessionError(
-                        f"Missing launch package, maneuver or map in {service}; expected packages {packages}, map /opt/watonomous/maps/osm/oval.osm for autonomy.\n{result.stdout}{result.stderr}\nPrepare the image/assets, then retry watod sim open."
+                        f"Missing launch package or maneuver in {service}; expected packages {packages}.\n{result.stdout}{result.stderr}\nPrepare the image/assets, then retry watod sim open."
+                    )
+                if service == "sim_world":
+                    self.run(
+                        [
+                            "docker",
+                            "exec",
+                            container,
+                            "bash",
+                            "-c",
+                            'source /opt/watonomous/setup.bash && exec python3 -c "$@"',
+                            "watod-sim-map-preflight",
+                            MAP_PREFLIGHT,
+                            definition["inputs"]["map"],
+                        ]
                     )
         except BaseException:
             self.remove(["sim_action", "sim_world"])
