@@ -24,7 +24,7 @@ This is the command reference for managed sessions. Run on the host;
 | Command | Behavior |
 |---------|----------|
 | `watod sim list` | List playgrounds and scored scenarios from the checkout; Docker is not required |
-| `watod sim setup --verbose` | Start/reuse the base session using prepared images and print Foxglove connection details |
+| `watod sim setup` | Start/reuse the base session using prepared images and print Foxglove connection details |
 | `watod sim open playground NAME` | Load map, ego, traffic, weather and bridge; ready for manual use without application nodes or scoring |
 | `watod sim open scenario NAME` | Prepare the world and reviewed application stack; leave the attempt ready for play |
 | `watod sim play` | Start a prepared scenario |
@@ -36,8 +36,7 @@ This is the command reference for managed sessions. Run on the host;
 | `watod sim test NAME` | Open, run, evaluate, save and close a scenario; keep the base session available |
 
 Launch application nodes yourself in a playground. Close the current world
-before opening another. Add `--verbose` to any command for orchestration and
-readiness diagnostics. Follow node output with
+before opening another. Follow node output with
 `docker logs --follow <sim_session-container>`. Application output is in the
 corresponding `sim_action` or `sim_world` container log.
 
@@ -110,7 +109,7 @@ propagation into infrastructure and robot TF.
 To stop both the managed session and regular modules from this checkout:
 
 ```bash
-watod sim stop --verbose
+watod sim stop
 watod down all
 docker ps
 ```

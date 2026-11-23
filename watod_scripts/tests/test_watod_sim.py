@@ -37,7 +37,6 @@ def session():
     node.directory = node.results.parent
     node.project = "watod_test_sim_workspace"
     node.environment = {}
-    node.verbose = False
     node.state = None
     node.save = Mock()
     node.metadata = Mock()
