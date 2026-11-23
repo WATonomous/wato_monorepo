@@ -27,6 +27,11 @@ launch:
       default: "10.0"
       description: Maximum planned and controlled speed in metres per second
 
+  - arg:
+      name: command_topic
+      default: "/carla/ackermann_control/command"
+      description: Controller output topic
+
   - include:
       file: "$(find-pkg-share action_bringup)/launch/action_sim.launch.yaml"
       arg:
@@ -40,3 +45,5 @@ launch:
           value: "$(var stop_distance)"
         - name: max_speed
           value: "$(var max_speed)"
+        - name: command_topic
+          value: "$(var command_topic)"
