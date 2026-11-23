@@ -14,12 +14,14 @@
 
 #include "costmap/costmap_node.hpp"
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "rclcpp/create_timer.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace costmap
@@ -102,8 +104,13 @@ CostmapNode::CallbackReturn CostmapNode::on_activate(const rclcpp_lifecycle::Sta
   }
 
   const auto period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
-  publish_timer_ = create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&CostmapNode::publishCostmap, this));
+  // Use the node clock so downstream planning follows the same time source.
+  publish_timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
+    std::bind(&CostmapNode::publishCostmap, this));
 
   RCLCPP_INFO(get_logger(), "Activated");
   return CallbackReturn::SUCCESS;
