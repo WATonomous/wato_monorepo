@@ -15,7 +15,7 @@
 
 import time
 import unittest
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from ackermann_msgs.msg import AckermannDrive
@@ -80,3 +80,67 @@ class TestAckermannControlConversion(unittest.TestCase):
 
         node._apply_stop_control.assert_called_once()
         node.ego_vehicle.apply_ackermann_control.assert_not_called()
+
+
+class TestAttemptControlBinding(unittest.TestCase):
+    def make_node(self):
+        node = SimpleNamespace(
+            command_generation=0,
+            command_subscription=None,
+            control_enabled=False,
+            create_subscription=MagicMock(),
+            destroy_subscription=MagicMock(),
+            command_callback=MagicMock(),
+        )
+        for method in ("_subscribe_commands", "_command_for_generation"):
+            setattr(
+                node, method, MethodType(getattr(AckermannControlNode, method), node)
+            )
+        return node
+
+    def test_previous_source_is_fenced_even_after_clock_rewinds(self):
+        node = self.make_node()
+        for attempt in ("old", "new"):
+            response = AckermannControlNode.bind_control_callback(
+                node,
+                SimpleNamespace(command_topic=f"/sim/attempts/{attempt}/command"),
+                SimpleNamespace(),
+            )
+            self.assertTrue(response.success)
+            if attempt == "old":
+                old_callback = node.create_subscription.call_args.args[2]
+        new_callback = node.create_subscription.call_args.args[2]
+        node.control_enabled = True
+        # Equal or future timestamps cannot turn an old source into this attempt.
+        message = SimpleNamespace(
+            header=SimpleNamespace(stamp=SimpleNamespace(sec=100))
+        )
+        old_callback(message)
+        node.command_callback.assert_not_called()
+        new_callback(message)
+        node.command_callback.assert_called_once_with(message)
+        node.destroy_subscription.assert_called_once()
+
+    def test_cannot_rebind_an_enabled_gate(self):
+        node = self.make_node()
+        node.control_enabled = True
+        response = AckermannControlNode.bind_control_callback(
+            node,
+            SimpleNamespace(command_topic="/sim/attempts/new/command"),
+            SimpleNamespace(),
+        )
+        self.assertFalse(response.success)
+        node.create_subscription.assert_not_called()
+
+    def test_only_attempt_topics_are_accepted(self):
+        for topic in (
+            "/carla/ackermann_control/command",
+            "/sim/attempts/../command",
+            "",
+        ):
+            node = self.make_node()
+            response = AckermannControlNode.bind_control_callback(
+                node, SimpleNamespace(command_topic=topic), SimpleNamespace()
+            )
+            self.assertFalse(response.success)
+            node.create_subscription.assert_not_called()
