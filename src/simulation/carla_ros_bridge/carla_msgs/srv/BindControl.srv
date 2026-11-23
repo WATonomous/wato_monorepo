@@ -1,0 +1,5 @@
+# Bind the controller output for one managed attempt while commands are blocked.
+string command_topic
+---
+bool success
+string message

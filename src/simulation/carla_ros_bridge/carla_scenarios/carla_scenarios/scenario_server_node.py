@@ -554,8 +554,8 @@ class ScenarioServerNode(LifecycleNode):
             return response
 
     def _publish_control_enabled(self, enabled):
-        # The acknowledged service fences queued commands before a tick can
-        # resume; the latched topic also informs components joining later.
+        # Only the acknowledged service controls the command gate. The latched
+        # topic reports state; delayed topic callbacks cannot reopen the gate.
         if self.control_gate_client and self.control_gate_client.service_is_ready():
             future = self.control_gate_client.call_async(SetBool.Request(data=enabled))
             finished = threading.Event()

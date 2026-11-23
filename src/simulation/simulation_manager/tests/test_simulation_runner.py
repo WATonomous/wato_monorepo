@@ -21,7 +21,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 from ament_index_python.packages import get_package_share_directory
 from carla_scenarios.definitions import load_definition
-from lifecycle_msgs.msg import State, Transition
 from simulation_manager.simulation_runner import SimulationRunner
 
 CONFIG = Path(get_package_share_directory("carla_scenarios")) / "config"
@@ -35,6 +34,7 @@ def runner(kind="playground", state="IDLE"):
         server_active=True,
         definitions=CONFIG,
         samples={},
+        stack=Mock(prepared=False),
         tf_buffer=MagicMock(),
         path_pub=MagicMock(),
         speed_pub=MagicMock(),
@@ -51,6 +51,7 @@ def runner(kind="playground", state="IDLE"):
     node._pause_world = Mock()
     node._call = Mock()
     node._write_configuration = Mock()
+    node._bridge_readiness = Mock(return_value=None)
     return node
 
 
@@ -79,7 +80,7 @@ class TestManualRunner(unittest.TestCase):
         self.assertEqual(node.state, "RUNNING")
         self.assertFalse(node.accepting_samples)
         self.assertEqual(node.events, [])
-        node._pause_world.assert_not_called()
+        node._pause_world.assert_called_once_with(False)
 
     def test_pause_resume_reset_close_do_not_evaluate_or_start_application_nodes(self):
         node = runner(state="RUNNING")
@@ -146,19 +147,6 @@ class TestManualRunner(unittest.TestCase):
         node._clear_attempt_state()
         node.state, node.outcome, node.run_id = "FINISHED", "assertion_failure", "old"
         node.definition = load_definition(CONFIG, "scenarios", "controller_snake")
-        nodes = ["/action/fake_planner/fake_planner_node", "/action/pure_pursuit_node"]
-        states = dict.fromkeys(nodes, State.PRIMARY_STATE_ACTIVE)
-        node._node_state = Mock(side_effect=lambda name: states[name])
-
-        def transition(name, change):
-            states[name] = {
-                Transition.TRANSITION_DEACTIVATE: State.PRIMARY_STATE_INACTIVE,
-                Transition.TRANSITION_CLEANUP: State.PRIMARY_STATE_UNCONFIGURED,
-                Transition.TRANSITION_CONFIGURE: State.PRIMARY_STATE_INACTIVE,
-                Transition.TRANSITION_ACTIVATE: State.PRIMARY_STATE_ACTIVE,
-            }[change]
-
-        node._transition = Mock(side_effect=transition)
         node._do_ready = Mock()
         with patch.object(Path, "mkdir") as mkdir:
             node._do_reset()
@@ -166,8 +154,5 @@ class TestManualRunner(unittest.TestCase):
         mkdir.assert_called_once_with(parents=True, exist_ok=False)
         self.assertNotEqual(node.run_id, "old")
         self.assertIsNone(node.outcome)
-        self.assertTrue(
-            all(state == State.PRIMARY_STATE_ACTIVE for state in states.values())
-        )
-        self.assertEqual(node._transition.call_count, 8)
+        node.stack.stop.assert_called_once()
         node._do_ready.assert_called_once()

@@ -26,3 +26,15 @@ ros2 run carla_control ackermann_control
 | `role_name` | string | `ego_vehicle` | Role name of the ego vehicle to control |
 | `command_timeout` | double | `0.5` | Stop vehicle if no command received within this time (seconds) |
 | `control_rate` | double | `50.0` | Control loop frequency in Hz |
+
+## Managed attempts
+
+Managed sessions enable `require_control_gate`. The scenario server controls
+`~/set_enabled` (`std_srvs/SetBool`) and acknowledges it before resuming ticks.
+`/carla/control_enabled` reports state; it cannot reopen the gate asynchronously.
+
+While commands are blocked, the stack adapter calls `~/bind_control`
+(`carla_msgs/BindControl`) with `/sim/attempts/ATTEMPT_ID/command`. The bridge
+replaces its command subscription and fences callbacks from the previous source.
+Each attempt uses a new topic, so old commands remain invalid even if `/clock`
+jumps backwards. Manual launches continue using `~/command`.

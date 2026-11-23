@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <limits>
 #include <memory>
 #include <string>
@@ -104,7 +103,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
-  // Match the world clock so pause cannot advance planner state or refresh commands.
+  // Schedule planning with the node clock.
   publish_timer_ = rclcpp::create_timer(
     get_node_base_interface(),
     get_node_timers_interface(),
@@ -152,15 +151,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   lanelet_ahead_sub_.reset();
   bt_sub_.reset();
   publish_timer_.reset();
-  odom_sub_.reset();
-  car_pose.reset();
-  car_frenet_point.reset();
-  car_tang_velocity.reset();
-  preferred_lanelets.clear();
-  corridor_terminals.clear();
-  ego_centrelines_.clear();
-  path_pub_.reset();
-  available_paths_pub_.reset();
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -199,7 +189,7 @@ void LatticePlanningNode::update_vehicle_odom(const nav_msgs::msg::Odometry::Con
   }
   car_pose = ps;
   car_frenet_point = fp;
-  car_tang_velocity = std::hypot(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
+  car_tang_velocity = fabs(msg->twist.twist.linear.x);
 }
 
 void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::ExecuteBehaviour::ConstSharedPtr & msg)
@@ -212,7 +202,7 @@ void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::Execute
 
 void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg)
 {
-  // Lane context can arrive before delayed odometry, especially after a world reset.
+  // Lane context may arrive before odometry or configuration.
   if (!car_pose || !core_) {
     return;
   }

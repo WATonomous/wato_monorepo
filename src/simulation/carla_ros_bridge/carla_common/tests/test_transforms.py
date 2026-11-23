@@ -20,6 +20,7 @@ from carla_common.transforms import (
     quaternion_to_euler,
     carla_to_ros_position,
     carla_to_ros_rotation,
+    world_to_body_vector,
 )
 
 
@@ -151,3 +152,26 @@ class TestCarlaToRosRotation:
         assert abs(roll - math.pi / 2) < 1e-10
         assert abs(pitch + math.pi / 2) < 1e-10
         assert abs(yaw + math.pi / 2) < 1e-10
+
+
+class TestWorldToBodyVector:
+    """Odometry twist follows the child frame, including signed reverse motion."""
+
+    def test_heading_and_reverse(self):
+        for angle in (0.0, math.pi / 2, math.pi, -math.pi / 3):
+            for speed in (4.0, -2.0):
+                world = (speed * math.cos(angle), speed * math.sin(angle), 0.0)
+                body = world_to_body_vector(world, euler_to_quaternion(0, 0, angle))
+                assert abs(body[0] - speed) < 1e-10
+                assert abs(body[1]) < 1e-10
+                assert abs(body[2]) < 1e-10
+
+    def test_pitch_and_roll(self):
+        body = world_to_body_vector(
+            (2 * math.sqrt(2), 0, -2 * math.sqrt(2)),
+            euler_to_quaternion(0, math.pi / 4, 0),
+        )
+        assert abs(body[0] - 4) < 1e-10
+        assert abs(body[2]) < 1e-10
+        body = world_to_body_vector((1, -3, 2), euler_to_quaternion(math.pi / 2, 0, 0))
+        assert all(abs(a - b) < 1e-10 for a, b in zip(body, (1, 2, 3)))
