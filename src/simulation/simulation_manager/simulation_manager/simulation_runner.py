@@ -574,7 +574,11 @@ class SimulationRunner(Node):
         while time.monotonic() - start < timeout:
             pending = self._bridge_readiness()
             if pending is None and self.kind == "scenario" and not self.stack.prepared:
-                self.stack.prepare(self.definition, self.run_id)
+                self.stack.prepare(
+                    self.definition,
+                    self.run_id,
+                    timeout_s=timeout - (time.monotonic() - start),
+                )
             pending = pending or self._readiness()
             if (
                 self.definition.get("stack") == "autonomy"
