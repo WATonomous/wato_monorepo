@@ -47,7 +47,6 @@ Executes 'docker compose COMMAND' in the monorepo with the correct
 compose files and environment variables.
 
 Options
-  -v, --verbose               Print env setup output
   -m, --module MODULE         Add a specific module (can be used multiple times)
                               Use "all" for all modules
                               Append :dev for dev mode (e.g., -m perception:dev)
@@ -239,10 +238,6 @@ declare -a CLI_MODULES=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -v|--verbose)
-      VERBOSE=1
-      shift
-      ;;
     -m|--module)
       shift
       MODULE_NAME=${1:-}
@@ -426,15 +421,9 @@ fi
 ORIGINAL_ACTIVE_MODULES=("${ACTIVE_MODULES[@]}")
 
 # Generate .env via helper script
-if [[ -n ${VERBOSE:-} ]]; then
-    pushd "$MONO_DIR" > /dev/null
-    source ./watod_scripts/watod-setup-env.sh          # env vars persist
-    popd > /dev/null
-else
-    pushd "$MONO_DIR" > /dev/null
-    source ./watod_scripts/watod-setup-env.sh &>/dev/null
-    popd > /dev/null
-fi
+pushd "$MONO_DIR" > /dev/null
+source ./watod_scripts/watod-setup-env.sh &>/dev/null
+popd > /dev/null
 
 # ────────────────────────────── Run Tests ────────────────────────────────
 
