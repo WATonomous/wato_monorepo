@@ -80,7 +80,7 @@ class TestManualRunner(unittest.TestCase):
         self.assertEqual(node.state, "RUNNING")
         self.assertFalse(node.accepting_samples)
         self.assertEqual(node.events, [])
-        node._pause_world.assert_called_once_with(False)
+        self.assertEqual(node._pause_world.call_args.args, (False,))
 
     def test_pause_resume_reset_close_do_not_evaluate_or_start_application_nodes(self):
         node = runner(state="RUNNING")
@@ -124,7 +124,7 @@ class TestManualRunner(unittest.TestCase):
         node._readiness = Mock(return_value=None)
         node._do_ready()
         self.assertEqual(node.state, "READY")
-        node._pause_world.assert_called_once_with(True)
+        self.assertEqual(node._pause_world.call_args.args, (True,))
         self.assertEqual(node.events[0]["event"], "ready")
 
     def test_scenario_pause_resume_keeps_execution_accounting(self):
@@ -156,3 +156,24 @@ class TestManualRunner(unittest.TestCase):
         self.assertIsNone(node.outcome)
         node.stack.stop.assert_called_once()
         node._do_ready.assert_called_once()
+
+    def test_readiness_cannot_become_ready_after_its_deadline(self):
+        node = runner(kind="scenario")
+        node._clear_attempt_state()
+        node.definition = load_definition(CONFIG, "scenarios", "controller_snake")
+        node.definition["deadlines"]["readiness_s"] = 1.0
+        clock = [0.0]
+
+        def delayed_readiness(**kwargs):
+            clock[0] = 2.0
+            return None
+
+        node._readiness = Mock(side_effect=delayed_readiness)
+        with patch(
+            "simulation_manager.simulation_runner.time.monotonic",
+            side_effect=lambda: clock[0],
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Readiness timed out"):
+                node._do_ready()
+        self.assertEqual(node.state, "PREPARING")
+        node._pause_world.assert_not_called()

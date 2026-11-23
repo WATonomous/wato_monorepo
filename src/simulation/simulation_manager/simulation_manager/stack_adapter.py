@@ -129,16 +129,21 @@ class SimulationStackAdapter:
                 ) from start_error
             raise
 
-    def pending(self):
+    def pending(self, deadline=None):
         """Report runtime or lifecycle readiness without changing lifecycle state."""
         if not self.prepared:
             return "application stack has not been prepared"
         try:
             for role in self.roles:
-                if self._runtime(role, "status")["process"] != "running":
+                if (
+                    self._runtime(role, "status", deadline=deadline)["process"]
+                    != "running"
+                ):
                     return f"application launch group {role} is not running"
                 manager = PRESETS[self.preset][role]["manager"]
-                self.call(Trigger, manager + "/is_active", timeout=3.0)
+                self._call(
+                    Trigger, manager + "/is_active", timeout=3.0, deadline=deadline
+                )
         except RuntimeError as error:
             return str(error)
         return None
