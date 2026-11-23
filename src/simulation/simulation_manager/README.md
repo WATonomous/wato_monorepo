@@ -1,7 +1,9 @@
 # Simulation Manager
 
 This ROS package manages readiness, playback, evaluation and results for a
-reusable CARLA 0.10.0 session. The host helper owns containers; application runtimes own launch groups, and the CARLA scenario server remains the sole tick and `/clock` authority.
+reusable CARLA 0.10.0 session. The host helper owns containers and starts application
+runtimes. Those runtimes own launch groups. The CARLA scenario server remains the
+sole tick and `/clock` authority.
 The `simulation_runner` executable, ROS node name and `/sim/*` services remain.
 
 The [standard manual workflow](../SIMULATION_README.md) uses

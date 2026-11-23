@@ -228,3 +228,89 @@ class TestScopedRemoval(unittest.TestCase):
         node.rpc.assert_called_once_with("close", timeout=30)
         self.assertEqual(list(remove.call_args.args[0]), ["sim_session", "carla_sim"])
         node.metadata.unlink.assert_called_once_with(missing_ok=True)
+
+
+class TestRuntimeHandoff(unittest.TestCase):
+    def test_open_starts_runtimes_and_leaves_launches_to_ros_manager(self):
+        node = session()
+        node.state = {"containers": {"sim_session": "session-container"}}
+        node.owned = Mock(return_value={"Config": {"Image": "test"}, "Image": "id"})
+        node.preflight = Mock(
+            return_value={
+                "definition": {"stack": "autonomy"},
+                "groups": {"world": {}, "action": {}},
+            }
+        )
+        node.rpc.side_effect = [
+            {"state": "IDLE"},
+            {},
+            {"state": "PREPARING", "stack": "autonomy"},
+            {"state": "READY"},
+        ]
+        node.start, node.remove = Mock(), Mock()
+
+        snapshot = node.open("scenario", "parked_car_straight")
+
+        self.assertEqual(snapshot["state"], "READY")
+        self.assertEqual(
+            [call.args[0] for call in node.start.call_args_list],
+            ["sim_world", "sim_action"],
+        )
+        for call in node.start.call_args_list:
+            self.assertEqual(
+                call.kwargs["command"],
+                "exec ros2 run wato_lifecycle_manager application_runtime",
+            )
+        self.assertEqual(
+            [call.args[0] for call in node.rpc.call_args_list],
+            ["status", "runtime", "open", "ready"],
+        )
+
+    def test_failed_readiness_closes_ros_groups_before_removing_containers(self):
+        node = session()
+        node.state = {"containers": {}}
+        node.preflight = Mock(
+            return_value={"definition": {"stack": "autonomy"}, "groups": {"action": {}}}
+        )
+        node.start, node.remove = Mock(), Mock()
+        node.rpc.side_effect = [
+            {"state": "IDLE"},
+            {},
+            {"stack": "autonomy"},
+            HELPER.SessionError("readiness failed"),
+            {},
+        ]
+        calls = Mock()
+        calls.attach_mock(node.rpc, "rpc")
+        calls.attach_mock(node.remove, "remove")
+
+        with self.assertRaisesRegex(HELPER.SessionError, "readiness failed"):
+            node.open("scenario", "parked_car_straight")
+
+        self.assertEqual(calls.mock_calls[-2].args[0], "close")
+        self.assertEqual(calls.mock_calls[-1].args[0], ["sim_action", "sim_world"])
+
+    def test_preflight_uses_installed_preset_packages(self):
+        node = session()
+        node.state = {"containers": {"sim_session": "base"}}
+        preparation = {
+            "definition": {"stack": "controller_pure_pursuit"},
+            "groups": {"action": {"packages": ["reviewed_package"]}},
+        }
+        node.run.side_effect = [
+            SimpleNamespace(stdout=json.dumps(preparation)),
+            SimpleNamespace(returncode=0),
+        ]
+
+        def start(service, **kwargs):
+            node.state["containers"][service] = service + "-id"
+
+        node.start, node.check_images = Mock(side_effect=start), Mock()
+
+        result = node.preflight("scenario", "controller_snake")
+
+        self.assertEqual(result, preparation)
+        node.check_images.assert_called_once_with(["sim_action"])
+        checks = node.run.call_args.args[0][-1]
+        self.assertIn("ros2 pkg prefix reviewed_package", checks)
+        self.assertIn("wato_lifecycle_manager/application_runtime", checks)

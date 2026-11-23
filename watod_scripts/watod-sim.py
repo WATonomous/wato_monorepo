@@ -15,7 +15,7 @@
 """Host-side ownership and Compose adapter for the ROS simulation runner.
 
 The runner owns experiment semantics. This helper only preflights installed
-images, starts their declared stack and forwards the operator's ROS requests.
+images, starts application runtimes and forwards the operator's ROS requests.
 All mutable files live under this workspace's ignored .cache/watod-sim folder.
 """
 
@@ -93,34 +93,6 @@ finally:
     node.destroy_node()
     rclpy.shutdown()
 """
-
-PRESETS = {
-    "controller_pure_pursuit": {
-        "sim_action": "ros2 launch fake_planner fake_planner_sim.launch.yaml "
-        "frame_id:=map start_on_activate:=false",
-    },
-    "autonomy": {
-        "sim_action": "ros2 launch action_bringup action_sim.launch.yaml",
-        "sim_world": "ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml "
-        "use_eidos:=false enable_overtaking:=false",
-    },
-}
-
-
-def preset_commands(definition):
-    """Launch only the reviewed stack, with inputs from the installed scenario."""
-    stack = definition["stack"]
-    inputs = definition["inputs"]
-    commands = dict(PRESETS[stack])
-    if stack == "controller_pure_pursuit":
-        commands["sim_action"] += " maneuver:=" + shlex.quote(inputs["maneuver"])
-    else:
-        commands["sim_action"] += (
-            f" stop_distance:={float(inputs['stop_distance_m'])}"
-            f" max_speed:={float(inputs['max_speed_mps'])}"
-        )
-        commands["sim_world"] += " map:=" + shlex.quote(inputs["map"])
-    return commands
 
 
 class SessionError(RuntimeError):
@@ -722,9 +694,14 @@ import json, sys
 from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from carla_scenarios.definitions import load_definition
+from wato_lifecycle_manager.sim_presets import PRESETS, launch_command
 
 base = Path(get_package_share_directory("carla_scenarios")) / "config"
-print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
+definition = load_definition(base, "scenarios", sys.argv[1])
+groups = PRESETS[definition["stack"]]
+for role in groups:
+    launch_command(role, {"preset": definition["stack"], "attempt_id": "preflight", "inputs": definition["inputs"]})
+print(json.dumps({"definition": definition, "groups": groups}))
 """
         result = self.run(
             [
@@ -739,39 +716,25 @@ print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
                 name,
             ]
         )
-        definition = json.loads(result.stdout)
+        preparation = json.loads(result.stdout)
+        definition, groups = preparation["definition"], preparation["groups"]
         stack = definition["stack"]
-        if stack not in PRESETS:
-            raise SessionError(f"Unsupported stack preset {stack!r} in {path}.")
-        self.check_images(list(PRESETS[stack]))
+        self.check_images(["sim_" + role for role in groups])
         try:
-            for service in PRESETS[stack]:
+            for role, group in groups.items():
+                service = "sim_" + role
                 self.start(service, command="sleep infinity")
-                packages = (
-                    ["fake_planner", "ackermann_pure_pursuit"]
-                    if stack == "controller_pure_pursuit"
-                    else (
-                        [
-                            "action_bringup",
-                            "lattice_planning",
-                            "trajectory_planner",
-                            "ackermann_pure_pursuit",
-                        ]
-                        if service == "sim_action"
-                        else [
-                            "world_modeling_bringup",
-                            "world_model",
-                            "costmap",
-                            "behaviour",
-                            "prediction",
-                        ]
-                    )
-                )
+                packages = ["wato_lifecycle_manager", *group["packages"]]
                 checks = " && ".join(
-                    "ros2 pkg prefix " + package for package in packages
+                    "ros2 pkg prefix " + shlex.quote(package) for package in packages
                 )
+                checks += ' && test -x "$(ros2 pkg prefix wato_lifecycle_manager)/lib/wato_lifecycle_manager/application_runtime"'
                 if service == "sim_world":
-                    checks += " && test -r /opt/watonomous/maps/osm/oval.osm"
+                    checks += " && test -r " + shlex.quote(
+                        "/opt/watonomous/maps/osm/"
+                        + definition["inputs"]["map"]
+                        + ".osm"
+                    )
                 if stack == "controller_pure_pursuit":
                     checks += ' && test -r "$(ros2 pkg prefix --share fake_planner)/maneuvers/steady_state_slalom.json"'
                 container = self.state["containers"][service]
@@ -793,7 +756,7 @@ print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
         except BaseException:
             self.remove(["sim_action", "sim_world"])
             raise
-        return definition
+        return preparation
 
     def open(self, kind, name):
         snapshot = self.rpc("status", timeout=15)
@@ -802,7 +765,7 @@ print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
                 f"State is {snapshot.get('state')}. Run watod sim close first."
             )
         started = time.monotonic()
-        definition = self.preflight(kind, name)
+        preparation = self.preflight(kind, name)
         try:
             effective_images = {}
             for service, container in self.state["containers"].items():
@@ -816,12 +779,15 @@ print(json.dumps(load_definition(base, "scenarios", sys.argv[1])))
             snapshot = self.rpc("open", f"{kind}/{name}", timeout=150)
             self.remove(["sim_action", "sim_world"])
             if kind == "scenario":
-                if snapshot.get("stack") != definition["stack"]:
+                if snapshot.get("stack") != preparation["definition"]["stack"]:
                     raise SessionError(
                         "Installed definition changed during open; close and retry."
                     )
-                for service, command in preset_commands(definition).items():
-                    self.start(service, command=command)
+                for role in preparation["groups"]:
+                    self.start(
+                        "sim_" + role,
+                        command="exec ros2 run wato_lifecycle_manager application_runtime",
+                    )
             snapshot = self.rpc(
                 "ready",
                 timeout=float(self.environment.get("WATOD_SIM_READY_TIMEOUT_S", "120")),

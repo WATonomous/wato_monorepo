@@ -60,8 +60,8 @@ services:
       file: ${COMPOSE_EXTEND_FILE}
       service: simulation_bringup
 
-  # Session services reuse the module images. Only the experiment containers are
-  # replaced when changing presets; CARLA, Zenoh and Foxglove stay available.
+  # Session services reuse the module images. Application runtimes own launches;
+  # the host owns containers. CARLA, Zenoh and Foxglove stay available on reset.
   sim_session:
     profiles: ["sim_session"]
     extends:
@@ -83,11 +83,17 @@ services:
     extends:
       file: ${COMPOSE_EXTEND_FILE}
       service: action_bringup
-    command: ["/bin/bash", "-c", "${WATOD_SIM_ACTION_COMMAND:-sleep infinity}"]
+    command: ["/bin/bash", "-c", "${WATOD_SIM_ACTION_COMMAND:-exec ros2 run wato_lifecycle_manager application_runtime}"]
+    environment:
+      - WATOD_SIM_RUNTIME_ROLE=action
+      - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}
 
   sim_world:
     profiles: ["sim_experiment"]
     extends:
       file: ${COMPOSE_EXTEND_FILE}
       service: world_modeling_bringup
-    command: ["/bin/bash", "-c", "${WATOD_SIM_WORLD_COMMAND:-sleep infinity}"]
+    command: ["/bin/bash", "-c", "${WATOD_SIM_WORLD_COMMAND:-exec ros2 run wato_lifecycle_manager application_runtime}"]
+    environment:
+      - WATOD_SIM_RUNTIME_ROLE=world
+      - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}
