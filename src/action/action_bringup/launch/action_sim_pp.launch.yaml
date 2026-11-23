@@ -25,7 +25,7 @@ launch:
   - arg:
       name: max_speed
       default: "10.0"
-      description: Maximum planned and controlled speed in metres per second
+      description: Controller speed cap and planner fallback speed in metres per second
 
   - arg:
       name: command_topic
