@@ -43,8 +43,10 @@ class SimulationStackAdapter:
 
     def _runtime(self, role, operation, request=None, timeout=15.0, deadline=None):
         endpoint = f"/sim/runtime/{role}"
+        # Fresh containers can take longer to join ROS than an already-running group.
+        status_timeout = 3.0 if deadline is None else deadline - time.monotonic()
         status = self._call(
-            Trigger, endpoint + "/status", timeout=3.0, deadline=deadline
+            Trigger, endpoint + "/status", timeout=status_timeout, deadline=deadline
         )
         identity = json.loads(status.message)
         if identity["session_id"] != self.session_id or identity["role"] != role:
