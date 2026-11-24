@@ -29,9 +29,11 @@
 #include <message_filters/synchronizer.hpp>
 #include <opencv2/core/mat.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/buffer.hpp>
 #include <tf2_ros/transform_listener.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 namespace semvecnet
 {
@@ -82,6 +84,8 @@ private:
   MultiCameraInfo::ConstSharedPtr cached_camera_info_;
   rclcpp::Subscription<MultiCameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Publisher<lanelet_msgs::msg::MapVisualization>::SharedPtr lanelets_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr polyline_markers_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr preview_pub_;
   message_filters::Subscriber<PointCloud> lidar_sub_;
   message_filters::Subscriber<MultiImage> raw_sub_;
   message_filters::Subscriber<MultiImageCompressed> compressed_sub_;

@@ -75,7 +75,7 @@ TEST(LaneletsCore, PacksFiveHalfFeaturesAndSkipsInvalidPoints)
   EXPECT_THROW(core.processLidar(cloud), std::invalid_argument);
 }
 
-TEST(LaneletsCore, ComputesMaskSpaceIntrinsicsAndRowMajorTransform)
+TEST(LaneletsCore, ComputesInputImageIntrinsicsAndRowMajorTransform)
 {
   sensor_msgs::msg::CameraInfo info;
   info.width = 1280;
@@ -86,15 +86,17 @@ TEST(LaneletsCore, ComputesMaskSpaceIntrinsicsAndRowMajorTransform)
   tf.transform.rotation.w = 1.0;
   tf.transform.translation.x = 2.0;
   tf.transform.translation.y = 3.0;
-  const auto calibration = LaneletsCore::computeCameraCalibration(info, tf);
-  const std::array<float, 9> expected_intrinsics{600, 0, 480, 0, 720, 360, 0, 0, 1};
+  const auto calibration = LaneletsCore::computeCameraCalibration(info, tf, 1280, 1024);
+  const std::array<float, 9> expected_intrinsics{800, 0, 640, 0, 1024, 512, 0, 0, 1};
   EXPECT_EQ(calibration.intrinsics, expected_intrinsics);
+  const std::array<float, 9> scaled{400, 0, 320, 0, 768, 384, 0, 0, 1};
+  EXPECT_EQ(LaneletsCore::computeCameraCalibration(info, tf, 640, 768).intrinsics, scaled);
   const Matrix4 expected_camera{0, -1, 0, -3, 1, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 1};
   EXPECT_EQ(calibration.lidar_to_camera, expected_camera);
   const Matrix4 expected_map{1, 0, 0, 2, 0, 1, 0, 3, 0, 0, 1, 0, 0, 0, 0, 1};
   EXPECT_EQ(LaneletsCore::flattenTransform(tf), expected_map);
   info.r = {};
-  EXPECT_THROW(LaneletsCore::computeCameraCalibration(info, tf), std::invalid_argument);
+  EXPECT_THROW(LaneletsCore::computeCameraCalibration(info, tf, 1280, 1024), std::invalid_argument);
 }
 
 TEST(LaneletsCore, ConvertsLanelet2GeometryToRosMessage)

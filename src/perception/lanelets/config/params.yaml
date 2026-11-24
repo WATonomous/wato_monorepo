@@ -13,7 +13,7 @@ lanelets_node:
 
     # TF must provide map <- cloud.header.frame_id and map <- ego_frame at the cloud stamp.
     map_frame: map
-    ego_frame: base_link
+    ego_frame: rear_axle
 
     hrnet_plan: /opt/watonomous/models/semvecnet/hrnet_ocrnet_mapillary.plan
     semvecnet_onnx: /opt/watonomous/models/semvecnet/semvecnet.onnx

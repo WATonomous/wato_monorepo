@@ -27,6 +27,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(deep_msgs REQUIRED)
 find_package(lanelet2_core REQUIRED)
@@ -41,6 +43,7 @@ find_package(semvecnet REQUIRED CONFIG)
 add_library(${PROJECT_NAME}_node SHARED
   src/lanelets_core.cpp
   src/lanelets_node.cpp
+  src/polyline_markers.cpp
 )
 
 target_include_directories(${PROJECT_NAME}_node
@@ -53,6 +56,7 @@ target_link_libraries(${PROJECT_NAME}_node
   PUBLIC
     rclcpp::rclcpp
     ${sensor_msgs_TARGETS}
+    ${visualization_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
     ${deep_msgs_TARGETS}
     lanelet2_core::lanelet2_core
@@ -61,6 +65,7 @@ target_link_libraries(${PROJECT_NAME}_node
     tf2_ros::tf2_ros
     ${OpenCV_LIBS}
   PRIVATE
+    ${std_msgs_TARGETS}
     cv_bridge::cv_bridge
     rclcpp_components::component
     tf2_eigen::tf2_eigen
@@ -110,7 +115,7 @@ install(
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 ament_export_dependencies(
-  rclcpp sensor_msgs geometry_msgs deep_msgs lanelet2_core lanelet_msgs message_filters tf2_ros OpenCV
+  rclcpp sensor_msgs visualization_msgs geometry_msgs deep_msgs lanelet2_core lanelet_msgs message_filters tf2_ros OpenCV
 )
 
 if(BUILD_TESTING)
@@ -118,6 +123,11 @@ if(BUILD_TESTING)
   ament_add_gtest(test_lanelets_core test/test_lanelets_core.cpp)
   if(TARGET test_lanelets_core)
     target_link_libraries(test_lanelets_core ${PROJECT_NAME}_node)
+  endif()
+  ament_add_gtest(test_polyline_markers test/test_polyline_markers.cpp)
+  if(TARGET test_polyline_markers)
+    target_include_directories(test_polyline_markers PRIVATE src)
+    target_link_libraries(test_polyline_markers ${PROJECT_NAME}_node ${std_msgs_TARGETS} semvecnet::semvecnet_core)
   endif()
 endif()
 

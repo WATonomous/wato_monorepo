@@ -33,7 +33,7 @@ using Matrix4 = std::array<float, 16>;
 // Same fields and layout convention as SemVecNet's CameraCalibration.
 struct CameraCalibration
 {
-  std::array<float, 9> intrinsics;  // Row-major, in 960x720 mask coordinates.
+  std::array<float, 9> intrinsics;  // Row-major, in the input image's pixel coordinates.
   Matrix4 lidar_to_camera;  // Row-major, into the rectified optical frame.
 };
 
@@ -48,7 +48,8 @@ public:
   // Packs finite x/y/z/intensity/time_lag records as IEEE binary16 bits, limited to max_points.
   std::vector<std::uint16_t> processLidar(const sensor_msgs::msg::PointCloud2 & cloud) const;
   static CameraCalibration computeCameraCalibration(
-    const sensor_msgs::msg::CameraInfo & info, const geometry_msgs::msg::TransformStamped & lidar_to_camera);
+    const sensor_msgs::msg::CameraInfo & info, const geometry_msgs::msg::TransformStamped & lidar_to_camera,
+    int input_width, int input_height);
   static Matrix4 flattenTransform(const geometry_msgs::msg::TransformStamped & transform);
   static lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & lanelet);
 

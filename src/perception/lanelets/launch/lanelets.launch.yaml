@@ -19,6 +19,15 @@ launch:
       name: output_topic
       default: /perception/detected_lanelets
   - arg:
+      name: polyline_markers_topic
+      default: /perception/semvecnet_polyline_markers
+  - arg:
+      name: semvecnet_preview_topic
+      default: /perception/semvecnet_preview/compressed
+  - arg:
+      name: use_sim_time
+      default: "false"
+  - arg:
       name: params_file
       default: $(find-pkg-share lanelets)/config/params.yaml
 
@@ -29,6 +38,8 @@ launch:
       output: screen
       param:
         - from: $(var params_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
       remap:
         - from: input_multi_image_compressed
           to: $(var compressed_image_topic)
@@ -40,3 +51,7 @@ launch:
           to: $(var cloud_topic)
         - from: output_lanelets
           to: $(var output_topic)
+        - from: output_polyline_markers
+          to: $(var polyline_markers_topic)
+        - from: output_semvecnet_preview
+          to: $(var semvecnet_preview_topic)

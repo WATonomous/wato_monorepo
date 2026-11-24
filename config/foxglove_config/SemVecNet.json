@@ -1,0 +1,26 @@
+{
+  "configById": {
+    "Image!semvecnet-camera": {
+      "imageMode": {
+        "imageTopic": "/camera_pano_nn/image_rect_compressed",
+        "calibrationTopic": "/camera_pano_nn/camera_info",
+        "synchronize": false
+      }
+    },
+    "Image!semvecnet-preview": {
+      "imageMode": {
+        "imageTopic": "/perception/semvecnet_preview/compressed",
+        "rectifyImage": false
+      }
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": { "speed": 1 },
+  "layout": {
+    "direction": "column",
+    "first": "Image!semvecnet-camera",
+    "second": "Image!semvecnet-preview",
+    "splitPercentage": 24
+  }
+}

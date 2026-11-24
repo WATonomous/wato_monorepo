@@ -33,9 +33,6 @@ namespace wato::perception::lanelets
 
   namespace
   {
-    // SemVecNet's HRNet resizes to this mask size inside forward(), without a crop.
-    constexpr int kMaskWidth = 960;
-    constexpr int kMaskHeight = 720;
     constexpr float kMaxFp16 = 65504.0f;
     using PointCloud = sensor_msgs::msg::PointCloud2;
     using PointField = sensor_msgs::msg::PointField;
@@ -150,7 +147,8 @@ namespace wato::perception::lanelets
   }
 
   CameraCalibration LaneletsCore::computeCameraCalibration(
-      const sensor_msgs::msg::CameraInfo &info, const geometry_msgs::msg::TransformStamped &lidar_to_camera)
+      const sensor_msgs::msg::CameraInfo &info, const geometry_msgs::msg::TransformStamped &lidar_to_camera,
+      int input_width, int input_height)
   {
     // CameraInfo P projects onto image_rect; K describes the distorted image.
     // The inputs here are monocular streams, so P has no stereo baseline.
@@ -158,15 +156,17 @@ namespace wato::perception::lanelets
     { return std::isfinite(v); };
     const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> rotation(info.r.data());
     if (
-        info.width == 0 || info.height == 0 || !std::all_of(info.p.begin(), info.p.end(), finite) || info.p[0] <= 0.0 ||
+        input_width <= 0 || input_height <= 0 || info.width == 0 || info.height == 0 ||
+        !std::all_of(info.p.begin(), info.p.end(), finite) || info.p[0] <= 0.0 ||
         info.p[5] <= 0.0 || info.p[3] != 0.0 || info.p[7] != 0.0 || info.p[11] != 0.0 || !rotation.allFinite() ||
         std::abs(rotation.determinant() - 1.0) > 1e-3)
     {
       throw std::invalid_argument("Expected calibrated, rectified monocular CameraInfo");
     }
     CameraCalibration calibration;
-    const double sx = static_cast<double>(kMaskWidth) / info.width;
-    const double sy = static_cast<double>(kMaskHeight) / info.height;
+    // SemVecNet handles its own input-to-HRNet mask scaling.
+    const double sx = static_cast<double>(input_width) / info.width;
+    const double sy = static_cast<double>(input_height) / info.height;
     calibration.intrinsics = {
         static_cast<float>(sx * info.p[0]),
         static_cast<float>(sx * info.p[1]),

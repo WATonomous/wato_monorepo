@@ -30,6 +30,7 @@
 #include <sensor_msgs/image_encodings.hpp>
 
 #include "lanelets/lanelets_core.hpp"
+#include "polyline_markers.hpp"
 
 namespace wato::perception::lanelets
 {
@@ -42,6 +43,8 @@ namespace wato::perception::lanelets
     constexpr auto kCameraInfoTopic = "input_multi_camera_info";
     constexpr auto kLidarTopic = "input_cloud";
     constexpr auto kLaneletsTopic = "output_lanelets";
+    constexpr auto kPolylineMarkersTopic = "output_polyline_markers";
+    constexpr auto kPreviewTopic = "output_semvecnet_preview";
 
     // Like BEVFusion, index by frame ID and use the configured camera order for both
     // images and calibration, regardless of their order in the incoming messages.
@@ -92,7 +95,7 @@ namespace wato::perception::lanelets
         "camera_names",
         {"camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"});
     map_frame_ = declare_parameter<std::string>("map_frame", "map");
-    ego_frame_ = declare_parameter<std::string>("ego_frame", "base_link");
+    ego_frame_ = declare_parameter<std::string>("ego_frame", "rear_axle");
     const int image_width = declare_parameter<int>("image_width", 1280);
     const int image_height = declare_parameter<int>("image_height", 1024);
     const int max_points = declare_parameter<int>("max_points", 300000);
@@ -120,6 +123,8 @@ namespace wato::perception::lanelets
     }
     semvecnet_ = std::make_unique<semvecnet::SemVecNet>(hrnet_plan, semvecnet_onnx);
     lanelets_pub_ = create_publisher<lanelet_msgs::msg::MapVisualization>(kLaneletsTopic, 10);
+    polyline_markers_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(kPolylineMarkersTopic, 10);
+    preview_pub_ = create_publisher<sensor_msgs::msg::CompressedImage>(kPreviewTopic, 1);
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
     tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -242,7 +247,8 @@ namespace wato::perception::lanelets
       }
       camera_images.push_back(image.data);
       const auto calibration = LaneletsCore::computeCameraCalibration(
-          info, tf_buffer_->lookupTransform(info.header.frame_id, cloud.header.frame_id, stamp));
+          info, tf_buffer_->lookupTransform(info.header.frame_id, cloud.header.frame_id, stamp),
+          image.cols, image.rows);
       calibrations.push_back({calibration.intrinsics, calibration.lidar_to_camera});
     }
 
@@ -266,11 +272,12 @@ namespace wato::perception::lanelets
     }
 
     semvecnet::Polylines polylines;
+    std::vector<std::uint8_t> semantic_rgb;
     try
     {
       polylines = semvecnet_->forward(
           camera_images.data(), semvecnet_points.data(), num_points, num_cameras, image_width, image_height,
-          calibrations, lidar_to_map, ego_to_map);
+          calibrations, lidar_to_map, ego_to_map, &semantic_rgb);
     }
     catch (const std::exception &e)
     {
@@ -279,6 +286,23 @@ namespace wato::perception::lanelets
     }
     RCLCPP_DEBUG_THROTTLE(
         get_logger(), *get_clock(), kLogThrottleMs, "SemVecNet returned %zu polylines", polylines.size());
+    auto header = cloud.header;
+    header.frame_id = map_frame_;
+    polyline_markers_pub_->publish(makePolylineMarkers(polylines, header, ego_to_map));
+    constexpr int rows = semvecnet::semantic_map::kHeight;
+    constexpr int cols = semvecnet::semantic_map::kWidth;
+    if (semantic_rgb.size() == rows * cols * 3)
+    {
+      sensor_msgs::msg::CompressedImage preview;
+      preview.header = cloud.header;
+      preview.header.frame_id = ego_frame_;
+      preview.format = "png";
+      const cv::Mat rgb(rows, cols, CV_8UC3, semantic_rgb.data());
+      if (cv::imencode(".png", renderSemVecNetPreview(rgb, polylines), preview.data))
+      {
+        preview_pub_->publish(preview);
+      }
+    }
     const auto lanelets = generateLanelets(polylines, ego_to_map);
     if (!lanelets.empty())
     {
@@ -287,9 +311,33 @@ namespace wato::perception::lanelets
   }
 
   lanelet::Lanelets LaneletsNode::generateLanelets(
-      const semvecnet::Polylines & /*polylines*/, const Matrix4 & /*ego_to_map*/)
+      const semvecnet::Polylines &polylines, const Matrix4 &ego_to_map)
   {
     // TODO(lanelets): Pair boundaries, construct Lanelet2 geometry, and transform it into map_frame_.
+
+    std::vector<const semvecnet::postprocessing::Polyline *> boundaries;
+    std::vector<const semvecnet::postprocessing::Polyline *> centerlines;
+    std::vector<const semvecnet::postprocessing::Polyline *> dividers;
+
+    // Keep only the boundaries, centerlines, and dividers, ignore pedestrian crossings for now
+    for (const auto &polyline : polylines)
+    {
+      switch (polyline.label)
+      {
+      case 0:
+        dividers.push_back(&polyline);
+        break;
+      case 2:
+        boundaries.push_back(&polyline);
+        break;
+      case 3:
+        centerlines.push_back(&polyline);
+        break;
+      default:
+        break;
+      }
+    }
+
     return {};
   }
 
