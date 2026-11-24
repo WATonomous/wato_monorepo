@@ -189,6 +189,12 @@ namespace wato::perception::lanelets
     return flattenMatrix(tf2::transformToEigen(transform).matrix());
   }
 
+  EgoPoint LaneletsCore::toRearAxle(float model_x_right, float model_y_forward)
+  {
+    // Model right/forward -> rear axle forward/left. Matches toEgo() in CUDA-SemVecNet/src/main.cpp.
+    return {model_y_forward + kModelOriginForwardOffset, -model_x_right};
+  }
+
   lanelet_msgs::msg::Lanelet LaneletsCore::toLaneletMsg(const lanelet::ConstLanelet &lanelet)
   {
     lanelet_msgs::msg::Lanelet msg;

@@ -33,13 +33,6 @@ const Style & styleFor(int label)
   return kStyles[label >= 0 && label < 4 ? label : 4];
 }
 
-std::array<float, 2> toRearAxle(const std::array<float, 2> & point)
-{
-  // Match CUDA-SemVecNet/src/main.cpp: model right/forward -> rear axle forward/left.
-  constexpr float lidar_forward_offset = 0.943713f;
-  return {point[1] + lidar_forward_offset, -point[0]};
-}
-
 }  // namespace
 
 visualization_msgs::msg::MarkerArray makePolylineMarkers(
@@ -75,11 +68,12 @@ visualization_msgs::msg::MarkerArray makePolylineMarkers(
     marker.color.b = style.b / 255.0f;
     marker.color.a = 1.0f;
     marker.points.reserve(polyline.points.size());
-    for (const auto & model_point : polyline.points) {
-      const auto [x, y] = toRearAxle(model_point);
+    for (const auto & ego : LaneletsCore::toRearAxlePoints(polyline.points)) {
+      const auto forward = ego[0];
+      const auto left = ego[1];
       auto & point = marker.points.emplace_back();
-      point.x = ego_to_map[3] + cos_yaw * x - sin_yaw * y;
-      point.y = ego_to_map[7] + sin_yaw * x + cos_yaw * y;
+      point.x = ego_to_map[3] + cos_yaw * forward - sin_yaw * left;
+      point.y = ego_to_map[7] + sin_yaw * forward + cos_yaw * left;
       point.z = ego_to_map[11];
     }
   }
@@ -117,9 +111,8 @@ cv::Mat renderSemVecNetPreview(
   for (const auto & line : polylines) {
     std::vector<cv::Point> points;
     points.reserve(line.points.size());
-    for (const auto & point : line.points) {
-      const auto [forward, left] = toRearAxle(point);
-      points.push_back(pixel(forward, left));
+    for (const auto & ego : LaneletsCore::toRearAxlePoints(line.points)) {
+      points.push_back(pixel(ego[0], ego[1]));  // {forward, left}
     }
     const auto & style = styleFor(line.label);
     const cv::Scalar bgr(style.b, style.g, style.r);

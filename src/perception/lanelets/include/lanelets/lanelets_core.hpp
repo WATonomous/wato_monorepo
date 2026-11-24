@@ -37,10 +37,25 @@ struct CameraCalibration
   Matrix4 lidar_to_camera;  // Row-major, into the rectified optical frame.
 };
 
+// A point in the rear axle (ego) frame: origin at the rear axle, x forward, y left, in meters.
+struct EgoPoint
+{
+  float x;
+  float y;
+};
+
 class LaneletsCore
 {
 public:
   static constexpr int kLidarFeatures = 5;
+
+  // How far ahead of the rear axle the origin of SemVecNet's output frame sits, in meters.
+  // This is a property of the trained model (a virtual nuScenes LIDAR_TOP), NOT of Eve's physical
+  // lidar, which eve_description places 0.8629 m ahead of rear_axle. Do not derive it from TF.
+  // Keep in sync with the model's source of truth:
+  //   wato-SemVecNet: SemVecNet/projects/mmdet3d_plugin/datasets/ringroad_augmentation.py (0.943713)
+  //   wato-SemVecNet-cpp: CUDA-SemVecNet/src/main.cpp, kLidarForwardOffset
+  static constexpr float kModelOriginForwardOffset = 0.943713f;
 
   LaneletsCore(int image_width, int image_height, int max_points);
 
@@ -51,6 +66,27 @@ public:
     const sensor_msgs::msg::CameraInfo & info, const geometry_msgs::msg::TransformStamped & lidar_to_camera,
     int input_width, int input_height);
   static Matrix4 flattenTransform(const geometry_msgs::msg::TransformStamped & transform);
+
+  // SemVecNet model frame (origin at the lidar, x right, y forward) -> rear axle frame.
+  static EgoPoint toRearAxle(float model_x_right, float model_y_forward);
+
+  // Converts every point of a polyline. `model_points` is any container of {x, y} pairs, such as
+  // semvecnet::postprocessing::Polyline::points (a template, so the SemVecNet type does not have to
+  // appear in this public header). Returns the same container type, with each pair replaced by the
+  // rear axle {x forward, y left}. Use it to overwrite a polyline's points in place:
+  //   polyline.points = LaneletsCore::toRearAxlePoints(polyline.points);
+  template <typename Points>
+  static Points toRearAxlePoints(const Points & model_points)
+  {
+    Points ego_points = model_points;
+    for (auto & point : ego_points) {
+      const auto ego = toRearAxle(point[0], point[1]);
+      point[0] = ego.x;
+      point[1] = ego.y;
+    }
+    return ego_points;
+  }
+
   static lanelet_msgs::msg::Lanelet toLaneletMsg(const lanelet::ConstLanelet & lanelet);
 
   int imageWidth() const

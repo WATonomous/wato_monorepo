@@ -333,9 +333,16 @@ namespace wato::perception::lanelets
     std::vector<const semvecnet::postprocessing::Polyline *> centerlines;
     std::vector<const semvecnet::postprocessing::Polyline *> dividers;
 
+    // Work on a copy so the model-frame polylines used by the markers and preview stay untouched.
+    // The pointers below refer to this copy, so it must outlive them.
+    semvecnet::Polylines ego_polylines = polylines;
+
     // Keep only the boundaries, centerlines, and dividers, ignore pedestrian crossings for now
-    for (const auto &polyline : polylines)
+    for (auto &polyline : ego_polylines)
     {
+      // Model frame (x right, y forward, origin at lidar) -> rear axle frame (x forward, y left)
+      polyline.points = LaneletsCore::toRearAxlePoints(polyline.points);
+
       switch (polyline.label)
       {
       case 0:
