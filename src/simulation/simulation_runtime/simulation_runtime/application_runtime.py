@@ -22,7 +22,7 @@ import rclpy
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 
-from wato_lifecycle_manager.sim_presets import launch_command
+from simulation_runtime.sim_presets import launch_command
 
 
 class LaunchProcess:
@@ -133,4 +133,4 @@ def main(args=None):
     finally:
         node.launch.stop()
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()

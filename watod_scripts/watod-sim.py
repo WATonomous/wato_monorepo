@@ -670,7 +670,7 @@ import json, sys
 from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from carla_scenarios.definitions import load_definition
-from wato_lifecycle_manager.sim_presets import PRESETS, launch_command
+from simulation_runtime.sim_presets import PRESETS, launch_command
 
 base = Path(get_package_share_directory("carla_scenarios")) / "config"
 definition = load_definition(base, "scenarios", sys.argv[1])
@@ -700,11 +700,15 @@ print(json.dumps({"definition": definition, "groups": groups}))
             for role, group in groups.items():
                 service = "sim_" + role
                 self.start(service, command="sleep infinity")
-                packages = ["wato_lifecycle_manager", *group["packages"]]
+                packages = [
+                    "simulation_runtime",
+                    "wato_lifecycle_manager",
+                    *group["packages"],
+                ]
                 checks = " && ".join(
                     "ros2 pkg prefix " + shlex.quote(package) for package in packages
                 )
-                checks += ' && test -x "$(ros2 pkg prefix wato_lifecycle_manager)/lib/wato_lifecycle_manager/application_runtime"'
+                checks += ' && test -x "$(ros2 pkg prefix simulation_runtime)/lib/simulation_runtime/application_runtime"'
                 if stack == "controller_pure_pursuit":
                     checks += ' && test -r "$(ros2 pkg prefix --share fake_planner)/maneuvers/steady_state_slalom.json"'
                 container = self.state["containers"][service]
@@ -770,7 +774,7 @@ print(json.dumps({"definition": definition, "groups": groups}))
                 for role in preparation["groups"]:
                     self.start(
                         "sim_" + role,
-                        command="exec ros2 run wato_lifecycle_manager application_runtime",
+                        command="exec ros2 run simulation_runtime application_runtime",
                     )
             snapshot = self.rpc(
                 "ready",

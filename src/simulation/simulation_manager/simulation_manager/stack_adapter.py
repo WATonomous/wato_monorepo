@@ -20,7 +20,7 @@ from carla_msgs.srv import BindControl
 from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
 from rcl_interfaces.srv import SetParametersAtomically
 from std_srvs.srv import Trigger
-from wato_lifecycle_manager.sim_presets import PRESETS, command_topic, launch_command
+from simulation_runtime.sim_presets import PRESETS, command_topic, launch_command
 
 
 class SimulationStackAdapter:

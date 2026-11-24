@@ -1,25 +1,52 @@
 # Simulation Manager
 
-This ROS package manages readiness, playback, evaluation and results for a
-reusable CARLA 0.10.0 session. The host helper owns containers and starts application
-runtimes. Those runtimes own launch groups. The CARLA scenario server remains the
-sole tick and `/clock` authority.
-The `simulation_runner` executable, ROS node name and `/sim/*` services remain.
+Use `watod sim` to explore CARLA playgrounds or run scored driving scenarios.
+A session keeps CARLA and the ROS bridge running while you open, reset, and close scenarios.
 
-The [standard manual workflow](../SIMULATION_README.md) uses
-`session_mode:=false`. The manager is enabled only with `session_mode:=true`,
-using the existing simulation image. Prepare images with your configured tag;
-automated scenarios also need the action image, and autonomy needs world
-modeling. Builds and runtime acceptance are operator tasks.
+## Quick Start
 
-For catalog structure and legacy selectors, see the [catalog overview](../carla_ros_bridge/carla_scenarios/README.md).
-For YAML templates, supported options and component-selection limits, see the
-[authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md).
+Run these commands on the host, using your configured image tag and GPU mode:
+
+```bash
+# Download CARLA (the same image supports GPU and no-GPU modes).
+docker pull carlasim/carla:0.10.0
+
+# Build the ROS images; infrastructure is included automatically.
+watod -m simulation -m action -m world_modeling build
+
+# Start a session and prepare the controller scenario.
+watod sim setup
+watod sim open scenario controller_snake
+watod sim play
+```
+
+Alternatively, set the default modules in `watod-config.local.sh`:
+
+```bash
+export ACTIVE_MODULES="simulation action world_modeling"
+```
+
+Then use `watod build` instead of the explicit build command above. Infrastructure
+is included automatically; CARLA still needs its separate pull. This setting also
+controls ordinary `watod up`; use `watod sim setup` to start a managed session.
+Explicit `-m` options override the configured module list for that command.
+
+`controller_snake` needs the simulation and action images. Autonomy scenarios
+also need world-modeling. `setup` requires local images; it neither builds nor pulls them.
+For a playground, the simulation and infrastructure images are enough.
+On WatCloud (`WATCLOUD_MODE=true`), also run `docker pull busybox:latest` before setup.
+
+After rebuilding, recreate the session so it uses the new images:
+
+```bash
+watod sim stop
+watod sim setup
+watod sim open scenario controller_snake
+```
 
 ## Commands
 
-This is the command reference for managed sessions. Run on the host;
-`NAME` is a definition ID from the catalog.
+`NAME` is a playground or scenario name from `watod sim list`.
 
 | Command | Behavior |
 |---------|----------|
@@ -34,107 +61,49 @@ This is the command reference for managed sessions. Run on the host;
 | `watod sim reset` | Reload the current world; for scenarios, reset the stack and start a fresh attempt |
 | `watod sim close` | Close the playground/scenario and its application stack; keep the base session available |
 | `watod sim test NAME` | Open, run, evaluate, save and close a scenario; keep the base session available |
+| `watod sim stop` | Stop the managed session and its application containers; keep saved results |
 
-Launch application nodes yourself in a playground. Close the current world
-before opening another. Follow node output with
-`docker logs --follow <sim_session-container>`. Application output is in the
-corresponding `sim_action` or `sim_world` container log.
+Close the current playground or scenario before opening another.
+In a playground, start your application nodes yourself; scenarios start them for you.
 
-## Application integration
+## How the Stack Works
 
-`SimulationStackAdapter` prepares the two reviewed presets. It waits for the
-bridge, binds a unique command topic, then starts the existing launch files with
-`use_sim_time:=true` and `autostart:=false`. Autonomy starts world modeling before
-action. Each group's existing lifecycle manager owns its node transitions; the
-runner never calls application-node `change_state` services.
+| Container | Purpose |
+|-----------|---------|
+| `carla_sim` / `carla_sim_no_gpu` | Runs CARLA physics, vehicles, and traffic |
+| `sim_session` | Runs the ROS bridge and simulation manager |
+| `sim_action` | Runs the controller and, for autonomy, the planners |
+| `sim_world` | Runs world modeling for autonomy scenarios |
+| `infrastructure_bringup` | Provides Foxglove and shared ROS infrastructure |
 
-The `application_runtime` executable lives in the existing
-`wato_lifecycle_manager` package, installed in the action, world-modeling and
-simulation images. Each runtime owns one launch process group. Its ROS
-`start`, `stop` and `status` services are under `/sim/runtime/action` or
-`/sim/runtime/world`. The stack adapter sets its declared `configuration`
-parameter with one atomic request. Only reviewed presets and inputs are accepted.
-No shell commands or Docker access are exposed over ROS.
+Opening a scenario loads its world and starts the application nodes. `play` begins
+the run; `reset` reloads the world and starts a fresh attempt. CARLA's scenario
+server controls simulation time and `/clock`.
 
-Reset blocks commands and stops the owned application groups before reloading
-the world. It creates a fresh attempt and starts new application processes. CARLA,
-base-session processes and saved results remain. Close stops those application
-groups; container removal belongs to the host. Both CLI and Foxglove reset use
-this same ROS path.
+`sim_session` uses the image built by `simulation_bringup`. It is a separate
+service from the standard `watod up` workflow; use one workflow at a time.
+See the [simulation guide](../SIMULATION_README.md) for configuration and manual use.
 
-Production nodes retain their existing topics and messages. Simulation launch
-files supply remaps and tuning. The bridge publishes body-frame odometry velocity
-and subscribes to `/sim/attempts/ATTEMPT_ID/command`. Only general ROS-clock timer
-fixes and the lattice missing-input guard remain in production node sources.
+## Results and Diagnostics
 
-Planner speed-limit and overtaking policies are unchanged. The parked-car
-scenario evaluates the production behavior; it can fail if the planner overtakes
-or stops outside the required clearance. Simulation orchestration does not
-change planner outputs to satisfy its assertions.
-
-## Results and diagnostics
-
-The local workspace directory contains:
-
-```text
-.cache/watod-sim/
-  session.json                  Container ownership, session ID and configuration
-  compose.json                  Effective Compose snapshot
-  cli.lock                      Serializes commands from different terminals
-  results/<run-id>/
-    configuration.yaml          Scenario/world settings, Git revision and images
-    events.json                 Delivered events and execution timestamps
-    result.json                 Outcome, reasons, elapsed time and metric values
-  startup-failures/<session-id>/ Logs and state saved before failed-setup cleanup
-  recovery/<session-id>/         Diagnostic archives, when explicitly captured
-```
-
-Only scored scenarios create attempt directories. Reset preserves previous
-results. These are evaluation records; no rosbag or video is recorded by
-default. Exit codes are 0/pass, 1/assertion failure, 2/setup or data error and
-3/interrupted. Metric meanings and scoring rules are in the
-[scoring reference](../carla_ros_bridge/carla_scenarios/AUTHORING.md#scoring-and-outputs).
-
-## Maps and visualization
-
-See [map and world options](../carla_ros_bridge/carla_scenarios/AUTHORING.md#world-options)
-and [autonomy map prerequisites](../carla_ros_bridge/carla_scenarios/AUTHORING.md#parked-vehicle-template)
-for assets, matching map pairs and provenance requirements.
-
-Connect Foxglove to the WebSocket address printed by setup and import
-[`sim_runner.json`](../../../config/foxglove_config/sim_runner.json). Use the `map`
-display frame. Reference and actual paths appear alongside a URDF following TF.
-Robot/joint TF and the bridge use simulation time, including reset clock jumps;
-reimport changed layouts. The Lanelet2 marker topic is
-`/world_modeling/lanelet/map_viz_markers` when world modeling is running.
+- Results: `.cache/watod-sim/results/<run-id>/` contains configuration, events, and scores.
+- Logs: `docker logs --follow <container>`; use `sim_session` for the bridge and `sim_action` or `sim_world` for application logs.
+- Foxglove: connect to the address printed by `setup` and import [`sim_runner.json`](../../../config/foxglove_config/sim_runner.json).
+- Scenario definitions, maps, and scoring: see the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md).
+- Runtime code and topic naming: see [`simulation_runtime`](../simulation_runtime/README.md).
 
 ## Shutdown
 
-To stop both the managed session and regular modules from this checkout:
-
 ```bash
 watod sim stop
-watod down all
-docker ps
 ```
 
-The first command stops/removes verified session containers while preserving
-maps, results and diagnostics. It leaves a shared network namespace running
-while another container references it. The second command stops the standard
-module project across profiles. The final command also lists unrelated Docker
-projects that these commands do not manage.
+This stops the managed session and keeps results. If you also started regular
+modules with `watod up`, stop those with `watod down all`.
 
-## Session recovery
+## Session Recovery
 
-The workspace directory above is automatically generated local state, not an
-online cache. Stop the session before deleting it; deleting the whole directory
-also deletes its saved results and diagnostic logs. Docker images and maps are
-stored separately.
-
-If `session.json` disappears while containers remain, setup and close lose the
-ownership record. Session stop verifies Compose project, workspace, services
-and results mount before reconstructing ownership for cleanup. Expired SLURM
-jobs can leave Docker's running state stale; failed graceful stops fall back
-to removal of verified IDs. After cleanup, start a fresh session yourself with
-prepared images in a valid allocation. Never edit ownership files in an active
-session.
+If a session stops responding or a SLURM job expires, run `watod sim stop`,
+then `watod sim setup` in a valid allocation. Reopen the scenario afterward.
+Stop can recover verified leftover containers when the session record is missing.
+Do not delete `.cache/watod-sim` to restart: it also contains saved results.

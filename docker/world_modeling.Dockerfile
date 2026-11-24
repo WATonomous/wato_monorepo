@@ -11,6 +11,7 @@ WORKDIR ${AMENT_WS}/src
 # Copy in source code needed for world modeling build
 COPY src/world_modeling world_modeling
 COPY src/infrastructure/wato_lifecycle_manager wato_lifecycle_manager
+COPY src/simulation/simulation_runtime simulation_runtime
 COPY src/wato_test wato_test
 
 ################################# Dependencies ################################
