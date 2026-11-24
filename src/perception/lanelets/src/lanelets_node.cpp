@@ -91,9 +91,23 @@ namespace wato::perception::lanelets
       : Node("lanelets_node", options)
   {
     const bool use_compressed = declare_parameter<bool>("use_compressed_images", true);
-    camera_names_ = declare_parameter<std::vector<std::string>>(
-        "camera_names",
+    const int num_cameras = declare_parameter<int>("num_cameras", 6);
+    if (num_cameras != 6 && num_cameras != 8)
+    {
+      throw std::invalid_argument("num_cameras must be 6 or 8");
+    }
+    const auto camera_names_6 = declare_parameter<std::vector<std::string>>(
+        "camera_names_6",
         {"camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"});
+    const auto camera_names_8 = declare_parameter<std::vector<std::string>>(
+        "camera_names_8",
+        {"camera_pano_nn", "camera_pano_ne", "camera_pano_ee", "camera_pano_se", "camera_pano_ss", "camera_pano_sw",
+         "camera_pano_ww", "camera_pano_nw"});
+    camera_names_ = num_cameras == 8 ? camera_names_8 : camera_names_6;
+    if (camera_names_.size() != static_cast<std::size_t>(num_cameras))
+    {
+      throw std::invalid_argument("camera name list length does not match num_cameras");
+    }
     map_frame_ = declare_parameter<std::string>("map_frame", "map");
     ego_frame_ = declare_parameter<std::string>("ego_frame", "rear_axle");
     const int image_width = declare_parameter<int>("image_width", 1280);

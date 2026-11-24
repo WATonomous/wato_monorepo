@@ -3,8 +3,12 @@ lanelets_node:
     # true: deep_msgs/MultiImageCompressed, false: deep_msgs/MultiImage.
     use_compressed_images: true
 
+    # Camera rig size: 6 or 8. Selects which of the camera name lists below is used.
+    num_cameras: 6
+
     # Same camera order and sensor dimensions as BEVFusion.
-    camera_names: ["camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"]
+    camera_names_6: ["camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"]
+    camera_names_8: ["camera_pano_nn", "camera_pano_ne", "camera_pano_ee", "camera_pano_se", "camera_pano_ss", "camera_pano_sw", "camera_pano_ww", "camera_pano_nw"]
     image_width: 1280
     image_height: 1024
     max_points: 300000

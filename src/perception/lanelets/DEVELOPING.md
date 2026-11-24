@@ -106,7 +106,7 @@ TF, or valid LiDAR points are skipped. If deploying with bag playback, play the
 transforms alongside the sensors and use simulation time when appropriate.
 
 `LaneletsNode::processFrame` calls `SemVecNet::forward` with packed RGB8 images in
-`camera_names` order, FP16 `[x, y, z, intensity, time_lag]` LiDAR records (zero lag
+`camera_names_6` / `camera_names_8` order (selected by `num_cameras`), FP16 `[x, y, z, intensity, time_lag]` LiDAR records (zero lag
 for the current sweep), per-camera calibration relative to the input image
 size (the SDK handles the HRNet mask scaling), and the LiDAR and ego poses in
 the map frame.
