@@ -23,17 +23,12 @@
       </collision>
     </link>
 
-    <!-- VLS-128, bolted where the VLP-32C was. Measured on the 2026-11-24 drive from the road plane
-         and the direction of travel (60 straight pairs at 10 to 13 m/s).
-         - yaw -45.739 deg. The dominant wall direction in the cloud on two straight streets of that
-           drive agrees to within 1 deg.
-         - pitch 0.711 deg, from the direction of travel. A road-plane fit reads 0.857 deg.
-         - roll 0.010 deg, from the road plane. Treat it as +/- 0.4 deg, because one drive cannot
-           separate it from road camber.
-         - x, y and z are nominal. The road-plane fit puts the lidar 2.3 cm below the height here.
-         The IMU and mirror mount joints are relative to lidar_cc, so re-derive them in
-         eve_kia_soul_ev.xacro whenever this joint changes.
-         Launch parses robot_description as YAML, so keep colon-space out of these comments. -->
+    <!-- To level the lidar with the ground plane, take the roll and pitch from
+         the calibrated imu_rpy (IMU rotation relative to lidar) and apply them
+         here. Since the IMU is gravity-calibrated, its roll/pitch relative to
+         the lidar reveals the lidar's physical tilt. Absorbing those angles
+         into this joint levels the lidar frame, then zero out the roll/pitch
+         in imu_rpy (in eve_kia_soul_ev.xacro) so the net transform is unchanged. -->
     <joint name="lidar_cc_mount_yaw" type="fixed">
       <parent link="${parent}"/>
       <child link="lidar_cc"/>
