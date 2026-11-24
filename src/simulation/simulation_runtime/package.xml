@@ -9,6 +9,7 @@
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>std_srvs</exec_depend>
 
   <test_depend>python3-pytest</test_depend>

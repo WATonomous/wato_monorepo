@@ -33,16 +33,51 @@ Explicit `-m` options override the configured module list for that command.
 
 `controller_snake` needs the simulation and action images. Autonomy scenarios
 also need world-modeling. `setup` requires local images; it neither builds nor pulls them.
+`brake_in_curve` and `sine_with_dwell` also use world-modeling for map visualization.
 For a playground, the simulation and infrastructure images are enough.
 On WatCloud (`WATCLOUD_MODE=true`), also run `docker pull busybox:latest` before setup.
 
-After rebuilding, recreate the session so it uses the new images:
+Build and recreate the session once when installing executable changes, including
+this data-loading support. Subsequent scenario and maneuver edits use the mounted files:
 
 ```bash
 watod sim stop
 watod sim setup
 watod sim open scenario controller_snake
 ```
+
+## Adding Scenarios
+
+Add a scenario YAML under `carla_scenarios/config/scenarios/` and, if needed,
+a JSON under `src/action/fake_planner/maneuvers/`. Managed sessions read these
+files from the checkout through read-only mounts; data edits do not need image
+rebuilds. Reopen the scenario to apply changes.
+
+The YAML selects trajectory source, world modeling, actors, goal, completion,
+and metric limits. The required modules are inferred from those choices. Omitting a trajectory
+starts only the requested world capabilities. See the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md)
+for a complete example and map-coordinate vehicle placement.
+
+## Controller Scenarios
+
+| Scenario | Maneuver | Map visualization |
+|----------|----------|-------------------|
+| `controller_snake` | Steady slalom | No world-modeling group |
+| `brake_in_curve` | Slow through a left curve, then stop | Oval map |
+| `sine_with_dwell` | Swerve, hold an offset, then return and stop | Oval map |
+
+```bash
+watod sim open scenario brake_in_curve
+watod sim play
+# Close before switching scenarios.
+watod sim close
+watod sim open scenario sine_with_dwell
+watod sim play
+```
+
+The two new scenarios start the world model and map markers before the controller.
+Reimport `sim_runner.json` to see `/world_modeling/lanelet/map_viz_markers` alongside
+the reference trajectory. These are authored controller maneuvers, not road-following routes.
 
 ## Commands
 
@@ -73,7 +108,7 @@ In a playground, start your application nodes yourself; scenarios start them for
 | `carla_sim` / `carla_sim_no_gpu` | Runs CARLA physics, vehicles, and traffic |
 | `sim_session` | Runs the ROS bridge and simulation manager |
 | `sim_action` | Runs the controller and, for autonomy, the planners |
-| `sim_world` | Runs world modeling for autonomy scenarios |
+| `sim_world` | Runs world modeling for autonomy, or map visualization for controller tests |
 | `infrastructure_bringup` | Provides Foxglove and shared ROS infrastructure |
 
 Opening a scenario loads its world and starts the application nodes. `play` begins

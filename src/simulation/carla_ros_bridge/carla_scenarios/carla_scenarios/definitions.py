@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Installed YAML catalogs and explicit compatibility for legacy world selectors."""
+"""Load named YAML worlds and validate scenario data."""
 
 import copy
 import math
@@ -19,40 +19,17 @@ import re
 from pathlib import Path
 
 import yaml
-
-LEGACY_PLAYGROUNDS = {
-    "carla_scenarios.scenarios.default_scenario": "town10hd_default",
-    "carla_scenarios.scenarios.light_traffic_scenario": "town10hd_light",
-    "carla_scenarios.scenarios.heavy_traffic_scenario": "town10hd_heavy",
-    "carla_scenarios.scenarios.empty_scenario": "empty",
-    "carla_scenarios.scenarios.custom_scenario": "custom",
-    "carla_scenarios.scenarios.oval_scenario": "oval",
-    "carla_scenarios.scenarios.ring_road_scenario": "ring_road",
-}
-SETUP_KEYS = {
-    "spawn",
-    "traffic",
-    "weather",
-    "seed",
-    "ego_blueprint",
-    "parked",
-    "required_straight_m",
-    "goal_distance_m",
-    "require_map_provenance",
-}
-
-
-def playground_name(name):
-    if name in LEGACY_PLAYGROUNDS:
-        return LEGACY_PLAYGROUNDS[name]
-    return LEGACY_PLAYGROUNDS.get("carla_scenarios.scenarios." + name, name)
+from simulation_runtime.assets import data_name, finite_number, load_maneuver
+from simulation_runtime.scenario_config import normalize_scenario
 
 
 def merge_settings(base, overrides):
     # Scenario fixtures must not mutate the catalog used by later manual opens.
     result = copy.deepcopy(base)
     for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
+        if key == "spawn" and isinstance(value, dict) and "pose" in value:
+            result[key] = copy.deepcopy(value)
+        elif isinstance(value, dict) and isinstance(result.get(key), dict):
             result[key] = merge_settings(result[key], value)
         else:
             result[key] = copy.deepcopy(value)
@@ -72,6 +49,26 @@ def positive_number(value, label, *, zero=False):
         )
 
 
+def validate_pose(pose, label):
+    if not isinstance(pose, dict):
+        raise ValueError(f"{label} must be a mapping")
+    frame = pose.get("frame", "map")
+    if frame == "lane":
+        if set(pose) - {"frame", "distance_m", "z_offset_m"}:
+            raise ValueError(f"Unknown {label} lane fields")
+        finite_number(pose.get("distance_m"), label + ".distance_m", minimum=0)
+        finite_number(pose.get("z_offset_m", 0.4), label + ".z_offset_m")
+    elif frame == "map":
+        if set(pose) - {"frame", "x", "y", "z", "yaw_deg"}:
+            raise ValueError(f"Unknown {label} map fields")
+        for key in ("x", "y"):
+            finite_number(pose.get(key), label + "." + key)
+        for key in ("z", "yaw_deg"):
+            finite_number(pose.get(key, 0.0), label + "." + key)
+    else:
+        raise ValueError(f"{label}.frame must be map or lane")
+
+
 def validate_world(definition):
     world_map = definition.get("map", {})
     if not isinstance(world_map, dict) or set(world_map) not in ({"town"}, {"xodr"}):
@@ -87,16 +84,55 @@ def validate_world(definition):
     spawn = definition.get("spawn", {})
     if not isinstance(spawn, dict):
         raise ValueError("spawn must be a mapping")
+    if "pose" in spawn:
+        validate_pose(spawn["pose"], "spawn.pose")
+        if spawn["pose"].get("frame", "map") != "map":
+            raise ValueError("Explicit ego spawn pose must use the map frame")
+        if any(key in spawn for key in ("straight_start", "road_id", "lane_id", "s")):
+            raise ValueError("Explicit ego pose cannot also select a lane spawn")
+    if "goal" in definition:
+        validate_pose(definition["goal"], "goal")
+    actors = definition.get("actors", [])
+    if not isinstance(actors, list):
+        raise ValueError("actors must be a list")
+    seen = set()
+    for actor in actors:
+        if not isinstance(actor, dict) or set(actor) - {
+            "id",
+            "blueprint",
+            "pose",
+            "static",
+        }:
+            raise ValueError("Each actor needs id, blueprint, pose and optional static")
+        identifier = data_name(actor.get("id"), "actor.id")
+        if identifier == "ego_vehicle":
+            raise ValueError(
+                "Actor id ego_vehicle is reserved for the controlled vehicle"
+            )
+        if identifier in seen:
+            raise ValueError(f"Duplicate actor id: {identifier}")
+        seen.add(identifier)
+        if not isinstance(actor.get("blueprint"), str) or not re.fullmatch(
+            r"vehicle\.[A-Za-z0-9_.]+", actor["blueprint"]
+        ):
+            raise ValueError("Actor blueprint must name a vehicle")
+        if not isinstance(actor.get("static", True), bool):
+            raise ValueError("actor.static must be a boolean")
+        validate_pose(actor.get("pose"), "actor.pose")
+    if (
+        definition.get("evaluation_actor")
+        and definition["evaluation_actor"] not in seen
+    ):
+        raise ValueError("Evaluation actor is missing")
     index = spawn.get("index", 0)
     if isinstance(index, bool) or not isinstance(index, int) or index < 0:
         raise ValueError("spawn.index must be a nonnegative integer")
     for key in ("s_margin_m", "z_offset_m", "fallback_z_offset_m"):
         if key in spawn:
             positive_number(spawn[key], "spawn." + key, zero=True)
-    for key in ("required_straight_m", "goal_distance_m"):
-        positive_number(definition.get(key, 0.0), key, zero=True)
-    if definition.get("parked"):
-        positive_number(definition["parked"].get("distance_m"), "parked.distance_m")
+    positive_number(
+        definition.get("required_straight_m", 0.0), "required_straight_m", zero=True
+    )
     traffic = definition.get("traffic", {})
     if not isinstance(traffic, dict):
         raise ValueError("traffic must be a mapping")
@@ -131,110 +167,63 @@ def load_definition(directory, category, name):
     path = directory / category / f"{name}.yaml"
     if not path.is_file():
         raise ValueError(f"Missing {category} definition: {path}; use watod sim list.")
-    with path.open(encoding="utf-8") as stream:
-        definition = yaml.safe_load(stream)
+    try:
+        with path.open(encoding="utf-8") as stream:
+            definition = yaml.safe_load(stream)
+    except (OSError, yaml.YAMLError) as error:
+        raise ValueError(f"Cannot read definition {path}: {error}") from error
     if not isinstance(definition, dict):
         raise ValueError(f"Expected a YAML mapping in {path}")
-    if definition.get("version") != 1 or definition.get("id") != name:
-        raise ValueError(f"Expected version: 1 and id: {name} in {path}")
+    expected_version = 2 if category == "scenarios" else 1
+    if (
+        type(definition.get("version")) is not int
+        or definition["version"] != expected_version
+        or definition.get("id") != name
+    ):
+        raise ValueError(f"Expected version {expected_version} and id {name} in {path}")
     if category == "scenarios":
-        stack = definition.get("stack")
-        completion = definition.get("completion")
-        inputs = definition.get("inputs", {})
-        if not isinstance(inputs, dict):
-            raise ValueError(f"inputs must be a mapping in {path}")
-        if (stack, completion) not in {
-            ("controller_pure_pursuit", "maneuver_finished"),
-            ("autonomy", "stopped_behind_actor"),
-        }:
-            raise ValueError(f"Unsupported stack/completion in {path}")
-        if (
-            stack == "controller_pure_pursuit"
-            and inputs.get("maneuver") != "steady_state_slalom"
-        ):
-            raise ValueError(
-                "V1 controller preset requires shipped steady_state_slalom"
-            )
-        events = definition.get("events")
+        definition = normalize_scenario(definition)
+        if definition["trajectory_source"] == "fake_planner":
+            _, document = load_maneuver(definition["inputs"]["maneuver"])
+            if definition["completion"] == "maneuver_finished" and document.get(
+                "closed", False
+            ):
+                raise ValueError("A closed maneuver needs duration or goal completion")
+        events = definition["events"]
         if not isinstance(events, list) or not events:
-            raise ValueError(f"events must be a nonempty ordered YAML sequence: {path}")
+            raise ValueError("events must be a nonempty ordered sequence")
         previous = -1.0
         for event in events:
             if not isinstance(event, dict) or set(event) != {"when", "do"}:
-                raise ValueError(f"Each event needs exactly when/do: {path}")
+                raise ValueError("Each event needs exactly when/do")
             trigger = event["when"]
             if trigger == "play":
                 at = 0.0
             elif isinstance(trigger, dict) and set(trigger) == {"elapsed_s"}:
-                at = trigger["elapsed_s"]
+                at = finite_number(trigger["elapsed_s"], "event.elapsed_s", minimum=0)
             else:
-                raise ValueError(f"Unsupported event trigger: {trigger}")
-            if (
-                isinstance(at, bool)
-                or not isinstance(at, (int, float))
-                or not math.isfinite(at)
-                or at < 0.0
-                or at < previous
-            ):
+                raise ValueError("Event must trigger at play or elapsed_s")
+            if at < previous or at > definition["deadlines"]["execution_s"]:
                 raise ValueError(
-                    "Event timestamps must be finite, nonnegative and ordered"
+                    "Event times must be ordered and within the execution deadline"
                 )
             previous = at
             if event["do"] not in {"start_maneuver", "begin_evaluation"}:
-                raise ValueError(f"Unsupported reviewed action: {event['do']}")
-            if event["do"] == "start_maneuver" and stack != "controller_pure_pursuit":
-                raise ValueError("start_maneuver requires controller_pure_pursuit")
-        for section in ("deadlines", "thresholds"):
-            values = definition.get(section)
-            if not isinstance(values, dict) or not values:
-                raise ValueError(f"Missing {section}: {path}")
-            for key, value in values.items():
-                if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    raise ValueError(f"{section}.{key} must be numeric")
-                if not math.isfinite(value) or value <= 0:
-                    raise ValueError(f"{section}.{key} must be finite and positive")
-        required_deadlines = {
-            "readiness_s",
-            "execution_s",
-            "stalled_clock_s",
-            "first_output_s",
-            "data_freshness_s",
-        }
-        required_thresholds = {"min_progress_m", "min_samples"}
-        required_thresholds |= (
-            {"lateral_tracking_rmse_m", "max_lateral_error_m"}
-            if stack == "controller_pure_pursuit"
-            else {
-                "min_clearance_m",
-                "max_clearance_m",
-                "stopped_speed_mps",
-                "stopped_duration_s",
-            }
-        )
-        if not required_deadlines <= definition["deadlines"].keys():
-            raise ValueError(f"Missing deadline fields in {path}")
-        if not required_thresholds <= definition["thresholds"].keys():
-            raise ValueError(f"Missing metric thresholds in {path}")
-        if previous > definition["deadlines"]["execution_s"]:
-            raise ValueError("An event falls after the execution deadline")
+                raise ValueError("Unsupported event action")
+            if (
+                event["do"] == "start_maneuver"
+                and definition["trajectory_source"] != "fake_planner"
+            ):
+                raise ValueError("start_maneuver requires a fake-planner trajectory")
+        base = load_definition(directory, "playgrounds", definition["playground"])
         if (
-            stack == "autonomy"
-            and definition["thresholds"]["min_clearance_m"]
-            >= definition["thresholds"]["max_clearance_m"]
+            "map" in definition["inputs"]
+            and "ros_map" not in definition["source_definition"]["world"]
         ):
-            raise ValueError("min_clearance_m must be below max_clearance_m")
-        world = load_definition(
-            directory, "playgrounds", definition.get("playground", "")
-        )
-        overrides = definition.get("setup", {})
-        if not isinstance(overrides, dict) or set(overrides) - SETUP_KEYS:
-            raise ValueError(f"Unsupported world setup overrides in {path}")
-        validate_world(merge_settings(world, overrides))
-        if stack == "autonomy":
-            if not re.fullmatch(r"[a-z][a-z0-9_]*", inputs.get("map", "")):
-                raise ValueError("autonomy inputs.map must select a named map preset")
-            for key in ("stop_distance_m", "max_speed_mps"):
-                positive_number(inputs.get(key), f"inputs.{key}")
+            definition["inputs"]["map"] = data_name(
+                base.get("ros_map", definition["playground"]), "world.ros_map"
+            )
+        validate_world(merge_settings(base, definition["setup"]))
     else:
         validate_world(definition)
     return definition
@@ -242,7 +231,7 @@ def load_definition(directory, category, name):
 
 def world_definition(directory, kind, name):
     if kind == "playground":
-        return load_definition(directory, "playgrounds", playground_name(name))
+        return load_definition(directory, "playgrounds", name)
     if kind != "scenario":
         raise ValueError("Expected playground or scenario")
     scenario = load_definition(directory, "scenarios", name)

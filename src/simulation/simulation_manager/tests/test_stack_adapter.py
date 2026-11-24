@@ -25,16 +25,25 @@ from simulation_runtime.sim_presets import launch_command
 class TestStackAdapter(unittest.TestCase):
     def make_adapter(self, failure=None, session="owner"):
         calls = []
+        processes = {}
 
         def call(service, endpoint, request=None, **kwargs):
             calls.append(endpoint)
             if endpoint == failure:
                 raise RuntimeError("injected failure")
+            if endpoint.endswith("/start"):
+                processes[endpoint.split("/")[-2]] = "running"
+            elif endpoint.endswith("/stop"):
+                processes[endpoint.split("/")[-2]] = "stopped"
             if endpoint.endswith("/status"):
                 role = endpoint.split("/")[-2]
                 return SimpleNamespace(
                     message=json.dumps(
-                        {"session_id": session, "role": role, "process": "stopped"}
+                        {
+                            "session_id": session,
+                            "role": role,
+                            "process": processes.get(role, "stopped"),
+                        }
                     )
                 )
             return SimpleNamespace(

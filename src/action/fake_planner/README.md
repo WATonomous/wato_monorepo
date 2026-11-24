@@ -37,7 +37,7 @@ The vehicle must return to the start to repeat an absolute open maneuver.
 
 | Argument | Purpose |
 |----------|---------|
-| `maneuver` | Select `steady_state_slalom`, `sine_with_dwell`, or `brake_in_curve` |
+| `maneuver` | Select a maneuver JSON by filename stem; shipped examples include `steady_state_slalom`, `sine_with_dwell`, and `brake_in_curve` |
 | `maneuver_file` | Load another JSON file |
 | `controller` | Manual shared/vehicle rig: `pure_pursuit` or `mpc` |
 | `pure_pursuit_config` | Controller tuning file |
@@ -69,7 +69,9 @@ See [DEVELOPING.md](DEVELOPING.md) for the code structure and test commands.
 
 ## Managed simulation
 
-Automated scenarios use adaptive pure pursuit. The simulation wrapper selects
+Managed scenarios select any validated maneuver JSON through `trajectory.maneuver`.
+The host maneuver directory is mounted into the session and action containers;
+new files do not require an image rebuild. Automated scenarios use adaptive pure pursuit. The simulation wrapper selects
 `action_sim.yaml` and publishes to `/action/trajectory_planning/trajectory`.
 
 The original private services above remain available. The manager uses the
@@ -80,5 +82,11 @@ Ready requires odometry received since reset. Finished requires driven completio
 `/sim/reference_path` publishes the full anchored path for preview and scoring.
 Both snapshots are reliable and transient local.
 
-The controller snake fixture requires 82 metres of straight runout. Its spatial
-launch ramp is disabled; the ROS-time release ramp handles startup.
+`watod sim` also provides `brake_in_curve` and `sine_with_dwell` scenarios. These
+start a map-only world-modeling group for `/world_modeling/lanelet/map_viz_markers`;
+the fake planner remains the only trajectory source. See the
+[scenario commands](../../simulation/simulation_manager/README.md#controller-scenarios).
+
+The controller snake fixture requires 82 metres of straight runout. All three
+shipped maneuvers disable the spatial launch ramp; the ROS-time release ramp
+handles startup so a zero-speed first waypoint cannot hold pure pursuit at rest.

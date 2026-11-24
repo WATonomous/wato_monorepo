@@ -20,6 +20,7 @@ A wall-clock executor keeps service replies and status alive while /clock stops.
 
 import copy
 import json
+import hashlib
 import math
 import os
 import time
@@ -29,9 +30,11 @@ from pathlib import Path
 
 import rclpy
 import yaml
-from ament_index_python.packages import get_package_share_directory
 from carla_msgs.srv import SwitchScenario
 from carla_scenarios.definitions import load_definition
+from simulation_runtime.assets import catalog_directory, load_maneuver
+from simulation_runtime.scenario_config import metric_failures
+from simulation_runtime.sim_presets import launch_groups, launch_command
 from geometry_msgs.msg import PointStamped, PoseStamped
 from lanelet_msgs.msg import RouteAhead
 from lifecycle_msgs.msg import State
@@ -48,6 +51,7 @@ from std_msgs.msg import Bool, Float64, String
 from std_srvs.srv import SetBool, Trigger
 from tf2_ros import Buffer, TransformException, TransformListener
 from vision_msgs.msg import Detection3DArray
+from visualization_msgs.msg import Marker, MarkerArray
 from wato_trajectory_msgs.msg import Trajectory
 
 from simulation_manager.stack_adapter import SimulationStackAdapter
@@ -93,9 +97,7 @@ class SimulationRunner(Node):
             "revision", os.environ.get("WATOD_SIM_REVISION", "unknown")
         )
         self.declare_parameter("effective_images", "{}")
-        self.definitions = (
-            Path(get_package_share_directory("carla_scenarios")) / "config"
-        )
+        self.definitions = catalog_directory()
         self.control_group = MutuallyExclusiveCallbackGroup()
         self.io_group = ReentrantCallbackGroup()
         self.latched_qos = QoSProfile(
@@ -133,6 +135,9 @@ class SimulationRunner(Node):
         self.error_count = 0
         self.sample_count = 0
         self.progress_m = 0.0
+        self.speed_mps = 0.0
+        self.goal_distance_m = None
+        self.completion_observed = False
         self.closest_clearance = None
         self.final_clearance = None
         self.stop_started_sim = None
@@ -165,6 +170,7 @@ class SimulationRunner(Node):
             ("costmap", "/world_modeling/costmap", OccupancyGrid),
             ("route", "/world_modeling/lanelet/route_ahead", RouteAhead),
             ("trajectory", "/action/trajectory_planning/trajectory", Trajectory),
+            ("map_markers", "/world_modeling/lanelet/map_viz_markers", MarkerArray),
         ):
             self.create_subscription(
                 message_type,
@@ -228,7 +234,16 @@ class SimulationRunner(Node):
     def _sample(self, key, message):
         if not self.accepting_samples or (self.kind == "playground" and key != "odom"):
             return
-        stamp = seconds(message.header.stamp)
+        if key == "map_markers":
+            visible = next(
+                (marker for marker in message.markers if marker.action == Marker.ADD),
+                None,
+            )
+            if visible is None:
+                return
+            stamp = seconds(visible.header.stamp)
+        else:
+            stamp = seconds(message.header.stamp)
         # Reject retained pre-reset samples and observations from another clock epoch.
         if self.sim_time is None or abs(stamp - self.sim_time) > 1.0:
             return
@@ -481,6 +496,9 @@ class SimulationRunner(Node):
         self.error_squared = self.error_max = 0.0
         self.error_count = self.sample_count = 0
         self.progress_m = 0.0
+        self.speed_mps = 0.0
+        self.goal_distance_m = None
+        self.completion_observed = False
         self.closest_clearance = self.final_clearance = None
         self.stop_started_sim, self.stopped_duration_s = None, 0.0
         self.trajectory_seen = self.command_while_paused = self.collision = False
@@ -504,11 +522,11 @@ class SimulationRunner(Node):
             timeout=120.0,
         )
         self.world = json.loads(result.message)
-        if self.definition.get("stack") == "autonomy" and not self.world.get(
-            "map", {}
-        ).get("provenance"):
+        if self.definition.get("setup", {}).get(
+            "require_map_provenance", False
+        ) and not self.world.get("map", {}).get("provenance"):
             raise ValueError(
-                "Missing converted-map provenance; reconvert the oval map, then run watod sim reset."
+                "Missing required converted-map provenance; check the map assets, then run watod sim reset."
             )
         self.samples.clear()
         self.collision = False
@@ -536,6 +554,13 @@ class SimulationRunner(Node):
             },
             "threshold_status": "provisional; target-host baseline pending",
         }
+        if self.definition.get("stack") == "controller_pure_pursuit":
+            asset, document = load_maneuver(self.definition["inputs"]["maneuver"])
+            configuration["maneuver_asset"] = {
+                "path": str(asset),
+                "sha256": hashlib.sha256(asset.read_bytes()).hexdigest(),
+                "definition": document,
+            }
         with (self.result_directory / "configuration.yaml").open(
             "w", encoding="utf-8"
         ) as stream:
@@ -587,7 +612,12 @@ class SimulationRunner(Node):
                 )
             pending = pending or self._readiness(deadline=deadline)
             if (
-                self.definition.get("stack") == "autonomy"
+                self.world.get("goal")
+                and self.definition.get("inputs", {}).get(
+                    "world_modeling",
+                    "full" if self.definition.get("stack") == "autonomy" else "off",
+                )
+                == "full"
                 and self._fresh("odom")
                 and not goal_sent
             ):
@@ -684,7 +714,15 @@ class SimulationRunner(Node):
             return pending
         if not self._fresh("collision"):
             return "/carla/experiment_collision observation missing"
-        # Both presets must have exactly one trajectory publisher and one command owner.
+        if self.definition["stack"] == "world_modeling":
+            if "map" in self.definition["inputs"] and not self._fresh("map_markers"):
+                return "fresh /world_modeling/lanelet/map_viz_markers required"
+            if self.count_publishers(
+                "/action/trajectory_planning/trajectory"
+            ) or self.count_publishers("/carla/ackermann_control/command"):
+                return "world-only scenario must not have an application trajectory/command publisher"
+            return None
+        # Driving scenarios have exactly one trajectory publisher and command owner.
         if self.count_publishers("/action/trajectory_planning/trajectory") != 1:
             return (
                 "expected exactly one /action/trajectory_planning/trajectory publisher"
@@ -694,13 +732,20 @@ class SimulationRunner(Node):
         if self.count_publishers("/carla/ackermann_control/command") != 0:
             return "an unmanaged controller is publishing to the manual command topic"
         if self.definition["stack"] == "controller_pure_pursuit":
+            if "map" in self.definition["inputs"] and not self._fresh("map_markers"):
+                return "fresh /world_modeling/lanelet/map_viz_markers required"
             if self.planner_status != "ready" or not self.reference:
                 return "/action/fake_planner/status ready and /sim/reference_path preview required"
             return None
-        if not self._fresh("detections") or not self._parked_observed():
-            return "parked actor missing in /carla/detections_3d"
-        if not self._fresh("costmap") or not self._parked_in_costmap():
-            return "parked actor not occupied in planner input /world_modeling/costmap"
+        if self.world.get("target_actor"):
+            if not self._fresh("detections") or not self._target_observed():
+                return "target actor missing in /carla/detections_3d"
+            if not self._fresh("costmap") or not self._target_in_costmap():
+                return (
+                    "target actor not occupied in planner input /world_modeling/costmap"
+                )
+        elif not self._fresh("costmap"):
+            return "fresh /world_modeling/costmap required"
         if not self._fresh("route") or not self.samples["route"][0].has_active_route:
             return "route acceptance missing on /world_modeling/lanelet/route_ahead"
         return None
@@ -806,10 +851,29 @@ class SimulationRunner(Node):
             self._prepare_world()
             self._do_ready()
             return
+        updated = load_definition(self.definitions, "scenarios", self.experiment)
+        old_roles = set(
+            launch_groups(self.definition["stack"], self.definition["inputs"])
+        )
+        new_groups = launch_groups(updated["stack"], updated["inputs"])
+        if old_roles != set(new_groups):
+            raise InvalidTransition(
+                "Scenario modules changed; run watod sim close and open the scenario again"
+            )
+        for role in new_groups:
+            launch_command(
+                role,
+                {
+                    "preset": updated["stack"],
+                    "attempt_id": "reset",
+                    "inputs": updated["inputs"],
+                },
+            )
         if self.outcome is None:
             self._finish("interrupted", ["Reset by operator"])
         self._hold()
         self.stack.stop()
+        self.definition = updated
         self._new_attempt()
         self._prepare_world()
         self._do_ready()
@@ -869,8 +933,8 @@ class SimulationRunner(Node):
             y + math.sin(heading) * offset_x + math.cos(heading) * offset_y,
         )
 
-    def _parked_observed(self):
-        parked = self.world.get("parked")
+    def _target_observed(self):
+        parked = self.world.get("target_actor")
         if not parked:
             return False
         center_x, center_y = self._footprint_center(parked)
@@ -886,10 +950,10 @@ class SimulationRunner(Node):
             for item in message.detections
         )
 
-    def _parked_in_costmap(self):
+    def _target_in_costmap(self):
         """Require the actual planner grid to contain the ground-truth obstacle."""
         grid = self.samples["costmap"][0]
-        parked = self.world.get("parked")
+        parked = self.world.get("target_actor")
         if (
             not parked
             or not math.isfinite(grid.info.resolution)
@@ -929,8 +993,9 @@ class SimulationRunner(Node):
         index = row * grid.info.width + col
         return index < len(grid.data) and grid.data[index] >= 50
 
-    def _lateral_error(self, x, y):
-        closest = math.inf
+    def _reference_projection(self, x, y):
+        """Return tracking error and distance along the reference, including curves."""
+        closest, progress, along = math.inf, 0.0, 0.0
         for (ax, ay), (bx, by) in zip(self.reference, self.reference[1:]):
             dx, dy = bx - ax, by - ay
             norm = dx * dx + dy * dy
@@ -939,10 +1004,12 @@ class SimulationRunner(Node):
                 if norm
                 else 0.0
             )
-            closest = min(
-                closest, math.hypot(x - ax - fraction * dx, y - ay - fraction * dy)
-            )
-        return closest
+            length = math.sqrt(norm)
+            distance = math.hypot(x - ax - fraction * dx, y - ay - fraction * dy)
+            if distance < closest:
+                closest, progress = distance, along + fraction * length
+            along += length
+        return closest, progress
 
     def _evaluate_sample(self):
         message, _, stamp = self.samples["odom"]
@@ -961,9 +1028,24 @@ class SimulationRunner(Node):
         speed = math.hypot(velocity.x, velocity.y)
         if not all(math.isfinite(value) for value in (x, y, heading, speed, stamp)):
             raise ValueError("Non-finite odometry or velocity sample")
-        lane = self.world["lane"]
-        ego = self.world["ego"]
-        self.progress_m = (x - ego["x"]) * lane["dx"] + (y - ego["y"]) * lane["dy"]
+        self.speed_mps = speed
+        goal = self.world.get("goal")
+        self.goal_distance_m = (
+            math.hypot(x - goal["x"], y - goal["y"]) if goal else None
+        )
+        if self.definition.get("completion") == "goal_reached":
+            completion = self.definition["completion_config"]
+            at_goal = (
+                self.goal_distance_m is not None
+                and self.goal_distance_m <= completion.get("tolerance_m", 2.0)
+                and speed <= completion.get("speed_mps", 0.15)
+            )
+            if at_goal:
+                if self.stop_started_sim is None:
+                    self.stop_started_sim = stamp
+                self.stopped_duration_s = stamp - self.stop_started_sim
+            else:
+                self.stop_started_sim, self.stopped_duration_s = None, 0.0
         self.sample_count += 1
         pose = PoseStamped()
         pose.header = copy.deepcopy(message.header)
@@ -979,14 +1061,24 @@ class SimulationRunner(Node):
         self.actual_path.poses.append(pose)
         self.path_pub.publish(self.actual_path)
         if self.definition["stack"] == "controller_pure_pursuit":
-            error = self._lateral_error(x, y)
+            error, self.progress_m = self._reference_projection(x, y)
             if not math.isfinite(error):
                 raise ValueError("Reference path is missing or invalid")
             self.error_squared += error * error
             self.error_max = max(self.error_max, error)
             self.error_count += 1
+            if self.definition.get("completion") != "stopped_behind_actor":
+                return
+        lane = self.world["lane"]
+        ego = self.world["ego"]
+        if self.definition["stack"] != "controller_pure_pursuit":
+            self.progress_m = (x - ego["x"]) * lane["dx"] + (y - ego["y"]) * lane["dy"]
+        parked = self.world.get("target_actor")
+        if not parked or self.definition.get("completion") not in {
+            None,
+            "stopped_behind_actor",
+        }:
             return
-        parked = self.world["parked"]
         lane_yaw = math.atan2(lane["dy"], lane["dx"])
         ego_half = 0.5 * (
             abs(math.cos(heading - lane_yaw)) * ego["length_m"]
@@ -1055,19 +1147,28 @@ class SimulationRunner(Node):
                 self._finish("assertion_failure", ["Ego collision observed"])
                 return
             if (
-                not self.trajectory_seen
+                self.definition["stack"] != "world_modeling"
+                and not self.trajectory_seen
                 and self.elapsed_s > deadlines["first_output_s"]
             ):
                 self._finish("data_error", ["No trajectory output after play"])
                 return
             required = ["odom", "collision"]
             if (
-                self.elapsed_s > deadlines["first_output_s"]
+                self.definition["stack"] != "autonomy"
+                and "map" in self.definition["inputs"]
+            ):
+                required.append("map_markers")
+            if (
+                self.definition["stack"] != "world_modeling"
+                and self.elapsed_s > deadlines["first_output_s"]
                 and self.planner_status != "finished"
             ):
                 required.append("trajectory")
             if self.definition["stack"] == "autonomy":
-                required += ["detections", "costmap", "route"]
+                required += ["costmap", "route"]
+                if self.world.get("target_actor"):
+                    required.append("detections")
             missing = [key for key in required if not self._fresh(key)]
             if missing:
                 self._finish(
@@ -1076,7 +1177,9 @@ class SimulationRunner(Node):
                 )
                 return
             if self.definition["stack"] == "autonomy":
-                if not self._parked_observed() or not self._parked_in_costmap():
+                if self.world.get("target_actor") and (
+                    not self._target_observed() or not self._target_in_costmap()
+                ):
                     self._finish(
                         "data_error",
                         ["Parked actor absent from detections or planner costmap"],
@@ -1087,41 +1190,34 @@ class SimulationRunner(Node):
                     return
             self._evaluate_sample()
             limits = self.definition["thresholds"]
-            if (
-                self.definition["stack"] == "controller_pure_pursuit"
+            completion = self.definition["completion"]
+            settings = self.definition["completion_config"]
+            done = (
+                completion == "maneuver_finished"
                 and self.planner_status == "finished"
+                or completion == "stopped_behind_actor"
+                and self.stopped_duration_s >= limits["stopped_duration_s"]
+                or completion == "goal_reached"
+                and self.stopped_duration_s >= settings.get("hold_s", 1.0)
+                or completion == "duration"
+                and self.elapsed_s >= settings["duration_s"]
+            )
+            if (
+                completion == "stopped_behind_actor"
+                and self.final_clearance is not None
+                and self.final_clearance < 0
             ):
-                reasons = []
-                if (
-                    self.error_count < limits["min_samples"]
-                    or self.progress_m < limits["min_progress_m"]
-                ):
-                    reasons.append(
-                        "Maneuver completion lacks sufficient driven distance or error samples"
-                    )
-                rmse = (
-                    math.sqrt(self.error_squared / self.error_count)
-                    if self.error_count
-                    else None
+                self._finish(
+                    "assertion_failure",
+                    ["Ego crossed the target actor's rear bumper"],
                 )
-                if rmse is None or rmse > limits["lateral_tracking_rmse_m"]:
-                    reasons.append(
-                        "Lateral tracking RMSE exceeds threshold or is missing"
-                    )
-                if self.error_max > limits["max_lateral_error_m"]:
-                    reasons.append("Maximum lateral error exceeds threshold")
+            elif done:
+                self.completion_observed = True
+                reasons = metric_failures(
+                    self._metrics(all_metrics=True),
+                    self.definition["metric_limits"],
+                )
                 self._finish("assertion_failure" if reasons else "pass", reasons)
-            elif self.definition["stack"] == "autonomy":
-                if self.final_clearance is not None and self.final_clearance < 0.0:
-                    self._finish(
-                        "assertion_failure",
-                        ["Ego crossed the parked actor's rear bumper"],
-                    )
-                elif (
-                    self.stopped_duration_s >= limits["stopped_duration_s"]
-                    and self.sample_count >= limits["min_samples"]
-                ):
-                    self._finish("pass", [])
             if self.state == "RUNNING" and self.elapsed_s >= deadlines["execution_s"]:
                 self._finish(
                     "assertion_failure", ["Scenario execution deadline exceeded"]
@@ -1138,8 +1234,8 @@ class SimulationRunner(Node):
         except Exception as error:
             self._finish("data_error", [str(error)])
 
-    def _metrics(self):
-        return {
+    def _metrics(self, *, all_metrics=False):
+        values = {
             "lateral_tracking_rmse_m": {
                 "value": math.sqrt(self.error_squared / self.error_count)
                 if self.error_count
@@ -1151,9 +1247,7 @@ class SimulationRunner(Node):
                 "unit": "m",
             },
             "completed": {
-                "value": self.maneuver_finished_observed
-                if self.definition.get("stack") == "controller_pure_pursuit"
-                else self.outcome == "pass",
+                "value": self.completion_observed,
                 "unit": "bool",
             },
             "closest_clearance_m": {"value": self.closest_clearance, "unit": "m"},
@@ -1161,7 +1255,17 @@ class SimulationRunner(Node):
             "distance_progressed_m": {"value": self.progress_m, "unit": "m"},
             "stopped_duration_s": {"value": self.stopped_duration_s, "unit": "s"},
             "sample_count": {"value": self.sample_count, "unit": "samples"},
+            "speed_mps": {"value": self.speed_mps, "unit": "m/s"},
+            "goal_distance_m": {"value": self.goal_distance_m, "unit": "m"},
+            "elapsed_s": {"value": self.elapsed_s, "unit": "s"},
+            "collision": {"value": self.collision, "unit": "bool"},
         }
+        selected = self.definition.get("metric_limits")
+        return (
+            {name: values[name] for name in selected}
+            if selected is not None and not all_metrics
+            else values
+        )
 
     def _finish(self, outcome, reasons):
         """Always save an outcome, including setup errors and operator interruption."""

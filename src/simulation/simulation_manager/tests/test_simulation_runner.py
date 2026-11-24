@@ -19,17 +19,18 @@ from pathlib import Path
 from types import FunctionType, MethodType, SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
-from ament_index_python.packages import get_package_share_directory
+from simulation_runtime.assets import catalog_directory
 from carla_scenarios.definitions import load_definition
 from simulation_manager.simulation_runner import SimulationRunner
 
-CONFIG = Path(get_package_share_directory("carla_scenarios")) / "config"
+CONFIG = catalog_directory()
 
 
 def runner(kind="playground", state="IDLE"):
     """Bind real runner methods to inert state without creating a ROS node."""
     node = SimpleNamespace(
         kind=kind,
+        experiment="controller_snake",
         state=state,
         server_active=True,
         definitions=CONFIG,

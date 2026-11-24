@@ -1,45 +1,56 @@
 ---
-version: 1
+version: 2
 id: parked_car_straight
-playground: oval
-stack: autonomy
-events:
-  - when: play
-    do: begin_evaluation
-completion: stopped_behind_actor
+trajectory:
+  source: planner
+world:
+  map: oval
+  ego:
+    blueprint: vehicle.mini.cooper
+    spawn:
+      straight_start: true
+      s_margin_m: 10.0
+      z_offset_m: 0.4
+  seed: 42
+  required_straight_m: 80.0
+  require_map_provenance: true
+  goal:
+    frame: lane
+    distance_m: 80.0
+  actors:
+    - id: parked
+      blueprint: vehicle.mini.cooper
+      pose:
+        frame: lane
+        distance_m: 40.0
+      static: true
+completion:
+  type: stopped_behind_actor
+  actor: parked
+  clearance_m:
+    - 2.0
+    - 8.0
+  speed_mps: 0.15
+  hold_s: 3.0
+  max_lateral_offset_m: 1.5
+metrics:
+  closest_clearance_m: true
+  final_clearance_m: true
+  distance_progressed_m:
+    min: 15.0
+  stopped_duration_s: true
+  sample_count:
+    min: 30
+  completed:
+    equals: true
+  collision:
+    equals: false
 deadlines:
   readiness_s: 90.0
   execution_s: 90.0
   stalled_clock_s: 15.0
   first_output_s: 3.0
   data_freshness_s: 2.0
-thresholds:
-  min_progress_m: 15.0
-  min_clearance_m: 2.0
-  max_clearance_m: 8.0
-  stopped_speed_mps: 0.15
-  stopped_duration_s: 3.0
-  min_samples: 30
-  max_lateral_offset_m: 1.5
-metrics:
-  - closest_clearance_m
-  - final_clearance_m
-  - distance_progressed_m
-  - stopped_duration_s
-setup:
-  require_map_provenance: true
-  seed: 42
-  ego_blueprint: vehicle.mini.cooper
-  spawn:
-    straight_start: true
-    s_margin_m: 10.0
-    z_offset_m: 0.4
-  required_straight_m: 80.0
-  parked:
-    distance_m: 40.0
-    blueprint: vehicle.mini.cooper
-  goal_distance_m: 80.0
-inputs:
-  map: oval
+planning:
   stop_distance_m: 2.0
   max_speed_mps: 3.0

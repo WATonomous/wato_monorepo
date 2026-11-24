@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Catalog compatibility and the manual/scored execution boundary."""
+"""Validate the entire data catalog and existing world/session boundaries."""
 
 import threading
 import unittest
@@ -20,8 +20,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import carla
+from simulation_runtime.assets import load_maneuver, maneuver_directory
+from simulation_runtime.sim_presets import launch_command, launch_groups
 from carla_scenarios.definitions import (
-    LEGACY_PLAYGROUNDS,
     load_definition,
     world_definition,
 )
@@ -32,68 +33,43 @@ CONFIG = Path(__file__).resolve().parents[1] / "config"
 
 
 class TestCatalog(unittest.TestCase):
-    def test_invalid_inputs_report_a_definition_error(self):
-        definition = {
-            "version": 1,
-            "id": "controller_snake",
-            "stack": "controller_pure_pursuit",
-            "completion": "maneuver_finished",
-            "inputs": [],
-        }
+    def test_all_playgrounds_validate(self):
+        paths = sorted((CONFIG / "playgrounds").glob("*.yaml"))
+        self.assertTrue(paths, "No playground definitions found")
+        for path in paths:
+            with self.subTest(path=path.name):
+                load_definition(CONFIG, "playgrounds", path.stem)
+
+    def test_all_scenarios_and_referenced_assets_validate(self):
+        paths = sorted((CONFIG / "scenarios").glob("*.yaml"))
+        self.assertTrue(paths, "No scenario definitions found")
+        for path in paths:
+            with self.subTest(path=path.name):
+                definition = load_definition(CONFIG, "scenarios", path.stem)
+                world_definition(CONFIG, "scenario", path.stem)
+                configuration = {
+                    "preset": definition["stack"],
+                    "attempt_id": "catalog_validation",
+                    "inputs": definition["inputs"],
+                }
+                for role in launch_groups(definition["stack"], definition["inputs"]):
+                    launch_command(role, configuration)
+
+    def test_all_maneuver_files_validate(self):
+        directory = maneuver_directory()
+        paths = sorted(directory.glob("*.json"))
+        self.assertTrue(paths, "No maneuver definitions found")
+        for path in paths:
+            with self.subTest(path=path.name):
+                load_maneuver(path.stem, directory)
+
+    def test_unsupported_scenario_version_is_rejected(self):
         with patch(
-            "carla_scenarios.definitions.yaml.safe_load", return_value=definition
+            "carla_scenarios.definitions.yaml.safe_load",
+            return_value={"version": 1, "id": "controller_snake"},
         ):
-            with self.assertRaisesRegex(ValueError, "inputs must be a mapping"):
+            with self.assertRaisesRegex(ValueError, "version 2"):
                 load_definition(CONFIG, "scenarios", "controller_snake")
-
-    def test_town_variants_preserve_legacy_settings(self):
-        for name, vehicles, walkers, index, weather, crossing in (
-            ("town10hd_default", 20, 40, 0, "ClearNoon", 0.0),
-            ("town10hd_light", 5, 10, 5, "ClearSunset", 0.0),
-            ("town10hd_heavy", 50, 100, 25, "CloudyNoon", 0.2),
-            ("empty", 0, 0, 10, "ClearNoon", 0.0),
-            ("custom", 10, 20, 10, "ClearNoon", 0.1),
-        ):
-            with self.subTest(name=name):
-                definition = load_definition(CONFIG, "playgrounds", name)
-                self.assertEqual(definition["map"], {"town": "Town10HD_Opt"})
-                self.assertEqual(definition["spawn"]["index"], index)
-                self.assertEqual(definition["weather"], weather)
-                self.assertEqual(definition["traffic"]["vehicles"], vehicles)
-                self.assertEqual(definition["traffic"]["pedestrians"], walkers)
-                self.assertEqual(
-                    definition["traffic"]["pedestrian_crossing_factor"], crossing
-                )
-
-    def test_legacy_selectors_resolve_to_one_implementation(self):
-        for legacy, name in LEGACY_PLAYGROUNDS.items():
-            with self.subTest(legacy=legacy):
-                expected = load_definition(CONFIG, "playgrounds", name)
-                self.assertEqual(
-                    world_definition(CONFIG, "playground", legacy), expected
-                )
-                self.assertEqual(
-                    world_definition(CONFIG, "playground", legacy.rsplit(".", 1)[1]),
-                    expected,
-                )
-
-    def test_fixtures_belong_to_scenarios_and_do_not_mutate_base_world(self):
-        original = load_definition(CONFIG, "playgrounds", "oval")
-        for name, distance in (
-            ("controller_snake", 82.0),
-            ("parked_car_straight", 80.0),
-        ):
-            definition = load_definition(CONFIG, "scenarios", name)
-            resolved = world_definition(CONFIG, "scenario", name)
-            self.assertEqual(definition["playground"], "oval")
-            self.assertTrue(resolved["spawn"]["straight_start"])
-            self.assertEqual(resolved["required_straight_m"], distance)
-            self.assertEqual(resolved["goal_distance_m"], 80.0)
-        self.assertEqual(load_definition(CONFIG, "playgrounds", "oval"), original)
-        self.assertNotIn("parked", original)
-        self.assertNotIn("straight_start", original["spawn"])
-        for name in ("snake_straight", "parked_car_straight"):
-            self.assertFalse((CONFIG / "playgrounds" / f"{name}.yaml").is_file())
 
 
 class TestConfiguredWorld(unittest.TestCase):

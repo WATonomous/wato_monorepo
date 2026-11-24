@@ -99,10 +99,9 @@ MAP_PREFLIGHT = """
 import os, sys
 from pathlib import Path
 import yaml
-from ament_index_python.packages import get_package_share_directory
+from simulation_runtime.assets import map_config_file
 
-share = Path(get_package_share_directory("world_modeling_bringup"))
-configuration = share / "config" / "map_configs" / (sys.argv[1] + ".yaml")
+configuration = map_config_file(sys.argv[1])
 parameters = yaml.safe_load(configuration.read_text())["/**/world_model"]["ros__parameters"]
 osm = Path(parameters["osm_map_path"])
 if not osm.is_file() or not os.access(osm, os.R_OK):
@@ -129,6 +128,27 @@ class Session:
         self.environment["WATOD_SIM_RESULTS_DIRECTORY"] = str(self.results)
         # Send /clock time broadcasts to Foxglove, including world-reset jumps.
         self.environment["WATOD_SIM_USE_SIM_TIME"] = "true"
+        for variable, default in (
+            (
+                "WATOD_SIM_CATALOG_DIRECTORY",
+                self.root / "src/simulation/carla_ros_bridge/carla_scenarios/config",
+            ),
+            (
+                "WATOD_SIM_MANEUVER_DIRECTORY",
+                self.root / "src/action/fake_planner/maneuvers",
+            ),
+            (
+                "WATOD_SIM_MAP_CONFIG_DIRECTORY",
+                self.root
+                / "src/world_modeling/world_modeling_bringup/config/map_configs",
+            ),
+        ):
+            directory = Path(self.environment.get(variable, default))
+            if not directory.is_absolute():
+                directory = self.root / directory
+            if not directory.is_dir():
+                raise SessionError(f"{variable} directory does not exist: {directory}")
+            self.environment[variable] = str(directory.resolve())
         self.state = None
         self.compose = [
             "docker",
@@ -363,6 +383,9 @@ class Session:
                 "CARLA_RENDER_MODE",
                 "WATCLOUD_MODE",
                 "TAG",
+                "WATOD_SIM_CATALOG_DIRECTORY",
+                "WATOD_SIM_MANEUVER_DIRECTORY",
+                "WATOD_SIM_MAP_CONFIG_DIRECTORY",
             ):
                 if self.state["configuration"].get(key) != self.environment.get(key):
                     raise SessionError(
@@ -586,6 +609,9 @@ class Session:
                     "CARLA_RENDER_MODE",
                     "WATCLOUD_MODE",
                     "TAG",
+                    "WATOD_SIM_CATALOG_DIRECTORY",
+                    "WATOD_SIM_MANEUVER_DIRECTORY",
+                    "WATOD_SIM_MAP_CONFIG_DIRECTORY",
                 )
             },
         }
@@ -649,7 +675,12 @@ class Session:
         print(f"Results: {self.results}")
 
     def preflight(self, kind, name):
-        directory = self.root / "src/simulation/carla_ros_bridge/carla_scenarios/config"
+        directory = Path(
+            self.environment.get(
+                "WATOD_SIM_CATALOG_DIRECTORY",
+                self.root / "src/simulation/carla_ros_bridge/carla_scenarios/config",
+            )
+        )
         path = (
             directory
             / ("scenarios" if kind == "scenario" else "playgrounds")
@@ -670,11 +701,12 @@ import json, sys
 from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from carla_scenarios.definitions import load_definition
-from simulation_runtime.sim_presets import PRESETS, launch_command
+from simulation_runtime.sim_presets import launch_command, launch_groups
+from simulation_runtime.assets import catalog_directory
 
-base = Path(get_package_share_directory("carla_scenarios")) / "config"
+base = catalog_directory()
 definition = load_definition(base, "scenarios", sys.argv[1])
-groups = PRESETS[definition["stack"]]
+groups = launch_groups(definition["stack"], definition["inputs"])
 for role in groups:
     launch_command(role, {"preset": definition["stack"], "attempt_id": "preflight", "inputs": definition["inputs"]})
 print(json.dumps({"definition": definition, "groups": groups}))
@@ -709,8 +741,11 @@ print(json.dumps({"definition": definition, "groups": groups}))
                     "ros2 pkg prefix " + shlex.quote(package) for package in packages
                 )
                 checks += ' && test -x "$(ros2 pkg prefix simulation_runtime)/lib/simulation_runtime/application_runtime"'
-                if stack == "controller_pure_pursuit":
-                    checks += ' && test -r "$(ros2 pkg prefix --share fake_planner)/maneuvers/steady_state_slalom.json"'
+                if stack == "controller_pure_pursuit" and role == "action":
+                    maneuver_file = definition["inputs"]["maneuver"] + ".json"
+                    checks += " && test -r " + shlex.quote(
+                        "/opt/watonomous/sim_maneuvers/" + maneuver_file
+                    )
                 container = self.state["containers"][service]
                 result = self.run(
                     [
@@ -852,7 +887,7 @@ def main():
     )
     session = Session()
     if arguments.command == "list":
-        base = session.root / "src/simulation/carla_ros_bridge/carla_scenarios/config"
+        base = Path(session.environment["WATOD_SIM_CATALOG_DIRECTORY"])
         for label, folder in (
             ("Playgrounds", "playgrounds"),
             ("Scenarios", "scenarios"),

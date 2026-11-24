@@ -20,7 +20,7 @@ from carla_msgs.srv import BindControl
 from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
 from rcl_interfaces.srv import SetParametersAtomically
 from std_srvs.srv import Trigger
-from simulation_runtime.sim_presets import PRESETS, command_topic, launch_command
+from simulation_runtime.sim_presets import command_topic, launch_command, launch_groups
 
 
 class SimulationStackAdapter:
@@ -31,6 +31,7 @@ class SimulationStackAdapter:
         self.session_id = session_id
         self.roles = []
         self.preset = None
+        self.groups = {}
         self.command_topic = None
         self.prepared = False
 
@@ -63,7 +64,7 @@ class SimulationStackAdapter:
 
     def prepare(self, definition, attempt_id, timeout_s=60.0):
         """Start the world-model group before action, then use their lifecycle owners."""
-        if self.roles:
+        if self.roles or self.prepared:
             raise RuntimeError(
                 "Stop the existing application stack before preparing another"
             )
@@ -75,19 +76,22 @@ class SimulationStackAdapter:
             "attempt_id": attempt_id,
             "inputs": definition["inputs"],
         }
+        groups = launch_groups(preset, definition["inputs"])
         # Validate both groups before starting either one.
-        for role in PRESETS[preset]:
+        for role in groups:
             launch_command(role, configuration)
         self.preset = preset
+        self.groups = groups
         self.command_topic = command_topic(attempt_id)
-        self._call(
-            BindControl,
-            "/carla/ackermann_control/bind_control",
-            BindControl.Request(command_topic=self.command_topic),
-            deadline=deadline,
-        )
+        if "action" in groups:
+            self._call(
+                BindControl,
+                "/carla/ackermann_control/bind_control",
+                BindControl.Request(command_topic=self.command_topic),
+                deadline=deadline,
+            )
         try:
-            for role, group in PRESETS[preset].items():
+            for role, group in groups.items():
                 status = self._runtime(role, "status", deadline=deadline)
                 if status["process"] != "stopped":
                     raise RuntimeError(
@@ -142,7 +146,7 @@ class SimulationStackAdapter:
                     != "running"
                 ):
                     return f"application launch group {role} is not running"
-                manager = PRESETS[self.preset][role]["manager"]
+                manager = self.groups[role]["manager"]
                 self._call(
                     Trigger, manager + "/is_active", timeout=3.0, deadline=deadline
                 )

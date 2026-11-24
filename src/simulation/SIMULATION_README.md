@@ -96,14 +96,14 @@ ros2 service call /carla/scenario_server/get_available_scenarios carla_msgs/srv/
 
 # Switch to a different scenario
 ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
-  "{scenario_name: 'carla_scenarios.scenarios.heavy_traffic_scenario'}"
+  "{scenario_name: 'town10hd_heavy'}"
 ```
 
 Built-in scenarios:
-- `empty_scenario` - Ego vehicle only, no NPCs
-- `light_traffic_scenario` - Ego + 5 vehicles + 10 pedestrians (default)
-- `default_scenario` - Ego + 20 vehicles + 40 pedestrians
-- `heavy_traffic_scenario` - Ego + 50 vehicles + 100 pedestrians
+- `empty` - Ego vehicle only, no NPCs
+- `town10hd_light` - Ego + 5 vehicles + 10 pedestrians (default)
+- `town10hd_default` - Ego + 20 vehicles + 40 pedestrians
+- `town10hd_heavy` - Ego + 50 vehicles + 100 pedestrians
 
 #### Enable Autonomy Mode
 
@@ -162,7 +162,7 @@ When `CARLA_RENDER_MODE=no_gpu` (the default), a web-based bird's-eye view is au
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        watod up                                 │
 └─────────────────────────────────────────────────────────────────┘

@@ -16,6 +16,13 @@
 import math
 import re
 
+from simulation_runtime.assets import data_name, load_maneuver, map_config_file
+
+MAP_GROUP = {
+    "packages": ["world_modeling_bringup", "world_model", "lanelet_markers"],
+    "manager": "/world_modeling_lifecycle_manager",
+}
+
 PRESETS = {
     "controller_pure_pursuit": {
         "action": {
@@ -47,6 +54,34 @@ PRESETS = {
 }
 
 
+def launch_groups(preset, inputs):
+    """Select lifecycle owners; controller tests can add a map-only world group."""
+    if preset == "world_modeling":
+        world_mode = inputs.get("world_modeling", "map")
+        if world_mode not in {"off", "map", "full"}:
+            raise ValueError("world_modeling must be off, map or full")
+        return (
+            {}
+            if world_mode == "off"
+            else {
+                "world": MAP_GROUP
+                if world_mode == "map"
+                else PRESETS["autonomy"]["world"]
+            }
+        )
+    if preset not in PRESETS:
+        raise ValueError(f"Unsupported preset: {preset}")
+    groups = PRESETS[preset]
+    if preset == "controller_pure_pursuit":
+        world_mode = inputs.get("world_modeling", "map" if "map" in inputs else "off")
+        if world_mode not in {"off", "map", "full"}:
+            raise ValueError("world_modeling must be off, map or full")
+        if world_mode != "off":
+            world = MAP_GROUP if world_mode == "map" else PRESETS["autonomy"]["world"]
+            return {"world": world, **groups}
+    return groups
+
+
 def command_topic(attempt_id):
     """Map raw attempt IDs injectively to ROS tokens, without requiring host ROS."""
     if not isinstance(attempt_id, str) or not re.fullmatch(
@@ -68,14 +103,29 @@ def command_topic(attempt_id):
 def launch_command(role, configuration):
     """Return an argv for one reviewed launch file. Never accept shell commands."""
     preset = configuration["preset"]
-    if role not in PRESETS.get(preset, {}):
+    if role not in launch_groups(preset, configuration["inputs"]):
         raise ValueError(f"Unsupported preset/role: {preset}/{role}")
     topic = command_topic(configuration["attempt_id"])
     inputs = configuration["inputs"]
     common = ["use_sim_time:=true", "autostart:=false", "bond_enabled:=false"]
+    if role == "world":
+        world_map = inputs.get("map")
+        data_name(world_map, "map preset")
+        configuration_file = map_config_file(world_map)
+        return [
+            "ros2",
+            "launch",
+            "world_modeling_bringup",
+            "world_modeling_sim.launch.yaml",
+            *common,
+            "use_eidos:=false",
+            f"map_only:={'true' if preset != 'autonomy' and inputs.get('world_modeling', 'map') == 'map' else 'false'}",
+            f"map:={world_map}",
+            f"map_config_file:={configuration_file}",
+        ]
     if preset == "controller_pure_pursuit":
-        if inputs.get("maneuver") != "steady_state_slalom":
-            raise ValueError("Controller preset requires steady_state_slalom")
+        maneuver = inputs.get("maneuver")
+        path, _ = load_maneuver(maneuver)
         return [
             "ros2",
             "launch",
@@ -84,21 +134,9 @@ def launch_command(role, configuration):
             *common,
             "frame_id:=map",
             "start_on_activate:=false",
-            "maneuver:=steady_state_slalom",
+            f"maneuver:={maneuver}",
+            f"maneuver_file:={path}",
             f"ackermann_topic:={topic}",
-        ]
-    if role == "world":
-        world_map = inputs.get("map")
-        if world_map not in {"oval", "ring_road", "town10hd", "test_track"}:
-            raise ValueError("Unsupported map preset")
-        return [
-            "ros2",
-            "launch",
-            "world_modeling_bringup",
-            "world_modeling_sim.launch.yaml",
-            *common,
-            "use_eidos:=false",
-            f"map:={world_map}",
         ]
     values = {}
     for field in ("stop_distance_m", "max_speed_mps"):

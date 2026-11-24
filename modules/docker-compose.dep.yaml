@@ -73,10 +73,16 @@ services:
       pygame_hud_enabled:=false"
     volumes:
       - ${WATOD_SIM_RESULTS_DIRECTORY:-../.cache/watod-sim/results}:/opt/watonomous/sim_results
+      - ${WATOD_SIM_CATALOG_DIRECTORY:-../src/simulation/carla_ros_bridge/carla_scenarios/config}:/opt/watonomous/sim_catalog:ro
+      - ${WATOD_SIM_MAP_CONFIG_DIRECTORY:-../src/world_modeling/world_modeling_bringup/config/map_configs}:/opt/watonomous/sim_map_configs:ro
+      - ${WATOD_SIM_MANEUVER_DIRECTORY:-../src/action/fake_planner/maneuvers}:/opt/watonomous/sim_maneuvers:ro
     environment:
       - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}
       - WATOD_SIM_REVISION=${WATOD_SIM_REVISION:-}
       - WATOD_SIM_RESULTS_DIRECTORY=/opt/watonomous/sim_results
+      - WATOD_SIM_CATALOG_DIRECTORY=/opt/watonomous/sim_catalog
+      - WATOD_SIM_MAP_CONFIG_DIRECTORY=/opt/watonomous/sim_map_configs
+      - WATOD_SIM_MANEUVER_DIRECTORY=/opt/watonomous/sim_maneuvers
 
   sim_action:
     profiles: ["sim_experiment"]
@@ -84,8 +90,11 @@ services:
       file: ${COMPOSE_EXTEND_FILE}
       service: action_bringup
     command: ["/bin/bash", "-c", "${WATOD_SIM_ACTION_COMMAND:-exec ros2 run simulation_runtime application_runtime}"]
+    volumes:
+      - ${WATOD_SIM_MANEUVER_DIRECTORY:-../src/action/fake_planner/maneuvers}:/opt/watonomous/sim_maneuvers:ro
     environment:
       - WATOD_SIM_RUNTIME_ROLE=action
+      - WATOD_SIM_MANEUVER_DIRECTORY=/opt/watonomous/sim_maneuvers
       - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}
 
   sim_world:
@@ -94,6 +103,9 @@ services:
       file: ${COMPOSE_EXTEND_FILE}
       service: world_modeling_bringup
     command: ["/bin/bash", "-c", "${WATOD_SIM_WORLD_COMMAND:-exec ros2 run simulation_runtime application_runtime}"]
+    volumes:
+      - ${WATOD_SIM_MAP_CONFIG_DIRECTORY:-../src/world_modeling/world_modeling_bringup/config/map_configs}:/opt/watonomous/sim_map_configs:ro
     environment:
       - WATOD_SIM_RUNTIME_ROLE=world
+      - WATOD_SIM_MAP_CONFIG_DIRECTORY=/opt/watonomous/sim_map_configs
       - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}

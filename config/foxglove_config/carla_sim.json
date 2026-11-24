@@ -7,7 +7,7 @@
       "serviceName": "/carla/carla_teleop/set_autonomy"
     },
     "CallService!3k192jd": {
-      "requestPayload": "{\n  \"scenario_name\": \"carla_scenarios.scenarios.light_traffic_scenario\"\n}",
+      "requestPayload": "{\n  \"scenario_name\": \"town10hd_light\"\n}",
       "layout": "vertical",
       "timeoutSeconds": 20,
       "serviceName": "/carla/scenario_server/switch_scenario"

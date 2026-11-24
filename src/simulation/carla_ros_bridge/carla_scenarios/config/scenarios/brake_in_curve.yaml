@@ -1,0 +1,42 @@
+---
+version: 2
+id: brake_in_curve
+trajectory:
+  source: fake_planner
+  maneuver: brake_in_curve
+world:
+  map: oval
+  modeling: map
+  ego:
+    blueprint: vehicle.mini.cooper
+    spawn:
+      pose:
+        frame: map
+        x: -50.57930367059804
+        y: 40.8549921553807
+        z: 0.4
+        yaw_deg: -180
+  seed: 42
+  required_straight_m: 55.0
+  require_map_provenance: true
+completion:
+  type: maneuver_finished
+metrics:
+  lateral_tracking_rmse_m:
+    max: 0.6
+  max_lateral_error_m:
+    max: 1.5
+  completed:
+    equals: true
+  distance_progressed_m:
+    min: 35.0
+  sample_count:
+    min: 30
+  collision:
+    equals: false
+deadlines:
+  readiness_s: 90.0
+  execution_s: 65.0
+  stalled_clock_s: 15.0
+  first_output_s: 2.0
+  data_freshness_s: 2.0

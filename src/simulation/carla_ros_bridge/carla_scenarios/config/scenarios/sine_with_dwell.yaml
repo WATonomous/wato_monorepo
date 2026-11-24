@@ -1,0 +1,39 @@
+---
+version: 2
+id: sine_with_dwell
+trajectory:
+  source: fake_planner
+  maneuver: sine_with_dwell
+world:
+  map: oval
+  modeling: map
+  ego:
+    blueprint: vehicle.mini.cooper
+    spawn:
+      straight_start: true
+      s_margin_m: 10.0
+      z_offset_m: 0.4
+  seed: 42
+  required_straight_m: 45.0
+  require_map_provenance: true
+completion:
+  type: maneuver_finished
+metrics:
+  lateral_tracking_rmse_m:
+    max: 0.6
+  max_lateral_error_m:
+    max: 1.5
+  completed:
+    equals: true
+  distance_progressed_m:
+    min: 28.0
+  sample_count:
+    min: 30
+  collision:
+    equals: false
+deadlines:
+  readiness_s: 90.0
+  execution_s: 65.0
+  stalled_clock_s: 15.0
+  first_output_s: 2.0
+  data_freshness_s: 2.0

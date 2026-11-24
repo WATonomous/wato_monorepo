@@ -23,7 +23,6 @@ from typing import Dict, Optional
 
 import carla
 import rclpy
-from ament_index_python.packages import get_package_share_directory
 from carla_common import connect_carla
 from carla_msgs.msg import ScenarioStatus
 from carla_msgs.srv import GetAvailableScenarios, SwitchScenario
@@ -35,10 +34,11 @@ from std_msgs.msg import Bool, Header
 from std_srvs.srv import SetBool, Trigger
 
 from carla_scenarios.definitions import (
-    LEGACY_PLAYGROUNDS,
     load_definition,
     world_definition,
 )
+from simulation_runtime.assets import catalog_directory
+
 from carla_scenarios.scenario_base import ScenarioBase
 from carla_scenarios.worlds.configured_world import ConfiguredWorld
 
@@ -113,8 +113,8 @@ class ScenarioServerNode(LifecycleNode):
         )
         self.declare_parameter(
             "initial_scenario",
-            "carla_scenarios.scenarios.default_scenario",
-            ParameterDescriptor(description="Scenario module path to load on startup"),
+            "town10hd_default",
+            ParameterDescriptor(description="Playground catalog ID to load on startup"),
         )
         self.declare_parameter(
             "xodr_map_directory",
@@ -596,7 +596,7 @@ class ScenarioServerNode(LifecycleNode):
 
     def _read_playground(self, name, *, kind="playground"):
         """Preflight installed configuration and assets before changing the world."""
-        directory = Path(get_package_share_directory("carla_scenarios")) / "config"
+        directory = catalog_directory()
         definition = world_definition(directory, kind, name)
         map_path = None
         source = None
@@ -619,10 +619,7 @@ class ScenarioServerNode(LifecycleNode):
         self.carla_world = self.carla_client.get_world()
         library = self.carla_world.get_blueprint_library()
         blueprints = [definition.get("ego_blueprint", "vehicle.mini.cooper")]
-        if definition.get("parked"):
-            blueprints.append(
-                definition["parked"].get("blueprint", "vehicle.mini.cooper")
-            )
+        blueprints.extend(actor["blueprint"] for actor in definition.get("actors", []))
         for blueprint in blueprints:
             if not library.filter(blueprint):
                 raise ValueError(f"CARLA blueprint unavailable: {blueprint}")
@@ -634,18 +631,9 @@ class ScenarioServerNode(LifecycleNode):
         world.provenance = provenance
         world.logger = self.get_logger()
         world.xodr_map_directory = Path(self.get_parameter("xodr_map_directory").value)
-        # Validate fixture geometry offline before unloading the current world.
-        if source and definition.get("spawn", {}).get("straight_start"):
-            waypoint = world._spawn_waypoint(carla.Map(name, source))
-            distances = [
-                definition.get("goal_distance_m", 0.0),
-                definition.get("parked", {}).get("distance_m", 0.0),
-            ]
-            for distance in distances:
-                if distance > 0.0 and len(waypoint.next(float(distance))) != 1:
-                    raise ValueError(
-                        f"Actor or goal at {distance} m leaves the continuous lane"
-                    )
+        # Resolve every lane-relative fixture before unloading the active world.
+        if source:
+            world.validate_fixtures(carla.Map(name, source))
         return world
 
     def prepare_experiment_callback(self, request, response):
@@ -876,20 +864,24 @@ class ScenarioServerNode(LifecycleNode):
 
     def get_scenarios_callback(self, request, response):
         """Handle get available scenarios service request."""
+        self._discover_scenarios()
         response.scenario_names = list(self.available_scenarios.keys())
         response.descriptions = list(self.available_scenarios.values())
         return response
 
     def _discover_scenarios(self):
-        directory = Path(get_package_share_directory("carla_scenarios")) / "config"
-        self.available_scenarios = {
-            path.stem: load_definition(directory, "playgrounds", path.stem).get(
-                "description", path.stem
-            )
-            for path in sorted((directory / "playgrounds").glob("*.yaml"))
-        }
-        for legacy, name in LEGACY_PLAYGROUNDS.items():
-            self.available_scenarios[legacy] = self.available_scenarios[name]
+        directory = catalog_directory()
+        self.available_scenarios = {}
+        for path in sorted((directory / "playgrounds").glob("*.yaml")):
+            try:
+                definition = load_definition(directory, "playgrounds", path.stem)
+                self.available_scenarios[path.stem] = definition.get(
+                    "description", path.stem
+                )
+            except ValueError as error:
+                self.get_logger().warning(
+                    f"Skipping invalid playground {path.stem}: {error}"
+                )
         self.get_logger().info(
             f"Discovered {len(self.available_scenarios)} playground selectors"
         )

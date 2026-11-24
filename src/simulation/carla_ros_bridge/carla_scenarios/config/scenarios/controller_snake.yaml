@@ -1,35 +1,40 @@
 ---
-version: 1
+version: 2
 id: controller_snake
-playground: oval
-stack: controller_pure_pursuit
-events:
-  - when: play
-    do: start_maneuver
-completion: maneuver_finished
+trajectory:
+  source: fake_planner
+  maneuver: steady_state_slalom
+world:
+  map: oval
+  ego:
+    blueprint: vehicle.mini.cooper
+    spawn:
+      straight_start: true
+      s_margin_m: 10.0
+      z_offset_m: 0.4
+  seed: 42
+  required_straight_m: 82.0
+  goal:
+    frame: lane
+    distance_m: 80.0
+completion:
+  type: maneuver_finished
+metrics:
+  lateral_tracking_rmse_m:
+    max: 0.6
+  max_lateral_error_m:
+    max: 1.5
+  completed:
+    equals: true
+  distance_progressed_m:
+    min: 65.0
+  sample_count:
+    min: 30
+  collision:
+    equals: false
 deadlines:
   readiness_s: 90.0
   execution_s: 65.0
   stalled_clock_s: 15.0
   first_output_s: 2.0
   data_freshness_s: 2.0
-thresholds:
-  lateral_tracking_rmse_m: 0.6
-  max_lateral_error_m: 1.5
-  min_progress_m: 65.0
-  min_samples: 30
-metrics:
-  - lateral_tracking_rmse_m
-  - max_lateral_error_m
-  - completed
-setup:
-  seed: 42
-  ego_blueprint: vehicle.mini.cooper
-  spawn:
-    straight_start: true
-    s_margin_m: 10.0
-    z_offset_m: 0.4
-  required_straight_m: 82.0
-  goal_distance_m: 80.0
-inputs:
-  maneuver: steady_state_slalom

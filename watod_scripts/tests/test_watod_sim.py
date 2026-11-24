@@ -296,7 +296,10 @@ class TestRuntimeHandoff(unittest.TestCase):
         node = session()
         node.state = {"containers": {"sim_session": "base"}}
         preparation = {
-            "definition": {"stack": "controller_pure_pursuit"},
+            "definition": {
+                "stack": "controller_pure_pursuit",
+                "inputs": {"maneuver": "steady_state_slalom"},
+            },
             "groups": {"action": {"packages": ["reviewed_package"]}},
         }
         node.run.side_effect = [
@@ -345,6 +348,25 @@ class TestInstalledMapPreflight(unittest.TestCase):
                     {
                         "ament_index_python": types.ModuleType("ament_index_python"),
                         "ament_index_python.packages": package,
+                    },
+                ),
+                patch.object(
+                    sys,
+                    "path",
+                    [
+                        str(
+                            Path(__file__).resolve().parents[2]
+                            / "src/simulation/simulation_runtime"
+                        ),
+                        *sys.path,
+                    ],
+                ),
+                patch.dict(
+                    os.environ,
+                    {
+                        "WATOD_SIM_MAP_CONFIG_DIRECTORY": str(
+                            share / "config/map_configs"
+                        )
                     },
                 ),
                 patch.object(sys, "argv", ["preflight", name]),

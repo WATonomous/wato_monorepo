@@ -1,3 +1,4 @@
+---
 launch:
   # Launch arguments
   - arg:
@@ -14,7 +15,7 @@ launch:
       description: "Port for the pygame HUD web server"
   - arg:
       name: scenario
-      default: "carla_scenarios.scenarios.light_traffic_scenario"
+      default: "town10hd_light"
       description: "Initial manual CARLA world selector"
 
   - arg:

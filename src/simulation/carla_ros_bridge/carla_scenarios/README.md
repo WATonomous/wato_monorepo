@@ -6,13 +6,13 @@ This package provides two YAML catalogs backed by shared Python worlds:
   start immediately. Users launch their own application nodes; no evaluator or
   scored attempt is created.
 - Scenarios are automated tests: a playground plus setup overrides, a reviewed
-  stack, application inputs, events, deadlines and scoring requirements.
+  mode, trajectory source, actors, goal, completion and selected metric limits.
 
 ```text
 config/playgrounds/             Public manual world definitions
 config/scenarios/               Automated test definitions
 carla_scenarios/worlds/          Shared CARLA world/actor operations
-carla_scenarios/definitions.py   Loading, validation and legacy selector aliases
+carla_scenarios/definitions.py   Loading and validation of named definitions
 ```
 
 ## Guides
@@ -25,17 +25,13 @@ carla_scenarios/definitions.py   Loading, validation and legacy selector aliases
   [recovery](../../simulation_manager/README.md#session-recovery) and
   [results](../../simulation_manager/README.md#results-and-diagnostics).
 
-## Compatibility
+## Catalog IDs
 
-The `scenario_server`, `simulation_runner`, existing ROS service names and
-`initial_scenario` launch parameter remain. The seven historical selectors
-`carla_scenarios.scenarios.{default,light_traffic,heavy_traffic,empty,custom,oval,ring_road}_scenario`
-and their short forms resolve explicitly to the YAML playgrounds. Their traffic,
-weather and spawn settings are preserved; the old Python catalog is removed.
+Use the YAML filename stem, such as `town10hd_default`, `town10hd_light`,
+`town10hd_heavy`, `empty`, `custom`, `oval`, or `ring_road`. Python module paths
+are not accepted. Adding a definition needs no alias or registry entry.
 
-The server accepts both `playground/NAME` and `scenario/NAME` through
-`prepare_experiment`; a bare legacy selector remains a manual world request.
-
-The manual `/carla/scenario_server/reset_ego` service remains available and is
-serialized with world ticks. Managed sessions use `/sim/reset` so world,
-application and evaluator state reset together.
+Managed sessions mount the checkout's data directories. Add or edit YAML and JSON,
+then reopen the scenario; no image rebuild is needed for data changes. Scenario
+files use version 2; playground files use version 1. See the authoring guide for
+coordinate frames, stack choices, and the parked-car goal flow.

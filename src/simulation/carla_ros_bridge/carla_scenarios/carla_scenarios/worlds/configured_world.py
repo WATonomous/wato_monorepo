@@ -33,7 +33,7 @@ class ConfiguredWorld(ScenarioBase):
         self.definition = definition
         self.xodr_path = xodr_path
         self.ego_vehicle = None
-        self.parked_vehicle = None
+        self.target_vehicle = None
         self.geometry = {}
         self.held = held
 
@@ -122,6 +122,59 @@ class ConfiguredWorld(ScenarioBase):
             raise ValueError(f"{self.xodr_path}: no driving-lane waypoint")
         return candidates[0]
 
+    @staticmethod
+    def _copy_transform(transform, z_offset=0.0):
+        return carla.Transform(
+            carla.Location(
+                x=transform.location.x,
+                y=transform.location.y,
+                z=transform.location.z + z_offset,
+            ),
+            carla.Rotation(
+                pitch=transform.rotation.pitch,
+                yaw=transform.rotation.yaw,
+                roll=transform.rotation.roll,
+            ),
+        )
+
+    def resolve_pose(self, pose, waypoint=None):
+        """Convert ROS map poses or lane distances to CARLA transforms."""
+        if pose.get("frame", "map") == "map":
+            return carla.Transform(
+                carla.Location(
+                    x=float(pose["x"]), y=-float(pose["y"]), z=float(pose.get("z", 0.4))
+                ),
+                carla.Rotation(yaw=-float(pose.get("yaw_deg", 0.0))),
+            )
+        if waypoint is None:
+            raise ValueError(
+                "Lane-relative actor/goal poses require a lane waypoint ego spawn"
+            )
+        distance = float(pose["distance_m"])
+        ahead = [waypoint] if distance == 0 else waypoint.next(distance)
+        if len(ahead) != 1:
+            raise ValueError(
+                f"Actor or goal at {distance} m leaves the continuous lane"
+            )
+        return self._copy_transform(
+            ahead[0].transform, float(pose.get("z_offset_m", 0.4))
+        )
+
+    def validate_fixtures(self, carla_map):
+        settings = self.definition.get("spawn", {})
+        waypoint = (
+            self._spawn_waypoint(carla_map)
+            if settings.get("straight_start")
+            or {"road_id", "lane_id", "s"} <= settings.keys()
+            else None
+        )
+        if "pose" in settings:
+            self.resolve_pose(settings["pose"])
+        for actor in self.definition.get("actors", []):
+            self.resolve_pose(actor["pose"], waypoint)
+        if "goal" in self.definition:
+            self.resolve_pose(self.definition["goal"], waypoint)
+
     def setup(self):
         if self.xodr_path is not None:
             self._load_xodr_map(str(self.xodr_path))
@@ -131,7 +184,9 @@ class ConfiguredWorld(ScenarioBase):
         settings = self.definition.get("spawn", {})
         points = carla_map.get_spawn_points()
         waypoint = None
-        if (
+        if "pose" in settings:
+            spawn = self.resolve_pose(settings["pose"])
+        elif (
             settings.get("straight_start")
             or {"road_id", "lane_id", "s"} <= settings.keys()
         ):
@@ -156,37 +211,25 @@ class ConfiguredWorld(ScenarioBase):
             raise RuntimeError("Could not spawn ego vehicle")
         self.set_held(self.held)
         self._spawn_traffic(points, spawn)
-        parked = self.definition.get("parked")
-        if parked:
-            if waypoint is None:
-                raise ValueError("A parked fixture requires a lane waypoint spawn")
-            ahead = waypoint.next(float(parked["distance_m"]))
-            if len(ahead) != 1:
-                raise ValueError(
-                    "Parked vehicle distance leaves the selected continuous lane"
-                )
-            parked_spawn = ahead[0].transform
-            parked_spawn.location.z += 0.4
-            self.parked_vehicle = self.spawn_ego_vehicle(
-                parked_spawn,
-                parked.get("blueprint", "vehicle.mini.cooper"),
-                "parked_car",
+        actors = {}
+        for specification in self.definition.get("actors", []):
+            actor = self.spawn_ego_vehicle(
+                self.resolve_pose(specification["pose"], waypoint),
+                specification["blueprint"],
+                specification["id"],
             )
-            if self.parked_vehicle is None:
-                raise RuntimeError("Could not spawn parked vehicle")
-            self.parked_vehicle.set_simulate_physics(False)
-            self.parked_vehicle.apply_control(
-                carla.VehicleControl(brake=1.0, hand_brake=True)
-            )
-        goal_distance = float(self.definition.get("goal_distance_m", 0.0))
-        goal = spawn.location
-        if goal_distance > 0.0:
-            if waypoint is None:
-                raise ValueError("A goal fixture requires a lane waypoint spawn")
-            goal_waypoints = waypoint.next(goal_distance)
-            if len(goal_waypoints) != 1:
-                raise ValueError("Goal leaves the selected continuous lane")
-            goal = goal_waypoints[0].transform.location
+            if actor is None:
+                raise RuntimeError(f"Could not spawn actor {specification['id']}")
+            if specification.get("static", True):
+                actor.set_simulate_physics(False)
+                actor.apply_control(carla.VehicleControl(brake=1.0, hand_brake=True))
+            actors[specification["id"]] = actor
+        target = self.definition.get("evaluation_actor")
+        if target:
+            self.target_vehicle = actors[target]
+        goal = None
+        if "goal" in self.definition:
+            goal = self.resolve_pose(self.definition["goal"], waypoint).location
         heading = math.radians(spawn.rotation.yaw)
         self.world.set_weather(
             getattr(
@@ -196,8 +239,11 @@ class ConfiguredWorld(ScenarioBase):
         self.geometry = {
             "frame_id": "map",
             "ego": self._actor_geometry(self.ego_vehicle),
-            "parked": self._actor_geometry(self.parked_vehicle)
-            if self.parked_vehicle
+            "actors": {
+                name: self._actor_geometry(actor) for name, actor in actors.items()
+            },
+            "target_actor": self._actor_geometry(self.target_vehicle)
+            if self.target_vehicle
             else None,
             "lane": {
                 "x": spawn.location.x,
@@ -205,7 +251,7 @@ class ConfiguredWorld(ScenarioBase):
                 "dx": math.cos(heading),
                 "dy": -math.sin(heading),
             },
-            "goal": {"x": goal.x, "y": -goal.y, "z": 0.0},
+            "goal": {"x": goal.x, "y": -goal.y, "z": 0.0} if goal else None,
             "spawn": {
                 "road_id": waypoint.road_id if waypoint else None,
                 "lane_id": waypoint.lane_id if waypoint else None,

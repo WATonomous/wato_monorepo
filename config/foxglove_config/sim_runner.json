@@ -47,6 +47,9 @@
           "visible": true,
           "color": "#4e98e2",
           "lineWidth": 0.15
+        },
+        "/world_modeling/lanelet/map_viz_markers": {
+          "visible": true
         }
       },
       "layers": {
@@ -82,7 +85,7 @@
       },
       "imageMode": {},
       "followTf": "base_footprint",
-      "title": "Ego, parked car, reference and actual path"
+      "title": "Ego, map, reference and actual path"
     },
     "CallService!play": {
       "requestPayload": "{}",

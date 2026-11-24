@@ -20,6 +20,20 @@ This package provides process ownership and shared launch configuration.
 The runtime can be installed in action and world-modeling images independently
 of the simulation manager and CARLA packages.
 
+## Scenario configuration
+
+Version-two scenario data selects trajectory source, world-modeling scope,
+actors, goal, completion, and metric limits. The executable groups are inferred;
+there is no separate stack or mode field. `assets.py`
+validates maneuver and map files under the configured data roots; new filenames
+need no registration. `scenario_config.py` validates the schema and metric limits.
+`launch_groups()` supplies the same ordered groups to host preflight and the runner.
+
+A fake-planner trajectory launches only the fake planner and controller in the
+action container. It may run with no world group, map-only visualization, or the
+full world-modeling stack. Normal planner trajectories require full world modeling
+and a configured goal. See the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md).
+
 ## Attempt Topics
 
 The runner and application runtimes share `command_topic()` from `sim_presets.py`
@@ -38,8 +52,9 @@ responses. Rejected subscription creation preserves the previous binding.
 ## Building Changes
 
 The simulation, action, and world-modeling images include this package. Rebuild
-all three when deploying a runtime or shared-preset change, then recreate the
-managed session:
+all three when deploying a runtime or launch-code change, then recreate the
+managed session. Scenario YAML, maneuver JSON, map configs and map files are
+mounted data; editing them does not require rebuilding:
 
 ```bash
 watod -m simulation -m action -m world_modeling build

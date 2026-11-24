@@ -103,7 +103,7 @@ ros2 service call /carla/scenario_server/get_available_scenarios carla_msgs/srv/
 
 # Switch to heavy traffic
 ros2 service call /carla/scenario_server/switch_scenario carla_msgs/srv/SwitchScenario \
-  "{scenario_name: 'carla_scenarios.scenarios.heavy_traffic_scenario'}"
+  "{scenario_name: 'town10hd_heavy'}"
 ```
 
 When switching scenarios, the lifecycle manager automatically:
