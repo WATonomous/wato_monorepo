@@ -26,9 +26,6 @@
   <xacro:include filename="eve_roof_mount.xacro"/>
 
   <!-- Base link is the roof frame; attach roof sensors directly to base_link -->
-  <!-- imu_xyz and imu_rpy are relative to lidar_cc. They place imu_link in base_link at roll
-       -0.55 deg, pitch 0 and yaw +1.23 deg. The IMU is level in pitch; the 2.4 deg it had before
-       came from the old lidar_cc pitch. -->
   <xacro:roof_mount
     parent="base_link"
     imu_xyz="-0.588214 -0.833601 -1.281571"
@@ -41,9 +38,7 @@
   <xacro:include filename="eve_mirror_mount_nw.xacro"/>
   <xacro:include filename="eve_mirror_mount_ne.xacro"/>
 
-  <!-- Mirror mount poses are relative to lidar_cc. They were calibrated against the VLP-32C and are
-       re-expressed for the VLS-128 so each stays put in base_link, taking the VLP-32C pose there as
-       its measured rpy of -0.353, 0.538 and 7.2 deg. Not yet re-registered against the VLS-128. -->
+  <!-- Mirror mount poses are relative to lidar_cc, still need to be recalibrated. -->
   <xacro:mirror_mount_ne parent="lidar_cc">
     <origin xyz="1.330009 0.132179 -0.819723" rpy="-0.050099 0.097960 0.312547"/>
   </xacro:mirror_mount_ne>
