@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Custom scenario with vehicles, pedestrians, and traffic props."""
+"""Stop sign scenario that begins the scenario right at a stop sign."""
 
 from carla_scenarios.scenario_base import ScenarioBase
 
@@ -21,13 +21,15 @@ except ImportError:
     carla = None
 
 
-class CustomScenario(ScenarioBase):
-    """Customizable mixed-traffic scenario for CARLA experiments."""
+class StopSignScenario(ScenarioBase):
+    """Mixed-traffic scenario with stop signs for CARLA experiments."""
 
     NUM_VEHICLES = 10
     NUM_PEDESTRIANS = 20
     NUM_TRAFFIC_ENTITIES = 8
-    SPAWN_POINT_INDEX = 10
+    STOP_SIGN_APPROACH_DISTANCE = 6.0  # Metres upstream of the trigger centre.
+    EGO_SPAWN_HEIGHT = 0.3
+    EGO_SPAWN_CLEARANCE = 8.0
     PEDESTRIAN_CROSS_FACTOR = 0.1
     TRAFFIC_PROP_FILTERS = (
         "static.prop.trafficcone*",
@@ -39,13 +41,33 @@ class CustomScenario(ScenarioBase):
         self.traffic_entities = []
 
     def get_name(self) -> str:
-        return "Custom Scenario"
+        return "Stop Sign Scenario"
 
     def get_description(self) -> str:
         return "Mixed traffic with NPC vehicles, pedestrians, and traffic props"
 
     def initialize(self, client: "carla.Client") -> bool:
         return self._initialize_carla(client)
+
+    def _get_ego_spawn_point(self, road_map: "carla.Map") -> "carla.Transform | None":
+        """Find a lane-aligned spawn just before a stop sign trigger."""
+        stop_signs = self.world.get_actors().filter("traffic.stop*")
+        for sign in sorted(stop_signs, key=lambda actor: actor.id):
+            trigger_location = sign.get_transform().transform(
+                sign.trigger_volume.location
+            )
+            stop_waypoint = road_map.get_waypoint(trigger_location)
+            if stop_waypoint is None:
+                continue
+
+            for approach in stop_waypoint.previous(self.STOP_SIGN_APPROACH_DISTANCE):
+                if approach.is_junction:
+                    continue
+                spawn_point = approach.transform
+                spawn_point.location.z += self.EGO_SPAWN_HEIGHT
+                return spawn_point
+
+        return None
 
     def _spawn_traffic_entities(self, spawn_points: list["carla.Transform"]) -> int:
         """Spawn cones and barriers at reserved vehicle spawn points."""
@@ -85,19 +107,28 @@ class CustomScenario(ScenarioBase):
         try:
             self._load_map("Town10HD_Opt")
 
-            spawn_points = self.world.get_map().get_spawn_points()
+            road_map = self.world.get_map()
+            spawn_points = road_map.get_spawn_points()
             if not spawn_points:
                 self._log("No spawn points available", "error")
                 return False
 
-            spawn_index = min(self.SPAWN_POINT_INDEX, len(spawn_points) - 1)
-            if not self.spawn_ego_vehicle(spawn_points[spawn_index]):
+            ego_spawn_point = self._get_ego_spawn_point(road_map)
+            if ego_spawn_point is None:
+                self._log(
+                    "No suitable stop sign approach found for the ego vehicle", "error"
+                )
+                return False
+            if not self.spawn_ego_vehicle(ego_spawn_point):
                 return False
 
             self.world.set_weather(carla.WeatherParameters.ClearNoon)
 
             npc_spawn_points = [
-                point for i, point in enumerate(spawn_points) if i != spawn_index
+                point
+                for point in spawn_points
+                if point.location.distance(ego_spawn_point.location)
+                >= self.EGO_SPAWN_CLEARANCE
             ]
             traffic_spawn_points = npc_spawn_points[: self.NUM_TRAFFIC_ENTITIES]
             vehicle_spawn_points = npc_spawn_points[self.NUM_TRAFFIC_ENTITIES :]

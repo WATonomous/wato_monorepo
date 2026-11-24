@@ -46,6 +46,8 @@ See [CARLA synchrony and time-step docs](https://carla.readthedocs.io/en/latest/
 - `carla_scenarios.scenarios.light_traffic_scenario` - Ego + 5 vehicles + 10 pedestrians
 - `carla_scenarios.scenarios.heavy_traffic_scenario` - Ego + 50 vehicles + 100 pedestrians
 - `carla_scenarios.scenarios.oval_scenario` - Loads `oval.xodr` from `xodr_map_directory` and spawns the ego vehicle
+- `carla_scenarios.scenarios.ring_road_scenario` - Loads `ring_road.xodr` from `xodr_map_directory`
+- `carla_scenarios.scenarios.stop_sign_scenario` - Loads the scenario with ego vehicle beginning at a stop sign
 
 After converting `maps/osm/oval.osm` to `maps/xodr/oval.xodr`, switch to
 the oval scenario with:
