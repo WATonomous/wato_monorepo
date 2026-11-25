@@ -19,6 +19,7 @@
 // C++ system headers
 #include <atomic>
 #include <chrono>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -65,6 +66,7 @@ struct LidarFrame
   std_msgs::msg::Header header;
   sensor_msgs::msg::PointCloud2::ConstSharedPtr cpu;
   nvidia::isaac_ros::nitros::NitrosPointCloud::ConstSharedPtr gpu;
+  std::chrono::steady_clock::time_point subscriber_ready;
 
   bool empty() const
   {
@@ -179,7 +181,8 @@ private:
     std::vector<cv::Mat> & rgb_images,
     const LidarFrame::ConstSharedPtr & lidar_msg,
     const std_msgs::msg::Header & header,
-    std::chrono::steady_clock::time_point t_start);
+    std::chrono::steady_clock::time_point t_start,
+    const std::string & camera_stamps = "");
 
   /**
    * @brief Shared second half of frame processing: LiDAR prep, inference, publishing and statistics.
@@ -192,7 +195,8 @@ private:
     const std::vector<const unsigned char *> & camera_images,
     const LidarFrame::ConstSharedPtr & lidar_msg,
     const std_msgs::msg::Header & header,
-    std::chrono::steady_clock::time_point t_start);
+    std::chrono::steady_clock::time_point t_start,
+    const std::string & camera_stamps = "");
 
   /**
    * @brief Camera info callback to initialize calibration.
@@ -432,6 +436,10 @@ private:
   std::atomic<uint64_t> multi_image_msg_count_{0};
   std::atomic<uint64_t> lidar_msg_count_{0};
   std::atomic<uint64_t> synced_msg_count_{0};
+  std::atomic<uint64_t> lidar_received_count_{0};
+  // Opt-in benchmark output. The GPU adapter upload precedes subscriber_ready.
+  std::ofstream benchmark_csv_;
+  std::ofstream benchmark_receipts_;
 
   // Diagnostics
   std::unique_ptr<diagnostic_updater::Updater> diagnostic_updater_;

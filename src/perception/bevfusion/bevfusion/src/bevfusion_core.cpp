@@ -203,7 +203,10 @@ bool BEVFusionCore::initialize()
 }
 
 std::vector<BoundingBox> BEVFusionCore::infer(
-  const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points)
+  const std::vector<const unsigned char *> & camera_images,
+  const std::vector<float> & lidar_points,
+  int num_points,
+  double * cpu_fp16_ms)
 {
   if (!initialized_) {
     std::cerr << "[BEVFusionCore] ERROR: infer called before initialization." << std::endl;
@@ -240,9 +243,13 @@ std::vector<BoundingBox> BEVFusionCore::infer(
   // - lidar_half_buf_ is a vector of __half and not nvtype::half because __float2half returns __half format
   // - lidar_half_buf_ is a pre-allocated member: resize() is a no-op when size hasn't grown,
   //   avoiding per-frame heap allocation/deallocation for this potentially-large buffer
+  const auto fp16_start = cpu_fp16_ms ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   lidar_half_buf_.resize(lidar_points.size());
   for (size_t i = 0; i < lidar_points.size(); ++i) {
     lidar_half_buf_[i] = __float2half(lidar_points[i]);
+  }
+  if (cpu_fp16_ms) {
+    *cpu_fp16_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - fp16_start).count();
   }
 
   // Bevfusion forward pass call

@@ -163,6 +163,11 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(PROGRAMS scripts/benchmark_lidar.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME benchmark_lidar
+)
+
 install(
   DIRECTORY include/
   DESTINATION include
@@ -192,6 +197,8 @@ ament_export_dependencies(
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_benchmark_lidar test/test_benchmark_lidar.py)
   find_package(wato_test REQUIRED)
   add_wato_test(test_bevfusion_core
     test/test_bevfusion_core.cpp

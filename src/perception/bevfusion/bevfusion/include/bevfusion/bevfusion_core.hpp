@@ -168,7 +168,10 @@ public:
    *         to relate cameras to the LiDAR.
    */
   std::vector<BoundingBox> infer(
-    const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
+    const std::vector<const unsigned char *> & camera_images,
+    const std::vector<float> & lidar_points,
+    int num_points,
+    double * cpu_fp16_ms = nullptr);
 
   // GPU preprocessing is initialized separately so auto mode can retain the CPU implementation.
   void initializeLidarPreprocessor(int max_input_points);

@@ -271,6 +271,9 @@ is disabled by default to avoid its bundled-protobuf conflict with BEVFusion.
 
 ### Validation and performance comparison
 
+See [BENCHMARKING.md](BENCHMARKING.md) for the opt-in per-frame recorder, replay-only
+launch, input checks, engine preparation, repeated CPU/CUDA runner, and result definitions.
+
 1. Verify PointCloud2 to NITROS round-trips preserve field metadata, intensity,
    organized row padding, headers, and payload bytes. Check empty/malformed inputs,
    shared ownership, and rejection of XYZI by legacy XYZ/XYZRGB-only GXF.

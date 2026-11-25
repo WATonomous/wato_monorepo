@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 #include <functional>
 #include <future>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -82,6 +83,7 @@ void BEVFusionNode::declareParameters()
     this->declare_parameter<bool>("use_nitros_images", true);
     this->declare_parameter<std::string>("lidar_processing_backend", "auto");
     this->declare_parameter<int>("lidar_max_input_points", 1000000);
+    this->declare_parameter<std::string>("benchmark_csv_path", "");
     this->declare_parameter<std::string>("input_multi_image_compressed_topic", kMultiImageCompressedTopic);
     this->declare_parameter<std::string>("input_lidar_topic", kLidarTopic);
 
@@ -239,7 +241,8 @@ void BEVFusionNode::processFrame(
   std::vector<cv::Mat> & rgb_images,
   const LidarFrame::ConstSharedPtr & lidar_msg,
   const std_msgs::msg::Header & header,
-  const std::chrono::steady_clock::time_point t_start)
+  const std::chrono::steady_clock::time_point t_start,
+  const std::string & camera_stamps)
 {
   // Basic checks
   if (!core_ || !core_->isInitialized() || !core_->hasCalibration()) {
@@ -277,14 +280,15 @@ void BEVFusionNode::processFrame(
     camera_images[i] = rgb_images[i].data;
   }
 
-  runInference(camera_images, lidar_msg, header, t_start);
+  runInference(camera_images, lidar_msg, header, t_start, camera_stamps);
 }
 
 void BEVFusionNode::runInference(
   const std::vector<const unsigned char *> & camera_images,
   const LidarFrame::ConstSharedPtr & lidar_msg,
   const std_msgs::msg::Header & header,
-  const std::chrono::steady_clock::time_point t_start)
+  const std::chrono::steady_clock::time_point t_start,
+  const std::string & camera_stamps)
 {
   if (!processing_enabled_) return;
 
@@ -295,6 +299,7 @@ void BEVFusionNode::runInference(
   ::bevfusion::lidar::PreparedLidar prepared;
   std::optional<nvidia::isaac_ros::nitros::ReadHandle> lidar_read;
   std::vector<BoundingBox> bboxes;
+  double cpu_fp16_ms = 0.0;
   auto t_after_lidar = t_after_image;
   try {
     if (lidar_msg->gpu) {
@@ -326,9 +331,12 @@ void BEVFusionNode::runInference(
       if (!processLidar(lidar_msg->cpu, lidar_data) || !validateAndTrimLidar(lidar_data)) return;
     }
     t_after_lidar = std::chrono::steady_clock::now();
-    bboxes = lidar_msg->gpu
-               ? core_->inferDeviceLidar(camera_images, prepared)
-               : core_->infer(camera_images, lidar_data, static_cast<int>(lidar_data.size() / config_.num_features));
+    bboxes = lidar_msg->gpu ? core_->inferDeviceLidar(camera_images, prepared)
+                            : core_->infer(
+                                camera_images,
+                                lidar_data,
+                                static_cast<int>(lidar_data.size() / config_.num_features),
+                                benchmark_csv_.is_open() ? &cpu_fp16_ms : nullptr);
   } catch (const std::exception & error) {
     // Initialization chooses the backend. A bad frame or runtime failure never switches it.
     RCLCPP_ERROR_THROTTLE(
@@ -356,6 +364,30 @@ void BEVFusionNode::runInference(
   const double infer_ms = std::chrono::duration<double, std::milli>(t_after_infer - t_after_lidar).count();
   const double postproc_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_after_infer).count();
   const double total_ms = std::chrono::duration<double, std::milli>(t_after_postproc - t_start).count();
+
+  if (benchmark_csv_.is_open()) {
+    const auto stamp_ns = [](const auto & stamp) { return int64_t{stamp.sec} * 1000000000LL + stamp.nanosec; };
+    const auto steady_ns = [](const auto & time) {
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count();
+    };
+    const auto input_points = lidar_msg->gpu ? uint64_t{lidar_msg->gpu->width} * lidar_msg->gpu->height
+                                             : uint64_t{lidar_msg->cpu->width} * lidar_msg->cpu->height;
+    benchmark_csv_ << stamp_ns(lidar_msg->header.stamp) << ',' << stamp_ns(header.stamp) << ','
+                   << (use_cuda_lidar_ ? "cuda" : "cpu") << ',' << static_cast<int>(camera_input_.load()) << ','
+                   << camera_stamps << ',' << input_points << ','
+                   << (lidar_msg->gpu ? prepared.count : lidar_data.size() / config_.num_features) << ','
+                   << steady_ns(lidar_msg->subscriber_ready) << ',' << steady_ns(t_start) << ','
+                   << steady_ns(t_after_postproc) << ',' << image_ms << ',' << lidar_ms << ',' << cpu_fp16_ms << ','
+                   << infer_ms << ',' << postproc_ms << ',' << total_ms << ',' << lidar_received_count_.load() << ','
+                   << synced_msg_count_.load() << ',' << total_processed_.load() + 1 << ','
+                   << detections_3d.detections.size() << '\n';
+    // Buffered writes keep file I/O out of the recorded stage durations.
+    if (total_processed_.load() % 100 == 0) benchmark_csv_.flush();
+    if (!benchmark_csv_) {
+      RCLCPP_ERROR(this->get_logger(), "Benchmark CSV write failed");
+      benchmark_csv_.close();
+    }
+  }
 
   RCLCPP_INFO_THROTTLE(
     this->get_logger(),
@@ -571,6 +603,13 @@ void BEVFusionNode::nitrosLidarCallback(const LidarFrame::ConstSharedPtr & lidar
 
 void BEVFusionNode::acceptLidarFrame(const LidarFrame::ConstSharedPtr & frame)
 {
+  lidar_received_count_++;
+  if (benchmark_receipts_.is_open() && frame) {
+    benchmark_receipts_
+      << int64_t{frame->header.stamp.sec} * 1000000000LL + frame->header.stamp.nanosec << ','
+      << std::chrono::duration_cast<std::chrono::nanoseconds>(frame->subscriber_ready.time_since_epoch()).count()
+      << '\n';
+  }
   if (!processing_enabled_ || !frame || frame->empty()) return;
   if (use_nitros_images_) nitrosLidarCallback(frame);
   lidar_filter_.add(frame);
@@ -588,6 +627,7 @@ void BEVFusionNode::initializeLidarSubscription()
         NitrosCloudView::BaseType::GetDefaultCompatibleFormat(),
         [this](const NitrosCloudView & view) {
           auto frame = std::make_shared<LidarFrame>();
+          frame->subscriber_ready = std::chrono::steady_clock::now();
           frame->gpu = std::make_shared<const NitrosCloudView::BaseType>(view.GetMessage());
           frame->header.stamp.sec = frame->gpu->get_timestamp_sec();
           frame->header.stamp.nanosec = frame->gpu->get_timestamp_nsec();
@@ -608,6 +648,7 @@ void BEVFusionNode::initializeLidarSubscription()
   lidar_sub_ = this->create_subscription<PointCloud2Msg>(
     lidar_topic_, subscriber_qos_, [this](const PointCloud2Msg::ConstSharedPtr msg) {
       auto frame = std::make_shared<LidarFrame>();
+      frame->subscriber_ready = std::chrono::steady_clock::now();
       frame->header = msg->header;
       frame->cpu = msg;
       acceptLidarFrame(frame);
@@ -743,8 +784,15 @@ void BEVFusionNode::syncedCompressedCallback(
     }
   }
 
-  // Continue with frame processing
-  processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start);
+  // Keep the complete camera timestamp set for comparing identical inputs between backends.
+  std::string camera_stamps;
+  if (benchmark_csv_.is_open()) {
+    for (const auto * image : ordered_images) {
+      if (!camera_stamps.empty()) camera_stamps += ';';
+      camera_stamps += std::to_string(int64_t{image->header.stamp.sec} * 1000000000LL + image->header.stamp.nanosec);
+    }
+  }
+  processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start, camera_stamps);
 }
 
 void BEVFusionNode::multiCameraInfoCallback(
@@ -1334,6 +1382,25 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 
   try {
     declareParameters();
+    benchmark_csv_.close();
+    benchmark_csv_.clear();
+    benchmark_receipts_.close();
+    benchmark_receipts_.clear();
+    const auto benchmark_path = this->get_parameter("benchmark_csv_path").as_string();
+    if (!benchmark_path.empty()) {
+      benchmark_csv_.open(benchmark_path, std::ios::out | std::ios::trunc);
+      if (!benchmark_csv_) throw std::runtime_error("Cannot open benchmark CSV: " + benchmark_path);
+      benchmark_receipts_.open(benchmark_path + ".receipts.csv", std::ios::out | std::ios::trunc);
+      if (!benchmark_receipts_) throw std::runtime_error("Cannot open benchmark receipts: " + benchmark_path);
+      benchmark_receipts_ << "lidar_stamp_ns,subscriber_ready_ns\n";
+      benchmark_csv_
+        << "lidar_stamp_ns,camera_stamp_ns,backend,camera_input,camera_stamps,input_points,prepared_points,"
+           "subscriber_ready_ns,callback_start_ns,completed_ns,image_ms,lidar_ms,cpu_fp16_ms,infer_ms,"
+           "postproc_ms,total_ms,received_count,matched_count,processed_count,detection_count\n";
+      benchmark_csv_ << std::fixed << std::setprecision(6);
+      lidar_received_count_ = 0;
+      RCLCPP_INFO(this->get_logger(), "Benchmark CSV: %s", benchmark_path.c_str());
+    }
 
     // Declare and configure QoS parameters
     if (!this->has_parameter("qos_subscriber_reliability")) {
@@ -1622,6 +1689,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   tf_buffer_.reset();
   core_.reset();
 
+  benchmark_csv_.close();
+  benchmark_receipts_.close();
+
   RCLCPP_INFO(this->get_logger(), "Node cleaned up");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
 }
@@ -1651,6 +1721,8 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "  - Synchronized callbacks: %lu", synced_msg_count_.load());
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
+  benchmark_csv_.close();
+  benchmark_receipts_.close();
 
   raw_sync_.reset();
   compressed_sync_.reset();
