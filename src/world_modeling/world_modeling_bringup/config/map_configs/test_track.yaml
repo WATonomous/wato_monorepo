@@ -11,13 +11,16 @@
     # Alignment:
     # - 'fixed' when projected coordinates already use the map frame
     # - 'tf' to apply projected_frame -> map before loading the map
-    alignment_mode: "tf"
+    # 'fixed': the wrestrc.map utm -> map TF carries a 4.54 deg yaw that this OSM
+    # was not drawn with; a pure UTM translation fits the SLAM trajectory instead.
+    alignment_mode: "fixed"
 
-    # Geographic origin used by the projector. With UTM + TF alignment,
-    # latitude and longitude select the UTM zone; TF provides map alignment.
-    origin_lat: 43.4352586520
-    origin_lon: -80.5801880023
+    # Map-frame origin fitted against the wrestrc.map keyframe trajectory
+    # (UTM 17N E 533976.160, N 4809236.465). OSM `ele` is already map-relative.
+    origin_lat: 43.4352542240
+    origin_lon: -80.5801820757
     origin_alt: 0.0
+    osm_ele_offset: 0.0
 
     # Source frame used by alignment_mode='tf'.
     projected_frame: "utm"
