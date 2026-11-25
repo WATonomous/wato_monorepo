@@ -42,3 +42,14 @@ launch:
           value: $(var session_mode)
         - name: scenario
           value: $(var scenario)
+
+  # The manager owns experiment state; the scenario server owns physics.
+  - node:
+      if: $(var session_mode)
+      pkg: simulation_manager
+      exec: simulation_runner
+      name: simulation_runner
+      output: screen
+      param:
+        - name: use_sim_time
+          value: false
