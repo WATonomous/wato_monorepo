@@ -1,24 +1,44 @@
 # Simulation Manager
 
-This standalone ROS package manages readiness, playback, evaluation and results.
-The executable and node remain `simulation_runner`; the scenario server remains
-the sole CARLA tick and `/clock` authority. Enable it with `session_mode:=true`
-on `simulation_bringup simulation.launch.yaml`. The default manual workflow
-remains in the [simulation guide](../SIMULATION_README.md).
+This ROS package manages readiness, playback, evaluation and results for a
+reusable CARLA 0.10.0 session. The host helper owns containers and starts application
+runtimes. Those runtimes own launch groups. The CARLA scenario server remains the
+sole tick and `/clock` authority.
+The `simulation_runner` executable, ROS node name and `/sim/*` services remain.
+
+The [standard manual workflow](../SIMULATION_README.md) uses
+`session_mode:=false`. The manager is enabled only with `session_mode:=true`,
+using the existing simulation image. Prepare images with your configured tag;
+automated scenarios also need the action image, and autonomy needs world
+modeling. Builds and runtime acceptance are operator tasks.
+
+For catalog structure and legacy selectors, see the [catalog overview](../carla_ros_bridge/carla_scenarios/README.md).
+For YAML templates, supported options and component-selection limits, see the
+[authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md).
 
 ## Commands
 
-`/sim/open` accepts `carla_msgs/srv/SwitchScenario`, selecting
-`playground/NAME` or `scenario/NAME`. Trigger services under `/sim/` provide
-`ready`, `play`, `pause`, `resume`, `stop`, `reset`, `close` and `status`.
-Scenarios open stationary, then complete readiness before play; playgrounds
-start immediately and create no evaluated attempt. The following host layer owns
-containers and starts an application runtime in each experiment container.
+This is the command reference for managed sessions. Run on the host;
+`NAME` is a definition ID from the catalog.
 
-The manager uses wall time for readiness and heartbeat, and CARLA simulation
-time for events and scoring. Deliberate pause suspends execution deadlines.
-Status snapshots publish on `/sim/status`, driven paths on `/sim/actual_path`,
-and speed on `/sim/speed_mps`.
+| Command | Behavior |
+|---------|----------|
+| `watod sim list` | List playgrounds and scored scenarios from the checkout; Docker is not required |
+| `watod sim setup` | Start/reuse the base session using prepared images and print Foxglove connection details |
+| `watod sim open playground NAME` | Load map, ego, traffic, weather and bridge; ready for manual use without application nodes or scoring |
+| `watod sim open scenario NAME` | Prepare the world and reviewed application stack; leave the attempt ready for play |
+| `watod sim play` | Start a prepared scenario |
+| `watod sim pause` | Pause the current world/execution |
+| `watod sim resume` | Resume after a pause |
+| `watod sim status` | Show session readiness, state and active attempt information |
+| `watod sim reset` | Reload the current world; for scenarios, reset the stack and start a fresh attempt |
+| `watod sim close` | Close the playground/scenario and its application stack; keep the base session available |
+| `watod sim test NAME` | Open, run, evaluate, save and close a scenario; keep the base session available |
+
+Launch application nodes yourself in a playground. Close the current world
+before opening another. Follow node output with
+`docker logs --follow <sim_session-container>`. Application output is in the
+corresponding `sim_action` or `sim_world` container log.
 
 ## Application integration
 
@@ -54,23 +74,63 @@ change planner outputs to satisfy its assertions.
 
 ## Results and diagnostics
 
-Each scored attempt writes `configuration.yaml`, `events.json` and
-`result.json` below the configured results directory. The host integration uses
-`.cache/watod-sim/results/`. Reset preserves prior attempts. Outcomes distinguish
-pass, assertion failure, setup/data error and interruption. Required observations
-and movement evidence gate success.
+The local workspace directory contains:
 
-See the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md)
-for templates, stack constraints, readiness and scoring requirements.
+```text
+.cache/watod-sim/
+  session.json                  Container ownership, session ID and configuration
+  compose.json                  Effective Compose snapshot
+  cli.lock                      Serializes commands from different terminals
+  results/<run-id>/
+    configuration.yaml          Scenario/world settings, Git revision and images
+    events.json                 Delivered events and execution timestamps
+    result.json                 Outcome, reasons, elapsed time and metric values
+  startup-failures/<session-id>/ Logs and state saved before failed-setup cleanup
+  recovery/<session-id>/         Diagnostic archives, when explicitly captured
+```
+
+Only scored scenarios create attempt directories. Reset preserves previous
+results. These are evaluation records; no rosbag or video is recorded by
+default. Exit codes are 0/pass, 1/assertion failure, 2/setup or data error and
+3/interrupted. Metric meanings and scoring rules are in the
+[scoring reference](../carla_ros_bridge/carla_scenarios/AUTHORING.md#scoring-and-outputs).
+
+## Maps and visualization
+
+See [map and world options](../carla_ros_bridge/carla_scenarios/AUTHORING.md#world-options)
+and [autonomy map prerequisites](../carla_ros_bridge/carla_scenarios/AUTHORING.md#parked-vehicle-template)
+for assets, matching map pairs and provenance requirements.
+
+The following visualization layer adds the Foxglove layout and simulation-time
+propagation into infrastructure and robot TF.
 
 ## Shutdown
 
-`/sim/stop` saves an interrupted result while keeping the session available.
-`/sim/close` releases the current experiment. Host container shutdown is supplied
-by the next stack layer.
+To stop both the managed session and regular modules from this checkout:
+
+```bash
+watod sim stop
+watod down all
+docker ps
+```
+
+The first command stops/removes verified session containers while preserving
+maps, results and diagnostics. It leaves a shared network namespace running
+while another container references it. The second command stops the standard
+module project across profiles. The final command also lists unrelated Docker
+projects that these commands do not manage.
 
 ## Session recovery
 
-The manager owns ROS experiment state. The following host layer owns container
-records, recovery and cleanup. Image builds and live scenario acceptance remain
-operator checks.
+The workspace directory above is automatically generated local state, not an
+online cache. Stop the session before deleting it; deleting the whole directory
+also deletes its saved results and diagnostic logs. Docker images and maps are
+stored separately.
+
+If `session.json` disappears while containers remain, setup and close lose the
+ownership record. Session stop verifies Compose project, workspace, services
+and results mount before reconstructing ownership for cleanup. Expired SLURM
+jobs can leave Docker's running state stale; failed graceful stops fall back
+to removal of verified IDs. After cleanup, start a fresh session yourself with
+prepared images in a valid allocation. Never edit ownership files in an active
+session.

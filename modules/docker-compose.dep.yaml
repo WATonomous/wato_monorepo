@@ -59,3 +59,41 @@ services:
     extends:
       file: ${COMPOSE_EXTEND_FILE}
       service: simulation_bringup
+
+  # Session services reuse the module images. Application runtimes own launches;
+  # the host owns containers. CARLA, Zenoh and Foxglove stay available on reset.
+  sim_session:
+    profiles: ["sim_session"]
+    extends:
+      file: ${COMPOSE_EXTEND_FILE}
+      service: simulation_bringup
+    command: >-
+      /bin/bash -c "ros2 launch simulation_bringup simulation.launch.yaml
+      session_mode:=true carla_port:=${CARLA_PORT}
+      pygame_hud_enabled:=false"
+    volumes:
+      - ${WATOD_SIM_RESULTS_DIRECTORY:-../.cache/watod-sim/results}:/opt/watonomous/sim_results
+    environment:
+      - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}
+      - WATOD_SIM_REVISION=${WATOD_SIM_REVISION:-}
+      - WATOD_SIM_RESULTS_DIRECTORY=/opt/watonomous/sim_results
+
+  sim_action:
+    profiles: ["sim_experiment"]
+    extends:
+      file: ${COMPOSE_EXTEND_FILE}
+      service: action_bringup
+    command: ["/bin/bash", "-c", "${WATOD_SIM_ACTION_COMMAND:-exec ros2 run wato_lifecycle_manager application_runtime}"]
+    environment:
+      - WATOD_SIM_RUNTIME_ROLE=action
+      - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}
+
+  sim_world:
+    profiles: ["sim_experiment"]
+    extends:
+      file: ${COMPOSE_EXTEND_FILE}
+      service: world_modeling_bringup
+    command: ["/bin/bash", "-c", "${WATOD_SIM_WORLD_COMMAND:-exec ros2 run wato_lifecycle_manager application_runtime}"]
+    environment:
+      - WATOD_SIM_RUNTIME_ROLE=world
+      - WATOD_SIM_SESSION_ID=${WATOD_SIM_SESSION_ID:-}

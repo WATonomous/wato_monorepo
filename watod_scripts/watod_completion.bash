@@ -118,8 +118,8 @@ _watod_completions() {
   fi
 
   # Top-level commands and options
-  local commands="up down ps logs build pull install test bag run -m -t -v -s -h"
-  local options="-v --verbose -m --module -t --terminal -s --setup-dev-env -h --help"
+  local commands="up down ps logs build pull install test bag sim run -m -t -s -h"
+  local options="-m --module -t --terminal -s --setup-dev-env -h --help"
 
   # 1. Handle Options contexts regardless of where we are
   case "$prev" in
@@ -163,7 +163,7 @@ _watod_completions() {
       -m|--module|-t|--terminal)
         ((i++)) # Skip next argument
         ;;
-      -v|--verbose|-h|--help)
+      -h|--help)
         ;;
       -*)
         ;; # Skip other flags

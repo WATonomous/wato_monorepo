@@ -9,6 +9,7 @@ The simulation module provides a CARLA-based simulation environment integrated w
 - [Workflow](#workflow)
 - [Visualization](#visualization)
 - [Architecture](#architecture)
+- [Simulation Manager](#simulation-manager)
 - [Troubleshooting](#troubleshooting)
 
 ## Quick Start
@@ -232,3 +233,23 @@ ros2 lifecycle list /carla/lidar_publisher
 ```
 
 All nodes should be in the `active` state. If stuck in `inactive`, check the scenario_server connection to CARLA.
+
+## Simulation Manager
+
+The optional [simulation manager](simulation_manager/README.md) provides
+`watod sim` sessions, manual playgrounds and scored scenarios. Its ROS package
+lives in `src/simulation/simulation_manager/`. It manages readiness, controls,
+evaluation and results; the CARLA scenario server still owns physics and
+`/clock`.
+
+The standard `./watod up` workflow above remains available. The launch argument
+`session_mode` defaults to `false`; managed sessions explicitly enable the
+manager with `session_mode:=true`. Use one workflow at a time when sharing
+CARLA ports.
+
+See the [manager command reference](simulation_manager/README.md#commands) for
+session use, and its [shutdown guide](simulation_manager/README.md#shutdown),
+[results](simulation_manager/README.md#results-and-diagnostics) and
+[recovery](simulation_manager/README.md#session-recovery) sections for operation.
+Use the [authoring guide](carla_ros_bridge/carla_scenarios/AUTHORING.md) to add
+playgrounds or scenarios, choose supported options and extend test behavior.
