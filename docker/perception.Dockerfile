@@ -50,6 +50,8 @@ FROM ${BASE_IMAGE} AS dependencies
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install TensorRT dependencies for deep_ros (TRT 10) and bevfusion (TRT 11)
+# The TRT 11 runtime and header packages are pinned too: the -dev packages need them at the same
+# version, and unpinned apt picks the newest release, which fails the install.
 ARG TRT10_VERSION=10.16.1.11-1+cuda12.9
 ARG TRT11_VERSION=11.4.0.106-1+cuda13.4
 RUN apt-get update && \
@@ -60,6 +62,12 @@ RUN apt-get update && \
     libnvinfer-dev=${TRT11_VERSION} \
     libnvinfer-plugin-dev=${TRT11_VERSION} \
     libnvonnxparsers-dev=${TRT11_VERSION} \
+    libnvinfer11=${TRT11_VERSION} \
+    libnvinfer-plugin11=${TRT11_VERSION} \
+    libnvonnxparsers11=${TRT11_VERSION} \
+    libnvinfer-headers-dev=${TRT11_VERSION} \
+    libnvinfer-headers-plugin-dev=${TRT11_VERSION} \
+    libnvinfer-safe-headers-dev=${TRT11_VERSION} \
     protobuf-compiler \
     libprotobuf-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -131,7 +139,7 @@ RUN apt-get update && \
 # Add COLCON_IGNORE to prevent the upstream package.xml from being discovered
 # as a duplicate of our own bevfusion package.
 RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
-    git -C deep_ros checkout 23bb3018c6f785a6601c7b6624cb543555759771 && \
+    git -C deep_ros checkout 29dea45ae2d3e2c7aa8c43fcdb9dbfbe65c3299e && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
     git -C camera_aravis2_nitros checkout 3b625b3100b962ee06342b36369116a6da486f77 && \
     git clone https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \

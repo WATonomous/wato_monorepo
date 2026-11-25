@@ -101,4 +101,4 @@ Third-party drivers are available as rosdep keys — no source build needed:
 |--------|-----------|-------------|
 | Novatel OEM7 | `novatel-oem7-driver` | [GPS bringup](../sensor_interfacing/docs/gps_bringup.md) |
 | FLIR Blackfly GigE | `flir-camera-driver` | [Camera bringup](../../perception/perception_bringup/docs/camera_bringup.md) |
-| Velodyne VLP32C/VLP16 | `velodyne` | [LiDAR bringup](../sensor_interfacing/docs/lidar_bringup.md) |
+| Velodyne VLS-128/VLP-16 | `velodyne` | [LiDAR bringup](../sensor_interfacing/docs/lidar_bringup.md) |
