@@ -28,8 +28,8 @@
   <!-- Base link is the roof frame; attach roof sensors directly to base_link -->
   <xacro:roof_mount
     parent="base_link"
-    imu_xyz="-0.973762 -0.033626 -1.316802"
-    imu_rpy="0 0 -0.083116"/>
+    imu_xyz="-0.588214 -0.833601 -1.281571"
+    imu_rpy="-0.018842 -0.008340 0.819869"/>
 
   <!-- Nominal lower camera extrinsics (placeholder values; update once measured) -->
   <xacro:lower_cameras parent="base_link"/>
@@ -38,12 +38,13 @@
   <xacro:include filename="eve_mirror_mount_nw.xacro"/>
   <xacro:include filename="eve_mirror_mount_ne.xacro"/>
 
+  <!-- Mirror mount poses are relative to lidar_cc, still need to be recalibrated. -->
   <xacro:mirror_mount_ne parent="lidar_cc">
-    <origin xyz="0.908761 -0.968273 -0.833631" rpy="-0.035597 0.105555 -0.609900"/>
+    <origin xyz="1.330009 0.132179 -0.819723" rpy="-0.050099 0.097960 0.312547"/>
   </xacro:mirror_mount_ne>
 
   <xacro:mirror_mount_nw parent="lidar_cc">
-    <origin xyz="1.096882 0.786605 -0.826910" rpy="0.064322 0.051951 0.221166"/>
+    <origin xyz="0.043137 1.339865 -0.841772" rpy="0.048966 0.057493 1.144247"/>
   </xacro:mirror_mount_nw>
 
 </robot>
