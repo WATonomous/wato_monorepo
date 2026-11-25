@@ -23,8 +23,10 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from carla_common import connect_carla, find_ego_vehicle
 from carla_msgs.srv import BindControl
 from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.exceptions import InvalidTopicNameException
 from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
 from rclpy.time import Time
+from rclpy.validate_full_topic_name import validate_full_topic_name
 from std_msgs.msg import Bool
 from std_srvs.srv import SetBool
 
@@ -202,18 +204,21 @@ class AckermannControlNode(LifecycleNode):
 
     def _subscribe_commands(self, topic):
         """Replace the source and invalidate callbacks queued by its predecessor."""
-        self.command_generation += 1
-        generation = self.command_generation
-        if self.command_subscription:
-            self.destroy_subscription(self.command_subscription)
-        self.command_subscription = self.create_subscription(
+        generation = self.command_generation + 1
+        # Do not discard the existing binding if ROS rejects the new source.
+        subscription = self.create_subscription(
             AckermannDriveStamped,
             topic,
             lambda msg: self._command_for_generation(msg, generation),
             10,
         )
+        previous_subscription = self.command_subscription
+        self.command_subscription = subscription
+        self.command_generation = generation
         self.command_topic = topic
         self.last_command = self.last_command_time = self.last_command_wall = None
+        if previous_subscription:
+            self.destroy_subscription(previous_subscription)
 
     def _command_for_generation(self, message, generation):
         if generation == self.command_generation:
@@ -226,12 +231,24 @@ class AckermannControlNode(LifecycleNode):
             response.message = "Block commands before binding an attempt."
             return response
         if not re.fullmatch(
-            r"/sim/attempts/[A-Za-z0-9_]+/command", request.command_topic
+            r"/sim/attempts/[A-Za-z_][A-Za-z0-9_]*/command", request.command_topic
         ):
             response.success = False
             response.message = "Expected /sim/attempts/ATTEMPT_ID/command."
             return response
-        self._subscribe_commands(request.command_topic)
+        try:
+            validate_full_topic_name(request.command_topic)
+        except InvalidTopicNameException as error:
+            response.success = False
+            response.message = str(error)
+            return response
+        try:
+            self._subscribe_commands(request.command_topic)
+        except Exception as error:
+            # ROS may also reject a resolved/remapped name during creation.
+            response.success = False
+            response.message = f"Failed to bind command topic: {error}"
+            return response
         response.success = True
         response.message = self.command_topic
         return response

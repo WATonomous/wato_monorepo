@@ -19,6 +19,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from simulation_manager.stack_adapter import SimulationStackAdapter
+from simulation_runtime.sim_presets import launch_command
 
 
 class TestStackAdapter(unittest.TestCase):
@@ -71,6 +72,40 @@ class TestStackAdapter(unittest.TestCase):
             ["/sim/runtime/action/stop", "/sim/runtime/world/stop"],
         )
         self.assertFalse(adapter.prepared)
+
+    def test_numeric_attempt_binding_matches_runtime_launches(self):
+        for preset, inputs, argument in (
+            (
+                "controller_pure_pursuit",
+                {"maneuver": "steady_state_slalom"},
+                "ackermann_topic",
+            ),
+            ("autonomy", self.definition()["inputs"], "command_topic"),
+        ):
+            with self.subTest(preset=preset):
+                adapter, _ = self.make_adapter()
+                adapter.call = Mock(wraps=adapter.call)
+                attempt = "20261124T012353_3521a8663d94"
+                expected = f"/sim/attempts/_attempt_{attempt}/command"
+                adapter.prepare({"stack": preset, "inputs": inputs}, attempt)
+                bind = next(
+                    call.args[2]
+                    for call in adapter.call.call_args_list
+                    if call.args[1].endswith("/bind_control")
+                )
+                self.assertEqual(bind.command_topic, expected)
+                self.assertEqual(adapter.command_topic, expected)
+                configurations = [
+                    json.loads(call.args[2].parameters[0].value.string_value)
+                    for call in adapter.call.call_args_list
+                    if call.args[1].endswith("/set_parameters_atomically")
+                ]
+                for configuration in configurations:
+                    self.assertEqual(configuration["attempt_id"], attempt)
+                    self.assertIn(
+                        f"{argument}:={bind.command_topic}",
+                        launch_command("action", configuration),
+                    )
 
     def test_partial_startup_stops_both_owned_groups(self):
         adapter, calls = self.make_adapter(failure="/action_lifecycle_manager/startup")

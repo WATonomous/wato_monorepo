@@ -261,7 +261,7 @@ class TestRuntimeHandoff(unittest.TestCase):
         for call in node.start.call_args_list:
             self.assertEqual(
                 call.kwargs["command"],
-                "exec ros2 run wato_lifecycle_manager application_runtime",
+                "exec ros2 run simulation_runtime application_runtime",
             )
         self.assertEqual(
             [call.args[0] for call in node.rpc.call_args_list],
@@ -315,7 +315,11 @@ class TestRuntimeHandoff(unittest.TestCase):
         node.check_images.assert_called_once_with(["sim_action"])
         checks = node.run.call_args.args[0][-1]
         self.assertIn("ros2 pkg prefix reviewed_package", checks)
-        self.assertIn("wato_lifecycle_manager/application_runtime", checks)
+        self.assertIn("ros2 pkg prefix simulation_runtime", checks)
+        self.assertIn(
+            "$(ros2 pkg prefix simulation_runtime)/lib/simulation_runtime/application_runtime",
+            checks,
+        )
 
 
 class TestInstalledMapPreflight(unittest.TestCase):

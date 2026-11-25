@@ -1,3 +1,4 @@
+---
 launch:
   # Launch arguments
   - arg:
@@ -14,6 +15,11 @@ launch:
       name: zenoh_router_enabled
       default: "true"
       description: "Enable the Zenoh router for shared memory IPC"
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: "Synchronize Foxglove with /clock, including simulation resets"
 
   # Zenoh Router (for rmw_zenoh_cpp shared memory IPC)
   - node:
@@ -52,4 +58,4 @@ launch:
         - name: send_buffer_limit
           value: 100000000
         - name: use_sim_time
-          value: false
+          value: $(var use_sim_time)

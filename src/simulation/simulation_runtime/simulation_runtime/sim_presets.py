@@ -48,12 +48,21 @@ PRESETS = {
 
 
 def command_topic(attempt_id):
-    """Use an attempt ID rather than timestamps to fence commands across clock jumps."""
+    """Map raw attempt IDs injectively to ROS tokens, without requiring host ROS."""
     if not isinstance(attempt_id, str) or not re.fullmatch(
         r"[A-Za-z0-9_]+", attempt_id
     ):
         raise ValueError("Invalid attempt ID")
-    return f"/sim/attempts/{attempt_id}/command"
+    # Reserve this prefix for numeric IDs and escape literal uses of it. Simply
+    # prefixing digits with "attempt_" aliases e.g. "2" and "attempt_2".
+    if attempt_id[0].isdigit() or attempt_id.startswith("_attempt_"):
+        attempt_id = f"_attempt_{attempt_id}"
+    topic = f"/sim/attempts/{attempt_id}/command"
+    # Jazzy's full-topic validator reserves 8 bytes of the 255-byte DDS limit.
+    # Keep this helper ROS-free so offline launch validation needs no ROS install.
+    if len(topic) > 247:
+        raise ValueError("Attempt command topic exceeds the ROS name length limit")
+    return topic
 
 
 def launch_command(role, configuration):

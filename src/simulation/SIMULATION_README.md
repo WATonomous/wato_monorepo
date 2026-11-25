@@ -30,7 +30,16 @@ By default, CARLA runs without GPU rendering (`no_gpu` mode), which automaticall
 export CARLA_RENDER_MODE="gpu"  # Requires NVIDIA GPU with >8GB VRAM
 ```
 
-### 3. Start the Simulation
+### 3. Prepare Images
+
+Download CARLA and build the ROS bridge before the first start:
+
+```bash
+docker pull carlasim/carla:0.10.0
+./watod -m simulation build
+```
+
+### 4. Start the Simulation
 
 ```bash
 ./watod up
@@ -236,20 +245,30 @@ All nodes should be in the `active` state. If stuck in `inactive`, check the sce
 
 ## Simulation Manager
 
-The optional [simulation manager](simulation_manager/README.md) provides
-`watod sim` sessions, manual playgrounds and scored scenarios. Its ROS package
-lives in `src/simulation/simulation_manager/`. It manages readiness, controls,
-evaluation and results; the CARLA scenario server still owns physics and
-`/clock`.
+Use [managed sessions](simulation_manager/README.md) to open playgrounds or run
+scored scenarios. Prepare the images before starting a session:
 
-The standard `./watod up` workflow above remains available. The launch argument
-`session_mode` defaults to `false`; managed sessions explicitly enable the
-manager with `session_mode:=true`. Use one workflow at a time when sharing
-CARLA ports.
+```bash
+docker pull carlasim/carla:0.10.0
+./watod -m simulation -m action -m world_modeling build
+./watod sim setup
+./watod sim open scenario controller_snake
+./watod sim play
+```
 
-See the [manager command reference](simulation_manager/README.md#commands) for
-session use, and its [shutdown guide](simulation_manager/README.md#shutdown),
-[results](simulation_manager/README.md#results-and-diagnostics) and
-[recovery](simulation_manager/README.md#session-recovery) sections for operation.
-Use the [authoring guide](carla_ros_bridge/carla_scenarios/AUTHORING.md) to add
-playgrounds or scenarios, choose supported options and extend test behavior.
+Alternatively, set `ACTIVE_MODULES="simulation action world_modeling"` in
+`watod-config.local.sh` and use `./watod build` for the ROS images. Infrastructure
+is included automatically; CARLA still needs its separate pull. See the
+[manager quick start](simulation_manager/README.md#quick-start) for the configuration example.
+
+The action image is required for `controller_snake`; world-modeling is also
+required for autonomy scenarios. `watod sim setup` neither builds nor pulls images.
+
+The manager starts application nodes, controls runs, and saves results. The CARLA
+scenario server still controls physics and `/clock`. Managed sessions use
+`sim_session`; the standard `./watod up` workflow uses `simulation_bringup`.
+Use one workflow at a time when sharing CARLA ports.
+
+See the [command reference](simulation_manager/README.md#commands),
+[shutdown and recovery](simulation_manager/README.md#shutdown), and
+[authoring guide](carla_ros_bridge/carla_scenarios/AUTHORING.md).

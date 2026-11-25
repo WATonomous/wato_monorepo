@@ -25,6 +25,9 @@ launch:
   # Eve Robot Description
   - include:
       file: "$(find-pkg-share eve_description)/launch/tf_publish.yaml"
+      arg:
+        - name: use_sim_time
+          value: "true"
 
   # Carla Bridge
   - include:

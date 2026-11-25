@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 from ackermann_msgs.msg import AckermannDrive
 from carla_control.ackermann_control_node import AckermannControlNode
+from rclpy.exceptions import InvalidTopicNameException
 from rclpy.time import Time
 
 
@@ -136,6 +137,16 @@ class TestAttemptControlBinding(unittest.TestCase):
         for topic in (
             "/carla/ackermann_control/command",
             "/sim/attempts/../command",
+            "/sim/attempts/20261124T012353_3521a8663d94/command",
+            "/sim/attempts/1/command",
+            "/sim/attempts/bad-id/command",
+            "/sim/attempts/a b/command",
+            "/sim/attempts/é/command",
+            "/sim/attempts/{attempt}/command",
+            "/sim/attempts//command",
+            "/sim/attempts/new/command/",
+            "sim/attempts/new/command",
+            "/sim/attempts/" + "a" * 300 + "/command",
             "",
         ):
             node = self.make_node()
@@ -144,3 +155,101 @@ class TestAttemptControlBinding(unittest.TestCase):
             )
             self.assertFalse(response.success)
             node.create_subscription.assert_not_called()
+
+    def test_normalized_timestamp_and_existing_ids_are_accepted(self):
+        for token in (
+            "_attempt_20261124T012353_3521a8663d94",
+            "attempt_2",
+            "old",
+            "new",
+            "_attempt__attempt_2",
+        ):
+            with self.subTest(token=token):
+                node = self.make_node()
+                topic = f"/sim/attempts/{token}/command"
+                response = AckermannControlNode.bind_control_callback(
+                    node, SimpleNamespace(command_topic=topic), SimpleNamespace()
+                )
+                self.assertTrue(response.success, response.message)
+                self.assertEqual(node.create_subscription.call_args.args[1], topic)
+
+    def test_rejected_rebind_keeps_previous_source_and_allows_retry(self):
+        for error in (
+            InvalidTopicNameException("/bad", "invalid remap", 1),
+            RuntimeError("subscription creation failed"),
+        ):
+            with self.subTest(error=error):
+                node = self.make_node()
+                request = SimpleNamespace(command_topic="/sim/attempts/old/command")
+                AckermannControlNode.bind_control_callback(
+                    node, request, SimpleNamespace()
+                )
+                previous = node.command_subscription
+                generation = node.command_generation
+                old_callback = node.create_subscription.call_args.args[2]
+                node.create_subscription.side_effect = error
+                request.command_topic = "/sim/attempts/new/command"
+                response = AckermannControlNode.bind_control_callback(
+                    node, request, SimpleNamespace()
+                )
+                self.assertFalse(response.success)
+                self.assertIs(node.command_subscription, previous)
+                self.assertEqual(node.command_generation, generation)
+                self.assertEqual(node.command_topic, "/sim/attempts/old/command")
+                node.destroy_subscription.assert_not_called()
+                old_callback("still bound")
+                node.command_callback.assert_called_once_with("still bound")
+                node.create_subscription.side_effect = None
+                response = AckermannControlNode.bind_control_callback(
+                    node, request, SimpleNamespace()
+                )
+                self.assertTrue(response.success)
+                node.destroy_subscription.assert_called_once_with(previous)
+
+    def test_invalid_requests_leave_ros_service_and_lifecycle_node_alive(self):
+        import rclpy
+        from carla_msgs.srv import BindControl
+        from lifecycle_msgs.srv import GetState
+        from rclpy.executors import SingleThreadedExecutor
+
+        rclpy.init(args=[])
+        executor = SingleThreadedExecutor()
+        node = client_node = None
+        try:
+            node = AckermannControlNode(node_name="test_attempt_binding")
+            node.control_enabled = False
+            node.create_service(
+                BindControl, "~/bind_control", node.bind_control_callback
+            )
+            client_node = rclpy.create_node("test_attempt_binding_client")
+            executor.add_node(node)
+            executor.add_node(client_node)
+            bind = client_node.create_client(
+                BindControl, "/test_attempt_binding/bind_control"
+            )
+            state = client_node.create_client(
+                GetState, "/test_attempt_binding/get_state"
+            )
+            self.assertTrue(bind.wait_for_service(timeout_sec=5.0))
+            for topic, success in (
+                ("/sim/attempts/old/command", True),
+                ("/sim/attempts/20261124T012353_3521a8663d94/command", False),
+                ("/sim/attempts/" + "a" * 300 + "/command", False),
+                ("/sim/attempts/_attempt_20261124T012353_3521a8663d94/command", True),
+            ):
+                with self.subTest(topic=topic):
+                    future = bind.call_async(BindControl.Request(command_topic=topic))
+                    executor.spin_until_future_complete(future, timeout_sec=5.0)
+                    self.assertTrue(future.done())
+                    self.assertEqual(future.result().success, success)
+            future = state.call_async(GetState.Request())
+            executor.spin_until_future_complete(future, timeout_sec=5.0)
+            self.assertTrue(future.done())
+            self.assertEqual(future.result().current_state.label, "unconfigured")
+        finally:
+            executor.shutdown()
+            if client_node is not None:
+                client_node.destroy_node()
+            if node is not None:
+                node.destroy_node()
+            rclpy.shutdown()
