@@ -26,6 +26,7 @@ endif()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(Threads REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
@@ -99,6 +100,7 @@ target_link_libraries(${PROJECT_NAME}_node
     ${tf2_geometry_msgs_TARGETS}
     ${PROJECT_NAME}_wato_core
   PRIVATE
+    Threads::Threads
     rclcpp_components::component
     ${diagnostic_msgs_TARGETS}
     tf2_eigen::tf2_eigen

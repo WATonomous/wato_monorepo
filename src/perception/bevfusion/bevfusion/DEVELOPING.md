@@ -1,13 +1,16 @@
 # How BEVFusion fits together
+
 BEVFusion takes six camera feeds and a LiDAR point cloud, runs the GPU-accelerated TensorRT model, and publishes 3D bounding boxes.
 
 The package is split into two layers:
+
 1. **`BEVFusionCore`**: Pure C++ & CUDA wrapper around the underlying NVIDIA/WATO engine. Knows nothing about ROS.
 2. **`BEVFusionNode`**: ROS 2 Lifecycle Node wrapper. Manages topics, parameters, synchronization, coordinate frames (TF2), and translates ROS messages to/from raw C++ structures.
 
 ---
 
 ## 1. `BEVFusionCore` (The C++/CUDA Engine Wrapper)
+
 **Purpose:** Handles low-level GPU setup, data type conversion, and network inference.
 
 ```mermaid
@@ -41,9 +44,11 @@ graph TD
 ---
 
 ## 2. `BEVFusionNode` (the ROS 2 lifecycle wrapper)
+
 **Purpose:** Bridges the C++ inference engine with the ROS 2 ecosystem.
 
 ### Main Lifecyle Hooks
+
 * **`declareParameters()`**
   * **Purpose:** Declares all ROS 2 parameters (like model paths, camera topic names, and confidence thresholds) and instantiates the `BEVFusionCore` with default parameters.
   * **Why:** Launch files and YAML can change the node configuration without a rebuild.
@@ -55,6 +60,7 @@ graph TD
   * **Why:** Sensor subscriptions start only after the model and calibration setup are ready, so queues do not fill while the node is still configuring.
 
 #### Core Processing Functions
+
 * **`multiCameraInfoCallback(...)`**
   * **Purpose:** Subscribes to `MultiCameraInfo` (static camera intrinsics for all cameras), filters/reorders it to match `camera_names`, caches it, and triggers `computeCalibrationMatrices()`. Skips work once `calibration_initialized_` is already true, since intrinsics/extrinsics don't change at runtime.
   * **Why:** We need camera intrinsics to project 3D points to 2D image coordinates. Listening to a camera info topic is cleaner than hardcoding them in config files.
@@ -69,7 +75,7 @@ graph TD
   * **Flow:** Reorders camera frames to match `camera_names_`, wraps raw pixel buffers into `cv::Mat` instances without CPU decompression overhead (0 ms decode time, leveraging ROS 2 zero-copy intra-process transport), converts encoding to RGB, and passes the images to `processFrame(...)`.
 * **`nitrosImageCallback(camera_idx, image_view)`** and **`nitrosLidarCallback(lidar_msg)`**
   * **Purpose:** Main drivers while the cameras are running (`use_nitros_images` is `true`). One NITROS subscriber per entry in `camera_names` reads `/<camera_name>/image_rect` (RGB8, already in GPU memory).
-  * **Flow:** `nitrosImageCallback` keeps the newest image from each camera. `nitrosLidarCallback` runs on every LiDAR scan, accepts the frame only if every camera has an image within `sync_max_time_diff_ms` of the scan, and passes the GPU buffers to `runInference(...)`. While it is handling frames, the two synced callbacks above return immediately.
+  * **Flow:** callbacks retain timestamp-sorted, bounded histories of owning image and lidar handles. `SensorSync` searches complete camera sets within `camera_sync_max_time_diff_ms` and requires every selected image to be within `lidar_sync_max_time_diff_ms` of the scan. A separate worker retries on arrivals and timeouts, acquires GPU read handles, and calls `runInference(...)`. Camera images can be reused, but each lidar envelope is claimed once across both camera transports. See the top-level [buffering and matching description](../DEVELOPING.md#subscribed--nitros-gpu-camera-images).
 * **`processFrame(rgb_images, lidar_msg, header, t_start)`**
   * **Purpose:** Image validation for the two synced callbacks, followed by `runInference(...)`, the execution pipeline shared with the NITROS path.
   * **Steps:**
@@ -85,7 +91,7 @@ graph TD
 
       Filtering happens in two places. The TensorRT detection head removes boxes below `confidence_threshold` and boxes whose centers are outside `post_center_range_start` / `post_center_range_end`. After inference, `createDetections3D()` applies `ego_suppression_radius` in the LiDAR frame and drops boxes whose XY distance from the LiDAR origin is strictly less than that radius. Set the radius to `0.0` to disable this second filter.
 
-# Other Helpful Notes
+## Other Helpful Notes
 
 ## How do we pass in the video feed?
 
@@ -183,12 +189,14 @@ The resulting 4x4 matrix scales by `resize_lim` on the X/Y diagonal and translat
 ---
 
 ## CUDA info
+
 1. **CUDA Streams**: `Core::forward()` takes a `cudaStream_t`. To create and destroy it, the node calls `cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking)` and `cudaStreamDestroy(stream_)`. The `NonBlocking` flag prevents BEVFusion's GPU ops from implicitly synchronizing with the null (default) CUDA stream used by the rest of the application. These require `<cuda_runtime.h>` and linking against the CUDA runtime (`cudart`).
 2. **FP16 Types**: The library expects LiDAR points as `nvtype::half*`. This is a wrapper around CUDA's `__half` type from `<cuda_fp16.h>`. the compiler needs the CUDA headers to use this type and the intrinsics for converting standard 32-bit `float` to 16-bit `half`.
 
 ## Config and Launch
 
 ### params.yaml
+
 This is done — see `bevfusion/config/params.yaml` for the full set of defaults (topics, model/build dirs, precision, camera resolution/resize, voxelization, BEV grid bounds, sync, and QoS). The vehicle-specific overrides live in `perception_bringup/config/perception_bringup.yaml` under `/**/bevfusion_node`; see the top-level [DEVELOPING.md](../DEVELOPING.md#parameters) parameter table for the full list.
 
 ### perception.launch.yaml

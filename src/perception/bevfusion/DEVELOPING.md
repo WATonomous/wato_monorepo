@@ -89,10 +89,17 @@ When `use_nitros_images` is `true` (the default), the node also subscribes to ea
 - The number of cameras follows `camera_names`. There is no separate camera-count or topic-list parameter.
 - Per-camera topics are used because there is no batched message type for GPU images.
 - The images are RGB8, which is what the model expects, so no color conversion is done. Images with any other encoding are dropped.
-- There is no batched message to synchronize, so each LiDAR scan is matched with the newest image from every camera. The frame is skipped unless all of them are within `sync_max_time_diff_ms` of the scan.
+- Each camera has a timestamp-sorted history of up to `camera_sync_buffer_size` owning NITROS handles. Lidar scans wait in a bounded queue. Incoming images and scans wake a single inference worker, so receiving a late camera image retries pending scans.
+- Matching compares sensor acquisition timestamps on the CPU. Camera and lidar headers must use a common synchronized clock. Candidate camera sets contain one image from every configured camera with `max(stamps) - min(stamps) <= camera_sync_max_time_diff_ms`. Each image must also be within `lidar_sync_max_time_diff_ms` of its lidar scan.
+- The matcher examines timestamp windows across the retained histories and selects each camera's nearest valid image to each pending lidar. Among those candidates it prefers the smallest distance between the camera median timestamp and lidar, then the smallest camera spread. Ties follow timestamp order. It selects from data already received; it does not wait for potentially closer future data once a valid match exists.
+- Each lidar envelope can be claimed for inference once across the GPU and batched routes. Camera images may be reused for consecutive scans. Images remain on the GPU through owning handles; the worker acquires stream-aware read handles before inference.
+- Unmatched scans expire after `sync_max_wait_ms` of steady time, independently of ROS clock progress. Images expire after `sync_buffer_max_age_ms`; overflow removes the oldest sensor timestamp. A sensor rewind exceeding the larger of 2 seconds and the retention limit clears pending histories and jobs.
+- Inference runs on a separate worker, leaving subscription callbacks available to receive frames. Deactivation, cleanup, and destruction stop and join the worker before releasing GPU buffers or the core. Diagnostics report queue occupancy, timeouts, overflow, clock resets, and the most recent matched timestamp spread.
 - The GPU buffers are passed to `BEVFusionCore::infer()` as they are, with no JPEG decode and no copy through CPU memory.
 
-**Choosing the input:** nothing has to be switched by hand. These topics only carry data while the cameras are running. While frames arrive this way, the batched callbacks do nothing; when they stop for more than a second, or never start, the batched topic is used. The node logs `Camera input: ...` whenever the input in use changes, so a fall back from GPU images is visible. Set `use_nitros_images` to `false` to always use the batched topic.
+**Choosing the input:** the buffered NITROS route has priority. While every configured GPU camera has a valid image received within `sync_buffer_max_age_ms`, batched candidates stand down, including while a scan awaits a late image. When those sources are unavailable, the worker can use the batched topic. Both routes share a scan claim to prevent duplicate inference. This camera transport selection is independent of the explicitly configured lidar preprocessing backend. Set `use_nitros_images` to `false` to always use the batched topic.
+
+**Camera count and memory:** histories and matching use `camera_names.size()` with no fixed camera count. The deployed six-camera list remains unchanged. Changing that list requires matching calibration, publishers, and compatible model engines. At 1280 x 1024 RGB8, ten retained images per camera hold approximately 225 MiB for six cameras, 300 MiB for eight, or 450 MiB for twelve, plus producer and in-flight allocations. A producer with a fixed buffer pool must provide enough blocks for this retention and its other consumers. The external `camera_sync` node's queue settings do not control these NITROS histories.
 
 **Requirement:** CUDA-BEVFusion must accept GPU pointers for its camera images, i.e. copy them with `cudaMemcpyDefault` in `camera-normalization.cu`. Perception images built from an older `wato-cuda-bevfusion` assume host memory and have to be rebuilt.
 
@@ -151,6 +158,12 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `max_points_per_voxel` / `max_points` / `max_voxels` | `10` / `300000` / `160000` | LiDAR point cloud caps (GPU memory vs. coverage tradeoff) |
 | `xbound` / `ybound` / `zbound` / `dbound` | see `params.yaml` | BEV grid bounds `[min, max, step]` used for camera-to-BEV projection |
 | `post_center_range_start` / `post_center_range_end` | `[-61.2,-61.2,-10]` / `[61.2,61.2,10]` | Discards detections whose center falls outside this volume |
+| `camera_sync_buffer_size` | `10` | Maximum retained NITROS images per configured camera |
+| `lidar_sync_buffer_size` | `10` | Maximum pending scans and batched inference jobs |
+| `camera_sync_max_time_diff_ms` | `50.0` | Maximum timestamp spread across a complete camera set |
+| `lidar_sync_max_time_diff_ms` | `200.0` | Maximum timestamp distance from every camera image to lidar |
+| `sync_max_wait_ms` | `200.0` | Maximum scan arrival-to-inference wait, using steady time |
+| `sync_buffer_max_age_ms` | `1000.0` | Maximum camera image retention; at least the maximum scan wait |
 | `sync_queue_size` | `5` | Queue depth for `ApproximateTimeSynchronizer` |
 | `sync_max_time_diff_ms` | `200.0` | Maximum timestamp difference for ApproximateTime sync (ms) |
 | `qos_subscriber_reliability` / `qos_subscriber_depth` | `"best_effort"` / `10` | Subscriber QoS |

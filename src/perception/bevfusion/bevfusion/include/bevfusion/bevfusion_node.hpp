@@ -19,9 +19,12 @@
 // C++ system headers
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 // Other
@@ -50,6 +53,7 @@
 
 #include "bevfusion/bevfusion_core.hpp"
 #include "bevfusion/lidar_backend.hpp"
+#include "bevfusion/sensor_sync.hpp"
 #include <isaac_ros_nitros_point_cloud_type/nitros_point_cloud_view.hpp>
 #include <message_filters/simple_filter.h>
 // clang-format on
@@ -65,6 +69,10 @@ struct LidarFrame
   std_msgs::msg::Header header;
   sensor_msgs::msg::PointCloud2::ConstSharedPtr cpu;
   nvidia::isaac_ros::nitros::NitrosPointCloud::ConstSharedPtr gpu;
+  // Both camera transports share this envelope, so a scan can only be claimed once.
+  std::shared_ptr<std::atomic<bool>> inference_claimed{std::make_shared<std::atomic<bool>>(false)};
+  std::chrono::steady_clock::time_point arrival{std::chrono::steady_clock::now()};
+  mutable uint64_t sync_generation{0};
 
   bool empty() const
   {
@@ -94,6 +102,7 @@ public:
    * @param options Node options for remapping, parameters, etc.
    */
   explicit BEVFusionNode(const rclcpp::NodeOptions & options);
+  ~BEVFusionNode() override;
 
   // Default topic names (matches the remap "from" names in the launch file)
   static constexpr auto kCameraInfoTopic = "camera_info";
@@ -169,8 +178,8 @@ private:
     const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg, const LidarFrame::ConstSharedPtr & lidar_msg);
 
   /**
-   * @brief Synced callback helper for processing a frame of 6 RGB images and LiDAR cloud.
-   * @param rgb_images Vector of RGB images (6 cameras)
+   * @brief Synced callback helper for processing the configured RGB images and LiDAR cloud.
+   * @param rgb_images Vector of RGB images in camera_names order
    * @param lidar_msg PointCloud2 containing point cloud data
    * @param header Header for timestamp synchronization
    * @param t_start Start time of callback processing
@@ -272,19 +281,37 @@ private:
   using MultiImageRawSynchronizer = message_filters::Synchronizer<MultiImageRawSyncPolicy>;
 
   /**
-   * @brief Store the newest NITROS (GPU) image received from one camera.
+   * @brief Retain a NITROS image in that camera's bounded timestamp history.
    * @param camera_idx Index of the camera in camera_names
    * @param image_view View of the received NITROS image
    */
   void nitrosImageCallback(size_t camera_idx, const NitrosImageView & image_view);
 
   /**
-   * @brief LiDAR callback for the NITROS path: match the scan with the newest image from every camera.
-   * @details The frame is processed only when every camera has an image within sync_max_time_diff_ms of the scan.
-   *          Does nothing while no GPU images are being published, so the batched image path handles the scan.
+   * @brief Queue a scan for buffered camera matching on the inference worker.
    * @param lidar_msg PointCloud2 containing point cloud data
    */
   void nitrosLidarCallback(const LidarFrame::ConstSharedPtr & lidar_msg);
+
+  using CameraSync = SensorSync<NitrosImageMsg::ConstSharedPtr, LidarFrame::ConstSharedPtr>;
+
+  struct InferenceJob
+  {
+    LidarFrame::ConstSharedPtr lidar;
+    std::vector<NitrosImageMsg::ConstSharedPtr> images;
+    MultiImageRawMsg::ConstSharedPtr raw;
+    MultiImageCompressedMsg::ConstSharedPtr compressed;
+    std::chrono::steady_clock::time_point arrival;
+    uint64_t generation{0};
+  };
+
+  void enqueueBatchedFrame(
+    const MultiImageRawMsg::ConstSharedPtr & raw,
+    const MultiImageCompressedMsg::ConstSharedPtr & compressed,
+    const LidarFrame::ConstSharedPtr & lidar);
+  void processNitrosFrame(const InferenceJob & job);
+  void inferenceLoop();
+  void stopInferenceWorker();
 
   /// Which camera input the most recent frame came from
   enum class CameraInput
@@ -302,8 +329,8 @@ private:
   void noteCameraInput(CameraInput input);
 
   /**
-   * @brief Whether the NITROS path processed a frame recently, in which case the batched callbacks stand down.
-   * @return True if a NITROS frame was handled within kNitrosActiveTimeout
+   * @brief Whether every configured NITROS camera has a recent valid image.
+   * @return True while all GPU camera sources are healthy
    */
   bool nitrosImagesActive() const;
 
@@ -399,13 +426,18 @@ private:
   std::atomic<bool> processing_enabled_{false};
   std::shared_ptr<MultiImageCompressedSub> multi_image_compressed_sub_;
   std::shared_ptr<MultiImageRawSub> multi_image_raw_sub_;
-  // One NITROS subscriber and one newest-image slot per camera, in camera_names order
+  // One NITROS subscriber and one bounded history per configured camera.
   std::vector<std::shared_ptr<NitrosImageSub>> nitros_image_subs_;
-  std::vector<NitrosImageMsg::ConstSharedPtr> latest_nitros_images_;
-  std::mutex nitros_image_mutex_;
-  // Steady-clock time of the last frame the NITROS path handled (0 = never)
-  std::atomic<int64_t> last_nitros_frame_ns_{0};
-  static constexpr std::chrono::seconds kNitrosActiveTimeout{1};
+  std::unique_ptr<CameraSync> sensor_sync_;
+  mutable std::mutex sensor_sync_mutex_;
+  std::condition_variable sync_condition_;
+  std::deque<InferenceJob> batched_jobs_;
+  std::thread inference_worker_;
+  bool worker_stop_{true};
+  int inference_device_{0};
+  CameraSync::Config sensor_sync_config_;
+  uint64_t batched_job_drops_{0};
+  std::mutex core_mutex_;
   std::atomic<CameraInput> camera_input_{CameraInput::kNone};
 
   // QoS profiles
