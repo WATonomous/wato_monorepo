@@ -31,3 +31,12 @@ trajectory_planner_node:
     footprint_y_min: -1.2    # right side
     footprint_x_max: 3.5     # front bumper
     footprint_y_max: 1.2     # left side
+
+    # Deterministic costmap-only lateral obstacle avoidance. If the entire maneuver cannot be
+    # validated, the resampled centerline is retained and normal braking handles the obstacle.
+    elastic_band_enabled: true
+    eb_max_deviation: 0.8          # maximum lateral shift from the input centerline (m)
+    eb_lateral_search_step: 0.1    # lateral offset search increment (m)
+    eb_clearance_margin: 0.3       # extra lateral footprint clearance during validation (m)
+    eb_transition_distance: 5.0    # smoothstep ramp distance before and after a cluster (m)
+    eb_preferred_side: "left"      # deterministic tie-break: "left" or "right"
