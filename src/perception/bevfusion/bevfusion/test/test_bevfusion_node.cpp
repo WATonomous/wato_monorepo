@@ -1144,21 +1144,20 @@ TEST_CASE("computeCalibrationMatrices: aborts on TF lookup failure", "[calibrati
   rclcpp::shutdown();
 }
 
-TEST_CASE("LiDAR backend is selected only during initialization", "[node][fast]")
+TEST_CASE("LiDAR backend selection is explicit and CUDA initialization failures propagate", "[node][fast]")
 {
   using wato::perception::bevfusion::initializeLidarBackend;
   int calls = 0;
-  std::string reason;
   auto available = [&]() { ++calls; };
-  REQUIRE_FALSE(initializeLidarBackend("cpu", available, reason));
+  REQUIRE_FALSE(initializeLidarBackend("cpu", available));
   REQUIRE(calls == 0);
-  REQUIRE(initializeLidarBackend("auto", available, reason));
-  REQUIRE(reason.empty());
+  REQUIRE(initializeLidarBackend("cuda", available));
+  REQUIRE(calls == 1);
   auto unavailable = []() { throw std::runtime_error("GPU workspace allocation failed"); };
-  REQUIRE_FALSE(initializeLidarBackend("auto", unavailable, reason));
-  REQUIRE(reason == "GPU workspace allocation failed");
-  REQUIRE_THROWS_AS(initializeLidarBackend("cuda", unavailable, reason), std::runtime_error);
-  REQUIRE_THROWS_AS(initializeLidarBackend("invalid", available, reason), std::invalid_argument);
+  REQUIRE_THROWS_AS(initializeLidarBackend("cuda", unavailable), std::runtime_error);
+  REQUIRE_THROWS_AS(initializeLidarBackend("auto", available), std::invalid_argument);
+  REQUIRE_THROWS_AS(initializeLidarBackend("invalid", available), std::invalid_argument);
+  REQUIRE(calls == 1);
 }
 
 TEST_CASE("CPU lidar initialization creates only the original PointCloud2 subscription", "[node][fast]")
@@ -1227,6 +1226,14 @@ TEST_CASE("BEVFusionNode: parameters can be read again after lifecycle cleanup",
     node->on_cleanup(node->get_current_state()) ==
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
   REQUIRE_NOTHROW(node->declareParameters());
-  REQUIRE(node->get_parameter("lidar_processing_backend").as_string() == "auto");
+  REQUIRE(node->get_parameter("lidar_processing_backend").as_string() == "cuda");
+  rclcpp::shutdown();
+}
+
+TEST_CASE("BEVFusionNode: automatic lidar fallback is rejected", "[node][fast]")
+{
+  auto node = make_configured_node();
+  node->set_parameter(rclcpp::Parameter("lidar_processing_backend", "auto"));
+  REQUIRE_THROWS_AS(node->declareParameters(), std::invalid_argument);
   rclcpp::shutdown();
 }

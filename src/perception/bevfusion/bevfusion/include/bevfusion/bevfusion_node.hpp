@@ -393,8 +393,7 @@ private:
   rclcpp::Subscription<PointCloud2Msg>::SharedPtr lidar_sub_;
   std::shared_ptr<NitrosCloudSub> nitros_lidar_sub_;
   LidarFrameFilter lidar_filter_;
-  std::string lidar_processing_backend_{"auto"};
-  std::string lidar_fallback_reason_;
+  std::string lidar_processing_backend_{"cuda"};
   bool use_cuda_lidar_{false};
   int lidar_max_input_points_{1000000};
   std::atomic<bool> processing_enabled_{false};

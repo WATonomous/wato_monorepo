@@ -1,4 +1,5 @@
 # BEVFusion developer guide
+
 ## Overview
 
 BEVFusion is a ROS 2 lifecycle composable node that combines camera and LiDAR data for 3D object detection. The current C++ wrapper publishes boxes only; map segmentation is not implemented here.
@@ -15,7 +16,7 @@ Given synchronized camera images and a merged LiDAR point cloud, the node:
 
 ## Architecture
 
-```
+```text
 Sensor Inputs
 ─────────────
 /multi_camera_sync/multi_image_compressed  ──┐
@@ -225,14 +226,17 @@ Tests live under `bevfusion/test/` and use `wato_test`/Catch2. The core tests mo
 
 ## GPU lidar preprocessing
 
-`lidar_processing_backend` selects `auto` (default), `cuda`, or `cpu`.
-During configuration, `auto` initializes the CUDA preprocessing workspace and
-selects CPU preprocessing if that initialization fails. Subscription initialization
-can also select the CPU route before activation completes. `cuda` requires both
-steps to succeed; `cpu` uses the original PointCloud2 subscription and preprocessing.
-The selected backend and initialization fallback reason appear in node diagnostics.
+`lidar_processing_backend` selects `cuda` (default) or an explicitly requested `cpu`.
+CUDA preprocessing workspace initialization and NITROS subscription creation must
+succeed for the CUDA backend; errors fail configuration or activation instead of
+selecting CPU preprocessing. `auto` is no longer accepted on this branch. `cpu`
+uses the original PointCloud2 subscription and preprocessing.
+The selected backend appears in node diagnostics.
 Backend selection is fixed while active: malformed frames and runtime CUDA errors
 are reported without switching backends. The inference model always requires a GPU.
+
+The monorepo's `benchmark-lidar-cuda` branch retains initialization fallback,
+the `auto` selection mode, and the repeatable CPU/CUDA performance comparison tools.
 
 The driver continues publishing `/lidar_cc/velodyne_points` as standard PointCloud2,
 so other consumers keep their CPU messages. The adapted NITROS subscription uploads
@@ -274,12 +278,15 @@ is disabled by default to avoid its bundled-protobuf conflict with BEVFusion.
 1. Verify PointCloud2 to NITROS round-trips preserve field metadata, intensity,
    organized row padding, headers, and payload bytes. Check empty/malformed inputs,
    shared ownership, and rejection of XYZI by legacy XYZ/XYZRGB-only GXF.
-2. Build the vendor with `-DBUILD_LIDAR_PREPROCESS_TESTS=ON` and run
+2. The standalone vendor test is kept on its `benchmark-lidar-cuda` branch, rather
+   than `yousef/500-lidar-preprocessing`. Build that benchmark branch with
+   `-DBUILD_LIDAR_PREPROCESS_TESTS=ON` and run
    `ctest -R lidar_preprocess --output-on-failure`. This model-independent GPU test
    compares FP16 bytes against a CPU reference and exercises truncation, invalid
    values, unaligned offsets, padded rows, both byte orders, and capacity errors.
 3. Run the monorepo's BEVFusion tests. Backend selection tests inject an initialization
-   failure: `auto` selects CPU and records the reason, while `cuda` throws. Additional
+   failure: `cuda` propagates the error and `auto` is rejected. Explicit `cpu` selection
+   does not initialize the CUDA preprocessor. Additional
    checks cover CPU subscription cleanup and timestamp matching for both envelopes.
 4. On deployment hardware, replay the same bag with identical models, calibration,
    camera settings, QoS, and sync tolerance. Compare `cpu` and `cuda`, warming up first
@@ -294,8 +301,8 @@ is disabled by default to avoid its bundled-protobuf conflict with BEVFusion.
    second upload before inference. The existing callback profiler excludes receipt
    and sync wait; add receive/publish tracepoints for end-to-end measurements.
 6. Exercise configure/activate/deactivate/cleanup/reactivation with CPU and CUDA lidar,
-   each with NITROS cameras and batched cameras. Check `auto` failure selection before
-   activation using an intentionally oversized workspace on a test deployment.
+   each with NITROS cameras and batched cameras. Verify CUDA initialization and
+   subscription failures do not create a CPU subscription or activate the node.
 
 A lower lidar preparation time is not by itself proof of higher whole-pipeline FPS:
 GPU contention, raw upload size, camera processing, and model inference may dominate.
@@ -309,11 +316,13 @@ GPU contention, raw upload size, camera processing, and model inference may domi
 - The standalone CUDA preprocessing test passed on the available GTX 1080 using
   CUDA 12.8 / SM 61. Production CUDA 13 does not compile for this older GPU.
 - An actual incompatible CUDA 13 / SM 89 binary verified initialization fallback:
-  `auto` selected CPU and strict `cuda` rejected initialization.
+  `auto` selected CPU and strict `cuda` rejected initialization. This historical
+  fallback behavior is now retained only on the benchmarking branch.
 - The optional legacy point-cloud GXF configuration compiled separately.
 
-Full-model detection equivalence and end-to-end latency/FPS remain unmeasured:
-this checkout has neither BEVFusion model assets nor a representative recorded bag,
-and the available GPU is older than the production architecture. The checks above
-establish transport/preprocessing correctness and build integration, not a measured
-whole-pipeline performance gain.
+At that validation, full-model detection equivalence and end-to-end latency/FPS
+remained unmeasured because model assets and a representative bag were unavailable,
+and the available GPU was older than the production architecture. The checks above
+established transport/preprocessing correctness and build integration. Subsequent
+reserved-GPU results and replay tools are kept on the monorepo's `benchmark-lidar-cuda`
+branch.

@@ -80,7 +80,7 @@ void BEVFusionNode::declareParameters()
     // Use GPU images from "/<camera_name>/image_rect" for every entry in camera_names whenever they are
     // being published; the batched topics below are used otherwise
     this->declare_parameter<bool>("use_nitros_images", true);
-    this->declare_parameter<std::string>("lidar_processing_backend", "auto");
+    this->declare_parameter<std::string>("lidar_processing_backend", "cuda");
     this->declare_parameter<int>("lidar_max_input_points", 1000000);
     this->declare_parameter<std::string>("input_multi_image_compressed_topic", kMultiImageCompressedTopic);
     this->declare_parameter<std::string>("input_lidar_topic", kLidarTopic);
@@ -146,9 +146,8 @@ void BEVFusionNode::declareParameters()
   multi_image_compressed_topic_ = this->get_parameter("input_multi_image_compressed_topic").as_string();
   use_nitros_images_ = this->get_parameter("use_nitros_images").as_bool();
   lidar_processing_backend_ = this->get_parameter("lidar_processing_backend").as_string();
-  if (lidar_processing_backend_ != "auto" && lidar_processing_backend_ != "cpu" && lidar_processing_backend_ != "cuda")
-  {
-    throw std::invalid_argument("lidar_processing_backend must be auto, cpu, or cuda");
+  if (lidar_processing_backend_ != "cpu" && lidar_processing_backend_ != "cuda") {
+    throw std::invalid_argument("lidar_processing_backend must be cuda or cpu");
   }
   const auto max_input_points = this->get_parameter("lidar_max_input_points").as_int();
   if (max_input_points <= 0 || max_input_points > std::numeric_limits<int>::max()) {
@@ -581,29 +580,21 @@ void BEVFusionNode::initializeLidarSubscription()
   lidar_sub_.reset();
   nitros_lidar_sub_.reset();
   if (use_cuda_lidar_) {
-    try {
-      nitros_lidar_sub_ = std::make_shared<NitrosCloudSub>(
-        this,
-        lidar_topic_,
-        NitrosCloudView::BaseType::GetDefaultCompatibleFormat(),
-        [this](const NitrosCloudView & view) {
-          auto frame = std::make_shared<LidarFrame>();
-          frame->gpu = std::make_shared<const NitrosCloudView::BaseType>(view.GetMessage());
-          frame->header.stamp.sec = frame->gpu->get_timestamp_sec();
-          frame->header.stamp.nanosec = frame->gpu->get_timestamp_nsec();
-          frame->header.frame_id = frame->gpu->frame_id;
-          acceptLidarFrame(frame);
-        },
-        nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
-        subscriber_qos_);
-      return;
-    } catch (const std::exception & error) {
-      if (lidar_processing_backend_ != "auto") throw;
-      lidar_fallback_reason_ = error.what();
-      use_cuda_lidar_ = false;
-      core_->releaseLidarPreprocessor();
-      RCLCPP_WARN(this->get_logger(), "NITROS lidar initialization failed; using CPU: %s", error.what());
-    }
+    nitros_lidar_sub_ = std::make_shared<NitrosCloudSub>(
+      this,
+      lidar_topic_,
+      NitrosCloudView::BaseType::GetDefaultCompatibleFormat(),
+      [this](const NitrosCloudView & view) {
+        auto frame = std::make_shared<LidarFrame>();
+        frame->gpu = std::make_shared<const NitrosCloudView::BaseType>(view.GetMessage());
+        frame->header.stamp.sec = frame->gpu->get_timestamp_sec();
+        frame->header.stamp.nanosec = frame->gpu->get_timestamp_nsec();
+        frame->header.frame_id = frame->gpu->frame_id;
+        acceptLidarFrame(frame);
+      },
+      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
+      subscriber_qos_);
+    return;
   }
   lidar_sub_ = this->create_subscription<PointCloud2Msg>(
     lidar_topic_, subscriber_qos_, [this](const PointCloud2Msg::ConstSharedPtr msg) {
@@ -1317,7 +1308,6 @@ void BEVFusionNode::diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapp
   }
 
   stat.add("LiDAR Backend", use_cuda_lidar_ ? "cuda" : "cpu");
-  stat.add("LiDAR Initialization Fallback", lidar_fallback_reason_);
   stat.add("Arrays Processed", processed);
   stat.add("Average Processing Time (ms)", avg_time);
   stat.add("Last Processing Time (ms)", last_time);
@@ -1380,15 +1370,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     }
 
     use_cuda_lidar_ = initializeLidarBackend(
-      lidar_processing_backend_,
-      [this]() { core_->initializeLidarPreprocessor(lidar_max_input_points_); },
-      lidar_fallback_reason_);
+      lidar_processing_backend_, [this]() { core_->initializeLidarPreprocessor(lidar_max_input_points_); });
     if (!use_cuda_lidar_) {
       core_->releaseLidarPreprocessor();
-      if (!lidar_fallback_reason_.empty()) {
-        RCLCPP_WARN(
-          this->get_logger(), "CUDA lidar initialization failed; using CPU: %s", lidar_fallback_reason_.c_str());
-      }
     }
 
     // inside on_configure()

@@ -20,22 +20,14 @@
 
 namespace wato::perception::bevfusion
 {
-// Called only during initialization. Exceptions in strict CUDA mode propagate.
-inline bool initializeLidarBackend(
-  const std::string & requested, const std::function<void()> & initialize_cuda, std::string & fallback_reason)
+// Called only during initialization. CUDA failures propagate without changing the backend.
+inline bool initializeLidarBackend(const std::string & requested, const std::function<void()> & initialize_cuda)
 {
-  fallback_reason.clear();
   if (requested == "cpu") return false;
-  if (requested != "auto" && requested != "cuda") {
-    throw std::invalid_argument("lidar_processing_backend must be auto, cuda, or cpu");
+  if (requested != "cuda") {
+    throw std::invalid_argument("lidar_processing_backend must be cuda or cpu");
   }
-  try {
-    initialize_cuda();
-    return true;
-  } catch (const std::exception & error) {
-    if (requested == "cuda") throw;
-    fallback_reason = error.what();
-    return false;
-  }
+  initialize_cuda();
+  return true;
 }
 }  // namespace wato::perception::bevfusion

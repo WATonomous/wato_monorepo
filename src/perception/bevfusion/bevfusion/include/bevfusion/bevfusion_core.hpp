@@ -170,7 +170,7 @@ public:
   std::vector<BoundingBox> infer(
     const std::vector<const unsigned char *> & camera_images, const std::vector<float> & lidar_points, int num_points);
 
-  // GPU preprocessing is initialized separately so auto mode can retain the CPU implementation.
+  // GPU preprocessing is initialized only when the CUDA lidar backend is selected.
   void initializeLidarPreprocessor(int max_input_points);
   void releaseLidarPreprocessor();
 

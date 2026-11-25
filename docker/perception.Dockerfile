@@ -138,7 +138,7 @@ RUN git clone https://github.com/WATonomous/deep_ros.git deep_ros && \
     git clone https://github.com/WATonomous/camera_aravis2_nitros.git camera_aravis2_nitros && \
     git -C camera_aravis2_nitros checkout 3b625b3100b962ee06342b36369116a6da486f77 && \
     git clone https://github.com/WATonomous/wato-cuda-bevfusion.git wato-cuda-bevfusion && \
-    git -C wato-cuda-bevfusion checkout d88652aafecef902ab4fbf238b4f0178bd83b08b && \
+    git -C wato-cuda-bevfusion checkout 6156ddad7bd0e7c452e2c672a9b7193a5d67b5e2 && \
     git -C wato-cuda-bevfusion submodule update --init --recursive && \
     touch wato-cuda-bevfusion/COLCON_IGNORE && \
     git -C wato-cuda-bevfusion lfs install && \
