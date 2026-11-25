@@ -46,6 +46,9 @@
 #   METHODS      methods to run                 (default "eidos_nogps rtabmap")
 #   EVAL_ONLY    set to 1 to skip the runs and only evaluate
 #   ONLY         do just one test, e.g. test2/rtabmap, and skip evaluation (parallel job array)
+#   MAPS         where Eidos maps and RTAB-Map databases go (default /ws/bags/bench_maps, on the
+#                drive behind ~/wato_monorepo/bags): a full-drive Eidos map is ~4 GB and saving it
+#                needs as much again, more than the 20 GiB home quota that maps/ sits under
 #
 # Quick check of whether Eidos keeps up, e.g. the first 120 s at a tenth of real time:
 #   RATE=0.1 DURATION=120 RUNS=1 METHODS=eidos_nogps   -> results/boreas_rate0.1_120s/
@@ -87,6 +90,23 @@ if ! mkdir -p "$SB_DS" "$SB_REFDIR" "$SB_LOG" || ! touch "$SB_LOG/.write_test"; 
   exit 1
 fi
 rm -f "$SB_LOG/.write_test"
+
+# Maps and databases go on the drive; poses, logs and results stay under maps/bench/results
+SB_MAPS=${MAPS:-/ws/bags/bench_maps}/$SB_DATASET
+if ! mkdir -p "$SB_MAPS" || ! touch "$SB_MAPS/.write_test"; then
+  say "Cannot write to $SB_MAPS; keeping maps next to the results (watch the home quota)."
+  say "Fix: on the login node create it and run   chmod 777   on it, or set MAPS."
+  SB_MAPS=$SB_DS/maps
+  mkdir -p "$SB_MAPS"
+fi
+rm -f "$SB_MAPS/.write_test"
+# Move maps and databases earlier runs left under results/ (only the container can, it owns them)
+for f in "$SB_DS"/test*/eidos_nogps/eidos.map "$SB_DS"/test*/rtabmap/rtabmap.db; do
+  [ -e "$f" ] || continue
+  t=$(basename "$(dirname "$(dirname "$f")")")
+  mkdir -p "$SB_MAPS/$t" && mv -f "$f" "$SB_MAPS/$t/" && say "Moved $f to $SB_MAPS/$t/"
+done
+rm -f "$SB_DS"/test*/eidos_nogps/eidos.map-shm "$SB_DS"/test*/eidos_nogps/eidos.map-wal
 
 # The container sees only ~/wato_monorepo/bags, as /ws/bags (see the slam_benchmark README)
 if [ "$SB_EVAL_ONLY" != 1 ] && [ ! -f "$SB_BAG/metadata.yaml" ]; then
@@ -185,11 +205,15 @@ eidos_run() {  # $1 = test number
   # TRACKING alone doesn't mean it kept up: every failed scan match is logged
   say "$name: GICP failed $(grep -a -c 'GICP failed' "$dir/launch.log") times"
 
+  # A map left by an interrupted save would be appended to (the map file is SQLite)
+  local map=$SB_MAPS/test$1/eidos.map
+  mkdir -p "$SB_MAPS/test$1"
+  rm -f "$map" "$map-shm" "$map-wal"
   timeout 300 ros2 service call /world_modeling/slam/save_map eidos_msgs/srv/SaveMap \
-    "{filepath: '$dir/eidos.map'}" > "$dir/save.log" 2>&1
+    "{filepath: '$map'}" > "$dir/save.log" 2>&1
   stop_launch "$lpid"
 
-  if [ -s "$dir/eidos.map" ] && eidos poses "$dir/eidos.map" > "$dir/poses.csv" 2>> "$dir/save.log" \
+  if [ -s "$map" ] && eidos poses "$map" > "$dir/poses.csv" 2>> "$dir/save.log" \
     && [ "$(wc -l < "$dir/poses.csv")" -gt 1 ]; then  # more than the header line
     say "$name: done ($(wc -l < "$dir/poses.csv") lines in poses.csv)"
   else
@@ -230,10 +254,12 @@ rtabmap_run() {  # $1 = test number
   stop_launch "$lpid"  # RTAB-Map writes its database on shutdown
 
   if [ -s ~/.ros/rtabmap.db ]; then
-    cp ~/.ros/rtabmap.db "$dir/rtabmap.db"
+    local db_dir=$SB_MAPS/test$1
+    mkdir -p "$db_dir"
+    cp ~/.ros/rtabmap.db "$db_dir/rtabmap.db"
     # rtabmap-export names its output <database>_poses.txt
-    (cd "$dir" && rtabmap-export --poses --poses_format 10 rtabmap.db) > "$dir/export.log" 2>&1 \
-      && mv -f "$dir/rtabmap_poses.txt" "$dir/poses.txt" 2>> "$dir/export.log"
+    (cd "$db_dir" && rtabmap-export --poses --poses_format 10 rtabmap.db) > "$dir/export.log" 2>&1 \
+      && mv -f "$db_dir/rtabmap_poses.txt" "$dir/poses.txt" 2>> "$dir/export.log"
   fi
   if [ -s "$dir/poses.txt" ]; then
     say "$name: done ($(wc -l < "$dir/poses.txt") poses)"

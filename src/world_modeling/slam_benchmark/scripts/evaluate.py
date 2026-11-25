@@ -15,7 +15,8 @@
 """
 Score SLAM trajectories against a GNSS reference and an .osm lane map.
 
-Every estimate is cropped to the time window shared by all inputs, the GNSS reference is
+Every estimate is cropped to the time window shared by all inputs (optionally cut at --end),
+the GNSS reference is
 interpolated at the estimate's timestamps, and the estimate is aligned to it with the same
 SE(3) Umeyama fit (no scale). Reported per method:
   ATE         RMS / mean / max position error vs GNSS (m)
@@ -221,6 +222,13 @@ def main():
         help="Score the lane metric only where GNSS is within this distance of a mapped lane (m); 0 = everywhere",
     )
     parser.add_argument(
+        "--end",
+        type=float,
+        default=0.0,
+        help="Score only the first N s after the reference starts, e.g. up to where a sensor "
+        "stream in the bag stops (0 = all)",
+    )
+    parser.add_argument(
         "--max-gap",
         type=float,
         default=0.2,
@@ -242,11 +250,13 @@ def main():
     # Compare every method over the same time window
     t0 = max([ref_t[0]] + [t[0] for _, t, _ in ests])
     t1 = min([ref_t[-1]] + [t[-1] for _, t, _ in ests])
+    if args.end > 0:
+        t1 = min(t1, ref_t[0] + args.end)
     if t1 <= t0:
         raise SystemExit(
             "Inputs do not overlap in time; check that all files come from the same bag"
         )
-    print(f"Common window: {t1 - t0:.1f} s")
+    print(f"Common window: {t1 - t0:.1f} s" + (f" (cut at --end {args.end:g} s)" if args.end > 0 else ""))
 
     lane_tree, lines = None, []
     if args.osm:

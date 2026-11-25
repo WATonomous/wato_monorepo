@@ -167,14 +167,10 @@ private:
 
   // ---- Last match tracking (for GICP initial guess) ----
   // Guarded by guess_mtx_: the LiDAR callback reads and writes the last match, and
-  // onOptimizationComplete (SLAM thread) re-anchors it after each optimization. The re-anchoring
-  // is queued in pending_guess_correction_ (a world-frame correction) and applied by the LiDAR
-  // callback both to the last match it reads and to the match it writes back, so a correction that
-  // lands while a scan is being matched is not overwritten by a pose from the old frame.
+  // onOptimizationComplete (SLAM thread) re-anchors it on the optimized keyframe.
   gtsam::Pose3 last_matched_pose_;
   bool has_last_match_ = false;
-  double last_match_time_ = 0.0;  ///< Scan stamp of last_matched_pose_ (s); gyro integration starts here
-  gtsam::Pose3 pending_guess_correction_;
+  double last_match_time_ = 0.0;  ///< Scan stamp of the newest match (s); gyro integration starts here
   std::mutex guess_mtx_;
 
   /**

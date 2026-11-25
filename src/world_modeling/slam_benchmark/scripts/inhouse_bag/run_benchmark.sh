@@ -27,8 +27,13 @@
 #   RUNS       repeats per method         (default 3)
 #   RATE       bag playback rate          (default 0.5)
 #   EVAL_ONLY  set to 1 to skip the runs and only evaluate
+#   EVAL_END   score only the first N s of the drive (default: all). ring_road_corrected_0.mcap
+#              has no IMU messages after 686 s, and RTAB-Map drops every scan without IMU, so
+#              score that bag with EVAL_END=685
 #   ONLY       do just this one run (e.g. ringroad_rtabmap_r2) and skip evaluation;
 #              used by the parallel job array
+#   MAPS       where Eidos maps and RTAB-Map databases go (default /ws/bags/bench_maps, on the
+#              drive behind ~/wato_monorepo/bags; maps/ sits under the 20 GiB home quota)
 
 SB_BAG=${BAG:-/ws/bags/ring_road_corrected_0.mcap}
 SB_PREFIX=${PREFIX:-ringroad}
@@ -36,6 +41,7 @@ SB_OSM=${OSM:-/opt/watonomous/maps/ring_road.osm}
 SB_RUNS=${RUNS:-3}
 SB_RATE=${RATE:-0.5}
 SB_EVAL_ONLY=${EVAL_ONLY:-0}
+SB_EVAL_END=${EVAL_END:-}
 SB_ONLY=${ONLY:-}
 
 SB_OUT=/opt/watonomous/maps/bench
@@ -51,6 +57,14 @@ if ! mkdir -p "$SB_OUT" "$SB_LOG" "$SB_OUT/results" || ! touch "$SB_LOG/.write_t
   exit 1
 fi
 rm -f "$SB_LOG/.write_test"
+
+# Maps and databases go on the drive; poses, logs and results stay under maps/bench
+SB_MAPS=${MAPS:-/ws/bags/bench_maps}/$SB_PREFIX
+if ! mkdir -p "$SB_MAPS" || ! touch "$SB_MAPS/.write_test"; then
+  echo "Cannot write to $SB_MAPS; keeping maps in $SB_OUT (watch the home quota)."
+  SB_MAPS=$SB_OUT
+fi
+rm -f "$SB_MAPS/.write_test"
 
 # Wait up to 90 s for a command to succeed.
 wait_for() {
@@ -110,11 +124,14 @@ eidos_run() {
   kill "$epid" 2> /dev/null
   say "$name: SLAM states seen, count then state (3 = TRACKING): $(grep -E '^[0-9]+$' "$SB_LOG/$name.status.log" | sort | uniq -c | tr -s ' \n' ' ')"
 
+  # A map left by an interrupted save would be appended to (the map file is SQLite)
+  local map=$SB_MAPS/$name.map
+  rm -f "$map" "$map-shm" "$map-wal" "$SB_OUT/$name.map" "$SB_OUT/$name.map-shm" "$SB_OUT/$name.map-wal"
   timeout 300 ros2 service call /world_modeling/slam/save_map eidos_msgs/srv/SaveMap \
-    "{filepath: '$SB_OUT/$name.map'}" > "$SB_LOG/$name.save.log" 2>&1
+    "{filepath: '$map'}" > "$SB_LOG/$name.save.log" 2>&1
   stop_launch "$lpid"
 
-  if [ -s "$SB_OUT/$name.map" ] && eidos poses "$SB_OUT/$name.map" > "$SB_OUT/$name.csv" 2>> "$SB_LOG/$name.save.log" \
+  if [ -s "$map" ] && eidos poses "$map" > "$SB_OUT/$name.csv" 2>> "$SB_LOG/$name.save.log" \
     && [ "$(wc -l < "$SB_OUT/$name.csv")" -gt 1 ]; then  # more than the header line
     say "$name: done ($(wc -l < "$SB_OUT/$name.csv") lines in $name.csv)"
   else
@@ -149,8 +166,10 @@ rtabmap_run() {
   stop_launch "$lpid"  # RTAB-Map writes its database on shutdown
 
   if [ -s ~/.ros/rtabmap.db ]; then
-    cp ~/.ros/rtabmap.db "$SB_OUT/$name.db"
-    (cd "$SB_OUT" && rtabmap-export --poses --poses_format 10 "$name.db") > "$SB_LOG/$name.export.log" 2>&1
+    cp ~/.ros/rtabmap.db "$SB_MAPS/$name.db"
+    # rtabmap-export names its output <database>_poses.txt, next to the database
+    (cd "$SB_MAPS" && rtabmap-export --poses --poses_format 10 "$name.db") > "$SB_LOG/$name.export.log" 2>&1 \
+      && { [ "$SB_MAPS" = "$SB_OUT" ] || mv -f "$SB_MAPS/${name}_poses.txt" "$SB_OUT/"; } 2>> "$SB_LOG/$name.export.log"
   fi
   if [ -s "$SB_OUT/${name}_poses.txt" ]; then
     say "$name: done ($(wc -l < "$SB_OUT/${name}_poses.txt") poses)"
@@ -191,8 +210,9 @@ evaluate() {
     return
   fi
 
-  local osm_args=()
-  if [ -f "$SB_OSM" ]; then osm_args=(--osm "$SB_OSM"); else say "Lane map $SB_OSM not found; scoring ATE only"; fi
+  local eval_args=()
+  if [ -f "$SB_OSM" ]; then eval_args=(--osm "$SB_OSM"); else say "Lane map $SB_OSM not found; scoring ATE only"; fi
+  if [ -n "$SB_EVAL_END" ]; then eval_args+=(--end "$SB_EVAL_END"); say "Scoring the first $SB_EVAL_END s only"; fi
 
   for r in $(seq "$SB_RUNS"); do
     local est=() m label csv
@@ -207,7 +227,7 @@ evaluate() {
     if [ ${#est[@]} -eq 0 ]; then continue; fi
 
     say "Scoring repeat $r"
-    "$py" "$SB_SCRIPTS/evaluate.py" --ref "$gnss" "${est[@]}" "${osm_args[@]}" \
+    "$py" "$SB_SCRIPTS/evaluate.py" --ref "$gnss" "${est[@]}" "${eval_args[@]}" \
       --out "$SB_OUT/results/${SB_PREFIX}_r$r" 2>&1 | tee "$SB_LOG/eval_r$r.log"
   done
 
@@ -217,7 +237,7 @@ evaluate() {
   if [ -s "$car" ] && [ -s "$gps1" ]; then
     say "Scoring the car's live Eidos against offline Eidos (GPS) r1"
     "$py" "$SB_SCRIPTS/evaluate.py" --ref "$gnss" \
-      --est "Eidos (car, live)=$car" --est "Eidos (GPS, offline r1)=$gps1" "${osm_args[@]}" \
+      --est "Eidos (car, live)=$car" --est "Eidos (GPS, offline r1)=$gps1" "${eval_args[@]}" \
       --out "$SB_OUT/results/${SB_PREFIX}_car" 2>&1 | tee "$SB_LOG/eval_car.log"
   fi
 

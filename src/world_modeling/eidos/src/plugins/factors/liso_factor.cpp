@@ -210,7 +210,6 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3 & initial_pose)
   {
     std::lock_guard lock(guess_mtx_);
     has_last_match_ = false;
-    pending_guess_correction_ = gtsam::Pose3();
   }
   has_last_factor_ = false;
   has_prev_liso_ = false;
@@ -334,13 +333,11 @@ void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, 
     }
 
     {
-      // Move the latest match by the keyframe's world-frame correction rather than replacing it
-      // with the keyframe pose. The keyframe comes from a scan cached up to a SLAM tick plus an
-      // optimization earlier, and the scans matched since then would otherwise be thrown away:
-      // every keyframe pulled the next guess back by that much travel (about a metre at 8 m/s)
-      // while the gyro kept integrating from the newest match.
+      // Re-anchor the next guess on the optimized keyframe. (Moving the newest match by the
+      // keyframe's correction instead was tried: both Boreas and the ring road then lost track at
+      // a hard stretch that this version tracks through, so it was reverted.)
       std::lock_guard lock(guess_mtx_);
-      pending_guess_correction_ = corrected * prev_liso_pose_.inverse() * pending_guess_correction_;
+      last_matched_pose_ = corrected;
     }
     prev_liso_pose_ = corrected;
 
@@ -429,7 +426,6 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     cached_pcl_cloud_ = makeKeyframeCloud(*raw_cloud);
     cached_timestamp_ = scan_time;
     last_match_time_ = scan_time;
-    pending_guess_correction_ = gtsam::Pose3();
     // Use relocalized pose if available (set by onTrackingBegin), otherwise origin
     if (has_last_match_) {
       cached_pose_ = last_matched_pose_;
@@ -474,14 +470,12 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     return;
   }
 
-  // Last match, with any queued re-anchoring from the SLAM thread applied
+  // Last match (onOptimizationComplete re-anchors it from the SLAM thread)
   gtsam::Pose3 last_pose;
   double last_time = 0.0;
   bool has_last = false;
   {
     std::lock_guard lock(guess_mtx_);
-    last_matched_pose_ = pending_guess_correction_ * last_matched_pose_;
-    pending_guess_correction_ = gtsam::Pose3();
     last_pose = last_matched_pose_;
     last_time = last_match_time_;
     has_last = has_last_match_;
@@ -582,10 +576,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
   }
 
   {
-    // A correction queued while this scan was being matched applies to its result too
     std::lock_guard lock(guess_mtx_);
-    last_matched_pose_ = pending_guess_correction_ * matched_pose;
-    pending_guess_correction_ = gtsam::Pose3();
+    last_matched_pose_ = matched_pose;
     last_match_time_ = scan_time;
     has_last_match_ = true;
   }

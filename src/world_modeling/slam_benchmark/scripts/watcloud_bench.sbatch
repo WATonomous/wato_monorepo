@@ -30,7 +30,7 @@
 # Test with one repeat first:
 #   cd ~ && RUNS=1 sbatch ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
 # Optional settings, passed through to the benchmark script:
-#   ringroad: BAG PREFIX OSM RUNS RATE EVAL_ONLY
+#   ringroad: BAG PREFIX OSM RUNS RATE EVAL_ONLY EVAL_END
 #   boreas:   BAG SEQUENCE DATASET RUNS RATE DURATION EIDOS_PARAMS METHODS EVAL_ONLY
 # Boreas data, inside ~/wato_monorepo/bags (the only bag folder the container sees, as /ws/bags):
 #   bags/boreas-2020-11-26-13-58-lidar-imu/                      the bag
@@ -68,7 +68,7 @@ case $BENCH in
     # One prefix for the runs, the array task names and the EVAL_ONLY job (run_benchmark.sh's default)
     export PREFIX=${PREFIX:-ringroad}
     TESTS=(eidos_nogps rtabmap eidos_gps)
-    PASS=(BAG PREFIX OSM RUNS RATE EVAL_ONLY ONLY)
+    PASS=(BAG PREFIX OSM RUNS RATE EVAL_ONLY EVAL_END ONLY)
     ;;
   boreas)
     SCRIPT=$SCRIPTS/boreas/boreas_benchmark.sh
@@ -144,7 +144,12 @@ else
   docker save $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'world_modeling|infrastructure') -o "$IMAGES"
 fi
 
-./watod up || { say "watod up FAILED"; exit 1; }
+# Every ./watod call rewrites the shared modules/.env, which carries this job's BASE_PORT. Jobs
+# that start together then read a half-written file or another job's ports, so watod calls take
+# a lock on the shared home folder, and the long benchmark runs through docker exec, which never
+# reads .env (this job's dockerd runs only this job's containers).
+WATOD_LOCK=$HOME/.slam_bench_watod.lock
+flock -w 1800 "$WATOD_LOCK" ./watod up || { say "watod up FAILED"; exit 1; }
 sleep 15
 
 ENV_ARGS=()
@@ -152,7 +157,9 @@ for v in "${PASS[@]}"; do
   [ -n "${!v:-}" ] && ENV_ARGS+=(-e "$v=${!v}")
 done
 
-./watod exec -T "${ENV_ARGS[@]}" world_modeling_bringup_dev bash "$SCRIPT"
+DEV=$(docker ps -q --filter name=world_modeling_bringup_dev | head -1)
+[ -n "$DEV" ] || { say "world_modeling_bringup_dev container not running"; exit 1; }
+docker exec "${ENV_ARGS[@]}" "$DEV" bash "$SCRIPT"
 
-./watod down
+flock -w 1800 "$WATOD_LOCK" ./watod down
 say "Job finished"

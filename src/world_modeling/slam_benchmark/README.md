@@ -103,14 +103,14 @@ cd ~ && JOB=$(BENCH=boreas sbatch --parsable --array=1-6%4 --time=01:30:00 ~/wat
 BENCH=boreas EVAL_ONLY=1 sbatch --dependency=afterany:$JOB --cpus-per-task=4 --mem=16G --time=01:00:00 ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
 ```
 
-The job checks the bag and ground truth on the login node before starting Docker. Settings passed through: `BAG`, `SEQUENCE` (folder holding `applanix/`), `DATASET` (default `boreas`), `RUNS` (3), `RATE` (0.5), `METHODS` (`eidos_nogps rtabmap`) and `EVAL_ONLY`. The 18-minute drive takes about 40 minutes per test at rate 0.5, and each Eidos map is about 10 GB on disk and in RAM.
+The job checks the bag and ground truth on the login node before starting Docker. Settings passed through: `BAG`, `SEQUENCE` (folder holding `applanix/`), `DATASET` (default `boreas`), `RUNS` (3), `RATE` (0.5), `METHODS` (`eidos_nogps rtabmap`) and `EVAL_ONLY`. The 18-minute drive takes about 20 minutes per test at rate 1.0 (Eidos keeps up in real time when built Release).
 
-Outputs land in `maps/bench/results/<DATASET>/`:
+Each full-drive Eidos map is about 4 GB, and saving it needs as much again for SQLite's write-ahead log. `maps/` sits under the 20 GiB home quota, so maps and RTAB-Map databases go to `MAPS` (default `/ws/bags/bench_maps/<DATASET>/test<N>/`, on the drive behind `~/wato_monorepo/bags`); create `bags/bench_maps` on the login node and `chmod 777` it once. A job that hits the quota dies mid-save with every other job writing to home. Results land in `maps/bench/results/<DATASET>/`:
 
 ```text
 test1/
-  eidos_nogps/    eidos.map, poses.csv, poses.tum, launch/play/save/status logs
-  rtabmap/        rtabmap.db, poses.txt, launch/play/export logs
+  eidos_nogps/    poses.csv, poses.tum, launch/play/save/status logs
+  rtabmap/        poses.txt, launch/play/export logs
   results.csv, trajectories.png, errors.png, eval.log
 test2/  test3/    same as test1
 reference/        gnss.tum (the Applanix ground truth) + gnss.log
