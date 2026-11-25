@@ -1,0 +1,16 @@
+---
+version: 1
+id: oval
+map:
+  xodr: oval.xodr
+seed: 42
+ego_blueprint: vehicle.mini.cooper
+spawn:
+  index: 0
+  fallback_waypoint: true
+  fallback_z_offset_m: 0.5
+weather: ClearNoon
+traffic:
+  vehicles: 0
+  pedestrians: 0
+description: Oval OpenDRIVE Map

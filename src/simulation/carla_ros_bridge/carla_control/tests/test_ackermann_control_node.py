@@ -13,76 +13,134 @@
 # limitations under the License.
 """Tests for Ackermann control node."""
 
-from unittest.mock import MagicMock
+import time
+import unittest
+from types import MethodType, SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+from ackermann_msgs.msg import AckermannDrive
+from carla_control.ackermann_control_node import AckermannControlNode
+from rclpy.time import Time
 
 
-class TestAckermannControlNode:
-    """Tests for AckermannControlNode class."""
+class TestAckermannControlConversion(unittest.TestCase):
+    """Exercise the bridge callback without starting ROS or contacting CARLA."""
 
-    def test_apply_stop_control_logic(self):
-        """Test stop control applies correct values."""
-        mock_control = MagicMock()
-        mock_control.throttle = 0.0
-        mock_control.brake = 1.0
-        mock_control.steer = 0.0
+    def make_node(self, command):
+        return SimpleNamespace(
+            ego_vehicle=MagicMock(),
+            control_enabled=True,
+            last_command=command,
+            last_command_time=Time(seconds=10.0),
+            last_command_wall=99.9,
+            get_clock=lambda: SimpleNamespace(now=lambda: Time(seconds=10.1)),
+            get_parameter=lambda _: SimpleNamespace(value=0.5),
+            get_logger=MagicMock(),
+            _apply_stop_control=MagicMock(),
+        )
 
-        # Verify stop control structure
-        assert mock_control.throttle == 0.0
-        assert mock_control.brake == 1.0
-        assert mock_control.steer == 0.0
+    def test_ros_turn_direction_is_converted_once(self):
+        for steering, speed in ((0.2, 3.0), (-0.2, 3.0), (0.0, 3.0), (0.2, -1.0)):
+            with self.subTest(steering=steering, speed=speed):
+                command = AckermannDrive(
+                    steering_angle=steering,
+                    steering_angle_velocity=0.4,
+                    speed=speed,
+                    acceleration=1.5,
+                    jerk=0.7,
+                )
+                node = self.make_node(command)
+                with patch.object(time, "monotonic", return_value=100.0):
+                    AckermannControlNode.control_timer_callback(node)
+
+                node.ego_vehicle.apply_ackermann_control.assert_called_once()
+                applied = node.ego_vehicle.apply_ackermann_control.call_args.args[0]
+                self.assertAlmostEqual(applied.steer, -command.steering_angle)
+                self.assertAlmostEqual(
+                    applied.steer_speed, command.steering_angle_velocity
+                )
+                self.assertAlmostEqual(applied.speed, command.speed)
+                self.assertAlmostEqual(applied.acceleration, command.acceleration)
+                self.assertAlmostEqual(applied.jerk, command.jerk)
+                node._apply_stop_control.assert_not_called()
+                node.get_logger.assert_not_called()
+
+    def test_closed_gate_does_not_apply_a_command(self):
+        node = self.make_node(AckermannDrive(steering_angle=0.2, speed=3.0))
+        node.control_enabled = False
+
+        AckermannControlNode.control_timer_callback(node)
+
+        node.ego_vehicle.apply_ackermann_control.assert_not_called()
+
+    def test_stale_command_still_stops(self):
+        node = self.make_node(AckermannDrive(steering_angle=0.2, speed=3.0))
+        with patch.object(time, "monotonic", return_value=101.0):
+            AckermannControlNode.control_timer_callback(node)
+
+        node._apply_stop_control.assert_called_once()
+        node.ego_vehicle.apply_ackermann_control.assert_not_called()
 
 
-class TestAckermannControlParameters:
-    """Tests for parameter handling."""
+class TestAttemptControlBinding(unittest.TestCase):
+    def make_node(self):
+        node = SimpleNamespace(
+            command_generation=0,
+            command_subscription=None,
+            control_enabled=False,
+            create_subscription=MagicMock(),
+            destroy_subscription=MagicMock(),
+            command_callback=MagicMock(),
+        )
+        for method in ("_subscribe_commands", "_command_for_generation"):
+            setattr(
+                node, method, MethodType(getattr(AckermannControlNode, method), node)
+            )
+        return node
 
-    def test_default_parameter_values(self):
-        """Test expected default parameter values."""
-        defaults = {
-            "carla_host": "localhost",
-            "carla_port": 2000,
-            "carla_timeout": 10.0,
-            "role_name": "ego_vehicle",
-            "command_timeout": 0.5,
-            "control_rate": 50.0,
-        }
+    def test_previous_source_is_fenced_even_after_clock_rewinds(self):
+        node = self.make_node()
+        for attempt in ("old", "new"):
+            response = AckermannControlNode.bind_control_callback(
+                node,
+                SimpleNamespace(command_topic=f"/sim/attempts/{attempt}/command"),
+                SimpleNamespace(),
+            )
+            self.assertTrue(response.success)
+            if attempt == "old":
+                old_callback = node.create_subscription.call_args.args[2]
+        new_callback = node.create_subscription.call_args.args[2]
+        node.control_enabled = True
+        # Equal or future timestamps cannot turn an old source into this attempt.
+        message = SimpleNamespace(
+            header=SimpleNamespace(stamp=SimpleNamespace(sec=100))
+        )
+        old_callback(message)
+        node.command_callback.assert_not_called()
+        new_callback(message)
+        node.command_callback.assert_called_once_with(message)
+        node.destroy_subscription.assert_called_once()
 
-        assert defaults["carla_host"] == "localhost"
-        assert defaults["carla_port"] == 2000
-        assert defaults["carla_timeout"] == 10.0
-        assert defaults["role_name"] == "ego_vehicle"
-        assert defaults["command_timeout"] == 0.5
-        assert defaults["control_rate"] == 50.0
+    def test_cannot_rebind_an_enabled_gate(self):
+        node = self.make_node()
+        node.control_enabled = True
+        response = AckermannControlNode.bind_control_callback(
+            node,
+            SimpleNamespace(command_topic="/sim/attempts/new/command"),
+            SimpleNamespace(),
+        )
+        self.assertFalse(response.success)
+        node.create_subscription.assert_not_called()
 
-    def test_control_rate_to_period(self):
-        """Test control rate to timer period conversion."""
-        control_rate = 50.0
-        expected_period = 1.0 / control_rate
-        assert abs(expected_period - 0.02) < 1e-10
-
-
-class TestCommandTimeout:
-    """Tests for command timeout logic."""
-
-    def test_timeout_detection(self):
-        """Test timeout is detected correctly."""
-        timeout = 0.5
-        time_since_command = 0.6  # Exceeds timeout
-
-        is_timed_out = time_since_command > timeout
-        assert is_timed_out is True
-
-    def test_no_timeout(self):
-        """Test no timeout when command is recent."""
-        timeout = 0.5
-        time_since_command = 0.3  # Within timeout
-
-        is_timed_out = time_since_command > timeout
-        assert is_timed_out is False
-
-    def test_timeout_boundary(self):
-        """Test timeout at exact boundary."""
-        timeout = 0.5
-        time_since_command = 0.5  # Exactly at timeout
-
-        is_timed_out = time_since_command > timeout
-        assert is_timed_out is False  # Not greater than, so not timed out
+    def test_only_attempt_topics_are_accepted(self):
+        for topic in (
+            "/carla/ackermann_control/command",
+            "/sim/attempts/../command",
+            "",
+        ):
+            node = self.make_node()
+            response = AckermannControlNode.bind_control_callback(
+                node, SimpleNamespace(command_topic=topic), SimpleNamespace()
+            )
+            self.assertFalse(response.success)
+            node.create_subscription.assert_not_called()

@@ -11,13 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Base class for CARLA scenario plugins."""
+"""Reusable CARLA world primitives and scoped actor ownership."""
 
 import random
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 try:
     import carla
@@ -26,16 +26,17 @@ except ImportError:
 
 
 class ScenarioBase(ABC):
-    """Abstract base class for scenario plugins."""
+    """Shared interface for CARLA world implementations."""
 
     def __init__(self):
         self.client: Optional["carla.Client"] = None
         self.world: Optional["carla.World"] = None
         self.logger = None  # Set by scenario server
-        # Recorded at spawn for ScenarioServerNode.reset_ego_callback.
-        self.ego_vehicle: Optional["carla.Vehicle"] = None
-        self.ego_spawn_point: Optional["carla.Transform"] = None
         self.xodr_map_directory: Optional[Path] = None
+        self.owned_actors = []
+        self.ego_vehicle = None
+        self.ego_spawn_point = None
+        self.advance_world = None
 
     def _log(self, msg: str, level: str = "info") -> None:
         """Log using ROS logger if available, otherwise print."""
@@ -205,6 +206,7 @@ class ScenarioBase(ABC):
             self._log("Failed to spawn ego vehicle", "error")
             return None
 
+        self.owned_actors.append(ego_vehicle)
         # Keep the pose by value: callers mutate the carla.Transform they pass in (the oval
         # scenario adds a z offset), so storing the reference would let the saved pose drift.
         self.ego_vehicle = ego_vehicle
@@ -272,7 +274,7 @@ class ScenarioBase(ABC):
             blueprint.set_attribute("role_name", "npc")
             batch.append(carla.command.SpawnActor(blueprint, points[i]))
 
-        results = self.client.apply_batch_sync(batch, True)
+        results = self.client.apply_batch_sync(batch, False)
 
         # Collect spawned vehicles
         vehicles = []
@@ -282,6 +284,7 @@ class ScenarioBase(ABC):
                 actor = self.world.get_actor(result.actor_id)
                 if actor:
                     vehicles.append(actor)
+                    self.owned_actors.append(actor)
                     if autopilot:
                         actor.set_autopilot(True)
             else:
@@ -348,13 +351,14 @@ class ScenarioBase(ABC):
 
             batch.append(carla.command.SpawnActor(blueprint, spawn_points[i]))
 
-        results = self.client.apply_batch_sync(batch, True)
+        results = self.client.apply_batch_sync(batch, False)
 
         # Collect spawned walkers
         walkers_list = []
         final_speeds = []
         for i, result in enumerate(results):
             if not result.error:
+                self.owned_actors.append(self.world.get_actor(result.actor_id))
                 walkers_list.append({"id": result.actor_id})
                 final_speeds.append(walker_speeds[i])
 
@@ -372,11 +376,12 @@ class ScenarioBase(ABC):
                 )
             )
 
-        results = self.client.apply_batch_sync(batch, True)
+        results = self.client.apply_batch_sync(batch, False)
 
         for i, result in enumerate(results):
             if not result.error:
                 walkers_list[i]["con"] = result.actor_id
+                self.owned_actors.append(self.world.get_actor(result.actor_id))
             else:
                 walkers_list[i]["con"] = None
 
@@ -396,10 +401,11 @@ class ScenarioBase(ABC):
         all_actors = self.world.get_actors(all_ids)
 
         # Wait for next tick before starting controllers
-        if self.world.get_settings().synchronous_mode:
-            self.world.tick()
-        else:
-            self.world.wait_for_tick()
+        if self.advance_world is None:
+            raise RuntimeError(
+                "Scenario setup requires the scenario server tick authority"
+            )
+        self.advance_world()
 
         # Set crossing factor
         self.world.set_pedestrians_cross_factor(cross_roads_factor)
@@ -430,35 +436,22 @@ class ScenarioBase(ABC):
 
     @abstractmethod
     def get_name(self) -> str:
-        """Return scenario name."""
+        """Return the world identifier."""
         pass
 
     @abstractmethod
     def get_description(self) -> str:
-        """Return scenario description."""
+        """Return the world description."""
         pass
 
     @abstractmethod
     def initialize(self, client: "carla.Client") -> bool:
-        """
-        Initialize scenario with CARLA client.
-
-        Args:
-            client: CARLA client instance
-
-        Returns:
-            True if initialization successful, False otherwise
-        """
+        """Connect this world to the supplied CARLA client."""
         pass
 
     @abstractmethod
     def setup(self) -> bool:
-        """
-        Set up CARLA world for this scenario.
-
-        Returns:
-            True if setup successful, False otherwise
-        """
+        """Load world content and register every spawned actor for cleanup."""
         pass
 
     def execute(self) -> None:
@@ -466,5 +459,24 @@ class ScenarioBase(ABC):
         pass
 
     def cleanup(self) -> None:
-        """Release scenario-owned actors before the server resets the world."""
-        pass
+        """Release only owned actors, retaining failed handles for a close retry."""
+        remaining = []
+        for actor in reversed(self.owned_actors):
+            if actor is None or not actor.is_alive:
+                continue
+            try:
+                if actor.type_id.startswith(("controller.", "sensor.")):
+                    actor.stop()
+            except RuntimeError as error:
+                self._log(f"Could not stop owned actor {actor.id}: {error}", "warn")
+            try:
+                if not actor.destroy():
+                    remaining.append(actor)
+            except RuntimeError as error:
+                remaining.append(actor)
+                self._log(f"Could not destroy owned actor {actor.id}: {error}", "warn")
+        self.owned_actors = list(reversed(remaining))
+        if remaining:
+            raise RuntimeError(
+                f"Failed to destroy {len(remaining)} owned actors; retry close"
+            )

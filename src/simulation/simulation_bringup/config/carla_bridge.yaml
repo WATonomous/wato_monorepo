@@ -6,14 +6,14 @@
   ros__parameters:
     carla_host: "localhost"
     carla_timeout: 60.0
-    # The scenario:= launch argument selects the initial manual world.
+    # Selected by the scenario:= launch argument.
     xodr_map_directory: "/opt/watonomous/maps/xodr"
     # Simulation timing (see https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/)
     carla_fps: 60.0                  # Sets fixed_delta_seconds = 1/fps
     synchronous_mode: true           # Server waits for client tick
     no_rendering_mode: false         # Disable rendering for faster simulation
     substepping: true                # Enable physics substepping
-    max_substep_delta_time: 0.001     # Max physics substep time (seconds)
+    max_substep_delta_time: 0.002     # Max physics substep time (seconds)
     max_substeps: 10                  # Max physics substeps per frame
 
 # Ackermann Control Configuration

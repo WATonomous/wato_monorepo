@@ -38,13 +38,13 @@ Each node connects to CARLA independently rather than sharing a connection. This
 
 The tradeoff is multiple TCP connections to CARLA, but this hasn't been a bottleneck.
 
-### Scenarios as Loadable Modules
+### YAML Playgrounds and Scored Scenarios
 
-Scenarios are Python classes loaded by module path, not hardcoded in the server. Users can define custom scenarios in their own packages and load them by path (e.g., `my_package.scenarios.my_scenario`).
+Manual playgrounds and scored scenarios are installed YAML catalogs. Shared Python worlds perform CARLA operations; the runner activates scoring only for scenarios. The seven historical module-style world selectors remain explicit aliases, rather than dynamically imported plugins. See [the catalog guide](carla_scenarios/README.md) for definitions and extension points.
 
 ## Package Structure
 
-```
+```text
 carla_ros_bridge/
 ├── carla_bringup/        # Launch + config (entry point for users)
 ├── carla_scenarios/      # World state management
@@ -63,7 +63,7 @@ carla_ros_bridge/
 
 ### Node Lifecycle
 
-```
+```text
 on_configure:  Connect to CARLA, find ego vehicle, create publishers
 on_activate:   Start timers, spawn sensors, register callbacks
 on_deactivate: Stop timers, destroy sensors, brake vehicle

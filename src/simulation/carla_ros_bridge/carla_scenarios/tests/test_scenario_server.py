@@ -13,126 +13,117 @@
 # limitations under the License.
 """Tests for scenario server node."""
 
+import contextlib
+import hashlib
+import json
+import unittest
+from pathlib import Path
+from unittest.mock import patch
 
-class TestScenarioServerParameters:
-    """Tests for scenario server parameters."""
+from carla_scenarios.scenario_server_node import load_map_provenance
 
-    def test_default_parameter_values(self):
-        """Test expected default parameter values."""
-        defaults = {
-            "carla_host": "localhost",
-            "carla_port": 2000,
-            "carla_timeout": 60.0,
-            "initial_scenario": "carla_scenarios.scenarios.default_scenario",
-            "carla_fps": 60.0,
-            "synchronous_mode": False,
-            "no_rendering_mode": False,
-            "substepping": True,
-            "max_substep_delta_time": 0.01,
-            "max_substeps": 10,
+
+class TestMapProvenance(unittest.TestCase):
+    """Verify existing records without creating or changing any map files."""
+
+    def setUp(self):
+        self.map_path = Path("/maps/xodr/oval.xodr")
+        self.osm_path = Path("/maps/osm/oval.osm")
+        self.metadata_path = Path(str(self.map_path) + ".metadata.json")
+        self.mapping_path = self.map_path.with_suffix(".mapping.json")
+        self.files = {self.map_path: b"converted map", self.osm_path: b"source map"}
+        self.record = {
+            "osm_sha256": hashlib.sha256(self.files[self.osm_path]).hexdigest(),
+            "xodr_sha256": hashlib.sha256(self.files[self.map_path]).hexdigest(),
         }
+        self.files[self.mapping_path] = json.dumps(self.record).encode()
 
-        assert defaults["carla_host"] == "localhost"
-        assert defaults["carla_port"] == 2000
-        assert defaults["carla_fps"] == 60.0
-        assert defaults["synchronous_mode"] is False
-        assert defaults["substepping"] is True
-        assert defaults["max_substeps"] == 10
+    def load(self, *, required=True):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    Path,
+                    "is_file",
+                    autospec=True,
+                    side_effect=lambda p: p in self.files,
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    Path,
+                    "read_bytes",
+                    autospec=True,
+                    side_effect=lambda p: self.files[p],
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    Path,
+                    "read_text",
+                    autospec=True,
+                    side_effect=lambda p: self.files[p].decode(),
+                )
+            )
+            return load_map_provenance(self.map_path, required=required)
 
-    def test_fps_to_fixed_delta(self):
-        """Test FPS to fixed_delta_seconds conversion."""
-        fps = 60.0
-        fixed_delta = 1.0 / fps
+    def test_existing_converter_record_verifies_both_maps(self):
+        provenance = self.load()
 
-        assert abs(fixed_delta - 0.016666666666666666) < 1e-15
+        self.assertEqual(provenance["record_type"], "converter_mapping")
+        self.assertEqual(provenance["source_sha256"], self.record["osm_sha256"])
+        self.assertEqual(provenance["xodr_sha256"], self.record["xodr_sha256"])
+        self.assertEqual(provenance["record_path"], str(self.mapping_path))
+        self.assertEqual(
+            provenance["record_sha256"],
+            hashlib.sha256(self.files[self.mapping_path]).hexdigest(),
+        )
+        self.assertNotIn("converter", provenance)
+        self.assertNotIn("cache_key", provenance)
 
-    def test_timer_period_sync_mode(self):
-        """Test timer period in sync mode."""
-        sync_mode = True
-        carla_fps = 60.0
+    def test_wrapper_metadata_takes_precedence(self):
+        metadata = {
+            "source_sha256": self.record["osm_sha256"],
+            "xodr_sha256": self.record["xodr_sha256"],
+            "converter": "recorded revision",
+        }
+        self.files[self.metadata_path] = json.dumps(metadata).encode()
+        self.files[self.mapping_path] = b"invalid legacy record"
 
-        timer_period = (1.0 / carla_fps) if sync_mode else 0.001
-        assert abs(timer_period - 1.0 / 60.0) < 1e-10
+        self.assertEqual(self.load(), metadata)
 
-    def test_timer_period_async_mode(self):
-        """Test timer period in async mode."""
-        sync_mode = False
-        carla_fps = 60.0
+    def test_bad_wrapper_metadata_does_not_fall_back_to_mapping(self):
+        self.files[self.metadata_path] = json.dumps({"xodr_sha256": "wrong"}).encode()
 
-        timer_period = (1.0 / carla_fps) if sync_mode else 0.001
-        assert timer_period == 0.001
+        with self.assertRaisesRegex(ValueError, "Converted map digest mismatch"):
+            self.load()
 
+    def test_changed_map_or_source_is_rejected(self):
+        for path, message in (
+            (self.map_path, "Converted map digest mismatch"),
+            (self.osm_path, "Lanelet2/OpenDRIVE map versions differ"),
+        ):
+            with self.subTest(path=path):
+                original = self.files[path]
+                self.files[path] = b"changed content"
+                with self.assertRaisesRegex(ValueError, message):
+                    self.load()
+                self.files[path] = original
 
-class TestWorldSettings:
-    """Tests for CARLA world settings."""
+    def test_missing_source_is_rejected(self):
+        del self.files[self.osm_path]
 
-    def test_sync_mode_fixed_delta(self):
-        """Test sync mode uses fixed delta."""
-        sync_mode = True
-        carla_fps = 60.0
+        with self.assertRaisesRegex(ValueError, "Missing Lanelet2 source map"):
+            self.load()
 
-        if sync_mode:
-            fixed_delta = 1.0 / carla_fps
-        else:
-            fixed_delta = 0.0
+    def test_missing_record_is_optional_only_when_not_required(self):
+        del self.files[self.mapping_path]
 
-        assert abs(fixed_delta - 1.0 / 60.0) < 1e-10
+        self.assertIsNone(self.load(required=False))
+        with self.assertRaisesRegex(ValueError, "Missing converted-map provenance"):
+            self.load()
 
-    def test_async_mode_variable_timestep(self):
-        """Test async mode uses variable timestep (0)."""
-        sync_mode = False
-        carla_fps = 60.0
+    def test_record_without_hashes_is_rejected(self):
+        self.files[self.mapping_path] = b"{}"
 
-        if sync_mode:
-            fixed_delta = 1.0 / carla_fps
-        else:
-            fixed_delta = 0.0
-
-        assert fixed_delta == 0.0
-
-    def test_substepping_valid_range(self):
-        """Test max_substeps is in valid range."""
-        max_substeps = 10
-        valid_range = range(1, 17)
-
-        assert max_substeps in valid_range
-
-
-class TestScenarioDiscovery:
-    """Tests for scenario discovery."""
-
-    def test_scenario_module_path_format(self):
-        """Test scenario module path format."""
-        module_path = "carla_scenarios.scenarios.light_traffic_scenario"
-        parts = module_path.split(".")
-
-        assert len(parts) == 3
-        assert parts[0] == "carla_scenarios"
-        assert parts[1] == "scenarios"
-
-    def test_scenario_name_extraction(self):
-        """Test scenario name is extracted from module."""
-        module_path = "carla_scenarios.scenarios.light_traffic_scenario"
-        scenario_name = module_path.split(".")[-1]
-
-        assert scenario_name == "light_traffic_scenario"
-
-
-class TestScenarioSwitching:
-    """Tests for scenario switching logic."""
-
-    def test_cleanup_before_load(self):
-        """Test cleanup happens before loading new scenario."""
-        steps = ["cleanup_actors", "load_map", "spawn_actors"]
-
-        assert steps[0] == "cleanup_actors"
-        assert steps[-1] == "spawn_actors"
-
-    def test_actor_cleanup_count(self):
-        """Test actor cleanup reports correct count."""
-        actors_before = 50
-        actors_removed = 50
-        actors_after = 0
-
-        assert actors_removed == actors_before
-        assert actors_after == actors_before - actors_removed
+        with self.assertRaisesRegex(ValueError, "Converted map digest mismatch"):
+            self.load()

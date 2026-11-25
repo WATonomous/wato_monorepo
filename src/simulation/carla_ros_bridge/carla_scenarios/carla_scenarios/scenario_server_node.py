@@ -12,21 +12,83 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib
+import hashlib
+import json
+import math
+import random
+import threading
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional, Dict
-import rclpy
-from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
-from rcl_interfaces.msg import ParameterDescriptor
-from carla_msgs.srv import SwitchScenario, GetAvailableScenarios
-from carla_msgs.msg import ScenarioStatus
-from std_msgs.msg import Header
-from std_srvs.srv import SetBool, Trigger
-from rosgraph_msgs.msg import Clock
+from typing import Dict, Optional
 
 import carla
+import rclpy
+from ament_index_python.packages import get_package_share_directory
 from carla_common import connect_carla
+from carla_msgs.msg import ScenarioStatus
+from carla_msgs.srv import GetAvailableScenarios, SwitchScenario
+from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rosgraph_msgs.msg import Clock
+from std_msgs.msg import Bool, Header
+from std_srvs.srv import SetBool, Trigger
+
+from carla_scenarios.definitions import (
+    LEGACY_PLAYGROUNDS,
+    load_definition,
+    world_definition,
+)
 from carla_scenarios.scenario_base import ScenarioBase
+from carla_scenarios.worlds.configured_world import ConfiguredWorld
+
+
+def load_map_provenance(map_path, *, required=False):
+    """Verify the map pair against wrapper metadata or an original converter record."""
+    metadata_path = Path(str(map_path) + ".metadata.json")
+    mapping_path = map_path.with_suffix(".mapping.json")
+    if metadata_path.is_file():
+        record_path = metadata_path
+    elif mapping_path.is_file():
+        record_path = mapping_path
+    elif required:
+        raise ValueError(
+            f"Missing converted-map provenance: expected {metadata_path} or "
+            f"{mapping_path}; provide the original conversion record for this map pair"
+        )
+    else:
+        return None
+
+    record = json.loads(record_path.read_text())
+    if not isinstance(record, dict):
+        raise ValueError(f"Expected map provenance mapping: {record_path}")
+    if record_path == mapping_path:
+        # The converter's existing record uses osm_sha256. Preserve its identity
+        # without inventing the wrapper's converter revision, options or cache key.
+        provenance = {
+            "record_type": "converter_mapping",
+            "record_path": str(record_path),
+            "record_sha256": hashlib.sha256(record_path.read_bytes()).hexdigest(),
+            "source_sha256": record.get("osm_sha256"),
+            "xodr_sha256": record.get("xodr_sha256"),
+        }
+    else:
+        provenance = record
+
+    source_path = map_path.parent.parent / "osm" / (map_path.stem + ".osm")
+    if (
+        provenance.get("xodr_sha256")
+        != hashlib.sha256(map_path.read_bytes()).hexdigest()
+    ):
+        raise ValueError(f"Converted map digest mismatch: {record_path}")
+    if not source_path.is_file():
+        raise ValueError(f"Missing Lanelet2 source map: {source_path}")
+    if (
+        provenance.get("source_sha256")
+        != hashlib.sha256(source_path.read_bytes()).hexdigest()
+    ):
+        raise ValueError(f"Lanelet2/OpenDRIVE map versions differ: {record_path}")
+    return provenance
 
 
 class ScenarioServerNode(LifecycleNode):
@@ -97,6 +159,18 @@ class ScenarioServerNode(LifecycleNode):
             ParameterDescriptor(description="Max number of physics substeps per frame"),
         )
 
+        self.declare_parameter("session_mode", False)
+
+        # A single lock serializes setup, cleanup and ticks, including pause ACK.
+        self.world_lock = threading.RLock()
+        self.experiment_services = []
+        self.control_enabled_publisher = None
+        self.collision_publisher = None
+        self.collision_sensor = None
+        self.control_gate_client = None
+        self.experiment_geometry = None
+        self.collided = False
+
         # State
         self.carla_client: Optional["carla.Client"] = None
         self.carla_world: Optional["carla.World"] = None
@@ -126,6 +200,17 @@ class ScenarioServerNode(LifecycleNode):
         substepping = self.get_parameter("substepping").value
         max_substep_delta = self.get_parameter("max_substep_delta_time").value
         max_substeps = self.get_parameter("max_substeps").value
+
+        if not math.isfinite(carla_fps) or carla_fps <= 0.0:
+            raise ValueError("carla_fps must be finite and positive")
+        if substepping and (max_substep_delta <= 0.0 or max_substeps <= 0):
+            raise ValueError("Physics substep duration and count must be positive")
+        if (
+            sync_mode
+            and substepping
+            and 1.0 / carla_fps > max_substep_delta * max_substeps + 1e-9
+        ):
+            raise ValueError("fixed_delta_seconds exceeds the physics substep budget")
 
         # Sync mode: fixed timestep, server waits for tick()
         # Async mode: variable timestep
@@ -170,7 +255,18 @@ class ScenarioServerNode(LifecycleNode):
         # Connect to CARLA
         try:
             self.carla_client = connect_carla(host, port, timeout)
-            self.get_logger().info(f"Connected to CARLA at {host}:{port}")
+            server_version = self.carla_client.get_server_version()
+            client_version = self.carla_client.get_client_version()
+            if (
+                self.get_parameter("session_mode").value
+                and server_version != client_version
+            ):
+                raise ValueError(
+                    f"CARLA client {client_version} != server {server_version}"
+                )
+            self.get_logger().info(
+                f"Connected to CARLA at {host}:{port}, server={server_version}, client={client_version}"
+            )
 
             # Get world and configure simulation mode
             self.carla_world = self.carla_client.get_world()
@@ -211,12 +307,50 @@ class ScenarioServerNode(LifecycleNode):
             callback_group=self.service_cb_group,
         )
 
-        self.reset_ego_service = self.create_service(
-            Trigger,
-            "~/reset_ego",
-            self.reset_ego_callback,
-            callback_group=self.service_cb_group,
+        qos = QoSProfile(
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=ReliabilityPolicy.RELIABLE,
         )
+        self.control_enabled_publisher = self.create_publisher(
+            Bool, "/carla/control_enabled", qos
+        )
+        self.collision_publisher = self.create_publisher(
+            Bool, "/carla/experiment_collision", qos
+        )
+        self._publish_control_enabled(not self.get_parameter("session_mode").value)
+        self.experiment_services = [
+            self.create_service(
+                Trigger,
+                "~/reset_ego",
+                self.reset_ego_callback,
+                callback_group=self.service_cb_group,
+            ),
+            self.create_service(
+                SwitchScenario,
+                "~/prepare_experiment",
+                self.prepare_experiment_callback,
+                callback_group=self.service_cb_group,
+            ),
+            self.create_service(
+                Trigger,
+                "~/hold",
+                self.hold_callback,
+                callback_group=self.service_cb_group,
+            ),
+            self.create_service(
+                Trigger,
+                "~/release",
+                self.release_callback,
+                callback_group=self.service_cb_group,
+            ),
+            self.create_service(
+                Trigger,
+                "~/close_experiment",
+                self.close_experiment_callback,
+                callback_group=self.service_cb_group,
+            ),
+        ]
 
         # Create client for lifecycle manager's prepare_for_scenario_switch service
         # Uses namespace-relative path - both nodes share the same namespace
@@ -224,6 +358,12 @@ class ScenarioServerNode(LifecycleNode):
         self.prepare_switch_client = self.create_client(
             Trigger,
             "prepare_for_scenario_switch",
+            callback_group=self.client_cb_group,
+        )
+
+        self.control_gate_client = self.create_client(
+            SetBool,
+            "/carla/ackermann_control/set_enabled",
             callback_group=self.client_cb_group,
         )
 
@@ -237,14 +377,20 @@ class ScenarioServerNode(LifecycleNode):
         """Activate lifecycle callback."""
         self.get_logger().info("Activating...")
 
-        # Create tick timer before loading scenario (sync mode needs ticks for spawning)
+        # Plugins request controlled setup ticks through this server. Start the
+        # recurring timer only after setup succeeds, avoiding orphaned timers
+        # when lifecycle activation is retried.
         sync_mode = self.get_parameter("synchronous_mode").value
         carla_fps = self.get_parameter("carla_fps").value
         timer_period = (1.0 / carla_fps) if sync_mode else 0.001
-        self.tick_timer = self.create_timer(timer_period, self._tick_callback)
+        self.paused = self.get_parameter("session_mode").value
 
         # Load initial scenario
-        initial_scenario = self.get_parameter("initial_scenario").value
+        initial_scenario = (
+            ""
+            if self.get_parameter("session_mode").value
+            else self.get_parameter("initial_scenario").value
+        )
         if initial_scenario:
             success = self._load_scenario(initial_scenario)
             if not success:
@@ -253,6 +399,7 @@ class ScenarioServerNode(LifecycleNode):
                 )
                 return TransitionCallbackReturn.FAILURE
 
+        self.tick_timer = self.create_timer(timer_period, self._tick_callback)
         self.get_logger().info("Activation complete")
         return super().on_activate(state)
 
@@ -262,7 +409,7 @@ class ScenarioServerNode(LifecycleNode):
 
         # Stop tick timer
         if self.tick_timer:
-            self.tick_timer.cancel()
+            self.destroy_timer(self.tick_timer)
             self.tick_timer = None
 
         # Unload current scenario
@@ -296,6 +443,22 @@ class ScenarioServerNode(LifecycleNode):
             self.destroy_client(self.prepare_switch_client)
             self.prepare_switch_client = None
 
+        if self.pause_service:
+            self.destroy_service(self.pause_service)
+            self.pause_service = None
+        for service in self.experiment_services:
+            self.destroy_service(service)
+        self.experiment_services.clear()
+        for publisher in (self.control_enabled_publisher, self.collision_publisher):
+            if publisher:
+                self.destroy_publisher(publisher)
+        self.control_enabled_publisher = None
+        self.collision_publisher = None
+
+        if self.control_gate_client:
+            self.destroy_client(self.control_gate_client)
+            self.control_gate_client = None
+
         # Disconnect from CARLA
         self.carla_client = None
 
@@ -308,25 +471,35 @@ class ScenarioServerNode(LifecycleNode):
         return TransitionCallbackReturn.SUCCESS
 
     def _tick_callback(self):
-        """Timer callback for world synchronization and status publishing."""
+        """Serialize ticks so a successful pause acknowledges a settled boundary."""
+        with self.world_lock:
+            self._tick_locked()
+
+    def _advance_world(self):
+        """Only this server advances CARLA, including controlled plugin setup ticks."""
+        with self.world_lock:
+            self.carla_world = self.carla_client.get_world()
+            if self.get_parameter("synchronous_mode").value:
+                self.carla_world.tick()
+            else:
+                self.carla_world.wait_for_tick()
+            if self.clock_publisher:
+                sim_time = self.carla_world.get_snapshot().timestamp.elapsed_seconds
+                clock_msg = Clock()
+                clock_msg.clock.sec = int(sim_time)
+                clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
+                self.clock_publisher.publish(clock_msg)
+
+    def _tick_locked(self):
+        self._publish_scenario_status()
+        if self.collision_sensor and self.collision_publisher:
+            self.collision_publisher.publish(Bool(data=self.collided))
         if self.paused:
             return
 
         if self.carla_world:
             try:
-                if self.get_parameter("synchronous_mode").value:
-                    self.carla_world.tick()
-                else:
-                    self.carla_world.wait_for_tick()
-
-                # Publish simulation clock from CARLA timestamp
-                if self.clock_publisher:
-                    snapshot = self.carla_world.get_snapshot()
-                    sim_time = snapshot.timestamp.elapsed_seconds
-                    clock_msg = Clock()
-                    clock_msg.clock.sec = int(sim_time)
-                    clock_msg.clock.nanosec = int((sim_time % 1.0) * 1e9)
-                    self.clock_publisher.publish(clock_msg)
+                self._advance_world()
             except Exception as e:
                 self.get_logger().warn(f"Error waiting for tick: {e}")
 
@@ -337,6 +510,9 @@ class ScenarioServerNode(LifecycleNode):
             except Exception as e:
                 self.get_logger().error(f"Error executing scenario: {e}")
 
+        self._publish_scenario_status()
+
+    def _publish_scenario_status(self):
         # Publish status
         if self.status_publisher and self.status_publisher.is_activated:
             status_msg = ScenarioStatus()
@@ -352,59 +528,292 @@ class ScenarioServerNode(LifecycleNode):
 
     def pause_callback(self, request, response):
         """Handle pause service request. data=True pauses, data=False resumes."""
-        self.paused = request.data
-        state = "paused" if self.paused else "resumed"
-        self.get_logger().info(f"Simulation {state}")
-        response.success = True
-        response.message = state
+        try:
+            with self.world_lock:
+                if not request.data and self.get_parameter("session_mode").value:
+                    if not self.current_scenario:
+                        response.success = False
+                        response.message = (
+                            "No experiment loaded; run watod sim open first."
+                        )
+                        return response
+                self.paused = request.data
+                held = (
+                    isinstance(self.current_scenario, ConfiguredWorld)
+                    and self.current_scenario.held
+                )
+                self._publish_control_enabled(not self.paused and not held)
+                response.success = True
+                response.message = (
+                    "paused at tick boundary" if self.paused else "resumed"
+                )
+                return response
+        except Exception as error:
+            response.success = False
+            response.message = str(error)
+            return response
+
+    def _publish_control_enabled(self, enabled):
+        # Only the acknowledged service controls the command gate. The latched
+        # topic reports state; delayed topic callbacks cannot reopen the gate.
+        if self.control_gate_client and self.control_gate_client.service_is_ready():
+            future = self.control_gate_client.call_async(SetBool.Request(data=enabled))
+            finished = threading.Event()
+            future.add_done_callback(lambda _: finished.set())
+            if not finished.wait(5.0):
+                self.control_gate_client.remove_pending_request(future)
+                raise RuntimeError(
+                    "/carla/ackermann_control/set_enabled exceeded 5s; run watod sim close"
+                )
+            result = future.result()
+            if result is None or not result.success:
+                raise RuntimeError("CARLA command fence rejected the transition")
+        if self.control_enabled_publisher:
+            self.control_enabled_publisher.publish(Bool(data=enabled))
+
+    def _cleanup_bridge(self):
+        """Wait boundedly for old actor handles to be released before world reload."""
+        if not self.current_scenario:
+            return
+        timeout = float(self.get_parameter("carla_timeout").value)
+        if not self.prepare_switch_client.wait_for_service(
+            timeout_sec=min(timeout, 10.0)
+        ):
+            raise RuntimeError(
+                "Missing /carla/prepare_for_scenario_switch; run watod sim stop then setup"
+            )
+        future = self.prepare_switch_client.call_async(Trigger.Request())
+        finished = threading.Event()
+        future.add_done_callback(lambda _: finished.set())
+        if not finished.wait(timeout):
+            self.prepare_switch_client.remove_pending_request(future)
+            raise RuntimeError(
+                f"/carla/prepare_for_scenario_switch exceeded {timeout}s"
+            )
+        result = future.result()
+        if result is None or not result.success:
+            raise RuntimeError("Bridge cleanup failed before world switch")
+
+    def _read_playground(self, name, *, kind="playground"):
+        """Preflight installed configuration and assets before changing the world."""
+        directory = Path(get_package_share_directory("carla_scenarios")) / "config"
+        definition = world_definition(directory, kind, name)
+        map_path = None
+        source = None
+        provenance = None
+        if "xodr" in definition["map"]:
+            map_path = (
+                Path(self.get_parameter("xodr_map_directory").value)
+                / definition["map"]["xodr"]
+            )
+            source = map_path.read_text(encoding="utf-8")
+            document = ET.fromstring(source)
+            if document.tag != "OpenDRIVE" or not document.findall("road"):
+                raise ValueError(f"Invalid OpenDRIVE document: {map_path}")
+            provenance = load_map_provenance(
+                map_path, required=definition.get("require_map_provenance", False)
+            )
+        weather = definition.get("weather", "ClearNoon")
+        if not hasattr(carla.WeatherParameters, weather):
+            raise ValueError(f"Unknown CARLA weather preset: {weather}")
+        self.carla_world = self.carla_client.get_world()
+        library = self.carla_world.get_blueprint_library()
+        blueprints = [definition.get("ego_blueprint", "vehicle.mini.cooper")]
+        if definition.get("parked"):
+            blueprints.append(
+                definition["parked"].get("blueprint", "vehicle.mini.cooper")
+            )
+        for blueprint in blueprints:
+            if not library.filter(blueprint):
+                raise ValueError(f"CARLA blueprint unavailable: {blueprint}")
+        world = ConfiguredWorld(
+            definition,
+            map_path.resolve() if map_path else None,
+            held=kind == "scenario",
+        )
+        world.provenance = provenance
+        world.logger = self.get_logger()
+        world.xodr_map_directory = Path(self.get_parameter("xodr_map_directory").value)
+        # Validate fixture geometry offline before unloading the current world.
+        if source and definition.get("spawn", {}).get("straight_start"):
+            waypoint = world._spawn_waypoint(carla.Map(name, source))
+            distances = [
+                definition.get("goal_distance_m", 0.0),
+                definition.get("parked", {}).get("distance_m", 0.0),
+            ]
+            for distance in distances:
+                if distance > 0.0 and len(waypoint.next(float(distance))) != 1:
+                    raise ValueError(
+                        f"Actor or goal at {distance} m leaves the continuous lane"
+                    )
+        return world
+
+    def prepare_experiment_callback(self, request, response):
+        """Load a reviewed playground while holding the ego for ROS readiness."""
+        response.previous_scenario = self.current_scenario_name
+        try:
+            with self.world_lock:
+                selector = request.scenario_name
+                kind, name = (
+                    selector.split("/", 1)
+                    if "/" in selector
+                    else ("playground", selector)
+                )
+                scenario = self._read_playground(name, kind=kind)
+            self._cleanup_bridge()
+            with self.world_lock:
+                self._publish_control_enabled(False)
+                self.paused = True
+                self._unload_scenario()
+                self.current_scenario_name = ""
+                self._publish_scenario_status()
+                seed = int(scenario.definition.get("seed", 42))
+                random.seed(seed)
+                scenario.advance_world = self._advance_world
+                if not scenario.initialize(self.carla_client):
+                    raise RuntimeError("World initialization failed")
+                # Register ownership before setup so partial failures are cleanable.
+                self.current_scenario = scenario
+                if not scenario.setup():
+                    raise RuntimeError("World setup failed")
+                self.carla_world = self.carla_client.get_world()
+                self._apply_simulation_settings()
+                self.current_scenario_name = request.scenario_name
+                if kind == "scenario":
+                    sensor_bp = self.carla_world.get_blueprint_library().find(
+                        "sensor.other.collision"
+                    )
+                    self.collision_sensor = self.carla_world.spawn_actor(
+                        sensor_bp, carla.Transform(), attach_to=scenario.ego_vehicle
+                    )
+                    scenario.owned_actors.append(self.collision_sensor)
+                    self.collided = False
+                    self.collision_publisher.publish(Bool(data=False))
+                    sensor_id = self.collision_sensor.id
+                    self.collision_sensor.listen(
+                        lambda event: self._record_collision(sensor_id)
+                    )
+                settings = self.carla_world.get_settings()
+                scenario.geometry["settings"] = {
+                    "synchronous_mode": settings.synchronous_mode,
+                    "fixed_delta_seconds": settings.fixed_delta_seconds,
+                    "substepping": settings.substepping,
+                    "max_substep_delta_time": settings.max_substep_delta_time,
+                    "max_substeps": settings.max_substeps,
+                }
+                scenario.geometry["map"]["provenance"] = scenario.provenance
+                scenario.geometry["map_source_sha256"] = (
+                    scenario.provenance.get("source_sha256")
+                    if scenario.provenance
+                    else None
+                )
+                scenario.geometry["server_version"] = (
+                    self.carla_client.get_server_version()
+                )
+                scenario.geometry["client_version"] = (
+                    self.carla_client.get_client_version()
+                )
+                scenario.geometry["sim_time_s"] = (
+                    self.carla_world.get_snapshot().timestamp.elapsed_seconds
+                )
+                self.experiment_geometry = scenario.geometry
+                # Ego physics is held; ticks may now populate TF, odometry/sensors.
+                self.paused = False
+                if kind == "playground":
+                    self._publish_control_enabled(True)
+                response.success = True
+                response.message = json.dumps(self.experiment_geometry)
+        except Exception as error:
+            self.get_logger().error(f"Experiment preparation failed: {error}")
+            response.success = False
+            response.message = str(error)
+            # A preflight failure has no side effects. A setup failure owns only
+            # the partially prepared plugin, which remains closeable for recovery.
+        return response
+
+    def _record_collision(self, sensor_id):
+        # CARLA sensor callbacks may arrive after a world switch. Ignore an old
+        # sensor's queued event rather than attributing it to the next attempt.
+        if self.collision_sensor and self.collision_sensor.id == sensor_id:
+            self.collided = True
+
+    def hold_callback(self, request, response):
+        try:
+            with self.world_lock:
+                if not isinstance(self.current_scenario, ConfiguredWorld):
+                    response.success = False
+                    response.message = "No prepared experiment"
+                    return response
+                self._publish_control_enabled(False)
+                self.current_scenario.set_held(True)
+                response.success = True
+                response.message = "ego held stationary"
+                return response
+        except Exception as error:
+            response.success = False
+            response.message = str(error)
+            return response
+
+    def release_callback(self, request, response):
+        try:
+            with self.world_lock:
+                if not isinstance(self.current_scenario, ConfiguredWorld):
+                    response.success = False
+                    response.message = "No prepared experiment"
+                    return response
+                self.current_scenario.set_held(False)
+                self._publish_control_enabled(not self.paused)
+                response.success = True
+                response.message = "ego released"
+                return response
+        except Exception as error:
+            response.success = False
+            response.message = str(error)
+            return response
+
+    def close_experiment_callback(self, request, response):
+        try:
+            self._cleanup_bridge()
+            with self.world_lock:
+                self._publish_control_enabled(False)
+                self.paused = True
+                self._unload_scenario()
+                self.current_scenario_name = ""
+                self.experiment_geometry = None
+                self._publish_scenario_status()
+            response.success = True
+            response.message = "experiment released; session remains available"
+        except Exception as error:
+            response.success = False
+            response.message = str(error)
         return response
 
     def switch_scenario_callback(self, request, response):
-        """Handle switch scenario service request."""
-        self.get_logger().info(
-            f"Received switch_scenario request: {request.scenario_name}"
-        )
-
+        """Keep the legacy service and selectors as aliases for manual worlds."""
         previous = self.current_scenario_name
-
-        # Request lifecycle manager to cleanup managed nodes first
-        if self.prepare_switch_client and self.current_scenario:
-            if self.prepare_switch_client.service_is_ready():
-                self.get_logger().info(
-                    "Requesting lifecycle manager to cleanup nodes..."
-                )
-                try:
-                    result = self.prepare_switch_client.call(Trigger.Request())
-                    if result.success:
-                        self.get_logger().info("Lifecycle manager cleanup complete")
-                    else:
-                        self.get_logger().warn(
-                            f"Lifecycle manager cleanup failed: {result.message}"
-                        )
-                except Exception as e:
-                    self.get_logger().warn(f"Error calling lifecycle manager: {e}")
-            else:
-                self.get_logger().warn(
-                    "Lifecycle manager service not ready, proceeding anyway"
-                )
-        else:
-            self.get_logger().info("No current scenario, skipping lifecycle cleanup")
-
-        self.get_logger().info("Proceeding with scenario load...")
-
-        success = self._load_scenario(request.scenario_name)
-
-        response.success = success
+        try:
+            world = self._read_playground(request.scenario_name)
+            self._cleanup_bridge()
+            with self.world_lock:
+                response.success = self._install_world(world, request.scenario_name)
+        except Exception as error:
+            response.success = False
+            response.message = str(error)
         response.previous_scenario = previous
-        response.message = (
-            f"Switched to {request.scenario_name}"
-            if success
-            else "Failed to switch scenario"
-        )
-
+        if response.success:
+            response.message = f"Switched to {request.scenario_name}"
         return response
 
     def reset_ego_callback(self, request, response):
+        """Retain the upstream manual ego reset without bypassing scored resets."""
+        if self.get_parameter("session_mode").value:
+            response.success = False
+            response.message = "Managed sessions reset through /sim/reset."
+            return response
+        with self.world_lock:
+            return self._reset_ego_locked(request, response)
+
+    def _reset_ego_locked(self, request, response):
         """
         Put the ego back at the pose the scenario spawned it at.
 
@@ -472,115 +881,60 @@ class ScenarioServerNode(LifecycleNode):
         return response
 
     def _discover_scenarios(self):
-        """Discover available scenarios."""
-        builtin_scenarios = {
-            "carla_scenarios.scenarios.default_scenario": "Default Ego Spawn",
-            "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
-            "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
-            "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
-            "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
-            "carla_scenarios.scenarios.oval_scenario": "Oval OpenDRIVE Map",
-            "carla_scenarios.scenarios.ring_road_scenario": "Ring Road OpenDRIVE Map",
+        directory = Path(get_package_share_directory("carla_scenarios")) / "config"
+        self.available_scenarios = {
+            path.stem: load_definition(directory, "playgrounds", path.stem).get(
+                "description", path.stem
+            )
+            for path in sorted((directory / "playgrounds").glob("*.yaml"))
         }
-        self.available_scenarios.update(builtin_scenarios)
-
-        self.get_logger().info(f"Discovered {len(self.available_scenarios)} scenarios")
+        for legacy, name in LEGACY_PLAYGROUNDS.items():
+            self.available_scenarios[legacy] = self.available_scenarios[name]
+        self.get_logger().info(
+            f"Discovered {len(self.available_scenarios)} playground selectors"
+        )
 
     def _unload_scenario(self):
-        """Unload current scenario and clean up CARLA world."""
-        if self.current_scenario:
-            self.current_scenario.cleanup()
-
-        # Clear scenario reference (but keep name until new scenario is set)
-        self.current_scenario = None
-
-        # Clean up all spawned actors in CARLA world
-        if not self.carla_client:
-            return
-
-        try:
-            world = self.carla_client.get_world()
-            actors = world.get_actors()
-
-            # Stop all controllers first (they need to be stopped before destruction)
-            for controller in actors.filter("controller.*"):
-                controller.stop()
-
-            # Destroy all spawned actors (excludes static world elements)
-            count = 0
-            for actor in actors:
-                if actor.type_id.startswith(("traffic.", "static.")):
-                    continue
-                try:
-                    actor.destroy()
-                    count += 1
-                except Exception:
-                    pass
-
-            if count > 0:
-                self.get_logger().info(f"Cleaned up {count} actors from world")
-                world.tick()
-        except Exception as e:
-            self.get_logger().warn(f"Error cleaning up world: {e}")
+        """Release plugin-owned actors; never sweep unrelated CARLA actors."""
+        with self.world_lock:
+            if self.current_scenario:
+                self.current_scenario.cleanup()
+            self.current_scenario = None
+            self.collision_sensor = None
+            self.collided = False
 
     def _load_scenario(self, scenario_module_path: str) -> bool:
-        """Load and initialize a scenario."""
-        # Unload any existing scenario first
-        self._unload_scenario()
+        """Serialize manual plugin setup with the world's tick authority."""
+        with self.world_lock:
+            return self._load_scenario_locked(scenario_module_path)
 
+    def _load_scenario_locked(self, scenario_module_path: str) -> bool:
+        """Resolve old selectors through the same YAML-backed world implementation."""
         try:
-            # Import scenario module
-            # scenario_module_path: e.g. 'carla_scenarios.scenarios.default_scenario'
-            # class_name derived from last part: 'default_scenario' -> 'DefaultScenario'
-            parts = scenario_module_path.rsplit(".", 1)
-            if len(parts) != 2:
-                self.get_logger().error(
-                    f"Invalid scenario path: {scenario_module_path}"
-                )
-                return False
-
-            class_name = parts[1]
-            # Convert module name to class name (e.g., default_scenario -> DefaultScenario)
-            if not class_name[0].isupper():
-                class_name = "".join(
-                    word.capitalize() for word in class_name.split("_")
-                )
-
-            module = importlib.import_module(scenario_module_path)
-            scenario_class = getattr(module, class_name)
-
-            # Instantiate and initialize scenario
-            scenario = scenario_class()
-            scenario.logger = self.get_logger()
-            scenario.xodr_map_directory = Path(
-                self.get_parameter("xodr_map_directory").value
-            )
-            if not scenario.initialize(self.carla_client):
-                self.get_logger().error(
-                    f"Failed to initialize scenario: {scenario_module_path}"
-                )
-                return False
-
-            if not scenario.setup():
-                self.get_logger().error(
-                    f"Failed to setup scenario: {scenario_module_path}"
-                )
-                return False
-
-            # Refresh world reference and reapply settings (load_world resets to defaults)
-            self.carla_world = self.carla_client.get_world()
-            self._apply_simulation_settings()
-
-            self.current_scenario = scenario
-            self.current_scenario_name = scenario_module_path
-            self.get_logger().info(f"Loaded scenario: {scenario.get_name()}")
-            return True
-
-        except Exception as e:
+            world = self._read_playground(scenario_module_path)
+            return self._install_world(world, scenario_module_path)
+        except Exception as error:
             self.get_logger().error(
-                f"Error loading scenario {scenario_module_path}: {e}"
+                f"Error loading playground {scenario_module_path}: {error}"
             )
             return False
+
+    def _install_world(self, world, selector):
+        self._publish_control_enabled(False)
+        self.paused = True
+        self._unload_scenario()
+        self.current_scenario_name = ""
+        random.seed(world.definition.get("seed", 42))
+        world.advance_world = self._advance_world
+        self.current_scenario = world
+        if not world.initialize(self.carla_client) or not world.setup():
+            raise RuntimeError(f"Failed to set up playground {selector}")
+        self.carla_world = self.carla_client.get_world()
+        self._apply_simulation_settings()
+        self.current_scenario_name = selector
+        self.paused = False
+        self._publish_control_enabled(True)
+        return True
 
 
 def main(args=None):
