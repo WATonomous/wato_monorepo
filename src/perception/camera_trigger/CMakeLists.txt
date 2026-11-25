@@ -90,6 +90,8 @@ if(BUILD_TESTING)
   add_wato_test(test_sequence_tracker test/test_sequence_tracker.cpp LIBRARIES camera_trigger_core)
   add_wato_test(test_pulse_timing test/test_pulse_timing.cpp LIBRARIES camera_trigger_core)
   add_wato_test(test_transport test/test_transport.cpp LIBRARIES camera_trigger_core)
+  # The node end to end, against a fake board on loopback
+  add_wato_test(test_camera_trigger_node test/test_camera_trigger_node.cpp LIBRARIES camera_trigger_component)
 endif()
 
 ament_package()
