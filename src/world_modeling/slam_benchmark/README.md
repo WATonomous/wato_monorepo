@@ -71,7 +71,7 @@ source /opt/ros/jazzy/setup.bash
 
 The Boreas bags (converted from the [Boreas dataset](https://www.boreas.utias.utoronto.ca/)) carry `/boreas/lidar/points`, `/boreas/imu/data` and `/tf_static`, and no GNSS. `scripts/boreas/boreas_benchmark.sh` therefore runs Eidos LiDAR-inertial only (no `eidos/` GPS test and no `car/` comparison), and scores against the sequence's `applanix/gps_post_process.csv`: the Applanix post-processed GNSS/INS solution, a much tighter reference than the car's single-point GNSS.
 
-`config/boreas_eidos.yaml` changes only the topics, the frames and the IMU warmup threshold (0.02 rad/s instead of 0.005: the Boreas gyro's resting noise sits on 0.005, and Eidos would never leave warmup). Everything else is the car's config.
+`config/boreas_eidos.yaml` changes the topics, the frames and the IMU warmup threshold (0.02 rad/s instead of 0.005: the Boreas gyro's resting noise sits on 0.005, and Eidos would never leave warmup). It also changes three LISO settings for the 128-beam LiDAR: `max_iterations: 50` instead of 20 (in corridor-like stretches GICP tracks correctly but misses the convergence threshold within 20 iterations, and every such result is dropped), `min_range: 3.5` (drops the ego-vehicle returns) and `keyframe_cloud_ds_resolution: 0.4` (bounds the cloud each keyframe keeps in RAM, at the leaf size its consumers use). A full-drive Eidos map needs more than 32 GB at save time, so give Eidos tasks `--mem=64G`. Everything else is the car's config.
 
 ### Data on WATcloud
 

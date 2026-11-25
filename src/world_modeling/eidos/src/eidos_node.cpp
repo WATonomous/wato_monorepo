@@ -378,12 +378,15 @@ void EidosNode::handleTracking(double timestamp)
     plugin->onOptimizationComplete(optimized, loop_closure_detected || correction_detected);
   }
 
-  // Track latest state for cross-plugin bridging
-  auto & last = new_states.back();
-  last_state_key_ = last.key;
-  last_state_ts_ = last.ts;
-  last_state_owner_ = last.owner;
-  has_last_state_ = true;
+  // Track latest state for cross-plugin bridging (a tick can add only standalone factors, e.g. a
+  // non-latching loop closure, and then there is no new state)
+  if (!new_states.empty()) {
+    auto & last = new_states.back();
+    last_state_key_ = last.key;
+    last_state_ts_ = last.ts;
+    last_state_owner_ = last.owner;
+    has_last_state_ = true;
+  }
 
   RCLCPP_INFO(
     get_logger(),

@@ -26,6 +26,8 @@ LiDAR-Inertial Submap Odometry. Subscribes to LiDAR and IMU, performs GICP scan-
 | `min_inliers` | int | `50` | Minimum GICP inlier count to accept a match. |
 | `min_noise` | double | `0.01` | Minimum noise floor for the between-factor covariance. |
 | `min_scan_distance` | double | `5.0` | Minimum travel distance (meters) before creating a new factor. |
+| `min_range` | double | `0.0` | Drop points closer than this to the LiDAR (meters), e.g. returns from the ego vehicle. `0` keeps every point. |
+| `keyframe_cloud_ds_resolution` | double | `0.0` | Voxel size (meters) of the `liso_factor/cloud` stored per keyframe. `0` stores the full scan; set it for dense LiDARs to bound RAM and map size. |
 | `odom_pose_cov` | double[6] | `[0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3]` | Diagonal pose covariance for published odometry and BetweenFactor noise. |
 | `odom_twist_cov` | double[6] | `[1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6]` | Diagonal twist covariance for published odometry. |
 | `lidar_frame` | string | `"lidar"` | TF frame of the LiDAR sensor. |
@@ -42,9 +44,12 @@ LisoFactor overrides `isReady()` to return `false` until IMU warmup is complete 
 
 - LISO is the only built-in plugin that creates new states via `produceFactor()`.
 - Implements `onTrackingBegin()` to build an initial submap from the prior map at the relocalized position.
-- Implements `onOptimizationComplete(values, graph_corrected)` to re-anchor the GICP initial guess and trigger submap rebuilds when `graph_corrected` is true (loop closure or GPS correction). A pending incremental correction is queued for the sensor thread to apply to `prev_incremental_pose_` on the next LiDAR callback, avoiding a data race between the SLAM and sensor threads.
+- Implements `onOptimizationComplete(values, graph_corrected)` to re-anchor the GICP initial guess (see below) and trigger submap rebuilds when `graph_corrected` is true (loop closure or GPS correction). A pending incremental correction is queued for the sensor thread to apply to `prev_incremental_pose_` on the next LiDAR callback, avoiding a data race between the SLAM and sensor threads.
 - Published twist is in body frame, derived from the `between()` delta of consecutive matched poses divided by dt.
 - IMU is used only for gyro integration (initial guess rotation) and warmup detection, not for preintegration factors.
+- The IMU subscription has its own callback group and a 1000-message queue, so IMU messages keep arriving while a scan is being matched. The guess rotation integrates every buffered gyro sample between the last match and the new scan. Before this, the IMU shared the plugin's mutually exclusive group with a 5-message queue, so any scan that took longer than five IMU periods to match dropped the rest of the gyro data for that interval.
+- After each optimization the latest match is moved by its keyframe's world-frame correction, rather than replaced by the keyframe pose. The keyframe comes from a scan matched up to a SLAM tick plus an optimization earlier, so replacing it pulled the next guess back by the travel since then. The correction is queued and applied by the LiDAR callback, so one that lands while a scan is being matched also moves that scan's result.
+- The throttled `GICP match` log and every `GICP failed` log report GICP iterations and the scan's processing time (ms), so throughput can be read from `launch.log`. Failures and keyframes also log how far GICP moved from the initial guess and the eigenvalues of the translation block of GICP's information matrix (a small minimum, with its body-frame direction, marks a direction the scan barely constrains).
 
 ## Mapping vs Localization
 

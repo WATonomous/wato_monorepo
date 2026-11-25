@@ -44,7 +44,8 @@
 # ringroad tasks: 1-3 = repeat 1 (Eidos no GPS, RTAB-Map, Eidos GPS), 4-6 = repeat 2, 7-9 = repeat 3.
 # boreas tasks:   1-2 = test 1 (Eidos no GPS, RTAB-Map), 3-4 = test 2, 5-6 = test 3.
 # A full Boreas run replays an 18-minute bag at RATE 0.5 (about 40 min per test), so give each
-# Boreas task at least --time=01:30:00 and --mem=32G (Eidos holds its ~10 GB map in RAM).
+# Boreas task at least --time=01:30:00. Give Eidos tasks --mem=64G: a full-drive map ran out of
+# 32 GB while saving.
 # At RATE 0.1 a full test takes about 3 h of replay; allow --time=04:00:00 per task.
 #
 # Short Boreas checks (does Eidos keep up?): replay the first DURATION seconds only. Each
@@ -81,6 +82,12 @@ case $BENCH in
 esac
 
 say "Job $SLURM_JOB_ID on $(hostname), BENCH=$BENCH"
+
+# A full-drive Boreas Eidos map ran out of 32 GB while saving
+if [ "$BENCH" = boreas ] && [ "${EVAL_ONLY:-0}" != 1 ] && [[ " ${METHODS:-eidos_nogps rtabmap} " == *" eidos_nogps "* ]] \
+  && [ "${SLURM_MEM_PER_NODE:-0}" -lt 60000 ] && [ -z "${DURATION:-}" ]; then
+  say "WARNING: ${SLURM_MEM_PER_NODE:-?} MB of memory; a full-drive Eidos map needs more than 32 GB to save. Submit with --mem=64G."
+fi
 
 # Check the Boreas data before spending minutes on Docker: the container sees $MONO/bags as /ws/bags
 if [ "$BENCH" = boreas ]; then

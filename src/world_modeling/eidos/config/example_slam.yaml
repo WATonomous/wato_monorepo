@@ -90,6 +90,8 @@
       min_inliers: 50                                      # Min inlier correspondences for a valid match
       min_noise: 0.01                                      # Min noise floor for BetweenFactor covariance
       min_scan_distance: 5.0                               # Min travel distance between keyframes (m)
+      min_range: 0.0                                       # Drop points closer than this to the LiDAR, e.g. ego vehicle (m; 0 = keep all)
+      keyframe_cloud_ds_resolution: 0.0                    # Voxel size of the stored keyframe cloud (m; 0 = full scan)
       odom_pose_cov: [0.01, 0.01, 0.005, 1.0e-6, 1.0e-6, 1.0e-3]         # Pose covariance on published odometry
       odom_twist_cov: [1.0e-4, 1.0e-4, 1.0e-8, 1.0e-10, 1.0e-10, 1.0e-6]  # Twist covariance on published odometry
 

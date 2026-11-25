@@ -190,7 +190,7 @@ eidos_run() {  # $1 = test number
   stop_launch "$lpid"
 
   if [ -s "$dir/eidos.map" ] && eidos poses "$dir/eidos.map" > "$dir/poses.csv" 2>> "$dir/save.log" \
-    && [ -s "$dir/poses.csv" ]; then
+    && [ "$(wc -l < "$dir/poses.csv")" -gt 1 ]; then  # more than the header line
     say "$name: done ($(wc -l < "$dir/poses.csv") lines in poses.csv)"
   else
     rm -f "$dir/poses.csv"
@@ -324,7 +324,9 @@ EOF
 source /opt/ros/jazzy/setup.bash
 cd /ws || exit 1
 say "Building workspace"
-if ! colcon build > "$SB_LOG/colcon_build.log" 2>&1; then
+# Release: the dev image ships no build, and colcon's default (no CMAKE_BUILD_TYPE) compiles
+# Eidos and the header-only small_gicp it uses without optimization, about 1 s per scan
+if ! colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release > "$SB_LOG/colcon_build.log" 2>&1; then
   say "colcon build FAILED, see $SB_LOG/colcon_build.log"
   exit 1
 fi

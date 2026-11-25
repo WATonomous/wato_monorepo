@@ -1,5 +1,6 @@
 # Boreas overrides on top of the car's Eidos config (world_modeling_bringup/config/eidos_slam.yaml).
 # boreas_eidos_bench.launch.yaml loads this file after the car config, so only these keys change.
+# max_iterations is 20 in the car config; min_range and keyframe_cloud_ds_resolution are off there.
 /**/eidos_node:
   ros__parameters:
     frames:
@@ -21,3 +22,15 @@
         # so warmup never sees 200 still samples in a row and Eidos never reaches TRACKING.
         # At 0.02 warmup completes 3 s into the bag, while the car is still parked.
         stationary_gyr_threshold: 0.02
+
+      # In corridor-like stretches GICP keeps moving along the road by more than its 1 mm / 0.1 deg
+      # convergence threshold, so with the car's 20 iterations it reports failure while tracking
+      # correctly; every result is dropped and tracking is lost ~94 s in. With 50 iterations the full
+      # drive ran at real time with no GICP failures (median 40 ms per scan, Release build).
+      max_iterations: 50
+      # ~140 returns per scan come off the ego vehicle, all within 3.1 m of the LiDAR, at the same
+      # body position in every scan.
+      min_range: 3.5
+      # Every keyframe keeps its LiDAR cloud in RAM; full 128-beam scans are ~7 MB each. Its consumers
+      # (relocalization, map visualization) voxelize it at 0.4 m, so storing it at 0.4 m loses nothing.
+      keyframe_cloud_ds_resolution: 0.4

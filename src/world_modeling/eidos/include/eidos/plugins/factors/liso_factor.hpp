@@ -56,7 +56,8 @@ namespace eidos
  *
  * Threading:
  * - LiDAR callback: GICP matching, writes lock-free poses, caches factors.
- * - IMU callback: warmup detection + gyro integration for initial guess.
+ * - IMU callback (own callback group, runs alongside the LiDAR callback): warmup detection and
+ *   buffering; the LiDAR callback integrates the buffered gyro for its initial guess.
  * - SLAM loop: reads produceFactor() (lock-free via AtomicSlot).
  * - Submap rebuild: synchronous in lidarCallback (fixed window, fast).
  */
@@ -150,6 +151,7 @@ private:
   // ---- Cached GICP result for produceFactor ----
   small_gicp::RegistrationResult cached_result_;
   gtsam::Pose3 cached_pose_;
+  gtsam::Pose3 cached_guess_;  ///< GICP initial guess for cached_pose_ (logged with the keyframe)
   small_gicp::PointCloud::Ptr cached_cloud_;
   pcl::PointCloud<PointType>::Ptr cached_pcl_cloud_;
   double cached_timestamp_ = 0.0;
@@ -164,16 +166,38 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr submap_pub_;
 
   // ---- Last match tracking (for GICP initial guess) ----
+  // Guarded by guess_mtx_: the LiDAR callback reads and writes the last match, and
+  // onOptimizationComplete (SLAM thread) re-anchors it after each optimization. The re-anchoring
+  // is queued in pending_guess_correction_ (a world-frame correction) and applied by the LiDAR
+  // callback both to the last match it reads and to the match it writes back, so a correction that
+  // lands while a scan is being matched is not overwritten by a pose from the old frame.
   gtsam::Pose3 last_matched_pose_;
   bool has_last_match_ = false;
+  double last_match_time_ = 0.0;  ///< Scan stamp of last_matched_pose_ (s); gyro integration starts here
+  gtsam::Pose3 pending_guess_correction_;
+  std::mutex guess_mtx_;
+
+  /**
+   * @brief Integrate buffered gyro samples into a base-frame rotation over [t0, t1].
+   * @param t0 Start time (s), normally the last match's scan stamp.
+   * @param t1 End time (s), normally the new scan's stamp.
+   * @return Rotation of base_link at t1 relative to t0; identity if no samples cover the interval.
+   */
+  gtsam::Rot3 integrateGyro(double t0, double t1);
+
+  /**
+   * @brief Build the stored keyframe cloud from a body-frame scan.
+   * @param body_cloud Scan in base_link, after the min_range crop.
+   * @return The full cloud, or a voxel-downsampled one when keyframe_cloud_ds_resolution > 0.
+   */
+  pcl::PointCloud<PointType>::Ptr makeKeyframeCloud(const small_gicp::PointCloud & body_cloud) const;
 
   // ---- IMU buffer + warmup ----
+  // The IMU subscription has its own callback group so it keeps running while a scan is being
+  // matched; the guess rotation is integrated from this buffer over [last match, scan].
+  rclcpp::CallbackGroup::SharedPtr imu_callback_group_;
   std::deque<sensor_msgs::msg::Imu> imu_buffer_;
   std::mutex imu_mtx_;
-  Eigen::Vector3d gyro_delta_rpy_{0, 0, 0};
-  std::mutex gyro_mtx_;
-  double last_gyro_time_ = 0.0;
-  bool gyro_tracking_active_ = false;
   Eigen::Matrix3d R_base_imu_ = Eigen::Matrix3d::Identity();
   bool has_imu_tf_ = false;
   std::atomic<bool> imu_warmup_complete_{false};
@@ -228,6 +252,8 @@ private:
   int min_inliers_ = 50;
   double min_noise_ = 0.01;
   double min_scan_distance_ = 5.0;
+  double min_range_ = 0.0;  ///< Drop points closer than this to the LiDAR, e.g. the ego vehicle (0 = keep all)
+  double keyframe_cloud_ds_resolution_ = 0.0;  ///< Voxel size of the stored keyframe cloud (0 = full scan)
   std::vector<double> odom_pose_cov_ = {0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3};
   std::vector<double> odom_twist_cov_ = {1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6};
   std::string lidar_frame_ = "lidar";
