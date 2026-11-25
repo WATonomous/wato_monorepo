@@ -334,7 +334,7 @@ launch:
         - from: lane_context
           to: lanelet/lane_context
         - from: world_objects
-          to: world_objects
+          to: world_objects_enriched
         - from: area_occupancy
           to: area_occupancy
         - from: goal_point

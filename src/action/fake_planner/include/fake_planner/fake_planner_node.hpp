@@ -21,8 +21,10 @@
 #include "behaviour_msgs/msg/execute_behaviour.hpp"
 #include "fake_planner/fake_planner_core.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "wato_trajectory_msgs/msg/trajectory.hpp"
@@ -100,6 +102,15 @@ private:
   double releaseRampScale();
 
   /**
+   * @brief Publish a latched planner state for session readiness and completion.
+   * @param state One of ready, running, stopped or finished.
+   */
+  void publishState(const std::string & state);
+
+  /** @brief Publish the full anchored reference for preview and scoring. */
+  void publishReference();
+
+  /**
    * @brief Publish the trajectory preview and speed labels.
    * @param trajectory Window with the speeds currently being published.
    */
@@ -144,7 +155,7 @@ private:
   bool publish_behaviour_{true};
   std::string behaviour_{"lane_follow"};
   bool anchor_to_first_pose_{true};
-  bool start_on_activate_{true};
+  bool start_on_activate_{false};
   double respawn_jump_m_{5.0};
   double finish_distance_m_{3.0};
   double finish_speed_mps_{0.25};
@@ -154,6 +165,7 @@ private:
   // Playback state
   bool trajectory_started_{false};
   bool finished_{false};
+  bool explicitly_stopped_{false};
   bool moved_{false};
   rclcpp::Time release_time_;
   bool anchored_{false};
@@ -167,12 +179,18 @@ private:
   rclcpp_lifecycle::LifecyclePublisher<behaviour_msgs::msg::ExecuteBehaviour>::SharedPtr behaviour_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
 
+  rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr status_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Path>::SharedPtr reference_pub_;
+
   // Subscriber, timer and services
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr start_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_srv_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr session_start_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr session_stop_srv_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr session_reset_srv_;
 };
 
 }  // namespace fake_planner

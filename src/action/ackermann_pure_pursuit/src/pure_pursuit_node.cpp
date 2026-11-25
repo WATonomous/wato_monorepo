@@ -15,6 +15,7 @@
 #include "ackermann_pure_pursuit/pure_pursuit_node.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -23,6 +24,7 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include "rclcpp/create_timer.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -178,8 +180,13 @@ PurePursuitNode::CallbackReturn PurePursuitNode::on_activate(const rclcpp_lifecy
   status_pub_->on_activate();
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
-  control_timer_ = create_wall_timer(
-    std::chrono::duration_cast<std::chrono::nanoseconds>(period), std::bind(&PurePursuitNode::controlCallback, this));
+  // Use the same clock for control, trajectory freshness and slew limits.
+  control_timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
+    std::bind(&PurePursuitNode::controlCallback, this));
 
   RCLCPP_INFO(get_logger(), "Activated");
   return CallbackReturn::SUCCESS;

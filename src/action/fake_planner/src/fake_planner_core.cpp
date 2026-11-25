@@ -660,4 +660,9 @@ bool FakePlannerCore::ready() const
   return ready_;
 }
 
+const wato_trajectory_msgs::msg::Trajectory & FakePlannerCore::reference() const
+{
+  return full_traj_;
+}
+
 }  // namespace fake_planner

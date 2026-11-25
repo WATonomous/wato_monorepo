@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "behaviour/utils/types.hpp"
+#include "rclcpp/create_timer.hpp"
 
 namespace behaviour
 {
@@ -75,7 +76,13 @@ void BehaviourNode::init()
 
   auto tick_period = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / rate_hz_));
   // timer to tick the behaviour tree
-  tick_tree_timer_ = this->create_wall_timer(tick_period, std::bind(&BehaviourNode::tick_tree_callback, this));
+  // Schedule behavior updates with the node clock.
+  tick_tree_timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(tick_period),
+    std::bind(&BehaviourNode::tick_tree_callback, this));
 
   reset_bt_srv_ = this->create_service<std_srvs::srv::Trigger>(
     "reset_bt", std::bind(&BehaviourNode::reset_callback, this, std::placeholders::_1, std::placeholders::_2));

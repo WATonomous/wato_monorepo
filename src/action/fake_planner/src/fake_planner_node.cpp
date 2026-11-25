@@ -26,6 +26,7 @@
 #include <string>
 #include <utility>
 
+#include "rclcpp/create_timer.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
 namespace fake_planner
@@ -42,7 +43,7 @@ FakePlannerNode::FakePlannerNode(const rclcpp::NodeOptions & options)
   declare_parameter("publish_behaviour", true);
   declare_parameter("behaviour", "lane_follow");
   declare_parameter("anchoring", "auto");
-  declare_parameter("start_on_activate", true);
+  declare_parameter("start_on_activate", false);
   declare_parameter("horizon_m", 35.0);
   declare_parameter("trail_m", 2.0);
   declare_parameter("search_ahead_m", 400.0);
@@ -66,6 +67,10 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
     behaviour_pub_ = create_publisher<behaviour_msgs::msg::ExecuteBehaviour>("execute_behaviour", 10);
   }
 
+  const auto snapshot_qos = rclcpp::QoS(1).transient_local().reliable();
+  status_pub_ = create_publisher<std_msgs::msg::String>("~/status", snapshot_qos);
+  reference_pub_ = create_publisher<nav_msgs::msg::Path>("reference_path", snapshot_qos);
+
   start_srv_ = create_service<std_srvs::srv::Trigger>(
     "~/start_trajectory",
     std::bind(&FakePlannerNode::startTrajectoryCallback, this, std::placeholders::_1, std::placeholders::_2));
@@ -75,6 +80,15 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_configure(const rclcpp_lifec
   reset_srv_ = create_service<std_srvs::srv::Trigger>(
     "~/reset",
     std::bind(&FakePlannerNode::resetTrajectoryCallback, this, std::placeholders::_1, std::placeholders::_2));
+  // Retain private services and the existing session aliases.
+  session_start_srv_ = create_service<std_srvs::srv::Trigger>(
+    "start_trajectory",
+    std::bind(&FakePlannerNode::startTrajectoryCallback, this, std::placeholders::_1, std::placeholders::_2));
+  session_stop_srv_ = create_service<std_srvs::srv::Trigger>(
+    "stop_trajectory",
+    std::bind(&FakePlannerNode::stopTrajectoryCallback, this, std::placeholders::_1, std::placeholders::_2));
+  session_reset_srv_ = create_service<std_srvs::srv::Trigger>(
+    "reset", std::bind(&FakePlannerNode::resetTrajectoryCallback, this, std::placeholders::_1, std::placeholders::_2));
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     "odom", 10, std::bind(&FakePlannerNode::odomCallback, this, std::placeholders::_1));
 
@@ -88,12 +102,21 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_activate(const rclcpp_lifecy
   resetTrajectory();
   trajectory_pub_->on_activate();
   marker_pub_->on_activate();
+  status_pub_->on_activate();
+  reference_pub_->on_activate();
+  publishState("stopped");
   if (behaviour_pub_) {
     behaviour_pub_->on_activate();
   }
   const auto period =
     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(1.0 / publish_rate_hz_));
-  timer_ = create_wall_timer(period, std::bind(&FakePlannerNode::publishTrajectory, this));
+  // Follow /clock so pause cannot refresh controller commands.
+  timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(period),
+    std::bind(&FakePlannerNode::publishTrajectory, this));
   RCLCPP_INFO(get_logger(), "Activated fake planner; start_on_activate=%s", start_on_activate_ ? "true" : "false");
   return CallbackReturn::SUCCESS;
 }
@@ -102,7 +125,10 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_deactivate(const rclcpp_life
 {
   timer_.reset();
   trajectory_pub_->on_deactivate();
+  publishState("stopped");
   marker_pub_->on_deactivate();
+  status_pub_->on_deactivate();
+  reference_pub_->on_deactivate();
   if (behaviour_pub_) {
     behaviour_pub_->on_deactivate();
   }
@@ -117,9 +143,14 @@ FakePlannerNode::CallbackReturn FakePlannerNode::on_cleanup(const rclcpp_lifecyc
   start_srv_.reset();
   stop_srv_.reset();
   reset_srv_.reset();
+  session_start_srv_.reset();
+  session_stop_srv_.reset();
+  session_reset_srv_.reset();
   trajectory_pub_.reset();
   behaviour_pub_.reset();
   marker_pub_.reset();
+  status_pub_.reset();
+  reference_pub_.reset();
   const std::lock_guard<std::mutex> lock(core_mutex_);
   core_.reset();
   anchored_ = have_pose_ = moved_ = finished_ = trajectory_started_ = false;
@@ -221,6 +252,8 @@ void FakePlannerNode::resetTrajectory()
   }
   anchored_ = !anchor_to_first_pose_;
   have_pose_ = moved_ = finished_ = trajectory_started_ = false;
+  explicitly_stopped_ = false;
+  publishState("stopped");
   veh_speed_ = 0.0;
   if (start_on_activate_) {
     releaseTrajectory();
@@ -233,6 +266,7 @@ void FakePlannerNode::releaseTrajectory()
     release_time_ = now();
   }
   trajectory_started_ = true;
+  explicitly_stopped_ = false;
 }
 
 double FakePlannerNode::releaseRampScale()
@@ -255,7 +289,15 @@ void FakePlannerNode::publishTrajectory()
   if (!core_) {
     return;
   }
-  if (finished_ || !trajectory_started_) {
+  publishReference();
+  if (finished_) {
+    publishMarkers(core_->window());
+    return;
+  }
+  if (!trajectory_started_) {
+    if (core_->ready() && have_pose_ && !explicitly_stopped_) {
+      publishState("ready");
+    }
     publishMarkers(core_->window());
     return;
   }
@@ -265,6 +307,7 @@ void FakePlannerNode::publishTrajectory()
   if (moved_ && core_->distanceToEnd() <= finish_distance_m_ && veh_speed_ <= finish_speed_mps_) {
     finished_ = true;
     trajectory_started_ = false;
+    publishState("finished");
     publishMarkers(core_->window());
     RCLCPP_INFO(get_logger(), "Maneuver finished; reset before replay");
     return;
@@ -276,6 +319,7 @@ void FakePlannerNode::publishTrajectory()
   for (auto & point : trajectory.points) {
     point.max_speed *= scale;
   }
+  publishState("running");
   trajectory_pub_->publish(trajectory);
   publishMarkers(trajectory);
   if (behaviour_pub_) {
@@ -322,9 +366,9 @@ void FakePlannerNode::startTrajectoryCallback(
   const std_srvs::srv::Trigger::Request::SharedPtr /*request*/, std_srvs::srv::Trigger::Response::SharedPtr response)
 {
   const std::lock_guard<std::mutex> lock(core_mutex_);
-  if (!core_ || !trajectory_pub_ || !trajectory_pub_->is_activated()) {
+  if (!core_ || !trajectory_pub_ || !trajectory_pub_->is_activated() || !core_->ready() || !have_pose_) {
     response->success = false;
-    response->message = "Planner is not active";
+    response->message = "Planner is not active with anchored odometry; wait for ready status";
     return;
   }
   if (finished_) {
@@ -333,6 +377,7 @@ void FakePlannerNode::startTrajectoryCallback(
     return;
   }
   releaseTrajectory();
+  publishState("running");
   response->success = true;
   response->message = "Trajectory started";
 }
@@ -342,6 +387,8 @@ void FakePlannerNode::stopTrajectoryCallback(
 {
   const std::lock_guard<std::mutex> lock(core_mutex_);
   trajectory_started_ = false;
+  explicitly_stopped_ = true;
+  publishState("stopped");
   response->success = true;
   response->message = "Trajectory stopped; controller will fall back to standby";
 }
@@ -358,6 +405,33 @@ void FakePlannerNode::resetTrajectoryCallback(
   resetTrajectory();
   response->success = true;
   response->message = anchor_to_first_pose_ ? "Reset; re-anchoring on next odom" : "Reset to nearest point";
+}
+
+// Session snapshots
+void FakePlannerNode::publishState(const std::string & state)
+{
+  if (status_pub_ && status_pub_->is_activated()) {
+    std_msgs::msg::String message;
+    message.data = state;
+    status_pub_->publish(message);
+  }
+}
+
+void FakePlannerNode::publishReference()
+{
+  if (!reference_pub_ || !reference_pub_->is_activated() || !core_->ready()) {
+    return;
+  }
+  nav_msgs::msg::Path path;
+  path.header = core_->reference().header;
+  path.header.stamp = now();
+  for (const auto & point : core_->reference().points) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header = path.header;
+    pose.pose = point.pose;
+    path.poses.push_back(pose);
+  }
+  reference_pub_->publish(path);
 }
 
 // Visualization

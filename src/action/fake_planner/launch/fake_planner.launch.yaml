@@ -14,7 +14,7 @@
 #
 #   ros2 launch fake_planner fake_planner_sim.launch.yaml
 #   ros2 service call /action/fake_planner/fake_planner_node/start_trajectory std_srvs/srv/Trigger
-#   ros2 launch fake_planner fake_planner_sim.launch.yaml maneuver:=brake_in_curve controller:=mpc
+#   ros2 launch fake_planner fake_planner_vehicle.launch.yaml maneuver:=brake_in_curve controller:=mpc
 #
 
 launch:
@@ -152,6 +152,10 @@ launch:
         - name: "use_sim_time"
           value: "$(var use_sim_time)"
       remap:
+        - from: "~/status"
+          to: "/action/fake_planner/status"
+        - from: "reference_path"
+          to: "/sim/reference_path"
         - from: "trajectory_markers"
           to: "$(var marker_topic)"
         - from: "trajectory"

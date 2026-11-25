@@ -25,6 +25,7 @@
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
+#include <rclcpp/create_timer.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <std_msgs/msg/int64_multi_array.hpp>
 #include <tf2/utils.hpp>
@@ -102,7 +103,13 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn Lattic
   available_paths_pub_ = this->create_publisher<lattice_planning_msgs::msg::PathArray>(available_paths_topic, 10);
 
   const auto period = std::chrono::duration<double>(1.0 / control_rate_hz_);
-  publish_timer_ = this->create_wall_timer(period, std::bind(&LatticePlanningNode::plan_and_publish_path, this));
+  // Schedule planning with the node clock.
+  publish_timer_ = rclcpp::create_timer(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    get_clock(),
+    rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
+    std::bind(&LatticePlanningNode::plan_and_publish_path, this));
   publish_timer_->cancel();
 
   RCLCPP_INFO(this->get_logger(), "Node configured successfully");
@@ -195,6 +202,10 @@ void LatticePlanningNode::set_preferred_lanes(const behaviour_msgs::msg::Execute
 
 void LatticePlanningNode::lanelet_update_callback(const lanelet_msgs::msg::LaneletAhead::ConstSharedPtr & msg)
 {
+  // Lane context may arrive before odometry or configuration.
+  if (!car_pose || !core_) {
+    return;
+  }
   std::unordered_map<int64_t, lanelet_msgs::msg::Lanelet> lanelets;
 
   const int64_t curr_id = msg->current_lanelet_id;

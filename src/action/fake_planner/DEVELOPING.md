@@ -46,3 +46,6 @@ colcon test-result --verbose
 For runtime checks, activate with `start_on_activate:=false`. Confirm preview
 markers appear before release. Start, stop, reset, and repeat the maneuver.
 Check that reset waits for fresh odometry and cleanup releases all interfaces.
+
+The simulation stack publishes on a ROS-clock timer. Pausing CARLA also pauses
+trajectory and behavior publication. The timer resumes with the simulation clock.

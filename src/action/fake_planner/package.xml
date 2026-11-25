@@ -18,6 +18,7 @@
   <depend>wato_trajectory_msgs</depend>
   <depend>nlohmann-json-dev</depend>
   <depend>std_srvs</depend>
+  <depend>std_msgs</depend>
   <depend>visualization_msgs</depend>
 
   <exec_depend>ackermann_pure_pursuit</exec_depend>

@@ -24,6 +24,7 @@
 #include <wato_test/wato_test.hpp>
 
 #include "fake_planner/fake_planner_node.hpp"
+#include "std_msgs/msg/string.hpp"
 
 namespace wato
 {
@@ -31,14 +32,14 @@ namespace wato
 using std::chrono_literals::operator""ms;
 using std::chrono_literals::operator""s;
 
-static rclcpp::NodeOptions plannerOptions()
+static rclcpp::NodeOptions plannerOptions(bool start_on_activate = false)
 {
   const auto maneuver =
     std::filesystem::path(__FILE__).parent_path().parent_path() / "maneuvers/steady_state_slalom.json";
   rclcpp::NodeOptions options;
   options.parameter_overrides({
     rclcpp::Parameter("maneuver_file", maneuver.string()),
-    rclcpp::Parameter("start_on_activate", false),
+    rclcpp::Parameter("start_on_activate", start_on_activate),
     rclcpp::Parameter("release_ramp_s", 0.0),
   });
   options.arguments({
@@ -163,6 +164,37 @@ TEST_CASE_METHOD(
   auto stopped = stop->send_request_async(std_srvs::srv::Trigger::Request{});
   REQUIRE(stopped.wait_for(5s) == std::future_status::ready);
   REQUIRE(stopped.get().success);
+}
+
+TEST_CASE_METHOD(
+  test::TestExecutorFixture, "Automatic release publishes running state with its trajectory", "[fake_planner_node]")
+{
+  auto node = std::make_shared<fake_planner::FakePlannerNode>(plannerOptions(true));
+  auto odometry = std::make_shared<test::PublisherTestNode<nav_msgs::msg::Odometry>>("/test/odom", "odom_source");
+  auto trajectory = std::make_shared<test::SubscriberTestNode<wato_trajectory_msgs::msg::Trajectory>>(
+    "/test/trajectory", "trajectory_receiver");
+  auto status = std::make_shared<test::SubscriberTestNode<std_msgs::msg::String>>(
+    "/fake_planner_test/fake_planner_node/status", "status_receiver");
+  add_node(node);
+  add_node(odometry);
+  add_node(trajectory);
+  add_node(status);
+  REQUIRE(node->configure().label() == "inactive");
+  REQUIRE(node->activate().label() == "active");
+  start_spinning();
+  REQUIRE(odometry->wait_for_subscribers(1));
+  REQUIRE(trajectory->wait_for_publishers(1));
+  REQUIRE(status->wait_for_publishers(1));
+  auto running =
+    status->expect_message([](const std_msgs::msg::String & message) { return message.data == "running"; });
+  auto output = trajectory->expect_next_message();
+  nav_msgs::msg::Odometry pose;
+  pose.pose.pose.position.x = 10.0;
+  pose.pose.pose.orientation.w = 1.0;
+  odometry->publish(pose);
+  REQUIRE(output.wait_for(5s) == std::future_status::ready);
+  REQUIRE(running.wait_for(5s) == std::future_status::ready);
+  CHECK(running.get().data == "running");
 }
 
 }  // namespace wato

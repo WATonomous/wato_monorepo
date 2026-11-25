@@ -83,6 +83,9 @@ public:
   /** @brief Get the current controller window. @return Selected trajectory. */
   const wato_trajectory_msgs::msg::Trajectory & window() const;
 
+  /** @brief Get the full anchored path. @return Reference used for preview and scoring. */
+  const wato_trajectory_msgs::msg::Trajectory & reference() const;
+
   /** @brief Count loaded waypoints. @return Number of uniformly sampled points. */
   std::size_t waypointCount() const;
 

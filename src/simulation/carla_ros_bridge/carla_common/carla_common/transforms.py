@@ -115,3 +115,29 @@ def carla_to_ros_rotation(
         -math.radians(pitch_deg),
         -math.radians(yaw_deg),
     )
+
+
+def world_to_body_vector(vector, quaternion):
+    """Rotate a ROS world-frame vector into the body frame.
+
+    Args:
+        vector: World-frame (x, y, z) components.
+        quaternion: Unit (x, y, z, w) quaternion giving body orientation in world.
+
+    Returns:
+        Body-frame (x, y, z) components, preserving forward/reverse signs.
+    """
+    vx, vy, vz = vector
+    x, y, z, w = quaternion
+    # Transpose the body-to-world rotation, including roll and pitch.
+    return (
+        (1 - 2 * (y * y + z * z)) * vx
+        + 2 * (x * y + w * z) * vy
+        + 2 * (x * z - w * y) * vz,
+        2 * (x * y - w * z) * vx
+        + (1 - 2 * (x * x + z * z)) * vy
+        + 2 * (y * z + w * x) * vz,
+        2 * (x * z + w * y) * vx
+        + 2 * (y * z - w * x) * vy
+        + (1 - 2 * (x * x + y * y)) * vz,
+    )

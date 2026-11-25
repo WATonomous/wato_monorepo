@@ -9,7 +9,7 @@
     # Controller engagement and manual release.
     publish_behaviour: true
     behaviour: "lane_follow"
-    start_on_activate: true
+    start_on_activate: false
 
     # auto uses the JSON start pose when present; otherwise use the first odometry pose.
     anchoring: "auto"

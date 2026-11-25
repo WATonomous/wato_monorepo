@@ -66,3 +66,19 @@ limits initial speed. A completed open maneuver stops publishing commands;
 preview markers remain visible.
 
 See [DEVELOPING.md](DEVELOPING.md) for the code structure and test commands.
+
+## Managed simulation
+
+Automated scenarios use adaptive pure pursuit. The simulation wrapper selects
+`action_sim.yaml` and publishes to `/action/trajectory_planning/trajectory`.
+
+The original private services above remain available. The manager uses the
+aliases `/action/fake_planner/{start_trajectory,stop_trajectory,reset}`.
+
+`/action/fake_planner/status` publishes `ready`, `running`, `stopped`, or `finished`.
+Ready requires odometry received since reset. Finished requires driven completion and a stop.
+`/sim/reference_path` publishes the full anchored path for preview and scoring.
+Both snapshots are reliable and transient local.
+
+The controller snake fixture requires 82 metres of straight runout. Its spatial
+launch ramp is disabled; the ROS-time release ramp handles startup.
