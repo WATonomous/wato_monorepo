@@ -12,10 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Report INT8 PTQ fake-quant accuracy in PyTorch.
+"""Score an INT8 PTQ model (from qat/ptq.py or scripts/export.sh) on nuScenes val.
 
-Usage: cd $CB && python $TRAINING_DIR/tools/eval_ptq.py --ckpt <ptq.pth>
-"""
+Same metric as scripts/eval.sh (mAP/NDS), but loads the pickled PTQ model with its
+quantizers on, so the score shows the INT8 accuracy cost in PyTorch.
+Usage (in the training container, after sourcing scripts/env.sh):
+  cd $CB && python $TRAINING_DIR/tools/eval_ptq.py --ckpt <ptq.pth>"""
 
 import argparse
 import os

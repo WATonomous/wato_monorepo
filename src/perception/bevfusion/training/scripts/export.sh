@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Usage: scripts/export.sh CHECKPOINT VERSION
+# Runs in the training container after setup_container.sh; exports a checkpoint to
+# $RUNS/export/VERSION with five ONNX models and a model card.
 # Optional environment: PTQ (1 or 0, default 1), CALIB_BATCHES (300), EXAMPLE_DATA.
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
@@ -28,6 +30,7 @@ PTQ="${PTQ:-1}"
 CALIB_BATCHES="${CALIB_BATCHES:-300}"
 cd "$CB"
 rm -rf qat/onnx_int8 example-data
+# Prepare example data for tracing camera input shapes.
 if [[ -n "${EXAMPLE_DATA:-}" ]]; then
   if [[ ! -f "$EXAMPLE_DATA/example-data.pth" ]]; then
     echo "Missing example data: $EXAMPLE_DATA/example-data.pth" >&2
@@ -51,6 +54,7 @@ torch.save(
 PY
 fi
 
+# Calibrate with PTQ, or reuse an already calibrated checkpoint.
 case "$PTQ" in
   1)
     python qat/ptq.py --config="$R50_FUSION_CFG" --ckpt="$CKPT" --calibrate_batch "$CALIB_BATCHES"
@@ -69,12 +73,16 @@ case "$PTQ" in
     ;;
 esac
 
+# Export camera, fusion, detection and LiDAR ONNX models.
 python qat/export-camera.py --ckpt="$PTQ_CKPT"
 python qat/export-transfuser.py --ckpt="$PTQ_CKPT"
 python qat/export-scn.py --ckpt="$PTQ_CKPT" --save=qat/onnx_int8/lidar.backbone.onnx
-python "$TRAINING_DIR/tools/onnx_regen.py" qat/onnx_int8
+# Patch external ONNX I/O to FP16 for TensorRT 11.
+python "$TRAINING_DIR/tools/onnx_regen_trt11.py" qat/onnx_int8
+# Check the exported I/O against the deployment contract.
 python "$TRAINING_DIR/tools/check_onnx_io.py" qat/onnx_int8
 
+# Copy the models and record their provenance in the model card.
 mkdir -p "$OUT"
 cp qat/onnx_int8/{camera.backbone,camera.vtransform,fuser,head.bbox,lidar.backbone.xyz}.onnx "$OUT/"
 
@@ -83,7 +91,7 @@ sed_value() {
   printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
 }
 MONOREPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-FORK_COMMIT="$(git -C /opt/wato-cuda-bevfusion rev-parse --short HEAD 2>/dev/null || echo unknown)"
+FORK_COMMIT="$(git -C "$CB" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 EXPORTED_UTC="$(date -u +%Y-%m-%dT%H:%MZ)"
 sed \
   -e "s|{{VERSION}}|$(sed_value "$VERSION")|g" \

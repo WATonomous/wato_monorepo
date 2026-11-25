@@ -1,5 +1,20 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Usage: scripts/train.sh head-only|head-fuser-decoder RUN_NAME [config overrides...]
+# Fine-tunes the selected layers in the training container after setup_container.sh.
+# Reads the nuScenes data and starting checkpoint; writes checkpoints and logs to $RUNS/RUN_NAME.
 #   INIT_CKPT: starting weights (default: published ResNet-50 fusion checkpoint)
 #   RESUME=1 continues from $RUNS/RUN_NAME/latest.pth
 # The upstream LR (2e-4) is tuned for 8 GPUs x 4 samples. On 1 GPU, scale it down with

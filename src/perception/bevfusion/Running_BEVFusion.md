@@ -6,7 +6,7 @@ BEVFusion needs an NVIDIA GPU (TensorRT + the `nvidia` Docker runtime), so it wo
 
 ## 1. Get the model weights
 
-Model weights are not in this repo. They are in the [Weights Google Drive folder](https://drive.google.com/drive/folders/10EXFocqX40L4JLPhppSyHl9GuhrG9wPj) (WATonomous members only).
+Model weights are not in this repo. Ask a perception lead for the `resnet50_trt11_int8` folder, or export your own with `training/scripts/export.sh` (see [training/README.md](./training/README.md)).
 
 Docker-compose mounts `wato_monorepo/models` → `/opt/watonomous/models`, and the node reads `model_dir` from [`perception_bringup.yaml`](../perception_bringup/config/perception_bringup.yaml):
 
@@ -24,11 +24,11 @@ wato_monorepo/models/bevfusion/resnet50_trt11_int8/
 ```
 
 > [!NOTE]
-> The Drive folder may be called `resnet50int8_trt11`. Either rename it to `resnet50_trt11_int8` when you copy it (as shown below), or change `model_dir` in `perception_bringup.yaml` to match.
+> If your copy is called `resnet50int8_trt11`, either rename it to `resnet50_trt11_int8` when you copy it (as shown below), or change `model_dir` in `perception_bringup.yaml` to match.
 
 ### Copying the weights to WATcloud / a SLURM node
 
-Your WATcloud home directory is shared between the login nodes and the SLURM nodes. Download the folder from Drive on your laptop, unzip it, and push it through a login node:
+Your WATcloud home directory is shared between the login nodes and the SLURM nodes. Copy the folder from your laptop and push it through a login node:
 
 ```bash
 ssh -i <your_watcloud_key> <watcloud_user>@wato-login2 "mkdir -p <path_to_wato_monorepo>/models/bevfusion"
@@ -86,7 +86,7 @@ ls /opt/watonomous/models/bevfusion/resnet50_trt11_int8   # inside the container
 
 ## 3. Play a bag
 
-Bags are in the [Bag Recordings Google Drive folder](https://drive.google.com/drive/folders/127Kw3o7Org474rkK1wwMDRZKiYHaR0Db). Put them in `wato_monorepo/bags/`. On WATcloud, set `BAG_DIRECTORY` to a folder in `/mnt/wato-drive2/` to play bags without copying them.
+Ask a perception lead for bags. Put them in `wato_monorepo/bags/`. On WATcloud, set `BAG_DIRECTORY` to a folder in `/mnt/wato-drive2/` to play bags without copying them.
 
 ```bash
 ./watod bag ls

@@ -12,10 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Check deployed model signatures: check_onnx_io.py DIR [--ignore-dtype].
+"""Check that exported ONNX files have the input/output names, shapes and dtypes bevfusion_node expects.
 
-Use --ref PATH to select a reference, or --write-ref to generate it from DIR.
-"""
+The expected values are in onnx_io_reference.json, recorded from the deployed model.
+Usage: check_onnx_io.py DIR [--ignore-dtype] [--ref PATH] [--write-ref]
+  --write-ref records a new reference from DIR. Exits 1 and lists every mismatch.
+Called by scripts/export.sh."""
 
 import argparse
 import json

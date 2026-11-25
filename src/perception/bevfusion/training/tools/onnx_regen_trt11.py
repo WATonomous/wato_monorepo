@@ -11,7 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# From the team Drive "Bevfusion Models" folder. TensorRT 11 is strongly typed, so the node's FP16 buffers need FP16 ONNX I/O.
+"""Cast FP32 inputs/outputs of camera.backbone, camera.vtransform, fuser and
+head.bbox ONNX models to FP16, keeping a .bak of each original model.
+
+TensorRT 11 is strongly typed and bevfusion_node feeds FP16 buffers.
+Usage: python onnx_regen_trt11.py <onnx_dir> (called by scripts/export.sh).
+"""
 
 import os
 import sys
@@ -102,7 +107,7 @@ def patch_onnx_to_pure_fp16(input_onnx, output_onnx):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: onnx_regen.py <onnx_dir>")
+        print("Usage: onnx_regen_trt11.py <onnx_dir>")
         sys.exit(1)
 
     target_dir = sys.argv[1]

@@ -14,7 +14,8 @@
 # limitations under the License.
 # Usage: scripts/eval.sh CHECKPOINT [CONFIG]
 # nuScenes detection eval (mAP/NDS) of a training checkpoint on the val split of $NUSC_DIR.
-# Gate G1: $CB/model/resnet50/bevfusion-det.pth with NUSC_DIR=$SHARED/nuscenes-full must give 67.93 +- 0.3 mAP.
+# Example: scripts/eval.sh "$CB/model/resnet50/bevfusion-det.pth" scores NVIDIA's
+# published weights (about 67.9 mAP on full val).
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 CKPT="$(realpath "${1:?checkpoint}")"

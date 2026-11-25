@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Usage: scripts/setup_container.sh
 # Runs inside the training container at the start of every job, before any other script.
-# Connects the image's wato-cuda-bevfusion clone to the files on cluster storage:
+# Connects the image's wato-cuda-bevfusion clone to the weights and data on storage (paths from params.env):
 #   1. NVIDIA's published weights:  $SHARED/cuda-bevfusion-model/model    -> $CB/model
 #   2. The ResNet-50 configs:       $CB/configs (in the clone)            -> copied into $BF/configs
 #   3. The nuScenes data:           $NUSC_DIR                             -> $BF/data/nuscenes, $CB/data/nuscenes
@@ -14,16 +27,14 @@ MODEL_SRC="$SHARED/cuda-bevfusion-model"
 # Stop early with a clear message if storage is not mounted or not set up yet.
 for path in "$MODEL_SRC/model" "$NUSC_DIR"; do
   if [[ ! -d "$path" ]]; then
-    echo "missing: $path (is /mnt/wato-drive2 mounted? see Sub-task 1 steps 1.3 and 1.5)" >&2
+    echo "missing: $path (is $STORAGE mounted? paths are set in params.env)" >&2
     exit 1
   fi
 done
 
 # Replace a path with a symlink. A real directory already there (e.g. from the clone) is moved
 # to <path>.orig first, because ln would otherwise put the link inside it.
-# termninal message for using this function will output in the format, 
-# linked docker container directory -> source directory on the wato cluster.
-# argument order is: wato-drive_directory, docker_container_directory
+# Prints: linked <container path> -> <storage path>
 link() {
   local target="$1" link_path="$2"
   if [[ -d "$link_path" && ! -L "$link_path" ]]; then
@@ -47,8 +58,6 @@ echo "copied $CB/configs into $BF/configs"
 # relative to $CB.
 link "$NUSC_DIR" "$BF/data/nuscenes"
 link "$NUSC_DIR" "$CB/data/nuscenes"
-
-
 
 # Check that the files the training and export scripts need are now reachable.
 missing=0
