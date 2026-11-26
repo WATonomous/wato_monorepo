@@ -16,9 +16,10 @@ Growing that number is the main job; see "Growing the set".
 
 Baseline to beat: `cv_db` (constant velocity, agents under 1 m/s stand still), 3 s all: minADE 0.443 / minFDE 0.714.
 
-## Scene format (one `.npz` per sample; frame `map`, metres, radians, 10 Hz)
+## Scene format (one `.npz` per sample; world-fixed frame, metres, radians, 10 Hz)
 
-- `t` bag time (s), `slice` name.
+- `t` bag time (s), `slice` name. The two may_30 slices are in `map` (SLAM localization); new slices are in
+  `odom` (Novatel). The metrics are the same in either frame.
 - `track_ids` `[N]` int64 (the ego is id `-1`), `types` `[N]` int8: 0 vehicle, 1 pedestrian, 2 cyclist.
 - `hist` `[N,50,9]` float32: x, y, z, yaw, vx, vy, length, width, height. Index 49 = now, 5 s back.
   `hist_valid` `[N,50]`. Velocity = finite difference of box centres over the last 0.5 s or less.
@@ -44,14 +45,19 @@ fewer than 30 agents as small N. Self-checks: `python3 score.py --selftest`, `py
 
 ## Adding a slice
 
-1. Replay the bag through perception with tracking `output_frame:=map`, and record
-   `/perception/detections_3D_tracked`, `/localization/pose` and `/world_modeling/world_object_seeds` to an mcap.
-   `make_scenes.py` refuses tracks that are not in `map`.
+1. Replay the bag through perception (main's settings are fine: tracks in `lidar_cc`) and record
+   `/perception/detections_3D_tracked`, `/novatel/oem7/odom`, `/tf_static` and, to score the live node,
+   `/world_modeling/world_object_seeds`. A bag from `record_session.sh` already has the odometry and `/tf_static`.
 2. `python3 make_scenes.py <run_mcap> <bag>_t<start>-<end> scenes/<bag>_t<start>-<end> preds/prediction_ml/scenes/<bag>_t<start>-<end>`
-   (the last argument is optional: it saves what prediction_ml published live, so the node itself gets scored).
-   Name slices by bag seconds, and leave 2 s either side of the part you care about: samples need 1 s of history
-   and the last 2 s of a slice give no samples.
-3. Check the printed agent and target counts, then score.
+   - The last argument is optional: it saves what prediction_ml published live (resampled to 0.1 s), so the node
+     itself gets scored.
+   - Scenes are built in the odometry's `odom` frame, the same way prediction_ml does it on the car: ego pose at the
+     track stamp times the mount transform from `/tf_static`. `--ego /localization/pose` uses a localization pose
+     (frame `map`) instead.
+   - Name slices by bag seconds, and leave 2 s either side of the part you care about: samples need 1 s of history,
+     and the last 2 s of a slice give no samples.
+3. Check the printed counts (tracker frames dropped for want of odometry should be 0), then score.
+   Self-check: `python3 make_scenes.py --selftest`.
 
 ## Growing the set
 
@@ -60,8 +66,8 @@ fewer than 30 agents as small N. Self-checks: `python3 score.py --selftest`, `py
 - **Groups**: vehicle straight, vehicle turning, lead car braking, oncoming and merging traffic, pedestrians at
   crosswalks, cyclists, parking lots. Tag each slice with what it contains.
 - **Track quality**: hand-check ID switches on moving agents.
-- **Bags** need lidar, cameras, `/tf_static`, localization and `/novatel/oem7/odom`. New drives should also record
-  `/interfacing/can_state_estimator/odom`.
+- **Bags**: `record_session.sh` drives have everything needed (lidar, cameras, `/tf_static`, `/novatel/oem7/odom`).
+  Note stretches with poor GPS (trees, bridges): Novatel odometry can drift there and make parked cars look like they move.
 - **Hold-out**: keep some drives as a test split that nobody tunes on.
 - **Reporting**: give 95% confidence intervals from a bootstrap that resamples by agent, plus the number of agents
   behind each figure.

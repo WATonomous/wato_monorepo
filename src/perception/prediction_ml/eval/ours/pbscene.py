@@ -91,7 +91,7 @@ class Tracks:
 
     def add_detections(
         self, msg
-    ):  # vision_msgs/Detection3DArray from the tracker (frame map)
+    ):  # vision_msgs/Detection3DArray from the tracker, already in the world frame
         t = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         for d in msg.detections:
             cls = next(
@@ -111,7 +111,9 @@ class Tracks:
             )
         return t
 
-    def add_ego(self, msg):  # geometry_msgs/PoseStamped, frame map
+    def add_ego(
+        self, msg
+    ):  # .header.stamp + .pose (geometry_msgs/Pose) in the world frame
         p = msg.pose.position
         self.add(
             msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
