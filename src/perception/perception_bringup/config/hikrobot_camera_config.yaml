@@ -16,7 +16,8 @@
 # (ExposureAuto, ExposureTime, AcquisitionFrameRate*, GainAuto, Gain, BlackLevel*,
 # BalanceWhiteAuto, BalanceRatio). Every other GenICam feature must go under BEGIN
 # (applied before those keys) or END (applied after them), where the driver applies it
-# in alphabetical order. A feature placed anywhere else is silently ignored.
+# in alphabetical order (force an order with a quoted "#N_" key prefix, see the trigger keys below).
+# A feature placed anywhere else is silently ignored.
 
 # Settings shared by every camera
 x-common-settings: &common_settings
@@ -25,13 +26,35 @@ x-common-settings: &common_settings
   # 9000-byte frames. Test on their own before enabling.
   # TransportLayerControl:
   #   GevSCPSPacketSize: 8192              # bytes, must be <= the interface MTU (9000)
+
+  # Hardware trigger from the camera trigger board (src/perception/camera_trigger).
+  # Selector features (TriggerSelector, LineSelector) must be written before the features they
+  # select, but BEGIN/END are applied alphabetically. The driver's "#N_" prefix fixes the order:
+  # keys sort by the prefix, which is stripped before writing. Keep these keys quoted (an unquoted
+  # # starts a YAML comment) and use one digit (#10_ would sort before #2_).
   AcquisitionControl:
     ExposureAuto: "Continuous"
+    # Free-running: frame rate limit at 20 Hz (the lidar rate).
+    # Triggered: set AcquisitionFrameRateEnable to false, or the limit can drop a trigger whenever
+    # the camera's clock runs slightly faster than the board's 20 Hz.
     AcquisitionFrameRateEnable: true
     AcquisitionFrameRate: 20.0 # Limited to Lidar publish rate (30 may be possible in the future)
+    BEGIN:
+      "#1_TriggerSelector": "FrameBurstStart"
+      # The trigger switch. "On" = one frame per board pulse, and NO frames at all while the board
+      # isn't pulsing. Keep "Off" until the board is installed on the car.
+      "#2_TriggerMode": "Off"
+      "#3_TriggerSource": "Line0"          # opto input, wired to the board's trigger output
+      "#4_TriggerActivation": "RisingEdge"
     END:
       AutoExposureTimeLowerLimit: 31       # microseconds, camera minimum; a higher floor overexposes in bright sun
       AutoExposureTimeUpperLimit: 15000    # microseconds - limit for motion blur
+      # Strobe on Line1 (opto output, wired to the board's STBn input): high while the sensor
+      # exposes, so the board can see which cameras took each pulse. Harmless while free-running.
+      "#1_LineSelector": "Line1"
+      "#2_LineMode": "Strobe"
+      "#3_LineSource": "ExposureStartActive"
+      "#4_StrobeEnable": true
 
 # AnalogControl keys the driver applies itself
 x-analog-control: &analog_control

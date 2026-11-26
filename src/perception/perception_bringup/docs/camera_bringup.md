@@ -93,9 +93,17 @@ What the config sets on every camera:
 - Auto-exposure and auto-gain meter on an AOI, not the whole frame. Pano cameras use rows 0-831, which
   leaves out the roof rail and hood. Lower cameras leave out the ego-vehicle wedge.
 - Exposure is between 31 and 15000 µs, and gain is at most 15 dB.
+- Hardware trigger from the camera trigger board (`src/perception/camera_trigger`): trigger input
+  on Line0 (rising edge), strobe output on Line1 (high while exposing). `TriggerMode` is `"Off"`, so
+  the cameras free-run at 20 Hz. To trigger, set `TriggerMode: "On"` and
+  `AcquisitionFrameRateEnable: false`. With trigger on, a camera sends **no frames** while the board
+  isn't pulsing. The selectors (`LineSelector`, `TriggerSelector`) must be written before the
+  features they select, so these keys use the driver's `#N_` prefix (`"#1_TriggerSelector"`): `BEGIN`
+  and `END` are applied alphabetically, the prefix sets the order and is stripped before writing.
+  Quote these keys (an unquoted `#` starts a YAML comment) and use one digit (`#10_` sorts before `#2_`).
 
 To check what a camera is actually running, read it while no driver is using it:
 
 ```sh
-arv-tool-0.8 -n <guid> control GammaEnable AutoExposureTimeUpperLimit AutoGainUpperLimit Brightness
+arv-tool-0.8 -n <guid> control GammaEnable AutoExposureTimeUpperLimit AutoGainUpperLimit Brightness TriggerMode TriggerSource StrobeEnable
 ```

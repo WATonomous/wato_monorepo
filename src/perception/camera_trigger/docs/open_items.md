@@ -17,10 +17,9 @@ wiring (section D) come later.
 | A4 | **Firewall on the car** | A firewall would silently drop UDP 5800. | `sudo ufw status verbose` and `sudo nft list ruleset`. If one is active: `sudo ufw allow from <board IP> to any port 5800 proto udp`. | README, car setup |
 | A5 | **Camera to strobe wiring** (STB1-12 = PC0-PC11 = J3-J14) | Diagnostics name strobe inputs (`STB3`), not cameras. Unwired inputs must be left out of `expected_strobe_bits`. | The people wiring the car. | `expected_strobe_bits` in `config/camera_trigger.yaml`, and a camera-name mapping (F5). |
 | A7 | **Real report latency** | `expected_latency` (10 ms) is an estimate. | On the car with the board running: the median of `last_residual_ms` in `/diagnostics` over 10 minutes. | `expected_latency` in the config. Record the value in the PR. |
-| A8 | **System clock synced to GPS** (#560) | On 2026-11-17 the car clock was 27.75 s ahead of UTC with no time service running. Until chrony runs, stamps are `time_valid=false`, or on the grid but wrong by whole seconds. | The owner of #560: `chronyc tracking` (< 5 ms), `chronyc sources` (`#* GPS`). | Nothing in the node. Measure A7 afterwards. |
 | A9 | **PPS edge and polarity** | The receiver's saved PPS polarity was NEGATIVE; the GPS driver only sets POSITIVE when it connects (#560). A board triggering on the wrong edge puts every pulse 1 ms off, which the node cannot detect. | #560 (`PPSCONTROL ENABLE POSITIVE` + `SAVECONFIG`). The firmware owner confirms which edge the board uses. | [serial_protocol.md](serial_protocol.md), PPS input |
 | A10 | **No GPS fix indoors** | Without a fix the receiver's PPS isn't aligned to UTC. The board can still report `pps_locked=1`, and stamps can look valid while being wrong. | Known limitation. Possible follow-up: also require a valid GPS time status (`/novatel/oem7/bestpos`, `nov_header.time_status`). | README, limitations |
-| A11 | **Residual tolerance once chrony runs** | Chrony over NMEA is good to a few ms, about the same as the report latency. A clock a few ms behind GPS gives slightly negative residuals, so valid pulses get marked invalid. | Watch `last_residual_ms` and `last_bad_residual_ms` after A8. | If needed, a small negative allowance (a `min_latency` parameter). |
+| A11 | **Residual tolerance once chrony runs** | Chrony over NMEA is good to a few ms, about the same as the report latency. A clock a few ms behind GPS gives slightly negative residuals, so valid pulses get marked invalid. | Watch `last_residual_ms` and `last_bad_residual_ms` now that chrony runs (#560, done 2026-11-26). | If needed, a small negative allowance (a `min_latency` parameter). |
 
 ## B. Choices made where the specs were silent
 
@@ -77,7 +76,7 @@ Each is one small function with its own unit test, so changing it stays local.
 
 ## E. Hardware acceptance checklist
 
-Preconditions: chrony synced (A8), PPS polarity saved (A9), car outside with a GPS fix (A10).
+Preconditions: chrony synced (#560, done 2026-11-26), PPS polarity saved (A9), car outside with a GPS fix (A10).
 
 - [ ] 20 Hz on `/camera_trigger` for 10 minutes, no gaps.
 - [ ] `time_valid=true`, stamps on the 50 ms grid, residuals 0 or more (A11).
