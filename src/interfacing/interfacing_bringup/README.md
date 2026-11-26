@@ -18,7 +18,7 @@ interfacing.launch.yaml
 **Sensor drivers** are third-party ROS packages declared as rosdep keys and launched directly:
 - Novatel OEM7 (GPS + IMU)
 - FLIR Blackfly GigE (cameras, 12 total)
-- Velodyne VLP32C / VLP16 (LiDARs, 3 total)
+- Velodyne VLS-128 / VLP-16 (LiDARs, 3 total)
 
 **CAN/control stack** is all first-party code in this repo:
 `joy_node` → `joystick_node` → `ackermann_mux` → `ackermann_smoother` → `pid_control` → `oscc_mux` → `oscc_interfacing`

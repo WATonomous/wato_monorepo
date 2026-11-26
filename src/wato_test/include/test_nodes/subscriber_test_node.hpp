@@ -15,6 +15,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
@@ -22,6 +23,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -76,6 +78,14 @@ public:
   std::future<MessageType> expect_next_message();
 
   /**
+   * @brief Expect a future message matching a predicate, ignoring other messages.
+   *
+   * Expectations are resolved in FIFO order. Predicates run under the data
+   * mutex in the subscription callback and must not block or call this node.
+   */
+  std::future<MessageType> expect_message(std::function<bool(const MessageType &)> predicate);
+
+  /**
    * @brief Reset internal state for a new test
    *
    * Clears the last message and any pending futures.
@@ -101,7 +111,13 @@ private:
   size_t message_count_ = 0;
 
   // Future-based synchronization
-  std::queue<std::promise<MessageType>> message_promises_;
+  struct MessageExpectation
+  {
+    std::function<bool(const MessageType &)> predicate;
+    std::promise<MessageType> promise;
+  };
+
+  std::queue<MessageExpectation> message_promises_;
 };
 
 // Template implementation
@@ -135,9 +151,16 @@ size_t SubscriberTestNode<MessageType>::get_message_count() const
 template <typename MessageType>
 std::future<MessageType> SubscriberTestNode<MessageType>::expect_next_message()
 {
+  return expect_message([](const MessageType &) { return true; });
+}
+
+template <typename MessageType>
+std::future<MessageType> SubscriberTestNode<MessageType>::expect_message(
+  std::function<bool(const MessageType &)> predicate)
+{
   std::lock_guard<std::mutex> lock(data_mutex_);
-  message_promises_.emplace();
-  return message_promises_.back().get_future();
+  message_promises_.push({std::move(predicate), {}});
+  return message_promises_.back().promise.get_future();
 }
 
 template <typename MessageType>
@@ -161,8 +184,8 @@ void SubscriberTestNode<MessageType>::message_callback(typename MessageType::Uni
   message_count_++;
 
   // Resolve any waiting futures
-  if (!message_promises_.empty()) {
-    message_promises_.front().set_value(*msg);
+  if (!message_promises_.empty() && message_promises_.front().predicate(*msg)) {
+    message_promises_.front().promise.set_value(*msg);
     message_promises_.pop();
   }
 

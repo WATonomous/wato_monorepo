@@ -21,7 +21,7 @@ launch:
       default: "$(find-pkg-share sensor_interfacing)/config/velodyne_lidar_config.yaml"
       description: "Path to lidar driver configuration file"
 
-  # Center Lidar (VLP-32C)
+  # Center Lidar (VLS-128)
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/template_lidar_pipeline.yaml"
       arg:
@@ -29,10 +29,8 @@ launch:
           value: "lidar_cc"
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-        - name: "pointcloud_config"
-          value: "VLP32C"
         - name: "calibration_file"
-          value: "VeloView-VLP-32C.yaml"
+          value: "VLS128.yaml"
 
   # Northeast Lidar (VLP-16)
   - include:
@@ -42,8 +40,6 @@ launch:
           value: "lidar_ne"
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-        - name: "pointcloud_config"
-          value: "VLP16"
         - name: "calibration_file"
           value: "VLP16db.yaml"
 
@@ -55,7 +51,5 @@ launch:
           value: "lidar_nw"
         - name: "lidar_config_file"
           value: "$(var lidar_config_file)"
-        - name: "pointcloud_config"
-          value: "VLP16"
         - name: "calibration_file"
           value: "VLP16db.yaml"

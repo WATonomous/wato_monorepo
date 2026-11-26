@@ -12,6 +12,10 @@ launch:
       name: pygame_web_port
       default: "5000"
       description: "Port for the pygame HUD web server"
+  - arg:
+      name: scenario
+      default: "carla_scenarios.scenarios.light_traffic_scenario"
+      description: "Initial manual CARLA world selector"
 
   # Eve Robot Description
   - include:
@@ -29,3 +33,5 @@ launch:
           value: $(var pygame_hud_enabled)
         - name: pygame_web_port
           value: $(var pygame_web_port)
+        - name: scenario
+          value: $(var scenario)

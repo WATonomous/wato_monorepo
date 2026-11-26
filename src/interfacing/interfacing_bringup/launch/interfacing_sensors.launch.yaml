@@ -38,7 +38,7 @@ launch:
         - name: "oem7_if"
           value: "$(var oem7_if)"
 
-  # LiDAR VLP-32
+  # LiDARs (VLS-128 center, VLP-16 NE/NW)
   - include:
       file: "$(find-pkg-share sensor_interfacing)/launch/all_lidars_composed.yaml"
 

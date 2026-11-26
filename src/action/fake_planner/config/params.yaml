@@ -1,0 +1,31 @@
+---
+/**/fake_planner_node:
+  ros__parameters:
+    # Maneuver file and output frame. Topics are remapped by the launch files.
+    maneuver_file: ""
+    frame_id: "odom"
+    publish_rate_hz: 10.0
+
+    # Controller engagement and manual release.
+    publish_behaviour: true
+    behaviour: "lane_follow"
+    start_on_activate: true
+
+    # auto uses the JSON start pose when present; otherwise use the first odometry pose.
+    anchoring: "auto"
+
+    # Rolling window distances, in metres.
+    horizon_m: 35.0
+    trail_m: 2.0
+    search_ahead_m: 400.0
+    max_path_deviation_m: 5.0
+
+    # Release ramp duration, in seconds. Zero disables the ramp.
+    release_ramp_s: 3.0
+
+    # Odometry jump that triggers a reset, in metres. Zero disables detection.
+    respawn_jump_m: 5.0
+
+    # Open maneuvers finish after movement, near the stop line and below this speed.
+    finish_distance_m: 3.0
+    finish_speed_mps: 0.25
