@@ -25,12 +25,12 @@ launch:
 
   - arg:
       name: live_cameras
-      default: "true"
+      default: "false"
       description: "Launch physical camera drivers (set to false when using a rosbag or simulator)"
 
   - arg:
       name: enable_lanelets
-      default: "false"
+      default: "true"
       description: "Run the optional SemVecNet lanelets node (requires the lanelets package and models)"
 
   - arg:
