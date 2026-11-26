@@ -12,6 +12,7 @@ The node is a thin ROS wrapper around small, ROS-free parts that are each unit-t
 | Transport | `transport.{hpp,cpp}` | `Transport` interface and `UdpTransport`: one datagram per line, kernel receive timestamps, source filter |
 | Node | `camera_trigger_node.{hpp,cpp}` | Parameters, I/O thread, `/camera_trigger`, `/diagnostics`, logs |
 | Fake board | `tools/fake_stm32.py` | Sends realistic reports, with fault injection |
+| Node test | `test/test_camera_trigger_node.cpp` | Runs the node against a fake board on loopback |
 
 Data flow for each datagram: `Transport::read` → `parseLine` → `SequenceTracker::update` →
 `PulseTimer::compute` → publish.
@@ -39,9 +40,11 @@ In CI this runs through `./watod test` for the perception module. Tests use Catc
 | `test_sequence_tracker` | Gaps, duplicates, late packets, reboot threshold, wrap at 2^32 |
 | `test_pulse_timing` | Grid snapping at every pulse index, second boundaries, jitter, clock errors (+-40 ms, +-0.2 s, +-2 s), second-offset rule, unlocked pulses |
 | `test_transport` | UDP on loopback: kernel timestamps, oversize datagrams, source filter, busy port |
+| `test_camera_trigger_node` | The node end to end: a fake board in the test sends reports on loopback. Exact stamps on the PPS grid, ERROR on silence, gaps / duplicates / bad lines counted and not published, PPS-lost warning, bad parameters rejected |
 
-The node itself is checked end to end by hand against the fake board (see the README's fault
-options table). Automating that with `launch_testing` is open item F4.
+`test_camera_trigger_node` waits on conditions instead of sleeping for fixed times, and keeps
+sending until the node reports a healthy state, so a busy CI machine doesn't make it fail. The
+remaining fault options of `tools/fake_stm32.py` (see the README's table) are still checked by hand.
 
 ## Implementation notes
 
