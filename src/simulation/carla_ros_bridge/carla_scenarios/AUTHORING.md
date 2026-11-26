@@ -3,6 +3,8 @@
 Add YAML and maneuver JSON files to create new scenarios using the existing
 trajectory, world, completion, and metric capabilities. No Python registration is needed.
 See the [manager commands](../../simulation_manager/README.md#commands) to run them.
+The host-only [generation prototype](../../simulation_generation/README.md) can
+author custom controller trajectories from prompts using the same data format.
 
 ## Choose a starting point
 

@@ -16,7 +16,8 @@
 
 The runner owns experiment semantics. This helper only preflights installed
 images, starts application runtimes and forwards the operator's ROS requests.
-All mutable files live under this workspace's ignored .cache/watod-sim folder.
+Session state lives under this workspace's ignored .cache/watod-sim folder.
+The generation command also authors scenario and maneuver data in the checkout.
 """
 
 import argparse
@@ -874,6 +875,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="List definitions without starting Docker")
+    generation = sub.add_parser(
+        "generate", help="Generate a custom controller trajectory without Docker"
+    )
+    # Keep the host-only generator outside the ROS runtime packages.
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "src/simulation/simulation_generation"))
+    from simulation_generation.cli import add_arguments, run_generation
+
+    add_arguments(generation)
     sub.add_parser("setup", help="Start or reuse the base session; never builds images")
     opening = sub.add_parser("open")
     opening.add_argument("kind", choices=("playground", "scenario"))
@@ -885,6 +895,8 @@ def main():
     arguments = parser.parse_args(
         ["--help"] if sys.argv[1:] in ([], ["help"]) else None
     )
+    if arguments.command == "generate":
+        return run_generation(arguments, root)
     session = Session()
     if arguments.command == "list":
         base = Path(session.environment["WATOD_SIM_CATALOG_DIRECTORY"])
@@ -932,7 +944,9 @@ if __name__ == "__main__":
         sys.exit(2)
     except KeyboardInterrupt:
         print(
-            "Interrupted. Run watod sim status, then watod sim close to release the experiment.",
+            "Interrupted."
+            if sys.argv[1:2] == ["generate"]
+            else "Interrupted. Run watod sim status, then watod sim close to release the experiment.",
             file=sys.stderr,
         )
         sys.exit(3)

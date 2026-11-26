@@ -1,0 +1,11 @@
+{
+  "description": "Controller path: travel 8 m, shift left by 1 m over 12 m, hold for 4 m, return over 12 m, then stop after 10 m.",
+  "default_speed": 2.0,
+  "segments": [
+    {"straight": {"length": 8.0}},
+    {"shift": {"length": 12.0, "lateral": 1.0}},
+    {"dwell": {"length": 4.0}},
+    {"shift": {"length": 12.0, "lateral": -1.0}},
+    {"straight": {"length": 10.0}}
+  ]
+}

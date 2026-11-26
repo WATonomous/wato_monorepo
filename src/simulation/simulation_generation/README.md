@@ -1,0 +1,152 @@
+# Controller trajectory generation prototype
+
+`watod sim generate scenario` turns a prompt into an open fake-planner maneuver
+and a version-two controller scenario. It runs on the host without Docker or a
+ROS installation. Generated data uses the existing mounted scenario catalog and
+maneuver directory, so no runtime changes or image rebuilds are needed.
+
+This first version focuses on custom controller paths. It composes straights,
+smooth lateral shifts, distance-based dwells, slaloms, and constant-radius arcs.
+It does not generate lane-following routes, arbitrary waypoint trajectories,
+obstacles, actor behavior, reverse driving, or closed laps. Requests for those
+capabilities should receive an explanation from the model instead of a proposal.
+The validator enforces the supported data shape; prompt interpretation remains
+the model's responsibility. Inspect the result for semantic fidelity.
+
+## Generate and run
+
+Install the host dependency if PyYAML is unavailable:
+
+```bash
+python3 -m pip install -r src/simulation/simulation_generation/requirements.txt
+```
+
+Set `OPENAI_API_KEY` in your host environment, then run:
+
+```bash
+watod sim generate scenario --name custom_swerve --map oval \
+  --prompt "At 2 m/s, drive straight 8 m, shift left 1 m over 12 m, hold that offset for 4 m, return over 12 m, then drive 10 m and stop."
+```
+
+`-prompt` is also accepted. Omit `--name` for a unique generated ID.
+The model defaults to `gpt-4.1`; override it with `--model` or `OPENAI_MODEL`.
+Use a model available to your API account that supports Responses function calls.
+`--map` selects an existing playground and defaults to `oval`. The model cannot
+change this selection. If a prompt requests another map, use its playground ID
+in `--map` too.
+
+The command prints a directory under `.cache/watod-sim/generated/` containing:
+
+| File | Purpose |
+|------|---------|
+| `proposal.json` | Accepted model proposal; can be validated again with `--candidate` |
+| `scenario.yaml` | Complete generated scenario |
+| `maneuver.json` | Complete fake-planner maneuver |
+| `preview.svg` | Ego-relative geometry in metres; green start, red end; x forward, y left |
+| `report.json` | Prompt, model, prompt hash, catalog context, validation attempts, geometry, installed paths |
+
+The preview shows authored geometry only. It omits the runtime's uniform
+resampling, braking profile, stop pad, and map anchoring. It is not a map overlay.
+At runtime, inspect `/sim/reference_path` alongside map markers in Foxglove.
+
+On success, the command also creates `scenarios/NAME.yaml` in the configured
+catalog and `NAME.json` in the maneuver directory. It refuses to overwrite either
+file. Existing scenarios, including tuned ego poses, are never edited. Use
+`--dry-run` to save the preview and artifacts without installing either file.
+
+With a prepared managed session:
+
+```bash
+watod sim open scenario custom_swerve
+watod sim play
+```
+
+Close an existing playground or scenario before opening another. See the
+[manager setup instructions](../simulation_manager/README.md#quick-start) if no
+session exists. Generation never starts, resets, or modifies a running session.
+Opening the generated scenario starts the fake planner, pure pursuit controller,
+and map-only world modeling. Tracking errors and progress are recorded; completion
+and collision have pass/fail limits. No model-authored tracking thresholds are
+treated as controller acceptance criteria.
+
+## Offline exploration
+
+This exercises the same validation and artifact path without an API key or call:
+
+```bash
+watod sim generate scenario --name preview_swerve --map oval --dry-run \
+  --candidate src/simulation/simulation_generation/examples/gentle_swerve.json
+```
+
+Remove `--dry-run` to install the candidate. A candidate contains exactly
+`description`, `default_speed`, and `segments`; it is a proposal, not a complete
+scenario or maneuver JSON. See the example and the
+[fake-planner format](../../action/fake_planner/README.md#maneuver-json).
+
+## How generation works
+
+1. Read the selected playground, matching ROS map config, and map assets from
+   the checkout. Read current `controller_snake`, `brake_in_curve`, and
+   `sine_with_dwell` examples and their maneuver JSON when available.
+2. Send the user prompt and this bounded catalog context with the curated
+   [`system_prompt.txt`](simulation_generation/system_prompt.txt) to OpenAI.
+   The host API key is used only for authentication; it is not included in
+   prompts, installed files, or generation records. Prompts and catalog examples
+   are sent to the API and saved in the local report.
+3. Let the model call only `validate_trajectory`. The host checks the proposal's
+   fields, finite numbers, segment limits, speed bounds, and geometry budget.
+   The tool cannot execute commands or choose paths. Invalid proposals return
+   diagnostics to the model for repair. Generation stops on the first valid
+   proposal, an unsupported-request explanation, an API failure, or the call
+   limit (`--max-rounds`, default 4, maximum 8).
+4. Compile the proposal into a fixed controller-test template: ego-relative open
+   path, `ramp_up_accel: 0`, 10 m stop pad, maneuver-finished completion, selected
+   metrics, and a bounded execution deadline. Validate the generated files in an
+   isolated temporary catalog through the existing `load_maneuver` and
+   `load_definition` functions.
+5. Save review artifacts and install the maneuver before the scenario with
+   exclusive file creation. A failed publish rolls back files created by that
+   invocation, preserving pre-existing files. Files are local changes for review;
+   generation does not commit or push them.
+
+The client uses the [OpenAI Responses function-calling API](https://developers.openai.com/api/docs/guides/function-calling)
+with `store: false` and no SDK dependency. API calls have a 90-second timeout and
+are not automatically retried after transport errors. Generation may make up to
+the configured number of billable calls while repairing invalid data.
+
+The host honors `WATOD_SIM_CATALOG_DIRECTORY`, `WATOD_SIM_MANEUVER_DIRECTORY`, and
+`WATOD_SIM_MAP_CONFIG_DIRECTORY`, including checkout-relative paths. Recreate a
+managed session after changing data roots so its mounts match the generator.
+
+## What validation establishes
+
+The proposal must have 1–32 bounded segments, speeds from 0.5–8 m/s while moving,
+no intermediate zero-speed point, a final straight of at least 5 m, and no more
+than 300 m of sampled authored path. The host fixes maneuver sampling at 0.5 m
+and uses the existing timed release ramp and braking behavior. The execution
+deadline allows travel at the minimum accepted speed plus 60 seconds.
+
+These are authoring and resource bounds. Schema and file validation do not prove
+collision avoidance, road containment, steering feasibility, or scoring success.
+The scenario requests a continuous straight lane using a forward-envelope
+runout heuristic; CARLA may reject that spawn if the chosen map lacks enough
+space. Curved custom paths can leave the road. Run and inspect CARLA before
+treating a generated path as an accepted controller test.
+
+The next extension for the original parked-car/oval idea would need map-aware
+geometry tools, actor placement, and explicit distinctions between a commanded
+collision path and an avoidance route. The existing scenario schema already
+supports actors; this generator deliberately keeps its model output limited to
+the custom path prototype.
+
+## Development checks
+
+```bash
+python3 -B -m unittest discover -s src/simulation/simulation_generation/tests -v
+python3 -B -m unittest discover -s watod_scripts/tests -v
+```
+
+The generator tests cover the tool repair loop using mocked Responses output,
+unbounded and malformed proposals, coordinate composition, shared-loader round
+trips, offline CLI use, and no-overwrite behavior. They do not freeze shipped
+scenario poses or claim live API/CARLA acceptance.

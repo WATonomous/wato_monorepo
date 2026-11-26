@@ -58,6 +58,17 @@ and metric limits. The required modules are inferred from those choices. Omittin
 starts only the requested world capabilities. See the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md)
 for a complete example and map-coordinate vehicle placement.
 
+For a prompt-based custom controller path, use the host-only
+[trajectory generation prototype](../simulation_generation/README.md):
+
+```bash
+watod sim generate scenario --name my_swerve --map oval \
+  --prompt "At 2 m/s, drive 8 m, shift left 1 m over 12 m, return over 12 m, then drive 10 m and stop."
+```
+
+Set `OPENAI_API_KEY` on the host first. Generation validates and installs data;
+inspect its saved preview, then open and play the scenario normally.
+
 ## Controller Scenarios
 
 | Scenario | Maneuver | Map visualization |
@@ -86,6 +97,7 @@ the reference trajectory. These are authored controller maneuvers, not road-foll
 | Command | Behavior |
 |---------|----------|
 | `watod sim list` | List playgrounds and scored scenarios from the checkout; Docker is not required |
+| `watod sim generate scenario --prompt TEXT` | Generate and validate a custom controller path using OpenAI; no Docker required |
 | `watod sim setup` | Start/reuse the base session using prepared images and print Foxglove connection details |
 | `watod sim open playground NAME` | Load map, ego, traffic, weather and bridge; ready for manual use without application nodes or scoring |
 | `watod sim open scenario NAME` | Prepare the world and reviewed application stack; leave the attempt ready for play |
