@@ -38,6 +38,8 @@
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <message_filters/subscriber.h>
+#include <foxglove_msgs/msg/grid.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
 #include <tf2_ros/buffer.hpp>
@@ -119,6 +121,9 @@ private:
    * @brief Declare and populate core parameters from the parameter server.
    */
   void declareParameters();
+
+  /** @brief Build the core input config from ROS params. */
+  BEVFusionInputConfig buildInputConfig();
 
   /**
    * @brief Main processing callback for synced compressed camera and LiDAR data.
@@ -236,7 +241,7 @@ private:
    */
   bool processLidar(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg, std::vector<float> & lidar_data);
 
-  /**
+/**
    * @brief Validate and normalize an image.
    * @param img The image to validate and normalize
    * @param index The index of the image
@@ -267,9 +272,43 @@ private:
    */
   visualization_msgs::msg::MarkerArray createMarkers(const vision_msgs::msg::Detection3DArray & detections_3d) const;
 
+  /**
+   * @brief Convert one class of a SegMap into an OccupancyGrid in the LiDAR frame.
+   * @param seg_map Segmentation map from the core (row = x, col = y)
+   * @param class_index Index of the class mask to convert
+   * @param stamp Timestamp for the grid
+   * @return OccupancyGrid with 100 where the class is present and 0 elsewhere; empty data if class_index is invalid
+   *         or masks is too small
+   * @note OccupancyGrid is indexed data[y * width + x], so the SegMap is transposed: grid width = SegMap height.
+   */
+  nav_msgs::msg::OccupancyGrid createOccupancyGrid(
+    const SegMap & seg_map, int class_index, const builtin_interfaces::msg::Time & stamp) const;
+
+  /**
+   * @brief Convert a SegMap into a Foxglove Grid with per-class RGBA colours.
+   * @param seg_map Segmentation map from the core
+   * @param stamp Timestamp for the grid
+   * @return foxglove_msgs::msg::Grid with red/green/blue/alpha fields
+   */
+  foxglove_msgs::msg::Grid createSegGrid(const SegMap & seg_map, const builtin_interfaces::msg::Time & stamp) const;
+
+  /**
+   * @brief Publish the core's latest SegMap, one OccupancyGrid per class and a coloured Foxglove Grid.
+   * @param stamp Timestamp for the grids
+   */
+  void publishSegMap(const builtin_interfaces::msg::Time & stamp);
+
   // Core logic
   std::unique_ptr<BEVFusionCore> core_;
-  BEVFusionInputConfig config_;
+
+  // Preprocessing dimensions used outside the core
+  int image_width_{0};
+  int image_height_{0};
+  int norm_output_width_{0};
+  int norm_output_height_{0};
+  float resize_lim_{0.0f};
+  int num_features_{5};
+  int max_points_{300000};
 
   // TF
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -298,9 +337,21 @@ private:
   // Ego-vehicle suppression radius
   float ego_suppression_radius_{0.0f};
 
+  // Heads
+  bool det_enabled_{true};
+  bool seg_enabled_{false};
+  std::vector<std::string> seg_class_names_;
+  std::string seg_topic_prefix_;
+
+  // Core input config resolved from ROS params
+  BEVFusionInputConfig config_;
+
   // Publishers
   rclcpp_lifecycle::LifecyclePublisher<vision_msgs::msg::Detection3DArray>::SharedPtr detection_pub_;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub_;
+  std::vector<rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::OccupancyGrid>::SharedPtr>
+    seg_pubs_;  // One per class
+  rclcpp_lifecycle::LifecyclePublisher<foxglove_msgs::msg::Grid>::SharedPtr seg_grid_pub_;
 
   // Subscribers
   std::shared_ptr<LidarSub> lidar_sub_;

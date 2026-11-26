@@ -1,7 +1,7 @@
 # BEVFusion developer guide
 ## Overview
 
-BEVFusion is a ROS 2 lifecycle composable node that combines camera and LiDAR data for 3D object detection. The current C++ wrapper publishes boxes only; map segmentation is not implemented here.
+BEVFusion is a ROS 2 lifecycle composable node that combines camera and LiDAR data for 3D object detection. The C++ wrapper publishes boxes, and can optionally publish a BEV segmentation map (currently a placeholder; see [Map Segmentation](#map-segmentation-in-progress)).
 
 The model projects both sensors into a shared bird's-eye-view grid before fusing them. This gives the model camera semantics and LiDAR geometry in the same representation.
 
@@ -107,6 +107,7 @@ The second filter protects against detections on the vehicle itself and against 
 |---|---|---|
 | `/perception/detections_3d_bev` | `vision_msgs/Detection3DArray` | 3D bounding boxes for detected objects |
 | `/perception/bev_detection_markers` | `visualization_msgs/MarkerArray` | Foxglove visualization markers |
+| `/perception/bev_seg/<class>` | `nav_msgs/OccupancyGrid` | One grid per seg class, in `lidar_frame_id`. Only when `seg_enabled: true` |
 
 ## Parameters
 
@@ -133,6 +134,9 @@ Parameters are declared in `declareParameters()` / `on_configure()` (`bevfusion_
 | `max_points_per_voxel` / `max_points` / `max_voxels` | `10` / `300000` / `160000` | LiDAR point cloud caps (GPU memory vs. coverage tradeoff) |
 | `xbound` / `ybound` / `zbound` / `dbound` | see `params.yaml` | BEV grid bounds `[min, max, step]` used for camera-to-BEV projection |
 | `post_center_range_start` / `post_center_range_end` | `[-61.2,-61.2,-10]` / `[61.2,61.2,10]` | Discards detections whose center falls outside this volume |
+| `seg_enabled` | `false` | Publish the BEV segmentation map (see Map Segmentation below) |
+| `seg_class_names` | 6 nuScenes map classes | One OccupancyGrid topic per name; must match the seg model's class order |
+| `seg_topic_prefix` | `/perception/bev_seg` | Seg topics are `<prefix>/<class name>` |
 | `sync_queue_size` | `5` | Queue depth for `ApproximateTimeSynchronizer` |
 | `sync_max_time_diff_ms` | `200.0` | Maximum timestamp difference for ApproximateTime sync (ms) |
 | `qos_subscriber_reliability` / `qos_subscriber_depth` | `"best_effort"` / `10` | Subscriber QoS |
@@ -146,9 +150,16 @@ Camera intrinsics are *not* a declared parameter — they come from the `camera_
 
 `BEVFusionInputConfig::precision` (ROS param `precision`) controls whether the LiDAR SCN backbone is built/run at `"fp16"` or `"int8"` — the deployed default is `"int8"`. This only affects the LiDAR sparse-conv backbone (`::bevfusion::lidar::Precision`); the camera backbone, fuser, and detection head engines are separately compiled `.plan` files built once (via `BEVFusionCore::buildTRTEngines()`) if not already present in `build_dir`. Model weights (`.onnx` sources and compiled `.plan` engines) live under `/opt/watonomous/models/bevfusion/`, which is mounted into the container by docker-compose.
 
+### Map Segmentation (in progress)
+
+Setting `seg_enabled: true` makes the node publish one `nav_msgs/OccupancyGrid` per entry in `seg_class_names`, on `<seg_topic_prefix>/<class>` (default `/perception/bev_seg/drivable_area`, etc.). Cells are `100` where the class is present and `0` elsewhere. Grids are in `lidar_frame_id`, so Foxglove places them using TF.
+
+The CUDA seg head in wato-cuda-bevfusion isn't ready yet, so `BEVFusionCore::getSegMap()` currently returns `makePlaceholderSegMap()`: a 200x200, 0.5 m grid centered on the LiDAR, with `drivable_area` as a corridor only **in front** of the car and `divider` as a line only on its **left**. If those show up behind or to the right in Foxglove, the map is flipped.
+
+`SegMap` stores rows along x (forward) and columns along y (left). `OccupancyGrid` stores `data[y * width + x]`, so `createOccupancyGrid()` transposes it.
+
 ### What BEVFusion does NOT do
 
-- **Map Segmentation** — while the BEVFusion architecture supports it, this C++ TensorRT wrapper is currently only implemented for 3D object detection (bounding boxes).
 - **Floor removal** — the model's encoder learns to ignore the road internally
 - **Clustering** — would discard geometry the model needs
 - **Tracking** — handled by the `tracking` node downstream

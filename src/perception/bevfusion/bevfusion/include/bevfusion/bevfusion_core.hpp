@@ -17,6 +17,7 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -40,6 +41,7 @@ struct BEVFusionInputConfig
   std::string camera_vtransform_plan;  // Projects image features to BEV
   std::string fuser_plan;  // Fuses image and LiDAR BEV features
   std::string head_bbox_plan;  // Predicts 3D bounding boxes
+  std::string head_seg_plan;  // Predicts the BEV map segmentation
   std::string lidar_backbone_onnx;  // Extracts LiDAR features
 
   // --- Camera Normalization & Preprocessing ---
@@ -84,6 +86,33 @@ struct BEVFusionInputConfig
   std::vector<float> post_center_range_end = {61.2f, 61.2f, 10.0f};  // BBox center filter upper boundary [X, Y, Z]
   float confidence_threshold = 0.3f;  // Detection score threshold (detections below this score are discarded)
   bool sorted_bboxes = true;  // True to sort bounding boxes descending by confidence score
+
+  // --- Heads ---
+  bool det_enabled = true;  // True to run/publish the 3D object detection head
+  bool seg_enabled = false;  // True to produce a BEV segmentation map alongside detections
+  int seg_num_classes = 6;  // Number of map classes (6 for the nuScenes map classes)
+  float seg_confidence_threshold = 0.3f;  // Seg probability a cell must exceed to be marked as the class
+  std::vector<float> seg_confidence_thresholds;  // Optional per-class thresholds (model class order); empty = use the single value
+};
+
+/**
+ * @brief Top-down segmentation map around the LiDAR, one binary mask per class.
+ *
+ * Grid convention (LiDAR frame, x forward, y left), already in nav_msgs/OccupancyGrid order:
+ *   - cell (x_idx, y_idx) covers x in [origin_x + x_idx * resolution, origin_x + (x_idx + 1) * resolution),
+ *     and likewise for y with y_idx
+ *   - masks[c * height * width + y_idx * height + x_idx] is 100 if class c is present, else 0
+ *     (the CUDA seg head thresholds, scales and transposes on the GPU; the node copies planes as-is)
+ */
+struct SegMap
+{
+  int num_classes = 0;
+  int height = 0;  // cells along x (OccupancyGrid width)
+  int width = 0;  // cells along y (OccupancyGrid height)
+  float resolution = 0.0f;  // meters per pixel
+  float origin_x = 0.0f;  // LiDAR-frame x of the min corner of pixel (0, 0), meters
+  float origin_y = 0.0f;  // LiDAR-frame y of the min corner of pixel (0, 0), meters
+  std::vector<uint8_t> masks;
 };
 
 /**
@@ -185,6 +214,12 @@ public:
     const std::vector<float> & img_aug_matrix);
 
   /**
+   * @brief Segmentation map from the most recent infer() call.
+   * @return The latest SegMap; empty (num_classes == 0) if seg is disabled or infer() has not produced one
+   */
+  const SegMap & getSegMap() const;
+
+  /**
    * @brief Check if the core is initialized
    * @return true if initialized, false otherwise
    */
@@ -229,6 +264,9 @@ private:
   // Pre-allocated FP16 buffer for lidar point conversion (CPU side).
   // Reused across inference calls to avoid per-frame heap allocation.
   std::vector<__half> lidar_half_buf_;
+
+  // Latest segmentation map, filled by infer() when the seg head is enabled.
+  SegMap seg_map_;
 };
 
 }  // namespace wato::perception::bevfusion

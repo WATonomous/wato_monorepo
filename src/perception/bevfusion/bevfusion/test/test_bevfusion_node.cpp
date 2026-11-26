@@ -14,6 +14,7 @@
 
 #include <tf2_ros/buffer.h>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -39,6 +40,7 @@
 using wato::perception::bevfusion::BEVFusionNode;
 using wato::perception::bevfusion::BoundingBox;
 using wato::perception::bevfusion::Position;
+using wato::perception::bevfusion::SegMap;
 using wato::perception::bevfusion::Size;
 using wato::perception::bevfusion::Velocity;
 
@@ -344,11 +346,11 @@ TEST_CASE("img_aug_matrix: nuScenes defaults 1600x900 resize_lim=0.48", "[calibr
   auto node = make_configured_node();
 
   // Override config to nuScenes defaults
-  node->config_.image_width = 1600;
-  node->config_.image_height = 900;
-  node->config_.resize_lim = 0.48f;
-  node->config_.norm_output_width = 704;
-  node->config_.norm_output_height = 256;
+  node->image_width_ = 1600;
+  node->image_height_ = 900;
+  node->resize_lim_ = 0.48f;
+  node->norm_output_width_ = 704;
+  node->norm_output_height_ = 256;
 
   // Compute expected values following camera-normalization.cu logic:
   //   resized_w = (int)(1600 * 0.48) = 768
@@ -387,10 +389,10 @@ TEST_CASE("img_aug_matrix: nuScenes defaults 1600x900 resize_lim=0.48", "[calibr
   // The img_aug_matrix is the last 16 floats we can verify through the core.
   // Since computeCalibrationMatrices calls core_->updateCalibration which
   // requires GPU, we manually replicate the aug matrix logic here instead.
-  int actual_resized_w = static_cast<int>(node->config_.image_width * node->config_.resize_lim);
-  int actual_resized_h = static_cast<int>(node->config_.image_height * node->config_.resize_lim);
-  int actual_crop_x = (actual_resized_w - node->config_.norm_output_width) / 2;
-  int actual_crop_y = actual_resized_h - node->config_.norm_output_height;
+  int actual_resized_w = static_cast<int>(node->image_width_ * node->resize_lim_);
+  int actual_resized_h = static_cast<int>(node->image_height_ * node->resize_lim_);
+  int actual_crop_x = (actual_resized_w - node->norm_output_width_) / 2;
+  int actual_crop_y = actual_resized_h - node->norm_output_height_;
 
   // Verify the crop/resize math
   REQUIRE(actual_crop_x == expected_crop_x);
@@ -1136,4 +1138,131 @@ TEST_CASE("computeCalibrationMatrices: aborts on TF lookup failure", "[calibrati
   REQUIRE_FALSE(node->calibration_initialized_.load());
 
   rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: SegMap → OccupancyGrid copies the class plane as-is
+// WHY: The CUDA seg head already writes 100/0 values in OccupancyGrid order
+//      (data[y * width + x]; transpose folded into the ONNX export). The node
+//      must copy the requested class plane unchanged: re-transposing or
+//      rescaling here would mirror the map or break the 0-100 occupancy range.
+// =============================================================================
+TEST_CASE("createOccupancyGrid: copies the SegMap class plane unchanged", "[conversion][seg][fast]")
+{
+  auto node = make_configured_node();
+
+  // 2 classes, 3 cells along x by 2 cells along y, already in OccupancyGrid order
+  SegMap seg;
+  seg.num_classes = 2;
+  seg.height = 3;
+  seg.width = 2;
+  seg.resolution = 0.5f;
+  seg.origin_x = -1.0f;
+  seg.origin_y = -0.5f;
+  seg.masks.assign(2 * 3 * 2, 0);
+  seg.masks[0 * 6 + 0 * 3 + 2] = 100;  // class 0: y=0, x=2 (ahead, right)
+  seg.masks[1 * 6 + 1 * 3 + 0] = 100;  // class 1: y=1, x=0 (behind, left)
+
+  builtin_interfaces::msg::Time stamp;
+  stamp.sec = 42;
+
+  const auto grid0 = node->createOccupancyGrid(seg, 0, stamp);
+  REQUIRE(grid0.header.frame_id == node->lidar_frame_id_);
+  REQUIRE(grid0.header.stamp.sec == 42);
+  REQUIRE(grid0.info.resolution == Catch::Approx(0.5f));
+  REQUIRE(grid0.info.width == 3);  // cells along x
+  REQUIRE(grid0.info.height == 2);  // cells along y
+  REQUIRE(grid0.info.origin.position.x == Catch::Approx(-1.0));
+  REQUIRE(grid0.info.origin.position.y == Catch::Approx(-0.5));
+  REQUIRE(grid0.info.origin.orientation.w == Catch::Approx(1.0));
+  REQUIRE(grid0.data == std::vector<int8_t>(seg.masks.begin(), seg.masks.begin() + 6));
+  REQUIRE(grid0.data[0 * 3 + 2] == 100);
+
+  const auto grid1 = node->createOccupancyGrid(seg, 1, stamp);
+  REQUIRE(grid1.data == std::vector<int8_t>(seg.masks.begin() + 6, seg.masks.end()));
+  REQUIRE(grid1.data[1 * 3 + 0] == 100);
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: createOccupancyGrid rejects out-of-range class indices and short masks
+// WHY: A class-count mismatch between the model and seg_class_names, or a
+//      malformed SegMap, must not read past the end of the mask buffer.
+// =============================================================================
+TEST_CASE("createOccupancyGrid: invalid class index or short mask returns empty grid", "[conversion][seg][fast]")
+{
+  auto node = make_configured_node();
+
+  SegMap seg;
+  seg.num_classes = 1;
+  seg.height = 2;
+  seg.width = 2;
+  seg.resolution = 1.0f;
+  seg.masks.assign(4, 1);
+
+  builtin_interfaces::msg::Time stamp;
+  REQUIRE(node->createOccupancyGrid(seg, -1, stamp).data.empty());
+  REQUIRE(node->createOccupancyGrid(seg, 1, stamp).data.empty());
+
+  // masks shorter than num_classes * height * width
+  seg.num_classes = 2;
+  REQUIRE(node->createOccupancyGrid(seg, 1, stamp).data.empty());
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: seg parameters default to disabled with nuScenes classes
+// WHY: Seg must be opt-in so detection-only deployments are unaffected.
+// =============================================================================
+TEST_CASE("declareParameters: seg defaults", "[params][seg][fast]")
+{
+  auto node = make_configured_node();
+
+  REQUIRE_FALSE(node->seg_enabled_);
+  REQUIRE(node->seg_class_names_.size() == 6);
+  REQUIRE(node->seg_class_names_.front() == "drivable_area");
+  REQUIRE(node->seg_class_names_.back() == "divider");
+  REQUIRE(node->seg_class_names_.size() == 6);
+  REQUIRE(node->seg_topic_prefix_ == "/perception/bev_seg");
+
+  rclcpp::shutdown();
+}
+
+// =============================================================================
+// TEST: seg confidence thresholds reach the core config
+// WHY: The seg head thresholds on the GPU using these values. A hardcoded or
+//      dropped threshold silently floods or empties the published map.
+// =============================================================================
+TEST_CASE("buildInputConfig: seg confidence thresholds", "[params][seg][fast]")
+{
+  SECTION("defaults to a single 0.3 threshold")
+  {
+    auto node = make_configured_node();
+    auto config = node->buildInputConfig();
+    REQUIRE_THAT(config.seg_confidence_threshold, Catch::Matchers::WithinRel(0.3f));
+    REQUIRE(config.seg_confidence_thresholds.empty());
+    rclcpp::shutdown();
+  }
+
+  SECTION("overrides are passed through")
+  {
+    if (!rclcpp::ok()) {
+      rclcpp::init(0, nullptr);
+    }
+    rclcpp::NodeOptions options;
+    options.append_parameter_override("seg_confidence_threshold", 0.2);
+    options.append_parameter_override(
+      "seg_confidence_thresholds", std::vector<double>{0.3, 0.3, 0.3, 0.1, 0.3, 0.15});
+    auto node = std::make_shared<BEVFusionNode>(options);
+    node->declareParameters();
+
+    auto config = node->buildInputConfig();
+    REQUIRE_THAT(config.seg_confidence_threshold, Catch::Matchers::WithinRel(0.2f));
+    REQUIRE(config.seg_confidence_thresholds.size() == 6);
+    REQUIRE_THAT(config.seg_confidence_thresholds[3], Catch::Matchers::WithinRel(0.1f));
+    REQUIRE_THAT(config.seg_confidence_thresholds[5], Catch::Matchers::WithinRel(0.15f));
+    rclcpp::shutdown();
+  }
 }

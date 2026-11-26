@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -23,15 +24,18 @@
 
 using wato::perception::bevfusion::BEVFusionCore;
 using wato::perception::bevfusion::BEVFusionInputConfig;
+using wato::perception::bevfusion::SegMap;
 
 class MockCore : public ::bevfusion::Core  // Create a fake version of cuda-bevfusion
 {
 public:
   bool update_called = false;
   bool forward_called = false;
+  bool return_seg_map = false;
+  std::vector<uint8_t> seg_map_data;
   int last_num_points = 0;
 
-  std::vector<::bevfusion::head::transbbox::BoundingBox> forward(
+  ::bevfusion::HeadOutputs forward(
     const unsigned char ** /*camera_images*/,
     const nvtype::half * /*lidar_points*/,
     int num_points,
@@ -52,10 +56,21 @@ public:
     box.z_rotation = 9.0f;
     box.score = 0.95f;
     box.id = 2;
-    return {box};
+
+    if (return_seg_map) {
+      ::bevfusion::head::segmap::MapView map;
+      seg_map_data.assign(6 * 200 * 200, 0);
+      map.data = seg_map_data.data();
+      map.classes = 6;
+      map.height = 200;
+      map.width = 200;
+      return {{box}, map};
+    }
+
+    return {{box}, ::bevfusion::head::segmap::MapView{}};
   }
 
-  std::vector<::bevfusion::head::transbbox::BoundingBox> forward_no_normalize(
+  ::bevfusion::HeadOutputs forward_no_normalize(
     const nvtype::half * /*camera_normed_images_device*/,
     const nvtype::half * /*lidar_points*/,
     int /*num_points*/,
@@ -87,10 +102,13 @@ public:
 static BEVFusionInputConfig make_test_config()
 {
   BEVFusionInputConfig config;
+  config.model_dir = "/dev/null";
+  config.build_dir = "/dev/null/build";
   config.camera_backbone_plan = "/dev/null/camera.backbone.plan";
   config.camera_vtransform_plan = "/dev/null/camera.vtransform.plan";
   config.fuser_plan = "/dev/null/fuser.plan";
   config.head_bbox_plan = "/dev/null/head.bbox.plan";
+  config.head_seg_plan = "/dev/null/head.seg.plan";
   config.lidar_backbone_onnx = "/dev/null/lidar.backbone.onnx";
   return config;
 }
@@ -115,7 +133,7 @@ TEST_CASE("BEVFusionCore: isInitialized is false after construction", "[core][fa
 // =============================================================================
 TEST_CASE("BEVFusionCore: checkModelFilesExist returns false when model files are missing", "[core][fast]")
 {
-  BEVFusionInputConfig config;
+  auto config = make_test_config();
   config.camera_backbone_plan = "/tmp/nonexistent_path_123/camera.backbone.plan";
   config.camera_vtransform_plan = "/tmp/nonexistent_path_123/camera.vtransform.plan";
   config.fuser_plan = "/tmp/nonexistent_path_123/fuser.plan";
@@ -133,8 +151,7 @@ TEST_CASE("BEVFusionCore: checkModelFilesExist returns false when model files ar
 // =============================================================================
 TEST_CASE("BEVFusionCore: compileTrtModel returns false when ONNX file is missing", "[core][fast]")
 {
-  BEVFusionInputConfig config;
-  BEVFusionCore core(config);
+  BEVFusionCore core(make_test_config());
 
   bool success = core.compileTrtModel(
     "missing_model", "/tmp/nonexistent_dir_abc/missing.onnx", "/tmp/nonexistent_dir_abc/missing.plan");
@@ -239,4 +256,52 @@ TEST_CASE("BEVFusionCore: infer() forwards data and translates BoundingBox corre
   REQUIRE(box.z_rotation == 9.0f);
   REQUIRE(box.score == 0.95f);
   REQUIRE(box.id == 2);
+}
+
+// Returns the mask value of class `cls` at LiDAR-frame point (x, y) in meters.
+static uint8_t seg_at(const SegMap & seg, int cls, float x, float y)
+{
+  const int row = static_cast<int>(std::floor((x - seg.origin_x) / seg.resolution));
+  const int col = static_cast<int>(std::floor((y - seg.origin_y) / seg.resolution));
+  return seg.masks[static_cast<size_t>(cls) * seg.height * seg.width + static_cast<size_t>(row) * seg.width + col];
+}
+
+// =============================================================================
+// TEST: infer() fills the seg map only when seg is enabled
+// WHY: Detection-only deployments must not pay for or publish segmentation.
+// =============================================================================
+TEST_CASE("BEVFusionCore: infer() produces a SegMap only when seg_enabled", "[core][seg][fast]")
+{
+  unsigned char dummy_image = 0;
+  std::vector<const unsigned char *> images(6, &dummy_image);
+  std::vector<float> lidar_points = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f};
+
+  SECTION("disabled")
+  {
+    BEVFusionCore core(make_test_config());
+    core.pipeline_ = std::make_shared<MockCore>();
+    core.initialized_ = true;
+    core.has_calibration_ = true;
+
+    core.infer(images, lidar_points, 1);
+    REQUIRE(core.getSegMap().num_classes == 0);
+    REQUIRE(core.getSegMap().masks.empty());
+  }
+
+  SECTION("enabled")
+  {
+    auto config = make_test_config();
+    config.seg_enabled = true;
+
+    BEVFusionCore core(config);
+    auto mock_pipeline = std::make_shared<MockCore>();
+    mock_pipeline->return_seg_map = true;
+    core.pipeline_ = mock_pipeline;
+    core.initialized_ = true;
+    core.has_calibration_ = true;
+
+    core.infer(images, lidar_points, 1);
+    REQUIRE(core.getSegMap().num_classes == 6);
+    REQUIRE(core.getSegMap().masks.size() == 6u * 200u * 200u);
+  }
 }
