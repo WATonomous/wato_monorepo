@@ -1,0 +1,56 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "f767",
+      "displayName": "NUCLEO-F767ZI firmware",
+      "binaryDir": "${sourceDir}/build/f767",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CS_BOARD": "nucleo_f767zi",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "h753",
+      "displayName": "NUCLEO-H753ZI firmware",
+      "binaryDir": "${sourceDir}/build/h753",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CS_BOARD": "nucleo_h753zi",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "host",
+      "displayName": "Host unit tests",
+      "binaryDir": "${sourceDir}/build/host",
+      "cacheVariables": {
+        "CS_BOARD": ""
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "f767",
+      "configurePreset": "f767"
+    },
+    {
+      "name": "h753",
+      "configurePreset": "h753"
+    },
+    {
+      "name": "host",
+      "configurePreset": "host"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "host",
+      "configurePreset": "host",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
