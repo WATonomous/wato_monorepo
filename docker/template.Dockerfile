@@ -1,5 +1,7 @@
+# syntax=docker/dockerfile:1
 ARG MODULE_SOURCE=interfacing:source
 ARG MODULE_DEPS=interfacing:deps
+ARG SEMVECNET_DEPLOY_BASE=deploy
 
 ################################ Rosdep Scan ################################
 # Reference the 'source' stage from the module image
@@ -68,6 +70,7 @@ FROM rosdep_install AS build
 # CUDA compute capability used by CUDA-enabled vendored packages.
 # Defaults to the vehicle/CI target; override with e.g. CUDASM=86 for Ampere.
 ARG CUDASM=89
+ARG COLCON_SKIP_PACKAGES=""
 
 # Build and Install ROS2 packages
 WORKDIR ${AMENT_WS}
@@ -75,7 +78,12 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" && \
     if [ -n "${ISAAC_ROS_INSTALL:-}" ]; then \
       . "${ISAAC_ROS_INSTALL}/local_setup.sh"; \
     fi && \
-    CUDASM="${CUDASM}" colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release && \
+    if [ -n "${COLCON_SKIP_PACKAGES}" ]; then \
+      set -- --packages-skip ${COLCON_SKIP_PACKAGES}; \
+    else \
+      set --; \
+    fi && \
+    CUDASM="${CUDASM}" colcon build "$@" --cmake-args -DCMAKE_BUILD_TYPE=Release && \
     cp -r install/. "${WATONOMOUS_INSTALL}"
 
 ################################ Deploy ################################
@@ -83,6 +91,41 @@ FROM build AS deploy
 
 # Source Cleanup, Security Setup, and Workspace Setup
 RUN rm -rf "${AMENT_WS:?}"/*
+
+################################ Deploy with SemVecNet ################################
+# The optional perception build points the semvecnet_source context at CUDA-SemVecNet.
+FROM ${SEMVECNET_DEPLOY_BASE} AS deploy_semvecnet
+ARG CUDASM=89
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+WORKDIR ${AMENT_WS}
+# Older perception base images may predate lanelets' rosdep manifest.
+RUN if [ ! -f "/opt/ros/${ROS_DISTRO}/share/lanelet2_core/cmake/lanelet2_coreConfig.cmake" ]; then \
+      apt-get update && \
+      apt-get install -y --no-install-recommends "ros-${ROS_DISTRO}-lanelet2-core" && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+COPY docker/config/wato_entrypoint.sh ${WATONOMOUS_INSTALL}/wato_entrypoint.sh
+COPY src/perception/lanelets /tmp/lanelets
+RUN --mount=type=bind,from=semvecnet_source,target=/tmp/semvecnet \
+    source "/opt/ros/${ROS_DISTRO}/setup.bash" && \
+    source "${ISAAC_ROS_INSTALL}/local_setup.bash" && \
+    source "${WATONOMOUS_INSTALL}/local_setup.bash" && \
+    gpu_ort="${WATONOMOUS_INSTALL}/onnxruntime_gpu_vendor" && \
+    sdk="${WATONOMOUS_INSTALL}/semvecnet" && \
+    cmake -S /tmp/semvecnet -B /tmp/semvecnet-build \
+      -DCMAKE_CUDA_ARCHITECTURES="${CUDASM}" -DCMAKE_INSTALL_PREFIX="${sdk}" \
+      -DONNXRUNTIME_ROOT="${gpu_ort}" -DCMAKE_INSTALL_RPATH="${gpu_ort}/lib" -DBUILD_TESTING=OFF && \
+    cmake --build /tmp/semvecnet-build --parallel 4 && \
+    cmake --install /tmp/semvecnet-build && \
+    colcon --log-base /tmp/lanelets-log build --base-paths /tmp/lanelets \
+      --build-base /tmp/lanelets-build --install-base "${WATONOMOUS_INSTALL}/lanelets_overlay" \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+      -Dsemvecnet_DIR="${sdk}/lib/cmake/semvecnet" -DONNXRUNTIME_ROOT="${gpu_ort}" && \
+    rm -rf /tmp/semvecnet-build /tmp/lanelets /tmp/lanelets-build /tmp/lanelets-log
+COPY src/perception/perception_bringup/launch/perception.launch.yaml \
+    ${WATONOMOUS_INSTALL}/perception_bringup/share/perception_bringup/launch/perception.launch.yaml
+COPY src/perception/perception_bringup/config/perception_bringup.yaml \
+    ${WATONOMOUS_INSTALL}/perception_bringup/share/perception_bringup/config/perception_bringup.yaml
 
 ################################ Develop ################################
 FROM rosdep_install AS develop

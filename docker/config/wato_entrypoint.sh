@@ -23,6 +23,11 @@ fi
 if [ -f /opt/watonomous/local_setup.bash ]; then
   source /opt/watonomous/local_setup.bash
 fi
+if [ -f /opt/watonomous/lanelets_overlay/local_setup.bash ]; then
+  source /opt/watonomous/lanelets_overlay/local_setup.bash
+  # The CPU and GPU ONNX Runtime installations use the same library name.
+  export LD_LIBRARY_PATH="/opt/watonomous/onnxruntime_gpu_vendor/lib:${LD_LIBRARY_PATH:-}"
+fi
 
 # exec replaces this shell so signals from tini (init: true) go
 # directly to the child process. No manual trapping needed.

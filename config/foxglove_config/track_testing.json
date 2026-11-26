@@ -252,6 +252,9 @@
         "/perception/detections_3d_markers": {
           "visible": false
         },
+        "/perception/semvecnet_polyline_markers": {
+          "visible": true
+        },
         "/perception/tracked_markers": {
           "visible": true
         },

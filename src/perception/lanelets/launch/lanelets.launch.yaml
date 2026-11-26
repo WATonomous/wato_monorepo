@@ -1,0 +1,57 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# http://www.apache.org/licenses/LICENSE-2.0
+---
+launch:
+  - arg:
+      name: compressed_image_topic
+      default: /multi_camera_sync/multi_image_compressed
+  - arg:
+      name: raw_image_topic
+      default: /multi_camera_sync/multi_image_raw
+  - arg:
+      name: camera_info_topic
+      default: /multi_camera_sync/multi_camera_info
+  - arg:
+      name: cloud_topic
+      default: /lidar_cc/velodyne_points
+  - arg:
+      name: output_topic
+      default: /perception/detected_lanelets
+  - arg:
+      name: polyline_markers_topic
+      default: /perception/semvecnet_polyline_markers
+  - arg:
+      name: semvecnet_preview_topic
+      default: /perception/semvecnet_preview/compressed
+  - arg:
+      name: use_sim_time
+      default: "false"
+  - arg:
+      name: params_file
+      default: $(find-pkg-share lanelets)/config/params.yaml
+
+  - node:
+      pkg: lanelets
+      exec: lanelets_node
+      name: lanelets_node
+      output: screen
+      param:
+        - from: $(var params_file)
+        - name: use_sim_time
+          value: $(var use_sim_time)
+      remap:
+        - from: input_multi_image_compressed
+          to: $(var compressed_image_topic)
+        - from: input_multi_image_raw
+          to: $(var raw_image_topic)
+        - from: input_multi_camera_info
+          to: $(var camera_info_topic)
+        - from: input_cloud
+          to: $(var cloud_topic)
+        - from: output_lanelets
+          to: $(var output_topic)
+        - from: output_polyline_markers
+          to: $(var polyline_markers_topic)
+        - from: output_semvecnet_preview
+          to: $(var semvecnet_preview_topic)

@@ -25,8 +25,18 @@ launch:
 
   - arg:
       name: live_cameras
-      default: "true"
+      default: "false"
       description: "Launch physical camera drivers (set to false when using a rosbag or simulator)"
+
+  - arg:
+      name: enable_lanelets
+      default: "true"
+      description: "Run the optional SemVecNet lanelets node (requires the lanelets package and models)"
+
+  - arg:
+      name: use_sim_time
+      default: "false"
+      description: "Use the playback clock for the lanelets node"
 
   # ===========================================================================
   # Single component container: cameras, camera_sync, deep object detection, tracking, patchwork++
@@ -121,6 +131,13 @@ launch:
   #             value: "true"
   #         param:
   #           - from: $(var config_file)
+
+  - include:
+      if: "$(var enable_lanelets)"
+      file: "$(find-pkg-share lanelets)/launch/lanelets.launch.yaml"
+      arg:
+        - name: use_sim_time
+          value: $(var use_sim_time)
 
   # Load BEVFusion: Multi-modal LiDAR + Camera detection
   - load_composable_node:
