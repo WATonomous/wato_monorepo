@@ -100,7 +100,7 @@ target_link_options(${CS_ELF} PRIVATE
   -T${CS_LINKER_SCRIPT}
   -L${CMAKE_CURRENT_SOURCE_DIR}/boards/common
   --specs=nano.specs -nostartfiles  # the CMSIS startup file is the C runtime start: no crt0, exit or stdio
-  -Wl,--gc-sections -Wl,--print-memory-usage -Wl,--no-warn-rwx-segments
+  -Wl,--gc-sections -Wl,--print-memory-usage
   -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/${CS_ELF}.map
 )
 set_target_properties(${CS_ELF} PROPERTIES LINK_DEPENDS
