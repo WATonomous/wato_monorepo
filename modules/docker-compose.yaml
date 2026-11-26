@@ -150,7 +150,9 @@ services:
         CUDASM: "${CUDASM:-89}"
         COLCON_SKIP_PACKAGES: lanelets
       additional_contexts:
-        semvecnet_source: "${SEMVECNET_SOURCE_DIR:-../docker}"
+        # Defaults to a pinned commit of the public SemVecNet repo, so no local checkout
+        # is needed. Set SEMVECNET_SOURCE_DIR to a local CUDA-SemVecNet path to override.
+        semvecnet_source: "${SEMVECNET_SOURCE_DIR:-https://github.com/WATonomous/wato-SemVecNet.git#49d6310173c303a81497fc3387feebaa47f75cc2:CUDA-SemVecNet}"
       cache_from:
         - type=registry,ref=${PERCEPTION_IMAGE:?}:ci_cache_bringup
       target: "${PERCEPTION_BUILD_TARGET:-deploy}"

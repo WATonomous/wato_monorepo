@@ -76,6 +76,11 @@ private:
   std::unique_ptr<LaneletsCore> core_;
   std::unique_ptr<semvecnet::SemVecNet> semvecnet_;
   std::vector<std::string> camera_names_;
+  // Returns false if this frame arrives sooner than 1/processing_rate_hz after the last accepted one.
+  bool acceptFrame(const builtin_interfaces::msg::Time &stamp);
+  double min_period_s_{0.0};
+  bool has_last_stamp_{false};
+  rclcpp::Time last_accepted_stamp_{0, 0, RCL_ROS_TIME};
   std::string map_frame_;
   std::string ego_frame_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;

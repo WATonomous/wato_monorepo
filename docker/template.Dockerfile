@@ -124,6 +124,8 @@ RUN --mount=type=bind,from=semvecnet_source,target=/tmp/semvecnet \
     rm -rf /tmp/semvecnet-build /tmp/lanelets /tmp/lanelets-build /tmp/lanelets-log
 COPY src/perception/perception_bringup/launch/perception.launch.yaml \
     ${WATONOMOUS_INSTALL}/perception_bringup/share/perception_bringup/launch/perception.launch.yaml
+COPY src/perception/perception_bringup/config/perception_bringup.yaml \
+    ${WATONOMOUS_INSTALL}/perception_bringup/share/perception_bringup/config/perception_bringup.yaml
 
 ################################ Develop ################################
 FROM rosdep_install AS develop

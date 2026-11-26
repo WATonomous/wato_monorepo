@@ -14,7 +14,7 @@ launch:
       default: /multi_camera_sync/multi_camera_info
   - arg:
       name: cloud_topic
-      default: /lidar_cc/velodyne_points
+      default: /lidar/all/points_merged
   - arg:
       name: output_topic
       default: /perception/detected_lanelets

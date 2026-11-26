@@ -14,6 +14,7 @@
 
 #include "lanelets/lanelets_node.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <functional>
@@ -115,8 +116,14 @@ namespace wato::perception::lanelets
     const int max_points = declare_parameter<int>("max_points", 300000);
     const int sync_queue_size = declare_parameter<int>("sync_queue_size", 10);
     const double sync_max_time_diff_ms = declare_parameter<double>("sync_max_time_diff_ms", 200.0);
+    const double processing_rate_hz = declare_parameter<double>("processing_rate_hz", 0.0);
+    if (!std::isfinite(processing_rate_hz) || processing_rate_hz < 0.0)
+    {
+      throw std::invalid_argument("processing_rate_hz must be >= 0 (0 disables throttling)");
+    }
+    min_period_s_ = processing_rate_hz > 0.0 ? 1.0 / processing_rate_hz : 0.0;
     const auto hrnet_plan = declare_parameter<std::string>(
-        "hrnet_plan", "/opt/watonomous/models/semvecnet/hrnet_ocrnet_mapillary.plan");
+        "hrnet_plan", "/opt/watonomous/models/semvecnet/hrnet_ocrnet_mapillary_b8_s1.plan");
     const auto semvecnet_onnx =
         declare_parameter<std::string>("semvecnet_onnx", "/opt/watonomous/models/semvecnet/semvecnet.onnx");
     if (
@@ -177,9 +184,27 @@ namespace wato::perception::lanelets
 
   LaneletsNode::~LaneletsNode() = default;
 
+  bool LaneletsNode::acceptFrame(const builtin_interfaces::msg::Time &stamp)
+  {
+    const rclcpp::Time now(stamp, RCL_ROS_TIME);
+    // A backwards jump (bag loop / sim reset) restarts the throttle.
+    if (min_period_s_ > 0.0 && has_last_stamp_ && now >= last_accepted_stamp_ &&
+        (now - last_accepted_stamp_).seconds() < min_period_s_)
+    {
+      return false;
+    }
+    last_accepted_stamp_ = now;
+    has_last_stamp_ = true;
+    return true;
+  }
+
   void LaneletsNode::syncedRawCallback(
       const MultiImage::ConstSharedPtr &images, const PointCloud::ConstSharedPtr &cloud)
   {
+    if (!acceptFrame(cloud->header.stamp))
+    {
+      return;
+    }
     try
     {
       const auto ordered = orderCameras(images->images, camera_names_);
@@ -201,6 +226,10 @@ namespace wato::perception::lanelets
   void LaneletsNode::syncedCompressedCallback(
       const MultiImageCompressed::ConstSharedPtr &images, const PointCloud::ConstSharedPtr &cloud)
   {
+    if (!acceptFrame(cloud->header.stamp))
+    {
+      return;
+    }
     try
     {
       const auto ordered = orderCameras(images->images, camera_names_);
@@ -287,6 +316,7 @@ namespace wato::perception::lanelets
 
     semvecnet::Polylines polylines;
     std::vector<std::uint8_t> semantic_rgb;
+    const auto forward_start = std::chrono::steady_clock::now();
     try
     {
       polylines = semvecnet_->forward(
@@ -298,6 +328,11 @@ namespace wato::perception::lanelets
       RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), kLogThrottleMs, "SemVecNet forward failed: %s", e.what());
       return;
     }
+    const double forward_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - forward_start).count();
+    RCLCPP_INFO(
+        get_logger(), "SemVecNet forward took %.2f ms (%.2f FPS), %d points, %zu polylines", forward_ms,
+        1000.0 / forward_ms, num_points, polylines.size());
     RCLCPP_DEBUG_THROTTLE(
         get_logger(), *get_clock(), kLogThrottleMs, "SemVecNet returned %zu polylines", polylines.size());
     auto header = cloud.header;

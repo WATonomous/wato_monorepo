@@ -4,7 +4,7 @@ lanelets_node:
     use_compressed_images: true
 
     # Camera rig size: 6 or 8. Selects which of the camera name lists below is used.
-    num_cameras: 6
+    num_cameras: 8
 
     # Same camera order and sensor dimensions as BEVFusion.
     camera_names_6: ["camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"]
@@ -15,9 +15,13 @@ lanelets_node:
     sync_queue_size: 10
     sync_max_time_diff_ms: 200.0
 
+    # Max rate (Hz) the pipeline runs at. Synced frames arriving sooner than 1/rate after the last
+    # processed one are dropped before image decoding. SemVecNet currently manages ~2 FPS. 0 = no limit.
+    processing_rate_hz: 0.0
+
     # TF must provide map <- cloud.header.frame_id and map <- ego_frame at the cloud stamp.
     map_frame: map
     ego_frame: rear_axle
 
-    hrnet_plan: /opt/watonomous/models/semvecnet/hrnet_ocrnet_mapillary.plan
+    hrnet_plan: /opt/watonomous/models/semvecnet/hrnet_ocrnet_mapillary_b8_s1.plan
     semvecnet_onnx: /opt/watonomous/models/semvecnet/semvecnet.onnx

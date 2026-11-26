@@ -34,7 +34,8 @@ The current stock perception image does not install this external library.
 
 ## Replay a bag with Foxglove
 
-Put `hrnet_ocrnet_mapillary.plan` and `semvecnet.onnx` in `models/semvecnet/`
+Put `hrnet_ocrnet_mapillary_b8_s1.plan` (built by CUDA-SemVecNet's
+`tool/export_hrnet_batched.sh`; batches up to 8 cameras) and `semvecnet.onnx` in `models/semvecnet/`
 on the host. Both watod perception modes mount `models/` at
 `/opt/watonomous/models`. Use a TensorRT plan compatible with the container's
 TensorRT version and GPU.
@@ -58,14 +59,16 @@ with `hrnet_plan` and `semvecnet_onnx` pointing to the files in the container.
 ```sh
 export ACTIVE_MODULES="perception"
 export PERCEPTION_BUILD_TARGET=deploy_semvecnet
-export SEMVECNET_SOURCE_DIR="$HOME/Desktop/code/wato-SemVecNet-cpp/CUDA-SemVecNet"
+# Optional: build from a local checkout instead of the pinned GitHub commit.
+# export SEMVECNET_SOURCE_DIR="$HOME/Desktop/code/wato-SemVecNet/CUDA-SemVecNet"
 export PERCEPTION_ENABLE_LANELETS=true
 export PERCEPTION_LIVE_CAMERAS=false
 export PERCEPTION_USE_SIM_TIME=true
 ```
 
 Run `./watod -m perception build` once, and then `./watod up -d`. The optional
-deploy target builds the external SDK from `SEMVECNET_SOURCE_DIR` and packages
+deploy target builds the SDK from a pinned commit of `WATonomous/wato-SemVecNet`
+(`feat/cpp-integration`) fetched by Docker, or from `SEMVECNET_SOURCE_DIR` if set, and packages
 the lanelets node into the image. The stock `deploy` target does not require
 the external checkout or include the lanelets node.
 
@@ -92,9 +95,8 @@ ZENOH_CONFIG_OVERRIDE=transport/shared_memory/enabled=false \
 
 For a standalone launch (when `multi_camera_sync` is already running or its
 outputs are in the bag), run `ros2 launch lanelets lanelets.launch.yaml use_sim_time:=true`.
-The launch defaults use the same six
-rectified camera streams and `/lidar_cc/velodyne_points` as BEVFusion.
-To use the merged cloud, pass `cloud_topic:=/lidar/all/points_merged`.
+The launch defaults use the merged cloud, `/lidar/all/points_merged`.
+To use the center LiDAR only, pass `cloud_topic:=/lidar_cc/velodyne_points`.
 For raw batched images, use a params file with `use_compressed_images: false`
 and run `multi_camera_sync` in raw mode.
 
