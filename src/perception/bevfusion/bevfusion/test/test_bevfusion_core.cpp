@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_all.hpp>
@@ -30,6 +31,8 @@ public:
   bool update_called = false;
   bool forward_called = false;
   int last_num_points = 0;
+  const nvtype::half * last_device_points = nullptr;
+  bool device_forward_called = false;
 
   std::vector<::bevfusion::head::transbbox::BoundingBox> forward(
     const unsigned char ** /*camera_images*/,
@@ -53,6 +56,14 @@ public:
     box.score = 0.95f;
     box.id = 2;
     return {box};
+  }
+
+  std::vector<::bevfusion::head::transbbox::BoundingBox> forward_device_lidar(
+    const unsigned char ** camera_images, const nvtype::half * lidar_points, int num_points, void * stream) override
+  {
+    device_forward_called = true;
+    last_device_points = lidar_points;
+    return forward(camera_images, lidar_points, num_points, stream);
   }
 
   std::vector<::bevfusion::head::transbbox::BoundingBox> forward_no_normalize(
@@ -239,4 +250,25 @@ TEST_CASE("BEVFusionCore: infer() forwards data and translates BoundingBox corre
   REQUIRE(box.z_rotation == 9.0f);
   REQUIRE(box.score == 0.95f);
   REQUIRE(box.id == 2);
+}
+
+TEST_CASE("BEVFusionCore: GPU features reach device inference without CPU conversion", "[core][fast]")
+{
+  BEVFusionCore core(make_test_config());
+  auto mock = std::make_shared<MockCore>();
+  core.pipeline_ = mock;
+  core.initialized_ = true;
+  core.has_calibration_ = true;
+  unsigned char pixel = 0;
+  std::vector<const unsigned char *> images(6, &pixel);
+  // The mock never dereferences this token; only pointer identity is under test.
+  nvtype::half feature_token{};
+  ::bevfusion::lidar::PreparedLidar prepared{&feature_token, 1};
+  auto results = core.inferDeviceLidar(images, prepared);
+  REQUIRE(mock->device_forward_called);
+  REQUIRE(mock->last_device_points == prepared.points);
+  REQUIRE(mock->last_num_points == 1);
+  REQUIRE(core.lidar_half_buf_.empty());
+  REQUIRE(results.size() == 1);
+  REQUIRE(results.front().position.x == 1.0f);
 }

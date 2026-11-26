@@ -8,7 +8,18 @@ bevfusion_node:
     # Input topics for message filters (remapping does not work for message_filters)
     use_raw_images: false  # true: subscribe to /multi_camera_sync/multi_image_raw; false: subscribe to /multi_camera_sync/multi_image_compressed
     input_multi_image_raw_topic: "/multi_camera_sync/multi_image_raw"  # Batched raw images (deep_msgs/msg/MultiImage)
+    use_nitros_images: true  # Use per-camera NITROS (GPU) images on /<camera_name>/image_rect whenever they are published; the batched topics are used otherwise (e.g. bag replay)
+    # Buffered NITROS matching: timestamps on CPU, owning image handles retain GPU storage.
+    camera_sync_buffer_size: 10  # Maximum retained images per configured camera
+    lidar_sync_buffer_size: 10  # Maximum pending lidar scans and batched inference jobs
+    camera_sync_max_time_diff_ms: 50.0  # Maximum spread across all camera timestamps
+    lidar_sync_max_time_diff_ms: 200.0  # Every camera must be within this distance of lidar
+    sync_max_wait_ms: 200.0  # Maximum lidar arrival-to-inference wait, using steady time
+    sync_buffer_max_age_ms: 1000.0  # Maximum image retention; must be >= sync_max_wait_ms
     input_multi_image_compressed_topic: "/multi_camera_sync/multi_image_compressed"  # Batched compressed images (deep_msgs/msg/MultiImageCompressed)
+    # CPU must be selected explicitly; CUDA initialization errors never switch backends.
+    lidar_processing_backend: "cuda"  # cuda | cpu
+    lidar_max_input_points: 1000000  # GPU workspace capacity; larger runtime clouds are rejected.
     input_lidar_topic: "/lidar_cc/velodyne_points"  # Topic for LiDAR point cloud (sensor_msgs/msg/PointCloud2)
 
     # Directory containing all TensorRT .plan and .onnx engine files

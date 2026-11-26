@@ -183,7 +183,9 @@ TEST_CASE("BEVFusionNode: syncedCompressedCallback safely aborts without initial
   auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
 
   // Should increment counters and abort without crashing
-  node->syncedCompressedCallback(multi_image_msg, lidar_msg);
+  auto frame = std::make_shared<wato::perception::bevfusion::LidarFrame>();
+  frame->cpu = lidar_msg;
+  node->syncedCompressedCallback(multi_image_msg, frame);
 
   REQUIRE(node->multi_image_msg_count_ == 1);
   REQUIRE(node->lidar_msg_count_ == 1);
@@ -206,7 +208,9 @@ TEST_CASE("BEVFusionNode: syncedRawCallback safely aborts without initialization
   auto multi_image_msg = std::make_shared<deep_msgs::msg::MultiImage>();
   auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
 
-  node->syncedRawCallback(multi_image_msg, lidar_msg);
+  auto frame = std::make_shared<wato::perception::bevfusion::LidarFrame>();
+  frame->cpu = lidar_msg;
+  node->syncedRawCallback(multi_image_msg, frame);
 
   REQUIRE(node->multi_image_msg_count_ == 1);
   REQUIRE(node->lidar_msg_count_ == 1);
@@ -226,7 +230,9 @@ TEST_CASE("BEVFusionNode: processFrame safely aborts when uninitialized or uncal
   std::vector<cv::Mat> images(6, cv::Mat(1024, 1280, CV_8UC3));
   auto lidar_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
   std_msgs::msg::Header header;
-  node->processFrame(images, lidar_msg, header, std::chrono::steady_clock::time_point{});
+  auto frame = std::make_shared<wato::perception::bevfusion::LidarFrame>();
+  frame->cpu = lidar_msg;
+  node->processFrame(images, frame, header, std::chrono::steady_clock::time_point{});
   REQUIRE(node->total_processed_.load() == 0);
   rclcpp::shutdown();
 }
@@ -1135,5 +1141,99 @@ TEST_CASE("computeCalibrationMatrices: aborts on TF lookup failure", "[calibrati
   node->computeCalibrationMatrices();
   REQUIRE_FALSE(node->calibration_initialized_.load());
 
+  rclcpp::shutdown();
+}
+
+TEST_CASE("LiDAR backend selection is explicit and CUDA initialization failures propagate", "[node][fast]")
+{
+  using wato::perception::bevfusion::initializeLidarBackend;
+  int calls = 0;
+  auto available = [&]() { ++calls; };
+  REQUIRE_FALSE(initializeLidarBackend("cpu", available));
+  REQUIRE(calls == 0);
+  REQUIRE(initializeLidarBackend("cuda", available));
+  REQUIRE(calls == 1);
+  auto unavailable = []() { throw std::runtime_error("GPU workspace allocation failed"); };
+  REQUIRE_THROWS_AS(initializeLidarBackend("cuda", unavailable), std::runtime_error);
+  REQUIRE_THROWS_AS(initializeLidarBackend("auto", available), std::invalid_argument);
+  REQUIRE_THROWS_AS(initializeLidarBackend("invalid", available), std::invalid_argument);
+  REQUIRE(calls == 1);
+}
+
+TEST_CASE("CPU lidar initialization creates only the original PointCloud2 subscription", "[node][fast]")
+{
+  auto node = make_configured_node();
+  node->use_cuda_lidar_ = false;
+  node->initializeLidarSubscription();
+  REQUIRE(node->lidar_sub_);
+  REQUIRE_FALSE(node->nitros_lidar_sub_);
+  REQUIRE(
+    node->on_deactivate(node->get_current_state()) ==
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  REQUIRE_FALSE(node->processing_enabled_);
+  REQUIRE_FALSE(node->lidar_sub_);
+  REQUIRE_FALSE(node->nitros_lidar_sub_);
+  rclcpp::shutdown();
+}
+
+TEST_CASE("Both lidar backends retain timestamps through batched camera matching", "[node][fast]")
+{
+  using wato::perception::bevfusion::LidarFrame;
+  using wato::perception::bevfusion::LidarFrameFilter;
+
+  struct ImageFilter : message_filters::SimpleFilter<deep_msgs::msg::MultiImage>
+  {
+    void add(const deep_msgs::msg::MultiImage::ConstSharedPtr & image)
+    {
+      signalMessage(image);
+    }
+  };
+
+  using Policy = message_filters::sync_policies::ApproximateTime<deep_msgs::msg::MultiImage, LidarFrame>;
+  for (bool gpu : {false, true}) {
+    ImageFilter images;
+    LidarFrameFilter clouds;
+    message_filters::Synchronizer<Policy> sync(Policy(5), images, clouds);
+    sync.setMaxIntervalDuration(rclcpp::Duration::from_seconds(0.05));
+    int matched = 0;
+    auto callback =
+      [&](const deep_msgs::msg::MultiImage::ConstSharedPtr & image, const LidarFrame::ConstSharedPtr & frame) {
+        REQUIRE(image->header.stamp == frame->header.stamp);
+        REQUIRE(static_cast<bool>(frame->gpu) == gpu);
+        ++matched;
+      };
+    sync.registerCallback(std::bind(callback, std::placeholders::_1, std::placeholders::_2));
+    for (int stamp = 1; stamp <= 3; ++stamp) {
+      auto image = std::make_shared<deep_msgs::msg::MultiImage>();
+      image->header.stamp.sec = stamp;
+      auto cloud = std::make_shared<LidarFrame>();
+      cloud->header = image->header;
+      if (gpu)
+        cloud->gpu = std::make_shared<nvidia::isaac_ros::nitros::NitrosPointCloud>();
+      else
+        cloud->cpu = std::make_shared<sensor_msgs::msg::PointCloud2>();
+      images.add(image);
+      clouds.add(cloud);
+    }
+    REQUIRE(matched >= 1);
+  }
+}
+
+TEST_CASE("BEVFusionNode: parameters can be read again after lifecycle cleanup", "[node][fast]")
+{
+  auto node = make_configured_node();
+  REQUIRE(
+    node->on_cleanup(node->get_current_state()) ==
+    rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS);
+  REQUIRE_NOTHROW(node->declareParameters());
+  REQUIRE(node->get_parameter("lidar_processing_backend").as_string() == "cuda");
+  rclcpp::shutdown();
+}
+
+TEST_CASE("BEVFusionNode: automatic lidar fallback is rejected", "[node][fast]")
+{
+  auto node = make_configured_node();
+  node->set_parameter(rclcpp::Parameter("lidar_processing_backend", "auto"));
+  REQUIRE_THROWS_AS(node->declareParameters(), std::invalid_argument);
   rclcpp::shutdown();
 }

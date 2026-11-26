@@ -26,6 +26,7 @@ endif()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(Threads REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
@@ -46,6 +47,9 @@ find_package(OpenCV REQUIRED)
 enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
 find_package(cuda_bevfusion_vendor REQUIRED)
+find_package(isaac_ros_managed_nitros REQUIRED)
+find_package(isaac_ros_nitros_image_type REQUIRED)
+find_package(isaac_ros_nitros_point_cloud_type REQUIRED)
 
 # ---- Core library ----
 add_library(${PROJECT_NAME}_wato_core SHARED
@@ -96,10 +100,17 @@ target_link_libraries(${PROJECT_NAME}_node
     ${tf2_geometry_msgs_TARGETS}
     ${PROJECT_NAME}_wato_core
   PRIVATE
+    Threads::Threads
     rclcpp_components::component
     ${diagnostic_msgs_TARGETS}
     tf2_eigen::tf2_eigen
     Eigen3::Eigen
+)
+
+ament_target_dependencies(${PROJECT_NAME}_node PUBLIC
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
+  isaac_ros_nitros_point_cloud_type
 )
 
 # ---- Register component ----
@@ -162,6 +173,9 @@ install(
 # ---- Export ----
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 ament_export_dependencies(
+  isaac_ros_managed_nitros
+  isaac_ros_nitros_image_type
+  isaac_ros_nitros_point_cloud_type
   rclcpp
   rclcpp_components
   rclcpp_lifecycle
@@ -192,5 +206,13 @@ if(BUILD_TESTING)
       ${PROJECT_NAME}_node
   )
 endif()
+
+# NVIDIA's GXF extension libraries are outside the standard ROS lib directory.
+# Their transitive dependencies need runtime paths as well as CMake link paths.
+get_filename_component(BEVFUSION_GXF_SERIALIZATION_DIR
+  "${isaac_ros_gxf_DIR}/../gxf/lib/serialization" ABSOLUTE)
+get_filename_component(BEVFUSION_GXF_COMPOSITOR_DIR
+  "${gxf_isaac_message_compositor_DIR}/../gxf/lib" ABSOLUTE)
+ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env_hook/bevfusion_gxf_paths.dsv.in")
 
 ament_package()
