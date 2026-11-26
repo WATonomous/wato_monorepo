@@ -12,6 +12,7 @@ Detects loop closures by searching for spatially close but temporally distant ke
 |---|---|---|---|
 | `search_radius` | double | `15.0` | KD-tree radius for finding loop closure candidates (meters). |
 | `search_time_diff` | double | `30.0` | Minimum time difference (seconds) between source and candidate keyframes. |
+| `horizontal_search` | bool | `false` | Search candidates by horizontal (x, y) distance, and start GICP verification with the source at the candidate's height. Without it, vertical drift (the graph has no gravity constraint unless `gravity_factor` is loaded) pushes revisits outside the 3D radius, and a candidate it does find starts GICP that far off. Two passes of different height at the same (x, y), e.g. a bridge over a road, become candidates; GICP verification rejects them unless it finds a consistent alignment. |
 | `search_num` | int | `25` | Maximum number of keyframe states to collect for the candidate submap. |
 | `min_inlier_ratio` | double | `0.3` | Minimum GICP inlier ratio to accept a loop closure. |
 | `submap_leaf_size` | double | `0.4` | Voxel downsample leaf size for submap preprocessing (meters). |

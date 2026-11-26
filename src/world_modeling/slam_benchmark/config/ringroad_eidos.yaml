@@ -1,0 +1,40 @@
+# Ring road overrides on top of the car's Eidos config (world_modeling_bringup/config/eidos_slam.yaml).
+# eidos_bench.launch.yaml loads this file after the car config, so only these keys change; the car
+# itself still runs the car config.
+/**/eidos_node:
+  ros__parameters:
+    liso_factor:
+      # The car config's 20 iterations reject correct matches on corridor-like stretches: GICP keeps
+      # sliding along the road by more than its convergence threshold and reports failure (ring road
+      # keyframe 28 in every run with correction re-anchoring). Same value as Boreas.
+      max_iterations: 50
+      guess:
+        # Move the newest match by the keyframe's correction instead of jumping back to the keyframe
+        reanchor: "correction"
+        # Constant-velocity translation from the last two matches
+        predict_translation: true
+
+    euclidean_distance_loop_closure_factor:
+      # Search revisits by horizontal distance and start GICP at the candidate's height
+      horizontal_search: true
+
+    factor_plugins:
+      - "gps_factor"
+      - "liso_factor"
+      - "euclidean_distance_loop_closure_factor"
+      - "gravity_factor"
+
+    # Roll/pitch prior from the IMU's gravity reading
+    gravity_factor:
+      plugin: "eidos::GravityFactor"
+      add_factors: true
+      mode: "accelerometer"
+      imu_topic: "/novatel/oem7/imu/data"
+      imu_frame: "imu_link"
+      velocity_topic: "liso/odometry"
+      window: 1.0
+      sigma: 0.03
+      huber_k: 1.345
+      gravity: 9.805
+      max_accel_deviation: 0.5
+      max_angular_rate: 0.3

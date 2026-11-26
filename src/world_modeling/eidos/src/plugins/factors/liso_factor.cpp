@@ -46,6 +46,8 @@ constexpr size_t kImuBufferMaxSize = 2500;
 constexpr size_t kImuQueueDepth = 1000;
 constexpr double kMaxGyroDt = 0.1;
 constexpr double kMaxTwistDt = 1.0;
+// A velocity above this between two matches (m/s) comes from a bad match, not from driving
+constexpr double kMaxPlausibleSpeed = 60.0;
 constexpr double kQuatSquaredNormMin = 0.5;
 constexpr float kSubmapRebuildFraction = 0.5f;
 
@@ -102,8 +104,11 @@ void LisoFactor::onInitialize()
   node_->declare_parameter(prefix + ".imu_frame", imu_frame_);
   node_->declare_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
   node_->declare_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
+  node_->declare_parameter(prefix + ".guess.reanchor", std::string("keyframe"));
+  node_->declare_parameter(prefix + ".guess.predict_translation", predict_translation_);
+  node_->declare_parameter(prefix + ".guess.max_prediction_dt", max_prediction_dt_);
 
-  std::string lidar_topic, odom_topic, odom_inc_topic;
+  std::string lidar_topic, odom_topic, odom_inc_topic, reanchor;
   node_->get_parameter(prefix + ".lidar_topic", lidar_topic);
   node_->get_parameter(prefix + ".odom_topic", odom_topic);
   node_->get_parameter(prefix + ".odometry_incremental_topic", odom_inc_topic);
@@ -129,6 +134,23 @@ void LisoFactor::onInitialize()
   node_->get_parameter(prefix + ".imu_frame", imu_frame_);
   node_->get_parameter(prefix + ".initialization.warmup_samples", imu_warmup_samples_);
   node_->get_parameter(prefix + ".initialization.stationary_gyr_threshold", imu_stationary_gyr_threshold_);
+  node_->get_parameter(prefix + ".guess.reanchor", reanchor);
+  node_->get_parameter(prefix + ".guess.predict_translation", predict_translation_);
+  node_->get_parameter(prefix + ".guess.max_prediction_dt", max_prediction_dt_);
+  if (reanchor != "keyframe" && reanchor != "correction") {
+    RCLCPP_WARN(
+      node_->get_logger(), "[%s] unknown guess.reanchor '%s', using 'keyframe'", name_.c_str(), reanchor.c_str());
+  }
+  reanchor_correction_ = (reanchor == "correction");
+  if (predict_translation_ && !reanchor_correction_) {
+    // With keyframe re-anchoring the last match jumps back to the keyframe while its stamp stays at
+    // the newest scan, so a velocity from consecutive matches would be meaningless.
+    RCLCPP_WARN(
+      node_->get_logger(),
+      "[%s] guess.predict_translation needs guess.reanchor 'correction'; using 'correction'",
+      name_.c_str());
+    reanchor_correction_ = true;
+  }
 
   node_->get_parameter("frames.map", map_frame_);
   node_->get_parameter("frames.odometry", odom_frame_);
@@ -162,11 +184,14 @@ void LisoFactor::onInitialize()
 
   RCLCPP_INFO(
     node_->get_logger(),
-    "[%s] initialized (GICP scan-to-submap, max_iterations=%d, min_range=%.1f, keyframe_cloud_ds=%.2f)",
+    "[%s] initialized (GICP scan-to-submap, max_iterations=%d, min_range=%.1f, keyframe_cloud_ds=%.2f, "
+    "guess: reanchor=%s predict_translation=%d)",
     name_.c_str(),
     max_iterations_,
     min_range_,
-    keyframe_cloud_ds_resolution_);
+    keyframe_cloud_ds_resolution_,
+    reanchor_correction_ ? "correction" : "keyframe",
+    predict_translation_);
 }
 
 void LisoFactor::activate()
@@ -210,6 +235,8 @@ void LisoFactor::onTrackingBegin(const gtsam::Pose3 & initial_pose)
   {
     std::lock_guard lock(guess_mtx_);
     has_last_match_ = false;
+    pending_guess_correction_ = gtsam::Pose3();
+    has_body_velocity_ = false;
   }
   has_last_factor_ = false;
   has_prev_liso_ = false;
@@ -333,11 +360,17 @@ void LisoFactor::onOptimizationComplete(const gtsam::Values & optimized_values, 
     }
 
     {
-      // Re-anchor the next guess on the optimized keyframe. (Moving the newest match by the
-      // keyframe's correction instead was tried: both Boreas and the ring road then lost track at
-      // a hard stretch that this version tracks through, so it was reverted.)
       std::lock_guard lock(guess_mtx_);
-      last_matched_pose_ = corrected;
+      if (reanchor_correction_) {
+        // Move the newest match by the keyframe's world-frame correction; the LiDAR callback applies
+        // it. (An earlier test of this mode lost track on the ring road where GICP hit its
+        // 20-iteration cap on a corridor-like stretch and every result was rejected as
+        // unconverged; that is the iteration cap, not this re-anchoring.)
+        pending_guess_correction_ = corrected * prev_liso_pose_.inverse() * pending_guess_correction_;
+      } else {
+        // Replace the newest match with the optimized keyframe pose
+        last_matched_pose_ = corrected;
+      }
     }
     prev_liso_pose_ = corrected;
 
@@ -426,6 +459,8 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     cached_pcl_cloud_ = makeKeyframeCloud(*raw_cloud);
     cached_timestamp_ = scan_time;
     last_match_time_ = scan_time;
+    pending_guess_correction_ = gtsam::Pose3();
+    has_body_velocity_ = false;
     // Use relocalized pose if available (set by onTrackingBegin), otherwise origin
     if (has_last_match_) {
       cached_pose_ = last_matched_pose_;
@@ -470,21 +505,36 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
     return;
   }
 
-  // Last match (onOptimizationComplete re-anchors it from the SLAM thread)
+  // Last match (onOptimizationComplete re-anchors it from the SLAM thread), with any queued
+  // correction applied, and the body velocity measured from the last two matches
   gtsam::Pose3 last_pose;
   double last_time = 0.0;
   bool has_last = false;
+  Eigen::Vector3d velocity = Eigen::Vector3d::Zero();
+  bool has_velocity = false;
   {
     std::lock_guard lock(guess_mtx_);
+    if (reanchor_correction_) {
+      last_matched_pose_ = pending_guess_correction_ * last_matched_pose_;
+      pending_guess_correction_ = gtsam::Pose3();
+    }
     last_pose = last_matched_pose_;
     last_time = last_match_time_;
     has_last = has_last_match_;
+    velocity = body_velocity_;
+    has_velocity = predict_translation_ && has_body_velocity_ && scan_time - body_velocity_time_ <= max_prediction_dt_;
   }
 
-  // Initial guess: last matched position, rotated by the gyro integrated since that match
+  // Initial guess: rotation from the gyro integrated since the last match; translation held at the
+  // last match, or (guess.predict_translation) moved on by the last body velocity
   Eigen::Isometry3d init_guess = Eigen::Isometry3d::Identity();
   if (has_last) {
-    gtsam::Pose3 predicted(last_pose.rotation() * integrateGyro(last_time, scan_time), last_pose.translation());
+    gtsam::Point3 translation = last_pose.translation();
+    const double dt = scan_time - last_time;
+    if (has_velocity && dt > 0.0 && dt <= max_prediction_dt_) {
+      translation = translation + last_pose.rotation().rotate(gtsam::Point3(velocity * dt));
+    }
+    gtsam::Pose3 predicted(last_pose.rotation() * integrateGyro(last_time, scan_time), translation);
     init_guess = Eigen::Isometry3d(predicted.matrix());
   }
 
@@ -577,7 +627,23 @@ void LisoFactor::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr ms
 
   {
     std::lock_guard lock(guess_mtx_);
-    last_matched_pose_ = matched_pose;
+    // Velocity in the last match's body frame, from two matches against the same submap frame
+    const double dt = scan_time - last_time;
+    if (has_last && dt > 0.0 && dt <= max_prediction_dt_) {
+      const Eigen::Vector3d v = last_pose.rotation().unrotate(matched_pose.translation() - last_pose.translation()) / dt;
+      if (v.norm() < kMaxPlausibleSpeed) {
+        body_velocity_ = v;
+        body_velocity_time_ = scan_time;
+        has_body_velocity_ = true;
+      }
+    }
+    // A correction queued while this scan was being matched applies to its result too
+    if (reanchor_correction_) {
+      last_matched_pose_ = pending_guess_correction_ * matched_pose;
+      pending_guess_correction_ = gtsam::Pose3();
+    } else {
+      last_matched_pose_ = matched_pose;
+    }
     last_match_time_ = scan_time;
     has_last_match_ = true;
   }

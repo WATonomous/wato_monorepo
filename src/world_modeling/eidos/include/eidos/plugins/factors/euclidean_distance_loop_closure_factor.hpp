@@ -133,6 +133,10 @@ private:
   // Parameters
   double search_radius_ = 15.0;
   double search_time_diff_ = 30.0;
+  /// Search candidates by horizontal (x, y) distance and level the GICP initial guess (both
+  /// keyframes at the candidate's height). Without it, vertical drift pushes a revisit outside the
+  /// 3D search radius, and a candidate it does find starts GICP that far off.
+  bool horizontal_search_ = false;
   int search_num_ = 25;
   double min_inlier_ratio_ = 0.3;
   double submap_leaf_size_ = 0.4;

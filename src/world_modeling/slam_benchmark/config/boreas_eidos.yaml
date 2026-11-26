@@ -34,3 +34,41 @@
       # Every keyframe keeps its LiDAR cloud in RAM; full 128-beam scans are ~7 MB each. Its consumers
       # (relocalization, map visualization) voxelize it at 0.4 m, so storing it at 0.4 m loses nothing.
       keyframe_cloud_ds_resolution: 0.4
+
+      # Repeatability fixes (off here = the behaviour of the earlier runs; experiments switch them on
+      # through EIDOS_PARAMS, e.g. "liso_factor.guess.reanchor=correction"):
+      guess:
+        # "keyframe": after each optimization the guess jumps back to the optimized keyframe while
+        # its stamp stays at the newest scan, so at speed GICP starts metres behind the vehicle.
+        # "correction": the newest match is moved by the keyframe's correction instead.
+        reanchor: "keyframe"
+        # Constant-velocity translation from the last two matches (needs reanchor "correction")
+        predict_translation: false
+
+    euclidean_distance_loop_closure_factor:
+      # Search revisits by horizontal distance and start GICP at the candidate's height, so
+      # vertical drift (no gravity constraint in the graph) cannot hide a revisit
+      horizontal_search: false
+
+    # Same plugins as the car config, plus the roll/pitch prior (off here; switch on with
+    # "gravity_factor.add_factors=true")
+    factor_plugins:
+      - "gps_factor"
+      - "liso_factor"
+      - "euclidean_distance_loop_closure_factor"
+      - "gravity_factor"
+
+    gravity_factor:
+      plugin: "eidos::GravityFactor"
+      add_factors: false
+      mode: "accelerometer"
+      imu_topic: "/boreas/imu/data"
+      imu_frame: "boreas_imu_raw"
+      # The LiDAR odometry's body-frame velocity, to remove the vehicle's own acceleration
+      velocity_topic: "liso/odometry"
+      window: 1.0
+      sigma: 0.03
+      huber_k: 1.345
+      gravity: 9.80
+      max_accel_deviation: 0.5
+      max_angular_rate: 0.3

@@ -27,6 +27,9 @@
 #   RUNS       repeats per method         (default 3)
 #   RATE       bag playback rate          (default 0.5)
 #   EVAL_ONLY  set to 1 to skip the runs and only evaluate
+#   EIDOS_PARAMS  Eidos parameter overrides for an experiment, loaded after config/ringroad_eidos.yaml,
+#              e.g. "gravity_factor.add_factors=false euclidean_distance_loop_closure_factor.search_radius=0.0"
+#              (write floats with a decimal point; set PREFIX to name the experiment)
 #   EVAL_END   score only the first N s of the drive (default: all). ring_road_corrected_0.mcap
 #              has no IMU messages after 686 s, and RTAB-Map drops every scan without IMU, so
 #              score that bag with EVAL_END=685
@@ -42,6 +45,11 @@ SB_RUNS=${RUNS:-3}
 SB_RATE=${RATE:-0.5}
 SB_EVAL_ONLY=${EVAL_ONLY:-0}
 SB_EVAL_END=${EVAL_END:-}
+SB_EIDOS_PARAMS=${EIDOS_PARAMS:-}
+if [ -n "$SB_EIDOS_PARAMS" ] && [ -z "${PREFIX:-}" ]; then
+  echo "EIDOS_PARAMS is set: also set PREFIX to name this experiment (e.g. PREFIX=ringroad_nolc)"
+  exit 1
+fi
 SB_ONLY=${ONLY:-}
 
 SB_OUT=/opt/watonomous/maps/bench
@@ -97,14 +105,36 @@ play_bag() {
     --topics "${SB_TOPICS[@]}" > "$SB_LOG/$1.play.log" 2>&1 < /dev/null
 }
 
+# Turn EIDOS_PARAMS ("a.b=1.0 c=2", spaces or commas) into a parameter file loaded last
+write_overrides() {  # $1 = output file
+  local kv
+  {
+    echo "# EIDOS_PARAMS for this run: $SB_EIDOS_PARAMS"
+    echo "/**/eidos_node:"
+    echo "  ros__parameters:"
+    for kv in ${SB_EIDOS_PARAMS//,/ }; do
+      if [[ $kv != *=* ]]; then
+        say "EIDOS_PARAMS entry '$kv' is not name=value"
+        return 1
+      fi
+      echo "    ${kv%%=*}: ${kv#*=}"
+    done
+  } > "$1"
+}
+
 eidos_run() {
   local name=$1 gps=$2
   if [ -s "$SB_OUT/$name.csv" ]; then
     say "$name: already done, skipping"
     return
   fi
-  say "$name: starting Eidos (use_gps:=$gps)"
-  ros2 launch slam_benchmark eidos_bench.launch.yaml use_gps:="$gps" \
+  local experiment=()
+  if [ -n "$SB_EIDOS_PARAMS" ]; then
+    write_overrides "$SB_LOG/$name.params_override.yaml" || return
+    experiment=(experiment_file:="$SB_LOG/$name.params_override.yaml")
+  fi
+  say "$name: starting Eidos (use_gps:=$gps${SB_EIDOS_PARAMS:+, EIDOS_PARAMS: $SB_EIDOS_PARAMS})"
+  ros2 launch slam_benchmark eidos_bench.launch.yaml use_gps:="$gps" "${experiment[@]}" \
     > "$SB_LOG/$name.launch.log" 2>&1 < /dev/null &
   local lpid=$!
   if ! wait_for "Eidos save_map service" \

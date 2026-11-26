@@ -86,6 +86,7 @@ add_library(eidos_plugins SHARED
   src/plugins/factors/euclidean_distance_loop_closure_factor.cpp
   src/plugins/factors/imu_factor.cpp
   src/plugins/factors/motion_model_factor.cpp
+  src/plugins/factors/gravity_factor.cpp
   src/plugins/relocalization/gps_icp_relocalization.cpp
   src/plugins/visualization/keyframe_map_visualization.cpp
   src/plugins/visualization/factor_graph_visualization.cpp

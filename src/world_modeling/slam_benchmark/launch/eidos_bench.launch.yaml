@@ -11,6 +11,16 @@ launch:
       description: Eidos configuration (defaults to the car's SLAM config)
 
   - arg:
+      name: overrides_file
+      default: $(find-pkg-share slam_benchmark)/config/ringroad_eidos.yaml
+      description: Benchmark overrides applied over config_file (iteration cap, repeatability fixes, roll/pitch prior)
+
+  - arg:
+      name: experiment_file
+      default: $(find-pkg-share slam_benchmark)/config/ringroad_eidos.yaml
+      description: Experiment overrides applied last (run_benchmark.sh writes one from EIDOS_PARAMS); defaults to a no-op reload of overrides_file
+
+  - arg:
       name: use_gps
       default: "true"
       description: Inject GPS factors. false gives a LiDAR-inertial run comparable to RTAB-Map
@@ -28,6 +38,8 @@ launch:
       output: screen
       param:
         - from: $(var config_file)
+        - from: $(var overrides_file)
+        - from: $(var experiment_file)
         - name: use_sim_time
           value: $(var use_sim_time)
         - name: gps_factor.add_factors

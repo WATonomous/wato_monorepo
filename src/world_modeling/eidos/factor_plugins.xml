@@ -14,4 +14,7 @@
   <class name="eidos::MotionModelFactor" type="eidos::MotionModelFactor" base_class_type="eidos::FactorPlugin">
     <description>Motion model between-factor via eidos_transform predict service</description>
   </class>
+  <class name="eidos::GravityFactor" type="eidos::GravityFactor" base_class_type="eidos::FactorPlugin">
+    <description>Roll/pitch prior from the IMU gravity reading (latching, unary attitude factor)</description>
+  </class>
 </library>

@@ -53,6 +53,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
 
   node_->declare_parameter(prefix + ".search_radius", search_radius_);
   node_->declare_parameter(prefix + ".search_time_diff", search_time_diff_);
+  node_->declare_parameter(prefix + ".horizontal_search", horizontal_search_);
   node_->declare_parameter(prefix + ".search_num", search_num_);
   node_->declare_parameter(prefix + ".min_inlier_ratio", min_inlier_ratio_);
   node_->declare_parameter(prefix + ".submap_leaf_size", submap_leaf_size_);
@@ -69,6 +70,7 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
 
   node_->get_parameter(prefix + ".search_radius", search_radius_);
   node_->get_parameter(prefix + ".search_time_diff", search_time_diff_);
+  node_->get_parameter(prefix + ".horizontal_search", horizontal_search_);
   node_->get_parameter(prefix + ".search_num", search_num_);
   node_->get_parameter(prefix + ".min_inlier_ratio", min_inlier_ratio_);
   node_->get_parameter(prefix + ".submap_leaf_size", submap_leaf_size_);
@@ -83,10 +85,12 @@ void EuclideanDistanceLoopClosureFactor::onInitialize()
 
   RCLCPP_INFO(
     node_->get_logger(),
-    "[%s] initialized (latching, pointcloud_from=%s, gicp=%s)",
+    "[%s] initialized (latching, pointcloud_from=%s, gicp=%s, search=%s %.1f m)",
     name_.c_str(),
     pointcloud_from_.c_str(),
-    gicp_pointcloud_from_.c_str());
+    gicp_pointcloud_from_.c_str(),
+    horizontal_search_ ? "horizontal" : "3D",
+    search_radius_);
 }
 
 void EuclideanDistanceLoopClosureFactor::activate()
@@ -172,10 +176,26 @@ StampedFactorResult EuclideanDistanceLoopClosureFactor::latchFactor(gtsam::Key /
   auto kdtree = (*map_manager_).getKdTree();
   if (!kdtree || key_poses_3d->empty()) return result;
 
+  // Squared distances, as radiusSearch returns them
   std::vector<int> search_indices;
   std::vector<float> search_distances;
-  kdtree->radiusSearch(
-    key_poses_3d->points[source_idx], static_cast<float>(search_radius_), search_indices, search_distances, 0);
+  if (horizontal_search_) {
+    // Linear scan in (x, y): a few thousand keyframes at most, once per keyframe
+    const auto & src = key_poses_3d->points[source_idx];
+    const float r2 = static_cast<float>(search_radius_ * search_radius_);
+    for (size_t i = 0; i < key_poses_3d->size(); i++) {
+      const float dx = key_poses_3d->points[i].x - src.x;
+      const float dy = key_poses_3d->points[i].y - src.y;
+      const float d2 = dx * dx + dy * dy;
+      if (d2 <= r2) {
+        search_indices.push_back(static_cast<int>(i));
+        search_distances.push_back(d2);
+      }
+    }
+  } else {
+    kdtree->radiusSearch(
+      key_poses_3d->points[source_idx], static_cast<float>(search_radius_), search_indices, search_distances, 0);
+  }
 
   float source_time = key_poses_6d->points[source_idx].time;
   gtsam::Key best_key = 0;
@@ -295,6 +315,13 @@ void EuclideanDistanceLoopClosureFactor::runGICP(
 
   gtsam::Pose3 T_source = poseTypeToGtsamPose3(key_poses_6d->points[source_idx]);
   gtsam::Pose3 T_candidate = poseTypeToGtsamPose3(key_poses_6d->points[candidate_idx]);
+  if (horizontal_search_) {
+    // A revisit is on the same road: start GICP with the source at the candidate's height rather
+    // than at its drifted one
+    T_source = gtsam::Pose3(
+      T_source.rotation(),
+      gtsam::Point3(T_source.translation().x(), T_source.translation().y(), T_candidate.translation().z()));
+  }
 
   // T_candidate^{-1} * T_source maps source_body points → candidate_body
   gtsam::Pose3 relative_estimate = T_candidate.inverse().compose(T_source);

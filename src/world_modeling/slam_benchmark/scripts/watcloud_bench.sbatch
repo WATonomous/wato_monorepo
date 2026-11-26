@@ -30,7 +30,7 @@
 # Test with one repeat first:
 #   cd ~ && RUNS=1 sbatch ~/wato_monorepo/src/world_modeling/slam_benchmark/scripts/watcloud_bench.sbatch
 # Optional settings, passed through to the benchmark script:
-#   ringroad: BAG PREFIX OSM RUNS RATE EVAL_ONLY EVAL_END
+#   ringroad: BAG PREFIX OSM RUNS RATE EVAL_ONLY EVAL_END EIDOS_PARAMS
 #   boreas:   BAG SEQUENCE DATASET RUNS RATE DURATION EIDOS_PARAMS METHODS EVAL_ONLY
 # Boreas data, inside ~/wato_monorepo/bags (the only bag folder the container sees, as /ws/bags):
 #   bags/boreas-2020-11-26-13-58-lidar-imu/                      the bag
@@ -68,7 +68,7 @@ case $BENCH in
     # One prefix for the runs, the array task names and the EVAL_ONLY job (run_benchmark.sh's default)
     export PREFIX=${PREFIX:-ringroad}
     TESTS=(eidos_nogps rtabmap eidos_gps)
-    PASS=(BAG PREFIX OSM RUNS RATE EVAL_ONLY EVAL_END ONLY)
+    PASS=(BAG PREFIX OSM RUNS RATE EVAL_ONLY EVAL_END EIDOS_PARAMS ONLY)
     ;;
   boreas)
     SCRIPT=$SCRIPTS/boreas/boreas_benchmark.sh

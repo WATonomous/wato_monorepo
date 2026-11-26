@@ -167,10 +167,22 @@ private:
 
   // ---- Last match tracking (for GICP initial guess) ----
   // Guarded by guess_mtx_: the LiDAR callback reads and writes the last match, and
-  // onOptimizationComplete (SLAM thread) re-anchors it on the optimized keyframe.
+  // onOptimizationComplete (SLAM thread) re-anchors it after each optimization:
+  //   guess.reanchor "keyframe":   the last match is replaced by the optimized keyframe pose. Scans
+  //                                matched since that keyframe are dropped from the guess, which then
+  //                                lags the vehicle by the distance driven since the keyframe.
+  //   guess.reanchor "correction": the keyframe's world-frame correction is queued in
+  //                                pending_guess_correction_ and applied by the LiDAR callback to the
+  //                                newest match (and to a match finishing while it was queued).
   gtsam::Pose3 last_matched_pose_;
   bool has_last_match_ = false;
-  double last_match_time_ = 0.0;  ///< Scan stamp of the newest match (s); gyro integration starts here
+  double last_match_time_ = 0.0;  ///< Scan stamp of last_matched_pose_ (s); gyro integration starts here
+  gtsam::Pose3 pending_guess_correction_;
+  // guess.predict_translation: body-frame velocity from the last two consecutive matches, used to
+  // predict the translation of the next guess (constant velocity) instead of holding it in place
+  Eigen::Vector3d body_velocity_ = Eigen::Vector3d::Zero();
+  double body_velocity_time_ = 0.0;  ///< Scan stamp at which body_velocity_ was measured (s)
+  bool has_body_velocity_ = false;
   std::mutex guess_mtx_;
 
   /**
@@ -250,6 +262,9 @@ private:
   double min_scan_distance_ = 5.0;
   double min_range_ = 0.0;  ///< Drop points closer than this to the LiDAR, e.g. the ego vehicle (0 = keep all)
   double keyframe_cloud_ds_resolution_ = 0.0;  ///< Voxel size of the stored keyframe cloud (0 = full scan)
+  bool reanchor_correction_ = false;  ///< guess.reanchor == "correction" (see last-match tracking above)
+  bool predict_translation_ = false;  ///< guess.predict_translation
+  double max_prediction_dt_ = 1.0;  ///< guess.max_prediction_dt: longest extrapolation (s); older velocity is not used
   std::vector<double> odom_pose_cov_ = {0.01, 0.01, 0.005, 1e-6, 1e-6, 1e-3};
   std::vector<double> odom_twist_cov_ = {1e-4, 1e-4, 1e-8, 1e-10, 1e-10, 1e-6};
   std::string lidar_frame_ = "lidar";
