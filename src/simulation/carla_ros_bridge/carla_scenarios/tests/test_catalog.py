@@ -73,6 +73,65 @@ class TestCatalog(unittest.TestCase):
 
 
 class TestConfiguredWorld(unittest.TestCase):
+    def test_named_vehicle_spawns_preserve_controlled_ego_geometry_and_hold(self):
+        definition = {
+            "id": "actor_ownership",
+            "map": {"town": "Town10HD_Opt"},
+            "spawn": {"index": 0},
+            "evaluation_actor": "parked",
+            "actors": [
+                {
+                    "id": "parked",
+                    "blueprint": "vehicle.mini.cooper",
+                    "static": True,
+                    "pose": {"frame": "map", "x": 20.0, "y": 0.0},
+                },
+                {
+                    "id": "other_vehicle",
+                    "blueprint": "vehicle.mini.cooper",
+                    "static": False,
+                    "pose": {"frame": "map", "x": 30.0, "y": 4.0},
+                },
+            ],
+        }
+        world = ConfiguredWorld(definition, held=True)
+        world.world = MagicMock()
+        world._load_map = Mock()
+        ego_spawn = carla.Transform(carla.Location(x=1.0, y=2.0, z=0.4))
+        world.world.get_map.return_value.get_spawn_points.return_value = [ego_spawn]
+        vehicles = [MagicMock(id=index) for index in (101, 102, 103)]
+        ego, parked, other = vehicles
+        for index, actor in enumerate(vehicles):
+            actor.get_transform.return_value = carla.Transform(
+                carla.Location(x=float(index))
+            )
+            actor.bounding_box = SimpleNamespace(
+                extent=SimpleNamespace(x=2.0, y=1.0),
+                location=SimpleNamespace(x=0.0, y=0.0),
+            )
+        world.world.spawn_actor.side_effect = vehicles
+
+        self.assertTrue(world.setup())
+
+        self.assertIs(world.ego_vehicle, ego)
+        self.assertIs(world.target_vehicle, parked)
+        self.assertEqual(world.geometry["ego"]["actor_id"], ego.id)
+        self.assertEqual(world.geometry["actors"]["parked"]["actor_id"], parked.id)
+        self.assertEqual(
+            world.geometry["actors"]["other_vehicle"]["actor_id"], other.id
+        )
+        self.assertEqual(world.ego_spawn_point.location.x, ego_spawn.location.x)
+        self.assertEqual(world.ego_spawn_point.location.y, ego_spawn.location.y)
+        self.assertEqual(world.owned_actors, vehicles)
+        ego.set_simulate_physics.assert_called_once_with(False)
+        parked.set_simulate_physics.assert_called_once_with(False)
+
+        world.set_held(False)
+
+        ego.set_simulate_physics.assert_called_with(True)
+        parked.set_simulate_physics.assert_called_once_with(False)
+        other.set_simulate_physics.assert_not_called()
+
     def test_custom_world_preserves_spawn_traffic_and_prop_reservations(self):
         definition = load_definition(CONFIG, "playgrounds", "custom")
         world = ConfiguredWorld(definition)

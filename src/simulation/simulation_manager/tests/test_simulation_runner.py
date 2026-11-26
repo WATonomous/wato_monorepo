@@ -21,7 +21,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 from simulation_runtime.assets import catalog_directory
 from carla_scenarios.definitions import load_definition
-from simulation_manager.simulation_runner import SimulationRunner
+from simulation_manager.simulation_runner import (
+    ReadinessDeadlineExpired,
+    SimulationRunner,
+)
 
 CONFIG = catalog_directory()
 
@@ -39,6 +42,7 @@ def runner(kind="playground", state="IDLE"):
         tf_buffer=MagicMock(),
         path_pub=MagicMock(),
         speed_pub=MagicMock(),
+        get_logger=MagicMock(),
         _world_endpoints_ready=Mock(return_value=True),
         get_parameter=lambda name: SimpleNamespace(
             value={"session_id": "test", "results_directory": "/results"}.get(name)
@@ -178,3 +182,46 @@ class TestManualRunner(unittest.TestCase):
                 node._do_ready()
         self.assertEqual(node.state, "PREPARING")
         node._pause_world.assert_not_called()
+
+    def test_expiring_bridge_probe_preserves_previous_readiness_failure(self):
+        node = runner(kind="scenario")
+        node._clear_attempt_state()
+        node.definition = load_definition(CONFIG, "scenarios", "controller_snake")
+        node.definition["deadlines"]["readiness_s"] = 1.0
+        node.stack.prepared = True
+        reason = "ego moved away from its initial spawn during preparation"
+        node._readiness = Mock(return_value=reason)
+        clock = [0.0]
+
+        def bridge_probe(**kwargs):
+            if node._readiness.called:
+                clock[0] = 1.1
+                raise ReadinessDeadlineExpired("Bridge readiness deadline expired")
+            return None
+
+        node._bridge_readiness = Mock(side_effect=bridge_probe)
+        with (
+            patch(
+                "simulation_manager.simulation_runner.time.monotonic",
+                side_effect=lambda: clock[0],
+            ),
+            patch("simulation_manager.simulation_runner.time.sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, reason) as caught:
+                node._do_ready()
+
+        self.assertNotIn("Bridge readiness deadline expired", str(caught.exception))
+        node._pause_world.assert_not_called()
+        self.assertEqual(node.state, "PREPARING")
+
+    def test_bridge_readiness_propagates_budget_expiry(self):
+        node = runner(kind="scenario")
+        node.sim_time = 1.0
+        node.last_clock_wall = 0.0
+        node._fresh = Mock(return_value=True)
+        node._node_state = Mock(side_effect=ReadinessDeadlineExpired("expired"))
+        with patch(
+            "simulation_manager.simulation_runner.time.monotonic", return_value=0.0
+        ):
+            with self.assertRaises(ReadinessDeadlineExpired):
+                SimulationRunner._bridge_readiness(node, deadline=1.0)

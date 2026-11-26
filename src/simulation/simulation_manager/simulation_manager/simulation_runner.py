@@ -79,6 +79,10 @@ class InvalidTransition(ValueError):
     """A rejected user command must leave the current experiment intact."""
 
 
+class ReadinessDeadlineExpired(RuntimeError):
+    """A readiness probe ran out of the shared preparation budget."""
+
+
 class SimulationRunner(Node):
     """One experiment and one fresh result directory per attempt."""
 
@@ -590,7 +594,7 @@ class SimulationRunner(Node):
     def _node_state(self, name, deadline=None):
         timeout = 3.0 if deadline is None else min(3.0, deadline - time.monotonic())
         if timeout <= 0:
-            raise RuntimeError("Bridge readiness deadline expired")
+            raise ReadinessDeadlineExpired("Bridge readiness deadline expired")
         return self._call(
             GetState, f"{name}/get_state", timeout=timeout
         ).current_state.id
@@ -603,14 +607,26 @@ class SimulationRunner(Node):
         pending = "waiting for /clock and /ego/odom"
         goal_sent = False
         while time.monotonic() - start < timeout:
-            pending = self._bridge_readiness(deadline=deadline)
-            if pending is None and self.kind == "scenario" and not self.stack.prepared:
-                self.stack.prepare(
-                    self.definition,
-                    self.run_id,
-                    timeout_s=timeout - (time.monotonic() - start),
-                )
-            pending = pending or self._readiness(deadline=deadline)
+            try:
+                current_pending = self._bridge_readiness(deadline=deadline)
+                if (
+                    current_pending is None
+                    and self.kind == "scenario"
+                    and not self.stack.prepared
+                ):
+                    self.stack.prepare(
+                        self.definition,
+                        self.run_id,
+                        timeout_s=timeout - (time.monotonic() - start),
+                    )
+                current_pending = current_pending or self._readiness(deadline=deadline)
+            except ReadinessDeadlineExpired:
+                # Keep the last completed probe's reason. A final lifecycle
+                # query must not replace it with a generic deadline message.
+                break
+            if current_pending is not None and current_pending != pending:
+                self.get_logger().info(f"Preparation waiting: {current_pending}")
+            pending = current_pending
             if (
                 self.world.get("goal")
                 and self.definition.get("inputs", {}).get(
@@ -688,6 +704,8 @@ class SimulationRunner(Node):
                     != State.PRIMARY_STATE_ACTIVE
                 ):
                     return f"bridge lifecycle node /carla/{node} must be active"
+            except ReadinessDeadlineExpired:
+                raise
             except RuntimeError as error:
                 return str(error)
         return None

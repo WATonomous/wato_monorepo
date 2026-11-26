@@ -178,6 +178,25 @@ class ScenarioBase(ABC):
     # Shared Spawn Utilities
     # -------------------------------------------------------------------------
 
+    def spawn_vehicle(
+        self,
+        spawn_point: "carla.Transform",
+        blueprint_filter: str = "vehicle.mini.cooper",
+        role_name: str = "npc",
+    ) -> Optional["carla.Vehicle"]:
+        """Spawn an owned vehicle without changing the controlled ego or its pose."""
+        blueprint_library = self.world.get_blueprint_library()
+        vehicle_bp = blueprint_library.filter(blueprint_filter)[0]
+        vehicle_bp.set_attribute("role_name", role_name)
+
+        self._log(f"Spawning vehicle '{role_name}' at {spawn_point.location}")
+        vehicle = self.world.spawn_actor(vehicle_bp, spawn_point)
+        if vehicle is None:
+            self._log(f"Failed to spawn vehicle '{role_name}'", "error")
+            return None
+        self.owned_actors.append(vehicle)
+        return vehicle
+
     def spawn_ego_vehicle(
         self,
         spawn_point: "carla.Transform",
@@ -195,18 +214,10 @@ class ScenarioBase(ABC):
         Returns:
             The spawned vehicle actor, or None on failure
         """
-        blueprint_library = self.world.get_blueprint_library()
-        vehicle_bp = blueprint_library.filter(blueprint_filter)[0]
-        vehicle_bp.set_attribute("role_name", role_name)
-
-        self._log(f"Spawning ego vehicle at {spawn_point.location}")
-        ego_vehicle = self.world.spawn_actor(vehicle_bp, spawn_point)
-
+        ego_vehicle = self.spawn_vehicle(spawn_point, blueprint_filter, role_name)
         if ego_vehicle is None:
-            self._log("Failed to spawn ego vehicle", "error")
             return None
 
-        self.owned_actors.append(ego_vehicle)
         # Keep the pose by value: callers mutate the carla.Transform they pass in (the oval
         # scenario adds a z offset), so storing the reference would let the saved pose drift.
         self.ego_vehicle = ego_vehicle

@@ -213,7 +213,7 @@ class ConfiguredWorld(ScenarioBase):
         self._spawn_traffic(points, spawn)
         actors = {}
         for specification in self.definition.get("actors", []):
-            actor = self.spawn_ego_vehicle(
+            actor = self.spawn_vehicle(
                 self.resolve_pose(specification["pose"], waypoint),
                 specification["blueprint"],
                 specification["id"],
