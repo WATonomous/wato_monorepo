@@ -118,7 +118,12 @@ class Workspace:
     def context(self):
         # Small, fixed example set; the selected playground is always current.
         examples = []
-        for name in ("controller_snake", "brake_in_curve", "sine_with_dwell"):
+        for name in (
+            "controller_snake",
+            "brake_in_curve",
+            "sine_with_dwell",
+            "parked_car_straight",
+        ):
             path = self.catalog / "scenarios" / f"{name}.yaml"
             if not path.is_file():
                 continue
@@ -143,6 +148,7 @@ class Workspace:
     def validate(self, proposal):
         validate_proposal(proposal)
         points, summary = sample_geometry(proposal)
+        actors = copy.deepcopy(proposal.get("actors", []))
         maneuver = {
             "name": self.name,
             "description": proposal["description"],
@@ -156,6 +162,9 @@ class Workspace:
         }
         # A straight lane is only a spawn/runout heuristic, never road-fit proof.
         runout = max(20.0, summary["bounds_m"]["max_x"] + 15.0)
+        for actor in actors:
+            if actor["pose"]["frame"] == "lane":
+                runout = max(runout, actor["pose"]["distance_m"] + 5.0)
         scenario = {
             "version": 2,
             "id": self.name,
@@ -174,7 +183,7 @@ class Workspace:
                 },
                 "required_straight_m": round(runout, 3),
                 "traffic": {"vehicles": 0, "pedestrians": 0, "props": {"count": 0}},
-                "actors": [],
+                "actors": actors,
             },
             "completion": {"type": "maneuver_finished"},
             "metrics": {

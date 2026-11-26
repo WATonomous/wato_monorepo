@@ -1,0 +1,19 @@
+{
+  "description": "A parked Mini 22 m ahead with an authored 3.5 m left swerve at 2 m/s, holding the offset before returning and stopping.",
+  "default_speed": 2.0,
+  "actors": [
+    {
+      "id": "parked",
+      "blueprint": "vehicle.mini.cooper",
+      "static": true,
+      "pose": {"frame": "lane", "distance_m": 22.0, "z_offset_m": 0.4}
+    }
+  ],
+  "segments": [
+    {"straight": {"length": 8.0}},
+    {"shift": {"length": 12.0, "lateral": 3.5}},
+    {"dwell": {"length": 10.0}},
+    {"shift": {"length": 12.0, "lateral": -3.5}},
+    {"straight": {"length": 10.0}}
+  ]
+}

@@ -1,15 +1,19 @@
 # Controller trajectory generation prototype
 
 `watod sim generate scenario` turns a prompt into an open fake-planner maneuver
-and a version-two controller scenario. It runs on the host without Docker or a
-ROS installation. Generated data uses the existing mounted scenario catalog and
+and a version-two controller scenario with optional named vehicle actors.
+It runs on the host without Docker or a ROS installation.
+Generated data uses the existing mounted scenario catalog and
 maneuver directory, so no runtime changes or image rebuilds are needed.
 
 This first version focuses on custom controller paths. It composes straights,
 smooth lateral shifts, distance-based dwells, slaloms, and constant-radius arcs.
+Actors may use lane-relative or explicit ROS map poses. Static parked vehicles
+can be combined with authored paths that swerve around them.
 It does not generate lane-following routes, arbitrary waypoint trajectories,
-obstacles, actor behavior, reverse driving, or closed laps. Requests for those
-capabilities should receive an explanation from the model instead of a proposal.
+scripted actor motion, autopilot, pedestrians, props, reverse driving, or closed
+laps. Requests for those capabilities should receive an explanation from the
+model instead of a proposal.
 The validator enforces the supported data shape; prompt interpretation remains
 the model's responsibility. Inspect the result for semantic fidelity.
 
@@ -35,6 +39,16 @@ Use a model available to your API account that supports Responses function calls
 change this selection. If a prompt requests another map, use its playground ID
 in `--map` too.
 
+To generate the parked car and the swerve together:
+
+```bash
+watod sim generate scenario --name parked_car_swerve --map oval \
+  --prompt "Place a static Mini 22 m ahead along the ego lane. At 2 m/s, drive 8 m, shift left 3.5 m over 12 m, hold that offset for 10 m, shift right 3.5 m over 12 m, then drive straight 10 m and stop."
+```
+
+No manual actor edit is needed. Inspect `world.actors` in the generated scenario.
+The controller follows the generated path; it does not replan around the car.
+
 The command prints a directory under `.cache/watod-sim/generated/` containing:
 
 | File | Purpose |
@@ -42,11 +56,13 @@ The command prints a directory under `.cache/watod-sim/generated/` containing:
 | `proposal.json` | Accepted model proposal; can be validated again with `--candidate` |
 | `scenario.yaml` | Complete generated scenario |
 | `maneuver.json` | Complete fake-planner maneuver |
-| `preview.svg` | Ego-relative geometry in metres; green start, red end; x forward, y left |
-| `report.json` | Prompt, model, prompt hash, catalog context, validation attempts, geometry, installed paths |
+| `preview.svg` | Ego-relative path geometry in metres; green start, red end; x forward, y left |
+| `report.json` | Prompt, model, prompt hash, catalog context, validation attempts, geometry, actor definitions, installed paths |
 
 The preview shows authored geometry only. It omits the runtime's uniform
-resampling, braking profile, stop pad, and map anchoring. It is not a map overlay.
+resampling, braking profile, stop pad, map anchoring, and actor positions. Actor
+poses are resolved when the scenario opens; inspect them in the generated YAML
+and the running CARLA world. The SVG is not a map overlay.
 At runtime, inspect `/sim/reference_path` alongside map markers in Foxglove.
 
 On success, the command also creates `scenarios/NAME.yaml` in the configured
@@ -78,23 +94,68 @@ watod sim generate scenario --name preview_swerve --map oval --dry-run \
   --candidate src/simulation/simulation_generation/examples/gentle_swerve.json
 ```
 
-Remove `--dry-run` to install the candidate. A candidate contains exactly
-`description`, `default_speed`, and `segments`; it is a proposal, not a complete
-scenario or maneuver JSON. See the example and the
+Remove `--dry-run` to install the candidate. A candidate contains `description`,
+`default_speed`, `segments`, and optional `actors`; it is a proposal, not a
+complete scenario or maneuver JSON. See the example and the
 [fake-planner format](../../action/fake_planner/README.md#maneuver-json).
+
+The parked-car example exercises both actor and path authoring offline:
+
+```bash
+watod sim generate scenario --name preview_parked_swerve --map oval --dry-run \
+  --candidate src/simulation/simulation_generation/examples/parked_car_swerve.json
+```
+
+## Vehicle actors
+
+Proposals accept up to 16 vehicle actors in the existing `world.actors` format:
+
+```json
+{
+  "actors": [
+    {
+      "id": "parked",
+      "blueprint": "vehicle.mini.cooper",
+      "static": true,
+      "pose": {"frame": "lane", "distance_m": 22.0, "z_offset_m": 0.4}
+    }
+  ]
+}
+```
+
+Actor IDs must be unique lowercase names; `ego_vehicle` is reserved. Blueprints
+must name CARLA vehicles, with availability checked when CARLA prepares the
+scenario. `static` defaults to true; false enables physics without any scripted
+motion or autopilot. Actor fields for speed, routes, and behavior are rejected.
+
+`frame: lane` places an actor 0–300 m ahead along the selected ego spawn lane,
+independently of the fake-planner trajectory. Lane poses do not support lateral
+offset or yaw. For a position explicitly supplied in the ROS map frame, use:
+
+```json
+{"frame": "map", "x": 25.0, "y": -12.0, "z": 0.4, "yaw_deg": 90.0}
+```
+
+Map poses are absolute, not offsets from the ego. The generator chooses a lane
+spawn at preparation time, so it cannot infer an absolute map pose for an actor
+beside the ego without map/spawn geometry. Requests for arbitrary ego-relative
+lateral actor placement remain unsupported. Existing proposals without `actors`
+still generate an empty actor list.
 
 ## How generation works
 
 1. Read the selected playground, matching ROS map config, and map assets from
    the checkout. Read current `controller_snake`, `brake_in_curve`, and
-   `sine_with_dwell` examples and their maneuver JSON when available.
+   `sine_with_dwell` examples and their maneuver JSON when available, plus
+   `parked_car_straight` as an actor-authoring reference.
 2. Send the user prompt and this bounded catalog context with the curated
    [`system_prompt.txt`](simulation_generation/system_prompt.txt) to OpenAI.
    The host API key is used only for authentication; it is not included in
    prompts, installed files, or generation records. Prompts and catalog examples
    are sent to the API and saved in the local report.
 3. Let the model call only `validate_trajectory`. The host checks the proposal's
-   fields, finite numbers, segment limits, speed bounds, and geometry budget.
+   fields, finite numbers, segment limits, speed bounds, geometry budget, and
+   actor IDs, vehicle blueprints, physics flags, and pose formats.
    The tool cannot execute commands or choose paths. Invalid proposals return
    diagnostics to the model for repair. Generation stops on the first valid
    proposal, an unsupported-request explanation, an API failure, or the call
@@ -103,7 +164,7 @@ scenario or maneuver JSON. See the example and the
    path, `ramp_up_accel: 0`, 10 m stop pad, maneuver-finished completion, selected
    metrics, and a bounded execution deadline. Validate the generated files in an
    isolated temporary catalog through the existing `load_maneuver` and
-   `load_definition` functions.
+   `load_definition` functions. Copy proposed actors into `world.actors`.
 5. Save review artifacts and install the maneuver before the scenario with
    exclusive file creation. A failed publish rolls back files created by that
    invocation, preserving pre-existing files. Files are local changes for review;
@@ -129,15 +190,15 @@ deadline allows travel at the minimum accepted speed plus 60 seconds.
 These are authoring and resource bounds. Schema and file validation do not prove
 collision avoidance, road containment, steering feasibility, or scoring success.
 The scenario requests a continuous straight lane using a forward-envelope
-runout heuristic; CARLA may reject that spawn if the chosen map lacks enough
-space. Curved custom paths can leave the road. Run and inspect CARLA before
+runout heuristic, extended to cover lane-relative actors plus 5 m;
+CARLA may reject that spawn if the chosen map lacks enough space. Curved custom
+paths can leave the road. Run and inspect CARLA before
 treating a generated path as an accepted controller test.
 
-The next extension for the original parked-car/oval idea would need map-aware
-geometry tools, actor placement, and explicit distinctions between a commanded
-collision path and an avoidance route. The existing scenario schema already
-supports actors; this generator deliberately keeps its model output limited to
-the custom path prototype.
+Actor placement and a nominal pass-around path are authored together, but the
+host does not compute vehicle bounding-box clearance, road fit, or a guaranteed
+avoidance route. CARLA resolves actual poses and spawn overlap at preparation;
+driving still needs validation in the simulator.
 
 ## Development checks
 
@@ -147,6 +208,7 @@ python3 -B -m unittest discover -s watod_scripts/tests -v
 ```
 
 The generator tests cover the tool repair loop using mocked Responses output,
-unbounded and malformed proposals, coordinate composition, shared-loader round
-trips, offline CLI use, and no-overwrite behavior. They do not freeze shipped
-scenario poses or claim live API/CARLA acceptance.
+unbounded and malformed proposals, actor validation and repair, coordinate
+composition, shared-loader round trips, actor-aware spawn runout, offline CLI
+use, and no-overwrite behavior. They do not freeze shipped scenario poses or
+claim live API/CARLA acceptance.

@@ -13,6 +13,7 @@
 # limitations under the License.
 """Generator contracts: data validation, repair loop, and non-overwriting publish."""
 
+import copy
 import json
 import math
 import os
@@ -59,6 +60,15 @@ def proposal():
             {"dwell": {"length": 3}},
             {"straight": {"length": 8, "end_speed": 0}},
         ],
+    }
+
+
+def vehicle_actor():
+    return {
+        "id": "parked",
+        "blueprint": "vehicle.mini.cooper",
+        "static": True,
+        "pose": {"frame": "lane", "distance_m": 22.0, "z_offset_m": 0.4},
     }
 
 
@@ -143,6 +153,45 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(any(self.maneuvers.iterdir()))
         self.assertFalse(any((self.catalog / "scenarios").iterdir()))
 
+    def test_actor_poses_round_trip_through_the_shared_scenario_loader(self):
+        candidate = proposal()
+        candidate["actors"] = [
+            vehicle_actor(),
+            {
+                "id": "other_vehicle",
+                "blueprint": "vehicle.mini.cooper",
+                "static": False,
+                "pose": {
+                    "frame": "map",
+                    "x": 35.0,
+                    "y": -8.0,
+                    "z": 0.4,
+                    "yaw_deg": 90.0,
+                },
+            },
+        ]
+        original = copy.deepcopy(candidate)
+        scenario, maneuver, _, _ = self.workspace.validate(candidate)
+        publish(self.workspace, json.dumps(maneuver), yaml.safe_dump(scenario))
+        loaded = load_definition(self.catalog, "scenarios", self.workspace.name)
+        self.assertEqual(loaded["setup"]["actors"], candidate["actors"])
+        self.assertEqual(loaded["trajectory_source"], "fake_planner")
+        self.assertEqual(candidate, original)
+        # The installed snapshot cannot retain mutable references to the proposal.
+        candidate["actors"][0]["pose"]["distance_m"] = 50.0
+        self.assertEqual(scenario["world"]["actors"], original["actors"])
+
+    def test_lane_actor_beyond_the_path_extends_spawn_runout(self):
+        candidate = proposal()
+        candidate["actors"] = [vehicle_actor()]
+        candidate["actors"][0]["pose"]["distance_m"] = 100.0
+        scenario, _, _, _ = self.workspace.validate(candidate)
+        self.assertGreaterEqual(scenario["world"]["required_straight_m"], 105.0)
+
+    def test_old_proposal_without_actors_still_generates_an_empty_actor_list(self):
+        scenario, _, _, _ = self.workspace.validate(proposal())
+        self.assertEqual(scenario["world"]["actors"], [])
+
     def test_collision_rolls_back_only_new_maneuver(self):
         existing = self.workspace.targets[1]
         existing.write_text("user authored YAML")
@@ -195,6 +244,23 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(request.call_count, 2)
         self.assertFalse(any(self.maneuvers.iterdir()))
 
+    def test_model_can_repair_an_invalid_actor_and_keep_it_in_the_scenario(self):
+        candidate = proposal()
+        candidate["actors"] = [vehicle_actor()]
+        invalid = copy.deepcopy(candidate)
+        invalid["actors"][0]["pose"]["distance_m"] = -1
+        request = Mock(side_effect=[response(invalid), response(candidate)])
+        accepted, report = generate(
+            self.workspace,
+            "park a car ahead and swerve left",
+            "test-model",
+            request=request,
+        )
+        self.assertEqual(accepted["actors"], candidate["actors"])
+        self.assertEqual([item["valid"] for item in report["attempts"]], [False, True])
+        scenario, _, _, _ = self.workspace.validate(accepted)
+        self.assertEqual(scenario["world"]["actors"], candidate["actors"])
+
     def test_unsupported_request_explanation_is_returned_without_installing(self):
         request = Mock(
             return_value={
@@ -204,15 +270,20 @@ class WorkspaceTests(unittest.TestCase):
                         "content": [
                             {
                                 "type": "output_text",
-                                "text": "Actor placement is unsupported",
+                                "text": "Scripted actor motion is unsupported",
                             }
                         ],
                     }
                 ]
             }
         )
-        with self.assertRaisesRegex(ValueError, "Actor placement is unsupported"):
-            generate(self.workspace, "add an obstacle", "test-model", request=request)
+        with self.assertRaisesRegex(ValueError, "Scripted actor motion is unsupported"):
+            generate(
+                self.workspace,
+                "add a car driving across the path",
+                "test-model",
+                request=request,
+            )
         self.assertFalse(any(self.maneuvers.iterdir()))
 
     def test_arbitrary_tool_calls_are_rejected(self):
@@ -250,7 +321,9 @@ class WorkspaceTests(unittest.TestCase):
             )
         )
         candidate = self.root / "proposal.json"
-        candidate.write_text(json.dumps(proposal()))
+        candidate_data = proposal()
+        candidate_data["actors"] = [vehicle_actor()]
+        candidate.write_text(json.dumps(candidate_data))
         command = [
             sys.executable,
             str(ROOT / "watod_scripts/watod-sim.py"),
@@ -266,11 +339,18 @@ class WorkspaceTests(unittest.TestCase):
         dry = subprocess.run(command + ["--dry-run"], capture_output=True, text=True)
         self.assertEqual(dry.returncode, 0, dry.stderr)
         self.clean_artifacts(dry.stdout)
+        self.assertIn("1 vehicle actor(s)", dry.stdout)
         self.assertFalse((self.maneuvers / "cli_path.json").exists())
         installed = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(installed.returncode, 0, installed.stderr)
         self.clean_artifacts(installed.stdout)
         self.assertTrue((self.catalog / "scenarios/cli_path.yaml").is_file())
+        installed_scenario = yaml.safe_load(
+            (self.catalog / "scenarios/cli_path.yaml").read_text()
+        )
+        self.assertEqual(
+            installed_scenario["world"]["actors"], candidate_data["actors"]
+        )
         again = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(again.returncode, 2)
         self.assertIn("overwrite", again.stderr)
@@ -284,6 +364,35 @@ class WorkspaceTests(unittest.TestCase):
 
 
 class ProposalTests(unittest.TestCase):
+    def test_malformed_actor_data_is_rejected(self):
+        invalid_actors = [None, {}, [None], [{}], [vehicle_actor()] * 17]
+        invalid_actors.append([vehicle_actor(), vehicle_actor()])
+        for key, value in (
+            ("id", "ego_vehicle"),
+            ("id", "../invalid"),
+            ("blueprint", "walker.pedestrian.0001"),
+            ("blueprint", "vehicle.*"),
+            ("static", "false"),
+            ("speed_mps", 3.0),
+            ("pose", {"frame": "ego", "x": 20.0, "y": 0.0}),
+            ("pose", {"frame": "lane", "distance_m": -1}),
+            ("pose", {"frame": "lane", "distance_m": 301}),
+            ("pose", {"frame": "lane", "distance_m": True}),
+            ("pose", {"frame": "lane", "distance_m": 10**1000}),
+            ("pose", {"frame": "lane", "distance_m": 20, "lateral_m": 3}),
+            ("pose", {"frame": "map", "x": math.nan, "y": 1}),
+            ("pose", {"frame": "map", "x": 1}),
+            ("pose", {"x": 1, "y": 2}),
+        ):
+            actor = vehicle_actor()
+            actor[key] = value
+            invalid_actors.append([actor])
+        for actors in invalid_actors:
+            candidate = proposal()
+            candidate["actors"] = actors
+            with self.subTest(actors=actors), self.assertRaises(ValueError):
+                validate_proposal(candidate)
+
     def test_malformed_or_unbounded_inputs_are_rejected(self):
         cases = []
         for key, value in (

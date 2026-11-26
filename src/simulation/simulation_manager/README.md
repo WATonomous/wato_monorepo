@@ -58,7 +58,7 @@ and metric limits. The required modules are inferred from those choices. Omittin
 starts only the requested world capabilities. See the [authoring guide](../carla_ros_bridge/carla_scenarios/AUTHORING.md)
 for a complete example and map-coordinate vehicle placement.
 
-For a prompt-based custom controller path, use the host-only
+For a prompt-based custom controller path with optional vehicle actors, use the host-only
 [trajectory generation prototype](../simulation_generation/README.md):
 
 ```bash

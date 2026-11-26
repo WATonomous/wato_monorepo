@@ -104,7 +104,7 @@ def run_generation(arguments, root):
             metadata = {"model": None, "source": "offline_candidate"}
         else:
             print(
-                "Generating and validating a controller trajectory…",
+                "Generating and validating a controller trajectory and actors…",
                 file=sys.stderr,
                 flush=True,
             )
@@ -131,7 +131,8 @@ def run_generation(arguments, root):
             "name": name,
             "map": arguments.map,
             "geometry": summary,
-            "validation": "schema, bounded primitives, referenced assets; no CARLA driving verification",
+            "actors": scenario["world"]["actors"],
+            "validation": "schema, bounded primitives, actor poses, referenced assets; no CARLA driving verification",
             "installed": False,
         }
         report_path = output / "report.json"
@@ -143,7 +144,10 @@ def run_generation(arguments, root):
             report_path.write_text(
                 json.dumps(report, indent=2) + "\n", encoding="utf-8"
             )
-        print(f"Validated {name}: {summary['authored_length_m']:.1f} m authored path")
+        print(
+            f"Validated {name}: {summary['authored_length_m']:.1f} m authored path, "
+            f"{len(scenario['world']['actors'])} vehicle actor(s)"
+        )
         print(f"Preview and generation record: {output}")
         print("Road fit and controller performance require inspection and a CARLA run.")
         if arguments.dry_run:

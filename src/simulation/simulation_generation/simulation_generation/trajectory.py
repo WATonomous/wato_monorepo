@@ -23,6 +23,8 @@ import math
 from simulation_runtime.assets import finite_number
 from simulation_runtime.scenario_config import keys
 
+from .actors import actor_schema, validate_actors
+
 PARAMETERS = {
     "straight": {"length": (0.5, 300)},
     "dwell": {"length": (0.5, 300)},
@@ -71,7 +73,7 @@ def tool_schema():
     return {
         "type": "function",
         "name": "validate_trajectory",
-        "description": "Validate a complete controller path; fix reported errors and retry.",
+        "description": "Validate a complete controller path and vehicle actors; fix reported errors and retry.",
         # Optional segment speed overrides use non-strict function calling.
         # Local validation is mandatory, including for schema-conforming calls.
         "strict": False,
@@ -86,8 +88,9 @@ def tool_schema():
                     "maxItems": 32,
                     "items": {"anyOf": variants},
                 },
+                "actors": actor_schema(),
             },
-            "required": ["description", "default_speed", "segments"],
+            "required": ["description", "default_speed", "segments", "actors"],
             "additionalProperties": False,
         },
     }
@@ -103,7 +106,8 @@ def bounded(value, low, high, label):
 
 
 def validate_proposal(proposal):
-    keys(proposal, {"description", "default_speed", "segments"}, "proposal")
+    keys(proposal, {"description", "default_speed", "segments", "actors"}, "proposal")
+    validate_actors(proposal.get("actors", []))
     if not isinstance(proposal.get("description"), str) or not (
         1 <= len(proposal["description"].strip()) <= 2000
     ):
