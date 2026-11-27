@@ -1,2 +1,2 @@
-Debug/
-Release/
+# CMake build trees (presets write to build/<preset>)
+build/
