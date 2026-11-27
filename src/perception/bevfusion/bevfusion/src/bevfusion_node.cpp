@@ -14,17 +14,21 @@
 
 #include "bevfusion/bevfusion_node.hpp"
 
+#include <rcutils/logging.h>
+
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <functional>
 #include <future>
+#include <limits>
 #include <memory>
+#include <sstream>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -40,6 +44,7 @@
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/point_field.hpp>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -48,6 +53,7 @@
 
 #include "bevfusion/bevfusion_constants.hpp"
 #include "bevfusion/bevfusion_core.hpp"
+#include "bevfusion/lidar_sweep_timing.hpp"
 
 namespace wato::perception::bevfusion
 {
@@ -62,79 +68,109 @@ BEVFusionNode::BEVFusionNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(this->get_logger(), "Current state: %s", this->get_current_state().label().c_str());
 }
 
+BEVFusionNode::~BEVFusionNode()
+{
+  stopWorker();
+}
+
+int64_t BEVFusionNode::steadyNowNs()
+{
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
+    .count();
+}
+
 void BEVFusionNode::declareParameters()
 {
-  // sync/QoS params are intentionally declared in on_configure() to avoid re-declaring already-registered parameters.
+  // Camera matching and QoS params are declared in on_configure() (declareSyncParameters()).
 
   // Frame IDs
-  this->declare_parameter<std::string>("lidar_frame_id", "lidar_cc");
-  this->declare_parameter<std::string>("target_frame", "base_link");
+  declareIfMissing<std::string>("lidar_frame_id", "lidar_cc");
+  declareIfMissing<std::string>("target_frame", "base_link");
 
-  // Topics
-  this->declare_parameter<bool>("use_raw_images", false);
-  this->declare_parameter<std::string>("input_multi_image_raw_topic", kMultiImageRawTopic);
-  this->declare_parameter<std::string>("input_multi_image_compressed_topic", kMultiImageCompressedTopic);
-  this->declare_parameter<std::string>("input_lidar_topic", kLidarTopic);
+  // Topics. Cameras are subscribed per camera, as "/<camera_name>/image_rect" (NITROS GPU images, the car)
+  // and "/<camera_name>/image_rect_compressed" (JPEG, bags), with "/<camera_name>/camera_info". "auto" listens
+  // to both and uses NITROS for every camera that sends it; "nitros" or "compressed" listens to one only.
+  declareIfMissing<std::string>("camera_input", "auto");
+  declareIfMissing<std::string>("input_lidar_topic", kLidarTopic);
+  // Intrinsics from CameraInfo P ("projection": the camera matrix of the rectified images the node
+  // receives) or K ("camera_matrix": the raw, distorted camera)
+  declareIfMissing<std::string>("intrinsics_source", "projection");
 
   // Directory containing all .plan and .onnx engine files for the model
-  this->declare_parameter<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50_trt11_int8");
+  declareIfMissing<std::string>("model_dir", "/opt/watonomous/models/bevfusion/resnet50_trt11_int8");
 
   // Detection confidence, bounding boxes below threshold are discarded
-  this->declare_parameter<double>("confidence_threshold", 0.3);
+  declareIfMissing<double>("confidence_threshold", 0.3);
 
   // Ego-vehicle suppression radius (metres, XY-plane in LiDAR frame).
-  this->declare_parameter<double>("ego_suppression_radius", 2.5);
+  declareIfMissing<double>("ego_suppression_radius", 2.5);
 
   // camera_names used by on_activate for TF lookups; num_cameras is derived from its size
-  this->declare_parameter<std::vector<std::string>>(
+  declareIfMissing<std::vector<std::string>>(
     "camera_names",
     std::vector<std::string>{
       "camera_pano_nn", "camera_pano_ne", "camera_pano_nw", "camera_pano_ss", "camera_pano_sw", "camera_pano_se"});
-  this->declare_parameter<int>("image_width", 1280);
-  this->declare_parameter<int>("image_height", 1024);
-  this->declare_parameter<int>("norm_output_width", 704);
-  this->declare_parameter<int>("norm_output_height", 256);
-  this->declare_parameter<std::string>("interpolation", "bilinear");
-  this->declare_parameter<std::vector<double>>("norm_mean", std::vector<double>{0.485, 0.456, 0.406});
-  this->declare_parameter<std::vector<double>>("norm_std", std::vector<double>{0.229, 0.224, 0.225});
-  this->declare_parameter<double>("norm_scale", 1.0 / 255.0);
-  this->declare_parameter<double>("norm_bias", 0.0);
+  declareIfMissing<int>("image_width", 1280);
+  declareIfMissing<int>("image_height", 1024);
+  declareIfMissing<int>("norm_output_width", 704);
+  declareIfMissing<int>("norm_output_height", 256);
+  declareIfMissing<std::string>("interpolation", "bilinear");
+  declareIfMissing<std::vector<double>>("norm_mean", std::vector<double>{0.485, 0.456, 0.406});
+  declareIfMissing<std::vector<double>>("norm_std", std::vector<double>{0.229, 0.224, 0.225});
+  declareIfMissing<double>("norm_scale", 1.0 / 255.0);
+  declareIfMissing<double>("norm_bias", 0.0);
 
   // Camera geometry & feature map dimensions
-  this->declare_parameter<std::vector<int64_t>>("geometry_dim", std::vector<int64_t>{360, 360, 80});
-  this->declare_parameter<int>("feat_width", 88);
-  this->declare_parameter<int>("feat_height", 32);
+  declareIfMissing<std::vector<int64_t>>("geometry_dim", std::vector<int64_t>{360, 360, 80});
+  declareIfMissing<int>("feat_width", 88);
+  declareIfMissing<int>("feat_height", 32);
 
   // LiDAR voxelization parameters
-  this->declare_parameter<std::vector<double>>("min_range", std::vector<double>{-54.0, -54.0, -5.0});
-  this->declare_parameter<std::vector<double>>("max_range", std::vector<double>{54.0, 54.0, 3.0});
-  this->declare_parameter<std::vector<double>>("voxel_size", std::vector<double>{0.075, 0.075, 0.2});
-  this->declare_parameter<int>("max_points_per_voxel", 10);
-  this->declare_parameter<int>("max_points", 300000);
-  this->declare_parameter<int>("max_voxels", 160000);
-  this->declare_parameter<int>("num_features", 5);
-  this->declare_parameter<std::string>("scn_order", "XYZ");
+  declareIfMissing<std::vector<double>>("min_range", std::vector<double>{-54.0, -54.0, -5.0});
+  declareIfMissing<std::vector<double>>("max_range", std::vector<double>{54.0, 54.0, 3.0});
+  declareIfMissing<std::vector<double>>("voxel_size", std::vector<double>{0.075, 0.075, 0.2});
+  declareIfMissing<int>("max_points_per_voxel", 10);
+  declareIfMissing<int>("max_points", 300000);
+  declareIfMissing<int>("max_voxels", 160000);
+  declareIfMissing<int>("num_features", 5);
+  declareIfMissing<std::string>("scn_order", "XYZ");
 
   // BEV Fusion grid geometry
-  this->declare_parameter<std::vector<double>>("xbound", std::vector<double>{-54.0, 54.0, 0.3});
-  this->declare_parameter<std::vector<double>>("ybound", std::vector<double>{-54.0, 54.0, 0.3});
-  this->declare_parameter<std::vector<double>>("zbound", std::vector<double>{-10.0, 10.0, 20.0});
-  this->declare_parameter<std::vector<double>>("dbound", std::vector<double>{1.0, 60.0, 0.5});
+  declareIfMissing<std::vector<double>>("xbound", std::vector<double>{-54.0, 54.0, 0.3});
+  declareIfMissing<std::vector<double>>("ybound", std::vector<double>{-54.0, 54.0, 0.3});
+  declareIfMissing<std::vector<double>>("zbound", std::vector<double>{-10.0, 10.0, 20.0});
+  declareIfMissing<std::vector<double>>("dbound", std::vector<double>{1.0, 60.0, 0.5});
 
   // Detection post-processing parameters
-  this->declare_parameter<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
-  this->declare_parameter<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
-  this->declare_parameter<int>("out_size_factor", 8);
-  this->declare_parameter<std::vector<double>>("transbbox_pc_range", std::vector<double>{-54.0, -54.0});
-  this->declare_parameter<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
-  this->declare_parameter<bool>("sorted_bboxes", true);
+  declareIfMissing<std::vector<double>>("post_center_range_start", std::vector<double>{-61.2, -61.2, -10.0});
+  declareIfMissing<std::vector<double>>("post_center_range_end", std::vector<double>{61.2, 61.2, 10.0});
+  declareIfMissing<int>("out_size_factor", 8);
+  declareIfMissing<std::vector<double>>("transbbox_pc_range", std::vector<double>{-54.0, -54.0});
+  declareIfMissing<std::vector<double>>("transbbox_voxel_size", std::vector<double>{0.075, 0.075});
+  declareIfMissing<bool>("sorted_bboxes", true);
 
   lidar_frame_id_ = this->get_parameter("lidar_frame_id").as_string();
   target_frame_ = this->get_parameter("target_frame").as_string();
-  use_raw_images_ = this->get_parameter("use_raw_images").as_bool();
-  multi_image_raw_topic_ = this->get_parameter("input_multi_image_raw_topic").as_string();
-  multi_image_compressed_topic_ = this->get_parameter("input_multi_image_compressed_topic").as_string();
   lidar_topic_ = this->get_parameter("input_lidar_topic").as_string();
+  const std::string camera_input = this->get_parameter("camera_input").as_string();
+  if (camera_input == "auto") {
+    camera_input_ = CameraInput::kAuto;
+  } else if (camera_input == "compressed") {
+    camera_input_ = CameraInput::kCompressed;
+  } else if (camera_input == "nitros") {
+    camera_input_ = CameraInput::kNitros;
+  } else {
+    throw std::invalid_argument("camera_input must be 'auto', 'compressed' or 'nitros', got '" + camera_input + "'");
+  }
+  const std::string intrinsics_source = this->get_parameter("intrinsics_source").as_string();
+  if (intrinsics_source == "camera_matrix") {
+    intrinsics_source_ = IntrinsicsSource::kCameraMatrix;
+  } else if (intrinsics_source == "projection") {
+    intrinsics_source_ = IntrinsicsSource::kProjection;
+  } else {
+    throw std::invalid_argument(
+      "intrinsics_source must be 'camera_matrix' or 'projection', got '" + intrinsics_source + "'");
+  }
 
   // Build BEVFusionInputConfig from declared parameters
   const std::string model_dir = this->get_parameter("model_dir").as_string();
@@ -214,48 +250,677 @@ void BEVFusionNode::declareParameters()
   core_ = std::make_unique<BEVFusionCore>(config_);
 }
 
-void BEVFusionNode::processFrame(
-  std::vector<cv::Mat> & rgb_images,
-  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg,
-  const std_msgs::msg::Header & header,
-  const std::chrono::steady_clock::time_point t_start)
+void BEVFusionNode::declareSyncParameters()
 {
-  // Basic checks
-  if (!core_ || !core_->isInitialized() || !core_->hasCalibration()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "processFrame called with core not ready; skipping");
-    return;
-  }
-  if (!lidar_msg) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "processFrame called with null lidar_msg; skipping");
-    return;
-  }
-  if (rgb_images.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "processFrame called with empty rgb_images; skipping");
-    return;
+  // Declared once, so a configure after cleanup reads the existing values
+  const auto declare = [this](const std::string & name, const rclcpp::ParameterValue & default_value) {
+    if (!this->has_parameter(name)) {
+      this->declare_parameter(name, default_value);
+    }
+    return this->get_parameter(name);
+  };
+  // "sweep": match each camera to when the LiDAR swept its direction; "scan_stamp": to the scan stamp
+  const std::string target = declare("sync_target", rclcpp::ParameterValue(std::string("sweep"))).as_string();
+  // Longest wait after a scan arrives for each camera's best frame; < 0 waits until certain (1 s limit)
+  const double max_wait_ms = declare("sync_max_wait_ms", rclcpp::ParameterValue(60.0)).as_double();
+  // Largest gap between a camera frame and its target that can still be used
+  const double tolerance_ms = declare("sync_tolerance_ms", rclcpp::ParameterValue(450.0)).as_double();
+  // Decide early on the frame before the target when it is within this fraction of the frame interval
+  const double early_fraction = declare("sync_early_fraction", rclcpp::ParameterValue(0.5)).as_double();
+  const int64_t frames = declare("sync_frames_per_camera", rclcpp::ParameterValue(6)).as_int();
+  const int64_t pending = declare("sync_max_pending_scans", rclcpp::ParameterValue(4)).as_int();
+  // One LiDAR rotation (60 s / RPM): the starting value, until the period is learned from the scan stamps
+  lidar_rotation_period_ms_ = declare("lidar_rotation_period_ms", rclcpp::ParameterValue(50.0)).as_double();
+  // Which point of the sweep the scan stamp is the time of: "end" (Velodyne timestamp_first_packet: false)
+  // or "start" (timestamp_first_packet: true, and drivers that stamp the start of the frame)
+  const std::string stamp_position =
+    declare("lidar_stamp_position", rclcpp::ParameterValue(std::string("end"))).as_string();
+  if (stamp_position == "end") {
+    lidar_stamp_position_ = StampPosition::kEnd;
+  } else if (stamp_position == "start") {
+    lidar_stamp_position_ = StampPosition::kStart;
+  } else {
+    throw std::invalid_argument("lidar_stamp_position must be 'end' or 'start', got '" + stamp_position + "'");
   }
 
-  // Camera count validation
-  if (rgb_images.size() != static_cast<size_t>(config_.num_cameras)) {
+  if (target == "sweep") {
+    sync_target_ = SyncTarget::kSweep;
+  } else if (target == "scan_stamp") {
+    sync_target_ = SyncTarget::kScanStamp;
+  } else {
+    throw std::invalid_argument("sync_target must be 'sweep' or 'scan_stamp', got '" + target + "'");
+  }
+  if (!(max_wait_ms <= 10'000.0)) {
+    throw std::invalid_argument("sync_max_wait_ms must be at most 10000 (or negative to wait until certain)");
+  }
+  if (!(tolerance_ms > 0.0 && tolerance_ms <= 10'000.0)) {
+    throw std::invalid_argument("sync_tolerance_ms must be in (0, 10000]");
+  }
+  if (!(early_fraction >= 0.0 && early_fraction <= 0.5)) {
+    throw std::invalid_argument(
+      "sync_early_fraction must be in [0, 0.5]; larger values can change which frame is used");
+  }
+  // On the NITROS path every kept frame holds one of the camera rectifier's GPU buffers (40 per camera by
+  // default, shared with the encoders), so the number kept stays well below that
+  if (frames < 2 || frames > 16 || pending < 1 || pending > 16) {
+    throw std::invalid_argument("sync_frames_per_camera must be in [2, 16] and sync_max_pending_scans in [1, 16]");
+  }
+  if (!(lidar_rotation_period_ms_ > 0.0 && lidar_rotation_period_ms_ <= 1000.0)) {
+    throw std::invalid_argument("lidar_rotation_period_ms must be in (0, 1000]");
+  }
+  matcher_config_.num_cameras = camera_names_.size();
+  matcher_config_.max_wait_ns = max_wait_ms < 0.0 ? -1 : static_cast<int64_t>(std::llround(max_wait_ms * 1e6));
+  matcher_config_.tolerance_ns = static_cast<int64_t>(std::llround(tolerance_ms * 1e6));
+  matcher_config_.early_fraction = early_fraction;
+  matcher_config_.frames_per_camera = static_cast<size_t>(frames);
+  matcher_config_.max_pending_scans = static_cast<size_t>(pending);
+}
+
+void BEVFusionNode::compressedImageCallback(size_t camera_idx, const CompressedImageMsg::ConstSharedPtr & msg)
+{
+  image_msg_count_++;
+  const int64_t now = steadyNowNs();
+  std::vector<MatchedSet> sets;
+  uint64_t epoch = 0;
+  {
+    std::lock_guard<std::mutex> lock(matcher_mutex_);
+    if (!matcher_) {
+      return;
+    }
+    if (camera_input_ == CameraInput::kAuto && !acceptJpegFrame(camera_idx, now)) {
+      return;  // this camera sends NITROS images
+    }
+    matcher_->addFrame(camera_idx, rclcpp::Time(msg->header.stamp).nanoseconds(), CameraFrame{msg, nullptr}, now, sets);
+    if (camera_idx < last_frame_arrival_ns_.size()) {
+      last_frame_arrival_ns_[camera_idx] = now;
+    }
+    epoch = currentEpoch(now);
+    armDeadlineTimer(now);
+  }
+  dispatchSets(sets, epoch);
+}
+
+void BEVFusionNode::nitrosImageCallback(size_t camera_idx, const NitrosImageView & image_view)
+{
+  image_msg_count_++;
+  // The camera driver publishes RGB8 and RectifyNode keeps that encoding, which is also what the model
+  // expects, so this path does no color conversion. Drop anything else rather than feed the model wrong colors.
+  if (image_view.GetEncoding() != "rgb8") {
+    RCLCPP_ERROR_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      5000,
+      "NITROS image from %s has encoding '%s', expected 'rgb8'; dropping it",
+      cameraName(camera_idx),
+      image_view.GetEncoding().c_str());
+    return;
+  }
+  // Copying the message keeps a reference to its GPU buffer, not the pixels
+  auto image = std::make_shared<const NitrosImageMsg>(image_view.GetMessage());
+  const int64_t stamp = static_cast<int64_t>(image->get_timestamp_sec()) * 1'000'000'000LL +
+                        static_cast<int64_t>(image->get_timestamp_nsec());
+  const int64_t now = steadyNowNs();
+  std::vector<MatchedSet> sets;
+  uint64_t epoch = 0;
+  {
+    std::lock_guard<std::mutex> lock(matcher_mutex_);
+    if (!matcher_) {
+      return;
+    }
+    if (camera_input_ == CameraInput::kAuto) {
+      noteNitrosFrame(camera_idx, now);
+    }
+    matcher_->addFrame(camera_idx, stamp, CameraFrame{nullptr, std::move(image)}, now, sets);
+    if (camera_idx < last_frame_arrival_ns_.size()) {
+      last_frame_arrival_ns_[camera_idx] = now;
+    }
+    epoch = currentEpoch(now);
+    armDeadlineTimer(now);
+  }
+  dispatchSets(sets, epoch);
+}
+
+bool BEVFusionNode::acceptJpegFrame(size_t camera_idx, int64_t now_ns)
+{
+  if (camera_idx >= last_nitros_arrival_ns_.size() || camera_idx >= camera_source_.size()) {
+    return false;
+  }
+  const int64_t last_nitros = last_nitros_arrival_ns_[camera_idx];
+  if (last_nitros >= 0 && now_ns - last_nitros <= kPreferNitrosNs) {
+    return false;
+  }
+  if (camera_source_[camera_idx] != FrameSource::kJpeg) {
+    camera_source_[camera_idx] = FrameSource::kJpeg;
+    RCLCPP_INFO(
+      this->get_logger(),
+      "%s: using JPEG images from /%s/%s (decoded on the CPU)",
+      camera_names_[camera_idx].c_str(),
+      camera_names_[camera_idx].c_str(),
+      kCompressedImageTopicSuffix);
+  }
+  return true;
+}
+
+void BEVFusionNode::noteNitrosFrame(size_t camera_idx, int64_t now_ns)
+{
+  if (camera_idx >= last_nitros_arrival_ns_.size() || camera_idx >= camera_source_.size()) {
+    return;
+  }
+  last_nitros_arrival_ns_[camera_idx] = now_ns;
+  if (camera_source_[camera_idx] != FrameSource::kNitros) {
+    camera_source_[camera_idx] = FrameSource::kNitros;
+    RCLCPP_INFO(
+      this->get_logger(),
+      "%s: using NITROS images from /%s/%s (GPU memory, no copy)",
+      camera_names_[camera_idx].c_str(),
+      camera_names_[camera_idx].c_str(),
+      kNitrosImageTopicSuffix);
+  }
+}
+
+void BEVFusionNode::monitorInputs()
+{
+  bool all_nitros = false;
+  {
+    std::lock_guard<std::mutex> lock(matcher_mutex_);
+    const int64_t now = steadyNowNs();
+    all_nitros = !last_nitros_arrival_ns_.empty() &&
+                 std::all_of(last_nitros_arrival_ns_.begin(), last_nitros_arrival_ns_.end(), [now](int64_t t) {
+                   return t >= 0 && now - t <= kPreferNitrosNs;
+                 });
+    nitros_checks_passed_ = all_nitros ? nitros_checks_passed_ + 1 : 0;
+    if (nitros_checks_passed_ < 2) {
+      return;
+    }
+  }
+  std::lock_guard<std::mutex> lock(inputs_mutex_);
+  if (input_monitor_timer_) {
+    input_monitor_timer_->cancel();
+  }
+  if (!compressed_image_subs_.empty()) {
+    compressed_image_subs_.clear();
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Every camera sends NITROS images; stopped listening to the JPEG topics (/<camera>/%s)",
+      kCompressedImageTopicSuffix);
+  }
+}
+
+void BEVFusionNode::lidarCallback(const PointCloud2Msg::ConstSharedPtr & lidar_msg)
+{
+  lidar_msg_count_++;
+  const int64_t now = steadyNowNs();
+  std::vector<int64_t> targets = scanTargets(*lidar_msg);
+  std::vector<MatchedSet> sets;
+  uint64_t epoch = 0;
+  {
+    std::lock_guard<std::mutex> lock(matcher_mutex_);
+    if (!matcher_) {
+      return;
+    }
+    matcher_->addScan(rclcpp::Time(lidar_msg->header.stamp).nanoseconds(), lidar_msg, std::move(targets), now, sets);
+    epoch = currentEpoch(now);
+    warnAboutSilentCameras(now);
+    armDeadlineTimer(now);
+  }
+  dispatchSets(sets, epoch);
+}
+
+std::vector<int64_t> BEVFusionNode::scanTargets(const PointCloud2Msg & lidar_msg)
+{
+  const int64_t stamp_ns = rclcpp::Time(lidar_msg.header.stamp).nanoseconds();
+  // Rotation period: learned from the scan stamps (one scan is one turn), the parameter until then
+  double period_ns = lidar_rotation_period_ms_ * 1e6;
+  {
+    std::lock_guard<std::mutex> lock(lidar_timing_mutex_);
+    period_estimator_.addStamp(stamp_ns);
+    if (const auto learned = period_estimator_.periodNs()) {
+      if (!period_mismatch_warned_ && std::fabs(*learned - period_ns) > 0.1 * period_ns) {
+        period_mismatch_warned_ = true;
+        RCLCPP_WARN(
+          this->get_logger(),
+          "The LiDAR turns every %.1f ms (measured from its scan stamps), but lidar_rotation_period_ms is %.1f; "
+          "using the measured period",
+          *learned / 1e6,
+          lidar_rotation_period_ms_);
+      }
+      period_ns = *learned;
+    }
+    rotation_period_used_ms_ = period_ns / 1e6;
+    checkLidarStampPosition(stamp_ns, period_ns);
+  }
+  if (sync_target_ != SyncTarget::kSweep) {
+    return {};
+  }
+  std::vector<double> azimuths;
+  {
+    std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    azimuths = camera_azimuths_deg_;
+  }
+  if (azimuths.size() != camera_names_.size()) {
+    return {};  // calibration (and so the camera directions) not ready yet
+  }
+  int64_t x_offset = -1;
+  int64_t y_offset = -1;
+  for (const auto & field : lidar_msg.fields) {
+    if (field.datatype != sensor_msgs::msg::PointField::FLOAT32) {
+      continue;
+    }
+    if (field.name == "x") {
+      x_offset = field.offset;
+    } else if (field.name == "y") {
+      y_offset = field.offset;
+    }
+  }
+  const size_t num_points = static_cast<size_t>(lidar_msg.width) * lidar_msg.height;
+  if (
+    x_offset >= 0 && y_offset >= 0 && !lidar_msg.is_bigendian &&
+    lidar_msg.data.size() >= num_points * static_cast<size_t>(lidar_msg.point_step))
+  {
+    auto targets = sweepTargets(
+      lidar_msg.data.data(),
+      num_points,
+      lidar_msg.point_step,
+      static_cast<size_t>(x_offset),
+      static_cast<size_t>(y_offset),
+      stamp_ns,
+      azimuths,
+      period_ns,
+      lidar_stamp_position_);
+    if (targets) {
+      return *targets;
+    }
+  }
+  sweep_fallback_count_++;
+  RCLCPP_WARN_THROTTLE(
+    this->get_logger(),
+    *this->get_clock(),
+    10000,
+    "LiDAR scan is not one turn with its points in firing order (e.g. merged from several LiDARs, points stored "
+    "ring by ring, or a LiDAR that does not spin); matching cameras to the scan stamp instead. Set sync_target: "
+    "scan_stamp if this is expected");
+  return {};
+}
+
+void BEVFusionNode::checkLidarStampPosition(int64_t stamp_ns, double period_ns)
+{
+  // Only on live input, where the scan stamp and this node's clock are the same clock: a bag's stamps are
+  // from the day it was recorded
+  const int64_t age = this->get_clock()->now().nanoseconds() - stamp_ns;
+  if (stamp_position_warned_ || std::llabs(age) > 1'000'000'000) {
+    return;
+  }
+  live_stamp_ages_ns_.push_back(age);
+  constexpr size_t kSamples = 20;
+  if (live_stamp_ages_ns_.size() > kSamples) {
+    live_stamp_ages_ns_.pop_front();
+  }
+  if (live_stamp_ages_ns_.size() < kSamples) {
+    return;
+  }
+  std::vector<int64_t> sorted(live_stamp_ages_ns_.begin(), live_stamp_ages_ns_.end());
+  std::nth_element(sorted.begin(), sorted.begin() + static_cast<std::ptrdiff_t>(kSamples / 2), sorted.end());
+  const double median = static_cast<double>(sorted[kSamples / 2]);
+  // A scan is published once its turn is complete: about 0 after an end stamp, about one turn after a start stamp
+  const bool looks_like_start = median > 0.5 * period_ns;
+  if (looks_like_start == (lidar_stamp_position_ == StampPosition::kStart)) {
+    return;
+  }
+  stamp_position_warned_ = true;
+  RCLCPP_WARN(
+    this->get_logger(),
+    "LiDAR scans arrive %.1f ms after their stamp (one turn is %.1f ms), so the stamp looks like the %s of the "
+    "turn, but lidar_stamp_position is '%s'. Camera targets are off by up to a turn; set lidar_stamp_position: %s "
+    "(it should match the driver's timestamp_first_packet)",
+    median / 1e6,
+    period_ns / 1e6,
+    looks_like_start ? "start" : "end",
+    lidar_stamp_position_ == StampPosition::kStart ? "start" : "end",
+    looks_like_start ? "start" : "end");
+}
+
+void BEVFusionNode::dispatchSets(std::vector<MatchedSet> & sets, uint64_t epoch)
+{
+  if (sets.empty()) {
+    return;
+  }
+  const bool debug = rcutils_logging_logger_is_enabled_for(this->get_logger().get_name(), RCUTILS_LOG_SEVERITY_DEBUG);
+  {
+    std::lock_guard<std::mutex> lock(mailbox_mutex_);
+    for (auto & set : sets) {
+      matched_set_count_++;
+      if (debug) {
+        // One line per matched set (scan stamp, steady-clock arrival/decision, per camera frame/target stamps)
+        std::ostringstream line;
+        line << "[SYNC] set scan=" << set.scan_stamp_ns << " arrival=" << set.scan_arrival_ns
+             << " decided=" << set.decided_ns;
+        for (size_t i = 0; i < set.frames.size() && i < camera_names_.size(); ++i) {
+          line << " " << camera_names_[i] << "=" << set.frames[i].stamp_ns << "/" << set.targets_ns[i];
+        }
+        RCLCPP_DEBUG(this->get_logger(), "%s", line.str().c_str());
+      }
+      if (mailbox_) {
+        superseded_set_count_++;
+        if (mailbox_epoch_ == epoch && mailbox_->scan_stamp_ns > set.scan_stamp_ns) {
+          continue;  // a newer set is already waiting
+        }
+      }
+      mailbox_ = std::move(set);
+      mailbox_epoch_ = epoch;
+    }
+  }
+  mailbox_cv_.notify_one();
+}
+
+uint64_t BEVFusionNode::currentEpoch(int64_t now_ns)
+{
+  const uint64_t resets = matcher_->counters().resets;
+  if (resets != matcher_resets_seen_) {
+    matcher_resets_seen_ = resets;
+    ++matcher_epoch_;
+    matching_started_ns_ = now_ns;
+    RCLCPP_WARN(this->get_logger(), "Camera or LiDAR stamps jumped back (bag restarted?); matching starts over");
+  }
+  return matcher_epoch_;
+}
+
+void BEVFusionNode::warnAboutSilentCameras(int64_t now_ns)
+{
+  // Stream time (scaled to arrival time by the playback rate of a bag)
+  const int64_t grace_ns = matcher_->arrivalDuration(2'000'000'000);  // after activation or a reset
+  const int64_t silent_ns = matcher_->arrivalDuration(1'000'000'000);
+  if (now_ns - matching_started_ns_ < grace_ns) {
+    return;
+  }
+  std::string silent;
+  for (size_t i = 0; i < camera_names_.size() && i < last_frame_arrival_ns_.size(); ++i) {
+    if (last_frame_arrival_ns_[i] < 0 || now_ns - last_frame_arrival_ns_[i] > silent_ns) {
+      silent += (silent.empty() ? "" : ", ") + camera_names_[i];
+    }
+  }
+  if (silent.empty()) {
+    return;
+  }
+  const std::string topics =
+    camera_input_ == CameraInput::kNitros ? std::string("/<camera>/") + kNitrosImageTopicSuffix
+    : camera_input_ == CameraInput::kCompressed
+      ? std::string("/<camera>/") + kCompressedImageTopicSuffix
+      : std::string("/<camera>/") + kNitrosImageTopicSuffix + " or /<camera>/" + kCompressedImageTopicSuffix;
+  RCLCPP_WARN_THROTTLE(
+    this->get_logger(),
+    *this->get_clock(),
+    10000,
+    "No frames for over a second from %s on %s; scans cannot be matched.%s",
+    silent.c_str(),
+    topics.c_str(),
+    camera_input_ == CameraInput::kNitros
+      ? " camera_input is 'nitros', so JPEG topics (a bag) are not read; 'auto' (the default) reads both."
+      : "");
+}
+
+void BEVFusionNode::armDeadlineTimer(int64_t now_ns)
+{
+  const auto deadline = matcher_->nextDeadline();
+  if (!deadline) {
+    if (deadline_timer_) {
+      deadline_timer_->cancel();
+    }
+    armed_deadline_ns_ = -1;
+    return;
+  }
+  if (*deadline == armed_deadline_ns_ && deadline_timer_ && !deadline_timer_->is_canceled()) {
+    return;
+  }
+  armed_deadline_ns_ = *deadline;
+  if (deadline_timer_) {
+    deadline_timer_->cancel();
+  }
+  // One-shot: the callback cancels it and arms the next deadline, so nothing polls while scans wait
+  deadline_timer_ = this->create_wall_timer(
+    std::chrono::nanoseconds(std::max<int64_t>(*deadline - now_ns, 0)), [this]() { deadlineTimerCallback(); });
+}
+
+void BEVFusionNode::deadlineTimerCallback()
+{
+  const int64_t now = steadyNowNs();
+  std::vector<MatchedSet> sets;
+  uint64_t epoch = 0;
+  {
+    std::lock_guard<std::mutex> lock(matcher_mutex_);
+    if (deadline_timer_) {
+      deadline_timer_->cancel();
+    }
+    armed_deadline_ns_ = -1;
+    if (!matcher_) {
+      return;
+    }
+    matcher_->tick(now, sets);
+    epoch = currentEpoch(now);
+    armDeadlineTimer(now);
+  }
+  dispatchSets(sets, epoch);
+}
+
+void BEVFusionNode::removeTopicDiagnostic()
+{
+  // The updater keeps a raw pointer to the task, so remove it before destroying it
+  if (pub_diagnostic_ && diagnostic_updater_) {
+    diagnostic_updater_->removeByName(std::string(kOutputDetectionsTopic) + " topic status");
+  }
+  pub_diagnostic_.reset();
+}
+
+void BEVFusionNode::startWorker()
+{
+  stopWorker();
+  {
+    std::lock_guard<std::mutex> lock(mailbox_mutex_);
+    stop_worker_ = false;
+    mailbox_.reset();
+  }
+  worker_ = std::thread([this]() { workerLoop(); });
+}
+
+void BEVFusionNode::stopWorker()
+{
+  {
+    std::lock_guard<std::mutex> lock(mailbox_mutex_);
+    stop_worker_ = true;
+    mailbox_.reset();
+  }
+  mailbox_cv_.notify_all();
+  if (worker_.joinable()) {
+    worker_.join();
+  }
+}
+
+void BEVFusionNode::stopInputs()
+{
+  {
+    std::lock_guard<std::mutex> lock(inputs_mutex_);
+    if (input_monitor_timer_) {
+      input_monitor_timer_->cancel();
+      input_monitor_timer_.reset();
+    }
+    compressed_image_subs_.clear();
+  }
+  lidar_sub_.reset();
+  nitros_image_subs_.clear();
+  camera_info_subs_.clear();
+  std::lock_guard<std::mutex> lock(matcher_mutex_);
+  if (deadline_timer_) {
+    deadline_timer_->cancel();
+    deadline_timer_.reset();
+  }
+  armed_deadline_ns_ = -1;
+  matcher_.reset();  // releases every held frame (and so GPU buffers on the NITROS path)
+}
+
+void BEVFusionNode::workerLoop()
+{
+  uint64_t last_epoch = 0;
+  int64_t last_scan_stamp_ns = std::numeric_limits<int64_t>::min();
+  while (true) {
+    MatchedSet set;
+    uint64_t epoch = 0;
+    {
+      std::unique_lock<std::mutex> lock(mailbox_mutex_);
+      mailbox_cv_.wait(lock, [this]() { return stop_worker_ || mailbox_.has_value(); });
+      if (stop_worker_) {
+        return;
+      }
+      set = std::move(*mailbox_);
+      epoch = mailbox_epoch_;
+      mailbox_.reset();
+    }
+    // A scan that waited longer can complete after a newer one; never publish out of order. After a
+    // matcher reset (a new epoch, e.g. the bag restarted) stamps start over.
+    if (epoch == last_epoch && set.scan_stamp_ns <= last_scan_stamp_ns) {
+      superseded_set_count_++;
+      continue;
+    }
+    last_epoch = epoch;
+    last_scan_stamp_ns = set.scan_stamp_ns;
+    try {
+      processSet(set);
+    } catch (const std::exception & e) {
+      RCLCPP_ERROR_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Processing a frame failed: %s", e.what());
+    }
+  }
+}
+
+void BEVFusionNode::processSet(const MatchedSet & set)
+{
+  const auto t_start = std::chrono::steady_clock::now();
+  const double match_wait_ms = static_cast<double>(set.decided_ns - set.scan_arrival_ns) / 1e6;
+  last_max_gap_ms_ = static_cast<double>(set.max_gap_ns) / 1e6;
+
+  if (!core_ || !core_->isInitialized() || !calibration_initialized_.load() || !core_->hasCalibration()) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Core or calibration not ready; skipping frame");
+    return;
+  }
+  if (!set.scan || set.scan->data.empty()) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Empty LiDAR scan; skipping frame");
+    return;
+  }
+  if (set.frames.size() != static_cast<size_t>(config_.num_cameras)) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       5000,
-      "Mismatch between number of camera images (%zu) and configured num_cameras (%d); skipping frame",
-      rgb_images.size(),
+      "Matched set has %zu cameras, configured num_cameras is %d; skipping frame",
+      set.frames.size(),
       config_.num_cameras);
     return;
   }
+  const builtin_interfaces::msg::Time stamp = set.scan->header.stamp;
 
-  // Image validation & raw pointer array setup
-  std::vector<const unsigned char *> camera_images(rgb_images.size());
-  for (size_t i = 0; i < rgb_images.size(); ++i) {
-    if (!validateAndNormalizeImage(rgb_images[i], i)) return;
-    camera_images[i] = rgb_images[i].data;
+  // Each camera's frame is a GPU (NITROS) image or a JPEG; one set can hold both (camera_input auto, while
+  // cameras switch over). CUDA-BEVFusion copies every image with cudaMemcpyDefault, so CPU and GPU pointers can
+  // be mixed.
+  const size_t num_images = set.frames.size();
+  bool any_jpeg = false;
+  for (size_t i = 0; i < num_images; ++i) {
+    const auto & data = set.frames[i].data;
+    if (!data.gpu && !data.jpeg) {
+      RCLCPP_ERROR_THROTTLE(
+        this->get_logger(), *this->get_clock(), 5000, "%s has no image in the set; skipping frame", cameraName(i));
+      return;
+    }
+    any_jpeg = any_jpeg || !data.gpu;
+  }
+  std::vector<cv::Mat> rgb_images;
+  if (any_jpeg && !decodeJpegImages(set, rgb_images)) {
+    return;
   }
 
+  // Take a read handle for each GPU image on the inference stream: the stream waits for the producer's write on
+  // the GPU (no CPU block), and the handles stay alive until inference is done with the buffers.
+  std::vector<nvidia::isaac_ros::nitros::ReadHandle> handles;
+  handles.reserve(num_images);
+  std::vector<const unsigned char *> camera_images(num_images, nullptr);
+  for (size_t i = 0; i < num_images; ++i) {
+    const auto & gpu = set.frames[i].data.gpu;
+    if (!gpu) {
+      camera_images[i] = rgb_images[i].data;
+      continue;
+    }
+    const NitrosImageView image_view(*gpu);
+    // The model reads packed RGB8 at the configured resolution, the same layout the JPEG path gives it
+    if (
+      image_view.GetWidth() != static_cast<uint32_t>(config_.image_width) ||
+      image_view.GetHeight() != static_cast<uint32_t>(config_.image_height) ||
+      image_view.GetStride() != image_view.GetWidth() * 3)
+    {
+      RCLCPP_ERROR_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        5000,
+        "NITROS image from %s is %ux%u with stride %u, expected %dx%d packed RGB8; skipping frame",
+        cameraName(i),
+        image_view.GetWidth(),
+        image_view.GetHeight(),
+        image_view.GetStride(),
+        config_.image_width,
+        config_.image_height);
+      return;
+    }
+    handles.push_back(gpu->get_read_handle(core_->stream()));
+    camera_images[i] = handles.back().get_ptr();
+  }
+  runInference(camera_images, set.scan, stamp, t_start, match_wait_ms);
+}
+
+bool BEVFusionNode::decodeJpegImages(const MatchedSet & set, std::vector<cv::Mat> & rgb_images)
+{
+  const size_t num_imgs = set.frames.size();
+  rgb_images.assign(num_imgs, cv::Mat());
+  std::vector<bool> decode_success(num_imgs, true);
+  std::vector<std::future<void>> decode_futures;
+  decode_futures.reserve(num_imgs);
+
+  // Parallel JPEG decompression, one task per JPEG frame (GPU frames are skipped): decompress, then BGR -> RGB.
+  // The set holds a shared pointer to every message, so the buffers stay valid until the tasks finish.
+  for (size_t i = 0; i < num_imgs; ++i) {
+    const auto & jpeg = set.frames[i].data.jpeg;
+    if (!jpeg || set.frames[i].data.gpu) {
+      continue;
+    }
+    decode_futures.push_back(std::async(std::launch::async, [this, i, &jpeg, &rgb_images, &decode_success]() {
+      cv::Mat bgr = decompressImage(*jpeg);
+      if (bgr.empty()) {
+        decode_success[i] = false;
+        return;
+      }
+      cv::cvtColor(bgr, rgb_images[i], cv::COLOR_BGR2RGB);
+    }));
+  }
+  for (auto & f : decode_futures) {
+    f.get();
+  }
+  for (size_t i = 0; i < num_imgs; ++i) {
+    if (!set.frames[i].data.jpeg || set.frames[i].data.gpu) {
+      continue;
+    }
+    if (!decode_success[i]) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(), *this->get_clock(), 5000, "Failed to decompress image from '%s'", camera_names_[i].c_str());
+      return false;
+    }
+    if (!validateAndNormalizeImage(rgb_images[i], i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void BEVFusionNode::runInference(
+  const std::vector<const unsigned char *> & camera_images,
+  const PointCloud2Msg::ConstSharedPtr & lidar_msg,
+  const builtin_interfaces::msg::Time & stamp,
+  const std::chrono::steady_clock::time_point t_start,
+  const double match_wait_ms)
+{
   // Mark time after image processing
   const auto t_after_image = std::chrono::steady_clock::now();
 
@@ -281,12 +946,16 @@ void BEVFusionNode::processFrame(
     "Calling core_->infer with %zu images and %d LiDAR points",
     camera_images.size(),
     num_points);
-  std::vector<BoundingBox> bboxes = core_->infer(camera_images, lidar_data, num_points);
+  std::vector<BoundingBox> bboxes;
+  {
+    std::lock_guard<std::mutex> lock(core_mutex_);
+    bboxes = core_->infer(camera_images, lidar_data, num_points);
+  }
   RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Found %zu bounding boxes", bboxes.size());
   const auto t_after_infer = std::chrono::steady_clock::now();
 
-  // Create detections and markers from bboxes
-  auto detections_3d = createDetections3D(bboxes, header.stamp);
+  // Create detections and markers from bboxes; detections carry the LiDAR scan's stamp
+  auto detections_3d = createDetections3D(bboxes, stamp);
   auto markers = createMarkers(detections_3d);
   detection_pub_->publish(detections_3d);
   marker_pub_->publish(markers);
@@ -303,7 +972,10 @@ void BEVFusionNode::processFrame(
     this->get_logger(),
     *this->get_clock(),
     5000,
-    "[PROFILER] Callback: %.2f ms | Image Prep: %.2f ms | LiDAR Prep: %.2f ms | GPU Infer: %.2f ms | PostProc: %.2f ms",
+    "[PROFILER] Match wait: %.2f ms | Processing: %.2f ms | Image Prep: %.2f ms | LiDAR Prep: %.2f ms | GPU Infer: "
+    "%.2f "
+    "ms | PostProc: %.2f ms",
+    match_wait_ms,
     total_ms,
     image_ms,
     lidar_ms,
@@ -315,228 +987,41 @@ void BEVFusionNode::processFrame(
   updateDiagnostics(detections_3d.header.stamp);
 }
 
-void BEVFusionNode::syncedRawCallback(
-  const deep_msgs::msg::MultiImage::ConstSharedPtr & multi_image_msg,
-  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
+void BEVFusionNode::cameraInfoCallback(size_t camera_idx, const CameraInfoMsg::ConstSharedPtr & msg)
 {
-  RCLCPP_DEBUG_THROTTLE(
-    this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image raw synced, processing");
-
-  multi_image_msg_count_++;
-  lidar_msg_count_++;
-  synced_msg_count_++;
-
-  // Basic checks
-  if (!core_ || !core_->isInitialized()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
+  if (calibration_initialized_.load() || camera_idx >= camera_names_.size()) {
     return;
   }
-  if (!calibration_initialized_.load() || !core_->hasCalibration()) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
-    return;
-  }
-  if (!multi_image_msg || multi_image_msg->images.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] MultiImage message is null or empty; skipping");
-    return;
-  }
-  if (!lidar_msg || lidar_msg->data.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] LiDAR point cloud message is null or empty; skipping");
-    return;
-  }
-
-  const auto t_start = std::chrono::steady_clock::now();
-
-  // Build a hashmap from frame_id -> pointer to avoid O(N*M) nested search and any data copy.
-  // The incoming ConstSharedPtr keeps the message alive for the duration of this callback.
-  std::unordered_map<std::string, const sensor_msgs::msg::Image *> image_map;
-  image_map.reserve(multi_image_msg->images.size());
-  for (const auto & img : multi_image_msg->images) {
-    image_map.emplace(img.header.frame_id, &img);
-  }
-
-  // Collect pointers in camera_names_ order (zero data copies)
-  std::vector<const sensor_msgs::msg::Image *> ordered_images;
-  ordered_images.reserve(camera_names_.size());
-  for (const auto & camera_name : camera_names_) {
-    auto it = image_map.find(camera_name);
-    if (it != image_map.end()) {
-      ordered_images.push_back(it->second);
-    }
-  }
-
-  // Wrap raw image pointers into cv::Mat views and convert encoding only when necessary.
-  // No clone() is performed for images already in rgb8 — the cv::Mat header just points
-  // into the ROS message buffer, which remains valid for the lifetime of this callback.
-  const size_t num_imgs = ordered_images.size();
-  std::vector<cv::Mat> rgb_images(num_imgs);
-  for (size_t i = 0; i < num_imgs; ++i) {
-    const auto & raw_img = *ordered_images[i];
-    cv::Mat mat(raw_img.height, raw_img.width, CV_8UC3, const_cast<unsigned char *>(raw_img.data.data()), raw_img.step);
-    if (raw_img.encoding != "rgb8") {
-      // Encoding conversion writes into a new buffer; no extra clone needed.
-      cv::cvtColor(mat, rgb_images[i], cv::COLOR_BGR2RGB);
-    } else {
-      // Zero-copy view: cv::Mat header only, no pixel data copied.
-      // validateAndNormalizeImage() will clone if the image is non-contiguous.
-      rgb_images[i] = mat;
-    }
-  }
-
-  // Continue with frame processing
-  processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start);
-}
-
-void BEVFusionNode::syncedCompressedCallback(
-  const deep_msgs::msg::MultiImageCompressed::ConstSharedPtr & multi_image_msg,
-  const sensor_msgs::msg::PointCloud2::ConstSharedPtr & lidar_msg)
-{
-  RCLCPP_DEBUG_THROTTLE(
-    this->get_logger(), *this->get_clock(), 5000, "[SYNC] Lidar and multi_image compressed synced, processing");
-
-  multi_image_msg_count_++;
-  lidar_msg_count_++;
-  synced_msg_count_++;
-
-  // Basic checks
-  if (!core_ || !core_->isInitialized()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] BEVFusion Core not created or initialized; skipping");
-    return;
-  }
-  if (!calibration_initialized_.load() || !core_->hasCalibration()) {
-    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "[SYNC] Calibration not initialized; skipping");
-    return;
-  }
-  if (!multi_image_msg || multi_image_msg->images.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] MultiImage message is null or empty; skipping");
-    return;
-  }
-  if (!lidar_msg || lidar_msg->data.empty()) {
-    RCLCPP_WARN_THROTTLE(
-      this->get_logger(), *this->get_clock(), 5000, "[SYNC] LiDAR point cloud message is null or empty; skipping");
-    return;
-  }
-
-  const auto t_start = std::chrono::steady_clock::now();
-
-  // Build a hashmap from frame_id -> pointer to avoid O(N*M) nested search and any data copy.
-  // The incoming ConstSharedPtr keeps the message alive for the duration of this callback.
-  std::unordered_map<std::string, const sensor_msgs::msg::CompressedImage *> compressed_image_map;
-  compressed_image_map.reserve(multi_image_msg->images.size());
-  for (const auto & img : multi_image_msg->images) {
-    compressed_image_map.emplace(img.header.frame_id, &img);
-  }
-
-  // Collect pointers in camera_names_ order (zero data copies)
-  std::vector<const sensor_msgs::msg::CompressedImage *> ordered_images;
-  ordered_images.reserve(camera_names_.size());
-  for (const auto & camera_name : camera_names_) {
-    auto it = compressed_image_map.find(camera_name);
-    if (it != compressed_image_map.end()) {
-      ordered_images.push_back(it->second);
-    }
-  }
-
-  // Setup variables for parallel decompression
-  const size_t num_imgs = ordered_images.size();
-  std::vector<cv::Mat> rgb_images(num_imgs);
-  std::vector<bool> decode_success(num_imgs, true);
-  std::vector<std::future<void>> decode_futures;
-  decode_futures.reserve(num_imgs);
-
-  // Parallel multi-threaded JPEG decompression across CPU worker threads.
-  // Each thread decompresses one image, converts it to RGB, and stores it in rgb_images.
-  // We capture a raw pointer (valid for the callback lifetime via the ConstSharedPtr above).
-  for (size_t i = 0; i < num_imgs; ++i) {
-    decode_futures.push_back(std::async(std::launch::async, [this, i, &ordered_images, &rgb_images, &decode_success]() {
-      cv::Mat bgr = decompressImage(*ordered_images[i]);
-      if (bgr.empty()) {
-        decode_success[i] = false;
-        return;
-      }
-      cv::cvtColor(bgr, rgb_images[i], cv::COLOR_BGR2RGB);
-    }));
-  }
-
-  // Wait for all threads to finish decompression
-  for (auto & f : decode_futures) {
-    f.get();
-  }
-
-  // Check if all images were decompressed successfully
-  for (size_t i = 0; i < num_imgs; ++i) {
-    if (!decode_success[i]) {
-      const std::string & frame_id = ordered_images[i]->header.frame_id;
-      RCLCPP_WARN_THROTTLE(
-        this->get_logger(),
-        *this->get_clock(),
-        5000,
-        "[SYNC] Failed to decompress image for frame_id '%s'",
-        frame_id.c_str());
-      return;
-    }
-  }
-
-  // Continue with frame processing
-  processFrame(rgb_images, lidar_msg, multi_image_msg->header, t_start);
-}
-
-void BEVFusionNode::multiCameraInfoCallback(
-  const deep_msgs::msg::MultiCameraInfo::ConstSharedPtr & multi_camera_info_msg)
-{
-  if (multi_camera_info_msg->camera_infos.empty() || calibration_initialized_) {
-    return;
-  }
-
-  RCLCPP_INFO(
-    this->get_logger(), "Received multi camera info with %zu cameras", multi_camera_info_msg->camera_infos.size());
-
-  // Build a hashmap from frame_id -> index for O(N) filtering without copying CameraInfo data.
-  std::unordered_map<std::string, const sensor_msgs::msg::CameraInfo *> info_map;
-  info_map.reserve(multi_camera_info_msg->camera_infos.size());
-  for (const auto & camera_info : multi_camera_info_msg->camera_infos) {
-    info_map.emplace(camera_info.header.frame_id, &camera_info);
-  }
-
-  // Set camera info only for the cameras present in camera_names_, in that order.
-  // Camera info is small and only processed once, so a single value-copy here is acceptable
-  // (the data is cached for the lifetime of the node and not processed per-frame).
-  MultiCameraInfoMsg::SharedPtr filtered_multi_camera_info_msg = std::make_shared<MultiCameraInfoMsg>();
-  filtered_multi_camera_info_msg->camera_infos.reserve(camera_names_.size());
-  for (const auto & camera_name : camera_names_) {
-    auto it = info_map.find(camera_name);
-    if (it != info_map.end()) {
-      filtered_multi_camera_info_msg->camera_infos.push_back(*it->second);
-    }
-  }
-
-  RCLCPP_INFO(
-    this->get_logger(),
-    "Filtered multi camera info has %zu cameras",
-    filtered_multi_camera_info_msg->camera_infos.size());
-
+  bool all_cached = false;
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    cached_multi_camera_info_ = filtered_multi_camera_info_msg;
+    if (cached_camera_infos_.size() != camera_names_.size()) {
+      cached_camera_infos_.resize(camera_names_.size());
+    }
+    cached_camera_infos_[camera_idx] = msg;
+    all_cached = std::all_of(
+      cached_camera_infos_.begin(), cached_camera_infos_.end(), [](const auto & info) { return info != nullptr; });
   }
-  computeCalibrationMatrices();
+  if (all_cached) {
+    // Retried on later messages until the camera->LiDAR transforms are available
+    computeCalibrationMatrices();
+  }
 }
 
 void BEVFusionNode::computeCalibrationMatrices()
 {
-  // Get cached MultiCameraInfoMsg
-  MultiCameraInfoMsg::ConstSharedPtr multi_camera_info;
+  // Get the cached camera infos, one per camera in camera_names_ order
+  std::vector<CameraInfoMsg::ConstSharedPtr> camera_infos;
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    multi_camera_info = cached_multi_camera_info_;
+    camera_infos = cached_camera_infos_;
   }
 
-  if (!multi_camera_info || multi_camera_info->camera_infos.empty()) {
-    RCLCPP_WARN(this->get_logger(), "Cannot compute calibration: no cached MultiCameraInfo");
+  if (
+    camera_infos.empty() || camera_infos.size() != camera_names_.size() ||
+    std::any_of(camera_infos.begin(), camera_infos.end(), [](const auto & info) { return info == nullptr; }))
+  {
+    RCLCPP_WARN(this->get_logger(), "Cannot compute calibration: camera info missing for some cameras");
     return;
   }
 
@@ -546,18 +1031,42 @@ void BEVFusionNode::computeCalibrationMatrices()
   std::vector<float> camera_intrinsics;
   std::vector<float> lidar_to_image_projection;
   std::vector<float> img_aug_matrix;
-  camera_to_lidar.reserve(multi_camera_info->camera_infos.size() * 16);
-  camera_intrinsics.reserve(multi_camera_info->camera_infos.size() * 16);
-  lidar_to_image_projection.reserve(multi_camera_info->camera_infos.size() * 16);
-  img_aug_matrix.reserve(multi_camera_info->camera_infos.size() * 16);
+  std::vector<double> camera_azimuths;
+  camera_to_lidar.reserve(camera_infos.size() * 16);
+  camera_intrinsics.reserve(camera_infos.size() * 16);
+  lidar_to_image_projection.reserve(camera_infos.size() * 16);
+  img_aug_matrix.reserve(camera_infos.size() * 16);
 
-  // For each camera in the MultiCameraInfoMsg, extract the data
-  for (const auto & camera_info : multi_camera_info->camera_infos) {
+  for (size_t idx = 0; idx < camera_infos.size(); ++idx) {
+    const auto & camera_info = *camera_infos[idx];
+    const std::string camera_frame =
+      camera_info.header.frame_id.empty() ? camera_names_[idx] : camera_info.header.frame_id;
+    if (
+      camera_info.width != static_cast<uint32_t>(config_.image_width) ||
+      camera_info.height != static_cast<uint32_t>(config_.image_height))
+    {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Camera info for '%s' is %ux%u but image_width/image_height are %dx%d",
+        camera_frame.c_str(),
+        camera_info.width,
+        camera_info.height,
+        config_.image_width,
+        config_.image_height);
+    }
+
     // Extract camera intrinsics:
-    // - Pad the 3x3 K matrix to 4x4 with 0s and a 1 in the bottom-right corner.
+    // - The 3x3 matrix comes from K (raw camera) or the left 3x3 of the 3x4 P (rectified camera)
+    // - Pad the 3x3 matrix to 4x4 with 0s and a 1 in the bottom-right corner.
     // - cam_intrinsic is a flat matrix
     // - Auto-formatting is not great, but this should look like a 4x4 matrix
-    const auto & k = camera_info.k;
+    std::array<double, 9> k{};
+    if (intrinsics_source_ == IntrinsicsSource::kProjection) {
+      const auto & p = camera_info.p;
+      k = {p[0], p[1], p[2], p[4], p[5], p[6], p[8], p[9], p[10]};
+    } else {
+      std::copy(camera_info.k.begin(), camera_info.k.end(), k.begin());
+    }
     float cam_intrinsic[16] = {
       static_cast<float>(k[0]),
       static_cast<float>(k[1]),
@@ -584,7 +1093,7 @@ void BEVFusionNode::computeCalibrationMatrices()
     // 4. Flatten and insert the 4x4 matrix into a row-major 16-element vector
     geometry_msgs::msg::TransformStamped cam2lidar_tf;
     try {
-      cam2lidar_tf = tf_buffer_->lookupTransform(lidar_frame_id_, camera_info.header.frame_id, tf2::TimePointZero);
+      cam2lidar_tf = tf_buffer_->lookupTransform(lidar_frame_id_, camera_frame, tf2::TimePointZero);
     } catch (const tf2::TransformException & ex) {
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "TF lookup failed: %s", ex.what());
       return;
@@ -592,6 +1101,8 @@ void BEVFusionNode::computeCalibrationMatrices()
     Eigen::Isometry3d eigen_transform = tf2::transformToEigen(cam2lidar_tf);
     Eigen::Matrix<float, 4, 4, Eigen::RowMajor> cam2lidar_matrix = eigen_transform.matrix().cast<float>();
     camera_to_lidar.insert(camera_to_lidar.end(), cam2lidar_matrix.data(), cam2lidar_matrix.data() + 16);
+    // Viewing direction in the LiDAR frame, for the time the LiDAR sweeps past this camera
+    camera_azimuths.push_back(cameraAzimuthDeg(cam2lidar_matrix.data()));
 
     // Extract the lidar to image projection matrix
     // - lidar2image = K * inverse(cam2lidar)
@@ -652,35 +1163,29 @@ void BEVFusionNode::computeCalibrationMatrices()
       camera_to_lidar[i + 2],
       camera_to_lidar[i + 3]);
   }
-  RCLCPP_DEBUG(this->get_logger(), "Lidar to image projection: ");
-  for (size_t i = 0; i < lidar_to_image_projection.size(); i += 4) {
-    RCLCPP_DEBUG(
-      this->get_logger(),
-      "[%f %f %f %f]",
-      lidar_to_image_projection[i],
-      lidar_to_image_projection[i + 1],
-      lidar_to_image_projection[i + 2],
-      lidar_to_image_projection[i + 3]);
-  }
-  RCLCPP_DEBUG(this->get_logger(), "Image aug matrix: ");
-  for (size_t i = 0; i < img_aug_matrix.size(); i += 4) {
-    RCLCPP_DEBUG(
-      this->get_logger(),
-      "[%f %f %f %f]",
-      img_aug_matrix[i],
-      img_aug_matrix[i + 1],
-      img_aug_matrix[i + 2],
-      img_aug_matrix[i + 3]);
-  }
 
   // Send to core
-  core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_image_projection, img_aug_matrix);
+  {
+    std::lock_guard<std::mutex> lock(core_mutex_);
+    core_->updateCalibration(camera_to_lidar, camera_intrinsics, lidar_to_image_projection, img_aug_matrix);
+  }
 
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
+    camera_azimuths_deg_ = camera_azimuths;
+    calibration_intrinsics_ = camera_intrinsics;
     calibration_initialized_ = true;
   }
-  RCLCPP_INFO(this->get_logger(), "Calibration computed successfully");
+  std::ostringstream azimuths;
+  for (size_t i = 0; i < camera_azimuths.size(); ++i) {
+    azimuths << (i ? ", " : "") << camera_names_[i] << " " << std::lround(camera_azimuths[i]);
+  }
+  RCLCPP_INFO(
+    this->get_logger(),
+    "Calibration computed successfully (intrinsics from %s); camera azimuths in %s (deg): %s",
+    intrinsics_source_ == IntrinsicsSource::kProjection ? "P" : "K",
+    lidar_frame_id_.c_str(),
+    azimuths.str().c_str());
 }
 
 bool BEVFusionNode::validateAndNormalizeImage(cv::Mat & img, size_t index)
@@ -961,12 +1466,10 @@ void BEVFusionNode::updateStatistics(double time_taken)
 
 void BEVFusionNode::updateDiagnostics(const std_msgs::msg::Header::_stamp_type & timestamp)
 {
+  // Called from the worker thread: only tick the (mutex-protected) frequency/stamp tracker and let the
+  // updater publish on its own timer
   if (pub_diagnostic_) {
     pub_diagnostic_->tick(timestamp);
-  }
-
-  if (diagnostic_updater_) {
-    diagnostic_updater_->force_update();
   }
 }
 
@@ -1057,6 +1560,34 @@ void BEVFusionNode::diagnosticCallback(diagnostic_updater::DiagnosticStatusWrapp
   stat.add("Arrays Processed", processed);
   stat.add("Average Processing Time (ms)", avg_time);
   stat.add("Last Processing Time (ms)", last_time);
+  stat.add(
+    "Camera input",
+    camera_input_ == CameraInput::kAuto     ? "auto"
+    : camera_input_ == CameraInput::kNitros ? "nitros"
+                                            : "compressed");
+  stat.add("LiDAR rotation period in use (ms)", rotation_period_used_ms_.load());
+  stat.add("Matched sets", matched_set_count_.load());
+  stat.add("Sets replaced before inference", superseded_set_count_.load());
+  stat.add("Last set largest camera gap (ms)", last_max_gap_ms_.load());
+  stat.add("Scans matched to the scan stamp (not one sweep)", sweep_fallback_count_.load());
+  std::lock_guard<std::mutex> lock(matcher_mutex_);
+  if (matcher_) {
+    const auto & c = matcher_->counters();
+    stat.add("Scans received", c.scans);
+    stat.add("Scans skipped: camera outside tolerance", c.dropped_out_of_tolerance);
+    stat.add("Scans skipped: camera had no frame", c.dropped_no_frame);
+    stat.add("Scans skipped: too many waiting", c.dropped_overflow);
+    stat.add("Time-jump resets", c.resets);
+    stat.add("Stream rate (1 live, playback rate for a bag)", matcher_->streamRate());
+    size_t nitros = 0;
+    size_t jpeg = 0;
+    for (const auto source : camera_source_) {
+      nitros += source == FrameSource::kNitros ? 1 : 0;
+      jpeg += source == FrameSource::kJpeg ? 1 : 0;
+    }
+    stat.add("Cameras on NITROS images", nitros);
+    stat.add("Cameras on JPEG images", jpeg);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1072,11 +1603,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     declareParameters();
 
     // Declare and configure QoS parameters
-    this->declare_parameter<std::string>("qos_subscriber_reliability", "best_effort");
-    this->declare_parameter<int>("qos_subscriber_depth", 10);
-    this->declare_parameter<std::string>("qos_publisher_reliability", "reliable");
-    this->declare_parameter<std::string>("qos_publisher_durability", "transient_local");
-    this->declare_parameter<int>("qos_publisher_depth", 10);
+    declareIfMissing<std::string>("qos_subscriber_reliability", "best_effort");
+    declareIfMissing<int>("qos_subscriber_depth", 10);
+    declareIfMissing<std::string>("qos_publisher_reliability", "reliable");
+    declareIfMissing<std::string>("qos_publisher_durability", "transient_local");
+    declareIfMissing<int>("qos_publisher_depth", 10);
 
     const std::string subscriber_reliability = this->get_parameter("qos_subscriber_reliability").as_string();
     const int subscriber_depth = this->get_parameter("qos_subscriber_depth").as_int();
@@ -1087,21 +1618,28 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     const int publisher_depth = this->get_parameter("qos_publisher_depth").as_int();
     publisher_qos_ = createPublisherQoS(publisher_reliability, publisher_durability, publisher_depth);
 
-    this->declare_parameter<int>("sync_queue_size", 10);
-    this->declare_parameter<double>("sync_max_time_diff_ms", 200.0);
-
-    sync_queue_size_ = this->get_parameter("sync_queue_size").as_int();
-    sync_max_time_diff_ms_ = this->get_parameter("sync_max_time_diff_ms").as_double();
-    sync_max_time_diff_sec_ = sync_max_time_diff_ms_ / 1000.0;  // Convert to seconds
-
-    RCLCPP_INFO(this->get_logger(), "Message synchronization settings:");
-    RCLCPP_INFO(this->get_logger(), "  - Queue size: %d", sync_queue_size_);
+    declareSyncParameters();
+    RCLCPP_INFO(this->get_logger(), "Camera matching (LiDAR-anchored, in node):");
     RCLCPP_INFO(
       this->get_logger(),
-      "  - Max time difference: %.1f ms (%.3f sec)",
-      sync_max_time_diff_ms_,
-      sync_max_time_diff_sec_);
-    RCLCPP_INFO(this->get_logger(), "  - Synchronization method: ApproximateTime");
+      "  - Camera input: %s, target: %s",
+      camera_input_ == CameraInput::kAuto     ? "auto (NITROS where it is published, else JPEG)"
+      : camera_input_ == CameraInput::kNitros ? "nitros (GPU) only"
+                                              : "compressed (JPEG) only",
+      sync_target_ == SyncTarget::kSweep ? "LiDAR sweep time per camera" : "scan stamp");
+    RCLCPP_INFO(
+      this->get_logger(),
+      "  - LiDAR stamp at the %s of each turn; rotation period %.1f ms until measured from the scan stamps",
+      lidar_stamp_position_ == StampPosition::kStart ? "start" : "end",
+      lidar_rotation_period_ms_);
+    RCLCPP_INFO(
+      this->get_logger(),
+      "  - Max wait %.1f ms, tolerance %.1f ms, early fraction %.2f, %zu frames per camera, %zu waiting scans",
+      static_cast<double>(matcher_config_.max_wait_ns) / 1e6,
+      static_cast<double>(matcher_config_.tolerance_ns) / 1e6,
+      matcher_config_.early_fraction,
+      matcher_config_.frames_per_camera,
+      matcher_config_.max_pending_scans);
 
     if (!core_) {
       throw std::runtime_error("BEVFusion core was not constructed from parameters");
@@ -1141,39 +1679,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "=============================================");
 
   try {
-    RCLCPP_INFO(this->get_logger(), "Creating subscribers, publishers, and sync object");
-
-    // Create subscribers
-    multi_camera_info_sub_ = this->create_subscription<MultiCameraInfoMsg>(
-      kCameraInfoTopic,
-      subscriber_qos_,
-      std::bind(&BEVFusionNode::multiCameraInfoCallback, this, std::placeholders::_1));
-
-    lidar_sub_ =
-      std::make_shared<LidarSub>(this->shared_from_this(), lidar_topic_, subscriber_qos_.get_rmw_qos_profile());
-
-    if (use_raw_images_) {
-      RCLCPP_INFO(this->get_logger(), "Configuring MultiImage (raw) subscriber (use_raw_images=true):");
-      RCLCPP_INFO(this->get_logger(), "  - MultiImage (raw) topic: '%s'", multi_image_raw_topic_.c_str());
-      multi_image_raw_sub_ = std::make_shared<MultiImageRawSub>(
-        this->shared_from_this(), multi_image_raw_topic_, subscriber_qos_.get_rmw_qos_profile());
-      raw_sync_ = std::make_shared<MultiImageRawSynchronizer>(
-        MultiImageRawSyncPolicy(sync_queue_size_), *multi_image_raw_sub_, *lidar_sub_);
-      raw_sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
-      raw_sync_->registerCallback(
-        std::bind(&BEVFusionNode::syncedRawCallback, this, std::placeholders::_1, std::placeholders::_2));
-    } else {
-      RCLCPP_INFO(this->get_logger(), "Configuring MultiImageCompressed subscriber (use_raw_images=false):");
-      RCLCPP_INFO(this->get_logger(), "  - MultiImageCompressed topic: '%s'", multi_image_compressed_topic_.c_str());
-      multi_image_compressed_sub_ = std::make_shared<MultiImageCompressedSub>(
-        this->shared_from_this(), multi_image_compressed_topic_, subscriber_qos_.get_rmw_qos_profile());
-      compressed_sync_ = std::make_shared<MultiImageCompressedSynchronizer>(
-        MultiImageCompressedSyncPolicy(sync_queue_size_), *multi_image_compressed_sub_, *lidar_sub_);
-      compressed_sync_->setMaxIntervalDuration(rclcpp::Duration::from_seconds(sync_max_time_diff_sec_));
-      compressed_sync_->registerCallback(
-        std::bind(&BEVFusionNode::syncedCompressedCallback, this, std::placeholders::_1, std::placeholders::_2));
-    }
-
     // Create publishers
     detection_pub_ = this->create_publisher<vision_msgs::msg::Detection3DArray>(kOutputDetectionsTopic, publisher_qos_);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(kOutputMarkersTopic, publisher_qos_);
@@ -1186,6 +1691,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     }
 
     if (diagnostic_updater_ && detection_pub_) {
+      removeTopicDiagnostic();  // the updater must never keep a pointer to a destroyed task
       pub_diagnostic_ = std::make_unique<diagnostic_updater::TopicDiagnostic>(
         kOutputDetectionsTopic,
         *diagnostic_updater_,
@@ -1194,42 +1700,117 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
       RCLCPP_INFO(this->get_logger(), "Topic diagnostics ready");
     }
 
-    // Try to compute calibration matrices if camera info is already cached
-    MultiCameraInfoMsg::ConstSharedPtr cached_camera_info;
+    // Matcher and inference worker before any subscription, so the first callback finds them
+    {
+      std::lock_guard<std::mutex> lock(matcher_mutex_);
+      matcher_config_.num_cameras = camera_names_.size();
+      matcher_ = std::make_unique<Matcher>(matcher_config_);
+      armed_deadline_ns_ = -1;
+      matcher_resets_seen_ = 0;  // a new matcher counts its resets from zero
+      matcher_epoch_ = 0;
+      last_frame_arrival_ns_.assign(camera_names_.size(), -1);
+      last_nitros_arrival_ns_.assign(camera_names_.size(), -1);
+      camera_source_.assign(camera_names_.size(), FrameSource::kNone);
+      nitros_checks_passed_ = 0;
+      matching_started_ns_ = steadyNowNs();
+    }
+    {
+      std::lock_guard<std::mutex> lock(lidar_timing_mutex_);
+      period_estimator_.reset();
+      period_mismatch_warned_ = false;
+      live_stamp_ages_ns_.clear();
+      stamp_position_warned_ = false;
+    }
+    startWorker();
+
+    // Per-camera subscriptions, in camera_names order
     {
       std::lock_guard<std::mutex> lock(camera_info_mutex_);
-      cached_camera_info = cached_multi_camera_info_;
+      cached_camera_infos_.resize(camera_names_.size());
     }
-    if (cached_camera_info) {
+    camera_info_subs_.clear();
+    nitros_image_subs_.clear();
+    std::unique_lock<std::mutex> inputs_lock(inputs_mutex_);
+    compressed_image_subs_.clear();
+    for (size_t i = 0; i < camera_names_.size(); ++i) {
+      const std::string prefix = "/" + camera_names_[i] + "/";
+      camera_info_subs_.push_back(this->create_subscription<CameraInfoMsg>(
+        prefix + kCameraInfoTopicSuffix, subscriber_qos_, [this, i](const CameraInfoMsg::ConstSharedPtr & msg) {
+          cameraInfoCallback(i, msg);
+        }));
+      if (camera_input_ != CameraInput::kCompressed) {
+        // GPU images from each camera's RectifyNode, handed over without a copy
+        nitros_image_subs_.push_back(std::make_shared<NitrosImageSub>(
+          this,
+          prefix + kNitrosImageTopicSuffix,
+          NitrosImageMsg::GetDefaultCompatibleFormat(),
+          [this, i](const NitrosImageView & image_view) { nitrosImageCallback(i, image_view); },
+          nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{},
+          subscriber_qos_));
+      }
+      if (camera_input_ != CameraInput::kNitros) {
+        // JPEGs: a bag (or the car's encoders, until the NITROS images take over)
+        compressed_image_subs_.push_back(this->create_subscription<CompressedImageMsg>(
+          prefix + kCompressedImageTopicSuffix,
+          subscriber_qos_,
+          [this, i](const CompressedImageMsg::ConstSharedPtr & msg) { compressedImageCallback(i, msg); }));
+      }
+    }
+    if (camera_input_ == CameraInput::kAuto) {
+      input_monitor_timer_ = this->create_wall_timer(std::chrono::seconds(1), [this]() { monitorInputs(); });
+    }
+    inputs_lock.unlock();
+    lidar_sub_ = this->create_subscription<PointCloud2Msg>(
+      lidar_topic_, subscriber_qos_, std::bind(&BEVFusionNode::lidarCallback, this, std::placeholders::_1));
+
+    // Try to compute calibration matrices if every camera's info is already cached
+    bool all_cached = false;
+    {
+      std::lock_guard<std::mutex> lock(camera_info_mutex_);
+      all_cached = !cached_camera_infos_.empty() &&
+                   std::all_of(cached_camera_infos_.begin(), cached_camera_infos_.end(), [](const auto & info) {
+                     return info != nullptr;
+                   });
+    }
+    if (all_cached) {
       computeCalibrationMatrices();
     } else {
       RCLCPP_WARN(
         this->get_logger(),
-        "No cached multi camera info available at activation; calibration will be computed upon first message");
+        "No cached camera info for every camera at activation; calibration will be computed when they arrive");
     }
 
     RCLCPP_INFO(this->get_logger(), "=============================================");
     RCLCPP_INFO(this->get_logger(), "Node activated successfully!");
     RCLCPP_INFO(this->get_logger(), "Subscribed to:");
-    RCLCPP_INFO(this->get_logger(), "  - MultiCameraInfo: '%s'", multi_camera_info_sub_->get_topic_name());
     RCLCPP_INFO(
       this->get_logger(),
-      "  - MultiImage: '%s'",
-      use_raw_images_ ? multi_image_raw_sub_->getTopic().c_str() : multi_image_compressed_sub_->getTopic().c_str());
-    RCLCPP_INFO(this->get_logger(), "  - LiDAR: '%s'", lidar_sub_->getTopic().c_str());
+      "  - %zu cameras: %s and '/<camera_name>/%s'",
+      camera_names_.size(),
+      camera_input_ == CameraInput::kAuto
+        ? "'/<camera_name>/image_rect' (NITROS, GPU memory) or else '/<camera_name>/image_rect_compressed' (JPEG)"
+      : camera_input_ == CameraInput::kNitros ? "'/<camera_name>/image_rect' (NITROS, GPU memory)"
+                                              : "'/<camera_name>/image_rect_compressed' (JPEG)",
+      kCameraInfoTopicSuffix);
+    RCLCPP_INFO(this->get_logger(), "  - LiDAR: '%s'", lidar_sub_->get_topic_name());
     RCLCPP_INFO(this->get_logger(), "Publishing to:");
     RCLCPP_INFO(this->get_logger(), "  - 3D Detections: '%s'", detection_pub_->get_topic_name());
     RCLCPP_INFO(this->get_logger(), "  - Markers: '%s'", marker_pub_->get_topic_name());
-    RCLCPP_INFO(
-      this->get_logger(),
-      "[SYNC] ApproximateTime sync (queue=%d, max=%.3fs)",
-      sync_queue_size_,
-      sync_max_time_diff_sec_);
     RCLCPP_INFO(this->get_logger(), "=============================================");
 
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
   } catch (const std::exception & e) {
     RCLCPP_ERROR(this->get_logger(), "Activation failed: %s", e.what());
+    // Undo what was set up, so the node is cleanly inactive again
+    stopInputs();
+    stopWorker();
+    removeTopicDiagnostic();
+    if (detection_pub_) {
+      detection_pub_->on_deactivate();
+    }
+    if (marker_pub_) {
+      marker_pub_->on_deactivate();
+    }
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::FAILURE;
   }
 }
@@ -1239,6 +1820,11 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Deactivating BEVFusion node");
 
+  // Inputs first (no new frames), then the worker (it may be publishing), then the publishers
+  stopInputs();
+  stopWorker();
+  removeTopicDiagnostic();
+
   if (detection_pub_) {
     detection_pub_->on_deactivate();
   }
@@ -1246,12 +1832,6 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
     marker_pub_->on_deactivate();
   }
 
-  raw_sync_.reset();
-  compressed_sync_.reset();
-  multi_image_raw_sub_.reset();
-  multi_image_compressed_sub_.reset();
-  lidar_sub_.reset();
-  multi_camera_info_sub_.reset();
   calibration_initialized_ = false;
 
   RCLCPP_INFO(this->get_logger(), "=============================================");
@@ -1264,22 +1844,19 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
 {
   RCLCPP_INFO(this->get_logger(), "Cleaning up BEVFusion node");
 
-  raw_sync_.reset();
-  compressed_sync_.reset();
-  multi_image_raw_sub_.reset();
-  multi_image_compressed_sub_.reset();
-  lidar_sub_.reset();
-  multi_camera_info_sub_.reset();
+  stopInputs();
+  stopWorker();
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    cached_multi_camera_info_.reset();
+    cached_camera_infos_.clear();
+    camera_azimuths_deg_.clear();
   }
   calibration_initialized_ = false;
 
   RCLCPP_INFO(this->get_logger(), "Cleaning up publishers...");
   detection_pub_.reset();
   marker_pub_.reset();
-  pub_diagnostic_.reset();
+  removeTopicDiagnostic();
   diagnostic_updater_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
@@ -1297,6 +1874,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "Previous state: %s", previous_state.label().c_str());
   RCLCPP_INFO(this->get_logger(), "=============================================");
 
+  stopInputs();
+  stopWorker();
+
   // Log final statistics before shutdown
   const uint64_t processed = total_processed_.load();
   const double total_time = total_processing_time_ms_.load();
@@ -1307,26 +1887,22 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   RCLCPP_INFO(this->get_logger(), "  - Total processing time: %.3f ms", total_time);
   RCLCPP_INFO(this->get_logger(), "  - Average processing time: %.3f ms", avg_time);
   RCLCPP_INFO(this->get_logger(), "Message statistics:");
-  RCLCPP_INFO(this->get_logger(), "  - MultiImage messages received: %lu", multi_image_msg_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - Camera images received: %lu", image_msg_count_.load());
   RCLCPP_INFO(this->get_logger(), "  - LiDAR messages received: %lu", lidar_msg_count_.load());
-  RCLCPP_INFO(this->get_logger(), "  - Synchronized callbacks: %lu", synced_msg_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - Matched sets: %lu", matched_set_count_.load());
+  RCLCPP_INFO(this->get_logger(), "  - Sets replaced before inference: %lu", superseded_set_count_.load());
 
   RCLCPP_INFO(this->get_logger(), "Resetting all resources...");
 
-  raw_sync_.reset();
-  compressed_sync_.reset();
-  multi_image_raw_sub_.reset();
-  multi_image_compressed_sub_.reset();
-  lidar_sub_.reset();
-  multi_camera_info_sub_.reset();
   {
     std::lock_guard<std::mutex> lock(camera_info_mutex_);
-    cached_multi_camera_info_.reset();
+    cached_camera_infos_.clear();
+    camera_azimuths_deg_.clear();
   }
   calibration_initialized_ = false;
   detection_pub_.reset();
   marker_pub_.reset();
-  pub_diagnostic_.reset();
+  removeTopicDiagnostic();
   diagnostic_updater_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
@@ -1335,9 +1911,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn BEVFus
   total_processed_ = 0;
   total_processing_time_ms_ = 0.0;
   last_processing_time_ms_ = 0.0;
-  multi_image_msg_count_ = 0;
+  image_msg_count_ = 0;
   lidar_msg_count_ = 0;
-  synced_msg_count_ = 0;
+  matched_set_count_ = 0;
+  superseded_set_count_ = 0;
 
   RCLCPP_INFO(this->get_logger(), "Node shut down");
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;

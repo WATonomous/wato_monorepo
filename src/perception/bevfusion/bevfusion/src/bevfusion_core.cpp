@@ -77,6 +77,11 @@ bool BEVFusionCore::hasCalibration() const
   return has_calibration_;
 }
 
+cudaStream_t BEVFusionCore::stream() const
+{
+  return stream_;
+}
+
 bool BEVFusionCore::initialize()
 {
   // Must load this plugin before create_core() — TRT will fail to deserialize head.bbox.plan without it

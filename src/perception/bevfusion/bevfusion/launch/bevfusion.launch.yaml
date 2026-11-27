@@ -3,18 +3,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 ---
 launch:
-  # - arg:
-  #     name: multi_image_topic
-  #     default: /multi_camera_sync/multi_image_compressed
-  #     description: Synchronized multi-camera compressed image topic
-  # - arg:
-  #     name: lidar_topic
-  #     default: /lidar/all/points_merged
-  #     description: Merged LiDAR point cloud topic
   - arg:
-      name: camera_info_topic
-      default: /multi_camera_sync/multi_camera_info
-      description: Synchronized multi-camera info topic
+      name: camera_input
+      default: auto
+      description: "Camera images: 'auto' (per camera, GPU images when published, else JPEG), 'nitros' (GPU only) or 'compressed' (JPEG only)"
   - arg:
       name: output_detections_topic
       default: /perception/detections_3d_bev
@@ -31,13 +23,9 @@ launch:
       output: screen
       param:
         - from: $(find-pkg-share bevfusion)/config/params.yaml
+        - name: camera_input
+          value: $(var camera_input)
       remap:
-        - from: camera_info
-          to: $(var camera_info_topic)
-        # - from: multi_image
-        #   to: $(var multi_image_topic)
-        # - from: lidar
-        #   to: $(var lidar_topic)
         - from: output_detections
           to: $(var output_detections_topic)
         - from: output_markers
