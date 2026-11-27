@@ -23,6 +23,7 @@ PwrPak7 GPS --PPS--> STM32 trigger board --trigger wires--> cameras
 
 Related docs:
 
+- [docs/time_sync_target.md](docs/time_sync_target.md): GPS-referenced PTP target and validation
 - [docs/serial_protocol.md](docs/serial_protocol.md): the report protocol shared with the firmware
 - [docs/open_items.md](docs/open_items.md): unconfirmed items and next steps
 - [DEVELOPING.md](DEVELOPING.md): code layout, building and testing
