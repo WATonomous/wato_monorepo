@@ -28,7 +28,7 @@ carla_scenarios/definitions.py   Loading and validation of named definitions
 ## Catalog IDs
 
 Use the YAML filename stem, such as `town10hd_default`, `town10hd_light`,
-`town10hd_heavy`, `empty`, `custom`, `oval`, or `ring_road`. Python module paths
+`town10hd_heavy`, `empty`, `custom`, `airfield`, `oval`, or `ring_road`. Python module paths
 are not accepted. Adding a definition needs no alias or registry entry.
 
 Managed sessions mount the checkout's data directories. Add or edit YAML and JSON,

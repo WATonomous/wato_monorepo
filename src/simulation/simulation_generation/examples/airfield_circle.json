@@ -1,0 +1,11 @@
+{
+  "description": "Airfield circular path following: 5 m straight, one left circle of radius 20 m, then 10 m straight and stop, at 2 m/s.",
+  "default_speed": 2.0,
+  "segments": [
+    {"straight": {"length": 5.0}},
+    {"arc": {"radius": 20.0, "angle": 180.0, "dir": "left"}},
+    {"arc": {"radius": 20.0, "angle": 180.0, "dir": "left"}},
+    {"straight": {"length": 10.0}}
+  ],
+  "actors": []
+}

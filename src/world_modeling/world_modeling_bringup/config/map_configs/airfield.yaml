@@ -1,0 +1,15 @@
+# Copyright (c) 2025-present WATonomous. All rights reserved.
+---
+/**/world_model:
+  ros__parameters:
+    osm_map_path: "/opt/watonomous/maps/osm/airfield.osm"
+    projector_type: "utm"
+    alignment_mode: "fixed"
+
+    # UTM zone 18N origin: E 611928.712165493, N 5039683.630227742.
+    # XODR conversion subtracts its MGRS 18TXR in-square coordinates:
+    # x=11928.712165492936, y=39683.630227741785, z=0.
+    # The resulting ROS map surface is x=[-200, 200], y=[-35, 35] metres.
+    origin_lat: 45.5017
+    origin_lon: -73.5673
+    origin_alt: 0.0

@@ -1,0 +1,19 @@
+---
+version: 1
+id: airfield
+map:
+  xodr: airfield.xodr
+ros_map: airfield
+require_map_provenance: true
+seed: 42
+ego_blueprint: vehicle.mini.cooper
+# General lane spawn only; apply the documented scenario pose for a circle.
+spawn:
+  index: 0
+  fallback_waypoint: true
+  fallback_z_offset_m: 0.5
+weather: ClearNoon
+traffic:
+  vehicles: 0
+  pedestrians: 0
+description: Airfield 400 m by 70 m paved rectangle for controller maneuvers

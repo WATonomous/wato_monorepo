@@ -1,0 +1,13 @@
+{
+  "cache_key": "4d444ede5602b1c6659463b8949ff932af36a844386759c50dcd7490a93655cf",
+  "source_sha256": "694fe601a2194b776d2103000217ce3ce9410937007fa22b989fe45b68a2bcae",
+  "xodr_sha256": "3f43d49c5e85444d48bbbe6fd21571ef0591086f55e9e7c04c4888d7d231fc3d",
+  "converter": "https://github.com/tier4/autoware_lanelet2_to_opendrive.git#4b707e067bfdb8db04223b87aa2da290c5cba607",
+  "options": [
+    "map=example_mgrs_offset",
+    "map.mgrs_grid=18TXR",
+    "map.offset.x=11928.712165492936",
+    "map.offset.y=39683.630227741785",
+    "map.offset.z=0"
+  ]
+}

@@ -106,6 +106,111 @@ watod sim generate scenario --name preview_parked_swerve --map oval --dry-run \
   --candidate src/simulation/simulation_generation/examples/parked_car_swerve.json
 ```
 
+## Airfield circle
+
+The `airfield` playground uses the tracked `maps/osm/airfield.osm` and
+`maps/xodr/airfield.xodr`, with the converter's metadata and lane mapping beside
+the XODR. These four assets are explicitly force-added despite the general
+`maps/` ignore rule; a checkout needs no private map download. Other generated
+conversion diagnostics remain ignored. See the
+[conversion instructions](../../../watod_scripts/tools/osm_to_xodr/README.md#airfield)
+to reproduce the map.
+
+The source describes 20 adjacent 3.5 m lanes, each 400 m long, divided into eight
+50 m sections (160 lanelets). Its paved rectangle is ROS map x = [-200, 200] m,
+y = [-35, 35] m. The map config uses UTM, fixed alignment, and geographic origin
+(45.5017, -73.5673, 0). A circle crosses lane boundaries on this continuous
+surface; this is circular path following. Tire-slip drifting requires additional
+controller and vehicle-physics work.
+
+Generate the exact example offline, without OpenAI or CARLA:
+
+```bash
+watod sim generate scenario --name airfield_circle --map airfield \
+  --candidate src/simulation/simulation_generation/examples/airfield_circle.json
+```
+
+For a preview without installing the scenario and maneuver, add `--dry-run`.
+Alternatively, with `OPENAI_API_KEY` set on the host, generate from a prompt
+(choose this command instead of the offline command for the same name):
+
+```bash
+watod sim generate scenario --name airfield_circle --map airfield \
+  --prompt "At 2 m/s, drive straight 5 m, then two consecutive left 180-degree arcs of radius 20 m to make one circle, then straight 10 m and stop. No actors."
+```
+
+The model receives playground settings and catalog examples, not the OSM
+geometry. It cannot determine circle clearance. Check that the generated
+maneuver has the example's four segments, `default_speed: 2.0`, and
+`closed: false`. Each arc is limited to 180 degrees, so use two arcs for one
+circle. Keeping the maneuver open allows `maneuver_finished` completion after
+the exit straight and braking.
+
+**Before opening the scenario, replace its automatic lane spawn.** Generation
+sets `world.ego.spawn.straight_start: true`. A straight-lane search establishes
+forward runout only and may select an
+edge lane with insufficient lateral space. Run this from the repository root
+after either generation command (it uses the default catalog directory):
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import yaml
+
+path = Path("src/simulation/carla_ros_bridge/carla_scenarios/config/scenarios/airfield_circle.yaml")
+scenario = yaml.safe_load(path.read_text())
+scenario["world"]["ego"]["spawn"] = {
+    "pose": {"frame": "map", "x": -5.0, "y": -20.0, "z": 0.5, "yaw_deg": 0.0}
+}
+scenario["world"].pop("required_straight_m", None)
+path.write_text(yaml.safe_dump(scenario, sort_keys=False))
+PY
+```
+
+Replace the whole spawn mapping, removing `straight_start` and any lane
+selectors. If using `WATOD_SIM_CATALOG_DIRECTORY`, edit that catalog's scenario
+instead. These are ROS map coordinates: x east, y north, yaw 0 degrees east.
+The world builder converts them to CARLA x = -5, y = +20, yaw = 0; do not
+negate y in the YAML. The 5 m entry reaches (0, -20), the left circle is centered
+at (0, 0), and the exit ends at (10, -20). The reference including its 10 m
+zero-speed stop pad stays within x = [-20, 20], y = [-20, 20], leaving 15 m to
+the lateral surface edges for the reference centerline. Vehicle footprint,
+tracking error, mesh seams, and actual dynamics still require a simulator run.
+
+Validate the edited scenario through the shared loaders, without starting ROS
+or CARLA:
+
+```bash
+PYTHONPATH=src/simulation/carla_ros_bridge/carla_scenarios:src/simulation/simulation_runtime python3 -B - <<'PY'
+from pathlib import Path
+from carla_scenarios.definitions import load_definition, world_definition
+from simulation_runtime.assets import map_config_file
+
+catalog = Path("src/simulation/carla_ros_bridge/carla_scenarios/config")
+scenario = load_definition(catalog, "scenarios", "airfield_circle")
+world = world_definition(catalog, "scenario", "airfield_circle")
+assert world["spawn"]["pose"]["frame"] == "map"
+assert "straight_start" not in world["spawn"]
+assert scenario["inputs"]["map"] == "airfield"
+print("Validated:", map_config_file("airfield"), world["spawn"])
+PY
+```
+
+With the managed-session images prepared, start and run when ready:
+
+```bash
+watod sim setup
+# If another playground or scenario is open, run: watod sim close
+watod sim open scenario airfield_circle
+watod sim play
+watod sim status
+```
+
+Inspect `/sim/reference_path` with the Airfield map markers in Foxglove. Use
+`watod sim close` to close the attempt and `watod sim stop` to stop the session.
+The data files need no registration code or image rebuild; see
+[session setup](../simulation_manager/README.md#quick-start) for initial images.
+
 ## Vehicle actors
 
 Proposals accept up to 16 vehicle actors in the existing `world.actors` format:

@@ -21,7 +21,7 @@ ros2 launch world_modeling_bringup world_modeling_sim.launch.yaml \
 ```
 
 The `map` argument loads `config/map_configs/<map>.yaml`. Available presets are
-`oval`, `ring_road`, `town10hd`, and `test_track`.
+`airfield`, `oval`, `ring_road`, `town10hd`, and `test_track`.
 
 **Important:** Place the required OSM maps in the repository's root `maps/`
 directory. Docker mounts this directory at `/opt/watonomous/maps/`. World
