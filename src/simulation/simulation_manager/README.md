@@ -62,11 +62,14 @@ For a prompt-based custom controller path with optional vehicle actors, use the 
 [trajectory generation prototype](../simulation_generation/README.md):
 
 ```bash
-watod sim generate scenario --name my_swerve --map oval \
-  --prompt "At 2 m/s, drive 8 m, shift left 1 m over 12 m, return over 12 m, then drive 10 m and stop."
+watod sim generate scenario --name parked_car_pass --map airfield \
+  --prompt "Have the car drive around a static vehicle, then stop safely."
 ```
 
-Set `OPENAI_API_KEY` on the host first. Generation validates and installs data;
+Set `OPENAI_API_KEY` on the host first. A checkout-local Python environment is
+prepared automatically; no manual dependency installation or activation is needed.
+The model uses map context to infer the path and actor positions from the goal.
+Generation validates and installs data;
 inspect its saved preview, then open and play the scenario normally.
 
 ## Controller Scenarios

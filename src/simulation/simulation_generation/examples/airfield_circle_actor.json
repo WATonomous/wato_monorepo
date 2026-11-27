@@ -1,5 +1,5 @@
 {
-  "description": "Airfield circle at 2 m/s with a static Mini at ROS map (45, 10), yaw 90 degrees.",
+  "description": "Drive once around a static Mini at the circle center, then stop. Inferred low-speed Airfield example.",
   "default_speed": 2.0,
   "segments": [
     {"straight": {"length": 5.0}},
@@ -12,7 +12,7 @@
       "id": "parked",
       "blueprint": "vehicle.mini.cooper",
       "static": true,
-      "pose": {"frame": "map", "x": 45.0, "y": 10.0, "z": 0.5, "yaw_deg": 90.0}
+      "pose": {"frame": "map", "x": 0.0, "y": 0.0, "z": 0.5, "yaw_deg": 0.0}
     }
   ]
 }

@@ -38,6 +38,7 @@ import yaml  # noqa: E402
 from pyproj import Transformer  # noqa: E402
 from carla_scenarios.definitions import load_definition, world_definition  # noqa: E402
 from simulation_generation.cli import publish  # noqa: E402
+from simulation_generation.environment import ENTRYPOINT  # noqa: E402
 from simulation_generation.generator import (  # noqa: E402
     Workspace,
     generate,
@@ -301,6 +302,37 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("ego_spawn", context)
         self.assertIn("driving surface", report["attempts"][0]["error"])
 
+    def test_goal_only_prompt_gets_map_context_and_round_trips_inferred_actor_pose(
+        self,
+    ):
+        self.workspace.playground["spawn"] = {
+            "pose": {"frame": "map", "x": -5.0, "y": -20.0, "z": 0.5, "yaw_deg": 0.0}
+        }
+        (self.catalog / "playgrounds/test_map.yaml").write_text(
+            yaml.safe_dump(self.workspace.playground)
+        )
+        self.workspace = Workspace(self.root, self.workspace.name, "test_map")
+        solution = json.loads(
+            (
+                ROOT
+                / "src/simulation/simulation_generation/examples/airfield_circle_actor.json"
+            ).read_text()
+        )
+        request = Mock(return_value=response(solution))
+        goal = "Drive one circle around a parked car, then stop."
+        inferred, _ = generate(self.workspace, goal, "test-model", request=request)
+        sent = json.loads(request.call_args.args[0]["input"][0]["content"])
+        self.assertEqual(sent["prompt"], goal)
+        self.assertIn("ego_spawn", sent["catalog_context"]["map_geometry"])
+        scenario, maneuver, _, _ = self.workspace.validate(inferred)
+        publish(self.workspace, json.dumps(maneuver), yaml.safe_dump(scenario))
+        world = world_definition(self.catalog, "scenario", self.workspace.name)
+        self.assertEqual(world["actors"][0]["pose"]["frame"], "map")
+        self.assertEqual(
+            (world["actors"][0]["pose"]["x"], world["actors"][0]["pose"]["y"]),
+            (0.0, 0.0),
+        )
+
     def test_model_repairs_validation_error_with_reasoning_and_tool_feedback(self):
         invalid = proposal()
         invalid["segments"][0]["straight"]["length"] = -1
@@ -416,8 +448,9 @@ class WorkspaceTests(unittest.TestCase):
         candidate.write_text(json.dumps(candidate_data))
         command = [
             sys.executable,
-            str(ROOT / "watod_scripts/watod-sim.py"),
-            "generate",
+            "-c",
+            ENTRYPOINT,
+            str(ROOT / "src/simulation/simulation_generation"),
             "scenario",
             "--map",
             "test_map",

@@ -84,8 +84,8 @@ def run_generation(arguments, root):
         from .trajectory import preview_svg
     except ModuleNotFoundError as error:
         print(
-            f"Generation dependency missing: {error.name}. Install host dependencies from "
-            "src/simulation/simulation_generation/requirements.txt",
+            f"Generation dependency missing: {error.name}. Run through watod sim generate "
+            "to prepare its isolated environment.",
             file=sys.stderr,
         )
         return 2

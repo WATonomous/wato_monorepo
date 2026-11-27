@@ -2,7 +2,8 @@
 
 `watod sim generate scenario` turns a prompt into an open fake-planner maneuver
 and a version-two controller scenario with optional named vehicle actors.
-It runs on the host without Docker or a ROS installation.
+It runs in an automatically managed, isolated host Python environment without
+Docker or a ROS installation.
 Generated data uses the existing mounted scenario catalog and
 maneuver directory, so no runtime changes or image rebuilds are needed.
 
@@ -19,18 +20,29 @@ the model's responsibility. Inspect the result for semantic fidelity.
 
 ## Generate and run
 
-Install the host dependencies (PyYAML, pyproj, and Shapely):
+Set `OPENAI_API_KEY` in your host environment, then describe the goal:
 
 ```bash
-python3 -m pip install -r src/simulation/simulation_generation/requirements.txt
+watod sim generate scenario --name parked_car_pass --map airfield \
+  --prompt "Have the car drive around a static vehicle, then stop safely."
 ```
 
-Set `OPENAI_API_KEY` in your host environment, then run:
+The first generation or map-context command creates a dedicated environment and
+installs binary dependencies under `.cache/watod-sim/generation/`. Later commands
+reuse it. The environment is keyed by Python version/platform and requirements,
+so dependency changes get a separate environment. Packages and the package cache
+stay inside this ignored checkout directory; system/user packages and Python
+search-path settings are excluded. No manual pip installation or environment
+activation is needed. First use requires Python with `venv` support and access
+to the package index. `--help` does not create an environment.
 
-```bash
-watod sim generate scenario --name custom_swerve --map oval \
-  --prompt "At 2 m/s, drive straight 8 m, shift left 1 m over 12 m, hold that offset for 4 m, return over 12 m, then drive 10 m and stop."
-```
+You supply the goal. The model receives driving polygons, the ego pose, frame
+conventions and existing examples, then chooses suitable low-speed defaults,
+trajectory dimensions, a passing side, and actor positions. Map x/y and CARLA
+details belong in its generated proposal, not in the user prompt. Explicit user
+constraints still take precedence. For a circular maneuver, say "Drive one circle
+around a parked car, then stop"; the model should place the car at the circle's
+center. The host checks map containment and returns failures for repair.
 
 `-prompt` is also accepted. Omit `--name` for a unique generated ID.
 The model defaults to `gpt-4.1`; override it with `--model` or `OPENAI_MODEL`.
@@ -39,7 +51,7 @@ Use a model available to your API account that supports Responses function calls
 change this selection. If a prompt requests another map, use its playground ID
 in `--map` too.
 
-To generate the parked car and the swerve together:
+To specify more detail when needed:
 
 ```bash
 watod sim generate scenario --name parked_car_swerve --map oval \
@@ -74,7 +86,7 @@ file. Existing scenarios, including tuned ego poses, are never edited. Use
 With a prepared managed session:
 
 ```bash
-watod sim open scenario custom_swerve
+watod sim open scenario parked_car_pass
 watod sim play
 ```
 
@@ -250,14 +262,15 @@ without publishing files. The margin is a center clearance, not a measurement of
 the selected vehicle; choose it to accommodate vehicle size and tracking error.
 Narrow roads may require a smaller margin appropriate to the car.
 
-For a circle with a static car at a specific map coordinate:
+For a circle around a static car, let the model infer its placement:
 
 ```bash
 watod sim generate scenario --name airfield_circle_actor --map airfield \
-  --prompt "At 2 m/s drive straight 5 m, two left 180-degree arcs of radius 20 m, then straight 10 m and stop. Place one static Mini at ROS map x=45 m, y=10 m, yaw=90 degrees. Stay within the supplied driving polygons."
+  --prompt "Drive one circle around a parked car, then stop."
 ```
 
-Or exercise the same path and actor placement entirely offline:
+Or exercise a representative inferred solution entirely offline (the parked car
+is at the center of the circle):
 
 ```bash
 watod sim generate scenario --name airfield_circle_actor --map airfield \
@@ -334,8 +347,15 @@ driving still needs validation in the simulator.
 ## Development checks
 
 ```bash
-python3 -B -m unittest discover -s src/simulation/simulation_generation/tests -v
-python3 -B -m unittest discover -s watod_scripts/tests -v
+PYTHONPATH=src/simulation/simulation_generation python3 - <<'PY'
+from pathlib import Path
+import subprocess
+from simulation_generation.environment import ensure_environment
+
+python = ensure_environment(Path.cwd())
+for directory in ("src/simulation/simulation_generation/tests", "watod_scripts/tests"):
+    subprocess.run([str(python), "-I", "-B", "-m", "unittest", "discover", "-s", directory, "-v"], check=True)
+PY
 ```
 
 The generator tests cover the tool repair loop using mocked Responses output,
@@ -343,4 +363,7 @@ unbounded and malformed proposals, actor validation and repair, coordinate
 composition, shared-loader round trips, source-map spawn/actor resolution,
 projection, holes and disconnected surfaces, boundary margins, stop-pad
 containment, off-surface repair, offline CLI use, and no-overwrite behavior.
+Isolation tests install a local fixture wheel without package-index requests,
+verify system/user search paths are excluded, and cover environment reuse and
+interrupted/failed installation.
 They do not claim live API/CARLA acceptance.

@@ -881,7 +881,7 @@ def main():
     # Keep the host-only generator outside the ROS runtime packages.
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root / "src/simulation/simulation_generation"))
-    from simulation_generation.cli import add_arguments, run_generation
+    from simulation_generation.cli import add_arguments
 
     add_arguments(generation)
     sub.add_parser("setup", help="Start or reuse the base session; never builds images")
@@ -896,7 +896,9 @@ def main():
         ["--help"] if sys.argv[1:] in ([], ["help"]) else None
     )
     if arguments.command == "generate":
-        return run_generation(arguments, root)
+        from simulation_generation.environment import run_isolated
+
+        return run_isolated(root, sys.argv[2:])
     session = Session()
     if arguments.command == "list":
         base = Path(session.environment["WATOD_SIM_CATALOG_DIRECTORY"])
