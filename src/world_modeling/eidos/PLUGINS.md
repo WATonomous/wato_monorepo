@@ -53,6 +53,7 @@ internally -- no mutex contention.
 ### [Relocalization Plugins](docs/plugins/relocalization/README.md)
 
 - [GpsIcpRelocalization](docs/plugins/relocalization/gps_icp_relocalization.md) -- GPS coarse + GICP fine alignment against prior map
+- [BnbVoxelRelocalization](docs/plugins/relocalization/bnb_voxel_relocalization.md) -- GPS-free global relocalization via branch-and-bound voxel search + GICP refinement
 
 ### [Visualization Plugins](docs/plugins/visualization/README.md)
 
