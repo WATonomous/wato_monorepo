@@ -2,7 +2,4 @@
   ros__parameters:
     can_interface: "can1"
     steering_conversion_factor: 15.7
-    rear_axle_frame: "rear_axle"
-    front_axle_frame: "front_axle"
-    odom_frame: "odom"
-    base_frame: "base_footprint"
+    wheel_radius: 0.31235  # m, matches eve_description URDF

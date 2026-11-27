@@ -3,7 +3,7 @@
 <package format="3">
   <name>can_state_estimator</name>
   <version>0.0.0</version>
-  <description>Node to estimate vehicle state (steering angle, velocity, odometry) from CAN bus and wheel speed data</description>
+  <description>Node to estimate vehicle state (steering angle, velocity, wheel joint states) from CAN bus data</description>
   <maintainer email="hello@watonomous.ca">WATonomous</maintainer>
   <license>Apache 2.0</license>
 
@@ -13,9 +13,7 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>roscco_msg</depend>
   <depend>std_msgs</depend>
-  <depend>nav_msgs</depend>
-  <depend>tf2</depend>
-  <depend>tf2_ros</depend>
+  <depend>sensor_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

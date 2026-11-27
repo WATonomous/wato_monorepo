@@ -8,7 +8,7 @@
 |-------|------|-------------|
 | `can_state_estimator/steering_angle` | `roscco_msg/SteeringAngle` | Current wheel angle (radians) |
 | `can_state_estimator/body_velocity` | `std_msgs/Float64` | Rear-axle longitudinal velocity (m/s) |
-| `can_state_estimator/odom` | `nav_msgs/Odometry` | Dead-reckoning pose and twist |
+| `can_state_estimator/wheel_joint_states` | `sensor_msgs/JointState` | Per-wheel joint velocities (rad/s, unsigned) for wheel odometry consumers |
 
 ## Parameters
 
@@ -16,10 +16,11 @@
 |-----------|------|---------|-------------|
 | `can_interface` | string | `can1` | SocketCAN interface for the vehicle OBD bus |
 | `steering_conversion_factor` | double | `15.7` | Steering wheel to wheel angle ratio |
-| `rear_axle_frame` | string | `rear_axle` | TF frame at the rear axle (wheelbase source) |
-| `front_axle_frame` | string | `front_axle` | TF frame at the front axle (wheelbase target) |
-| `odom_frame` | string | `odom` | Frame ID for the odometry header |
-| `base_frame` | string | `base_footprint` | Child frame ID for the odometry message |
+| `wheel_radius` | double | `0.31235` | Wheel radius (m) used to convert wheel speed to joint velocity |
+| `front_left_joint` | string | `front_left_wheel_joint` | Joint name for the front-left wheel |
+| `front_right_joint` | string | `front_right_wheel_joint` | Joint name for the front-right wheel |
+| `rear_left_joint` | string | `rear_left_joint` | Joint name for the rear-left wheel |
+| `rear_right_joint` | string | `rear_right_joint` | Joint name for the rear-right wheel |
 
 ## Constants
 
@@ -53,11 +54,9 @@ ros2 launch can_state_estimator can_state_estimator.launch.yaml
 
 **Threading:** A background thread blocks on `read()` for CAN frames. The ROS executor and publishers are on the main thread. A single mutex protects the shared steering angle and wheel speed values — the lock is held only long enough to copy doubles, so contention is negligible.
 
-Odometry state (`x`, `y`, `theta`, `last_time`) is only accessed from the CAN read thread and therefore does not need the mutex.
-
 **Lifecycle callbacks:**
-- `on_configure`: Opens SocketCAN socket, sets kernel-level filter for IDs `0x2B0` and `0x4B0`, initialises TF listener.
-- `on_activate`: Starts CAN read thread, resets odometry to zero.
+- `on_configure`: Opens SocketCAN socket, sets kernel-level filter for IDs `0x2B0` and `0x4B0`.
+- `on_activate`: Starts CAN read thread.
 - `on_deactivate`: Signals and joins CAN read thread.
 - `on_cleanup`: Closes socket, destroys publishers.
 
@@ -70,7 +69,7 @@ CAN frames are read directly via SocketCAN rather than subscribing to OSCC topic
 2. Lower latency — no extra ROS hop between CAN and state estimation.
 3. A single node handles both steering and wheel speed, keeping state consistent.
 
-The wheelbase is looked up from TF (published by `robot_state_publisher` from `eve_description`) instead of being hardcoded so vehicle geometry is defined in one place (the URDF).
+This node does not integrate odometry. Wheel speeds are published as `sensor_msgs/JointState` (joint names match the `eve_description` URDF) and wheel odometry is computed by `eidos::WheelOdomFactor`, which fuses rear wheel speed with IMU yaw rate.
 
 ## After Launching
 
@@ -85,7 +84,7 @@ The wheelbase is looked up from TF (published by `robot_state_publisher` from `e
 ```bash
    ros2 topic hz /can_state_estimator/steering_angle   # publishes on each 0x2B0 frame (~50–100 Hz)
    ros2 topic hz /can_state_estimator/body_velocity    # publishes on each 0x4B0 frame
-   ros2 topic hz /can_state_estimator/odom
+   ros2 topic hz /can_state_estimator/wheel_joint_states   # publishes on each 0x4B0 frame
    ```
 
 1. **Sanity-check steering angle** — turn the steering wheel to full lock and echo the topic:
@@ -108,13 +107,11 @@ ros2 topic echo /can_state_estimator/steering_angle --once
 | Steering angle at centre | Within ±0.03 rad of 0.0 |
 | Steering angle at full lock | Matches physical limit (typically ±0.55 rad) |
 | Body velocity at 10 km/h | Within ±0.2 m/s of 2.78 m/s |
-| Odometry drift over 100 m straight | < 2 m lateral (dead-reckoning only) |
 | No CAN errors in log | No `"Failed to read CAN frame"` or socket error messages |
 
 If topics are not publishing, common causes:
 - Wrong `can_interface` parameter (check with `ip link show`)
 - CAN socket not up (`sudo ip link set can1 up type can bitrate 500000`)
-- TF wheelbase lookup pending — wait for `eve_description` TF to publish
 
 ## Adding New CAN Signals
 

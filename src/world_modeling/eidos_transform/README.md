@@ -150,6 +150,7 @@ liso_odom:
 | `<name>.twist_mask` | bool[6] | `[false]*6` | Which twist DOFs to fuse: `[angular_x, angular_y, angular_z, linear_x, linear_y, linear_z]` |
 | `<name>.pose_noise` | double[6] | `[1e-2]*6` | Standard deviations for each pose DOF |
 | `<name>.twist_noise` | double[6] | `[1e-2]*6` | Standard deviations for each twist DOF |
+| `<name>.use_msg_covariance` | bool | `false` | Use the incoming `Odometry` pose/twist covariance diagonals (square-rooted, reordered to `[rot, trans]`) as per-message noise instead of `pose_noise`/`twist_noise`. Unset (≤ 0) entries fall back to the configured noise. Use for sources whose confidence varies per reading (e.g. wheel odometry at zero speed). |
 
 #### IMU-type source
 

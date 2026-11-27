@@ -93,3 +93,4 @@ Then store data per-keyframe via `map_manager_->store(key, "my_plugin/cloud", cl
 - [EuclideanDistanceLoopClosureFactor](loop_closure_factor.md) -- KD-tree + GICP loop closure detection
 - [ImuFactor](imu_factor.md) -- IMU preintegration factor
 - [MotionModelFactor](motion_model_factor.md) -- Cross-plugin BetweenFactor bridging via eidos_transform predict service
+- [WheelOdomFactor](wheel_odom_factor.md) -- Rear wheel speed + IMU yaw rate odometry, planar BetweenFactor

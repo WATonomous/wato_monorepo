@@ -25,9 +25,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(roscco_msg REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 add_executable(can_state_estimator_node src/can_state_estimator_node.cpp)
 
@@ -40,9 +38,7 @@ target_link_libraries(can_state_estimator_node
   rclcpp_lifecycle::rclcpp_lifecycle
   ${roscco_msg_TARGETS}
   ${std_msgs_TARGETS}
-  ${nav_msgs_TARGETS}
-  tf2::tf2
-  tf2_ros::tf2_ros
+  ${sensor_msgs_TARGETS}
 )
 
 install(TARGETS can_state_estimator_node
