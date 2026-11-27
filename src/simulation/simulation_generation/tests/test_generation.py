@@ -35,7 +35,7 @@ for directory in (
     sys.path.insert(0, str(ROOT / directory))
 
 import yaml  # noqa: E402
-from carla_scenarios.definitions import load_definition  # noqa: E402
+from carla_scenarios.definitions import load_definition, world_definition  # noqa: E402
 from simulation_generation.cli import publish  # noqa: E402
 from simulation_generation.generator import (  # noqa: E402
     Workspace,
@@ -187,6 +187,31 @@ class WorkspaceTests(unittest.TestCase):
         candidate["actors"][0]["pose"]["distance_m"] = 100.0
         scenario, _, _, _ = self.workspace.validate(candidate)
         self.assertGreaterEqual(scenario["world"]["required_straight_m"], 105.0)
+
+    def test_explicit_playground_spawn_survives_generation_and_world_resolution(self):
+        spawn = {
+            "pose": {"frame": "map", "x": -5.0, "y": -20.0, "z": 0.5, "yaw_deg": 0.0}
+        }
+        self.workspace.playground["spawn"] = spawn
+        (self.catalog / "playgrounds/test_map.yaml").write_text(
+            yaml.safe_dump(self.workspace.playground)
+        )
+        scenario, maneuver, _, _ = self.workspace.validate(proposal())
+        publish(self.workspace, json.dumps(maneuver), yaml.safe_dump(scenario))
+        world = world_definition(self.catalog, "scenario", self.workspace.name)
+        self.assertEqual(world["spawn"], spawn)
+        self.assertNotIn("required_straight_m", world)
+        scenario["world"]["ego"]["spawn"]["pose"]["x"] = 50.0
+        self.assertEqual(self.workspace.playground["spawn"]["pose"]["x"], -5.0)
+
+    def test_explicit_playground_spawn_rejects_actors_requiring_a_lane_waypoint(self):
+        self.workspace.playground["spawn"] = {
+            "pose": {"frame": "map", "x": -5.0, "y": -20.0}
+        }
+        candidate = proposal()
+        candidate["actors"] = [vehicle_actor()]
+        with self.assertRaisesRegex(ValueError, "actor poses must use the map frame"):
+            self.workspace.validate(candidate)
 
     def test_old_proposal_without_actors_still_generates_an_empty_actor_list(self):
         scenario, _, _, _ = self.workspace.validate(proposal())

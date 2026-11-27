@@ -146,55 +146,18 @@ maneuver has the example's four segments, `default_speed: 2.0`, and
 circle. Keeping the maneuver open allows `maneuver_finished` completion after
 the exit straight and braking.
 
-**Before opening the scenario, replace its automatic lane spawn.** Generation
-sets `world.ego.spawn.straight_start: true`. A straight-lane search establishes
-forward runout only and may select an
-edge lane with insufficient lateral space. Run this from the repository root
-after either generation command (it uses the default catalog directory):
+Generation automatically preserves Airfield's configured ego spawn:
+ROS map x = -5 m, y = -20 m, z = 0.5 m, yaw = 0 degrees (east). No manual YAML
+edit is needed. A generic straight-lane search establishes forward runout only
+and can select an edge lane without circle clearance, so it is not used when a
+playground supplies an explicit map pose.
 
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import yaml
-
-path = Path("src/simulation/carla_ros_bridge/carla_scenarios/config/scenarios/airfield_circle.yaml")
-scenario = yaml.safe_load(path.read_text())
-scenario["world"]["ego"]["spawn"] = {
-    "pose": {"frame": "map", "x": -5.0, "y": -20.0, "z": 0.5, "yaw_deg": 0.0}
-}
-scenario["world"].pop("required_straight_m", None)
-path.write_text(yaml.safe_dump(scenario, sort_keys=False))
-PY
-```
-
-Replace the whole spawn mapping, removing `straight_start` and any lane
-selectors. If using `WATOD_SIM_CATALOG_DIRECTORY`, edit that catalog's scenario
-instead. These are ROS map coordinates: x east, y north, yaw 0 degrees east.
-The world builder converts them to CARLA x = -5, y = +20, yaw = 0; do not
-negate y in the YAML. The 5 m entry reaches (0, -20), the left circle is centered
+The world builder converts the pose to CARLA x = -5, y = +20, yaw = 0. The 5 m
+entry reaches (0, -20), the left circle is centered
 at (0, 0), and the exit ends at (10, -20). The reference including its 10 m
 zero-speed stop pad stays within x = [-20, 20], y = [-20, 20], leaving 15 m to
 the lateral surface edges for the reference centerline. Vehicle footprint,
 tracking error, mesh seams, and actual dynamics still require a simulator run.
-
-Validate the edited scenario through the shared loaders, without starting ROS
-or CARLA:
-
-```bash
-PYTHONPATH=src/simulation/carla_ros_bridge/carla_scenarios:src/simulation/simulation_runtime python3 -B - <<'PY'
-from pathlib import Path
-from carla_scenarios.definitions import load_definition, world_definition
-from simulation_runtime.assets import map_config_file
-
-catalog = Path("src/simulation/carla_ros_bridge/carla_scenarios/config")
-scenario = load_definition(catalog, "scenarios", "airfield_circle")
-world = world_definition(catalog, "scenario", "airfield_circle")
-assert world["spawn"]["pose"]["frame"] == "map"
-assert "straight_start" not in world["spawn"]
-assert scenario["inputs"]["map"] == "airfield"
-print("Validated:", map_config_file("airfield"), world["spawn"])
-PY
-```
 
 With the managed-session images prepared, start and run when ready:
 
@@ -241,9 +204,12 @@ offset or yaw. For a position explicitly supplied in the ROS map frame, use:
 {"frame": "map", "x": 25.0, "y": -12.0, "z": 0.4, "yaw_deg": 90.0}
 ```
 
-Map poses are absolute, not offsets from the ego. The generator chooses a lane
-spawn at preparation time, so it cannot infer an absolute map pose for an actor
-beside the ego without map/spawn geometry. Requests for arbitrary ego-relative
+Map poses are absolute, not offsets from the ego. When the playground supplies
+an explicit `spawn.pose`, generation preserves it and actors must use map poses;
+lane-relative actors require a lane waypoint and are rejected for such maps.
+Other playgrounds use a lane spawn at preparation time, so the generator cannot
+infer an absolute map pose for an actor beside the ego without map/spawn geometry.
+Requests for arbitrary ego-relative
 lateral actor placement remain unsupported. Existing proposals without `actors`
 still generate an empty actor list.
 
@@ -294,7 +260,8 @@ deadline allows travel at the minimum accepted speed plus 60 seconds.
 
 These are authoring and resource bounds. Schema and file validation do not prove
 collision avoidance, road containment, steering feasibility, or scoring success.
-The scenario requests a continuous straight lane using a forward-envelope
+Unless the playground supplies an explicit map-frame spawn, the scenario
+requests a continuous straight lane using a forward-envelope
 runout heuristic, extended to cover lane-relative actors plus 5 m;
 CARLA may reject that spawn if the chosen map lacks enough space. Curved custom
 paths can leave the road. Run and inspect CARLA before

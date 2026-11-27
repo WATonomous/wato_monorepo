@@ -198,6 +198,16 @@ class Workspace:
                 "execution_s": round(summary["authored_length_m"] / 0.5 + 60, 1)
             },
         }
+        if "pose" in self.playground.get("spawn", {}):
+            if any(actor["pose"]["frame"] == "lane" for actor in actors):
+                raise ValueError(
+                    "This playground uses an explicit ego spawn; actor poses must "
+                    "use the map frame because no ego lane waypoint is selected"
+                )
+            # Preserve the map author's spawn instead of replacing it with an
+            # automatic edge-lane search that cannot establish lateral clearance.
+            scenario["world"]["ego"]["spawn"] = copy.deepcopy(self.playground["spawn"])
+            scenario["world"].pop("required_straight_m")
         with tempfile.TemporaryDirectory(prefix="watod-sim-validate-") as temporary:
             stage = Path(temporary)
             shutil.copytree(self.catalog / "playgrounds", stage / "playgrounds")

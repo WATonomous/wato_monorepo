@@ -86,4 +86,4 @@ git add -f maps/osm/airfield.osm maps/xodr/airfield.xodr \
 
 Do not add `config.local.sh`, conversion logs, or the converter's other diagnostic
 outputs. See the [Airfield circle workflow](../../../src/simulation/simulation_generation/README.md#airfield-circle)
-for offline generation, the required spawn override, and run commands.
+for offline generation, the configured spawn, and run commands.
