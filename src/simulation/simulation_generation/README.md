@@ -19,7 +19,7 @@ the model's responsibility. Inspect the result for semantic fidelity.
 
 ## Generate and run
 
-Install the host dependency if PyYAML is unavailable:
+Install the host dependencies (PyYAML, pyproj, and Shapely):
 
 ```bash
 python3 -m pip install -r src/simulation/simulation_generation/requirements.txt
@@ -57,12 +57,13 @@ The command prints a directory under `.cache/watod-sim/generated/` containing:
 | `scenario.yaml` | Complete generated scenario |
 | `maneuver.json` | Complete fake-planner maneuver |
 | `preview.svg` | Ego-relative path geometry in metres; green start, red end; x forward, y left |
+| `map_context.json` | Projected driving polygons, holes, source hash, projection, exact ego spawn, and boundary margin sent to the model |
 | `report.json` | Prompt, model, prompt hash, catalog context, validation attempts, geometry, actor definitions, installed paths |
 
 The preview shows authored geometry only. It omits the runtime's uniform
 resampling, braking profile, stop pad, map anchoring, and actor positions. Actor
-poses are resolved when the scenario opens; inspect them in the generated YAML
-and the running CARLA world. The SVG is not a map overlay.
+poses are resolved to absolute map coordinates during generation; inspect them
+in the generated YAML and the running CARLA world. The SVG is not a map overlay.
 At runtime, inspect `/sim/reference_path` alongside map markers in Foxglove.
 
 On success, the command also creates `scenarios/NAME.yaml` in the configured
@@ -139,8 +140,9 @@ watod sim generate scenario --name airfield_circle --map airfield \
   --prompt "At 2 m/s, drive straight 5 m, then two consecutive left 180-degree arcs of radius 20 m to make one circle, then straight 10 m and stop. No actors."
 ```
 
-The model receives playground settings and catalog examples, not the OSM
-geometry. It cannot determine circle clearance. Check that the generated
+The model receives projected driving-surface polygons, x/y bounds, the ego spawn,
+playground settings, and catalog examples. The host rejects paths and actors
+outside the surface or its configured boundary margin. Check that the generated
 maneuver has the example's four segments, `default_speed: 2.0`, and
 `closed: false`. Each arc is limited to 180 degrees, so use two arcs for one
 circle. Keeping the maneuver open allows `maneuver_finished` completion after
@@ -207,11 +209,69 @@ offset or yaw. For a position explicitly supplied in the ROS map frame, use:
 Map poses are absolute, not offsets from the ego. When the playground supplies
 an explicit `spawn.pose`, generation preserves it and actors must use map poses;
 lane-relative actors require a lane waypoint and are rejected for such maps.
-Other playgrounds use a lane spawn at preparation time, so the generator cannot
-infer an absolute map pose for an actor beside the ego without map/spawn geometry.
-Requests for arbitrary ego-relative
-lateral actor placement remain unsupported. Existing proposals without `actors`
-still generate an empty actor list.
+For other playgrounds, generation selects a deterministic OSM lane-center spawn
+with the greatest boundary clearance among lane midpoints. It freezes that pose
+before asking the model, resolves legacy lane-relative actors along unambiguous
+OSM centerline continuations, and writes all actors as map poses. The model can
+also calculate an actor's map x/y from a requested forward/left offset and the
+known ego pose. Existing proposals without `actors` still generate an empty list.
+
+## Map boundaries and coordinates
+
+Every generation projects the Lanelet2 source into the configured ROS map frame
+and unions its vehicle-driving lanelet polygons. Internal lane lines do not
+constrain a custom maneuver, but holes, gaps, and outer edges do. Validation uses
+the full polygons, rather than a rectangular bound or convex hull that could
+fill non-drivable areas.
+
+The model receives GeoJSON polygons in map metres, including holes, plus x/y
+bounds, projection, source hash, exact ego spawn, and clearance. This is derived
+geometry, not raw OSM XML. Model-context boundaries are simplified at 0.05 m and
+cropped to 320 m around the spawn; host validation uses the complete unsimplified
+surface. The existing 64 KB context limit still applies; overly detailed contexts
+fail before any API request instead of silently dropping boundaries.
+
+Export this information without OpenAI, Docker, or CARLA:
+
+```bash
+watod sim generate map-context --map airfield
+```
+
+It writes `.cache/watod-sim/map-context/airfield.json`. Normal generation includes
+the same geometry automatically and saves `map_context.json` with its artifacts.
+
+The host anchors the reference to the known ego pose, reproduces the planner's
+fine sampling and uniform 0.5 m resampling, and includes its 10 m zero-speed stop
+pad. The entire resulting polyline must fit within the driving surface with
+`--boundary-clearance-m` (default 3 m), plus 0.1 m numerical/sampling allowance.
+Actor centers must have the same clearance. Boundary failures include map x/y
+diagnostics for the existing model repair loop. Invalid offline candidates fail
+without publishing files. The margin is a center clearance, not a measurement of
+the selected vehicle; choose it to accommodate vehicle size and tracking error.
+Narrow roads may require a smaller margin appropriate to the car.
+
+For a circle with a static car at a specific map coordinate:
+
+```bash
+watod sim generate scenario --name airfield_circle_actor --map airfield \
+  --prompt "At 2 m/s drive straight 5 m, two left 180-degree arcs of radius 20 m, then straight 10 m and stop. Place one static Mini at ROS map x=45 m, y=10 m, yaw=90 degrees. Stay within the supplied driving polygons."
+```
+
+Or exercise the same path and actor placement entirely offline:
+
+```bash
+watod sim generate scenario --name airfield_circle_actor --map airfield \
+  --candidate src/simulation/simulation_generation/examples/airfield_circle_actor.json
+```
+
+UTM and LocalCartesian projections with `alignment_mode: fixed` are supported.
+Live TF alignment, missing/invalid lane polygons, an off-surface spawn, and
+mismatched available OSM/XODR provenance fail before generation. If a playground
+requires conversion metadata, missing provenance also fails. Without a verified
+map pair, containment describes the OSM surface and cannot establish that a
+separately supplied XODR or native CARLA town matches it. These checks are 2D;
+overpasses, road elevation, actual mesh seams, blueprint dimensions, collisions,
+controller tracking, and tire physics still require simulator inspection.
 
 ## How generation works
 
@@ -219,14 +279,16 @@ still generate an empty actor list.
    the checkout. Read current `controller_snake`, `brake_in_curve`, and
    `sine_with_dwell` examples and their maneuver JSON when available, plus
    `parked_car_straight` as an actor-authoring reference.
-2. Send the user prompt and this bounded catalog context with the curated
+2. Project and union the driving polygons, freeze the ego spawn, and send the
+   user prompt and this bounded map/catalog context with the curated
    [`system_prompt.txt`](simulation_generation/system_prompt.txt) to OpenAI.
    The host API key is used only for authentication; it is not included in
    prompts, installed files, or generation records. Prompts and catalog examples
    are sent to the API and saved in the local report.
 3. Let the model call only `validate_trajectory`. The host checks the proposal's
    fields, finite numbers, segment limits, speed bounds, geometry budget, and
-   actor IDs, vehicle blueprints, physics flags, and pose formats.
+   actor IDs, vehicle blueprints, physics flags, pose formats, and map containment
+   for the anchored reference, stop pad, and actor centers.
    The tool cannot execute commands or choose paths. Invalid proposals return
    diagnostics to the model for repair. Generation stops on the first valid
    proposal, an unsupported-request explanation, an API failure, or the call
@@ -235,7 +297,7 @@ still generate an empty actor list.
    path, `ramp_up_accel: 0`, 10 m stop pad, maneuver-finished completion, selected
    metrics, and a bounded execution deadline. Validate the generated files in an
    isolated temporary catalog through the existing `load_maneuver` and
-   `load_definition` functions. Copy proposed actors into `world.actors`.
+   `load_definition` functions. Write resolved map actors into `world.actors`.
 5. Save review artifacts and install the maneuver before the scenario with
    exclusive file creation. A failed publish rolls back files created by that
    invocation, preserving pre-existing files. Files are local changes for review;
@@ -258,17 +320,14 @@ than 300 m of sampled authored path. The host fixes maneuver sampling at 0.5 m
 and uses the existing timed release ramp and braking behavior. The execution
 deadline allows travel at the minimum accepted speed plus 60 seconds.
 
-These are authoring and resource bounds. Schema and file validation do not prove
-collision avoidance, road containment, steering feasibility, or scoring success.
-Unless the playground supplies an explicit map-frame spawn, the scenario
-requests a continuous straight lane using a forward-envelope
-runout heuristic, extended to cover lane-relative actors plus 5 m;
-CARLA may reject that spawn if the chosen map lacks enough space. Curved custom
-paths can leave the road. Run and inspect CARLA before
-treating a generated path as an accepted controller test.
+The map checks establish containment of the generated reference and actor centers
+in the projected OSM surface with the configured margin. They do not prove
+collision avoidance, steering feasibility, actual vehicle containment during
+tracking, or scoring success. Run and inspect CARLA before treating a generated
+path as an accepted controller test.
 
 Actor placement and a nominal pass-around path are authored together, but the
-host does not compute vehicle bounding-box clearance, road fit, or a guaranteed
+host does not compute actual vehicle bounding-box clearance or a guaranteed
 avoidance route. CARLA resolves actual poses and spawn overlap at preparation;
 driving still needs validation in the simulator.
 
@@ -281,6 +340,7 @@ python3 -B -m unittest discover -s watod_scripts/tests -v
 
 The generator tests cover the tool repair loop using mocked Responses output,
 unbounded and malformed proposals, actor validation and repair, coordinate
-composition, shared-loader round trips, actor-aware spawn runout, offline CLI
-use, and no-overwrite behavior. They do not freeze shipped scenario poses or
-claim live API/CARLA acceptance.
+composition, shared-loader round trips, source-map spawn/actor resolution,
+projection, holes and disconnected surfaces, boundary margins, stop-pad
+containment, off-surface repair, offline CLI use, and no-overwrite behavior.
+They do not claim live API/CARLA acceptance.

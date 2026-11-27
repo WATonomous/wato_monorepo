@@ -33,6 +33,7 @@ from simulation_runtime.assets import (
     map_config_file,
 )
 
+from .map_geometry import MapGeometry, STOP_PAD_M
 from .trajectory import sample_geometry, tool_schema, validate_proposal
 
 
@@ -62,7 +63,7 @@ def data_environment(maneuvers, map_configs):
 
 
 class Workspace:
-    def __init__(self, root, name, map_name):
+    def __init__(self, root, name, map_name, *, boundary_clearance_m=3.0):
         self.root = Path(root).resolve()
         self.name = data_name(name, "scenario name")
         self.map_name = data_name(map_name, "map")
@@ -89,8 +90,11 @@ class Workspace:
         self.ros_map = data_name(self.playground.get("ros_map", self.map_name))
         with data_environment(self.maneuvers, self.map_configs):
             self.map_config = map_config_file(self.ros_map)
+        xodr = None
         if "xodr" in self.playground["map"]:
-            contained_file(self.root / "maps/xodr", self.playground["map"]["xodr"])
+            xodr = contained_file(
+                self.root / "maps/xodr", self.playground["map"]["xodr"]
+            )
         parameters = yaml.safe_load(self.map_config.read_text())["/**/world_model"][
             "ros__parameters"
         ]
@@ -102,6 +106,29 @@ class Workspace:
             osm = self.root / osm
         if not osm.is_file():
             raise ValueError(f"Missing ROS map asset: {osm}")
+        if xodr is not None:
+            record = Path(str(xodr) + ".metadata.json")
+            if not record.is_file():
+                record = xodr.with_suffix(".mapping.json")
+            if record.is_file():
+                provenance = read_json(record.read_text())
+                if not isinstance(provenance, dict) or (
+                    provenance.get("source_sha256", provenance.get("osm_sha256"))
+                    != hashlib.sha256(osm.read_bytes()).hexdigest()
+                    or provenance.get("xodr_sha256")
+                    != hashlib.sha256(xodr.read_bytes()).hexdigest()
+                ):
+                    raise ValueError(
+                        "OSM/XODR provenance mismatch; regenerate the converted map before boundary validation"
+                    )
+            elif self.playground.get("require_map_provenance", False):
+                raise ValueError("Missing required OSM/XODR conversion metadata")
+        self.geometry = MapGeometry(
+            osm,
+            parameters,
+            self.playground.get("spawn", {}),
+            clearance_m=boundary_clearance_m,
+        )
 
     @property
     def targets(self):
@@ -139,6 +166,7 @@ class Workspace:
         result = {
             "selected_map": self.map_name,
             "playground": self.playground,
+            "map_geometry": self.geometry.context(),
             "examples": examples,
         }
         if len(json.dumps(result)) > 64000:
@@ -148,7 +176,8 @@ class Workspace:
     def validate(self, proposal):
         validate_proposal(proposal)
         points, summary = sample_geometry(proposal)
-        actors = copy.deepcopy(proposal.get("actors", []))
+        actors = self.geometry.resolve_actors(proposal.get("actors", []))
+        summary["map_validation"] = self.geometry.validate_path(points)
         maneuver = {
             "name": self.name,
             "description": proposal["description"],
@@ -156,15 +185,10 @@ class Workspace:
             "default_speed": proposal["default_speed"],
             "ramp_up_accel": 0.0,
             "brake_decel": 1.0,
-            "stop_pad_m": 10.0,
+            "stop_pad_m": STOP_PAD_M,
             "closed": False,
             "segments": copy.deepcopy(proposal["segments"]),
         }
-        # A straight lane is only a spawn/runout heuristic, never road-fit proof.
-        runout = max(20.0, summary["bounds_m"]["max_x"] + 15.0)
-        for actor in actors:
-            if actor["pose"]["frame"] == "lane":
-                runout = max(runout, actor["pose"]["distance_m"] + 5.0)
         scenario = {
             "version": 2,
             "id": self.name,
@@ -174,14 +198,7 @@ class Workspace:
                 "map": self.map_name,
                 "ros_map": self.ros_map,
                 "modeling": "map",
-                "ego": {
-                    "spawn": {
-                        "straight_start": True,
-                        "s_margin_m": 10.0,
-                        "z_offset_m": 0.4,
-                    }
-                },
-                "required_straight_m": round(runout, 3),
+                "ego": {"spawn": {"pose": copy.deepcopy(self.geometry.spawn)}},
                 "traffic": {"vehicles": 0, "pedestrians": 0, "props": {"count": 0}},
                 "actors": actors,
             },
@@ -198,16 +215,6 @@ class Workspace:
                 "execution_s": round(summary["authored_length_m"] / 0.5 + 60, 1)
             },
         }
-        if "pose" in self.playground.get("spawn", {}):
-            if any(actor["pose"]["frame"] == "lane" for actor in actors):
-                raise ValueError(
-                    "This playground uses an explicit ego spawn; actor poses must "
-                    "use the map frame because no ego lane waypoint is selected"
-                )
-            # Preserve the map author's spawn instead of replacing it with an
-            # automatic edge-lane search that cannot establish lateral clearance.
-            scenario["world"]["ego"]["spawn"] = copy.deepcopy(self.playground["spawn"])
-            scenario["world"].pop("required_straight_m")
         with tempfile.TemporaryDirectory(prefix="watod-sim-validate-") as temporary:
             stage = Path(temporary)
             shutil.copytree(self.catalog / "playgrounds", stage / "playgrounds")

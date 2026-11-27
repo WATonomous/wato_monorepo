@@ -1,0 +1,18 @@
+{
+  "description": "Airfield circle at 2 m/s with a static Mini at ROS map (45, 10), yaw 90 degrees.",
+  "default_speed": 2.0,
+  "segments": [
+    {"straight": {"length": 5.0}},
+    {"arc": {"radius": 20.0, "angle": 180.0, "dir": "left"}},
+    {"arc": {"radius": 20.0, "angle": 180.0, "dir": "left"}},
+    {"straight": {"length": 10.0}}
+  ],
+  "actors": [
+    {
+      "id": "parked",
+      "blueprint": "vehicle.mini.cooper",
+      "static": true,
+      "pose": {"frame": "map", "x": 45.0, "y": 10.0, "z": 0.5, "yaw_deg": 90.0}
+    }
+  ]
+}

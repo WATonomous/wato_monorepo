@@ -12,12 +12,30 @@ the tool. Never silently omit a requested obstacle, route constraint, or feature
 Scope: one open, forward-driving, ego-relative custom path plus up to 16 named
 vehicle actors on the selected map. Parked vehicles and authored paths that
 swerve around them are supported. The controller follows this fixed path; it
-does not replan or react to the actors. Road-boundary and collision-clearance
-guarantees, lane-following routes, scripted actor motion, autopilot, pedestrians,
+does not replan or react to the actors. Physical collision-clearance guarantees,
+lane-following routes, scripted actor motion, autopilot, pedestrians,
 props, arbitrary waypoints, closed/repeating laps, reverse driving, and custom
 launches are unsupported. Do not claim the generated path is collision-free.
 If a user wants those, explain the limitation. Map choice is fixed by --map;
 if the prompt names another map, ask them to run again with that --map option.
+
+catalog_context.map_geometry contains projected ROS map driving polygons,
+holes, map bounds, the exact ego_spawn, boundary_clearance_m, and stop_pad_m.
+Use those coordinates when designing the path and placing actors. An overall
+bounding box is not sufficient: holes and gaps are not drivable. The host checks
+the entire map-anchored, resampled reference plus its stop pad with the requested
+clearance against full driving polygons, and checks actor centers with the same
+clearance. An off-surface proposal is rejected; use the error's map x/y location
+to repair it. Never silently shrink a dimension explicitly required by the user;
+explain when the requested maneuver cannot fit. This is a 2D geometry check,
+not proof of tracking performance, vehicle dimensions, collision avoidance or
+CARLA mesh/physics behavior. Polygon coordinates in context are simplified;
+stay comfortably inside them instead of skimming the edges.
+
+The host freezes ego_spawn before generation. For an ego-relative point
+(forward=u, left=v), map x=spawn.x+u*cos(yaw)-v*sin(yaw),
+map y=spawn.y+u*sin(yaw)+v*cos(yaw), with yaw in radians. Use this known
+transform to place an actor at a requested offset; prefer explicit map poses.
 
 Propose {description, default_speed, segments, actors}; use actors: [] only when
 no vehicles are requested. All distances are metres, speeds
@@ -46,16 +64,16 @@ Actors use the existing scenario world.actors format:
   cannot be ego_vehicle. Default blueprint: vehicle.mini.cooper. static defaults
   to true for a parked obstacle. static: false enables physics only; it does NOT
   make the vehicle drive. Reject requests for moving actors with routes/speeds.
-- Prefer pose: {frame: lane, distance_m: 22.0, z_offset_m: 0.4} for "a car ahead".
+- pose: {frame: lane, distance_m: 22.0, z_offset_m: 0.4} is supported only when
+  map_geometry.lane_relative_actors_supported is true.
   Lane distance follows the selected ego spawn lane, not the generated trajectory
   or its cursor. Distance must be in [0, 300] m. Lane poses have no lateral-offset
-  or yaw field. The host requests straight-lane runout covering these actors;
-  preparation fails if the selected map does not provide it.
+  or yaw field. The host follows an unambiguous OSM centerline and freezes the
+  actor as an absolute map pose; a missing/branching continuation is rejected.
 - Explicit absolute positions use pose: {frame: map, x, y, z: 0.4, yaw_deg: 0} in
   the ROS map frame. Do not flip y/yaw. Map coordinates are NOT ego-relative;
-  the host chooses the ego spawn at runtime. Never invent map coordinates to
-  represent an unspecified ego-relative offset. Requests for actors beside the
-  ego need explicit map poses; arbitrary relative offsets are unsupported.
+  the host supplies the known ego spawn in map_geometry. Derive relative actor
+  positions from that pose, and respect explicitly requested absolute x/y.
 - If the selected playground supplies spawn.pose, the host preserves that map
   pose for the ego. Lane-relative actor poses are unsupported in that case
   because no ego lane waypoint is selected; use map poses with known coordinates.

@@ -24,12 +24,18 @@ from pathlib import Path
 
 
 def add_arguments(parser):
-    parser.add_argument("kind", choices=("scenario",))
+    parser.add_argument("kind", choices=("scenario", "map-context"))
     parser.add_argument("--prompt", "-prompt", help="Describe a custom controller path")
     parser.add_argument(
         "--name", help="New scenario and maneuver ID; defaults to a unique ID"
     )
     parser.add_argument("--map", default="oval", help="Playground ID (default: oval)")
+    parser.add_argument(
+        "--boundary-clearance-m",
+        type=float,
+        default=3.0,
+        help="Minimum reference/actor center clearance from map edges (default: 3 m)",
+    )
     parser.add_argument(
         "--model",
         default=os.environ.get("OPENAI_MODEL", "gpt-4.1"),
@@ -85,7 +91,11 @@ def run_generation(arguments, root):
         return 2
     try:
         prompt = arguments.prompt or ""
-        if not arguments.candidate and not prompt.strip():
+        if (
+            arguments.kind == "scenario"
+            and not arguments.candidate
+            and not prompt.strip()
+        ):
             raise ValueError("--prompt is required unless --candidate is supplied")
         if len(prompt) > 16000:
             raise ValueError("--prompt must be at most 16000 characters")
@@ -94,7 +104,21 @@ def run_generation(arguments, root):
             + datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S_")
             + uuid.uuid4().hex[:6]
         )
-        workspace = Workspace(root, name, arguments.map)
+        workspace = Workspace(
+            root,
+            name,
+            arguments.map,
+            boundary_clearance_m=arguments.boundary_clearance_m,
+        )
+        if arguments.kind == "map-context":
+            output = root / ".cache/watod-sim/map-context" / (arguments.map + ".json")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(
+                json.dumps(workspace.geometry.context(), indent=2, allow_nan=False)
+                + "\n"
+            )
+            print(f"Map geometry context: {output}")
+            return 0
         if not arguments.dry_run:
             workspace.check_targets()
         if arguments.candidate:
@@ -121,6 +145,10 @@ def run_generation(arguments, root):
             json.dumps(proposal, indent=2, allow_nan=False) + "\n", encoding="utf-8"
         )
         (output / "scenario.yaml").write_text(scenario_text, encoding="utf-8")
+        (output / "map_context.json").write_text(
+            json.dumps(workspace.geometry.context(), indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
         (output / "maneuver.json").write_text(maneuver_text, encoding="utf-8")
         (output / "preview.svg").write_text(
             preview_svg(points, summary), encoding="utf-8"
@@ -132,7 +160,7 @@ def run_generation(arguments, root):
             "map": arguments.map,
             "geometry": summary,
             "actors": scenario["world"]["actors"],
-            "validation": "schema, bounded primitives, actor poses, referenced assets; no CARLA driving verification",
+            "validation": "schema, bounded primitives, anchored path including stop pad and actor centers contained in projected driving polygons with boundary clearance; no CARLA driving verification",
             "installed": False,
         }
         report_path = output / "report.json"
@@ -149,7 +177,9 @@ def run_generation(arguments, root):
             f"{len(scenario['world']['actors'])} vehicle actor(s)"
         )
         print(f"Preview and generation record: {output}")
-        print("Road fit and controller performance require inspection and a CARLA run.")
+        print(
+            f"Map boundary check passed with {workspace.geometry.clearance:g} m center clearance, including the stop pad. Controller performance still requires a CARLA run."
+        )
         if arguments.dry_run:
             print("Dry run: catalog and maneuver directories were not changed.")
         else:

@@ -35,6 +35,7 @@ for directory in (
     sys.path.insert(0, str(ROOT / directory))
 
 import yaml  # noqa: E402
+from pyproj import Transformer  # noqa: E402
 from carla_scenarios.definitions import load_definition, world_definition  # noqa: E402
 from simulation_generation.cli import publish  # noqa: E402
 from simulation_generation.generator import (  # noqa: E402
@@ -109,19 +110,39 @@ class WorkspaceTests(unittest.TestCase):
                 {"version": 1, "id": "test_map", "map": {"xodr": "test.xodr"}}
             )
         )
+        self.map_parameters = {
+            "osm_map_path": "/opt/watonomous/maps/osm/test.osm",
+            "projector_type": "utm",
+            "alignment_mode": "fixed",
+            "origin_lat": 45.5017,
+            "origin_lon": -73.5673,
+            "origin_alt": 0.0,
+        }
         (self.map_configs / "test_map.yaml").write_text(
             yaml.safe_dump(
-                {
-                    "/**/world_model": {
-                        "ros__parameters": {
-                            "osm_map_path": "/opt/watonomous/maps/osm/test.osm"
-                        }
-                    }
-                }
+                {"/**/world_model": {"ros__parameters": self.map_parameters}}
             )
         )
         (self.root / "maps/xodr/test.xodr").write_text("<OpenDRIVE/>")
-        (self.root / "maps/osm/test.osm").write_text("<osm/>")
+        forward = Transformer.from_crs(4326, 32618, always_xy=True)
+        inverse = Transformer.from_crs(32618, 4326, always_xy=True)
+        ox, oy = forward.transform(-73.5673, 45.5017)
+        nodes = []
+        for identifier, (x, y) in enumerate(
+            ((-250, 80), (250, 80), (-250, -80), (250, -80)), 1
+        ):
+            lon, lat = inverse.transform(ox + x, oy + y)
+            nodes.append(f'<node id="{identifier}" lat="{lat:.15f}" lon="{lon:.15f}"/>')
+        (self.root / "maps/osm/test.osm").write_text(
+            "<osm>"
+            + "".join(nodes)
+            + """
+            <way id="1"><nd ref="1"/><nd ref="2"/></way>
+            <way id="2"><nd ref="3"/><nd ref="4"/></way>
+            <relation id="1"><member type="way" ref="1" role="left"/>
+            <member type="way" ref="2" role="right"/>
+            <tag k="type" v="lanelet"/><tag k="subtype" v="road"/></relation></osm>"""
+        )
         environment = patch.dict(
             os.environ,
             {
@@ -171,22 +192,28 @@ class WorkspaceTests(unittest.TestCase):
             },
         ]
         original = copy.deepcopy(candidate)
+        expected_actors = self.workspace.geometry.resolve_actors(candidate["actors"])
         scenario, maneuver, _, _ = self.workspace.validate(candidate)
         publish(self.workspace, json.dumps(maneuver), yaml.safe_dump(scenario))
         loaded = load_definition(self.catalog, "scenarios", self.workspace.name)
-        self.assertEqual(loaded["setup"]["actors"], candidate["actors"])
+        self.assertEqual(loaded["setup"]["actors"], expected_actors)
         self.assertEqual(loaded["trajectory_source"], "fake_planner")
         self.assertEqual(candidate, original)
         # The installed snapshot cannot retain mutable references to the proposal.
         candidate["actors"][0]["pose"]["distance_m"] = 50.0
-        self.assertEqual(scenario["world"]["actors"], original["actors"])
+        self.assertEqual(scenario["world"]["actors"], expected_actors)
 
-    def test_lane_actor_beyond_the_path_extends_spawn_runout(self):
+    def test_lane_actor_is_resolved_to_a_frozen_map_pose(self):
         candidate = proposal()
         candidate["actors"] = [vehicle_actor()]
         candidate["actors"][0]["pose"]["distance_m"] = 100.0
         scenario, _, _, _ = self.workspace.validate(candidate)
-        self.assertGreaterEqual(scenario["world"]["required_straight_m"], 105.0)
+        self.assertNotIn("required_straight_m", scenario["world"])
+        pose = scenario["world"]["actors"][0]["pose"]
+        self.assertEqual(pose["frame"], "map")
+        self.assertAlmostEqual(
+            pose["x"] - scenario["world"]["ego"]["spawn"]["pose"]["x"], 100.0
+        )
 
     def test_explicit_playground_spawn_survives_generation_and_world_resolution(self):
         spawn = {
@@ -196,6 +223,7 @@ class WorkspaceTests(unittest.TestCase):
         (self.catalog / "playgrounds/test_map.yaml").write_text(
             yaml.safe_dump(self.workspace.playground)
         )
+        self.workspace = Workspace(self.root, self.workspace.name, "test_map")
         scenario, maneuver, _, _ = self.workspace.validate(proposal())
         publish(self.workspace, json.dumps(maneuver), yaml.safe_dump(scenario))
         world = world_definition(self.catalog, "scenario", self.workspace.name)
@@ -208,6 +236,10 @@ class WorkspaceTests(unittest.TestCase):
         self.workspace.playground["spawn"] = {
             "pose": {"frame": "map", "x": -5.0, "y": -20.0}
         }
+        (self.catalog / "playgrounds/test_map.yaml").write_text(
+            yaml.safe_dump(self.workspace.playground)
+        )
+        self.workspace = Workspace(self.root, self.workspace.name, "test_map")
         candidate = proposal()
         candidate["actors"] = [vehicle_actor()]
         with self.assertRaisesRegex(ValueError, "actor poses must use the map frame"):
@@ -239,6 +271,35 @@ class WorkspaceTests(unittest.TestCase):
         (self.root / "maps/osm/test.osm").unlink()
         with self.assertRaisesRegex(ValueError, "Missing ROS map"):
             Workspace(self.root, "another_path", "test_map")
+
+    def test_changed_map_pair_fails_before_generation(self):
+        (self.root / "maps/xodr/test.xodr.metadata.json").write_text(
+            json.dumps({"source_sha256": "wrong", "xodr_sha256": "wrong"})
+        )
+        with self.assertRaisesRegex(ValueError, "provenance mismatch"):
+            Workspace(self.root, "another_path", "test_map")
+
+    def test_model_repairs_an_off_surface_path_using_map_context(self):
+        invalid = proposal()
+        invalid["segments"] = [
+            {"arc": {"radius": 60, "angle": 180, "dir": "left"}},
+            {"straight": {"length": 10}},
+        ]
+        request = Mock(side_effect=[response(invalid), response(proposal())])
+        candidate, report = generate(
+            self.workspace, "stay on the map", "test-model", request=request
+        )
+        self.assertEqual(candidate, proposal())
+        self.assertEqual(
+            [attempt["valid"] for attempt in report["attempts"]], [False, True]
+        )
+        context = json.loads(request.call_args_list[0].args[0]["input"][0]["content"])[
+            "catalog_context"
+        ]["map_geometry"]
+        self.assertEqual(context["frame"], "map")
+        self.assertIn("drivable_polygons", context)
+        self.assertIn("ego_spawn", context)
+        self.assertIn("driving surface", report["attempts"][0]["error"])
 
     def test_model_repairs_validation_error_with_reasoning_and_tool_feedback(self):
         invalid = proposal()
@@ -284,7 +345,10 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(accepted["actors"], candidate["actors"])
         self.assertEqual([item["valid"] for item in report["attempts"]], [False, True])
         scenario, _, _, _ = self.workspace.validate(accepted)
-        self.assertEqual(scenario["world"]["actors"], candidate["actors"])
+        self.assertEqual(
+            scenario["world"]["actors"],
+            self.workspace.geometry.resolve_actors(candidate["actors"]),
+        )
 
     def test_unsupported_request_explanation_is_returned_without_installing(self):
         request = Mock(
@@ -339,7 +403,8 @@ class WorkspaceTests(unittest.TestCase):
                 {
                     "/**/world_model": {
                         "ros__parameters": {
-                            "osm_map_path": str(self.root / "maps/osm/test.osm")
+                            **self.map_parameters,
+                            "osm_map_path": str(self.root / "maps/osm/test.osm"),
                         }
                     }
                 }
@@ -374,7 +439,10 @@ class WorkspaceTests(unittest.TestCase):
             (self.catalog / "scenarios/cli_path.yaml").read_text()
         )
         self.assertEqual(
-            installed_scenario["world"]["actors"], candidate_data["actors"]
+            installed_scenario["world"]["actors"][0]["pose"]["frame"], "map"
+        )
+        self.assertAlmostEqual(
+            installed_scenario["world"]["actors"][0]["pose"]["x"], 22.0
         )
         again = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(again.returncode, 2)

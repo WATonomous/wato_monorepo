@@ -98,6 +98,7 @@ the reference trajectory. These are authored controller maneuvers, not road-foll
 |---------|----------|
 | `watod sim list` | List playgrounds and scored scenarios from the checkout; Docker is not required |
 | `watod sim generate scenario --prompt TEXT` | Generate and validate a custom controller path using OpenAI; no Docker required |
+| `watod sim generate map-context --map NAME` | Export ROS map driving boundaries, x/y coordinates, and ego spawn offline |
 | `watod sim setup` | Start/reuse the base session using prepared images and print Foxglove connection details |
 | `watod sim open playground NAME` | Load map, ego, traffic, weather and bridge; ready for manual use without application nodes or scoring |
 | `watod sim open scenario NAME` | Prepare the world and reviewed application stack; leave the attempt ready for play |

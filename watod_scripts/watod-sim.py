@@ -876,7 +876,7 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="List definitions without starting Docker")
     generation = sub.add_parser(
-        "generate", help="Generate a custom controller trajectory without Docker"
+        "generate", help="Generate map context or a controller scenario without Docker"
     )
     # Keep the host-only generator outside the ROS runtime packages.
     root = Path(__file__).resolve().parents[1]

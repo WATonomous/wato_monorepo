@@ -13,8 +13,8 @@
 # limitations under the License.
 """Bounded proposal validation and an ego-frame geometry preview.
 
-The primitive equations follow fake_planner_core.cpp. This preview omits its
-uniform resampling and speed-profile braking; ROS /sim/reference_path remains
+The primitive equations and 0.05 m fine sampling follow fake_planner_core.cpp.
+This preview omits uniform resampling and speed-profile braking; ROS /sim/reference_path remains
 the authoritative anchored path at runtime.
 """
 
@@ -144,7 +144,7 @@ def validate_proposal(proposal):
 
 
 def sample_geometry(proposal):
-    """Sample bounded primitives at <= 0.1 m of primitive parameter distance."""
+    """Match the planner's <= 0.05 m primitive parameter sampling."""
     points = [(0.0, 0.0)]
     x = y = heading = length = 0.0
     for segment in proposal["segments"]:
@@ -159,7 +159,7 @@ def sample_geometry(proposal):
         # Reject oversized paths before allocating samples.
         if distance > 300:
             raise ValueError("A primitive exceeds the 300 m path budget")
-        steps = max(1, math.ceil(distance / 0.1))
+        steps = max(1, math.ceil(distance / 0.05))
         for step in range(1, steps + 1):
             t = distance * step / steps
             u, v = t, 0.0
