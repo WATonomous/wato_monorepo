@@ -120,6 +120,8 @@ private:
   std::atomic<bool> has_imu_orientation_{false};
   double initial_yaw_ = 0.0;
   Eigen::Matrix3d R_map_enu_ = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d R_base_imu_ = Eigen::Matrix3d::Identity();
+  bool has_imu_tf_ = false;
 
   // UTM→map offset
   bool offset_initialized_ = false;
@@ -130,6 +132,8 @@ private:
   // Frame names
   std::string map_frame_ = "map";
   std::string utm_frame_ = "utm";
+  std::string base_link_frame_ = "base_link";
+  std::string imu_frame_ = "imu_link";
 
   // Parameters
   double max_cov_;

@@ -29,11 +29,11 @@ Both EKFs are updated in the same tick, so the local EKF pose used here is exact
 
 Map-frame sources (e.g. SLAM) often arrive with latency. The global EKF handles this with a rewind-replay mechanism:
 
-1. After each predict step, a `StateSnapshot` of the global EKF is saved to a bounded history (max 500 entries).
-2. When a map source measurement arrives with a timestamp older than the current tick, the algorithm finds the latest snapshot before that timestamp.
+1. Every tick (and after each replayed measurement), a `StateSnapshot` of the global EKF is saved to a history bounded by `history_window` seconds.
+2. When a measurement arrives stamped at or before the latest snapshot, the algorithm finds the latest snapshot before that timestamp. Measurements older than the whole window are dropped with a throttled warning.
 3. The global EKF is restored to that snapshot.
 4. All measurements from that point forward (including the delayed one) are sorted by time and replayed with predict steps between them.
-5. A final predict brings the EKF to the current time.
+5. Snapshots are rebuilt during replay and a final predict brings the EKF to the current time.
 
 This only applies to the global EKF. The local EKF fuses measurements immediately without delay handling.
 
@@ -48,7 +48,7 @@ Sources are assigned to EKFs by which list they appear in:
 
 | List | Local EKF | Global EKF |
 |---|---|---|
-| `odom_sources` | Yes | No |
+| `odom_sources` | Yes | Yes (twist, IMU rates, roll/pitch only; odom-frame pose and yaw are skipped) |
 | `map_sources` | No | Yes |
 
 ### IMU source processing
@@ -101,6 +101,7 @@ All parameters live under `/**/eidos_transform_node/ros__parameters`.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `tick_rate` | double | `200.0` | Main loop frequency in Hz |
+| `history_window` | double | `5.0` | Seconds of global EKF history kept for replaying delayed measurements |
 | `frames.odom` | string | `"odom"` | Odom frame ID |
 | `frames.base_link` | string | `"base_footprint"` | Base link frame ID |
 | `frames.map` | string | `"map"` | Map frame ID |
@@ -123,9 +124,9 @@ The HolonomicEKF plugin reads process noise under `<ekf.name>.process_noise`:
 | `holonomic_ekf.process_noise` | double[15] | `[1e-4]*6 + [1e-2]*6 + [1e-6]*3` | 15 diagonal process noise values: 6 for pose (rx, ry, rz, tx, ty, tz), 6 for velocity (angular_x, angular_y, angular_z, linear_x, linear_y, linear_z), 3 for accelerometer bias (bias_ax, bias_ay, bias_az) |
 | `holonomic_ekf_global.process_noise` | double[15] | same | Process noise for the global EKF instance (tuned independently) |
 
-### Odom sources (local EKF only)
+### Odom sources (both EKFs)
 
-Sources are listed by name in `odom_sources`, then each name gets its own parameter block. These are fed to the local EKF only.
+Sources are listed by name in `odom_sources`, then each name gets its own parameter block. These are fed to the local EKF, and their frame-independent parts (twist, IMU rates, roll/pitch) to the global EKF.
 
 #### Odom-type source
 
