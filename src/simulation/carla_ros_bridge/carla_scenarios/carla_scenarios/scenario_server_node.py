@@ -478,7 +478,7 @@ class ScenarioServerNode(LifecycleNode):
             "carla_scenarios.scenarios.empty_scenario": "Empty World (no NPCs)",
             "carla_scenarios.scenarios.light_traffic_scenario": "Light Traffic",
             "carla_scenarios.scenarios.heavy_traffic_scenario": "Heavy Traffic",
-            "carla_scenarios.scenarios.custom_scenario": "Custom Scenario",
+            "carla_scenarios.scenarios.stop_sign_scenario": "Stop Sign Scenario",
             "carla_scenarios.scenarios.oval_scenario": "Oval OpenDRIVE Map",
             "carla_scenarios.scenarios.ring_road_scenario": "Ring Road OpenDRIVE Map",
         }
