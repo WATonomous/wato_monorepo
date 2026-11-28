@@ -26,6 +26,17 @@ This is deliberately a naive, costmap-only planner. It does not consult HD-map l
 
 The selected geometry is visualized as a green line strip (`elastic_band_path` marker namespace) alongside the speed-colored spheres.
 
+## Path smoothing and curvature
+
+Lanelet centrelines are polylines. Resampling them finely (e.g. 0.05 m) concentrates the heading change at each map vertex into one or two short segments. The per-segment curvature estimate then spikes, and the lateral-acceleration limit collapses the speed profile at every kink: a 2° kink caps speed at about 2.4 m/s with `max_lateral_accel: 2.0`.
+
+When `path_smoothing_enabled` is true, the path goes through two steps before obstacle deformation:
+
+1. **Elastic band smoothing.** The path is resampled to a coarse band at `smoothing_spacing`. Each interior band point may move only along its original normal, by at most `smoothing_max_deviation`. Projected gradient descent minimises the band's *bending energy* (sum of squared second differences) plus a small anchor term. Classic elastic-band *tension* (first differences) is not used, because it pulls every curve inward and cuts corners. Bending energy removes kinks but leaves constant-radius arcs in place. The two points at each end are held fixed. The relaxed band is densified with a Catmull-Rom spline and resampled at `interpolation_resolution`.
+2. **Windowed curvature.** When `curvature_window > 0`, the lateral-acceleration speed limit uses the circle through the points about `curvature_window` metres behind and ahead of each pose, instead of the yaw difference between adjacent poses.
+
+The pipeline is: resample → smooth → obstacle deformation → collision check → velocity profile. Smoothing is purely geometric: it ignores the costmap. Deviation is small and bounded, and the collision check and braking still run on the final geometry.
+
 ## Usage
 
 ```bash
@@ -66,6 +77,14 @@ Parameters are defined in `config/trajectory_planner_params.yaml`.
 | `eb_clearance_margin` | 0.3 m | Extra lateral footprint clearance used during search and final validation. |
 | `eb_transition_distance` | 5.0 m | Cubic smoothstep distance before and after each collision cluster. |
 | `eb_preferred_side` | `left` | Tie-break when equal left and right offsets are valid (`left` or `right`). |
+| `path_smoothing_enabled` | true | Enables elastic band smoothing of the path geometry. |
+| `smoothing_spacing` | 1.0 m | Spacing of the coarse band that is relaxed. |
+| `smoothing_max_deviation` | 0.3 m | Maximum lateral displacement of any band point. |
+| `smoothing_iterations` | 200 | Maximum relaxation iterations. |
+| `smoothing_step` | 0.1 | Gradient step; clamped to 0.125 for stability. |
+| `smoothing_anchor_weight` | 0.01 | Pull back toward the original path. |
+| `smoothing_tolerance` | 1e-4 m | Stop once the largest per-iteration move is below this. |
+| `curvature_window` | 1.0 m | Half-window for curvature-limited speed; `<= 0` uses the legacy per-segment estimate. |
 
 ### Tuning guide
 

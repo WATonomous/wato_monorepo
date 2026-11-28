@@ -84,6 +84,20 @@
     eb_transition_distance: 5.0
     eb_preferred_side: "left"
 
+    # Geometric path smoothing (elastic band, bending-energy only) applied before obstacle
+    # deformation. Removes kinks from the raw lanelet centreline without cutting steady curves.
+    path_smoothing_enabled: true
+    smoothing_spacing: 1.0         # spacing of the coarse band that is relaxed (m)
+    smoothing_max_deviation: 0.3   # max lateral displacement of any band point (m)
+    smoothing_iterations: 200      # max relaxation iterations
+    smoothing_step: 0.1            # gradient step, must be <= 0.125
+    smoothing_anchor_weight: 0.01  # pull back toward the original path
+    smoothing_tolerance: 0.0001    # convergence threshold on per-iteration movement (m)
+
+    # Half-width (m of arc) of the three-point window for curvature-limited speed.
+    # <= 0 falls back to the legacy per-segment yaw difference.
+    curvature_window: 1.0
+
 # =============================================================================
 # Lattice Planning Markers
 # =============================================================================

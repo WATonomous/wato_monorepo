@@ -42,15 +42,24 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
     return trajectory;
   }
 
+  // Geometry pipeline: resample -> smooth (remove map kinks) -> obstacle deformation.
+  // With both stages disabled, the legacy geometry and waypoint count are preserved.
   nav_msgs::msg::Path planning_path = path;
-  if (config_.elastic_band_enabled) {
+  if (config_.path_smoothing_enabled) {
+    planning_path = smooth_path(path);
+  } else if (config_.elastic_band_enabled) {
     planning_path = resample_path(path);
-    if (auto deformed = elastic_band(path, costmap)) {
+  }
+  if (config_.elastic_band_enabled) {
+    if (auto deformed = elastic_band(planning_path, costmap)) {
       planning_path = std::move(*deformed);
     }
   }
 
   std::optional<double> obstacle_dist = find_first_collision(planning_path, costmap);
+  const bool use_windowed_curvature = config_.curvature_window > 0.0;
+  const std::vector<double> curvatures =
+    use_windowed_curvature ? compute_curvatures(planning_path) : std::vector<double>{};
 
   auto yaw_from_pose = [](const geometry_msgs::msg::Pose & p) {
     const auto & q = p.orientation;
@@ -82,7 +91,12 @@ wato_trajectory_msgs::msg::Trajectory TrajectoryCore::compute_trajectory(
       target_speed = std::sqrt(std::max(0.0, v_sq));
     }
 
-    if (i > 0 && segment_dist > 1e-9) {
+    if (use_windowed_curvature) {
+      const double kappa = curvatures[i];
+      if (kappa > 1e-6 && target_speed * target_speed * kappa > config_.max_lateral_accel) {
+        target_speed = std::sqrt(config_.max_lateral_accel / kappa);
+      }
+    } else if (i > 0 && segment_dist > 1e-9) {
       double yaw_curr = yaw_from_pose(planning_path.poses[i].pose);
       double yaw_prev = yaw_from_pose(planning_path.poses[i - 1].pose);
       double delta_theta = std::fabs(std::remainder(yaw_curr - yaw_prev, 2.0 * M_PI));
@@ -157,12 +171,17 @@ std::optional<double> TrajectoryCore::find_first_collision(
 
 nav_msgs::msg::Path TrajectoryCore::resample_path(const nav_msgs::msg::Path & path) const
 {
+  return resample_path(path, config_.interpolation_resolution);
+}
+
+nav_msgs::msg::Path TrajectoryCore::resample_path(const nav_msgs::msg::Path & path, double spacing) const
+{
   nav_msgs::msg::Path resampled;
   resampled.header = path.header;
   if (path.poses.empty()) {
     return resampled;
   }
-  if (path.poses.size() == 1 || config_.interpolation_resolution <= 0.0) {
+  if (path.poses.size() == 1 || spacing <= 0.0) {
     resampled = path;
     update_orientations(resampled);
     return resampled;
@@ -204,14 +223,191 @@ nav_msgs::msg::Path TrajectoryCore::resample_path(const nav_msgs::msg::Path & pa
   };
 
   resampled.poses.push_back(path.poses.front());
-  for (double distance = config_.interpolation_resolution; distance < total_length - 1e-9;
-       distance += config_.interpolation_resolution)
-  {
+  for (double distance = spacing; distance < total_length - 1e-9; distance += spacing) {
     append_at_distance(distance);
   }
   resampled.poses.push_back(path.poses.back());
   update_orientations(resampled);
   return resampled;
+}
+
+nav_msgs::msg::Path TrajectoryCore::smooth_path(const nav_msgs::msg::Path & path) const
+{
+  // Holding two points fixed at each end keeps the start tangent (near the ego vehicle) and the
+  // end tangent unchanged, and every free point has a full second-difference stencil.
+  constexpr size_t kFixedEndPoints = 2;
+
+  const nav_msgs::msg::Path band_path = resample_path(path, config_.smoothing_spacing);
+  const size_t n = band_path.poses.size();
+  if (config_.smoothing_spacing <= 0.0 || n < 2 * kFixedEndPoints + 1) {
+    return resample_path(path);
+  }
+
+  struct Vec2
+  {
+    double x;
+    double y;
+  };
+
+  // Original band points and their unit normals (left-positive). Points move only along these
+  // fixed normals, so the band cannot bunch up or slide along the path.
+  std::vector<Vec2> origin(n);
+  std::vector<Vec2> normal(n);
+  for (size_t i = 0; i < n; ++i) {
+    origin[i] = {band_path.poses[i].pose.position.x, band_path.poses[i].pose.position.y};
+  }
+  for (size_t i = 0; i < n; ++i) {
+    const Vec2 & before = origin[i == 0 ? 0 : i - 1];
+    const Vec2 & after = origin[i + 1 < n ? i + 1 : i];
+    const double dx = after.x - before.x;
+    const double dy = after.y - before.y;
+    const double len = std::hypot(dx, dy);
+    normal[i] = len > 1e-9 ? Vec2{-dy / len, dx / len} : Vec2{0.0, 1.0};
+  }
+
+  // Projected gradient descent on E(d) = sum |L_i|^2 + w_a * sum d_i^2, where
+  // p_i = origin_i + d_i * normal_i and L_i = p[i-1] - 2 p[i] + p[i+1].
+  // dE/dp_i = 2 * (L[i-1] - 2 L[i] + L[i+1]) (the discrete bilaplacian), so the step on d_i is
+  // its projection onto normal_i. The bilaplacian's largest eigenvalue is 16, so step <= 1/8.
+  const double step = std::clamp(config_.smoothing_step, 0.0, 0.125);
+  std::vector<double> offset(n, 0.0);
+  std::vector<Vec2> p(origin);
+  std::vector<Vec2> lap(n, {0.0, 0.0});
+  for (int iter = 0; iter < config_.smoothing_iterations; ++iter) {
+    for (size_t i = 1; i + 1 < n; ++i) {
+      lap[i] = {p[i - 1].x - 2.0 * p[i].x + p[i + 1].x, p[i - 1].y - 2.0 * p[i].y + p[i + 1].y};
+    }
+    // lap[0] and lap[n-1] stay zero: the endpoints are fixed, so they contribute no bending.
+
+    double max_move = 0.0;
+    for (size_t i = kFixedEndPoints; i + kFixedEndPoints < n; ++i) {
+      const double bx = lap[i - 1].x - 2.0 * lap[i].x + lap[i + 1].x;
+      const double by = lap[i - 1].y - 2.0 * lap[i].y + lap[i + 1].y;
+      const double grad = bx * normal[i].x + by * normal[i].y + config_.smoothing_anchor_weight * offset[i];
+      const double updated =
+        std::clamp(offset[i] - step * grad, -config_.smoothing_max_deviation, config_.smoothing_max_deviation);
+      max_move = std::max(max_move, std::fabs(updated - offset[i]));
+      offset[i] = updated;
+    }
+    for (size_t i = kFixedEndPoints; i + kFixedEndPoints < n; ++i) {
+      p[i] = {origin[i].x + offset[i] * normal[i].x, origin[i].y + offset[i] * normal[i].y};
+    }
+    if (max_move < config_.smoothing_tolerance) {
+      break;
+    }
+  }
+
+  // Densify the relaxed band with a uniform Catmull-Rom spline (C1: continuous heading), using
+  // reflected phantom points at the ends, then resample at the planning resolution.
+  auto point_at = [&](long i) -> Vec2 {
+    if (i < 0) {
+      return {2.0 * p[0].x - p[1].x, 2.0 * p[0].y - p[1].y};
+    }
+    if (i >= static_cast<long>(n)) {
+      return {2.0 * p[n - 1].x - p[n - 2].x, 2.0 * p[n - 1].y - p[n - 2].y};
+    }
+    return p[static_cast<size_t>(i)];
+  };
+
+  const double dense_spacing = config_.interpolation_resolution > 0.0
+                                 ? std::min(config_.interpolation_resolution, config_.smoothing_spacing)
+                                 : config_.smoothing_spacing;
+  nav_msgs::msg::Path dense;
+  dense.header = path.header;
+  auto push_point = [&](const Vec2 & v) {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header = path.header;
+    pose.pose.position.x = v.x;
+    pose.pose.position.y = v.y;
+    dense.poses.push_back(std::move(pose));
+  };
+  for (size_t seg = 0; seg + 1 < n; ++seg) {
+    const long s = static_cast<long>(seg);
+    const Vec2 p0 = point_at(s - 1);
+    const Vec2 p1 = point_at(s);
+    const Vec2 p2 = point_at(s + 1);
+    const Vec2 p3 = point_at(s + 2);
+    const double seg_len = std::hypot(p2.x - p1.x, p2.y - p1.y);
+    // Oversample so the final linear resample sees a curve, not chords.
+    const int samples = std::max(1, static_cast<int>(std::ceil(4.0 * seg_len / dense_spacing)));
+    for (int k = 0; k < samples; ++k) {
+      const double t = static_cast<double>(k) / samples;
+      const double t2 = t * t;
+      const double t3 = t2 * t;
+      auto blend = [&](double a, double b, double c, double d) {
+        return 0.5 * ((2.0 * b) + (-a + c) * t + (2.0 * a - 5.0 * b + 4.0 * c - d) * t2 + (-a + 3.0 * b - 3.0 * c + d) * t3);
+      };
+      push_point({blend(p0.x, p1.x, p2.x, p3.x), blend(p0.y, p1.y, p2.y, p3.y)});
+    }
+  }
+  push_point(p[n - 1]);
+
+  // The band ends coincide with the original path ends (resample_path preserves endpoints).
+  dense.poses.front().pose.position.z = path.poses.front().pose.position.z;
+  dense.poses.back().pose.position.z = path.poses.back().pose.position.z;
+  return resample_path(dense);
+}
+
+std::vector<double> TrajectoryCore::compute_curvatures(const nav_msgs::msg::Path & path) const
+{
+  const size_t n = path.poses.size();
+  std::vector<double> curvatures(n, 0.0);
+  if (n < 3) {
+    return curvatures;
+  }
+
+  std::vector<double> arc(n, 0.0);
+  for (size_t i = 1; i < n; ++i) {
+    const auto & a = path.poses[i - 1].pose.position;
+    const auto & b = path.poses[i].pose.position;
+    arc[i] = arc[i - 1] + std::hypot(b.x - a.x, b.y - a.y);
+  }
+
+  const double window = config_.curvature_window;
+  size_t back = 0;
+  size_t ahead = 0;
+  for (size_t i = 0; i < n; ++i) {
+    // back: last index at least `window` behind i (or 0); ahead: first index at least `window`
+    // ahead of i (or n-1). Both move monotonically with i.
+    while (back + 1 < i && arc[i] - arc[back + 1] >= window) {
+      ++back;
+    }
+    if (ahead < i) {
+      ahead = i;
+    }
+    while (ahead + 1 < n && arc[ahead] - arc[i] < window) {
+      ++ahead;
+    }
+    size_t j = std::min(back, i);
+    size_t k = ahead;
+    // Near the ends the window is one-sided; fall back to the nearest available neighbours.
+    if (j == i && i > 0) {
+      j = i - 1;
+    }
+    if (k == i && i + 1 < n) {
+      k = i + 1;
+    }
+    if (j == i || k == i) {
+      continue;
+    }
+
+    const auto & a = path.poses[j].pose.position;
+    const auto & b = path.poses[i].pose.position;
+    const auto & c = path.poses[k].pose.position;
+    const double ab = std::hypot(b.x - a.x, b.y - a.y);
+    const double bc = std::hypot(c.x - b.x, c.y - b.y);
+    const double ca = std::hypot(a.x - c.x, a.y - c.y);
+    const double denom = ab * bc * ca;
+    if (denom < 1e-12) {
+      continue;
+    }
+    const double cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    curvatures[i] = 2.0 * std::fabs(cross) / denom;
+  }
+  // The endpoints have no neighbour on one side; reuse the adjacent estimate.
+  curvatures.front() = curvatures[1];
+  curvatures.back() = curvatures[n - 2];
+  return curvatures;
 }
 
 void TrajectoryCore::update_orientations(nav_msgs::msg::Path & path) const

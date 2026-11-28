@@ -64,6 +64,16 @@ TrajectoryPlannerNode::TrajectoryPlannerNode(const rclcpp::NodeOptions & options
   declare_parameter("eb_clearance_margin", 0.3);
   declare_parameter("eb_transition_distance", 5.0);
   declare_parameter("eb_preferred_side", std::string("left"));
+
+  // Geometric path smoothing and curvature estimation
+  declare_parameter("path_smoothing_enabled", true);
+  declare_parameter("smoothing_spacing", 1.0);
+  declare_parameter("smoothing_max_deviation", 0.3);
+  declare_parameter("smoothing_iterations", 200);
+  declare_parameter("smoothing_step", 0.1);
+  declare_parameter("smoothing_anchor_weight", 0.01);
+  declare_parameter("smoothing_tolerance", 1e-4);
+  declare_parameter("curvature_window", 1.0);
 }
 
 TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const rclcpp_lifecycle::State &)
@@ -109,6 +119,18 @@ TrajectoryPlannerNode::CallbackReturn TrajectoryPlannerNode::on_configure(const 
     return CallbackReturn::FAILURE;
   }
   config.eb_preferred_side_sign = preferred_side == "left" ? 1.0 : -1.0;
+
+  config.path_smoothing_enabled = get_parameter("path_smoothing_enabled").as_bool();
+  config.smoothing_spacing = get_parameter("smoothing_spacing").as_double();
+  config.smoothing_max_deviation = get_parameter("smoothing_max_deviation").as_double();
+  config.smoothing_iterations = static_cast<int>(get_parameter("smoothing_iterations").as_int());
+  config.smoothing_step = get_parameter("smoothing_step").as_double();
+  config.smoothing_anchor_weight = get_parameter("smoothing_anchor_weight").as_double();
+  config.smoothing_tolerance = get_parameter("smoothing_tolerance").as_double();
+  config.curvature_window = get_parameter("curvature_window").as_double();
+  if (config.smoothing_step > 0.125) {
+    RCLCPP_WARN(get_logger(), "smoothing_step %.3f > 0.125 is unstable; clamping", config.smoothing_step);
+  }
 
   core_ = std::make_unique<TrajectoryCore>(config);
 

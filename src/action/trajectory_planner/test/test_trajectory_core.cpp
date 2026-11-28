@@ -503,4 +503,237 @@ TEST_CASE_METHOD(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Path smoothing and windowed curvature
+// ---------------------------------------------------------------------------
+
+// Lanelet-style centreline: 1 m spacing, straight for 20 m, then a single heading kink.
+static nav_msgs::msg::Path make_kinked_path(double kink_deg)
+{
+  nav_msgs::msg::Path path;
+  double x = 0.0;
+  double y = 0.0;
+  double heading = 0.0;
+  for (int i = 0; i <= 40; ++i) {
+    geometry_msgs::msg::PoseStamped ps;
+    ps.pose.position.x = x;
+    ps.pose.position.y = y;
+    path.poses.push_back(ps);
+    if (i == 20) {
+      heading = kink_deg * M_PI / 180.0;
+    }
+    x += std::cos(heading);
+    y += std::sin(heading);
+  }
+  return path;
+}
+
+// Constant-radius left turn starting at the origin heading +x, 1 m chord spacing.
+static nav_msgs::msg::Path make_arc_path(double radius, int count)
+{
+  nav_msgs::msg::Path path;
+  for (int i = 0; i < count; ++i) {
+    const double angle = static_cast<double>(i) / radius;
+    geometry_msgs::msg::PoseStamped ps;
+    ps.pose.position.x = radius * std::sin(angle);
+    ps.pose.position.y = radius - radius * std::cos(angle);
+    path.poses.push_back(ps);
+  }
+  return path;
+}
+
+// Grid far away from every test path: everything reads as free space.
+static nav_msgs::msg::OccupancyGrid make_distant_grid()
+{
+  nav_msgs::msg::OccupancyGrid grid;
+  grid.info.resolution = 0.5;
+  grid.info.width = 4;
+  grid.info.height = 4;
+  grid.info.origin.position.x = -100.0;
+  grid.info.origin.position.y = -100.0;
+  grid.data.assign(16, 0);
+  return grid;
+}
+
+static trajectory_planner::TrajectoryConfig make_smoothing_config()
+{
+  trajectory_planner::TrajectoryConfig cfg;
+  cfg.interpolation_resolution = 0.05;
+  cfg.max_tangential_accel = 0.5;
+  cfg.max_lateral_accel = 2.0;
+  cfg.footprint_x_min = 0.0;
+  cfg.footprint_x_max = 0.0;
+  cfg.footprint_y_min = 0.0;
+  cfg.footprint_y_max = 0.0;
+  cfg.path_smoothing_enabled = true;
+  cfg.curvature_window = 1.0;
+  return cfg;
+}
+
+static double max_of(const std::vector<double> & values)
+{
+  return values.empty() ? 0.0 : *std::max_element(values.begin(), values.end());
+}
+
+TEST_CASE_METHOD(
+  wato::test::TestExecutorFixture,
+  "compute_curvatures recovers the radius of a densely sampled circle",
+  "[trajectory_core][curvature]")
+{
+  auto cfg = make_smoothing_config();
+  trajectory_planner::TrajectoryCore core(cfg);
+
+  // R = 10 m sampled every 0.1 m of arc.
+  nav_msgs::msg::Path path;
+  for (int i = 0; i < 300; ++i) {
+    const double angle = i * 0.01;
+    geometry_msgs::msg::PoseStamped ps;
+    ps.pose.position.x = 10.0 * std::sin(angle);
+    ps.pose.position.y = 10.0 - 10.0 * std::cos(angle);
+    path.poses.push_back(ps);
+  }
+
+  const auto kappa = core.compute_curvatures(path);
+  REQUIRE(kappa.size() == path.poses.size());
+  for (size_t i = 0; i < kappa.size(); ++i) {
+    REQUIRE(kappa[i] == Catch::Approx(0.1).margin(1e-3));
+  }
+}
+
+TEST_CASE_METHOD(
+  wato::test::TestExecutorFixture,
+  "smooth_path leaves a straight path straight and keeps its endpoints",
+  "[trajectory_core][smoothing]")
+{
+  auto cfg = make_smoothing_config();
+  trajectory_planner::TrajectoryCore core(cfg);
+
+  auto path = make_straight_path({0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0});
+  auto smoothed = core.smooth_path(path);
+
+  REQUIRE(smoothed.poses.size() > path.poses.size());
+  for (const auto & ps : smoothed.poses) {
+    REQUIRE(ps.pose.position.y == Catch::Approx(0.0).margin(1e-9));
+  }
+  REQUIRE(smoothed.poses.front().pose.position.x == Catch::Approx(0.0));
+  REQUIRE(smoothed.poses.back().pose.position.x == Catch::Approx(10.0));
+}
+
+TEST_CASE_METHOD(
+  wato::test::TestExecutorFixture,
+  "smooth_path softens a centreline kink within the deviation bound",
+  "[trajectory_core][smoothing]")
+{
+  auto cfg = make_smoothing_config();
+  trajectory_planner::TrajectoryCore core(cfg);
+
+  auto path = make_kinked_path(6.0);
+  const double raw_kappa = max_of(core.compute_curvatures(path));
+  auto smoothed = core.smooth_path(path);
+  const double smoothed_kappa = max_of(core.compute_curvatures(smoothed));
+
+  // A 6 degree kink reads as ~0.1 1/m over a 1 m window; smoothing should cut that by >4x.
+  REQUIRE(raw_kappa > 0.09);
+  REQUIRE(smoothed_kappa < raw_kappa / 4.0);
+
+  // Every smoothed point stays within the deviation bound of the original polyline.
+  const double heading = 6.0 * M_PI / 180.0;
+  for (const auto & ps : smoothed.poses) {
+    const double x = ps.pose.position.x;
+    const double y = ps.pose.position.y;
+    const double to_first_leg = std::fabs(y);
+    const double to_second_leg = std::fabs(-(x - 20.0) * std::sin(heading) + y * std::cos(heading));
+    const double distance = x <= 20.0 ? std::min(to_first_leg, to_second_leg) : to_second_leg;
+    REQUIRE(distance <= cfg.smoothing_max_deviation + 1e-6);
+  }
+
+  REQUIRE(smoothed.poses.front().pose.position.x == Catch::Approx(path.poses.front().pose.position.x));
+  REQUIRE(smoothed.poses.back().pose.position.x == Catch::Approx(path.poses.back().pose.position.x));
+  REQUIRE(smoothed.poses.back().pose.position.y == Catch::Approx(path.poses.back().pose.position.y));
+}
+
+TEST_CASE_METHOD(
+  wato::test::TestExecutorFixture,
+  "smooth_path does not cut a constant-radius corner",
+  "[trajectory_core][smoothing]")
+{
+  auto cfg = make_smoothing_config();
+  trajectory_planner::TrajectoryCore core(cfg);
+
+  const double radius = 10.0;
+  auto smoothed = core.smooth_path(make_arc_path(radius, 40));
+  for (const auto & ps : smoothed.poses) {
+    const double r = std::hypot(ps.pose.position.x, ps.pose.position.y - radius);
+    // Chords of a 1 m-sampled arc sit at most ~1.25 cm inside it; allow a little slack.
+    REQUIRE(r == Catch::Approx(radius).margin(0.02));
+  }
+}
+
+TEST_CASE_METHOD(
+  wato::test::TestExecutorFixture,
+  "smoothing and windowed curvature stop a small map kink from collapsing the speed profile",
+  "[trajectory_core][smoothing][speed]")
+{
+  // Baseline: resampling only (elastic band enabled, no smoothing) with per-segment yaw
+  // curvature. At 5 cm spacing a 2 degree kink is concentrated into ~0.1 m of arc.
+  auto legacy_cfg = make_smoothing_config();
+  legacy_cfg.path_smoothing_enabled = false;
+  legacy_cfg.curvature_window = 0.0;
+  legacy_cfg.elastic_band_enabled = true;
+  trajectory_planner::TrajectoryCore legacy(legacy_cfg);
+
+  auto smooth_cfg = make_smoothing_config();
+  smooth_cfg.elastic_band_enabled = true;
+  trajectory_planner::TrajectoryCore smooth(smooth_cfg);
+
+  auto path = make_kinked_path(2.0);
+  auto grid = make_distant_grid();
+  const double limit = 15.0;
+
+  auto min_speed = [](const wato_trajectory_msgs::msg::Trajectory & traj) {
+    double v = std::numeric_limits<double>::max();
+    for (const auto & pt : traj.points) {
+      v = std::min(v, pt.max_speed);
+    }
+    return v;
+  };
+
+  const double legacy_min = min_speed(legacy.compute_trajectory(path, grid, limit, limit));
+  const double smooth_min = min_speed(smooth.compute_trajectory(path, grid, limit, limit));
+
+  REQUIRE(legacy_min < 5.0);
+  REQUIRE(smooth_min == Catch::Approx(limit).margin(1e-6));
+}
+
+TEST_CASE_METHOD(
+  wato::test::TestExecutorFixture,
+  "obstacle deformation still applies on top of a smoothed path",
+  "[trajectory_core][smoothing][elastic_band]")
+{
+  auto cfg = make_elastic_config();
+  cfg.path_smoothing_enabled = true;
+  cfg.curvature_window = 1.0;
+  trajectory_planner::TrajectoryCore core(cfg);
+
+  // Same scenario as the sparse-waypoint deformation test, routed through the full pipeline.
+  auto grid = make_tall_empty_grid();
+  mark_lethal_cell(grid, 10.0, 0.5);  // overlaps the left edge of the footprint
+  auto traj = core.compute_trajectory(make_straight_path({0.0, 20.0}), grid, cfg.max_speed, cfg.max_speed);
+
+  REQUIRE_FALSE(traj.points.empty());
+  size_t nearest = 0;
+  double best = std::numeric_limits<double>::max();
+  for (size_t i = 0; i < traj.points.size(); ++i) {
+    const double error = std::fabs(traj.points[i].pose.position.x - 10.0);
+    if (error < best) {
+      best = error;
+      nearest = i;
+    }
+  }
+  REQUIRE(traj.points[nearest].pose.position.y < -0.1);
+  for (const auto & pt : traj.points) {
+    REQUIRE(std::fabs(pt.pose.position.y) <= cfg.eb_max_deviation + 1e-6);
+  }
+}
+
 }  // namespace wato
