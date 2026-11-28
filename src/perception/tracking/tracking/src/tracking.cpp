@@ -15,6 +15,7 @@
 #include "tracking/tracking.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -140,6 +141,7 @@ TrackingNode::CallbackReturn TrackingNode::on_cleanup(const rclcpp_lifecycle::St
   class_trackers_.clear();
   track_filters_.clear();
   track_centroids_.clear();
+  track_headings_.clear();
 
   RCLCPP_INFO(this->get_logger(), "Clean up successful");
   return TrackingNode::CallbackReturn::SUCCESS;
@@ -159,6 +161,7 @@ TrackingNode::CallbackReturn TrackingNode::on_shutdown(const rclcpp_lifecycle::S
   class_trackers_.clear();
   track_filters_.clear();
   track_centroids_.clear();
+  track_headings_.clear();
 
   RCLCPP_INFO(this->get_logger(), "Shut down successful");
   return TrackingNode::CallbackReturn::SUCCESS;
@@ -357,6 +360,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       RCLCPP_WARN(this->get_logger(), "Transform unavailable: %s. Clearing track state.", ex.what());
       track_filters_.clear();
       track_centroids_.clear();
+      track_headings_.clear();
       return;
     }
   }
@@ -375,12 +379,19 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
 
   // Run bytetrack on detections, with per-class tracker routing.
   auto objs = detsToObjects(tf_msg);
+  // Pass ByteTrack the real frame interval so its Kalman linear_velocity is m/s (its default dt = 1
+  // made it metres per frame). First frame or a non-increasing stamp: predict no motion.
+  const rclcpp::Time stamp(tf_msg.header.stamp);
+  const float dt = (last_tracker_stamp_.nanoseconds() > 0 && stamp > last_tracker_stamp_)
+                     ? static_cast<float>((stamp - last_tracker_stamp_).seconds())
+                     : 0.0F;
+  last_tracker_stamp_ = stamp;
   vision_msgs::msg::Detection3DArray tracked_dets;
   tracked_dets.header.frame_id = tf_msg.header.frame_id;
   tracked_dets.header.stamp = tf_msg.header.stamp;
 
   if (class_trackers_.empty()) {
-    auto stracks = tracker_->update(objs);
+    auto stracks = tracker_->update(objs, dt);
     tracked_dets = STracksToTracks(stracks, tf_msg.header);
   } else {
     // Split objects by class: each class with a dedicated tracker gets its own group.
@@ -400,7 +411,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       // Always call update (even with empty vector) so the tracker can age out stale tracks.
       std::vector<byte_track::Object> empty_objs;
       auto & cls_objs = (it != class_objs.end()) ? it->second : empty_objs;
-      auto stracks = class_tracker->update(cls_objs);
+      auto stracks = class_tracker->update(cls_objs, dt);
       auto cls_dets = STracksToTracks(stracks, tf_msg.header);
       const int offset = class_tracker_id_offsets_[cls];
       for (auto & det : cls_dets.detections) {
@@ -409,7 +420,7 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       }
     }
 
-    auto default_stracks = tracker_->update(default_objs);
+    auto default_stracks = tracker_->update(default_objs, dt);
     auto default_dets = STracksToTracks(default_stracks, tf_msg.header);
     for (auto & det : default_dets.detections) {
       tracked_dets.detections.push_back(std::move(det));
@@ -444,9 +455,31 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
       }
     }
     // Gate: reject matches beyond 3m (squared) to avoid snapping to distant detections
-    if (best_det && best_dist < 9.0) {
-      trk.bbox.center.orientation = best_det->bbox.center.orientation;
+    const bool matched = best_det && best_dist < 9.0;
 
+    // Box yaw is ambiguous by pi (BEVFusion flips it between frames). Keep the hypothesis closest to the
+    // velocity direction when the velocity is significant (> 1 m/s and > its 1-sigma), else to the track's
+    // previous heading. Velocity is only ground motion in a world-fixed frame (REP 105 map/odom); in lidar_cc
+    // it is relative to the ego. ponytail: a reversing vehicle gets its heading flipped to face its motion.
+    double yaw = tf2::getYaw((matched ? best_det->bbox : trk.bbox).center.orientation);
+    const auto & vel = trk.results[1].pose;  // linear_velocity from STracksToTracks
+    const double speed = std::hypot(vel.pose.position.x, vel.pose.position.y);
+    const bool moving = (output_frame_ == "map" || output_frame_ == "odom") &&
+                        speed > std::max(1.0, std::sqrt(std::max(0.0, vel.covariance[0] + vel.covariance[7])));
+    const int trk_id = std::stoi(trk.id);
+    const auto prev = track_headings_.find(trk_id);
+    if (moving || prev != track_headings_.end()) {
+      const double ref = moving ? std::atan2(vel.pose.position.y, vel.pose.position.x) : prev->second.first;
+      if (std::abs(std::remainder(yaw - ref, 2.0 * M_PI)) > M_PI_2) {
+        yaw = std::remainder(yaw + M_PI, 2.0 * M_PI);
+      }
+    }
+    track_headings_[trk_id] = {yaw, stamp.seconds()};
+    tf2::Quaternion q;
+    q.setRPY(0, 0, yaw);
+    trk.bbox.center.orientation = tf2::toMsg(q);
+
+    if (matched) {
       // Append attribute hypotheses (class_id contains ':') from the matched input detection
       for (const auto & result : best_det->results) {
         if (result.hypothesis.class_id.find(':') != std::string::npos) {
@@ -454,6 +487,10 @@ void TrackingNode::detectionsCallback(vision_msgs::msg::Detection3DArray::Shared
         }
       }
     }
+  }
+  // ByteTrack drops lost tracks after track_buffer frames; forget their headings well after that.
+  for (auto it = track_headings_.begin(); it != track_headings_.end();) {
+    it = stamp.seconds() - it->second.second > 5.0 ? track_headings_.erase(it) : std::next(it);
   }
 
   RCLCPP_DEBUG(
