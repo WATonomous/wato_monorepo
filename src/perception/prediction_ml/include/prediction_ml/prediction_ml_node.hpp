@@ -35,6 +35,7 @@
 #include "tf2_ros/buffer.hpp"
 #include "tf2_ros/transform_listener.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 #include "world_model_msgs/msg/world_object.hpp"
 #include "world_model_msgs/msg/world_object_array.hpp"
 
@@ -115,6 +116,11 @@ std::optional<lanelet_msgs::msg::LaneletAhead> lanesForFrame(
   double max_age_s,
   const std::optional<geometry_msgs::msg::TransformStamped> & map_from_lanes);
 
+// Foxglove/RViz view of seeds: a DELETEALL, then one LINE_STRIP per predicted path (2+ poses) in the
+// seeds' frame. Each object's most likely path is thick green, the other modes thin yellow, fading
+// with confidence relative to that best path.
+visualization_msgs::msg::MarkerArray toPredictionMarkers(const world_model_msgs::msg::WorldObjectArray & seeds);
+
 // Ego odometry at stamp_s from a buffer sorted by stamp: interpolated between the samples around it,
 // or the nearest sample when stamp_s is outside the buffer. nullopt when the nearest sample is more
 // than max_gap_s away (odometry missing, stalled or lagging).
@@ -158,6 +164,9 @@ private:
   rclcpp::Subscription<lanelet_msgs::msg::LaneletAhead>::SharedPtr lanelet_ahead_sub_;
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr world_objects_pub_;
   rclcpp_lifecycle::LifecyclePublisher<world_model_msgs::msg::WorldObjectArray>::SharedPtr mtr_predictions_pub_;
+  // Foxglove/RViz view of the published seeds: one line per predicted path.
+  rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_pub_;
+  void publishSeeds(const world_model_msgs::msg::WorldObjectArray & output);
   rclcpp::TimerBase::SharedPtr diagnostic_timer_;
 
   std::unique_ptr<SceneBuilder> scene_builder_;

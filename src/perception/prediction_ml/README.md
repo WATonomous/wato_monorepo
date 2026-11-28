@@ -36,6 +36,7 @@ predictions.
 |-------|------|-------------|
 | `world_object_seeds` | `world_model_msgs/WorldObjectArray` | Predicted objects consumed by world model pre-enrichment |
 | `mtr_predictions` | `world_model_msgs/WorldObjectArray` | Evaluation-only pinned MTR batches, independent of fallback filtering |
+| `prediction_markers` | `visualization_msgs/MarkerArray` | One line per published path, in the seeds' frame (best path per object thick green, other modes thin yellow); built only while subscribed. Not remapped: `/perception/prediction_markers` |
 
 Each `WorldObject` carries the original `Detection3D` plus one or more `Prediction` entries. When
 MTR is disabled or not ready, each detection receives one straight-line prediction with

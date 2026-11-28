@@ -587,3 +587,51 @@ TEST(PredictionMlNode, OdometryMovesTracksIntoOdomAndSeedsBackOut)
   node.reset();
   rclcpp::shutdown();
 }
+
+TEST(PredictionMarkers, OneLinePerPathInSeedFrameBestPathHighlighted)
+{
+  using visualization_msgs::msg::Marker;
+  const auto prediction = [](const double conf, const int poses) {
+    world_model_msgs::msg::Prediction p;
+    p.conf = conf;
+    for (int i = 0; i < poses; ++i) {
+      geometry_msgs::msg::PoseStamped pose;
+      pose.pose.position.x = i;
+      p.poses.push_back(pose);
+    }
+    return p;
+  };
+  world_model_msgs::msg::WorldObjectArray seeds;
+  seeds.header.frame_id = "lidar_cc";
+  seeds.header.stamp.sec = 42;
+  world_model_msgs::msg::WorldObject object;
+  object.predictions = {prediction(0.2, 15), prediction(0.6, 15), prediction(0.9, 1)};  // last: too short to draw
+  seeds.objects = {object, object};
+
+  const auto markers = prediction_ml::toPredictionMarkers(seeds);
+
+  ASSERT_EQ(markers.markers.size(), 5U);  // DELETEALL + 2 drawable paths x 2 objects
+  EXPECT_EQ(markers.markers[0].action, Marker::DELETEALL);
+  for (std::size_t i = 1; i < markers.markers.size(); ++i) {
+    const auto & line = markers.markers[i];
+    EXPECT_EQ(line.type, Marker::LINE_STRIP);
+    EXPECT_EQ(line.header.frame_id, "lidar_cc");
+    EXPECT_EQ(line.header.stamp.sec, 42);
+    EXPECT_EQ(line.id, static_cast<int>(i - 1));  // unique within the namespace
+    EXPECT_EQ(line.points.size(), 15U);
+  }
+  // The 0.9 path is skipped (one pose), so 0.6 is the best drawn path of each object.
+  const auto & other = markers.markers[1];
+  const auto & best = markers.markers[2];
+  EXPECT_GT(best.scale.x, other.scale.x);
+  EXPECT_FLOAT_EQ(best.color.a, 1.0F);
+  EXPECT_LT(other.color.a, best.color.a);
+  EXPECT_LT(best.color.r, other.color.r);  // green vs yellow
+}
+
+TEST(PredictionMarkers, EmptySeedsOnlyClear)
+{
+  const auto markers = prediction_ml::toPredictionMarkers(world_model_msgs::msg::WorldObjectArray{});
+  ASSERT_EQ(markers.markers.size(), 1U);
+  EXPECT_EQ(markers.markers[0].action, visualization_msgs::msg::Marker::DELETEALL);
+}

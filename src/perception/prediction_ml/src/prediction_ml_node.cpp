@@ -79,6 +79,49 @@ vision_msgs::msg::Detection3DArray transformTracks(
   return out;
 }
 
+visualization_msgs::msg::MarkerArray toPredictionMarkers(const world_model_msgs::msg::WorldObjectArray & seeds)
+{
+  visualization_msgs::msg::MarkerArray out;
+  visualization_msgs::msg::Marker clear;
+  clear.header = seeds.header;
+  clear.action = visualization_msgs::msg::Marker::DELETEALL;
+  out.markers.push_back(clear);
+  int id = 0;
+  for (const auto & object : seeds.objects) {
+    double best = 0.0;
+    for (const auto & prediction : object.predictions) {
+      if (prediction.poses.size() >= 2) {
+        best = std::max(best, prediction.conf);
+      }
+    }
+    bool best_drawn = false;
+    for (const auto & prediction : object.predictions) {
+      if (prediction.poses.size() < 2) {
+        continue;
+      }
+      const bool is_best = !best_drawn && prediction.conf >= best;
+      best_drawn = best_drawn || is_best;
+      visualization_msgs::msg::Marker line;
+      line.header = seeds.header;
+      line.ns = "prediction_paths";
+      line.id = id++;
+      line.type = visualization_msgs::msg::Marker::LINE_STRIP;
+      line.action = visualization_msgs::msg::Marker::ADD;
+      line.pose.orientation.w = 1.0;
+      line.scale.x = is_best ? 0.2 : 0.1;
+      line.color.r = is_best ? 0.1F : 1.0F;
+      line.color.g = 1.0F;
+      line.color.b = 0.1F;
+      line.color.a = is_best ? 1.0F : static_cast<float>(0.2 + 0.6 * (best > 0.0 ? prediction.conf / best : 0.0));
+      for (const auto & pose : prediction.poses) {
+        line.points.push_back(pose.pose.position);
+      }
+      out.markers.push_back(std::move(line));
+    }
+  }
+  return out;
+}
+
 world_model_msgs::msg::WorldObjectArray transformSeeds(
   const world_model_msgs::msg::WorldObjectArray & seeds, const geometry_msgs::msg::TransformStamped & transform)
 {
@@ -356,6 +399,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_configure(const rclcpp_lif
 
   world_objects_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("world_object_seeds", 10);
   mtr_predictions_pub_ = this->create_publisher<world_model_msgs::msg::WorldObjectArray>("mtr_predictions", 10);
+  markers_pub_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("prediction_markers", 10);
   RCLCPP_INFO(this->get_logger(), "Configured (horizon=%.1fs, step=%.2fs)", prediction_horizon_, prediction_time_step_);
   if (!runtime_->ready() && cfg.mode == MtrMode::TensorRt) {
     // TensorRT was asked for (bad engine, or a build without the backend): that is an error, not a mode.
@@ -379,6 +423,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_activate(const rclcpp_life
     "lanelet_ahead", 10, std::bind(&PredictionMlNode::laneletAheadCallback, this, std::placeholders::_1));
   world_objects_pub_->on_activate();
   mtr_predictions_pub_->on_activate();
+  markers_pub_->on_activate();
   if (mtr_diagnostics_enabled_) {
     diagnostic_timer_ =
       this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&PredictionMlNode::publishMtrDiagnostics, this));
@@ -398,6 +443,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_deactivate(const rclcpp_li
   diagnostic_timer_.reset();
   world_objects_pub_->on_deactivate();
   mtr_predictions_pub_->on_deactivate();
+  markers_pub_->on_deactivate();
   return CallbackReturn::SUCCESS;
 }
 
@@ -410,6 +456,7 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_cleanup(const rclcpp_lifec
   runtime_.reset();
   world_objects_pub_.reset();
   mtr_predictions_pub_.reset();
+  markers_pub_.reset();
   scene_builder_.reset();
   exact_stamp_joiner_.clear();
   mtr_diagnostics_enabled_ = false;
@@ -434,6 +481,10 @@ PredictionMlNode::CallbackReturn PredictionMlNode::on_shutdown(const rclcpp_life
   if (mtr_predictions_pub_) {
     mtr_predictions_pub_->on_deactivate();
     mtr_predictions_pub_.reset();
+  }
+  if (markers_pub_) {
+    markers_pub_->on_deactivate();
+    markers_pub_.reset();
   }
   scene_builder_.reset();
   exact_stamp_joiner_.clear();
@@ -651,9 +702,7 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
       world_model_msgs::msg::WorldObjectArray output;
       output.header = raw_msg->header;
       output.objects = buildFallback(*raw_msg, source_time);
-      if (world_objects_pub_ && world_objects_pub_->is_activated()) {
-        world_objects_pub_->publish(output);
-      }
+      publishSeeds(output);
       return;
     }
     msg = std::make_shared<vision_msgs::msg::Detection3DArray>(transformTracks(*msg, *map_from_tracks));
@@ -665,9 +714,7 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
     tracks_from_map->transform = tf2::toMsg(map_from_tracks_tf.inverse());
   }
   const auto publish = [this, &tracks_from_map](const world_model_msgs::msg::WorldObjectArray & output) {
-    if (world_objects_pub_ && world_objects_pub_->is_activated()) {
-      world_objects_pub_->publish(tracks_from_map ? transformSeeds(output, *tracks_from_map) : output);
-    }
+    publishSeeds(tracks_from_map ? transformSeeds(output, *tracks_from_map) : output);
   };
 
   scene_builder_->addFrame(*msg);  // first, so the fallback sees this frame's measured velocity
@@ -731,6 +778,16 @@ void PredictionMlNode::trackedObjectsCallback(const vision_msgs::msg::Detection3
   output.header = msg->header;
   output.objects = runtime_->selectOutput(fallback, track_now_s);
   publish(output);
+}
+
+void PredictionMlNode::publishSeeds(const world_model_msgs::msg::WorldObjectArray & output)
+{
+  if (world_objects_pub_ && world_objects_pub_->is_activated()) {
+    world_objects_pub_->publish(output);
+  }
+  if (markers_pub_ && markers_pub_->is_activated() && markers_pub_->get_subscription_count() > 0) {
+    markers_pub_->publish(toPredictionMarkers(output));
+  }
 }
 
 }  // namespace prediction_ml

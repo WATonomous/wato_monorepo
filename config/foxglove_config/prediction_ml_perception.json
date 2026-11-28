@@ -1,0 +1,182 @@
+{
+  "configById": {
+    "3D!mtrdemo": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 62,
+        "phi": 42,
+        "thetaOffset": -90,
+        "targetOffset": [
+          8,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "base_footprint",
+      "scene": {
+        "enableStats": false,
+        "backgroundColor": "#0b0d12",
+        "transforms": {
+          "showLabel": false,
+          "axisScale": 0.6
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/perception/prediction_markers": {
+          "visible": true
+        },
+        "/perception/tracked_markers": {
+          "visible": true
+        },
+        "/perception/bev_detection_markers": {
+          "visible": false
+        },
+        "/lidar_cc/velodyne_points": {
+          "colorField": "z",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 1.5,
+          "minValue": -2,
+          "maxValue": 4,
+          "decayTime": 0,
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "layerId": "foxglove.Grid",
+          "instanceId": "grid",
+          "label": "Grid",
+          "visible": true,
+          "frameId": "base_footprint",
+          "size": 200,
+          "divisions": 40,
+          "lineWidth": 0.6,
+          "color": "#1d2430",
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    },
+    "Image!mtrcam": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": false,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/camera_pano_nn/image_rect_compressed",
+        "calibrationTopic": "/camera_pano_nn/camera_info",
+        "synchronize": false
+      }
+    },
+    "Plot!mtrlatency": {
+      "paths": [
+        {
+          "value": "/world_modeling/mtr_latency_ms.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "MTR engine latency (ms)",
+          "color": "#4ce0b3",
+          "lineSize": 1.5,
+          "showLine": true
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240,
+      "followingViewWidth": 30,
+      "minYValue": 0
+    },
+    "RawMessages!mtrseeds": {
+      "topicPath": "/world_modeling/world_object_seeds.objects[0].predictions",
+      "expansion": "none",
+      "fontSize": 14
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": "3D!mtrdemo",
+    "second": {
+      "first": "Image!mtrcam",
+      "second": {
+        "first": "Plot!mtrlatency",
+        "second": "RawMessages!mtrseeds",
+        "direction": "column",
+        "splitPercentage": 72
+      },
+      "direction": "column",
+      "splitPercentage": 46
+    },
+    "direction": "row",
+    "splitPercentage": 66
+  }
+}
