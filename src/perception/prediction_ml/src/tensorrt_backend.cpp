@@ -377,8 +377,8 @@ private:
     }
   }
 
-  // Builds engine_path from onnx_path with the config/engine_build.yaml settings (the offline
-  // eval/build_engine.py uses the same file): FP32 with TF32 off, 4096 MB workspace, optimization
+  // Builds engine_path from onnx_path with the sign-off settings: FP32 with TF32 off (TF32 and FP16
+  // failed checkpoint parity on the replay fixtures), 4096 MB workspace, optimization
   // level 3, edge-mask and JIT convolution tactics. Written atomically, so a crash never leaves a
   // partial plan behind for the next start to load.
   bool buildEngine()

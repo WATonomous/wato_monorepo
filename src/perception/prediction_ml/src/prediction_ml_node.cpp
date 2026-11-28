@@ -291,16 +291,17 @@ void ExactStampJoiner::clear()
 PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
 : LifecycleNode("prediction_ml_node", options)
 {
-  this->declare_parameter("map_frame", "map");
+  // Defaults match config/params.yaml; keep the two in sync.
+  this->declare_parameter("map_frame", "odom");
   this->declare_parameter("odometry_topic", "/interfacing/can_state_estimator/odom");
   this->declare_parameter("odometry_max_gap_s", 0.2);
   this->declare_parameter("prediction_horizon", 3.0);
   this->declare_parameter("prediction_time_step", 0.2);
   this->declare_parameter("mtr.mode", "disabled");
-  this->declare_parameter("mtr.onnx_path", "");
-  this->declare_parameter("mtr.engine_path", "");
-  this->declare_parameter("mtr.map_onnx_path", "");
-  this->declare_parameter("mtr.map_engine_path", "");
+  this->declare_parameter("mtr.onnx_path", "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx");
+  this->declare_parameter("mtr.engine_path", "/opt/watonomous/models/prediction/build/mtr_av2_nomap_r2.plan");
+  this->declare_parameter("mtr.map_onnx_path", "/opt/watonomous/models/prediction/mtr_av2_r2.onnx");
+  this->declare_parameter("mtr.map_engine_path", "/opt/watonomous/models/prediction/build/mtr_av2_r2.plan");
   this->declare_parameter("mtr.metadata_path", "");
   this->declare_parameter("mtr.cache_ttl_s", 0.5);
   this->declare_parameter("mtr.selected_target_agent_limit", 8);
@@ -313,8 +314,8 @@ PredictionMlNode::PredictionMlNode(const rclcpp::NodeOptions & options)
   this->declare_parameter("mtr.ego_velocity_child_frame", "base_footprint");
   this->declare_parameter("mtr.history_steps", 11);
   this->declare_parameter("mtr.history_rate_hz", 10.0);
-  this->declare_parameter("mtr.velocity_from_history", false);
-  this->declare_parameter("mtr.planar_inputs", false);
+  this->declare_parameter("mtr.velocity_from_history", true);
+  this->declare_parameter("mtr.planar_inputs", true);
   this->declare_parameter("mtr.moving_targets_only", false);
   RCLCPP_INFO(this->get_logger(), "PredictionMlNode created (unconfigured)");
 }

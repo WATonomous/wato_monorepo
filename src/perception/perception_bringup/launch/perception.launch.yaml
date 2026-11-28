@@ -178,8 +178,10 @@ launch:
       namespace: "perception"
       output: screen
       param:
-        - from: $(var config_file)
+        # Package defaults first; the /**/prediction_ml_node block in config_file overrides them for the car.
+        - from: $(find-pkg-share prediction_ml)/config/params.yaml
           allow_substs: true  # mtr.metadata_path uses $(find-pkg-share prediction_ml)
+        - from: $(var config_file)
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked

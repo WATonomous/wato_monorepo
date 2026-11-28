@@ -18,7 +18,7 @@
     # (no odometry or mount TF) use the tracker's linear_velocity, or a zero-length path without one.
 
     # --- MTR group ---
-    mtr.mode: "disabled"         # disabled | null | tensorrt
+    mtr.mode: "disabled"         # disabled | tensorrt
     # tensorrt only: a missing engine is built from the ONNX at configure (minutes, first run only)
     # and reused after. Delete build/ after a TensorRT or GPU change.
     mtr.onnx_path: "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx"

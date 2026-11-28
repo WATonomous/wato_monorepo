@@ -165,7 +165,7 @@ std::unique_ptr<IMtrInferenceEngine> createMtrInferenceEngine(const MtrConfig & 
   }
 #endif
 
-  // Disabled, null, and unavailable TensorRT modes all use fallback-only output.
+  // Disabled and unavailable TensorRT modes use fallback-only output.
   return std::make_unique<NullMtrInferenceEngine>(config);
 }
 
@@ -173,9 +173,6 @@ MtrMode parseMtrMode(const std::string & mode_str)
 {
   std::string s = mode_str;
   std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::tolower(c); });
-  if (s == "null") {
-    return MtrMode::Null;
-  }
   if (s == "tensorrt" || s == "trt") {
     return MtrMode::TensorRt;
   }
@@ -183,7 +180,7 @@ MtrMode parseMtrMode(const std::string & mode_str)
     return MtrMode::Disabled;
   }
   // A typo must not silently turn MTR off.
-  throw std::invalid_argument("unknown mtr.mode '" + mode_str + "' (expected disabled, null or tensorrt)");
+  throw std::invalid_argument("unknown mtr.mode '" + mode_str + "' (expected disabled or tensorrt)");
 }
 
 MtrModelContract loadMtrModelContract(const std::string & metadata_path)

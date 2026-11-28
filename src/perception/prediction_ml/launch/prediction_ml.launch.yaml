@@ -9,7 +9,7 @@ launch:
   - arg:
       name: mtr_mode
       default: "tensorrt"
-      description: "tensorrt (MTR, builds engines from models/prediction/*.onnx on first run), null, or disabled (fallback only)"
+      description: "tensorrt (MTR, builds engines from models/prediction/*.onnx on first run) or disabled (fallback only)"
   - arg:
       name: odometry_topic
       default: "/novatel/oem7/odom"

@@ -14,10 +14,9 @@ into the map frame by the scene builder before target-relative packing.
 ### TensorRT sign-off
 
 The static ONNX graph and a TensorRT 10.13.2.6 engine were built on a development RTX 3060 Ti.
-`engine_build.yaml` is strict FP32 with TensorFloat-32 disabled: it matched PyTorch on all 9 fixture
+The engine is strict FP32 with TensorFloat-32 disabled: it matched PyTorch on all 9 fixture
 targets (below 1e-3 m minFDE delta), while TF32 and FP16 builds did not.
-Engines are machine-local: copy `mtr.onnx` and `engine_build.yaml` to the vehicle and rebuild natively, then
-measure latency and memory there.
+Engines are machine-local: the node builds one natively from the ONNX on first start (below).
 
 ## Runtime Smoke Check
 
@@ -87,7 +86,7 @@ the node publishes CV fallback output.
 
 With `mtr.mode: "tensorrt"`, configure loads `mtr.engine_path`. When that file is missing and
 `mtr.onnx_path` exists, it first builds the engine with the TensorRT C++ API and ONNX parser using
-the `config/engine_build.yaml` settings (FP32, TF32 off, 4096 MB workspace, optimization level 3,
+the sign-off settings in `tensorrt_backend.cpp` (FP32, TF32 off, 4096 MB workspace, optimization level 3,
 edge-mask and JIT convolution tactics), writes it atomically, then loads it. That takes minutes, so
 `perception_lifecycle_manager` allows 600 s per transition. An existing engine is reused, like
 BEVFusion's plans: delete `models/prediction/build/` after a TensorRT, driver or GPU change. The optional map
@@ -95,15 +94,12 @@ engine (`mtr.map_onnx_path` -> `mtr.map_engine_path`) is built the same way, so 
 two engines.
 
 Put the ONNX in the repository's `models/prediction/` (gitignored); the perception service mounts
-`models/` at `/opt/watonomous/models`. To run MTR, set `mtr.mode: "tensorrt"` in the
-`/**/prediction_ml_node` block of `perception_bringup/config/perception_bringup.yaml`, then:
+`models/` at `/opt/watonomous/models`. The `/**/prediction_ml_node` block of
+`perception_bringup/config/perception_bringup.yaml` sets `mtr.mode: "tensorrt"`, so:
 
 ```bash
 ./watod -m perception up
 ```
-
-The offline `eval/wato_mtr_eval/build_engine.py` uses the same `engine_build.yaml` and stays for
-evaluation and benchmarks.
 
 ## Testing
 

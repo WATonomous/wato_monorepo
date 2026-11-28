@@ -88,20 +88,6 @@ TEST(MtrInferenceEngineFactory, DisabledModeReturnsNullEngine)
   EXPECT_FALSE(engine->lastError().empty());
 }
 
-TEST(MtrInferenceEngineFactory, NullModeReturnsNullEngine)
-{
-  prediction_ml::MtrConfig cfg;
-  cfg.mode = prediction_ml::MtrMode::Null;
-
-  auto engine = prediction_ml::createMtrInferenceEngine(cfg);
-
-  ASSERT_NE(engine, nullptr);
-  EXPECT_FALSE(engine->ready());
-  prediction_ml::MtrInputTensors in;
-  auto out = engine->infer(in);
-  EXPECT_FALSE(out.valid);
-}
-
 TEST(MtrInferenceEngineFactory, TensorRtModeReturnsEngine)
 {
   prediction_ml::MtrConfig cfg;

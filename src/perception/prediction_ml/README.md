@@ -53,9 +53,9 @@ callback order.
 ## Launch
 
 On the car it runs in the perception module (`./watod -m perception up`), managed by
-`perception_lifecycle_manager` after tracking. All its parameters are in the
-`/**/prediction_ml_node` block of `perception_bringup/config/perception_bringup.yaml`; set
-`mtr.mode: "tensorrt"` there to run MTR.
+`perception_lifecycle_manager` after tracking. It loads `config/params.yaml`, then the
+`/**/prediction_ml_node` block of `perception_bringup/config/perception_bringup.yaml`, which only
+sets the car-specific keys (`mtr.mode: "tensorrt"`, Novatel odometry).
 
 Standalone (tracking or a bag supplies `/perception/detections_3D_tracked`), configured like the car
 and brought up by its own `prediction_lifecycle_manager`:
@@ -85,7 +85,7 @@ Without the ONNX files in `models/prediction/` the node logs an ERROR and publis
 | `odometry_max_gap_s` | `0.2` | Tracks further than this from every odometry sample get fallback only |
 | `prediction_horizon` | `3.0` | Prediction window in seconds |
 | `prediction_time_step` | `0.2` | Waypoint spacing in seconds |
-| `mtr.mode` | `"disabled"` | `disabled`, `null`, or `tensorrt`; anything else logs an ERROR and runs fallback-only |
+| `mtr.mode` | `"disabled"` | `disabled` or `tensorrt`; anything else logs an ERROR and runs fallback-only |
 | `mtr.onnx_path` | `.../prediction/mtr_av2_nomap_r2.onnx` | Built into `mtr.engine_path` at configure when that is missing (tensorrt only) |
 | `mtr.engine_path` | `.../prediction/build/mtr_av2_nomap_r2.plan` | TensorRT engine path; reused when it exists |
 | `mtr.map_onnx_path` | `.../prediction/mtr_av2_r2.onnx` | Map-capable model, built like `mtr.onnx_path` |

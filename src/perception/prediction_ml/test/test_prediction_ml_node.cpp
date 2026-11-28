@@ -404,7 +404,7 @@ TEST(PredictionMlNode, DefaultFallbackUsesMeasuredVelocityParkedStaysPut)
     rclcpp::init(argc, nullptr);
   }
 
-  // Defaults: MTR disabled, mtr.velocity_from_history off.
+  // Defaults: MTR disabled.
   rclcpp::NodeOptions options;
   options.arguments({"--ros-args", "-r", "__ns:=/world_modeling"});
   auto node = std::make_shared<prediction_ml::PredictionMlNode>(options);
@@ -453,7 +453,7 @@ TEST(PredictionMlNode, DefaultFallbackUsesMeasuredVelocityParkedStaysPut)
   };
   for (int k = 0; k <= 5; ++k) {  // 0.5 s of history: parked at (20, 5), mover at 10 m/s along x
     vision_msgs::msg::Detection3DArray tracks;
-    tracks.header.frame_id = "map";
+    tracks.header.frame_id = "odom";  // already in the default map_frame: no odometry needed
     tracks.header.stamp.sec = 100;
     tracks.header.stamp.nanosec = static_cast<uint32_t>(k) * 100000000U;
     tracks.detections = {car("parked", 20.0, 5.0), car("mover", 10.0 + k, 0.0)};

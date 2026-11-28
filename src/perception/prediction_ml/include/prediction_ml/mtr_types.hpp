@@ -28,11 +28,10 @@
 namespace prediction_ml
 {
 
-// MTR execution mode. Disabled and Null both yield fallback-only output.
+// MTR execution mode. Disabled yields fallback-only output.
 enum class MtrMode
 {
   Disabled,
-  Null,
   TensorRt
 };
 
@@ -165,7 +164,7 @@ struct MtrInferenceResult
   std::string error;
 };
 
-// Parse "disabled" | "null" | "tensorrt" (case-insensitive) into MtrMode; throws
+// Parse "disabled" | "tensorrt" (case-insensitive) into MtrMode; throws
 // std::invalid_argument for anything else.
 MtrMode parseMtrMode(const std::string & mode_str);
 

@@ -22,7 +22,7 @@
 TEST(MtrContract, ParseMode)
 {
   EXPECT_EQ(prediction_ml::parseMtrMode("disabled"), prediction_ml::MtrMode::Disabled);
-  EXPECT_EQ(prediction_ml::parseMtrMode("null"), prediction_ml::MtrMode::Null);
+  EXPECT_THROW(prediction_ml::parseMtrMode("null"), std::invalid_argument);  // removed mode
   EXPECT_EQ(prediction_ml::parseMtrMode("tensorrt"), prediction_ml::MtrMode::TensorRt);
   EXPECT_EQ(prediction_ml::parseMtrMode("TensorRT"), prediction_ml::MtrMode::TensorRt);
   EXPECT_THROW(prediction_ml::parseMtrMode("tensortr"), std::invalid_argument);

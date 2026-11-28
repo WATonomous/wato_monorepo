@@ -71,8 +71,7 @@ covered. The real epoch-30 checkpoint matched end to end after patching.
 ## Static ONNX export
 
 `export_onnx` exports the epoch-30 checkpoint through a tensor-only, static-shape
-wrapper. The checked-in portable artifacts are the exporter and
-`config/engine_build.yaml`; `build/mtr.onnx` is a 244 MB ignored build artifact.
+wrapper. The exporter is checked in; `build/mtr.onnx` is a 244 MB ignored build artifact.
 The export tests check that:
 
 - all eight inputs and both outputs match `contract_8_target.yaml`;
@@ -96,21 +95,15 @@ python -m wato_mtr_eval.export_onnx \
 
 ## TensorRT engine
 
-The development engine was built natively on the RTX 3060 Ti with TensorRT
-10.13.2.6 and CUDA 12.8:
-
-```bash
-python -m wato_mtr_eval.build_engine \
-  --onnx build/mtr.onnx \
-  --config ../config/engine_build.yaml \
-  --out build/mtr.engine
-```
+The node builds the engine from the ONNX on first start (see `DEVELOPING.md`).
+For an ad-hoc build, `trtexec --onnx=build/mtr.onnx --saveEngine=build/mtr.engine --noTF32`.
+The development engine was built on the RTX 3060 Ti with TensorRT 10.13.2.6 and CUDA 12.8.
 
 TensorRT parsed the entire graph without unsupported layers. The
 TensorRT-enabled C++ backend then deserialized the real engine and validated
 all ten bindings against `contract_8_target.yaml`.
 
-`engine_build.yaml` builds FP32 with TF32 disabled: on the 3 replay fixtures it
+Engines build FP32 with TF32 disabled: on the 3 replay fixtures it
 matched PyTorch for 9/9 targets (below 1e-3 m minFDE delta), where TF32 (7/9)
 and FP16 (1/9) did not. Engines are architecture-specific: rebuild natively on
 the vehicle's `sm_89` GPU and measure latency and memory there.
