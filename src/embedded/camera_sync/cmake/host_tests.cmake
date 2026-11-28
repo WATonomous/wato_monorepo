@@ -22,7 +22,7 @@ add_library(cs_app STATIC ${CS_APP_SOURCES})
 target_include_directories(cs_app PUBLIC ${CS_APP_INCLUDES})
 target_compile_options(cs_app PRIVATE ${CS_WARNINGS})
 
-foreach(name report sched net)
+foreach(name report sched net ptp)
   add_executable(test_${name} tests/test_${name}.c)
   target_link_libraries(test_${name} PRIVATE cs_app m)
   target_compile_options(test_${name} PRIVATE ${CS_WARNINGS} -Wno-double-promotion)

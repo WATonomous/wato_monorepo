@@ -27,6 +27,7 @@ set(CS_APP_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cs_sched.c
   ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cs_report.c
   ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cs_net.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/app/src/cs_ptp.c
 )
 set(CS_APP_INCLUDES
   ${CMAKE_CURRENT_SOURCE_DIR}/app/include

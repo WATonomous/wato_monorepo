@@ -83,6 +83,16 @@ extern "C"
   // reply, written to `out`), or 0 if nothing has to be sent.
   size_t cs_net_handle_frame(cs_net_t * net, const uint8_t * in, size_t len, uint8_t * out, size_t cap);
 
+  // View into a validated PTPv2 UDP/IPv4 datagram; valid only while the input frame is alive.
+  typedef struct
+  {
+    const uint8_t * data;
+    size_t length;
+    uint16_t port;
+  } cs_net_ptp_datagram_t;
+
+  bool cs_net_ptp_datagram(const cs_net_t * net, const uint8_t * frame, size_t len, cs_net_ptp_datagram_t * packet);
+
   // Internet checksum (RFC 1071) over `len` bytes, starting from a partial sum.
   uint16_t cs_net_checksum(const uint8_t * data, size_t len, uint32_t sum);
 

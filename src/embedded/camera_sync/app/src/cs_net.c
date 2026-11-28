@@ -105,6 +105,52 @@ uint16_t cs_net_checksum(const uint8_t * data, size_t len, uint32_t sum)
   return (uint16_t)~sum;
 }
 
+bool cs_net_ptp_datagram(const cs_net_t * net, const uint8_t * frame, size_t len, cs_net_ptp_datagram_t * packet)
+{
+  static const uint8_t ptp_mac[6] = {0x01, 0x00, 0x5e, 0x00, 0x01, 0x81};
+  if (net == NULL || frame == NULL || packet == NULL || len < ETH_HDR + IP_HDR + UDP_HDR + 34u ||
+      rd16(frame + 12) != ETHERTYPE_IPV4) {
+    return false;
+  }
+  const uint8_t * ip = frame + ETH_HDR;
+  const size_t ihl = (size_t)(ip[0] & 0x0fu) * 4u;
+  const size_t total = rd16(ip + 2);
+  if ((ip[0] >> 4) != 4u || ihl < IP_HDR || total < ihl + UDP_HDR + 34u ||
+      total > len - ETH_HDR || (rd16(ip + 6) & 0x3fffu) != 0u || ip[9] != IP_PROTO_UDP ||
+      cs_net_checksum(ip, ihl, 0) != 0u) {
+    return false;
+  }
+  const uint32_t dest = rd32(ip + 16);
+  if (!((dest == CS_IP4(224, 0, 1, 129) && memcmp(frame, ptp_mac, sizeof(ptp_mac)) == 0) ||
+        (dest == net->cfg.ip && memcmp(frame, net->cfg.mac, sizeof(net->cfg.mac)) == 0))) {
+    return false;
+  }
+  const uint8_t * udp = ip + ihl;
+  const uint16_t port = rd16(udp + 2);
+  const size_t udp_len = rd16(udp + 4);
+  if ((port != 319u && port != 320u) || udp_len != total - ihl || udp_len < UDP_HDR + 34u) {
+    return false;
+  }
+  if (rd16(udp + 6) != 0u) {
+    const uint32_t src = rd32(ip + 12);
+    const uint32_t dst = rd32(ip + 16);
+    const uint32_t sum = (src >> 16) + (src & 0xffffu) + (dst >> 16) + (dst & 0xffffu) + IP_PROTO_UDP + udp_len;
+    if (cs_net_checksum(udp, udp_len, sum) != 0u) {
+      return false;
+    }
+  }
+  const uint8_t * ptp = udp + UDP_HDR;
+  const uint8_t type = ptp[0] & 0x0fu;
+  if ((ptp[1] & 0x0fu) != 2u || rd16(ptp + 2) != udp_len - UDP_HDR ||
+      (port == 319u ? type > 3u : type < 8u || type > 13u)) {
+    return false;
+  }
+  packet->data = ptp;
+  packet->length = udp_len - UDP_HDR;
+  packet->port = port;
+  return true;
+}
+
 void cs_net_init(cs_net_t * net, const cs_net_cfg_t * cfg)
 {
   memset(net, 0, sizeof(*net));

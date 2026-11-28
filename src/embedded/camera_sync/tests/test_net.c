@@ -214,6 +214,96 @@ static void test_mac_from_uid(void)
   CHECK(memcmp(ma, again, 6) == 0);
 }
 
+static void test_ptp_udp_datagram(void)
+{
+  uint8_t frame[96] = {0};
+  const uint8_t multicast[6] = {0x01, 0x00, 0x5e, 0x00, 0x01, 0x81};
+  memcpy(frame, multicast, 6);
+  frame[12] = 0x08;
+  uint8_t * ip = frame + 14;
+  ip[0] = 0x45;
+  ip[3] = 72;
+  ip[8] = 1;
+  ip[9] = 17;
+  ip[12] = 10;
+  ip[13] = 8;
+  ip[15] = 8;
+  ip[16] = 224;
+  ip[18] = 1;
+  ip[19] = 129;
+  uint16_t c = cs_net_checksum(ip, 20, 0);
+  ip[10] = (uint8_t)(c >> 8);
+  ip[11] = (uint8_t)c;
+  uint8_t * udp = ip + 20;
+  udp[0] = 1;
+  udp[1] = 63;
+  udp[2] = 1;
+  udp[3] = 63;
+  udp[5] = 52;
+  udp[8] = 0;  // Sync
+  udp[9] = 2;  // PTPv2
+  udp[11] = 44;
+
+  cs_net_t net = make_net();
+  cs_net_ptp_datagram_t packet;
+  CHECK(cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  CHECK(packet.data == udp + 8);
+  CHECK_EQ_INT(packet.length, 44);
+  CHECK_EQ_INT(packet.port, 319);
+
+  CHECK(!cs_net_ptp_datagram(&net, frame, 85, &packet));
+  const uint32_t pseudo = 0x0a08u + 0x0008u + 0xe000u + 0x0181u + 17u + 52u;
+  c = cs_net_checksum(udp, 52, pseudo);
+  udp[6] = (uint8_t)(c >> 8);
+  udp[7] = (uint8_t)c;
+  CHECK(cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  udp[6] = udp[7] = 0;
+  udp[9] = 1;  // PTPv1 is not the selected profile.
+  CHECK(!cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  udp[9] = 2;
+  udp[11] = 43;  // PTP length does not match UDP payload.
+  CHECK(!cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  udp[11] = 44;
+  udp[7] = 1;  // Invalid nonzero UDP checksum.
+  CHECK(!cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  udp[7] = 0;
+  udp[3] = 64;  // Event messages must arrive on event port.
+  CHECK(!cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  udp[8] = 8;  // Follow_Up on general port.
+  CHECK(cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  CHECK_EQ_INT(packet.port, 320);
+  // A master may send general messages, including Delay_Resp, directly to the client.
+  memcpy(frame, kBoardMac, 6);
+  ip[16] = 10;
+  ip[17] = 8;
+  ip[18] = 0;
+  ip[19] = 60;
+  ip[3] = 82;
+  udp[5] = 62;
+  udp[11] = 54;
+  ip[10] = ip[11] = 0;
+  c = cs_net_checksum(ip, 20, 0);
+  ip[10] = (uint8_t)(c >> 8);
+  ip[11] = (uint8_t)c;
+  udp[8] = 9;
+  CHECK(cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  ip[19] = 61;
+  ip[10] = ip[11] = 0;
+  c = cs_net_checksum(ip, 20, 0);
+  ip[10] = (uint8_t)(c >> 8);
+  ip[11] = (uint8_t)c;
+  CHECK(!cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+  ip[19] = 60;
+  udp[8] = 0;
+  udp[3] = 63;
+  ip[6] = 0x20;  // Reject fragments even if the header checksum is otherwise valid.
+  ip[10] = ip[11] = 0;
+  c = cs_net_checksum(ip, 20, 0);
+  ip[10] = (uint8_t)(c >> 8);
+  ip[11] = (uint8_t)c;
+  CHECK(!cs_net_ptp_datagram(&net, frame, sizeof(frame), &packet));
+}
+
 int main(void)
 {
   RUN(test_no_udp_before_arp);
@@ -223,5 +313,6 @@ int main(void)
   RUN(test_answers_ping);
   RUN(test_ignores_other_traffic);
   RUN(test_mac_from_uid);
+  RUN(test_ptp_udp_datagram);
   TEST_MAIN_END();
 }
