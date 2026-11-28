@@ -7,6 +7,10 @@ The first PR delivers the computer-side trigger node: UDP only, core logic only,
 the fake board (`tools/fake_stm32.py`). Frame stamping in the camera driver (section C) and the car
 wiring (section D) come later.
 
+The intended replacement of PPS with GPS-referenced PTP on the STM32, including the required
+report and host changes, is documented in [the PTP target](../../../embedded/camera_sync/docs/ptp_time_sync.md).
+PPS-specific items below describe the current implementation until that migration is complete.
+
 ## A. Information to collect
 
 | # | Item | Why it's needed | How to get it | Where it goes |

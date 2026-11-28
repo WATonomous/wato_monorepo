@@ -145,6 +145,8 @@ sudo nmcli connection up "Wired connection 1"
 ### IEEE 1588 Precision Time Protocol (PTP)
 
 Not all sensors support PTP. For example, our main Hikrobot cameras are not supported.
+The planned GPS-referenced PTP synchronization of the camera trigger board is described in
+[camera synchronization PTP](../embedded/camera_sync/docs/ptp_time_sync.md).
 
 ## Custom messages
 

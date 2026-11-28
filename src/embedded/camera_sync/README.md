@@ -4,6 +4,10 @@ Fires a PPS-locked 20 Hz trigger pulse into all cameras at the same instant, and
 pulse to the computer (issues #561, #564). One source tree builds for both the **NUCLEO-F767ZI**
 and the **NUCLEO-H753ZI**.
 
+The target is to replace PPS synchronization of the STM32 with GPS-referenced PTP; that change is
+not implemented yet. See [GPS-referenced PTP for camera synchronization](docs/ptp_time_sync.md).
+The rest of this README describes the current PPS-based firmware.
+
 ```text
 PwrPak7 PPS --> TIM2 capture --+                       +--> CAM_TRIG_1..12 (one BSRR write)
                                |  STM32: pulse grid    |
