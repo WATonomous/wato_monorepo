@@ -154,6 +154,23 @@ std::string cudaErrorMessage(const std::string & operation, const cudaError_t st
   return operation + " failed: " + cudaGetErrorString(status);
 }
 
+// TensorRT crashes, rather than failing, when it builds or loads an engine without a usable CUDA
+// device (e.g. a GPU-less CI runner), so check first and report it like any other load error.
+bool cudaDeviceAvailable(std::string & error)
+{
+  int count = 0;
+  const cudaError_t status = cudaGetDeviceCount(&count);
+  if (status != cudaSuccess) {
+    error = cudaErrorMessage("cudaGetDeviceCount", status);
+    return false;
+  }
+  if (count == 0) {
+    error = "no CUDA device";
+    return false;
+  }
+  return true;
+}
+
 std::string tensorRtDtypeToString(const nvinfer1::DataType dtype)
 {
   if (dtype == nvinfer1::DataType::kFLOAT) {
@@ -389,6 +406,11 @@ private:
         " does not exist");
       return false;
     }
+    std::string device_error;
+    if (!cudaDeviceAvailable(device_error)) {
+      setError("cannot build TensorRT engine " + config_.engine_path + ": " + device_error);
+      return false;
+    }
     std::unique_ptr<nvinfer1::IBuilder> builder(nvinfer1::createInferBuilder(logger_));
     std::unique_ptr<nvinfer1::INetworkDefinition> network(builder ? builder->createNetworkV2(0U) : nullptr);
     if (network == nullptr) {
@@ -456,6 +478,11 @@ private:
     std::vector<char> engine_bytes(static_cast<std::size_t>(file_size));
     if (!file.read(engine_bytes.data(), file_size)) {
       setError("failed to read TensorRT engine: " + config_.engine_path);
+      return false;
+    }
+    std::string device_error;
+    if (!cudaDeviceAvailable(device_error)) {
+      setError("cannot load TensorRT engine " + config_.engine_path + ": " + device_error);
       return false;
     }
 
