@@ -1,0 +1,64 @@
+---
+# prediction_ml node parameters.
+/**/prediction_ml_node:  # any namespace; perception_bringup runs it under /perception
+  ros__parameters:
+    # Frame of the ego pose, lanelets and MTR inputs. Tracks in another frame (e.g. lidar_cc) are moved
+    # here with the ego odometry at their stamp and the static TF (odometry child frame <- tracks
+    # frame); seeds are published back in the tracks' frame. odom needs no map: drive anywhere.
+    map_frame: "odom"
+    # nav_msgs/Odometry for the ego pose and velocity, frame_id map_frame and child_frame_id
+    # mtr.ego_velocity_child_frame: CAN wheel odometry (topic only, no TF), or /novatel/oem7/odom.
+    odometry_topic: "/interfacing/can_state_estimator/odom"
+    # Tracks further than this from every odometry sample are not transformed: fallback only.
+    odometry_max_gap_s: 0.2
+    prediction_horizon: 3.0      # seconds — fallback + MTR horizon
+    prediction_time_step: 0.2    # seconds — waypoint spacing
+    # Fallback = constant velocity measured from each track's own history (parked cars, barriers and
+    # tracks younger than 0.3 s get a zero-length path). Tracks that cannot be moved into map_frame
+    # (no odometry or mount TF) use the tracker's linear_velocity, or a zero-length path without one.
+
+    # --- MTR group ---
+    mtr.mode: "disabled"         # disabled | tensorrt
+    # tensorrt only: a missing engine is built from the ONNX at configure (minutes, first run only)
+    # and reused after. Delete build/ after a TensorRT or GPU change.
+    mtr.onnx_path: "/opt/watonomous/models/prediction/mtr_av2_nomap_r2.onnx"
+    mtr.engine_path: "/opt/watonomous/models/prediction/build/mtr_av2_nomap_r2.plan"
+    # Optional map-capable model, built and loaded the same way: frames with fresh lanes
+    # (lanelet_ahead within mtr.cache_ttl_s of the tracks) run on it, all others on the no-map one.
+    # Empty map_engine_path disables it; a missing or broken one leaves the no-map path running.
+    mtr.map_onnx_path: "/opt/watonomous/models/prediction/mtr_av2_r2.onnx"
+    mtr.map_engine_path: "/opt/watonomous/models/prediction/build/mtr_av2_r2.plan"
+    # Both models share this binding contract.
+    # Needs the launch file's allow_substs.
+    mtr.metadata_path: "$(find-pkg-share prediction_ml)/config/contract_8_target_av2.yaml"
+    mtr.cache_ttl_s: 0.5
+    mtr.selected_target_agent_limit: 8
+    # true: only agents whose history shows motion become MTR targets; parked cars keep the fallback's
+    # zero-length path (the model otherwise gives them an occasional 5-10 m path).
+    mtr.moving_targets_only: false
+    # Half-angle from ego heading for "forward" target priority (90 = front hemisphere).
+    mtr.target_forward_half_angle_deg: 90.0
+    # Evaluation only: mtr.pinned_target_ids (string list) pins targets in order and bypasses the
+    # selection heuristic. Leave it unset in deployment; an empty YAML list has no type and makes
+    # the node throw at startup.
+    # Native MTR future-trajectory cadence. Published predictions are downsampled to prediction_time_step.
+    mtr.model_time_step_s: 0.1
+    # EVE dimensions from eve_description/urdf/eve_chassis.xacro.
+    mtr.ego_length: 4.0936
+    mtr.ego_width: 1.3579
+    mtr.ego_height: 1.4090
+    # nav_msgs/Odometry expresses twist in child_frame_id; can_state_estimator uses base_footprint.
+    mtr.ego_velocity_child_frame: "base_footprint"
+
+    # --- Scene builder ---
+    mtr.history_steps: 11
+    mtr.history_rate_hz: 10.0
+    # true: MTR inputs use velocity from each track's own positions over the history window, not the
+    # tracker's linear_velocity. Keep true on the car: tracking runs in lidar_cc without ego-motion
+    # compensation, so its velocity is relative to the moving ego.
+    # Set false only for inputs with true map-frame velocities (e.g. Waymo ground-truth replays).
+    mtr.velocity_from_history: true
+    # true: zero agent z / box size and map z before inference. Required for a model trained on
+    # Argoverse 2 (no heights or box sizes there; pair it with contract_8_target_av2.yaml, 6 s output).
+    # false for the Waymo-trained model.
+    mtr.planar_inputs: true

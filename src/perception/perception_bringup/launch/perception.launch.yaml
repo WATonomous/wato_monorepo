@@ -164,8 +164,33 @@ launch:
               to: /perception/detections_3D_tracked
             - from: output_markers
               to: /perception/tracked_markers
+            # Kalman predictions stay on a perception topic: prediction_ml is the only publisher of
+            # /world_modeling/world_object_seeds, which world_model consumes.
             - from: output_predictions
-              to: /world_modeling/world_object_seeds
+              to: /perception/tracked_predictions
+
+  # Trajectory prediction (MTR, constant-velocity fallback) for world_model. A plain process, not a
+  # component: a first-run TensorRT engine build blocks its configure for minutes.
+  - node:
+      pkg: prediction_ml
+      exec: prediction_ml_node
+      name: prediction_ml_node
+      namespace: "perception"
+      output: screen
+      param:
+        # Package defaults first; the /**/prediction_ml_node block in config_file overrides them for the car.
+        - from: $(find-pkg-share prediction_ml)/config/params.yaml
+          allow_substs: true  # mtr.metadata_path uses $(find-pkg-share prediction_ml)
+        - from: $(var config_file)
+      remap:
+        - from: tracks_3d
+          to: /perception/detections_3D_tracked
+        - from: lanelet_ahead  # optional: absent without world_modeling, then no-map only
+          to: /world_modeling/lanelet/lanelet_ahead
+        - from: world_object_seeds
+          to: /world_modeling/world_object_seeds
+        - from: mtr_predictions
+          to: /world_modeling/mtr_predictions
 
 
   # Spatial association: 2D detections + LiDAR clusters -> 3D detections (TF from sensor_interfacing)

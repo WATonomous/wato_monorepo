@@ -556,6 +556,22 @@ multi_camera_sync:
     # -------------------------------------------------------------------------
 
 # =============================================================================
+# Prediction ML Node (MTR trajectory prediction, constant-velocity fallback)
+# =============================================================================
+/**/prediction_ml_node:
+  ros__parameters:
+    # Defaults (frames, model paths, horizon, ...) come from prediction_ml/config/params.yaml, loaded first
+    # by perception.launch.yaml; only the car-specific keys are set here.
+    # Novatel GNSS/INS odometry (frame odom, child base_link): on the may_30 replay it matched the map-frame
+    # setup, while lidar-odometry heading drift made parked cars move. CAN wheel odometry
+    # (/interfacing/can_state_estimator/odom, child base_footprint) is the untested alternative.
+    odometry_topic: "/novatel/oem7/odom"
+    mtr.ego_velocity_child_frame: "base_link"  # must match the odometry's child_frame_id
+    # disabled = constant-velocity fallback only. tensorrt builds missing engines from the ONNX at
+    # configure (minutes, first run only) and reuses them; delete build/ after a TensorRT or GPU change.
+    mtr.mode: "tensorrt"
+
+# =============================================================================
 # Lifecycle Managers
 # =============================================================================
 detection_lifecycle_manager:
@@ -570,10 +586,12 @@ detection_lifecycle_manager:
 
 perception_lifecycle_manager:
   ros__parameters:
-    # Manages segmentation, association, and tracking pipeline nodes.
-    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node"]
+    # Manages segmentation, tracking and prediction pipeline nodes.
+    node_names: ["/perception/patchworkpp_node", "/perception/tracking_node", "/perception/prediction_ml_node"]
     autostart: true
     autostart_delay_s: 3.0
-    transition_timeout_s: 3.0
+    # An upper bound per transition: prediction_ml's first configure with mtr.mode tensorrt builds
+    # its TensorRT engine, which takes minutes.
+    transition_timeout_s: 600.0
     bond_timeout_s: 4.0
     bond_enabled: false
