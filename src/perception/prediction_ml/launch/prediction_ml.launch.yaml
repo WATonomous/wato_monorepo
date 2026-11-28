@@ -1,8 +1,27 @@
+# Standalone prediction_ml, configured like the car (perception_bringup) and brought up by its own
+# lifecycle manager: `ros2 launch prediction_ml prediction_ml.launch.yaml` is all it takes.
+# The arguments below override param_file, so it stays the package defaults (used by the tests).
 launch:
   - arg:
       name: param_file
       default: $(find-pkg-share prediction_ml)/config/params.yaml
       description: Path to config file for prediction_ml node
+  - arg:
+      name: mtr_mode
+      default: "tensorrt"
+      description: "tensorrt (MTR, builds engines from models/prediction/*.onnx on first run), null, or disabled (fallback only)"
+  - arg:
+      name: odometry_topic
+      default: "/novatel/oem7/odom"
+      description: "Ego nav_msgs/Odometry (frame odom); /interfacing/can_state_estimator/odom is the CAN alternative"
+  - arg:
+      name: ego_velocity_child_frame
+      default: "base_link"
+      description: "Odometry child_frame_id: base_link for Novatel, base_footprint for CAN"
+  - arg:
+      name: autostart
+      default: "true"
+      description: "Configure and activate the node on launch; false leaves it for `ros2 lifecycle set`"
 
   - node:
       pkg: prediction_ml
@@ -13,6 +32,12 @@ launch:
       param:
         - from: $(var param_file)
           allow_substs: true
+        - name: mtr.mode
+          value: $(var mtr_mode)
+        - name: odometry_topic
+          value: $(var odometry_topic)
+        - name: mtr.ego_velocity_child_frame
+          value: $(var ego_velocity_child_frame)
       remap:
         - from: tracks_3d
           to: /perception/detections_3D_tracked
@@ -22,3 +47,21 @@ launch:
           to: /world_modeling/world_object_seeds
         - from: mtr_predictions
           to: /world_modeling/mtr_predictions
+
+  - node:
+      pkg: wato_lifecycle_manager
+      exec: wato_lifecycle_manager_node
+      name: prediction_lifecycle_manager
+      output: screen
+      param:
+        - name: node_names
+          value: ["/perception/prediction_ml_node"]
+        - name: autostart
+          value: $(var autostart)
+        - name: autostart_delay_s
+          value: 1.0
+        # The first tensorrt configure builds the engines (about a minute on the car's 4090).
+        - name: transition_timeout_s
+          value: 600.0
+        - name: bond_enabled
+          value: false

@@ -55,13 +55,22 @@ callback order.
 On the car it runs in the perception module (`./watod -m perception up`), managed by
 `perception_lifecycle_manager` after tracking. All its parameters are in the
 `/**/prediction_ml_node` block of `perception_bringup/config/perception_bringup.yaml`; set
-`mtr.mode: "tensorrt"` there to run MTR. Standalone:
+`mtr.mode: "tensorrt"` there to run MTR.
+
+Standalone (tracking or a bag supplies `/perception/detections_3D_tracked`), configured like the car
+and brought up by its own `prediction_lifecycle_manager`:
 
 ```bash
 ros2 launch prediction_ml prediction_ml.launch.yaml
-ros2 lifecycle set /perception/prediction_ml_node configure
-ros2 lifecycle set /perception/prediction_ml_node activate
 ```
+
+| Argument | Default | Notes |
+|----------|---------|-------|
+| `mtr_mode` | `tensorrt` | `disabled` = fallback only; tensorrt builds engines from `models/prediction/*.onnx` on first run |
+| `odometry_topic` | `/novatel/oem7/odom` | `/interfacing/can_state_estimator/odom` for CAN odometry |
+| `ego_velocity_child_frame` | `base_link` | `base_footprint` with CAN odometry |
+| `autostart` | `true` | `false` leaves it unconfigured for `ros2 lifecycle set` |
+| `param_file` | `config/params.yaml` | Everything else; the arguments above override it |
 
 ## Configuration
 
